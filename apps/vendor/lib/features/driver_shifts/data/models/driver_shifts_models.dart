@@ -1,0 +1,165 @@
+// Plain Dart models aligned with backend driver-shifts DTOs and Prisma schema.
+// No code generation required.
+
+class ShiftPool {
+  final String id;
+  final String? zoneId;
+  final DateTime shiftDate;
+  final DateTime startTime;
+  final DateTime endTime;
+  final int maxDrivers;
+  final List<DriverShift> driverShifts;
+
+  const ShiftPool({
+    required this.id,
+    this.zoneId,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    required this.maxDrivers,
+    this.driverShifts = const [],
+  });
+
+  factory ShiftPool.fromJson(Map<String, dynamic> json) {
+    return ShiftPool(
+      id: json['id'] as String,
+      zoneId: json['zoneId'] as String?,
+      shiftDate: DateTime.parse(json['shiftDate'] as String),
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: DateTime.parse(json['endTime'] as String),
+      maxDrivers: json['maxDrivers'] as int,
+      driverShifts: (json['driverShifts'] as List<dynamic>?)
+              ?.map((e) => DriverShift.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class DriverShift {
+  final String id;
+  final String driverId;
+  final String? shiftPoolId;
+  final DateTime shiftDate;
+  final DateTime startTime;
+  final DateTime endTime;
+  final String status;
+  final DriverUserInfo? driver;
+  final num? totalEarnings;
+  final num? totalDeliveries;
+  final String? zoneName;
+
+  const DriverShift({
+    required this.id,
+    required this.driverId,
+    this.shiftPoolId,
+    required this.shiftDate,
+    required this.startTime,
+    required this.endTime,
+    required this.status,
+    this.driver,
+    this.totalEarnings,
+    this.totalDeliveries,
+    this.zoneName,
+  });
+
+  factory DriverShift.fromJson(Map<String, dynamic> json) {
+    return DriverShift(
+      id: json['id'] as String,
+      driverId: json['driverId'] as String,
+      shiftPoolId: json['shiftPoolId'] as String?,
+      shiftDate: DateTime.parse(json['shiftDate'] as String),
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: DateTime.parse(json['endTime'] as String),
+      status: json['status'] as String? ?? 'SCHEDULED',
+      totalEarnings: json['totalEarnings'] as num?,
+      totalDeliveries: json['totalDeliveries'] as num?,
+      zoneName: json['zone'] != null ? json['zone']['name'] as String? : null,
+      driver: json['driver'] != null
+          ? DriverUserInfo.fromJson(json['driver'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+class DriverUserInfo {
+  final String id;
+  final DriverUserData user;
+
+  const DriverUserInfo({required this.id, required this.user});
+
+  factory DriverUserInfo.fromJson(Map<String, dynamic> json) {
+    return DriverUserInfo(
+      id: json['id'] as String,
+      user: DriverUserData.fromJson(json['user'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class DriverUserData {
+  final String id;
+  final String name;
+  final String? phone;
+  final String? email;
+  final String? avatar;
+
+  const DriverUserData({
+    required this.id,
+    required this.name,
+    this.phone,
+    this.email,
+    this.avatar,
+  });
+
+  factory DriverUserData.fromJson(Map<String, dynamic> json) {
+    return DriverUserData(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      phone: json['phone'] as String?,
+      email: json['email'] as String?,
+      avatar: json['avatar'] as String?,
+    );
+  }
+}
+
+class GenerateShiftPoolsRequest {
+  final String startDate;
+  final String endDate;
+  final String startTime;
+  final String endTime;
+  final int maxDrivers;
+  final String? zoneId;
+
+  const GenerateShiftPoolsRequest({
+    required this.startDate,
+    required this.endDate,
+    required this.startTime,
+    required this.endTime,
+    required this.maxDrivers,
+    this.zoneId,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'startDate': startDate,
+        'endDate': endDate,
+        'startTime': startTime,
+        'endTime': endTime,
+        'maxDrivers': maxDrivers,
+        if (zoneId != null) 'zoneId': zoneId,
+      };
+}
+
+class AdminAssignShiftRequest {
+  final String shiftPoolId;
+  final String driverId;
+
+  const AdminAssignShiftRequest({
+    required this.shiftPoolId,
+    required this.driverId,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'shiftPoolId': shiftPoolId,
+        'driverId': driverId,
+      };
+}

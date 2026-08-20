@@ -1,0 +1,30 @@
+name: otlob_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+workspace:
+  - apps/*
+  - packages/*
+
+dev_dependencies:
+  melos: ^8.2.2
+
+melos:
+  scripts:
+    analyze:
+      run: melos exec -- "dart analyze ."
+    format:
+      run: melos exec -- "dart format ."
+    clean:
+      run: melos exec -- "flutter clean"
+    build:android:
+      run: melos exec --concurrency=1 --flutter --dir-exists="android" -- "flutter build apk"
+      description: Build APK for all apps supporting Android sequentially.
+    build:ios:
+      run: melos exec --concurrency=1 --flutter --dir-exists="ios" -- "flutter build ios"
+      description: Build iOS for all apps supporting iOS sequentially.
+
+dependency_overrides:
+  cli_util: ^0.5.0

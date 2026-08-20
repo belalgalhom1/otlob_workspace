@@ -1,0 +1,151 @@
+name: driver
+description: "Otlob Driver App"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+resolution: workspace
+
+dependencies:
+  api:
+    path: ../../packages/api
+  core:
+    path: ../../packages/core
+  data:
+    path: ../../packages/data
+  ui_kit:
+    path: ../../packages/ui_kit
+    
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # -------------------------
+  # 🏗 Architecture & State
+  # -------------------------
+  flutter_riverpod: ^3.3.1
+  riverpod_annotation: ^4.0.2
+
+  # -------------------------
+  # 🌐 Networking & Realtime
+  # -------------------------
+  dio: ^5.9.1
+  socket_io_client: ^3.1.4
+  internet_connection_checker_plus: ^3.1.1
+
+  # -------------------------
+  # 🧭 Navigation
+  # -------------------------
+  go_router: ^17.1.0
+
+  # -------------------------
+  # 💾 Local Storage & Security
+  # -------------------------
+  shared_preferences: ^2.5.4
+  flutter_secure_storage: ^11.0.0
+  flutter_dotenv: ^6.0.0
+  jwt_decoder: ^2.0.1
+
+  # -------------------------
+  # 🔔 Notifications
+  # -------------------------
+  firebase_core: ^4.4.0
+  firebase_messaging: ^16.1.1
+  flutter_local_notifications: ^22.2.0
+
+  # -------------------------
+  # 📍 Location & Permissions
+  # -------------------------
+  geolocator: ^14.0.2
+  permission_handler: ^13.0.0
+
+  # -------------------------
+  # 🎨 UI & Media
+  # -------------------------
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.2.3
+  shimmer: ^3.0.0
+  linkify: ^5.0.0
+  url_launcher: ^6.3.2
+  timeago_flutter: ^3.7.0
+
+  # -------------------------
+  # 📷 Media Handling
+  # -------------------------
+  image_picker: ^1.2.1
+  image_cropper: ^12.2.1
+  file_picker: ^12.0.0-beta.7
+  flutter_sound: ^9.30.0
+  video_player: ^2.11.0
+  photo_view: ^0.15.0
+
+  # -------------------------
+  # 📦 Pagination
+  # -------------------------
+  infinite_scroll_pagination: ^5.1.1
+
+  # -------------------------
+  # 🛠 Utilities
+  # -------------------------
+  logger: ^2.6.2
+  json_annotation: ^4.11.0
+  easy_localization: ^3.0.8
+  lottie: ^3.3.2
+  flutter_map: ^8.3.0
+  latlong2: ^0.10.1
+  lucide_icons_flutter: ^3.1.14+2
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # -------------------------
+  # 🧹 Lints
+  # -------------------------
+  flutter_lints: ^6.0.0
+
+  # -------------------------
+  # 🎨 App Branding
+  # -------------------------
+  flutter_native_splash: ^2.4.7
+  flutter_launcher_icons: ^0.14.4
+
+  # -------------------------
+  # 🔄 Code Generation
+  # -------------------------
+  riverpod_generator: ^4.0.3
+  build_runner: ^2.13.1
+  json_serializable: ^6.13.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - .env
+    - assets/translations/
+    - assets/logo.png
+    - assets/logo_without_background.png
+    - assets/home_cover.jpg
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/launcher_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/launcher_icon.png"
+
+flutter_native_splash:
+  color: "#D4920E"
+  image: "assets/logo_without_background.png"
+  color_dark: "#D4920E"
+  image_dark: "assets/logo_without_background.png"
+  fullscreen: true
+  android: true
+  ios: true

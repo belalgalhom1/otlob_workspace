@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Custom rules for the workspace can be added here
+    # avoid_print: false
+    # prefer_single_quotes: true

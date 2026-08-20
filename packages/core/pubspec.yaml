@@ -1,0 +1,35 @@
+name: core
+description: "A new Flutter package project."
+version: 0.0.1
+publish_to: none
+homepage:
+
+environment:
+  sdk: ^3.12.2
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  dio: ^5.9.2
+  firebase_core: ^4.9.0
+  firebase_messaging: ^16.2.2
+  flutter_riverpod: ^3.3.1
+  flutter_secure_storage: ^11.0.0
+  geolocator: ^14.0.2
+  socket_io_client: ^3.1.4
+  flutter_dotenv: ^6.0.1
+  flutter_local_notifications: ^22.2.0
+  api:
+    path: ../api
+  permission_handler: ^13.0.0
+  jwt_decoder: ^2.0.1
+  easy_localization: ^3.0.8
+dev_dependencies:
+  test: ^1.31.0
+
+flutter:
+  assets:
+    - assets/translations/

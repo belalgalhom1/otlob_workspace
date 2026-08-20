@@ -1,0 +1,61 @@
+import 'package:api/api.dart';
+import '../shared/response_parser.dart';
+
+import 'package:dio/dio.dart';
+
+class CustomerOrderRepository {
+  final OrdersApi _api;
+  final ReviewsApi _reviewsApi;
+  final Dio? dio;
+  CustomerOrderRepository(this._api, this._reviewsApi, {this.dio});
+
+  Future<void> approveFee(String orderId) async {
+    if (dio != null) {
+      await dio!.post('/orders/$orderId/approve-fee');
+    }
+  }
+
+  Future<dynamic> getMyOrders({String? status, num limit = 20, num page = 1}) async {
+    final response = await _api.ordersControllerGetMyOrdersAsCustomer(
+      status: status,
+      limit: limit,
+      page: page
+    );
+    return ResponseParser.parseList(response);
+  }
+
+  Future<dynamic> markPaid(String orderId) async {
+    final response = await _api.ordersControllerCustomerMarkPaid(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> placeCustomOrder(PlaceCustomOrderDto placeCustomOrderDto) async {
+    final response = await _api.ordersControllerPlaceCustomOrder(
+      placeCustomOrderDto: placeCustomOrderDto
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> placeOrder(PlaceOrderDto dto) async {
+    final response = await _api.ordersControllerPlaceOrder(placeOrderDto: dto);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> cancelOrder(String orderId) async {
+    final response = await _api.ordersControllerCancelOrder(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> getOrderById(String orderId) async {
+    final response = await _api.ordersControllerGetOne(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> rateOrder(String orderId, CreateReviewDto dto) async {
+    final response = await _reviewsApi.reviewsControllerSubmitReview(
+      orderId: orderId,
+      createReviewDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
+}

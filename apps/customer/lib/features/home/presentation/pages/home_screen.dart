@@ -1,0 +1,1219 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/widgets/custom_chat_icon.dart';
+import '../../../../core/widgets/floating_cart_overlay.dart';
+import '../../../profile/presentation/providers/coin_history_provider.dart';
+import '../../../profile/presentation/providers/delivery_address_provider.dart';
+import '../../../profile/presentation/providers/profile_controller.dart';
+
+import '../../../../core/utils/image_utils.dart';
+import '../../../../core/providers/platform_settings_provider.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/l10n/app_strings.dart';
+import '../providers/home_controller.dart';
+import '../providers/home_state.dart';
+import '../../../chat/presentation/providers/inbox_counts_provider.dart';
+import '../widgets/vendor_card.dart';
+import '../widgets/offers_auto_scroller.dart';
+import 'package:otlob_customer/features/cart/presentation/providers/cart_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/widgets/auth_prompt_dialog.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
+
+class HomeScreen extends ConsumerStatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  final String _selectedType = 'all';
+  final bool _isCourierExpanded = false;
+  bool _isFirstPromoSlide = true;
+
+  late PageController _promoPageController;
+  Timer? _promoTimer;
+  int _currentPromoPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _promoPageController =
+        PageController(initialPage: _currentPromoPage, viewportFraction: 1.0);
+    _promoTimer = Timer.periodic(const Duration(seconds: 5), (Timer timer) {
+      if (_isFirstPromoSlide) {
+        _isFirstPromoSlide = false;
+        return;
+      }
+      if (_promoPageController.hasClients) {
+        _currentPromoPage++;
+        _promoPageController.animateToPage(
+          _currentPromoPage,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _promoTimer?.cancel();
+    _promoPageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final homeState = ref.watch(homeControllerProvider);
+    final cartState = ref.watch(cartProvider);
+    final inboxCounts = ref.watch(inboxCountsProvider);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            homeState.when(
+              data: (data) => RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: () async {
+                  await ref.refresh(homeControllerProvider.future);
+                  await ref.refresh(platformSettingsProvider.future);
+                },
+                child: _buildBody(context, data),
+              ),
+              loading: () => _buildShimmer(),
+              error: (error, _) => _buildError(error.toString()),
+            ),
+            const FloatingCartOverlay(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: homeState.maybeWhen(
+        data: (data) => _buildBottomNav(context, data),
+        orElse: () => const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, HomeData data) {
+    final searchQuery = _searchController.text.toLowerCase();
+
+    final filtered = data.products.where((v) {
+      final matchType =
+          _selectedType == 'all' ? true : v['type'] == _selectedType;
+      final matchSearch = searchQuery.isEmpty ||
+          (v['name'] as String).toLowerCase().contains(searchQuery) ||
+          (v['vendor'] as String? ?? '').toLowerCase().contains(searchQuery);
+      return matchType && matchSearch;
+    }).toList();
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Builder(builder: (ctx) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return Container(
+              color: isDark ? const Color(0xFF1C1C1C) : Theme.of(ctx).colorScheme.surface,
+              child: _buildHeader(context),
+            );
+          }),
+        ),
+        SliverToBoxAdapter(
+          child: _buildTopBanners(context, data),
+        ),
+        SliverToBoxAdapter(
+          child: Builder(builder: (ctx) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1C) : Theme.of(ctx).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSearch(),
+                  _buildMainCategoryTabs(data),
+                ],
+              ),
+            );
+          }),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        SliverToBoxAdapter(child: _buildCustomCourierBanner()),
+        SliverToBoxAdapter(child: _buildOffersStrip(data)),
+        SliverToBoxAdapter(child: _buildSectionTitle(data)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: _buildVendorGrid(context, filtered),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeAddress = ref.watch(activeDeliveryAddressProvider);
+    final displayAddress = activeAddress != null ? activeAddress['address'] as String? ?? '' : s.addAddress;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    )
+                  ]),
+              padding: const EdgeInsets.all(6),
+              child: Image.asset(
+                'assets/logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  final authStatus = ref.read(authControllerProvider);
+                  if (authStatus == AuthStatus.unauthenticated) {
+                    AuthPromptDialog.show(context);
+                    return;
+                  }
+                  _showAddressSelectionBottomSheet(context, ref, activeAddress);
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.near_me_rounded,
+                          color: AppColors.primary, size: 14),
+                      const SizedBox(width: 4),
+                      Text(s.deliverTo,
+                          style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
+                    ]),
+                    const SizedBox(height: 2),
+                    Row(children: [
+                      Flexible(
+                        child: Text(
+                          displayAddress.isEmpty ? s.locationName : displayAddress,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 18, color: isDark ? Colors.white70 : AppColors.textPrimaryLight),
+                    ]),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: () {
+                final authStatus = ref.read(authControllerProvider);
+                if (authStatus == AuthStatus.unauthenticated) {
+                  AuthPromptDialog.show(context);
+                  return;
+                }
+                context.push('/coin-history');
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.stars_rounded, color: AppColors.primary, size: 18),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${ref.watch(coinHistoryProvider).currentBalance}',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white10 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200, width: 1),
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  final authStatus = ref.read(authControllerProvider);
+                  if (authStatus == AuthStatus.unauthenticated) {
+                    AuthPromptDialog.show(context);
+                    return;
+                  }
+                  context.push('/inbox');
+                },
+                child: Badge(
+                  isLabelVisible: ref.watch(inboxCountsProvider).chatUnread > 0,
+                  label: Text('${ref.watch(inboxCountsProvider).chatUnread}'),
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  child: Icon(Icons.chat_bubble_outline_rounded, size: 20, color: isDark ? Colors.white : AppColors.textPrimaryLight),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white10 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200, width: 1),
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  final authStatus = ref.read(authControllerProvider);
+                  if (authStatus == AuthStatus.unauthenticated) {
+                    AuthPromptDialog.show(context);
+                    return;
+                  }
+                  context.push('/notifications');
+                },
+                child: Badge(
+                  isLabelVisible: ref.watch(inboxCountsProvider).notificationsUnread > 0,
+                  label: Text('${ref.watch(inboxCountsProvider).notificationsUnread}'),
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  child: Icon(Icons.notifications_active_rounded, size: 20, color: isDark ? Colors.white : AppColors.textPrimaryLight),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearch() {
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent),
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (_) => setState(() {}),
+          textAlign: TextAlign.start,
+          decoration: InputDecoration(
+            hintText: s.searchRestaurant,
+            hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14, fontWeight: FontWeight.w500),
+            suffixIcon: const Icon(Icons.search_rounded, color: Colors.grey, size: 22),
+            filled: false,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainCategoryTabs(HomeData data) {
+    final s = AppStrings.of(context);
+    final categories = data.categories;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: List.generate(categories.length, (i) {
+            final cat = categories[i];
+            final isSelected = _selectedType == cat['type'];
+            final String name = (s.isArabic && cat['nameAr'] != null)
+                ? cat['nameAr']
+                : cat['name'];
+
+            return Container(
+              width: 90,
+              height: 110,
+              margin: const EdgeInsetsDirectional.only(end: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: isSelected
+                    ? AppColors.primary
+                    : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primary
+                      : (isDark ? Colors.white12 : Colors.grey.shade200),
+                  width: 1.5,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4))
+                      ]
+                    : [],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  onTap: () {
+                    context.push('/all-vendors', extra: cat['type'] as String);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.zero,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : (isDark ? Colors.black26 : Colors.grey.shade100),
+                            shape: BoxShape.circle,
+                          ),
+                          child: ClipOval(
+                            child: _buildCategoryIcon(cat, isSelected, categories),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            name,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.black
+                                  : (isDark ? Colors.white : Colors.black87),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryIcon(Map<String, dynamic> cat, bool isSelected, List<dynamic> allCategories) {
+    final color = isSelected ? Colors.black : AppColors.primary;
+    
+    if (cat['type'] == 'all') {
+      final realCategories = allCategories.where((c) => c['type'] != 'all').take(4).toList();
+      
+      return SizedBox(
+        width: 72,
+        height: 72,
+        child: Center(
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: Stack(
+              children: List.generate(realCategories.length, (index) {
+                final c = realCategories[index];
+                // Position 4 icons in a tight circular cluster
+                final double radius = 16.0;
+                
+                return Center(
+                  child: Transform.translate(
+                    offset: Offset(
+                      radius * (index == 0 || index == 1 ? 1 : -1),
+                      radius * (index == 1 || index == 2 ? 1 : -1),
+                    ),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                      ),
+                      child: ClipOval(
+                        child: _buildMiniCategoryIcon(c['type'], c['iconUrl'], color),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    if (cat['iconUrl'] != null && cat['iconUrl'].toString().isNotEmpty) {
+      final fullUrl = ImageUtils.formatImageUrl(cat['iconUrl'] as String?);
+      return SizedBox(
+        width: 60,
+        height: 60,
+        child: CachedNetworkImage(
+          imageUrl: fullUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          errorWidget: (context, url, error) => _buildFallbackIcon(cat['type'], color),
+        ),
+      );
+    }
+    
+    return _buildFallbackIcon(cat['type'], color);
+  }
+
+  Widget _buildMiniCategoryIcon(String type, dynamic iconUrl, Color color) {
+    if (iconUrl != null && iconUrl.toString().isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: ImageUtils.formatImageUrl(iconUrl as String?),
+        fit: BoxFit.cover,
+        errorWidget: (context, url, error) => Icon(_getFallbackIconData(type), color: color, size: 18),
+      );
+    }
+    return Icon(_getFallbackIconData(type), color: color, size: 18);
+  }
+
+  IconData _getFallbackIconData(String type) {
+    if (type.contains('restaurant')) return Icons.restaurant_rounded;
+    if (type.contains('pharmacy')) return Icons.healing_rounded;
+    if (type.contains('supermarket') || type.contains('market')) return Icons.shopping_bag_rounded;
+    return Icons.category_rounded;
+  }
+
+  Widget _buildFallbackIcon(String type, Color color) {
+    return SizedBox(
+      width: 60,
+      height: 60,
+      child: Center(
+        child: Icon(_getFallbackIconData(type), color: color, size: 44),
+      ),
+    );
+  }
+
+  Widget _buildCustomCourierBanner() {
+    final s = AppStrings.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Consumer(
+        builder: (context, ref, child) {
+          final platformSettings = ref.watch(platformSettingsProvider).value;
+          final iconUrl = platformSettings?.deliveryBannerIconUrl ?? platformSettings?.motorcycleIconUrl;
+          final String fullUrl = ImageUtils.formatImageUrl(iconUrl);
+
+          return Container(
+            height: 215,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                )
+              ],
+              image: iconUrl != null && iconUrl.isNotEmpty ? DecorationImage(
+                image: CachedNetworkImageProvider(fullUrl),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(
+                  Colors.black.withValues(alpha: 0.6),
+                  BlendMode.darken,
+                ),
+              ) : null,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text(
+                    s.customDeliveryBannerTitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      letterSpacing: -0.5,
+                      shadows: [Shadow(blurRadius: 12, color: Colors.black54)]
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    s.customDeliveryBannerSub,
+                    maxLines: 3,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                      shadows: [Shadow(blurRadius: 8, color: Colors.black26)]
+                    ),
+                  ),
+                  const Spacer(),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: 140,
+                      height: 42,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final authStatus = ref.read(authControllerProvider);
+                          if (authStatus == AuthStatus.unauthenticated) {
+                            AuthPromptDialog.show(context);
+                            return;
+                          }
+                          context.push('/custom-delivery');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 4,
+                        ),
+                        child: Text(
+                          s.orderNow,
+                          style: const TextStyle(
+                            fontSize: 15, 
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTopBanners(BuildContext context, HomeData data) {
+    final s = AppStrings.of(context);
+    final banners = data.promotions;
+    final totalItems = banners.isEmpty ? 1 : (banners.length + 1);
+
+    return Consumer(
+      builder: (context, ref, child) {
+        final platformSettings = ref.watch(platformSettingsProvider).value;
+        final coverUrl = platformSettings?.homeCoverUrl;
+
+        final coverImageWidget = Container(
+          width: double.infinity,
+          height: 200,
+          decoration: BoxDecoration(
+            image: coverUrl != null && coverUrl.isNotEmpty
+                ? DecorationImage(
+                    image: CachedNetworkImageProvider(ImageUtils.formatImageUrl(coverUrl)),
+                    fit: BoxFit.fill,
+                  )
+                : const DecorationImage(
+                    image: AssetImage('assets/home_cover.jpg'),
+                    fit: BoxFit.fill,
+                  ),
+          ),
+        );
+
+        if (banners.isEmpty) {
+          return coverImageWidget;
+        }
+
+        return Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            SizedBox(
+              height: 200,
+              child: PageView.builder(
+                controller: _promoPageController,
+                onPageChanged: (int page) {
+                  setState(() => _currentPromoPage = page);
+                },
+                itemBuilder: (context, index) {
+                  final actualIndex = index % totalItems;
+
+                  if (actualIndex == 0) {
+                    return coverImageWidget;
+                  }
+
+                  final b = banners[actualIndex - 1];
+                  // Banner properties extraction
+                  final title = (s.isArabic && b['titleAr'] != null) ? b['titleAr'] : b['title'];
+                  final description = (s.isArabic && b['descriptionAr'] != null) ? b['descriptionAr'] : (b['description'] ?? '');
+                  
+                  final String imageUrl = b['imageUrl'] ?? '';
+                  final String fullUrl = imageUrl.startsWith('http') ? imageUrl : 'https://api.otlob-egy.online$imageUrl';
+
+                  final vendorId = b['vendorId']?.toString();
+                  final linkedVendor = vendorId != null 
+                      ? data.products.where((v) => v['id']?.toString() == vendorId).firstOrNull 
+                      : null;
+
+                   return GestureDetector(
+                    onTap: () async {
+                      if (b['type'] == 'VENDOR' || b['type'] == 'PRODUCT') {
+                        final vendorId = b['vendorId']?.toString();
+                        if (vendorId != null) {
+                          context.push('/vendor', extra: {
+                            'id': vendorId, 
+                            'name': title,
+                            'productId': b['type'] == 'PRODUCT' ? b['productId']?.toString() : null,
+                          });
+                        }
+                      } else if (b['type'] == 'EXTERNAL_LINK') {
+                        final url = b['externalUrl']?.toString();
+                        if (url != null && url.isNotEmpty) {
+                          final uri = Uri.tryParse(url);
+                          if (uri != null && await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        }
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        image: imageUrl.isNotEmpty ? DecorationImage(
+                          image: NetworkImage(fullUrl),
+                          fit: BoxFit.fill,
+                        ) : null,
+                      ),
+                      child: Stack(
+                        children: [
+                          if (linkedVendor != null)
+                            PositionedDirectional(
+                              top: 16,
+                              end: 16,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${linkedVendor['rating'] ?? 0}',
+                                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (linkedVendor != null) ...[
+                                    Text(
+                                      (linkedVendor['name'] ?? '').toString().toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.2,
+                                        shadows: [Shadow(blurRadius: 10, color: Colors.black)],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                  Text(title,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 22,
+                                          letterSpacing: -0.5,
+                                          shadows: [Shadow(blurRadius: 12, color: Colors.black54)])),
+                                  if (description.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(description,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.95),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            shadows: const [Shadow(blurRadius: 8, color: Colors.black38)])),
+                                  ],
+                                ]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (totalItems > 1)
+              Positioned(
+                bottom: 12,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(totalItems, (index) {
+                    final isSelected = (_currentPromoPage % totalItems) == index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      height: 6,
+                      width: isSelected ? 20 : 6,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionTitle(HomeData data) {
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    String label = s.allStores;
+    
+    if (_selectedType != 'all') {
+      try {
+        final selectedCat = data.categories.firstWhere((c) => c['type'] == _selectedType);
+        final String catName = (s.isArabic && selectedCat['nameAr'] != null)
+            ? selectedCat['nameAr']
+            : selectedCat['name'];
+        
+        label = '${s.nearbyPrefix}$catName${s.nearbySuffix}';
+      } catch (_) {
+        label = s.nearbyStores;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87)),
+        GestureDetector(
+          onTap: () => context.push('/all-vendors', extra: _selectedType),
+          child: Text(s.seeAll,
+              style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14)),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildOffersStrip(HomeData data) {
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (data.offers.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                s.hotDeals,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : Colors.black87,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 240,
+          child: OffersAutoScroller(offers: data.offers, isDark: isDark, s: s, allVendors: data.products),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildVendorGrid(
+      BuildContext context, List<Map<String, dynamic>> vendors) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (vendors.isEmpty) {
+      return SliverToBoxAdapter(
+          child: Center(
+              child: Column(children: [
+        const SizedBox(height: 60),
+        const Icon(Icons.search_off_rounded, size: 64, color: Colors.grey),
+        const SizedBox(height: 12),
+        Text(AppStrings.of(context).noResults,
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87)),
+      ])));
+    }
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final vendor = vendors[index];
+          return VendorCard(
+              key: ValueKey('${_selectedType}_${vendor['id']}'),
+              vendor: vendor);
+        },
+        childCount: vendors.length,
+      ),
+    );
+  }
+
+  Widget _buildError(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey),
+      const SizedBox(height: 16),
+      Text(message,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      const SizedBox(height: 16),
+      ElevatedButton(
+          onPressed: () => ref.refresh(homeControllerProvider),
+          child: Text(AppStrings.of(context).retry)),
+    ]));
+  }
+
+  Widget _buildShimmer() {
+    return const Center(
+      child: CircularProgressIndicator(color: AppColors.primary),
+    );
+  }
+
+  Widget _buildBottomNav(BuildContext context, HomeData data) {
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, LucideIcons.home, LucideIcons.home, s.navHome, true),
+              _buildNavItem(1, LucideIcons.messageSquare, LucideIcons.messageSquare, s.navChat, false),
+              _buildNavItem(2, LucideIcons.shoppingCart, LucideIcons.shoppingCart, s.cart, false),
+              _buildNavItem(3, LucideIcons.shoppingBag, LucideIcons.shoppingBag, s.navOrders, false),
+              _buildNavItem(4, LucideIcons.user, LucideIcons.user, s.navProfile, false),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCartOverlay(BuildContext context, CartState cartState) {
+    if (cartState.totalItems == 0) return const SizedBox.shrink();
+
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    double totalCartPrice = 0;
+    for (final vendorItems in cartState.vendorBaskets.values) {
+      for (final item in vendorItems) {
+        totalCartPrice += item.totalPrice;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white10 : Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        height: 54,
+        child: ElevatedButton(
+          onPressed: () => context.push('/cart'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${cartState.totalItems}',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(LucideIcons.shoppingBag, color: Colors.black, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      s.viewCart,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${totalCartPrice.toStringAsFixed(0)} ${s.egp}',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, dynamic activeIcon, dynamic inactiveIcon, String label, bool isSelected) {
+    final color = isSelected ? AppColors.primary : Colors.grey;
+    return InkWell(
+      onTap: () {
+        final authStatus = ref.read(authControllerProvider);
+        if (index == 1 || index == 2 || index == 3 || index == 4) {
+          if (authStatus == AuthStatus.unauthenticated) {
+            AuthPromptDialog.show(context);
+            return;
+          }
+        }
+        
+        if (index == 1) context.push('/support-menu');
+        if (index == 2) context.push('/cart');
+        if (index == 3) context.push('/orders');
+        if (index == 4) context.push('/profile');
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          index == 1 
+            ? CustomChatIcon(size: 24, color: color)
+            : Icon(isSelected ? activeIcon as IconData : inactiveIcon as IconData, color: color, size: 24),
+          const SizedBox(height: 4),
+          Text(
+            label, 
+            style: TextStyle(
+              color: color, 
+              fontSize: 11, 
+              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  void _showAddressSelectionBottomSheet(BuildContext context, WidgetRef ref, Map<String, dynamic>? activeAddress) {
+    final s = AppStrings.of(context);
+    final profileState = ref.read(profileProvider);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  s.deliveryAddress,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (profileState.addresses.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  child: Text(
+                    s.isArabic ? 'لا توجد عناوين محفوظة.' : 'No saved addresses.',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                )
+              else
+                ...profileState.addresses.map((addr) {
+                  final isSelected = activeAddress != null && addr['id'] == activeAddress['id'];
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                    leading: Icon(
+                      addr['label']?.toString().toLowerCase() == 'home' ? Icons.home_rounded : Icons.work_rounded,
+                      color: isSelected ? AppColors.primary : Colors.grey,
+                    ),
+                    title: Text(
+                      addr['label'] ?? s.address,
+                      style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    ),
+                    subtitle: Text(
+                      addr['address'] ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                    onTap: () {
+                      ref.read(manualSelectedAddressIdProvider.notifier).setAddressId(addr['id']);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
+              const Divider(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      context.push('/addresses');
+                    },
+                    icon: const Icon(Icons.settings_outlined),
+                    label: Text(s.isArabic ? 'إدارة العناوين' : 'Manage Addresses'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

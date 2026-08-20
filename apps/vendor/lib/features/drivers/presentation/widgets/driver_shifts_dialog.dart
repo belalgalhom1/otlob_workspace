@@ -1,0 +1,349 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:intl/intl.dart';
+import 'package:ui_kit/ui_kit.dart';
+import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:core/core.dart';
+import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
+import 'package:vendor/features/drivers/data/driver_models.dart';
+
+class DriverShiftsDialog extends ConsumerStatefulWidget {
+  final DriverProfile driver;
+
+  const DriverShiftsDialog({super.key, required this.driver});
+
+  @override
+  ConsumerState<DriverShiftsDialog> createState() => _DriverShiftsDialogState();
+}
+
+class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
+  bool _isLoading = true;
+  String? _error;
+  List<DriverShift> _shifts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchShifts();
+  }
+
+  Future<void> _fetchShifts() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/drivers/${widget.driver.id}/shifts');
+      
+      final data = response.data is Map ? response.data['data'] : response.data;
+      if (data is List) {
+        final shifts = data.map((item) => DriverShift.fromJson(item as Map<String, dynamic>)).toList();
+        
+        if (mounted) {
+          setState(() {
+            _shifts = shifts;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width < 600;
+
+    return DialogScaffold(child: Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: 24,
+      ),
+      child: Container(
+        constraints: BoxConstraints(maxWidth: 600, maxHeight: size.height * 0.8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.1,
+              ),
+              blurRadius: 30,
+              offset: const Offset(0, 15),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: _buildContent(context),
+            ),
+          ],
+        ),
+      ),
+    ));
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary.withValues(alpha: 0.05), Colors.transparent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(LucideIcons.calendarClock, color: AppColors.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppLocalizations.of(context)!.driverShiftsEnabled,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  widget.driver.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(LucideIcons.x, size: 20),
+            style: IconButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                '${AppLocalizations.of(context)!.failedToLoadShifts}:\n$_error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.error),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _error = null;
+                  });
+                  _fetchShifts();
+                },
+                icon: const Icon(LucideIcons.refreshCw, size: 16),
+                label: Text(AppLocalizations.of(context)!.retry),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_shifts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.calendarX, size: 48, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
+            const SizedBox(height: 16),
+            Text(
+              AppLocalizations.of(context)!.noShiftsFound,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppLocalizations.of(context)!.driverNoScheduledShifts,
+              style: const TextStyle(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(24),
+      itemCount: _shifts.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final shift = _shifts[index];
+        return _buildShiftCard(context, shift);
+      },
+    );
+  }
+
+  Widget _buildShiftCard(BuildContext context, DriverShift shift) {
+    final statusColor = _getStatusColor(shift.status);
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  shift.status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (shift.zoneName != null)
+                Text(
+                  shift.zoneName!,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(AppLocalizations.of(context)!.date, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('MMM dd, yyyy').format(shift.shiftDate),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(AppLocalizations.of(context)!.time, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${DateFormat('HH:mm').format(shift.startTime)} - ${DateFormat('HH:mm').format(shift.endTime)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (shift.totalDeliveries != null || shift.totalEarnings != null) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1),
+            ),
+            Row(
+              children: [
+                if (shift.totalDeliveries != null)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(LucideIcons.package, size: 14, color: AppColors.textMuted),
+                        const SizedBox(width: 6),
+                        Text('${shift.totalDeliveries} ${AppLocalizations.of(context)!.deliveries}', style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                if (shift.totalEarnings != null)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(LucideIcons.coins, size: 14, color: AppColors.textMuted),
+                        const SizedBox(width: 6),
+                        Text('${shift.totalEarnings} ${AppLocalizations.of(context)!.egp}', style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'SCHEDULED': return Colors.blue;
+      case 'ACTIVE': return AppColors.success;
+      case 'COMPLETED': return AppColors.primary;
+      case 'CANCELLED': return AppColors.error;
+      case 'MISSED': return AppColors.error;
+      default: return AppColors.textMuted;
+    }
+  }
+}
