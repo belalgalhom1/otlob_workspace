@@ -185,9 +185,9 @@ export class WalletService {
         const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
         const isStillNegative = updatedDriver.walletBalance < -maxNegative;
 
-        // Unblock the driver ONLY if they cleared their negative threshold!
+        // Unblock the driver ONLY if they cleared their negative threshold AND were financially locked!
         let statusUpdate = {};
-        if (!isStillNegative && request.driver?.status === DriverStatus.SUSPENDED) {
+        if (!isStillNegative && request.driver?.status === DriverStatus.SUSPENDED && request.driver?.hasUnpaidCommission) {
           statusUpdate = { status: DriverStatus.OFFLINE };
         }
 
