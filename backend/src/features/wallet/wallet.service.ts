@@ -181,9 +181,7 @@ export class WalletService {
         });
 
         // Verify if they still owe too much
-        const settings = await tx.platformSettings.findFirst({
-          where: { isActive: true },
-        });
+        const settings = await tx.platformSetting.findFirst();
         const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
         const isStillNegative = updatedDriver.walletBalance < -maxNegative;
 
@@ -219,7 +217,7 @@ export class WalletService {
 
     // Send notifications after transaction succeeds
     if (dto.status === 'APPROVED') {
-      const settings = await this.prisma.platformSettings.findFirst({ where: { isActive: true } });
+      const settings = await this.prisma.platformSetting.findFirst();
       const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
       
       const updatedDriver = await this.prisma.driver.findUnique({

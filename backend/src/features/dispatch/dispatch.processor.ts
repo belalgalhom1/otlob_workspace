@@ -2,7 +2,7 @@ import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
-import { OrdersService } from '../orders/orders.service';
+import { OrdersStateService } from '../orders/orders-state.service';
 import { OrdersRepository } from '../orders/orders.repository';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -21,7 +21,7 @@ export class DispatchProcessor extends WorkerHost {
 
   constructor(
     private readonly dispatchService: DispatchService,
-    private readonly ordersService: OrdersService,
+    private readonly stateService: OrdersStateService,
     private readonly ordersRepository: OrdersRepository,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
@@ -136,7 +136,7 @@ export class DispatchProcessor extends WorkerHost {
         },
       });
 
-      await this.ordersService.cancelOrder(
+      await this.stateService.cancelOrder(
         null, // system actor
         orderId,
         'Auto-cancelled: No drivers accepted the order after maximum attempts',
