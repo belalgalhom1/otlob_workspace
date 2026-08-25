@@ -173,24 +173,32 @@ export class WalletService {
       });
 
       if (dto.status === 'APPROVED') {
-        // Unblock the driver when approved!
-        let statusUpdate = {};
-        if (request.driver?.status === DriverStatus.SUSPENDED) {
-          statusUpdate = { status: DriverStatus.OFFLINE };
-        }
-        await tx.driver.update({
-          where: { id: request.driverId },
-          data: {
-            hasUnpaidCommission: false,
-            ...statusUpdate,
-          },
-        });
-
         // Update driver's total wallet balance FIRST
         const updatedDriver = await tx.driver.update({
           where: { id: request.driverId },
           data: { walletBalance: { increment: request.amount } },
-          select: { walletBalance: true, userId: true },
+          select: { walletBalance: true, userId: true, status: true },
+        });
+
+        // Verify if they still owe too much
+        const settings = await tx.platformSettings.findFirst({
+          where: { isActive: true },
+        });
+        const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
+        const isStillNegative = updatedDriver.walletBalance < -maxNegative;
+
+        // Unblock the driver ONLY if they cleared their negative threshold!
+        let statusUpdate = {};
+        if (!isStillNegative && request.driver?.status === DriverStatus.SUSPENDED) {
+          statusUpdate = { status: DriverStatus.OFFLINE };
+        }
+
+        await tx.driver.update({
+          where: { id: request.driverId },
+          data: {
+            hasUnpaidCommission: isStillNegative, // Keep them locked if they still owe
+            ...statusUpdate,
+          },
         });
 
         // Also add a positive wallet transaction for the payment amount
@@ -211,7 +219,17 @@ export class WalletService {
 
     // Send notifications after transaction succeeds
     if (dto.status === 'APPROVED') {
-      if (request.driver?.status === DriverStatus.SUSPENDED) {
+      const settings = await this.prisma.platformSettings.findFirst({ where: { isActive: true } });
+      const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
+      
+      const updatedDriver = await this.prisma.driver.findUnique({
+        where: { id: request.driverId },
+        select: { walletBalance: true }
+      });
+      
+      const isNowUnlocked = (updatedDriver?.walletBalance ?? 0) >= -maxNegative;
+
+      if (request.driver?.status === DriverStatus.SUSPENDED && isNowUnlocked) {
          this.eventEmitter.emit(
           EVENTS.DRIVER_STATUS_CHANGED,
           new DriverStatusChangedEvent(

@@ -206,17 +206,19 @@ export class OrdersService {
         throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
       }
       coinsUsed = dto.coinsToUse;
-      discount = coinsUsed * Number(settings.coinValue);
+      const coinValue = Number(settings.coinValue) || 0;
+      discount = coinsUsed * coinValue;
       if (discount > preDiscountTotal) {
         discount = preDiscountTotal;
-        coinsUsed = Math.ceil(discount / Number(settings.coinValue));
+        coinsUsed = coinValue > 0 ? Math.ceil(discount / coinValue) : 0;
       }
     }
 
     const grandTotal = preDiscountTotal - discount;
-    const coinsEarned = Math.floor(
-      preDiscountTotal / Number(settings.amountSpentPerCoin),
-    );
+    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
+    const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(
+      preDiscountTotal / amountSpentPerCoin,
+    ) : 0;
 
     let upfrontAmount = 0;
     if (
@@ -421,17 +423,19 @@ export class OrdersService {
         throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
       }
       coinsUsed = dto.coinsToUse;
-      discount = coinsUsed * Number(settings.coinValue);
+      const coinValue = Number(settings.coinValue) || 0;
+      discount = coinsUsed * coinValue;
       if (discount > preDiscountTotal) {
         discount = preDiscountTotal;
-        coinsUsed = Math.ceil(discount / Number(settings.coinValue));
+        coinsUsed = coinValue > 0 ? Math.ceil(discount / coinValue) : 0;
       }
     }
 
     const grandTotal = preDiscountTotal - discount;
-    const coinsEarned = Math.floor(
-      preDiscountTotal / Number(settings.amountSpentPerCoin),
-    );
+    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
+    const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(
+      preDiscountTotal / amountSpentPerCoin,
+    ) : 0;
 
     const orderNumber = await this.ordersRepository.generateOrderNumber();
     const created = await this.ordersRepository.createOrder(
