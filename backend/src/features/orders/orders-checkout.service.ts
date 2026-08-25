@@ -527,6 +527,18 @@ async editOrderItems(
         variantName = variant.name;
       }
 
+      const oldItem = order.items.find(
+        (i) => i.productId === itemDto.productId && i.variantId === (itemDto.variantId ?? null)
+      );
+
+      if (oldItem) {
+        const oldOptionsTotal = oldItem.selectedOptions.reduce(
+          (sum, opt) => sum + Number(opt.priceAdded),
+          0,
+        );
+        basePrice = oldItem.unitPrice - oldOptionsTotal;
+      }
+
       let optionsTotal = 0;
       const selectedOptions: any[] = [];
       if (itemDto.optionIds?.length) {

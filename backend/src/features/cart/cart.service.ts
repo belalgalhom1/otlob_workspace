@@ -579,11 +579,13 @@ export class CartService {
         return true;
       });
 
-      const basePrice = item.variant
-        ? Number(item.variant.basePrice)
-        : item.product
-          ? activeOffer ? Number(activeOffer.offerPrice) : Number(item.product.basePrice ?? 0)
-          : Number(item.customPrice ?? 0);
+      const basePrice = item.customPrice !== null
+        ? Number(item.customPrice)
+        : item.variant
+          ? Number(item.variant.basePrice)
+          : item.product
+            ? activeOffer ? Number(activeOffer.offerPrice) : Number(item.product.basePrice ?? 0)
+            : 0;
 
       const optionsTotal = item.selectedOptions.reduce(
         (sum, so) => sum + Number(so.option.priceAdded),
