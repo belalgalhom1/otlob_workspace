@@ -35,7 +35,7 @@ import { OrderDispatch } from '../../_gen/prisma-classes/order_dispatch';
 import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersStateService } from './orders-state.service';
 import { OrdersPaymentService } from './orders-payment.service';
-
+import { OrderResponseDto } from "src/common/dto/response-models.dto";
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -53,7 +53,7 @@ export class OrdersController {
   // CUSTOMER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post()
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Place a new order from active cart' })
@@ -65,7 +65,7 @@ export class OrdersController {
   }
 
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post('custom')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Place a custom delivery or ride order' })
@@ -125,7 +125,7 @@ export class OrdersController {
 
   // ─── Mobile Wallet Payment Endpoints ───────────────────────────────────────
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post('customer/:orderId/payment/mark-paid')
   @Roles(Role.CUSTOMER)
   @HttpCode(HttpStatus.OK)
@@ -137,7 +137,7 @@ export class OrdersController {
     return this.paymentService.customerMarkPaid(actor, orderId);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post('driver/:orderId/payment/confirm')
   @Roles(Role.DRIVER)
   @HttpCode(HttpStatus.OK)
@@ -200,7 +200,7 @@ export class OrdersController {
   // SHARED
   // ═══════════════════════════════════════════════════════════════════════════
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Get(':orderId')
   @ApiOperation({
     summary: 'Get a single order (customer/driver/vendor/admin)',
@@ -212,7 +212,7 @@ export class OrdersController {
     return this.ordersService.getOne(actor, orderId);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/approve-fee')
   @Roles(Role.CUSTOMER)
   @HttpCode(HttpStatus.OK)
@@ -224,7 +224,7 @@ export class OrdersController {
     return this.paymentService.approveOrderFee(actor, orderId);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel an order (customer or vendor)' })
@@ -252,7 +252,7 @@ export class OrdersController {
     return this.ordersService.adminFindAll(dto);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/assign-driver')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions(Permission.MANAGE_ORDERS)
@@ -267,7 +267,7 @@ export class OrdersController {
 
   // ─── Order Item Modifications & Direct Orders ────────────────────────────────
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post('admin/direct')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.VENDOR_MEMBER)
   @ApiOperation({
@@ -280,7 +280,7 @@ export class OrdersController {
     return this.checkoutService.adminPlaceDirectOrder(actor, dto);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Patch(':id/items')
   @Roles('SUPER_ADMIN', 'ADMIN', 'VENDOR_MEMBER')
   async editOrderItems(
@@ -291,7 +291,7 @@ export class OrdersController {
     return this.checkoutService.editOrderItems(actor, orderId, dto);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post(':id/accept-changes')
   @Roles('CUSTOMER')
   @HttpCode(HttpStatus.OK)
@@ -302,7 +302,7 @@ export class OrdersController {
     return this.checkoutService.acceptOrderChanges(actor, orderId);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post(':id/reject-changes')
   @Roles('CUSTOMER')
   @HttpCode(HttpStatus.OK)

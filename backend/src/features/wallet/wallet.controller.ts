@@ -72,7 +72,7 @@ export class WalletController {
 
   // ─── Admin Endpoints ────────────────────────────────────────────────────────
 
-  @ApiStandardResponse(MobileWallet)
+  @ApiStandardResponse(MobileWalletResponseDto)
   @Post('platform')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE)
@@ -81,7 +81,7 @@ export class WalletController {
     return this.walletService.createPlatformWallet(dto);
   }
 
-  @ApiStandardResponse(MobileWallet)
+  @ApiStandardResponse(MobileWalletResponseDto)
   @Get('platform/all')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE)
@@ -90,7 +90,7 @@ export class WalletController {
     return this.walletService.getPlatformWallets(true);
   }
 
-  @ApiStandardResponse(MobileWallet)
+  @ApiStandardResponse(MobileWalletResponseDto)
   @Patch('platform/:id')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE)
@@ -126,7 +126,7 @@ export class WalletController {
 
   // ─── Shared Endpoints (Driver / Customer) ───────────────────────────────
 
-  @ApiStandardResponse(MobileWallet)
+  @ApiStandardResponse(MobileWalletResponseDto)
   @Get('platform')
   @ApiOperation({ summary: 'Get active platform wallets to send money to' })
   getActivePlatformWallets() {
@@ -154,7 +154,7 @@ export class WalletController {
     return this.walletService.getDriverTransactions(req.user.sub);
   }
 
-  @ApiStandardResponse(MobileWallet)
+  @ApiStandardResponse(MobileWalletResponseDto)
   @Post('driver')
   @Roles(Role.DRIVER)
   @ApiOperation({
@@ -167,7 +167,7 @@ export class WalletController {
     return this.walletService.addDriverWallet(req.user.sub, dto);
   }
 
-  @ApiStandardResponse(MobileWallet)
+  @ApiStandardResponse(MobileWalletResponseDto)
   @Get('driver')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my personal driver wallets' })
