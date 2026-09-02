@@ -75,11 +75,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
   void _setupSockets() {
     final socket = ref.read(socketServiceProvider);
-    socket.on('order.status', (data) {
+    
+    void handleSocketData(dynamic data) {
+      if (data != null && data['orderId'] != null) {
+        final newStatus = data['newStatus'] ?? data['status'];
+        if (newStatus != null) {
+          ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
+        }
+      }
       ref.read(ordersProvider.notifier).refresh();
+    }
+
+    socket.on('order.status', (data) {
+      handleSocketData(data);
     });
     socket.on('order.updated', (data) {
-      ref.read(ordersProvider.notifier).refresh();
+      handleSocketData(data);
     });
   }
 

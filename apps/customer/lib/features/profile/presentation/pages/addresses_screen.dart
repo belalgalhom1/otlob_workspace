@@ -186,8 +186,8 @@ class AddressesScreen extends ConsumerWidget {
                             'label': labelCtrl.text.trim(),
                             'address': addressCtrl.text.trim(),
                             'location': [
-                              selectedLng ?? 46.6753,
-                              selectedLat ?? 24.7136,
+                              selectedLng ?? 31.2357,
+                              selectedLat ?? 30.0444,
                             ],
                             'isDefault': address['isDefault'] ?? false,
                           });
@@ -274,8 +274,8 @@ class AddressesScreen extends ConsumerWidget {
                             'label': labelCtrl.text.trim(),
                             'address': addressCtrl.text.trim(),
                             'location': [
-                              selectedLng ?? 46.6753, // Default to Riyadh Lng if none picked
-                              selectedLat ?? 24.7136, // Default to Riyadh Lat if none picked
+                              selectedLng ?? 31.2357, // Default to Cairo Lng if none picked
+                              selectedLat ?? 30.0444, // Default to Cairo Lat if none picked
                             ],
                             'isDefault': false,
                           });

@@ -50,9 +50,9 @@ class ProfileScreen extends ConsumerWidget {
                           title: s.language,
                           subtitle: s.languageName,
                           value: settingsState.languageCode == 'ar',
-                          onChanged: (val) {
+                          onChanged: (val) async {
                             final langCode = val ? 'ar' : 'en';
-                            context.setLocale(Locale(langCode));
+                            await context.setLocale(Locale(langCode));
                             ref
                                 .read(appSettingsProvider.notifier)
                                 .changeLanguage(langCode);
@@ -283,9 +283,11 @@ class ProfileScreen extends ConsumerWidget {
               left: 24,
               right: 24,
             ),
-            child: Column(
-              children: [
-                Stack(
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  Stack(
                   children: [
                     Container(
                       decoration: BoxDecoration(
@@ -397,6 +399,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ],
@@ -525,6 +528,7 @@ class ProfileScreen extends ConsumerWidget {
     final nameCtrl = TextEditingController(text: profileState.name);
     final emailCtrl = TextEditingController(text: profileState.email);
     final phoneCtrl = TextEditingController(text: profileState.phone);
+    bool isSaving = false;
 
     showModalBottomSheet(
       context: context,
@@ -601,15 +605,31 @@ class ProfileScreen extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      await ref
-                          .read(profileProvider.notifier)
-                          .updateProfileData(
-                            name: nameCtrl.text.trim(),
-                            email: emailCtrl.text.trim(),
-                            phone: phoneCtrl.text.trim(),
+                    onPressed: isSaving ? null : () async {
+                      setModalState(() => isSaving = true);
+                      try {
+                        await ref
+                            .read(profileProvider.notifier)
+                            .updateProfileData(
+                              name: nameCtrl.text.trim(),
+                              email: emailCtrl.text.trim(),
+                              phone: phoneCtrl.text.trim(),
+                            );
+                        if (context.mounted) Navigator.pop(ctx);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(s.translateApiError(e.toString())),
+                              backgroundColor: Colors.red,
+                            ),
                           );
-                      if (context.mounted) Navigator.pop(ctx);
+                        }
+                      } finally {
+                        if (context.mounted) {
+                          setModalState(() => isSaving = false);
+                        }
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -620,13 +640,19 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       elevation: 0,
                     ),
-                    child: Text(
-                      s.saveChanges,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: isSaving 
+                      ? const SizedBox(
+                          height: 20, 
+                          width: 20, 
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          s.saveChanges,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                   ),
                 ),
                 const SizedBox(height: 32),

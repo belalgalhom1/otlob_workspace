@@ -74,12 +74,12 @@ class VendorCard extends ConsumerWidget {
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                 child: (vendor['image']?.toString().isEmpty ?? true)
-                    ? Container(height: 160, color: Theme.of(context).canvasColor, child: const Icon(Icons.storefront, size: 40, color: Colors.grey))
+                    ? Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: Icon(Icons.storefront, size: 40, color: Colors.grey)))
                     : CachedNetworkImage(
                         imageUrl: ImageUtils.formatImageUrl(vendor['image'] as String?),
                         height: 160, width: double.infinity, fit: BoxFit.cover,
-                        placeholder: (c, u) => Container(height: 160, color: Theme.of(context).canvasColor),
-                        errorWidget: (c, u, e) => Container(height: 160, color: Theme.of(context).canvasColor, child: const Icon(Icons.storefront, size: 40, color: Colors.grey)),
+                        placeholder: (c, u) => Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: CircularProgressIndicator())),
+                        errorWidget: (c, u, e) => Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: Icon(Icons.storefront, size: 40, color: Colors.grey))),
                       ),
               ),
               if (tag.isNotEmpty)

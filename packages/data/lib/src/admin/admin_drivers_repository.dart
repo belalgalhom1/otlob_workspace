@@ -8,7 +8,7 @@ class AdminDriversRepository {
   final DriverShiftsApi _shiftsApi;
   final Dio? _dio;
 
-  AdminDriversRepository(this._api, this._ordersApi, this._shiftsApi, {this._dio});
+  AdminDriversRepository(this._api, this._ordersApi, this._shiftsApi, {Dio? dio}) : _dio = dio;
 
   Future<dynamic> driversAdminCreate({required Map<String, dynamic> data}) async {
     if (_dio == null) throw Exception("Dio is required");

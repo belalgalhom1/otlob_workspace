@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 class AdminZonesRepository {
   final LogisticsZonesApi _api;
   final Dio? _dio;
-  AdminZonesRepository(this._api, {this._dio});
+  AdminZonesRepository(this._api, {Dio? dio}) : _dio = dio;
 
   Future<List<dynamic>> getZones() async {
     final response = await _api.zonesControllerFindAll();

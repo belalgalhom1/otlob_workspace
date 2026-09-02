@@ -2,7 +2,7 @@ name: otlob_workspace
 publish_to: none
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.11.0
 
 workspace:
   - apps/*
@@ -27,4 +27,11 @@ melos:
       description: Build iOS for all apps supporting iOS sequentially.
 
 dependency_overrides:
+  permission_handler_android: ^12.0.0
+
+  analyzer: ^12.0.0
+  test: any
+  test_api: any
+
+  meta: ^1.18.0
   cli_util: ^0.5.0

@@ -45,27 +45,39 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   void _setupSocketListener() {
     final socket = ref.read(socketServiceProvider);
+    
+    void handleSocketEvent(dynamic data) {
+      if (data != null && data is Map && data['orderId'] != null) {
+        final newStatus = data['newStatus'] ?? data['status'];
+        if (newStatus != null) {
+          ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
+        }
+      }
+      _loadOrders();
+    }
+
     // Listen to order.status events for instant updates
-    _orderStatusSub = socket.onEvent(SocketEvent.orderStatus).listen((_) {
+    _orderStatusSub = socket.onEvent(SocketEvent.orderStatus).listen((data) {
       if (mounted) {
-        _loadOrders();
+        handleSocketEvent(data);
       }
     });
     // Also listen to notificationNew which fires for every order change
-    socket.onEvent(SocketEvent.notificationNew).listen((_) {
+    socket.onEvent(SocketEvent.notificationNew).listen((data) {
       if (mounted) {
-        _loadOrders();
+        // Sometimes notification doesn't have orderId at root level, but we can pass it to handleSocketEvent safely
+        handleSocketEvent(data);
       }
     });
     // Listen to new orders and cancelled orders
-    socket.onEvent(SocketEvent.orderNew).listen((_) {
+    socket.onEvent(SocketEvent.orderNew).listen((data) {
       if (mounted) {
         _loadOrders();
       }
     });
-    socket.onEvent(SocketEvent.orderCancelled).listen((_) {
+    socket.onEvent(SocketEvent.orderCancelled).listen((data) {
       if (mounted) {
-        _loadOrders();
+        handleSocketEvent(data);
       }
     });
   }

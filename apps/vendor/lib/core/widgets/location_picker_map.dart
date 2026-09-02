@@ -17,8 +17,8 @@ class LocationPickerMap extends StatefulWidget {
 class _LocationPickerMapState extends State<LocationPickerMap> {
   late MapController _mapController;
   LatLng? _selectedLocation;
-  // Default to Riyadh, Saudi Arabia
-  final LatLng _defaultLocation = const LatLng(24.7136, 46.6753);
+  // Default to Cairo, Saudi Arabia
+  final LatLng _defaultLocation = const LatLng(30.0444, 31.2357);
 
   @override
   void initState() {
@@ -129,7 +129,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
             children: [
               TileLayer(
                 urlTemplate:
-                    'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.otlob.admin',
               ),
               if (_selectedLocation != null)

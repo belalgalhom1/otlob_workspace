@@ -17,7 +17,7 @@ class PolygonPickerMap extends StatefulWidget {
 class _PolygonPickerMapState extends State<PolygonPickerMap> {
   late MapController _mapController;
   List<LatLng> _polygonPoints = [];
-  final LatLng _defaultLocation = const LatLng(24.7136, 46.6753);
+  final LatLng _defaultLocation = const LatLng(30.0444, 31.2357);
 
   @override
   void initState() {
@@ -141,7 +141,7 @@ class _PolygonPickerMapState extends State<PolygonPickerMap> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.otlob.admin',
               ),
               if (_polygonPoints.isNotEmpty)

@@ -140,7 +140,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           options: MapOptions(
             initialCenter: _currentPosition != null 
                 ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                : const LatLng(24.7136, 46.6753), // Riyadh fallback
+                : const LatLng(30.0444, 31.2357), // Cairo fallback
             initialZoom: 14.0,
             onMapReady: () {
               _isMapReady = true;

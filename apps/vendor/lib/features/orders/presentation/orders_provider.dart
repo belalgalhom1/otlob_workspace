@@ -58,6 +58,23 @@ class OrdersNotifier extends _$OrdersNotifier {
     }
   }
 
+  
+  void updateOrderStatusFast(String orderId, String newStatus) {
+    if (state.hasValue) {
+      final currentData = state.value!;
+      final newOrders = List<dynamic>.from(currentData.orders);
+      final index = newOrders.indexWhere((o) => o['id'] == orderId);
+      if (index != -1) {
+        final Map<String, dynamic> updatedOrder = Map<String, dynamic>.from(newOrders[index]);
+        updatedOrder['status'] = newStatus;
+        newOrders[index] = updatedOrder;
+        state = AsyncValue.data(
+          OrdersStateData(newOrders, currentData.total, currentData.params)
+        );
+      }
+    }
+  }
+
   Future<void> updateOrderStatus(
     String orderId,
     String nextStatus, {

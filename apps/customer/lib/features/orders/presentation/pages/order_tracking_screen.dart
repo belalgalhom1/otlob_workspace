@@ -219,7 +219,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.otlob.customer',
                 ),
               if (_driverLocation != null && _initialMapCenter != null)

@@ -5,7 +5,7 @@ homepage: homepage
 
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.11.0
 
 resolution: workspace
 

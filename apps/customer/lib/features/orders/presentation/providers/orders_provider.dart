@@ -1,6 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
-import 'package:api/api.dart' hide CartItem;
+import 'package:api/api.dart';
 import 'package:core/core.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
 import 'package:flutter/foundation.dart';
@@ -155,6 +155,49 @@ class Orders extends _$Orders {
       hasMorePast: newOrders.length == _limit,
       isLoadingMorePast: false,
     );
+  }
+
+  
+  void updateOrderStatusFast(String orderId, String newStatus) {
+    bool updated = false;
+    final activeIndex = state.activeOrders.indexWhere((o) => o['id'] == orderId);
+    if (activeIndex != -1) {
+      final newOrders = List<Map<String, dynamic>>.from(state.activeOrders);
+      newOrders[activeIndex] = {
+        ...newOrders[activeIndex],
+        'status': newStatus,
+      };
+      if (_pastStatuses.contains(newStatus)) {
+        final orderToMove = newOrders.removeAt(activeIndex);
+        state = state.copyWith(
+          activeOrders: newOrders,
+          pastOrders: [orderToMove, ...state.pastOrders],
+        );
+      } else {
+        state = state.copyWith(activeOrders: newOrders);
+      }
+      updated = true;
+    }
+    
+    if (!updated) {
+      final pastIndex = state.pastOrders.indexWhere((o) => o['id'] == orderId);
+      if (pastIndex != -1) {
+        final newOrders = List<Map<String, dynamic>>.from(state.pastOrders);
+        newOrders[pastIndex] = {
+          ...newOrders[pastIndex],
+          'status': newStatus,
+        };
+        if (_activeStatuses.contains(newStatus)) {
+          final orderToMove = newOrders.removeAt(pastIndex);
+          state = state.copyWith(
+            pastOrders: newOrders,
+            activeOrders: [orderToMove, ...state.activeOrders],
+          );
+        } else {
+          state = state.copyWith(pastOrders: newOrders);
+        }
+      }
+    }
   }
 
   Future<void> refresh() async {
