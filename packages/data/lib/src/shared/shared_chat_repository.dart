@@ -35,10 +35,12 @@ class SharedChatRepository {
     String conversationId, {
     num? page = 1,
     num? limit = 50,
+    String? before,
   }) async {
     final response = await _messagesApi.messagesControllerList(
       conversationId: conversationId,
       limit: limit,
+      before: before,
     );
     return ResponseParser.parse(response);
   }

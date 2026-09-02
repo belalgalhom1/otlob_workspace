@@ -27,6 +27,9 @@ class SharedChat extends _$SharedChat {
   String? _conversationId;
   String? _currentUserId;
   final List<Message> _earlyMessages = [];
+  bool hasMore = true;
+  String? nextCursor;
+  bool isLoadingMore = false;
 
   @override
   Future<List<Message>> build(SharedChatArgs args) async {
@@ -132,14 +135,22 @@ class SharedChat extends _$SharedChat {
     });
   }
 
-  Future<List<Message>> _fetchMessages() async {
+  Future<List<Message>> _fetchMessages({String? cursor}) async {
     if (_conversationId == null) return [];
 
     try {
       final chatRepo = ref.read(sharedChatRepositoryProvider);
-      final response = await chatRepo.getMessages(_conversationId!);
+      final response = await chatRepo.getMessages(_conversationId!, before: cursor);
 
       List<dynamic> data = [];
+      if (response is Map) {
+        if (response.containsKey('hasMore')) {
+          hasMore = response['hasMore'] == true;
+        }
+        if (response.containsKey('nextCursor')) {
+          nextCursor = response['nextCursor'];
+        }
+      }
       if (response is List) {
         data = response;
       } else if (response is Map && response.containsKey('messages')) {
@@ -188,6 +199,22 @@ class SharedChat extends _$SharedChat {
       return ordered.reversed.toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (!hasMore || isLoadingMore || _conversationId == null) return;
+    isLoadingMore = true;
+
+    try {
+      final oldMessages = await _fetchMessages(cursor: nextCursor);
+      if (oldMessages.isNotEmpty) {
+        state.whenData((currentMessages) {
+          state = AsyncData([...currentMessages, ...oldMessages]);
+        });
+      }
+    } finally {
+      isLoadingMore = false;
     }
   }
 
