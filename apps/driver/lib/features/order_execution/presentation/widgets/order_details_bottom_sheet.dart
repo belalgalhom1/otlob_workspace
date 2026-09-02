@@ -24,9 +24,13 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final currency = ref.watch(configurationProvider.notifier).currency;
 
-    final customer = order['customer'] ?? {};
-    final vendor = order['vendor'] ?? {};
-    final address = order['deliveryAddress'] ?? {};
+    final customer = order['customer'] is Map ? order['customer'] : {};
+    final vendor = order['vendor'] is Map ? order['vendor'] : {};
+    
+    final addressRaw = order['deliveryAddress'];
+    final String addressString = addressRaw is String ? addressRaw : (addressRaw is Map ? (addressRaw['address'] ?? '') : '');
+    final Map addressMap = addressRaw is Map ? addressRaw : {};
+
     final items = (order['items'] as List?) ?? [];
 
     return Container(
@@ -92,7 +96,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               
               // Customer Details
               Text(
-                l10n.localeName == 'ar' ? 'العميل والتوصيل' : 'Customer & Delivery',
+                l10n.localeName == 'ar' ? 'العميل والتوصيل' : 'Customer (Dropoff)',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -100,14 +104,16 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildInfoRow(context, LucideIcons.user, customer['name'] ?? l10n.customerFallback),
-              
-              if (address['addressString'] != null) ...[
+              _buildInfoRow(context, LucideIcons.user, customer['name'] ?? customer['user']?['name'] ?? l10n.customerFallback),
+              if (customer['phone'] != null || customer['user']?['phone'] != null) ...[
                 const SizedBox(height: 12),
-                _buildInfoRow(context, LucideIcons.mapPin, address['addressString']),
+                _buildInfoRow(context, LucideIcons.phone, customer['phone'] ?? customer['user']?['phone'] ?? ''),
               ],
               
-              if (address['building'] != null || address['floor'] != null || address['apartment'] != null) ...[
+              const SizedBox(height: 12),
+              _buildInfoRow(context, LucideIcons.mapPin, addressString.isNotEmpty ? addressString : 'No address provided'),
+              
+              if (addressMap.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -116,10 +122,10 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         [
-                          if (address['building'] != null) '${l10n.localeName == 'ar' ? 'مبنى' : 'Building'} ${address['building']}',
-                          if (address['floor'] != null) '${l10n.localeName == 'ar' ? 'طابق' : 'Floor'} ${address['floor']}',
-                          if (address['apartment'] != null) '${l10n.localeName == 'ar' ? 'شقة' : 'Apt'} ${address['apartment']}',
-                        ].join(' • '),
+                          if (addressMap['building'] != null) '${l10n.localeName == 'ar' ? 'مبنى' : 'Building'} ${addressMap['building']}',
+                          if (addressMap['floor'] != null) '${l10n.localeName == 'ar' ? 'طابق' : 'Floor'} ${addressMap['floor']}',
+                          if (addressMap['apartment'] != null) '${l10n.localeName == 'ar' ? 'شقة' : 'Apt'} ${addressMap['apartment']}',
+                        ].where((e) => e.isNotEmpty).join(' • '),
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       ),
                     ),
@@ -127,7 +133,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ],
               
-              if (address['instructions'] != null && address['instructions'].toString().isNotEmpty) ...[
+              if (addressMap['instructions'] != null && addressMap['instructions'].toString().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -143,7 +149,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          address['instructions'],
+                          addressMap['instructions'],
                           style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                         ),
                       ),
