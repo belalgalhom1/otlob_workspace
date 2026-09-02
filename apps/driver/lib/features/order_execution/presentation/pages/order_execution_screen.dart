@@ -82,8 +82,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final vendorLat = order['vendor']?['latitude'] ?? 0.0;
     final vendorLng = order['vendor']?['longitude'] ?? 0.0;
     
-    final customerLat = order['deliveryAddress']?['latitude'] ?? 0.0;
-    final customerLng = order['deliveryAddress']?['longitude'] ?? 0.0;
+    final dl = order['deliveryLocation'];
+    final customerLat = dl is List && dl.length > 1 ? dl[1] : 0.0;
+    final customerLng = dl is List && dl.length > 0 ? dl[0] : 0.0;
 
     final status = order['status'] ?? '';
     final isCashOnDelivery = order['paymentMethod'] == 'CASH_ON_DELIVERY';
