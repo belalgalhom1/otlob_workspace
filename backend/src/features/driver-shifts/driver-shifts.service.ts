@@ -129,7 +129,10 @@ export class DriverShiftsService {
   }
 
   async deleteShiftPool(poolId: string) {
-    await this.prisma.shiftPool.delete({ where: { id: poolId } });
+    await this.prisma.$transaction([
+      this.prisma.driverShift.deleteMany({ where: { shiftPoolId: poolId } }),
+      this.prisma.shiftPool.delete({ where: { id: poolId } }),
+    ]);
     return { success: true };
   }
 
