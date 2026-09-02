@@ -26,6 +26,7 @@ import { VendorMember } from 'src/common/decorators/vendor-member.decorator';
 import { Role, Permission, VendorMemberRole } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
+import { MobileWalletResponseDto, WalletTopUpRequestResponseDto, VendorWalletTransactionResponseDto, DriverWalletTransactionResponseDto } from 'src/common/dto/response-models.dto';
 import { MobileWallet } from '../../_gen/prisma-classes/mobile_wallet';
 import { WalletTopUpRequest } from '../../_gen/prisma-classes/wallet_top_up_request';
 import { VendorWalletTransaction } from '../../_gen/prisma-classes/vendor_wallet_transaction';
@@ -41,7 +42,7 @@ export class WalletController {
 
   // ─── Admin: Manual Transactions ───────────────────────────────────────────
 
-  @ApiStandardResponse(VendorWalletTransaction)
+  @ApiStandardResponse(VendorWalletTransactionResponseDto)
   @Post('admin/vendors/:vendorId/transaction')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE)
@@ -55,7 +56,7 @@ export class WalletController {
     return this.walletService.processVendorTransaction(vendorId, dto);
   }
 
-  @ApiStandardResponse(DriverWalletTransaction)
+  @ApiStandardResponse(DriverWalletTransactionResponseDto)
   @Post('admin/drivers/:driverId/transaction')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE)
@@ -101,7 +102,7 @@ export class WalletController {
     return this.walletService.updatePlatformWallet(id, dto);
   }
 
-  @ApiStandardResponse(WalletTopUpRequest)
+  @ApiStandardResponse(WalletTopUpRequestResponseDto)
   @Get('topups/pending')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE) // Or manage_drivers
@@ -110,7 +111,7 @@ export class WalletController {
     return this.walletService.getPendingTopUpRequests();
   }
 
-  @ApiStandardResponse(WalletTopUpRequest)
+  @ApiStandardResponse(WalletTopUpRequestResponseDto)
   @Patch('topups/:id/review')
   @Roles(Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_FINANCE)
@@ -135,7 +136,7 @@ export class WalletController {
 
   // ─── Vendor Endpoints ───────────────────────────────────────────────────────
 
-  @ApiStandardResponse(VendorWalletTransaction)
+  @ApiStandardResponse(VendorWalletTransactionResponseDto)
   @Get('vendors/:vendorId/transactions')
   @VendorMember({ roles: [VendorMemberRole.OWNER, VendorMemberRole.MANAGER] })
   @ApiOperation({ summary: 'Get vendor wallet transaction history' })
@@ -145,7 +146,7 @@ export class WalletController {
 
   // ─── Driver Endpoints ───────────────────────────────────────────────────────
 
-  @ApiStandardResponse(DriverWalletTransaction)
+  @ApiStandardResponse(DriverWalletTransactionResponseDto)
   @Get('driver/me/transactions')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my personal driver wallet transactions' })
@@ -174,7 +175,7 @@ export class WalletController {
     return this.walletService.getDriverWallets(req.user.sub);
   }
 
-  @ApiStandardResponse(WalletTopUpRequest)
+  @ApiStandardResponse(WalletTopUpRequestResponseDto)
   @Post('topups')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Submit a top-up request with screenshot proof' })
@@ -185,7 +186,7 @@ export class WalletController {
     return this.walletService.submitTopUpRequest(req.user.sub, dto);
   }
 
-  @ApiStandardResponse(WalletTopUpRequest)
+  @ApiStandardResponse(WalletTopUpRequestResponseDto)
   @Get('topups/me')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'View my top-up requests history' })
