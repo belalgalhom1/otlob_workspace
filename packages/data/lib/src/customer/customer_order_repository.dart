@@ -9,10 +9,9 @@ class CustomerOrderRepository {
   final Dio? dio;
   CustomerOrderRepository(this._api, this._reviewsApi, {this.dio});
 
-  Future<void> approveFee(String orderId) async {
-    if (dio != null) {
-      await dio!.post('/orders/$orderId/approve-fee');
-    }
+  Future<dynamic> approveFee(String orderId) async {
+    final response = await _api.ordersControllerApproveOrderFee(orderId: orderId);
+    return ResponseParser.parse(response);
   }
 
   Future<dynamic> getMyOrders({String? status, num limit = 20, num page = 1}) async {

@@ -54,7 +54,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
     if (orderId == null || status == null) return;
 
-    if (status == 'PENDING_CUSTOMER_APPROVAL' || status == 'DRIVER_ASSIGNED') {
+    if (status == 'PENDING_CUSTOMER_APPROVAL') {
       if (orderId == _lastShownOrderId) return;
       _lastShownOrderId = orderId;
       

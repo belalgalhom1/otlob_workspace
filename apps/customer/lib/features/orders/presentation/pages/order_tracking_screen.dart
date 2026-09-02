@@ -14,6 +14,7 @@ import '../providers/orders_provider.dart';
 import '../../../../core/providers/platform_settings_provider.dart';
 import 'package:data/providers.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
+import '../widgets/customer_approval_bottom_sheet.dart';
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
 
@@ -131,7 +132,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         _orderDetails = order;
         _orderUpdatedAt = DateTime.tryParse(order['updatedAt']?.toString() ?? '');
       });
-      if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' || _orderStatus == 'DRIVER_ASSIGNED') {
+      if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL') {
         _startTimer();
       }
     }
@@ -180,7 +181,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       case 'DELIVERED': return isAr ? 'تم التوصيل' : 'Delivered';
       case 'CANCELLED': return isAr ? 'تم الإلغاء' : 'Cancelled';
       case 'PENDING_CUSTOMER_APPROVAL': return isAr ? 'بانتظار موافقتك' : 'Pending Your Approval';
-      case 'DRIVER_ASSIGNED': return isAr ? 'بانتظار موافقتك' : 'Pending Your Approval';
+      case 'DRIVER_ASSIGNED': return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
       case 'PENDING_PAYMENT': return isAr ? 'بانتظار الدفع' : 'Pending Payment';
       default: return rawStatus.replaceAll('_', ' ').split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ');
     }
@@ -375,6 +376,33 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       ),
                     ),
                   ),
+                  if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL') ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => CustomerApprovalBottomSheet(
+                              orderId: widget.orderId,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.fact_check_rounded, size: 20),
+                        label: Text(s.isArabic ? 'مراجعة رسوم التوصيل' : 'Review Delivery Fee'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                   if (_orderStatus == 'PENDING_PAYMENT') ...[
                     const SizedBox(height: 12),
                     Container(
