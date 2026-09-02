@@ -79,8 +79,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   }
 
   Widget _buildMapAndControls(Map<String, dynamic> order, AppLocalizations l10n) {
-    final vendorLat = order['vendor']?['latitude'] ?? 0.0;
-    final vendorLng = order['vendor']?['longitude'] ?? 0.0;
+    final vendorData = order['vendor'];
+    final vendorLat = vendorData is Map ? (vendorData['latitude'] ?? 0.0) : 0.0;
+    final vendorLng = vendorData is Map ? (vendorData['longitude'] ?? 0.0) : 0.0;
     
     final dl = order['deliveryLocation'];
     final customerLat = dl is List && dl.length > 1 ? dl[1] : 0.0;
@@ -230,8 +231,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                             status == 'PENDING_CUSTOMER_APPROVAL'
                                 ? l10n.waitingForCustomerApproval
                                 : (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
-                                  ? (order['customer']?['name'] ?? l10n.customerFallback)
-                                  : (order['vendor']?['name'] ?? l10n.vendorFallback),
+                                  ? ((order['customer'] is Map ? order['customer']['name'] : null) ?? l10n.customerFallback)
+                                  : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback),
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -276,7 +277,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildActionButton(status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order),
+                _buildActionButton(context, status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order),
               ],
             ),
           ),
@@ -285,7 +286,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     );
   }
 
-  Widget _buildActionButton(String status, bool isCashOnDelivery, bool isMobileWallet, LatLng? targetLocation, AppLocalizations l10n, Map<String, dynamic> order) {
+  Widget _buildActionButton(BuildContext context, String status, bool isCashOnDelivery, bool isMobileWallet, LatLng? targetLocation, AppLocalizations l10n, Map<String, dynamic> order) {
     bool isWithinGeofence = true;
     if (_currentPosition != null && targetLocation != null && targetLocation.latitude != 0) {
       final distanceInMeters = Geolocator.distanceBetween(
@@ -299,21 +300,31 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
     }
 
+    void showErr(Object e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+
     if (status == 'PREPARING') {
       return PrimaryButton(
         text: l10n.localeName == 'ar' ? 'جاري تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
-        onPressed: null, // Disabled because driver cannot confirm pickup yet
+        onPressed: null,
       );
     } else if (status == 'PENDING_CUSTOMER_APPROVAL') {
       return PrimaryButton(
         text: l10n.waitingForCustomerApproval,
-        onPressed: null, // Disabled because driver must wait for customer
+        onPressed: null,
       );
     } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') {
       return PrimaryButton(
         text: isWithinGeofence ? l10n.confirmPickup : l10n.moveCloserToVendor,
-        onPressed: isWithinGeofence ? () {
-          ref.read(orderExecutionProvider.notifier).updateOrderStatus('PICKED_UP');
+        onPressed: isWithinGeofence ? () async {
+          try {
+            await ref.read(orderExecutionProvider.notifier).updateOrderStatus('PICKED_UP');
+          } catch (e) {
+            showErr(e);
+          }
         } : null,
       );
     } else if (status == 'PICKED_UP') {
@@ -326,30 +337,46 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             
         return PrimaryButton(
           text: text,
-          onPressed: isWithinGeofence ? () {
-            ref.read(orderExecutionProvider.notifier).confirmPayment(received: true);
+          onPressed: isWithinGeofence ? () async {
+            try {
+              await ref.read(orderExecutionProvider.notifier).confirmPayment(received: true);
+            } catch (e) {
+              showErr(e);
+            }
           } : null,
         );
       } else if (isMobileWallet) {
         return PrimaryButton(
           text: isWithinGeofence ? (l10n.localeName == 'ar' ? 'طلب الدفع للوصول' : 'Request Payment to Deliver') : l10n.moveCloserToCustomer,
-          onPressed: isWithinGeofence ? () {
-            ref.read(orderExecutionProvider.notifier).updateOrderStatus('PENDING_PAYMENT');
+          onPressed: isWithinGeofence ? () async {
+            try {
+              await ref.read(orderExecutionProvider.notifier).updateOrderStatus('PENDING_PAYMENT');
+            } catch (e) {
+              showErr(e);
+            }
           } : null,
         );
       } else {
         return PrimaryButton(
           text: isWithinGeofence ? l10n.confirmDelivery : l10n.moveCloserToCustomer,
-          onPressed: isWithinGeofence ? () {
-            ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED');
+          onPressed: isWithinGeofence ? () async {
+            try {
+              await ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED');
+            } catch (e) {
+              showErr(e);
+            }
           } : null,
         );
       }
     } else if (status == 'PENDING_PAYMENT') {
       return PrimaryButton(
         text: l10n.localeName == 'ar' ? 'تأكيد استلام الدفع' : 'Confirm Payment Received',
-        onPressed: () {
-          ref.read(orderExecutionProvider.notifier).confirmPayment(received: true);
+        onPressed: () async {
+          try {
+            await ref.read(orderExecutionProvider.notifier).confirmPayment(received: true);
+          } catch (e) {
+            showErr(e);
+          }
         },
       );
     }

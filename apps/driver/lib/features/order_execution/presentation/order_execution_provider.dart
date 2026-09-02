@@ -43,10 +43,12 @@ class OrderExecution extends _$OrderExecution {
         ref.read(driverProfileProvider.notifier).fetchProfile();
       }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
       if (prev.hasValue) {
         state = prev; // Restore on error
+      } else {
+        state = AsyncValue.error(e, st);
       }
+      rethrow;
     }
   }
 
@@ -60,10 +62,12 @@ class OrderExecution extends _$OrderExecution {
       await repository.confirmPayment(orderId, received: received);
       await updateOrderStatus('DELIVERED');
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
       if (prev.hasValue) {
         state = prev;
+      } else {
+        state = AsyncValue.error(e, st);
       }
+      rethrow;
     }
   }
   
