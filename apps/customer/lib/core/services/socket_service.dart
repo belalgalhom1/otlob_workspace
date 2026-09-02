@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:data/providers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 part 'socket_service.g.dart';
 
@@ -14,12 +15,24 @@ SocketService socketService(Ref ref) {
   return service;
 }
 
-class SocketService {
+class SocketService with WidgetsBindingObserver {
   final Ref _ref;
   io.Socket? _socket;
   final Logger _logger = Logger();
 
-  SocketService(this._ref);
+  SocketService(this._ref) {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('📱 App Resumed: Forcing socket reconnect if disconnected');
+      if (_socket != null && !_socket!.connected) {
+        _socket!.connect();
+      }
+    }
+  }
 
   Future<void> initSocket(String userToken) async {
     // If already connected, don't re-init unless we want to force a new token
@@ -77,6 +90,7 @@ class SocketService {
   void connect() => _socket?.connect();
 
   void disconnect() {
+    WidgetsBinding.instance.removeObserver(this);
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;

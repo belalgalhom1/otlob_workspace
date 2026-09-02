@@ -4,11 +4,12 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'socket_events.dart';
 
-class CoreSocketService {
+class CoreSocketService with WidgetsBindingObserver {
   io.Socket? _socket;
   final String _baseUrl = dotenv.env['WS_URL']?.replaceAll('/events', '') ?? 'https://ws.otlob-egy.online';
   
@@ -24,6 +25,17 @@ class CoreSocketService {
     // Initialize stream controllers for all supported backend events
     for (var event in SocketEvent.values) {
       _controllers[event] = StreamController<dynamic>.broadcast();
+    }
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('📱 App Resumed: Forcing socket reconnect if disconnected');
+      if (_socket != null && !_socket!.connected) {
+        _socket!.connect();
+      }
     }
   }
 
@@ -131,6 +143,7 @@ class CoreSocketService {
   }
 
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     disconnect();
     _socket?.dispose();
     _socket = null;
