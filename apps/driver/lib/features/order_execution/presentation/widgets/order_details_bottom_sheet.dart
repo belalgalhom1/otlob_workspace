@@ -215,7 +215,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              item['product']?['name'] ?? item['menuItem']?['name'] ?? 'Item',
+                              item['productName'] ?? item['product']?['name'] ?? item['menuItem']?['name'] ?? 'Item',
                               style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
                             ),
                             if (item['customizations'] != null)

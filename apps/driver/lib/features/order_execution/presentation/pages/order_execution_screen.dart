@@ -317,6 +317,28 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
     }
 
+    Future<void> handleAction(Future<void> Function() action) async {
+      if (!isWithinGeofence) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l10n.localeName == 'ar' ? 'تأكيد المسافة' : 'Distance Override'),
+            content: Text(l10n.localeName == 'ar' ? 'أنت بعيد جدا عن الموقع. هل تريد المتابعة؟' : 'You are far from the location. Continue anyway?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.localeName == 'ar' ? 'إلغاء' : 'Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.localeName == 'ar' ? 'متابعة' : 'Continue')),
+            ],
+          ),
+        );
+        if (confirm != true) return;
+      }
+      try {
+        await action();
+      } catch (e) {
+        showErr(e);
+      }
+    }
+
     if (status == 'PREPARING') {
       return PrimaryButton(
         text: l10n.localeName == 'ar' ? 'جاري تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
@@ -329,54 +351,28 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       );
     } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') {
       return PrimaryButton(
-        text: isWithinGeofence ? l10n.confirmPickup : l10n.moveCloserToVendor,
-        onPressed: isWithinGeofence ? () async {
-          try {
-            await ref.read(orderExecutionProvider.notifier).updateOrderStatus('PICKED_UP');
-          } catch (e) {
-            showErr(e);
-          }
-        } : null,
+        text: l10n.confirmPickup,
+        onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('PICKED_UP')),
       );
     } else if (status == 'PICKED_UP') {
       if (isCashOnDelivery) {
         final totalStr = order['total']?.toString() ?? order['grandTotal']?.toString() ?? order['totalFee']?.toString() ?? '0.00';
         final total = double.tryParse(totalStr) ?? 0.0;
-        final text = isWithinGeofence 
-            ? '${l10n.collectCashAndDeliver} (${total.toStringAsFixed(2)} EGP)' 
-            : l10n.moveCloserToCustomer;
+        final text = '${l10n.collectCashAndDeliver} (${total.toStringAsFixed(2)} EGP)';
             
         return PrimaryButton(
           text: text,
-          onPressed: isWithinGeofence ? () async {
-            try {
-              await ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED');
-            } catch (e) {
-              showErr(e);
-            }
-          } : null,
+          onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED')),
         );
       } else if (isMobileWallet) {
         return PrimaryButton(
-          text: isWithinGeofence ? (l10n.localeName == 'ar' ? 'طلب الدفع للوصول' : 'Request Payment to Deliver') : l10n.moveCloserToCustomer,
-          onPressed: isWithinGeofence ? () async {
-            try {
-              await ref.read(orderExecutionProvider.notifier).updateOrderStatus('PENDING_PAYMENT');
-            } catch (e) {
-              showErr(e);
-            }
-          } : null,
+          text: l10n.localeName == 'ar' ? 'طلب الدفع للوصول' : 'Request Payment to Deliver',
+          onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('PENDING_PAYMENT')),
         );
       } else {
         return PrimaryButton(
-          text: isWithinGeofence ? l10n.confirmDelivery : l10n.moveCloserToCustomer,
-          onPressed: isWithinGeofence ? () async {
-            try {
-              await ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED');
-            } catch (e) {
-              showErr(e);
-            }
-          } : null,
+          text: l10n.confirmDelivery,
+          onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED')),
         );
       }
     } else if (status == 'PENDING_PAYMENT') {

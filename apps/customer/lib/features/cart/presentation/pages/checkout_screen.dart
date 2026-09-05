@@ -154,8 +154,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : s.vendor;
     final subtotal = cartState.getVendorSubtotal(widget.vendorId ?? '');
 
-    // Delivery and Service fees are calculated later by the driver and backend during the 3-Way Handshake
-    final deliveryFee = 0.0;
+    final settings = ref.watch(platformSettingsProvider).value;
+    final deliveryFee = double.tryParse(settings?.baseDeliveryFee?.toString() ?? '0') ?? 0.0;
     final serviceFee = 0.0;
 
     final total = subtotal;
