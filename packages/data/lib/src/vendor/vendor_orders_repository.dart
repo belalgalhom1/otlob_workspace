@@ -27,16 +27,6 @@ class VendorOrdersRepository {
     return updateStatus(orderId: orderId, dto: updateOrderStatusDto);
   }
 
-  Future<dynamic> acceptOrderChanges(String orderId) async {
-    final response = await _ordersApi.ordersControllerAcceptOrderChanges(id: orderId);
-    return ResponseParser.parse(response);
-  }
-
-  Future<dynamic> rejectOrderChanges(String orderId) async {
-    final response = await _ordersApi.ordersControllerRejectOrderChanges(id: orderId);
-    return ResponseParser.parse(response);
-  }
-
   Future<dynamic> editOrderItems(String orderId, EditOrderItemsDto dto) async {
     final response = await _ordersApi.ordersControllerEditOrderItems(id: orderId, editOrderItemsDto: dto);
     return ResponseParser.parse(response);

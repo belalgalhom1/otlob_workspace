@@ -35,6 +35,13 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
   @override
   void initState() {
     super.initState();
+    if (widget.dispatchData['expiresAt'] != null) {
+      try {
+        final expiresAt = DateTime.parse(widget.dispatchData['expiresAt'].toString());
+        final diff = expiresAt.difference(DateTime.now()).inSeconds;
+        _secondsLeft = diff > 0 ? diff : 0;
+      } catch (_) {}
+    }
     _startTimer();
   }
 
