@@ -162,7 +162,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               
               // Vendor Details
               Text(
-                l10n.localeName == 'ar' ? 'المتجر (الاستلام)' : 'Store (Pickup)',
+                (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') 
+                    ? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location') 
+                    : (l10n.localeName == 'ar' ? 'المتجر (الاستلام)' : 'Store (Pickup)'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -170,7 +172,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildInfoRow(context, LucideIcons.store, vendor['name'] ?? l10n.vendorFallback),
+              _buildInfoRow(context, LucideIcons.store, (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') ? (l10n.localeName == 'ar' ? 'العميل' : 'Customer') : (vendor['name'] ?? l10n.vendorFallback)),
               if (vendor['address'] != null) ...[
                 const SizedBox(height: 12),
                 _buildInfoRow(context, LucideIcons.map, vendor['address']),

@@ -79,9 +79,20 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   }
 
   Widget _buildMapAndControls(Map<String, dynamic> order, AppLocalizations l10n) {
+    final isCustomOrRide = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
     final vendorData = order['vendor'];
-    final vendorLat = vendorData is Map ? (vendorData['latitude'] ?? 0.0) : 0.0;
-    final vendorLng = vendorData is Map ? (vendorData['longitude'] ?? 0.0) : 0.0;
+    final pickupLoc = order['pickupLocation'];
+    
+    double vendorLat = 0.0;
+    double vendorLng = 0.0;
+    
+    if (isCustomOrRide && pickupLoc is List && pickupLoc.length > 1) {
+      vendorLat = double.tryParse(pickupLoc[1].toString()) ?? 0.0;
+      vendorLng = double.tryParse(pickupLoc[0].toString()) ?? 0.0;
+    } else if (vendorData is Map) {
+      vendorLat = double.tryParse((vendorData['latitude'] ?? 0.0).toString()) ?? 0.0;
+      vendorLng = double.tryParse((vendorData['longitude'] ?? 0.0).toString()) ?? 0.0;
+    }
     
     final dl = order['deliveryLocation'];
     final customerLat = dl is List && dl.length > 1 ? dl[1] : 0.0;
@@ -339,7 +350,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           text: text,
           onPressed: isWithinGeofence ? () async {
             try {
-              await ref.read(orderExecutionProvider.notifier).confirmPayment(received: true);
+              await ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED');
             } catch (e) {
               showErr(e);
             }
