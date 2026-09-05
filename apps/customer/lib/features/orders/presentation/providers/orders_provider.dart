@@ -96,25 +96,12 @@ class Orders extends _$Orders {
   static const _pastStatuses = {'DELIVERED', 'CANCELLED'};
 
   Future<List<Map<String, dynamic>>> _fetchFromApi({required int page, required int limit, required bool isActive}) async {
-    final dio = ref.read(dioProvider);
+    final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      // Backend QueryOrdersDto accepts a single `status` enum, not an array.
-      // We fetch all orders without a status filter and partition client-side.
-      final response = await dio.get('/orders/my?page=$page&limit=$limit&sortBy=createdAt&sortOrder=desc');
-      if (response.data != null && response.data['data'] != null) {
-        final rawData = response.data['data'];
-        List<dynamic> allOrders = [];
-        if (rawData is List) {
-          allOrders = rawData;
-        } else if (rawData is Map) {
-          if (rawData['orders'] is List) {
-            allOrders = rawData['orders'];
-          } else if (rawData['data'] is List) {
-            allOrders = rawData['data'];
-          }
-        }
+      final allOrders = await repo.getMyOrders(page: page, limit: limit);
+      if (allOrders != null) {
         final targetSet = isActive ? _activeStatuses : _pastStatuses;
-        return allOrders
+        return (allOrders as List)
             .whereType<Map>()
             .where((o) => targetSet.contains(o['status']?.toString()))
             .map((o) => Map<String, dynamic>.from(o))

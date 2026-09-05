@@ -62,6 +62,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   bool _isLoadingOrder = false;
   bool _isOrderExpanded = false;
 
+  bool _hasMore = true;
+  String? _nextCursor;
+  bool _isLoadingMore = false;
+
   @override
   void initState() {
     super.initState();
@@ -1407,10 +1411,16 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   Future<void> _loadMessages() async {
     try {
+    try {
       final repository = ref.read(sharedChatRepositoryProvider);
       final response = await repository.getMessages(widget.conversationId);
       
       List<dynamic> data = [];
+      if (response is Map) {
+        if (response.containsKey('hasMore')) _hasMore = response['hasMore'] == true;
+        if (response.containsKey('nextCursor')) _nextCursor = response['nextCursor'];
+      }
+      
       if (response is List) {
         data = response;
       } else if (response is Map && response.containsKey('messages')) {
@@ -1474,6 +1484,60 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (!_hasMore || _isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final repository = ref.read(sharedChatRepositoryProvider);
+      final response = await repository.getMessages(
+        widget.conversationId,
+        before: _nextCursor,
+      );
+
+      List<dynamic> data = [];
+      if (response is Map) {
+        if (response.containsKey('hasMore')) _hasMore = response['hasMore'] == true;
+        if (response.containsKey('nextCursor')) _nextCursor = response['nextCursor'];
+      }
+      
+      if (response is List) {
+        data = response;
+      } else if (response is Map && response.containsKey('messages')) {
+        data = response['messages'];
+      } else if (response is Map && response.containsKey('data')) {
+        final resData = response['data'];
+        if (resData is Map && resData.containsKey('messages')) {
+          data = resData['messages'];
+        } else if (resData is List) {
+          data = resData;
+        }
+      }
+
+      if (mounted && data.isNotEmpty) {
+        setState(() {
+          final fetchedMessages = data.map((m) {
+            return Map<String, dynamic>.from(m as Map);
+          }).toList().reversed.toList();
+
+          for (var msg in fetchedMessages) {
+            if (!_messages.any((m) => m['id']?.toString() == msg['id']?.toString())) {
+              _messages.add(msg);
+            }
+          }
+          
+          _messages.sort(
+            (a, b) => DateTime.parse(b['createdAt']).compareTo(DateTime.parse(a['createdAt'])),
+          );
+        });
+      }
+    } catch (e) {
+      // Ignore
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -1732,26 +1796,40 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      controller: _scrollController,
-                      reverse: true, // Start from bottom
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 20,
-                      ),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        // Use toString() to ensure comparison works even if types differ
-                        final isMe =
-                            message['sender']['id']?.toString() ==
-                            _currentUserId?.toString();
-
-                        return GestureDetector(
-                          onLongPress: () => _showOptions(message),
-                          child: _buildMessageBubble(message, isMe),
-                        );
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: (ScrollNotification scrollInfo) {
+                        if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+                          _loadMoreMessages();
+                        }
+                        return false;
                       },
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        reverse: true, // Start from bottom
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
+                        ),
+                        itemCount: _messages.length + (_hasMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == _messages.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final message = _messages[index];
+                          // Use toString() to ensure comparison works even if types differ
+                          final isMe =
+                              message['sender']['id']?.toString() ==
+                              _currentUserId?.toString();
+  
+                          return GestureDetector(
+                            onLongPress: () => _showOptions(message),
+                            child: _buildMessageBubble(message, isMe),
+                          );
+                        },
+                      ),
                     ),
             ),
             _buildInput(),

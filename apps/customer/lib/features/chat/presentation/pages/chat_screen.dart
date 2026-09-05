@@ -214,19 +214,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             children: [
               Expanded(
                 child: messagesAsync.when(
-                  data: (messages) => ListView.builder(
-                    controller: _scrollController,
-                    reverse: true, // Start from bottom
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra padding for floating cart
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      return GestureDetector(
-                        key: ValueKey(msg.id),
-                        onLongPress: msg.isMe ? () => _showOptions(msg) : null,
-                        child: _buildMessage(msg),
-                      );
+                  data: (messages) => NotificationListener<ScrollNotification>(
+                    onNotification: (ScrollNotification scrollInfo) {
+                      if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+                        ref.read(sharedChatProvider(_args).notifier).loadMore();
+                      }
+                      return false;
                     },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      reverse: true, // Start from bottom
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra padding for floating cart
+                      itemCount: messages.length + (ref.read(sharedChatProvider(_args).notifier).hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == messages.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final msg = messages[index];
+                        return GestureDetector(
+                          key: ValueKey(msg.id),
+                          onLongPress: msg.isMe ? () => _showOptions(msg) : null,
+                          child: _buildMessage(msg),
+                        );
+                      },
+                    ),
                   ),
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Error: $err')),

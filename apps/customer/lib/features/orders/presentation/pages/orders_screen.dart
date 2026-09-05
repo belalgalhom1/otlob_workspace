@@ -50,11 +50,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   late TabController _tabController;
   final ScrollController _activeScrollController = ScrollController();
   final ScrollController _pastScrollController = ScrollController();
+  late final void Function(dynamic) _socketHandler;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    _socketHandler = (data) {
+      if (data != null && data['orderId'] != null) {
+        final newStatus = data['newStatus'] ?? data['status'];
+        if (newStatus != null) {
+          ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
+        }
+      }
+      ref.read(ordersProvider.notifier).refresh();
+    };
 
     _activeScrollController.addListener(() {
       if (_activeScrollController.position.pixels >= _activeScrollController.position.maxScrollExtent - 200) {
@@ -75,27 +86,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
   void _setupSockets() {
     final socket = ref.read(socketServiceProvider);
-    
-    void handleSocketData(dynamic data) {
-      if (data != null && data['orderId'] != null) {
-        final newStatus = data['newStatus'] ?? data['status'];
-        if (newStatus != null) {
-          ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
-        }
-      }
-      ref.read(ordersProvider.notifier).refresh();
-    }
-
-    socket.on('order.status', (data) {
-      handleSocketData(data);
-    });
-    socket.on('order.updated', (data) {
-      handleSocketData(data);
-    });
+    socket.on('order.status', _socketHandler);
+    socket.on('order.updated', _socketHandler);
   }
 
   @override
   void dispose() {
+    final socket = ref.read(socketServiceProvider);
+    socket.off('order.status', _socketHandler);
+    socket.off('order.updated', _socketHandler);
+    
     _tabController.dispose();
     _activeScrollController.dispose();
     _pastScrollController.dispose();

@@ -56,8 +56,7 @@ class DriverLocation extends _$DriverLocation {
   void _broadcastLocation(Position position) {
     final socketService = ref.read(coreSocketServiceProvider);
     socketService.emit(SocketEvent.driverLocationUpdate, {
-      'lat': position.latitude,
-      'lng': position.longitude,
+      'location': [position.longitude, position.latitude],
       'heading': position.heading,
       'speed': position.speed,
     });

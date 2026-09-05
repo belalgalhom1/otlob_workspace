@@ -74,8 +74,10 @@ class OrderExecution extends _$OrderExecution {
   void handleSocketUpdate(Map<String, dynamic> data) {
     if (state.hasValue && state.value != null) {
       final orderId = state.value['id'];
-      if (data['id'] == orderId) {
-        state = AsyncValue.data(data);
+      if (data['orderId'] == orderId) {
+        final updatedState = Map<String, dynamic>.from(state.value);
+        if (data['status'] != null) updatedState['status'] = data['status'];
+        state = AsyncValue.data(updatedState);
       }
     }
   }

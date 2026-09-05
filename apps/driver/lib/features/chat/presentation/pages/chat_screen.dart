@@ -126,27 +126,41 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                 if (messages.isEmpty) {
                   return Center(child: Text(l10n.noMessagesYet));
                 }
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true, // Newest messages at bottom
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = messages[index];
-                    return ChatBubbleWidget(
-                      isMe: msg.isMe,
-                      senderName: msg.senderName,
-                      senderRole: msg.senderRole,
-                      mediaUrl: msg.mediaUrl,
-                      content: msg.content,
-                      type: msg.type.name,
-                      time: DateFormat.Hm().format(msg.timestamp.toLocal()),
-                      metadata: msg.metadata,
-                      uploadingText: 'Uploading...',
-                      fileAttachmentText: 'File Attachment',
-                      formatImageUrl: _formatImageUrl,
-                    );
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification scrollInfo) {
+                    if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+                      ref.read(sharedChatProvider(_args).notifier).loadMore();
+                    }
+                    return false;
                   },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    reverse: true, // Newest messages at bottom
+                    padding: const EdgeInsets.all(16),
+                    itemCount: messages.length + (ref.read(sharedChatProvider(_args).notifier).hasMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == messages.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final msg = messages[index];
+                      return ChatBubbleWidget(
+                        isMe: msg.isMe,
+                        senderName: msg.senderName,
+                        senderRole: msg.senderRole,
+                        mediaUrl: msg.mediaUrl,
+                        content: msg.content,
+                        type: msg.type.name,
+                        time: DateFormat.Hm().format(msg.timestamp.toLocal()),
+                        metadata: msg.metadata,
+                        uploadingText: 'Uploading...',
+                        fileAttachmentText: 'File Attachment',
+                        formatImageUrl: _formatImageUrl,
+                      );
+                    },
+                  ),
                 );
               },
             ),
