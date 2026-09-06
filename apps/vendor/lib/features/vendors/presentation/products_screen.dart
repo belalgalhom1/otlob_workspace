@@ -473,7 +473,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   if (result['descriptionAr'] != null) b.descriptionAr = result['descriptionAr'];
                   if (result['basePrice'] != null) b.basePrice = num.tryParse(result['basePrice'].toString());
                   if (result['stock'] != null) b.stock = num.tryParse(result['stock'].toString());
-                  if (result['sku'] != null) b.sku = result['sku'].toString();
+                  if (result['sku'] != null && result['sku'].toString().trim().isNotEmpty) {
+                    b.sku = result['sku'].toString().trim();
+                  }
                   if (result['isActive'] != null) b.isActive = result['isActive'];
                   if (result['sellByStrip'] != null) b.sellByStrip = result['sellByStrip'];
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
@@ -495,7 +497,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   if (result['description'] != null) b.description = result['description'];
                   if (result['descriptionAr'] != null) b.descriptionAr = result['descriptionAr'];
                   if (result['stock'] != null) b.stock = num.tryParse(result['stock'].toString());
-                  if (result['sku'] != null) b.sku = result['sku'].toString();
+                  if (result['sku'] != null && result['sku'].toString().trim().isNotEmpty) {
+                    b.sku = result['sku'].toString().trim();
+                  }
                   b.isActive = result['isActive'] ?? true;
                   if (result['sellByStrip'] != null) b.sellByStrip = result['sellByStrip'];
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());

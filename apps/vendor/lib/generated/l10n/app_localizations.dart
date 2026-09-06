@@ -1976,6 +1976,42 @@ abstract class AppLocalizations {
   /// **'Business type not found.'**
   String get vendor_vertical_error_not_found;
 
+  /// No description provided for @zone_error_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Zone not found.'**
+  String get zone_error_not_found;
+
+  /// No description provided for @zone_error_invalid_boundary_polygon.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid boundary polygon.'**
+  String get zone_error_invalid_boundary_polygon;
+
+  /// No description provided for @zone_error_invalid_location_for_zone.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected location is outside delivery zones. Please pick a location inside an active delivery zone.'**
+  String get zone_error_invalid_location_for_zone;
+
+  /// No description provided for @autoDetectZone.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-detect from location'**
+  String get autoDetectZone;
+
+  /// No description provided for @outsideDeliveryZones.
+  ///
+  /// In en, this message translates to:
+  /// **'Outside delivery zones'**
+  String get outsideDeliveryZones;
+
+  /// No description provided for @insideZone.
+  ///
+  /// In en, this message translates to:
+  /// **'Zone: {zoneName}'**
+  String insideZone(String zoneName);
+
   /// No description provided for @showMore.
   ///
   /// In en, this message translates to:

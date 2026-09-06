@@ -586,7 +586,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       ),
                       Text(
                         rawDeliveryFee == null 
-                            ? '---' 
+                            ? (s.isArabic ? 'تحدد بعد قبول الكابتن' : 'Determined after driver match')
                             : (deliveryFee == 0
                                 ? (s.isArabic ? 'مجاني' : 'Free')
                                 : '${deliveryFee.toStringAsFixed(2)} ${s.egp}'),
@@ -594,7 +594,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: rawDeliveryFee == null 
-                              ? (isDark ? Colors.white70 : Colors.black87)
+                              ? AppColors.primary 
                               : (deliveryFee == 0 ? AppColors.success : (isDark ? Colors.white70 : Colors.black87)),
                         ),
                       ),
@@ -682,13 +682,26 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                s.total,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    areFeesFinalized ? s.total : (s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                  if (!areFeesFinalized)
+                    Text(
+                      s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                      ),
+                    ),
+                ],
               ),
               Text(
                 rawTotal == null 

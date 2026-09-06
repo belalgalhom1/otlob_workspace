@@ -50,7 +50,7 @@ final class SharedChatProvider
   }
 }
 
-String _$sharedChatHash() => r'5ece58fd6b8048e01e51569b21311f3d54b6b5cd';
+String _$sharedChatHash() => r'd0768c2b75142a7f2cc52b1c6c1d65db76e3f5c6';
 
 final class SharedChatFamily extends $Family
     with

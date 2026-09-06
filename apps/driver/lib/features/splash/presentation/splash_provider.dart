@@ -49,6 +49,17 @@ class Splash extends _$Splash {
       final bool shouldConnect = profile['status'] != 'OFFLINE' && profile['status'] != 'SUSPENDED';
       await ref.read(coreSocketServiceProvider).init(autoConnect: shouldConnect);
 
+      // Initialize Push Notifications and register FCM token
+      Future(() async {
+        try {
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          await pushService.subscribeToRoleTopics('DRIVER');
+        } catch (e) {
+          // Gracefully ignore on platforms/environments without FCM
+        }
+      });
+
       // Query for an active order
       final ordersRepo = ref.read(driverOrdersRepositoryProvider);
       final activeOrderResult = await ordersRepo.getActiveDriverOrder();

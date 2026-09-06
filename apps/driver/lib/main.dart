@@ -3,6 +3,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
 
+import 'package:core/core.dart';
+
 import 'app.dart';
 
 Future<void> main() async {
@@ -10,7 +12,13 @@ Future<void> main() async {
   await EasyLocalization.ensureInitialized();
 
   await dotenv.load(fileName: ".env");
-  // await Firebase.initializeApp();
+
+  try {
+    await Firebase.initializeApp();
+    registerPushNotificationBackgroundHandler();
+  } catch (e) {
+    debugPrint('Firebase init failed: $e');
+  }
 
   runApp(
     ProviderScope(

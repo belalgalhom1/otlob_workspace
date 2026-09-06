@@ -993,6 +993,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vendor_vertical_error_not_found => 'Business type not found.';
 
   @override
+  String get zone_error_not_found => 'Zone not found.';
+
+  @override
+  String get zone_error_invalid_boundary_polygon => 'Invalid boundary polygon.';
+
+  @override
+  String get zone_error_invalid_location_for_zone =>
+      'The selected location is outside delivery zones. Please pick a location inside an active delivery zone.';
+
+  @override
+  String get autoDetectZone => 'Auto-detect from location';
+
+  @override
+  String get outsideDeliveryZones => 'Outside delivery zones';
+
+  @override
+  String insideZone(String zoneName) {
+    return 'Zone: $zoneName';
+  }
+
+  @override
   String get showMore => 'Show more';
 
   @override

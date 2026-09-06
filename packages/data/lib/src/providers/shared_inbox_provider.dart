@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
 import 'package:data/data.dart';
@@ -37,14 +38,16 @@ class InboxState {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class SharedInbox extends _$SharedInbox {
   @override
   InboxState build() {
     Future.microtask(() async {
+      if (!ref.mounted) return;
       // Ensure the socket is connected before subscribing to events
       final socket = ref.read(coreSocketServiceProvider);
       await socket.init();
+      if (!ref.mounted) return;
       _fetchConversations();
     });
 
@@ -61,11 +64,14 @@ class SharedInbox extends _$SharedInbox {
   }
 
   void _onRealtimeEvent(dynamic data) {
+    if (!ref.mounted) return;
     // When a new message comes in, refresh the inbox
     _fetchConversations(1, true); // true = silent refresh
   }
 
   Future<void> _fetchConversations([int page = 1, bool silent = false]) async {
+    if (!ref.mounted) return;
+
     if (!silent) {
       if (page == 1) {
         state = state.copyWith(
@@ -80,8 +86,11 @@ class SharedInbox extends _$SharedInbox {
     }
 
     try {
+      if (!ref.mounted) return;
       final chatRepo = ref.read(sharedChatRepositoryProvider);
       final response = await chatRepo.getConversations(page: page, limit: 20);
+
+      if (!ref.mounted) return;
 
       if (response != null) {
         List<Map<String, dynamic>> convos = [];
@@ -113,6 +122,8 @@ class SharedInbox extends _$SharedInbox {
           hasMore = convos.length == 20;
         }
 
+        if (!ref.mounted) return;
+
         if (page == 1) {
           _sortConversations(convos);
           state = state.copyWith(
@@ -132,10 +143,12 @@ class SharedInbox extends _$SharedInbox {
           );
         }
       } else {
+        if (!ref.mounted) return;
         state = state.copyWith(isLoading: false, hasMore: false);
       }
     } catch (e, stack) {
-      print('SharedInbox fetch error: $e\n$stack');
+      if (!ref.mounted) return;
+      debugPrint('SharedInbox fetch error: $e\n$stack');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -153,10 +166,12 @@ class SharedInbox extends _$SharedInbox {
   }
 
   Future<void> refresh() async {
+    if (!ref.mounted) return;
     await _fetchConversations(1);
   }
 
   Future<void> loadMore() async {
+    if (!ref.mounted) return;
     if (state.isLoading || !state.hasMore) return;
     await _fetchConversations(state.page + 1);
   }

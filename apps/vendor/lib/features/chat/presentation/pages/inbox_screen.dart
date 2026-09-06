@@ -153,9 +153,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       target = p as Map<String, dynamic>;
     }
 
-    final String name = target?['name'] ?? AppLocalizations.of(context)!.unknownUser;
-    final String? avatar = target?['avatar'];
-    final String? phoneNumber = target?['phoneNumber'];
+    final targetUser = target?['user'] is Map ? target!['user'] as Map<String, dynamic> : target;
+    final String rawName = (targetUser?['name'] ?? target?['name'])?.toString().trim() ?? '';
+    final String name = rawName.isNotEmpty ? rawName : AppLocalizations.of(context)!.unknownUser;
+    final String? avatar = (targetUser?['avatar'] ?? target?['avatar'])?.toString();
+    final String? phoneNumber = (targetUser?['phoneNumber'] ?? target?['phoneNumber'])?.toString();
     final String? vendorName = conversation['vendorName'];
     final String lastMsgText = lastMessage != null
         ? lastMessage['text'] ?? AppLocalizations.of(context)!.media
@@ -233,7 +235,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                         : null,
                     child: (avatar == null || avatar.isEmpty)
                         ? Text(
-                            name[0].toUpperCase(),
+                            (name.isNotEmpty ? name[0] : '?').toUpperCase(),
                             style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.bold,

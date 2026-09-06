@@ -124,11 +124,6 @@ class CartScreen extends ConsumerWidget {
         ? (firstProduct['vendorNameAr'] ?? firstProduct['vendorName'] ?? s.vendor) 
         : (firstProduct['vendorName'] ?? s.vendor);
       final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
-      
-      // Delivery and Service fees are calculated later by the driver and backend during the 3-Way Handshake
-      final delivery = 0.0;
-      final serviceFee = 0.0;
-      
       final total = subtotal;
 
     return Container(
@@ -241,12 +236,19 @@ class CartScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      s.isArabic ? 'رسوم التوصيل والخدمة' : 'Delivery & Service Fees',
+                      s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
                       style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500),
                     ),
-                    Text(
-                      s.isArabic ? 'تحدد لاحقاً' : 'Calculated later',
-                      style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12, fontStyle: FontStyle.italic),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        s.isArabic ? 'تحدد عند تعيين الكابتن' : 'Determined upon driver match',
+                        style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -257,7 +259,14 @@ class CartScreen extends ConsumerWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(s.total, style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w600)),
+                        Text(
+                          s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal', 
+                          style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)',
+                          style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 11),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           '${total.toStringAsFixed(0)} ${s.egp}', 

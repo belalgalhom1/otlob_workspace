@@ -3,6 +3,7 @@ import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
+import 'package:core/core.dart';
 
 part 'auth_provider.g.dart';
 
@@ -51,6 +52,15 @@ class Auth extends _$Auth {
         await repository.logout();
         throw Exception('auth.error.pending_approval');
       }
+
+      // Initialize Push Notifications and register FCM token
+      Future(() async {
+        try {
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          await pushService.subscribeToRoleTopics('DRIVER');
+        } catch (_) {}
+      });
       
       state = const AsyncValue.data(true);
     } catch (e, st) {

@@ -41,6 +41,12 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         final diff = expiresAt.difference(DateTime.now()).inSeconds;
         _secondsLeft = diff > 0 ? diff : 0;
       } catch (_) {}
+    } else {
+      final config = ref.read(configurationProvider).value;
+      final timeout = config?['driverAcceptTimeoutSecs'] ?? config?['driverDispatchTimeout'];
+      if (timeout is num && timeout > 0) {
+        _secondsLeft = timeout.toInt();
+      }
     }
     _startTimer();
   }
@@ -53,7 +59,9 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         });
       } else {
         _timer?.cancel();
-        _onDecline(); // Auto-decline when timer expires
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
       }
     });
   }

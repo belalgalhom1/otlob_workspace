@@ -60,7 +60,7 @@ class OrderExecution extends _$OrderExecution {
       final orderId = prev.value['id'];
       
       await repository.confirmPayment(orderId, received: received);
-      await updateOrderStatus('DELIVERED');
+      await _fetchActiveOrder();
     } catch (e, st) {
       if (prev.hasValue) {
         state = prev;
@@ -73,11 +73,17 @@ class OrderExecution extends _$OrderExecution {
   
   void handleSocketUpdate(Map<String, dynamic> data) {
     if (state.hasValue && state.value != null) {
-      final orderId = state.value['id'];
-      if (data['orderId'] == orderId) {
+      final orderId = state.value['id']?.toString();
+      final incomingId = (data['orderId'] ?? data['id'])?.toString();
+      if (incomingId != null && incomingId == orderId) {
         final updatedState = Map<String, dynamic>.from(state.value);
-        if (data['status'] != null) updatedState['status'] = data['status'];
-        state = AsyncValue.data(updatedState);
+        final newStatus = data['newStatus'] ?? data['status'];
+        if (newStatus != null) {
+          updatedState['status'] = newStatus;
+          state = AsyncValue.data(updatedState);
+        } else {
+          _fetchActiveOrder();
+        }
       }
     }
   }

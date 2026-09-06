@@ -42,7 +42,7 @@ final class GlobalOrderListenerProvider
 }
 
 String _$globalOrderListenerHash() =>
-    r'41c400ef8657c90e1f563859ca586c7bd803062e';
+    r'de2b26f5e9cc8b2c0ac36ed1b3fb822357d77e13';
 
 abstract class _$GlobalOrderListener extends $Notifier<void> {
   void build();

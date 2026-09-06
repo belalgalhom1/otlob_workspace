@@ -40,7 +40,7 @@ final class OrdersProvider extends $NotifierProvider<Orders, OrdersState> {
   }
 }
 
-String _$ordersHash() => r'2ea5ab99c6e23aafc6229aee35804b7ee477bc27';
+String _$ordersHash() => r'489c3102ec07dea216aa86c7abb9f67638bf9eb1';
 
 abstract class _$Orders extends $Notifier<OrdersState> {
   OrdersState build();

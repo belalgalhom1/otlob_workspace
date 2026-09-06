@@ -529,8 +529,9 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
   }
 
   Widget _buildMenuItem(BuildContext context, WidgetRef ref, Map<String, dynamic> item, CartState cartState, AppStrings s, bool isDark, bool isOpen, bool isPharmacy) {
-    final cartItem = cartState.allItems.where((ci) => ci.product['id'] == item['id']).firstOrNull;
-    final qty = cartItem?.quantity ?? 0;
+    final totalCartQty = cartState.allItems
+        .where((ci) => ci.product['id']?.toString() == item['id']?.toString())
+        .fold<int>(0, (sum, ci) => sum + ci.quantity);
 
     return GestureDetector(
       onTap: () {
@@ -638,6 +639,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                               AuthPromptDialog.show(context);
                               return;
                             }
+
+                            final hasVariants = (item['hasVariants'] == true && (item['variants'] as List?)?.isNotEmpty == true);
+                            final hasOptionGroups = (item['optionGroups'] as List?)?.isNotEmpty == true;
+                            final hasVariantsWithOptions = (item['variants'] as List?)?.any((v) => (v['optionGroups'] as List?)?.isNotEmpty == true) ?? false;
+                            final isPharmacyWithStrips = isPharmacy && item['sellByStrip'] == true && item['stripsPerPackage'] != null;
+                            final hasCustomizations = hasVariants || hasOptionGroups || hasVariantsWithOptions || isPharmacyWithStrips;
+
+                            if (hasCustomizations) {
+                              setState(() => _selectedUnit = 'package');
+                              _showProductBottomSheet(context, ref, item, cartState, s, isDark, isPharmacy);
+                              return;
+                            }
                             
                             try {
                               await ref.read(cartProvider.notifier).addItem({
@@ -679,7 +692,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                 const Icon(Icons.add, size: 16, color: AppColors.primary),
                                 const SizedBox(width: 4),
                                 Text(
-                                  s.addToCart,
+                                  totalCartQty > 0 ? '${s.addToCart} ($totalCartQty)' : s.addToCart,
                                   style: const TextStyle(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.bold,
@@ -721,115 +734,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     );
   }
 
-  Widget _addButton(WidgetRef ref, Map<String, dynamic> item, AppStrings s) {
-    return GestureDetector(
-      onTap: () {
-        final authStatus = ref.read(authControllerProvider);
-        if (authStatus == AuthStatus.unauthenticated) {
-          AuthPromptDialog.show(context);
-          return;
-        }
-        ref.read(cartProvider.notifier).addItem({
-          ...item,
-          'vendorId': widget.restaurant['id'],
-          'vendorName': widget.restaurant['name'],
-        }, unit: 'package');
-      },
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.primary, 
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: const Icon(Icons.add, color: Colors.black, size: 20),
-      ),
-    );
-  }
 
-  Widget _qtyControl(WidgetRef ref, CartItem cartItem, int qty) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.primary, 
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.remove_rounded, color: Colors.black, size: 18), 
-            onPressed: () {
-              final authStatus = ref.read(authControllerProvider);
-              if (authStatus == AuthStatus.unauthenticated) {
-                AuthPromptDialog.show(context);
-                return;
-              }
-              ref.read(cartProvider.notifier).updateQuantity(cartItem, qty - 1);
-            }
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('$qty', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 15)),
-          ),
-          IconButton(
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.add_rounded, color: Colors.black, size: 18), 
-            onPressed: () {
-              final authStatus = ref.read(authControllerProvider);
-              if (authStatus == AuthStatus.unauthenticated) {
-                AuthPromptDialog.show(context);
-                return;
-              }
-              ref.read(cartProvider.notifier).updateQuantity(cartItem, qty + 1);
-            }
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(IconData icon, String label, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min, 
-        children: [
-          Icon(icon, size: 14, color: isDark ? AppColors.primary : Colors.black54),
-          const SizedBox(width: 6),
-          Text(
-            label, 
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black87, 
-              fontSize: 12, 
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            )
-          ),
-        ],
-      ),
-    );
-  }
 
 
   void _showProductBottomSheet(BuildContext context, WidgetRef ref, Map<String, dynamic> item, CartState cartState, AppStrings s, bool isDark, bool isPharmacy) {

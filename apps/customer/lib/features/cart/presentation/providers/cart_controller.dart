@@ -180,11 +180,11 @@ class Cart extends _$Cart {
       }
         
       if (variant != null) {
-        builder.variantId = variant['id'];
+        builder.variantId = variant['id']?.toString();
       }
       
       if (options.isNotEmpty) {
-        builder.optionIds.replace(options.map((o) => o['id'] as String).toList());
+        builder.optionIds.replace(options.map((o) => o['id']?.toString() ?? '').where((id) => id.isNotEmpty).toList());
       }
       
       final response = await cartRepo.addItem(vendorId, builder.build());

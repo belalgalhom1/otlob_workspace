@@ -3,7 +3,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -18,6 +17,10 @@ class CoreSocketService with WidgetsBindingObserver {
   
   // Stream Controllers for strictly typed events
   final Map<SocketEvent, StreamController<dynamic>> _controllers = {};
+  final StreamController<void> _connectController = StreamController<void>.broadcast();
+
+  Stream<void> get onConnect => _connectController.stream;
+  bool get isConnected => _socket?.connected ?? false;
   
   DateTime? _lastRefreshTime;
 
@@ -93,6 +96,9 @@ class CoreSocketService with WidgetsBindingObserver {
     
     _socket?.onConnect((_) {
       debugPrint('✅ Core Socket connected');
+      if (!_connectController.isClosed) {
+        _connectController.add(null);
+      }
       // Reattach listeners to stream controllers automatically
       for (var event in SocketEvent.values) {
         // Skip client-emitted events
@@ -147,6 +153,7 @@ class CoreSocketService with WidgetsBindingObserver {
     disconnect();
     _socket?.dispose();
     _socket = null;
+    _connectController.close();
     for (var controller in _controllers.values) {
       controller.close();
     }

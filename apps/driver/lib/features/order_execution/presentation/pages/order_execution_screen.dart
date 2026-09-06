@@ -86,17 +86,33 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     double vendorLat = 0.0;
     double vendorLng = 0.0;
     
-    if (isCustomOrRide && pickupLoc is List && pickupLoc.length > 1) {
-      vendorLat = double.tryParse(pickupLoc[1].toString()) ?? 0.0;
+    if (pickupLoc is List && pickupLoc.length > 1) {
       vendorLng = double.tryParse(pickupLoc[0].toString()) ?? 0.0;
+      vendorLat = double.tryParse(pickupLoc[1].toString()) ?? 0.0;
+    } else if (pickupLoc is Map && pickupLoc['coordinates'] is List && (pickupLoc['coordinates'] as List).length > 1) {
+      vendorLng = double.tryParse(pickupLoc['coordinates'][0].toString()) ?? 0.0;
+      vendorLat = double.tryParse(pickupLoc['coordinates'][1].toString()) ?? 0.0;
+    } else if (order['pickupCoordinates'] is List && (order['pickupCoordinates'] as List).length > 1) {
+      vendorLng = double.tryParse(order['pickupCoordinates'][0].toString()) ?? 0.0;
+      vendorLat = double.tryParse(order['pickupCoordinates'][1].toString()) ?? 0.0;
     } else if (vendorData is Map) {
       vendorLat = double.tryParse((vendorData['latitude'] ?? 0.0).toString()) ?? 0.0;
       vendorLng = double.tryParse((vendorData['longitude'] ?? 0.0).toString()) ?? 0.0;
     }
     
     final dl = order['deliveryLocation'];
-    final customerLat = dl is List && dl.length > 1 ? dl[1] : 0.0;
-    final customerLng = dl is List && dl.length > 0 ? dl[0] : 0.0;
+    double customerLat = 0.0;
+    double customerLng = 0.0;
+    if (dl is List && dl.length > 1) {
+      customerLng = double.tryParse(dl[0].toString()) ?? 0.0;
+      customerLat = double.tryParse(dl[1].toString()) ?? 0.0;
+    } else if (dl is Map && dl['coordinates'] is List && (dl['coordinates'] as List).length > 1) {
+      customerLng = double.tryParse(dl['coordinates'][0].toString()) ?? 0.0;
+      customerLat = double.tryParse(dl['coordinates'][1].toString()) ?? 0.0;
+    } else if (order['deliveryAddress'] is Map) {
+      customerLat = double.tryParse(order['deliveryAddress']['latitude']?.toString() ?? '') ?? 0.0;
+      customerLng = double.tryParse(order['deliveryAddress']['longitude']?.toString() ?? '') ?? 0.0;
+    }
 
     final status = order['status'] ?? '';
     final isCashOnDelivery = order['paymentMethod'] == 'CASH_ON_DELIVERY';
@@ -235,7 +251,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                 ? l10n.waitingForCustomerApproval
                                 : status == 'PENDING_PAYMENT'
                                     ? (l10n.localeName == 'ar' ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
-                                    : status == 'PICKED_UP' ? l10n.navigatingToCustomer : l10n.navigatingToVendor,
+                                    : (status == 'PICKED_UP')
+                                        ? l10n.navigatingToCustomer
+                                        : (isCustomOrRide
+                                            ? (l10n.localeName == 'ar' ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
+                                            : l10n.navigatingToVendor),
                             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface),
                           ),
                           Text(
@@ -243,7 +263,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                 ? l10n.waitingForCustomerApproval
                                 : (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
                                   ? ((order['customer'] is Map ? order['customer']['name'] : null) ?? l10n.customerFallback)
-                                  : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback),
+                                  : (isCustomOrRide
+                                      ? (order['pickupAddress']?.toString() ?? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location'))
+                                      : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback)),
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -363,11 +385,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         return PrimaryButton(
           text: text,
           onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED')),
-        );
-      } else if (isMobileWallet) {
-        return PrimaryButton(
-          text: l10n.localeName == 'ar' ? 'طلب الدفع للوصول' : 'Request Payment to Deliver',
-          onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('PENDING_PAYMENT')),
         );
       } else {
         return PrimaryButton(

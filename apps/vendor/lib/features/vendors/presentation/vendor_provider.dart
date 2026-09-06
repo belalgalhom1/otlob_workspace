@@ -114,7 +114,9 @@ class VendorNotifier extends _$VendorNotifier {
       if (data['description'] != null) b.description = data['description'];
       if (data['descriptionAr'] != null) b.descriptionAr = data['descriptionAr'];
       if (data['stock'] != null) b.stock = num.tryParse(data['stock'].toString());
-      if (data['sku'] != null) b.sku = data['sku'].toString();
+      if (data['sku'] != null && data['sku'].toString().trim().isNotEmpty) {
+        b.sku = data['sku'].toString().trim();
+      }
       b.isActive = data['isActive'] ?? true;
       if (data['sellByStrip'] != null) b.sellByStrip = data['sellByStrip'];
       if (data['stripsPerPackage'] != null) {

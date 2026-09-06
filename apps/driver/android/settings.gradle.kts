@@ -24,3 +24,4 @@ plugins {
 }
 
 include(":app")
+rootProject.name = "driver_android"

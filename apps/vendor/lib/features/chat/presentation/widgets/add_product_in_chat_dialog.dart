@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,7 +36,6 @@ class _AddProductInChatDialogState
   late TextEditingController _comparePriceController;
   late TextEditingController _skuController;
   late TextEditingController _stockController;
-  late TextEditingController _searchProductController;
 
   bool _isActive = true;
   bool _isFeatured = false;
@@ -64,7 +63,6 @@ class _AddProductInChatDialogState
     _comparePriceController = TextEditingController();
     _skuController = TextEditingController();
     _stockController = TextEditingController();
-    _searchProductController = TextEditingController();
 
     _fetchInitialData();
   }
@@ -129,6 +127,19 @@ class _AddProductInChatDialogState
       _pushToMenu = false; // Existing product, no need to push
       _existingImageUrl = product['imageUrl'] ?? product['image'];
     });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _nameArController.dispose();
+    _descriptionController.dispose();
+    _descriptionArController.dispose();
+    _priceController.dispose();
+    _comparePriceController.dispose();
+    _skuController.dispose();
+    _stockController.dispose();
+    super.dispose();
   }
 
   @override
@@ -343,8 +354,7 @@ class _AddProductInChatDialogState
                                 label:
                                     AppLocalizations.of(
                                       context,
-                                    )!.comparePrice ??
-                                    'Compare Price',
+                                    )!.comparePrice,
                                 hint: '0.00',
                                 icon: LucideIcons.tag,
                                 keyboardType: TextInputType.number,
@@ -371,8 +381,7 @@ class _AddProductInChatDialogState
                                 label:
                                     AppLocalizations.of(
                                       context,
-                                    )!.initialStock ??
-                                    'Stock',
+                                    )!.initialStock,
                                 hint: '0',
                                 icon: LucideIcons.box,
                                 keyboardType: TextInputType.number,
@@ -401,13 +410,11 @@ class _AddProductInChatDialogState
                                 title:
                                     AppLocalizations.of(
                                       context,
-                                    )!.productActiveStatus ??
-                                    'Active',
+                                    )!.productActiveStatus,
                                 subtitle:
                                     AppLocalizations.of(
                                       context,
-                                    )!.productVisibleToCustomers ??
-                                    'Visible to customers',
+                                    )!.productVisibleToCustomers,
                                 value: _isActive,
                                 onChanged: (v) => setState(() => _isActive = v),
                                 icon: LucideIcons.eye,
@@ -421,13 +428,11 @@ class _AddProductInChatDialogState
                                 title:
                                     AppLocalizations.of(
                                       context,
-                                    )!.featuredProduct ??
-                                    'Featured',
+                                    )!.featuredProduct,
                                 subtitle:
                                     AppLocalizations.of(
                                       context,
-                                    )!.showAtTopOfMenu ??
-                                    'Show at top of menu',
+                                    )!.showAtTopOfMenu,
                                 value: _isFeatured,
                                 onChanged: (v) =>
                                     setState(() => _isFeatured = v),
@@ -444,8 +449,7 @@ class _AddProductInChatDialogState
                                 subtitle:
                                     AppLocalizations.of(
                                       context,
-                                    )!.pushToMenuSubtitle ??
-                                    'Save this product to the public menu',
+                                    )!.pushToMenuSubtitle,
                                 value: _pushToMenu,
                                 onChanged: (v) =>
                                     setState(() => _pushToMenu = v),
@@ -885,7 +889,7 @@ class _AddProductInChatDialogState
         'descriptionAr': _descriptionArController.text,
         'basePrice': double.tryParse(_priceController.text),
         'comparePrice': double.tryParse(_comparePriceController.text),
-        'sku': _skuController.text,
+        'sku': _skuController.text.trim().isEmpty ? null : _skuController.text.trim(),
         'stock': double.tryParse(_stockController.text),
         'isActive': _isActive,
         'isFeatured': _isFeatured,

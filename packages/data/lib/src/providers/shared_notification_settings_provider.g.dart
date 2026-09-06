@@ -43,7 +43,7 @@ final class SharedNotificationSettingsProvider
 }
 
 String _$sharedNotificationSettingsHash() =>
-    r'34c7f65dd6bd5f2ceb5e88498687ab436d537c61';
+    r'634e80d50c108763998c921ce615b087b20cf6ac';
 
 abstract class _$SharedNotificationSettings
     extends $Notifier<AsyncValue<dynamic>> {

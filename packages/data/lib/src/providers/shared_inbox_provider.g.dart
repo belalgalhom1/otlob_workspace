@@ -20,7 +20,7 @@ final class SharedInboxProvider
         argument: null,
         retry: null,
         name: r'sharedInboxProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -41,7 +41,7 @@ final class SharedInboxProvider
   }
 }
 
-String _$sharedInboxHash() => r'3047849da2cbf7f16793268d37c39bdb4cef22a9';
+String _$sharedInboxHash() => r'7ac4c60490a8a221ab3274995a32a0dc3dff0b8b';
 
 abstract class _$SharedInbox extends $Notifier<InboxState> {
   InboxState build();

@@ -134,6 +134,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cartState = ref.watch(cartProvider);
     final profileState = ref.watch(profileProvider);
 
@@ -153,15 +154,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ? (vendorItems.first.product['vendorName'] as String? ?? s.vendor)
         : s.vendor;
     final subtotal = cartState.getVendorSubtotal(widget.vendorId ?? '');
-
     final settings = ref.watch(platformSettingsProvider).value;
-    final deliveryFee = double.tryParse(settings?.baseDeliveryFee?.toString() ?? '0') ?? 0.0;
-    final serviceFee = 0.0;
 
+    // Delivery fee is dynamically determined upon driver match based on real distance
     final total = subtotal;
     
     final coinState = ref.watch(coinHistoryProvider);
-    final settings = ref.watch(platformSettingsProvider).value;
     double coinDiscount = 0;
     int? coinsToUse;
 
@@ -314,18 +312,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       )),
                   const Divider(),
                   _priceRow(
-                      s.subtotal, '${subtotal.toStringAsFixed(0)} ${s.egp}'),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(s.isArabic ? 'رسوم التوصيل والخدمة' : 'Delivery & Service Fees',
-                            style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                        Text(s.isArabic ? 'تحدد لاحقاً' : 'Calculated later',
-                            style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey)),
-                      ],
-                    ),
+                      s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal',
+                      '${subtotal.toStringAsFixed(0)} ${s.egp}'),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        s.deliveryFee,
+                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          s.isArabic ? 'تحدد بعد قبول الكابتن' : 'Determined after driver match',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   
                   if (coinState.currentBalance > 0 && settings != null && coinState.currentBalance >= settings.minCoinsToUse) ...[
@@ -360,21 +372,90 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     _priceRow(s.isArabic ? 'خصم العملات' : 'Coin Discount', '-${coinDiscount.toStringAsFixed(0)} ${s.egp}'),
                   ],
                   
-                  const SizedBox(height: 8),
+                  const Divider(height: 24),
                   Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(s.total,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal',
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('${finalTotal.toStringAsFixed(0)} ${s.egp}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                                color: AppColors.primary)),
-                      ]),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            s.isArabic ? '(غير شامل التوصيل)' : '(Excluding delivery)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white38 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${finalTotal.toStringAsFixed(0)} ${s.egp}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ]),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : AppColors.primary.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline_rounded,
+                          size: 20, color: AppColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.isArabic
+                                  ? 'كيف تُحسب رسوم التوصيل؟'
+                                  : 'How is delivery fee calculated?',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              s.isArabic
+                                  ? 'تُحسب الرسوم بدقة فور قبول الكابتن للطلب بناءً على مسافته الحقيقية، وتظهر لك شاشة لمراجعتها وتأكيدها.'
+                                  : 'The fee is accurately calculated when a driver accepts based on their actual distance, and you will review & approve it.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.4,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -386,7 +467,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
-                        '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp})',
+                        '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp} + ${s.isArabic ? 'التوصيل' : 'Delivery'})',
                         style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

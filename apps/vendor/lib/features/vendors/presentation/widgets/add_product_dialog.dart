@@ -1114,7 +1114,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 'nameAr': nameArController.text,
                 'basePrice': double.tryParse(priceController.text) ?? 0.0,
                 'stock': int.tryParse(stockController.text),
-                'sku': skuController.text,
+                'sku': skuController.text.trim().isEmpty ? null : skuController.text.trim(),
               };
               bool success = false;
               if (variant == null) {
@@ -1886,7 +1886,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
       'descriptionAr': _descriptionArController.text,
       'basePrice': double.tryParse(_priceController.text),
       'comparePrice': double.tryParse(_comparePriceController.text),
-      'sku': _skuController.text,
+      'sku': _skuController.text.trim().isEmpty ? null : _skuController.text.trim(),
       'stock': double.tryParse(_stockController.text),
       'isActive': _isActive,
       'isFeatured': _isFeatured,

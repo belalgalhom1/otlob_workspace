@@ -986,6 +986,28 @@ class AppLocalizationsAr extends AppLocalizations {
   String get vendor_vertical_error_not_found => 'نوع العمل غير موجود.';
 
   @override
+  String get zone_error_not_found => 'المنطقة غير موجودة.';
+
+  @override
+  String get zone_error_invalid_boundary_polygon =>
+      'مضلع حدود المنطقة غير صالح.';
+
+  @override
+  String get zone_error_invalid_location_for_zone =>
+      'الموقع المحدد خارج نطاق مناطق التوصيل المتاحة. يرجى اختيار موقع داخل منطقة توصيل نشطة.';
+
+  @override
+  String get autoDetectZone => 'تحديد تلقائي بناءً على الموقع';
+
+  @override
+  String get outsideDeliveryZones => 'خارج مناطق التوصيل';
+
+  @override
+  String insideZone(String zoneName) {
+    return 'المنطقة: $zoneName';
+  }
+
+  @override
   String get showMore => 'عرض المزيد';
 
   @override

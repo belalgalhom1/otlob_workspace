@@ -160,7 +160,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
 
               const SizedBox(height: 32),
               
-              // Vendor Details
+              // Vendor Details / Pickup Details
               Text(
                 (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') 
                     ? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location') 
@@ -172,17 +172,31 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildInfoRow(context, LucideIcons.store, (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') ? (l10n.localeName == 'ar' ? 'العميل' : 'Customer') : (vendor['name'] ?? l10n.vendorFallback)),
-              if (vendor['address'] != null) ...[
-                const SizedBox(height: 12),
-                _buildInfoRow(context, LucideIcons.map, vendor['address']),
+              if (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') ...[
+                _buildInfoRow(
+                  context, 
+                  LucideIcons.mapPin, 
+                  (order['pickupAddress'] != null && order['pickupAddress'].toString().isNotEmpty)
+                      ? order['pickupAddress'].toString()
+                      : (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location'),
+                ),
+              ] else ...[
+                _buildInfoRow(context, LucideIcons.store, vendor['storeName'] ?? vendor['name'] ?? l10n.vendorFallback),
+                if (vendor['address'] != null) ...[
+                  const SizedBox(height: 12),
+                  _buildInfoRow(context, LucideIcons.map, vendor['address']),
+                ],
               ],
 
               const SizedBox(height: 32),
               
-              // Order Items
+              // Order Items or Package Details
               Text(
-                l10n.localeName == 'ar' ? 'عناصر الطلب' : 'Order Items',
+                (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE')
+                    ? (order['type'] == 'RIDE' 
+                        ? (l10n.localeName == 'ar' ? 'تفاصيل الرحلة' : 'Ride Details')
+                        : (l10n.localeName == 'ar' ? 'تفاصيل الشحنة' : 'Package Details'))
+                    : (l10n.localeName == 'ar' ? 'عناصر الطلب' : 'Order Items'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -190,8 +204,14 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (items.isEmpty)
-                Text(l10n.localeName == 'ar' ? 'لا توجد عناصر' : 'No items found')
+              if (items.isEmpty) ...[
+                if (order['itemDetails'] != null && order['itemDetails'].toString().isNotEmpty)
+                  _buildInfoRow(context, LucideIcons.package, order['itemDetails'].toString())
+                else if (order['specialRequest'] != null && order['specialRequest'].toString().isNotEmpty)
+                  _buildInfoRow(context, LucideIcons.fileText, order['specialRequest'].toString())
+                else
+                  Text(l10n.localeName == 'ar' ? 'لا توجد تفاصيل إضافية' : 'No additional details')
+              ]
               else
                 ...items.map((item) => Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),

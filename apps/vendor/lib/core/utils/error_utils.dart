@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 
 class ErrorUtils {
@@ -97,6 +97,12 @@ class ErrorUtils {
         return l10n.product_error_sku_taken;
       case 'vendor_vertical_error_not_found':
         return l10n.vendor_vertical_error_not_found;
+      case 'zone_error_not_found':
+        return l10n.zone_error_not_found;
+      case 'zone_error_invalid_boundary_polygon':
+        return l10n.zone_error_invalid_boundary_polygon;
+      case 'zone_error_invalid_location_for_zone':
+        return l10n.zone_error_invalid_location_for_zone;
 
       // Add more mappings as needed...
 

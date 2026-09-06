@@ -30,6 +30,20 @@ class PushNotificationService {
     const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     await _localNotifications.initialize(settings: initSettings);
 
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      const channel = AndroidNotificationChannel(
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'Used for important delivery requests and order updates.',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
+      await androidPlugin.createNotificationChannel(channel);
+    }
+
     // Get FCM token
     String? token = await _messaging.getToken();
     if (token != null) {
@@ -52,9 +66,12 @@ class PushNotificationService {
     // Background / Terminated state clicks
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       debugPrint('Message clicked! Routing to payload: ${message.data}');
-      // Handle routing via external callback if needed
     });
   }
+
+  Stream<RemoteMessage> get onMessage => FirebaseMessaging.onMessage;
+  Stream<RemoteMessage> get onMessageOpenedApp => FirebaseMessaging.onMessageOpenedApp;
+  Future<RemoteMessage?> getInitialMessage() => _messaging.getInitialMessage();
 
   Future<void> _registerToken(String token) async {
     try {

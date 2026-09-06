@@ -1594,11 +1594,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       mainButtonText = isArabic ? 'قبول الطلب' : 'Accept Order';
       nextStatus = 'ACCEPTED';
       icon = LucideIcons.checkCheck;
-    } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER' || status == 'PENDING_CUSTOMER_APPROVAL') {
-      mainButtonText = isArabic ? 'بدء التحضير' : 'Start Preparing';
-      nextStatus = 'PREPARING';
-      icon = LucideIcons.chefHat;
-    } else if (status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
+    } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER' || status == 'PENDING_CUSTOMER_APPROVAL' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
       mainButtonText = isArabic ? 'بدء التحضير' : 'Start Preparing';
       nextStatus = 'PREPARING';
       icon = LucideIcons.chefHat;

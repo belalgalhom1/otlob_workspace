@@ -201,7 +201,9 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             b.hasVariants = false;
             b.isActive = true;
             if (result['stock'] != null) b.stock = num.tryParse(result['stock'].toString());
-            if (result['sku'] != null) b.sku = result['sku'].toString();
+            if (result['sku'] != null && result['sku'].toString().trim().isNotEmpty) {
+              b.sku = result['sku'].toString().trim();
+            }
           });
           final createdProduct = await ref
               .read(adminVendorsRepositoryProvider)
@@ -1411,7 +1413,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   Future<void> _loadMessages() async {
     try {
-    try {
       final repository = ref.read(sharedChatRepositoryProvider);
       final response = await repository.getMessages(widget.conversationId);
       
@@ -2021,8 +2022,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       displaySenderName = '$senderName ($formattedRole)';
     }
 
-    final isAdmin = _currentUserRole == 'SUPER_ADMIN';
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Column(
@@ -2064,7 +2063,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       : null,
                   child: message['sender']['avatar'] == null
                       ? Text(
-                          senderName[0].toUpperCase(),
+                          (senderName.isNotEmpty ? senderName[0] : '?').toUpperCase(),
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -2400,39 +2399,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCompactActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    VoidCallback? onLongPress,
-    VoidCallback? onLongPressUp,
-    required Gradient gradient,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      onLongPressUp: onLongPressUp,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 48,
-        width: 48,
-        decoration: BoxDecoration(
-          gradient: gradient,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: (gradient as LinearGradient).colors.first.withValues(
-                alpha: 0.4,
-              ),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 20),
       ),
     );
   }

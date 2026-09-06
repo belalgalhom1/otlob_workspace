@@ -1421,6 +1421,7 @@
   "app.paymentMethod": "طريقة الدفع",
   "app.instapay": "إنستا باي",
   "app.vodafoneCash": "المحفظة الإلكترونية",
+  "app.mobileWallet": "المحفظة الإلكترونية",
   "app.cashOnDelivery": "الدفع عند الاستلام",
   "app.orderSuccess": "تم تأكيد طلبك!",
   "app.orderSuccessSub": "طلبك قيد التحضير وسنوافيك بالتحديثات قريباً",

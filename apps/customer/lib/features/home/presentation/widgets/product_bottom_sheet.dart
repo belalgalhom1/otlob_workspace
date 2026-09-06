@@ -49,34 +49,43 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     
     final productOptionGroups = widget.item['optionGroups'] as List<dynamic>? ?? [];
     for (final group in productOptionGroups) {
-      _selectedOptions[group['id']] = [];
+      final gId = group['id']?.toString() ?? '';
+      _selectedOptions[gId] = [];
     }
 
     if (_selectedVariant != null) {
       final variantOptionGroups = _selectedVariant!['optionGroups'] as List<dynamic>? ?? [];
       for (final group in variantOptionGroups) {
-        _selectedOptions[group['id']] = [];
+        final gId = group['id']?.toString() ?? '';
+        _selectedOptions[gId] = [];
       }
     }
   }
 
   bool _areOptionsEqual(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
     if (a.length != b.length) return false;
-    final aIds = a.map((o) => o['id']).toSet();
-    final bIds = b.map((o) => o['id']).toSet();
+    final aIds = a.map((o) => o['id']?.toString() ?? '').toSet();
+    final bIds = b.map((o) => o['id']?.toString() ?? '').toSet();
     return aIds.containsAll(bIds);
   }
 
   void _toggleOption(Map<String, dynamic> group, Map<String, dynamic> option) {
-    final groupId = group['id'];
-    final maxSelect = group['maxSelect'] as int? ?? 1;
+    final groupId = group['id']?.toString() ?? '';
+    final maxSelect = group['maxSelect'] is int 
+        ? group['maxSelect'] as int 
+        : int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
     final list = List<Map<String, dynamic>>.from(_selectedOptions[groupId] ?? []);
+    final optId = option['id']?.toString() ?? '';
     
-    final isSelected = list.any((o) => o['id'] == option['id']);
+    final isSelected = list.any((o) => o['id']?.toString() == optId);
     
     setState(() {
       if (isSelected) {
-        list.removeWhere((o) => o['id'] == option['id']);
+        final isRequired = group['isRequired'] == true;
+        if (maxSelect == 1 && isRequired) {
+          return;
+        }
+        list.removeWhere((o) => o['id']?.toString() == optId);
       } else {
         if (maxSelect == 1) {
           list.clear();
@@ -84,6 +93,20 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
         } else {
           if (list.length < maxSelect) {
             list.add(option);
+          } else {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            final isAr = Localizations.localeOf(context).languageCode == 'ar';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  isAr 
+                    ? 'الحد الأقصى للاختيار هو $maxSelect' 
+                    : 'Maximum selection is $maxSelect',
+                ),
+                duration: const Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           }
         }
       }
@@ -144,9 +167,12 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     bool requiredMet = true;
     for (final group in optionGroups) {
       if (group['isRequired'] == true) {
-        final minSelect = group['minSelect'] as int? ?? 1;
-        final count = _selectedOptions[group['id']]?.length ?? 0;
-        if (count < minSelect) {
+        final minSelect = group['minSelect'] is int 
+            ? group['minSelect'] as int 
+            : int.tryParse(group['minSelect']?.toString() ?? '1') ?? 1;
+        final gId = group['id']?.toString() ?? '';
+        final count = _selectedOptions[gId]?.length ?? 0;
+        if (count < (minSelect > 0 ? minSelect : 1)) {
           requiredMet = false;
           break;
         }
@@ -304,11 +330,13 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                             _selectedOptions.clear();
                             final productGroups = widget.item['optionGroups'] as List<dynamic>? ?? [];
                             for (final g in productGroups) {
-                              _selectedOptions[g['id']] = [];
+                              final gId = g['id']?.toString() ?? '';
+                              _selectedOptions[gId] = [];
                             }
                             final vOptionGroups = v['optionGroups'] as List<dynamic>? ?? [];
                             for (final g in vOptionGroups) {
-                              _selectedOptions[g['id']] = [];
+                              final gId = g['id']?.toString() ?? '';
+                              _selectedOptions[gId] = [];
                             }
                           });
                         },
@@ -322,46 +350,133 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                       final gName = isAr && group['nameAr'] != null && group['nameAr'].toString().isNotEmpty ? group['nameAr'] : group['name'];
                       final options = group['options'] as List<dynamic>? ?? [];
                       final isRequired = group['isRequired'] == true;
-                      
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Text(
-                                gName,
-                                style: TextStyle(
-                                  fontSize: 16, 
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                              ),
-                              if (isRequired)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: Text('*', style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold)),
-                                ),
-                            ],
+                      final minSelect = group['minSelect'] is int 
+                          ? group['minSelect'] as int 
+                          : int.tryParse(group['minSelect']?.toString() ?? (isRequired ? '1' : '0')) ?? (isRequired ? 1 : 0);
+                      final maxSelect = group['maxSelect'] is int 
+                          ? group['maxSelect'] as int 
+                          : int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+                      final gId = group['id']?.toString() ?? '';
+                      final selectedCount = (_selectedOptions[gId] ?? []).length;
+                      final isGroupSatisfied = !isRequired || selectedCount >= (minSelect > 0 ? minSelect : 1);
+
+                      return Container(
+                        margin: const EdgeInsets.only(top: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: !isGroupSatisfied
+                                ? Colors.redAccent.withValues(alpha: 0.4)
+                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
+                            width: !isGroupSatisfied ? 1.5 : 1,
                           ),
-                          const SizedBox(height: 8),
-                          ...options.map((opt) {
-                            final oName = isAr && opt['nameAr'] != null && opt['nameAr'].toString().isNotEmpty ? opt['nameAr'] : opt['name'];
-                            final oPrice = double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0.0;
-                            final isSelected = (_selectedOptions[group['id']] ?? []).any((o) => o['id'] == opt['id']);
-                            
-                            return CheckboxListTile(
-                              title: Text(oName),
-                              subtitle: oPrice > 0 ? Text('+${oPrice.toStringAsFixed(2)} ${s.egp}') : null,
-                              value: isSelected,
-                              activeColor: AppColors.primary,
-                              checkColor: Colors.black,
-                              contentPadding: EdgeInsets.zero,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              onChanged: (val) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
-                            );
-                          }),
-                        ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        gName,
+                                        style: TextStyle(
+                                          fontSize: 16, 
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        maxSelect == 1
+                                            ? (isRequired 
+                                                ? (isAr ? 'اختر 1 (إجباري)' : 'Choose 1 (Required)') 
+                                                : (isAr ? 'اختر 1 (اختياري)' : 'Choose 1 (Optional)'))
+                                            : (isRequired
+                                                ? (isAr ? 'اختر على الأقل $minSelect (إجباري)' : 'Choose at least $minSelect (Required)')
+                                                : (isAr ? 'اختر حتى $maxSelect (اختياري)' : 'Choose up to $maxSelect (Optional)')),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isRequired
+                                        ? (isGroupSatisfied 
+                                            ? Colors.green.withValues(alpha: 0.1) 
+                                            : Colors.red.withValues(alpha: 0.1))
+                                        : Colors.grey.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isRequired
+                                          ? (isGroupSatisfied ? Colors.green : Colors.redAccent)
+                                          : Colors.grey.shade400,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isRequired
+                                        ? (isGroupSatisfied
+                                            ? (isAr ? '✓ مكتمل' : '✓ Completed')
+                                            : (isAr ? '* مطلوب' : '* Required'))
+                                        : (isAr ? 'اختياري' : 'Optional'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isRequired
+                                          ? (isGroupSatisfied ? Colors.green : Colors.redAccent)
+                                          : (isDark ? Colors.white70 : Colors.grey.shade700),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(height: 1),
+                            const SizedBox(height: 8),
+                            ...options.map((opt) {
+                              final oName = isAr && opt['nameAr'] != null && opt['nameAr'].toString().isNotEmpty ? opt['nameAr'] : opt['name'];
+                              final oPrice = double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0.0;
+                              final optId = opt['id']?.toString() ?? '';
+                              final isSelected = (_selectedOptions[gId] ?? []).any((o) => o['id']?.toString() == optId);
+                              
+                              if (maxSelect == 1) {
+                                return RadioListTile<String>(
+                                  title: Text(oName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                  subtitle: oPrice > 0 ? Text('+${oPrice.toStringAsFixed(2)} ${s.egp}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)) : null,
+                                  value: optId,
+                                  groupValue: (_selectedOptions[gId]?.isNotEmpty ?? false)
+                                      ? _selectedOptions[gId]!.first['id']?.toString()
+                                      : null,
+                                  activeColor: AppColors.primary,
+                                  contentPadding: EdgeInsets.zero,
+                                  onChanged: (_) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                                );
+                              }
+
+                              return CheckboxListTile(
+                                title: Text(oName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                subtitle: oPrice > 0 ? Text('+${oPrice.toStringAsFixed(2)} ${s.egp}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)) : null,
+                                value: isSelected,
+                                activeColor: AppColors.primary,
+                                checkColor: Colors.black,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                onChanged: (val) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                              );
+                            }),
+                          ],
+                        ),
                       );
                     }),
                   ],
@@ -381,7 +496,39 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
             ),
             child: currentQty == 0
                 ? ElevatedButton(
-                    onPressed: requiredMet ? () async {
+                    onPressed: () async {
+                      if (!requiredMet) {
+                        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                        String? missingGroupName;
+                        for (final g in optionGroups) {
+                          if (g['isRequired'] == true) {
+                            final minS = g['minSelect'] is int 
+                                ? g['minSelect'] as int 
+                                : int.tryParse(g['minSelect']?.toString() ?? '1') ?? 1;
+                            final c = (_selectedOptions[g['id']?.toString()] ?? []).length;
+                            if (c < (minS > 0 ? minS : 1)) {
+                              missingGroupName = isAr && g['nameAr'] != null && g['nameAr'].toString().isNotEmpty
+                                  ? g['nameAr']
+                                  : g['name'];
+                              break;
+                            }
+                          }
+                        }
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              missingGroupName != null
+                                  ? (isAr ? 'برجاء تحديد: $missingGroupName' : 'Please select: $missingGroupName')
+                                  : (isAr ? 'برجاء تحديد الخيارات المطلوبة' : 'Please select required options'),
+                            ),
+                            backgroundColor: Colors.redAccent,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+
                       final authStatus = ref.read(authControllerProvider);
                       if (authStatus == AuthStatus.unauthenticated) {
                         AuthPromptDialog.show(context);
@@ -398,6 +545,17 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           variant: _selectedVariant,
                           options: flatOptions,
                         );
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(s.addedToCart),
+                              duration: const Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -408,15 +566,20 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           );
                         }
                       }
-                    } : null,
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black,
+                      backgroundColor: requiredMet ? AppColors.primary : (isDark ? Colors.white24 : Colors.grey.shade400),
+                      foregroundColor: requiredMet ? Colors.black : Colors.white,
                       minimumSize: const Size(double.infinity, 60),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       elevation: 0,
                     ),
-                    child: Text(s.addToCart, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      requiredMet 
+                          ? s.addToCart 
+                          : (isAr ? 'تحديد الخيارات المطلوبة' : 'Select Required Options'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   )
                 : Row(
                     children: [

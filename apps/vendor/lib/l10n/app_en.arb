@@ -389,6 +389,19 @@
   "product_error_not_found": "Product not found.",
   "product_error_sku_taken": "SKU already exists.",
   "vendor_vertical_error_not_found": "Business type not found.",
+  "zone_error_not_found": "Zone not found.",
+  "zone_error_invalid_boundary_polygon": "Invalid boundary polygon.",
+  "zone_error_invalid_location_for_zone": "The selected location is outside delivery zones. Please pick a location inside an active delivery zone.",
+  "autoDetectZone": "Auto-detect from location",
+  "outsideDeliveryZones": "Outside delivery zones",
+  "insideZone": "Zone: {zoneName}",
+  "@insideZone": {
+    "placeholders": {
+      "zoneName": {
+        "type": "String"
+      }
+    }
+  },
   "showMore": "Show more",
   "showLess": "Show less",
   "invalidUrl": "Please enter a valid URL",

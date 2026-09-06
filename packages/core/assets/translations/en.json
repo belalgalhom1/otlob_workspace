@@ -1420,6 +1420,7 @@
   "app.paymentMethod": "Payment Method",
   "app.instapay": "Instapay",
   "app.vodafoneCash": "Mobile Wallet",
+  "app.mobileWallet": "Mobile Wallet",
   "app.cashOnDelivery": "Cash on delivery",
   "app.orderSuccess": "Order Confirmed!",
   "app.orderSuccessSub": "Your order is being prepared. We will update you shortly.",

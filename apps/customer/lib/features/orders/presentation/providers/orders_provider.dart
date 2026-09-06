@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
 import 'package:api/api.dart';
+import 'package:built_collection/built_collection.dart';
 import 'package:core/core.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
 import 'package:flutter/foundation.dart';
@@ -20,8 +21,8 @@ class OrdersState {
   final String? error;
 
   OrdersState({
-    this.activeOrders = const [],
-    this.pastOrders = const [],
+    this.activeOrders = const <Map<String, dynamic>>[],
+    this.pastOrders = const <Map<String, dynamic>>[],
     this.isLoading = true,
     this.isLoadingMoreActive = false,
     this.isLoadingMorePast = false,
@@ -299,45 +300,49 @@ class Orders extends _$Orders {
     String? details,
     int? coinsToUse,
   }) async {
-    final dio = ref.read(dioProvider);
+    final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      String vTypeStr;
+      PlaceCustomOrderDtoVehicleTypeEnum vType;
       switch (vehicleType) {
         case 'motorcycle':
-          vTypeStr = 'MOTORCYCLE';
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE;
           break;
         case 'car':
-          vTypeStr = 'CAR';
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.CAR;
           break;
         case 'van':
-          vTypeStr = 'VAN';
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.VAN;
           break;
         case 'truck':
-          vTypeStr = 'TRUCK';
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.TRUCK;
           break;
         case 'motor_tricycle':
-          vTypeStr = 'MOTOR_TRICYCLE';
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE;
           break;
         default:
-          vTypeStr = 'BICYCLE';
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE;
       }
 
-      final response = await dio.post(
-        '/orders/custom',
-        data: {
-          'type': type == 'ride' ? 'RIDE' : 'CUSTOM_DELIVERY',
-          'paymentMethod': 'CASH_ON_DELIVERY',
-          'pickupAddress': pickup,
-          'deliveryAddress': dropoff,
-          'vehicleType': vTypeStr,
-          if (pickupLocation.length >= 2) 'pickupLocation': [pickupLocation[0], pickupLocation[1]],
-          if (deliveryLocation.length >= 2) 'deliveryLocation': [deliveryLocation[0], deliveryLocation[1]],
-          if (details != null && details.isNotEmpty) 'itemDetails': details,
-          if (coinsToUse != null && coinsToUse > 0) 'coinsToUse': coinsToUse,
-        },
-      );
-        
-      final result = response.data;
+      final dto = PlaceCustomOrderDto((b) => b
+        ..type = type == 'ride'
+            ? PlaceCustomOrderDtoTypeEnum.RIDE
+            : PlaceCustomOrderDtoTypeEnum.CUSTOM_DELIVERY
+        ..paymentMethod = PlaceCustomOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
+        ..pickupAddress = pickup
+        ..deliveryAddress = dropoff
+        ..vehicleType = vType
+        ..pickupLocation = ListBuilder<num>(
+            pickupLocation.length >= 2
+                ? [pickupLocation[0], pickupLocation[1]]
+                : [0.0, 0.0])
+        ..deliveryLocation = ListBuilder<num>(
+            deliveryLocation.length >= 2
+                ? [deliveryLocation[0], deliveryLocation[1]]
+                : [0.0, 0.0])
+        ..itemDetails = details
+        ..coinsToUse = coinsToUse);
+
+      final result = await repo.placeCustomOrder(dto);
       ref.invalidateSelf();
       
       if (result is Map && result['data'] != null && result['data']['id'] != null) {
@@ -365,9 +370,9 @@ class Orders extends _$Orders {
   }
 
   Future<bool> acceptOrderChanges(String orderId) async {
-    final dio = ref.read(dioProvider);
+    final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      await dio.post('/orders/$orderId/accept-changes');
+      await repo.acceptOrderChanges(orderId);
       ref.invalidateSelf();
       return true;
     } catch (e) {
@@ -377,9 +382,9 @@ class Orders extends _$Orders {
   }
 
   Future<bool> rejectOrderChanges(String orderId) async {
-    final dio = ref.read(dioProvider);
+    final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      await dio.post('/orders/$orderId/reject-changes');
+      await repo.rejectOrderChanges(orderId);
       ref.invalidateSelf();
       return true;
     } catch (e) {
@@ -389,9 +394,9 @@ class Orders extends _$Orders {
   }
 
   Future<bool> markPaymentPaid(String orderId) async {
-    final dio = ref.read(dioProvider);
+    final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      await dio.post('/orders/customer/$orderId/payment/mark-paid');
+      await repo.markPaid(orderId);
       ref.invalidateSelf();
       return true;
     } catch (e) {

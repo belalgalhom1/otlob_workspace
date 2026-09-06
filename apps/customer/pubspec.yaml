@@ -32,6 +32,7 @@ dependencies:
   # 🌐 Networking & Realtime
   # -------------------------
   dio: ^5.9.1
+  built_collection: ^5.1.1
   socket_io_client: ^3.1.4
   internet_connection_checker_plus: ^3.1.1
 

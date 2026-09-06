@@ -10,6 +10,7 @@ import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/core/widgets/location_picker_map.dart';
 import 'package:data/data.dart';
 import 'package:vendor/features/zones/presentation/zone_provider.dart';
+import 'package:latlong2/latlong.dart';
 
 class BranchesScreen extends ConsumerStatefulWidget {
   final String vendorId;
@@ -373,6 +374,44 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     );
   }
 
+  String? _findMatchingZoneId(LatLng point, List<dynamic> zones) {
+    for (final z in zones) {
+      final id = z['id']?.toString();
+      var boundaryData = z['boundary'] ?? z['coordinates'];
+      if (boundaryData is Map && boundaryData['coordinates'] != null) {
+        boundaryData = boundaryData['coordinates'];
+      }
+      if (boundaryData is List && boundaryData.isNotEmpty) {
+        final ring = boundaryData.first;
+        if (ring is List) {
+          final points = <LatLng>[];
+          for (final pt in ring) {
+            if (pt is List && pt.length >= 2) {
+              final lng = double.tryParse(pt[0].toString());
+              final lat = double.tryParse(pt[1].toString());
+              if (lat != null && lng != null) {
+                points.add(LatLng(lat, lng));
+              }
+            }
+          }
+          if (points.length >= 3) {
+            bool inside = false;
+            final n = points.length;
+            for (int i = 0, j = n - 1; i < n; j = i++) {
+              final xi = points[i].latitude, yi = points[i].longitude;
+              final xj = points[j].latitude, yj = points[j].longitude;
+              final intersect = ((yi > point.longitude) != (yj > point.longitude)) &&
+                  (point.latitude < (xj - xi) * (point.longitude - yi) / (yj - yi) + xi);
+              if (intersect) inside = !inside;
+            }
+            if (inside && id != null) return id;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   void _showAddBranchDialog({dynamic branch}) async {
     final isEdit = branch != null;
     final nameController = TextEditingController(text: branch?['name'] ?? '');
@@ -488,17 +527,30 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 : null,
                             trailing: const Icon(LucideIcons.chevronRight),
                             onTap: () async {
-                              final result = await Navigator.push(
+                              final zones =
+                                  ref.read(zoneProvider).asData?.value.zones ??
+                                      [];
+                              final result = await Navigator.push<LatLng>(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      const LocationPickerMap(),
+                                  builder: (context) => LocationPickerMap(
+                                    initialLocation:
+                                        selectedLat != null && selectedLng != null
+                                            ? LatLng(selectedLat!, selectedLng!)
+                                            : null,
+                                    zones: zones,
+                                  ),
                                 ),
                               );
                               if (result != null) {
                                 setState(() {
                                   selectedLat = result.latitude;
                                   selectedLng = result.longitude;
+                                  final matchedZone =
+                                      _findMatchingZoneId(result, zones);
+                                  if (matchedZone != null) {
+                                    selectedZoneId = matchedZone;
+                                  }
                                 });
                               }
                             },
@@ -509,28 +561,40 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                               final zoneState = ref.watch(zoneProvider);
                               return zoneState.when(
                                 data: (data) {
-                                  if (data.zones.isEmpty) {
-                                    return const Text('No zones available');
-                                  }
-                                  if (selectedZoneId == null &&
-                                      data.zones.isNotEmpty) {
-                                    selectedZoneId = data.zones.first['id'];
-                                  }
-                                  return DropdownButtonFormField<String>(
-                                    initialValue: selectedZoneId,
+                                  final l10n = AppLocalizations.of(context)!;
+                                  final isValidZone = selectedZoneId == null ||
+                                      data.zones.any(
+                                        (z) =>
+                                            z['id']?.toString() ==
+                                            selectedZoneId,
+                                      );
+                                  final currentZoneValue =
+                                      isValidZone ? selectedZoneId : null;
+
+                                  return DropdownButtonFormField<String?>(
+                                    key: ValueKey(currentZoneValue),
+                                    initialValue: currentZoneValue,
                                     decoration: InputDecoration(
-                                      labelText: 'Zone',
+                                      labelText: l10n.zones,
                                       prefixIcon: const Icon(LucideIcons.map),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    items: data.zones.map((z) {
-                                      return DropdownMenuItem<String>(
-                                        value: z['id'],
-                                        child: Text(z['name'] ?? ''),
-                                      );
-                                    }).toList(),
+                                    items: [
+                                      DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text(l10n.autoDetectZone),
+                                      ),
+                                      ...data.zones.map((z) {
+                                        return DropdownMenuItem<String?>(
+                                          value: z['id']?.toString(),
+                                          child: Text(
+                                            z['name']?.toString() ?? '',
+                                          ),
+                                        );
+                                      }),
+                                    ],
                                     onChanged: (val) {
                                       setState(() {
                                         selectedZoneId = val;
