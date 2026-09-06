@@ -161,7 +161,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final total = subtotal;
     
     final coinState = ref.watch(coinHistoryProvider);
-    final settings = ref.watch(platformSettingsProvider).value;
     double coinDiscount = 0;
     int? coinsToUse;
 

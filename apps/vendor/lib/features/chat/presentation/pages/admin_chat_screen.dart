@@ -1411,7 +1411,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   Future<void> _loadMessages() async {
     try {
-    try {
       final repository = ref.read(sharedChatRepositoryProvider);
       final response = await repository.getMessages(widget.conversationId);
       
