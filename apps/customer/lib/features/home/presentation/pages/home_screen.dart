@@ -16,6 +16,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../providers/home_controller.dart';
 import '../providers/home_state.dart';
+import '../providers/customer_location_provider.dart';
 import '../../../chat/presentation/providers/inbox_counts_provider.dart';
 import '../widgets/vendor_card.dart';
 import '../widgets/offers_auto_scroller.dart';
@@ -170,7 +171,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final s = AppStrings.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeAddress = ref.watch(activeDeliveryAddressProvider);
-    final displayAddress = activeAddress != null ? activeAddress['address'] as String? ?? '' : s.addAddress;
+    final effectiveLocation = ref.watch(effectiveCustomerLocationProvider).value;
+
+    String displayAddress;
+    if (activeAddress != null && (activeAddress['address'] as String?)?.isNotEmpty == true) {
+      displayAddress = activeAddress['address'] as String;
+    } else if (effectiveLocation?.isGps == true) {
+      displayAddress = s.isArabic ? 'الموقع الحالي' : 'Current Location';
+    } else {
+      displayAddress = s.addAddress;
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),

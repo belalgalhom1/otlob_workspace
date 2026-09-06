@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
 import 'package:core/core.dart';
 import 'home_state.dart';
+import 'customer_location_provider.dart';
 import 'package:flutter/foundation.dart';
 
 part 'home_controller.g.dart';
@@ -10,10 +11,11 @@ part 'home_controller.g.dart';
 class HomeController extends _$HomeController {
   @override
   FutureOr<HomeData> build() async {
-    return loadDashboardData();
+    final effectiveLocation = await ref.watch(effectiveCustomerLocationProvider.future);
+    return loadDashboardData(effectiveLocation: effectiveLocation);
   }
 
-  Future<HomeData> loadDashboardData() async {
+  Future<HomeData> loadDashboardData({EffectiveLocation? effectiveLocation}) async {
     final verticalsRepo = ref.read(sharedVerticalsRepositoryProvider);
     final vendorsRepo = ref.read(customerVendorsRepositoryProvider);
     final promotionsRepo = ref.read(customerPromotionsRepositoryProvider);
@@ -22,7 +24,11 @@ class HomeController extends _$HomeController {
     try {
       final results = await Future.wait([
         verticalsRepo.getActiveVerticals().catchError((e) { debugPrint('Verticals error: $e'); return []; }),
-        vendorsRepo.getVendors(limit: 20).catchError((e) { debugPrint('Vendors error: $e'); return []; }),
+        vendorsRepo.getVendors(
+          limit: 20,
+          lat: effectiveLocation?.lat,
+          lng: effectiveLocation?.lng,
+        ).catchError((e) { debugPrint('Vendors error: $e'); return []; }),
         promotionsRepo.getPromotions().catchError((e) { debugPrint('Promotions error: $e'); return []; }),
         offersRepo.getOffers().catchError((e) { debugPrint('Offers error: $e'); return []; }),
       ]);

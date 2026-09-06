@@ -166,6 +166,42 @@ class VendorCard extends ConsumerWidget {
                       maxLines: 2, 
                       overflow: TextOverflow.ellipsis
                     ),
+                    if (vendor['distanceKm'] != null || vendor['deliveryTime'] != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          if (vendor['distanceKm'] != null) ...[
+                            Icon(Icons.near_me_outlined, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            const SizedBox(width: 4),
+                            Text(
+                              isAr
+                                  ? '${(vendor['distanceKm'] as num).toStringAsFixed(1)} كم'
+                                  : '${(vendor['distanceKm'] as num).toStringAsFixed(1)} km',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (vendor['deliveryTime'] != null) ...[
+                            Icon(Icons.access_time_rounded, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            const SizedBox(width: 4),
+                            Text(
+                              isAr
+                                  ? (vendor['deliveryTime'] ?? '')
+                                  : (vendor['deliveryTimeEn'] ?? vendor['deliveryTime'] ?? ''),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

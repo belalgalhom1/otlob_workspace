@@ -5,24 +5,44 @@ class CustomerVendorsRepository {
   final VendorsCoreManagementApi _api;
   CustomerVendorsRepository(this._api);
 
-  Future<dynamic> getVendors({String? status, String? verticalId, String? search, num limit = 20, num page = 1}) async {
+  Future<dynamic> getVendors({
+    String? status,
+    String? verticalId,
+    String? search,
+    num limit = 20,
+    num page = 1,
+    num? lat,
+    num? lng,
+  }) async {
     final response = await _api.vendorsControllerFindAll(
       status: status,
       verticalId: verticalId,
       search: search,
       limit: limit,
-      page: page
+      page: page,
+      lat: lat,
+      lng: lng,
     );
     return ResponseParser.parseList(response);
   }
 
-  Future<dynamic> searchDiscovery({String? status, String? verticalId, String? search, num limit = 20, num page = 1}) async {
+  Future<dynamic> searchDiscovery({
+    String? status,
+    String? verticalId,
+    String? search,
+    num limit = 20,
+    num page = 1,
+    num? lat,
+    num? lng,
+  }) async {
     final response = await _api.vendorsControllerSearchDiscovery(
       status: status,
       verticalId: verticalId,
       search: search,
       limit: limit,
-      page: page
+      page: page,
+      lat: lat,
+      lng: lng,
     );
     return ResponseParser.parseList(response);
   }

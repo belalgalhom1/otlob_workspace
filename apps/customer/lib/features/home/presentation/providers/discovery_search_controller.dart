@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/network_providers.dart';
 import 'package:flutter/foundation.dart';
 
+import 'customer_location_provider.dart';
+
 final discoverySearchControllerProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String query, String? verticalId})>((ref, arg) async {
   final dio = ref.read(dioProvider);
   
@@ -10,12 +12,16 @@ final discoverySearchControllerProvider = FutureProvider.family<List<Map<String,
   // Convert verticalId 'all' to null for backend
   final vId = arg.verticalId == 'all' ? null : arg.verticalId;
 
+  final location = await ref.watch(effectiveCustomerLocationProvider.future);
+
   try {
     final response = await dio.get(
       '/vendors/discovery/search',
       queryParameters: {
         'search': arg.query,
         'verticalId': ?vId,
+        if (location != null) 'lat': location.lat,
+        if (location != null) 'lng': location.lng,
       },
     );
 
