@@ -86,6 +86,11 @@ class CoreSocketService with WidgetsBindingObserver {
           .setTransports(['websocket'])
           .setAuth({'token': token})
           .setQuery({'token': token})
+          .enableReconnection()
+          .setReconnectionAttempts(999999)
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
+          .setTimeout(20000)
           .disableAutoConnect()
           .build(),
     );
