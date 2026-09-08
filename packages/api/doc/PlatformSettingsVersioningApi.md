@@ -20,7 +20,7 @@ Method | HTTP request | Description
 
 
 # **platformSettingsControllerCheckVersion**
-> AuthControllerRegister200Response platformSettingsControllerCheckVersion(appVersionCheckDto)
+> ApiControllerRoot200Response platformSettingsControllerCheckVersion(appVersionCheckDto)
 
 Check if app version is supported
 
@@ -47,7 +47,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -61,7 +61,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerGetAll**
-> PlatformSettingsControllerGetAll200Response platformSettingsControllerGetAll()
+> ApiControllerRoot200Response platformSettingsControllerGetAll()
 
 Get all platform settings (Admin)
 
@@ -84,7 +84,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**PlatformSettingsControllerGetAll200Response**](PlatformSettingsControllerGetAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -98,7 +98,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerGetPublic**
-> PlatformSettingsControllerGetPublic200Response platformSettingsControllerGetPublic()
+> ApiControllerRoot200Response platformSettingsControllerGetPublic()
 
 Get public platform settings (maintenance mode, versions)
 
@@ -121,7 +121,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**PlatformSettingsControllerGetPublic200Response**](PlatformSettingsControllerGetPublic200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -135,7 +135,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerUpdate**
-> PlatformSettingsControllerGetAll200Response platformSettingsControllerUpdate(updatePlatformSettingsDto)
+> ApiControllerRoot200Response platformSettingsControllerUpdate(updatePlatformSettingsDto)
 
 Update platform settings (Admin)
 
@@ -162,7 +162,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**PlatformSettingsControllerGetAll200Response**](PlatformSettingsControllerGetAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -176,7 +176,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerUploadCarIcon**
-> AuthControllerRegister200Response platformSettingsControllerUploadCarIcon(file)
+> ApiControllerRoot200Response platformSettingsControllerUploadCarIcon(file)
 
 Upload car icon
 
@@ -203,7 +203,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -217,7 +217,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerUploadDeliveryBannerIcon**
-> AuthControllerRegister200Response platformSettingsControllerUploadDeliveryBannerIcon(file)
+> ApiControllerRoot200Response platformSettingsControllerUploadDeliveryBannerIcon(file)
 
 Upload delivery banner icon
 
@@ -244,7 +244,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -258,7 +258,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerUploadHomeCover**
-> AuthControllerRegister200Response platformSettingsControllerUploadHomeCover(file)
+> ApiControllerRoot200Response platformSettingsControllerUploadHomeCover(file)
 
 Upload home cover image
 
@@ -285,7 +285,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -299,7 +299,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **platformSettingsControllerUploadMotorcycleIcon**
-> AuthControllerRegister200Response platformSettingsControllerUploadMotorcycleIcon(file)
+> ApiControllerRoot200Response platformSettingsControllerUploadMotorcycleIcon(file)
 
 Upload motorcycle icon
 
@@ -326,7 +326,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

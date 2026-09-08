@@ -19,7 +19,7 @@ Method | HTTP request | Description
 
 
 # **vendorVerticalsControllerCreate**
-> AuthControllerRegister200Response vendorVerticalsControllerCreate(createVendorVerticalDto)
+> ApiControllerRoot200Response vendorVerticalsControllerCreate(createVendorVerticalDto)
 
 Create a new vendor vertical (Admin)
 
@@ -46,7 +46,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -60,7 +60,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorVerticalsControllerFindAll**
-> AuthControllerRegister200Response vendorVerticalsControllerFindAll()
+> ApiControllerRoot200Response vendorVerticalsControllerFindAll()
 
 Get all vendor verticals (Admin)
 
@@ -83,7 +83,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -97,7 +97,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorVerticalsControllerFindAllActive**
-> AuthControllerRegister200Response vendorVerticalsControllerFindAllActive()
+> ApiControllerRoot200Response vendorVerticalsControllerFindAllActive()
 
 Get all active vendor verticals
 
@@ -120,7 +120,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -134,7 +134,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorVerticalsControllerFindOne**
-> AuthControllerRegister200Response vendorVerticalsControllerFindOne(id)
+> ApiControllerRoot200Response vendorVerticalsControllerFindOne(id)
 
 Get a specific vendor vertical by ID
 
@@ -161,7 +161,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -175,7 +175,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorVerticalsControllerRemove**
-> AuthControllerRegister200Response vendorVerticalsControllerRemove(id)
+> ApiControllerRoot200Response vendorVerticalsControllerRemove(id)
 
 Delete a vendor vertical (Admin)
 
@@ -202,7 +202,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -216,7 +216,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorVerticalsControllerUpdate**
-> AuthControllerRegister200Response vendorVerticalsControllerUpdate(id, updateVendorVerticalDto)
+> ApiControllerRoot200Response vendorVerticalsControllerUpdate(id, updateVendorVerticalDto)
 
 Update a vendor vertical (Admin)
 
@@ -245,7 +245,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -259,7 +259,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorVerticalsControllerUploadIcon**
-> AuthControllerRegister200Response vendorVerticalsControllerUploadIcon(id, file)
+> ApiControllerRoot200Response vendorVerticalsControllerUploadIcon(id, file)
 
 Upload vertical icon image
 
@@ -288,7 +288,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

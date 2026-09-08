@@ -20,7 +20,7 @@ class _$Promotion extends Promotion {
   @override
   final String imageUrl;
   @override
-  final JsonObject? type;
+  final PromotionType type;
   @override
   final String? vendorId;
   @override
@@ -39,10 +39,6 @@ class _$Promotion extends Promotion {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final JsonObject? vendor;
-  @override
-  final JsonObject? product;
 
   factory _$Promotion([void Function(PromotionBuilder)? updates]) =>
       (PromotionBuilder()..update(updates))._build();
@@ -54,7 +50,7 @@ class _$Promotion extends Promotion {
     this.description,
     this.descriptionAr,
     required this.imageUrl,
-    this.type,
+    required this.type,
     this.vendorId,
     this.productId,
     this.externalUrl,
@@ -64,8 +60,6 @@ class _$Promotion extends Promotion {
     this.endDate,
     required this.createdAt,
     required this.updatedAt,
-    this.vendor,
-    this.product,
   }) : super._();
   @override
   Promotion rebuild(void Function(PromotionBuilder) updates) =>
@@ -93,9 +87,7 @@ class _$Promotion extends Promotion {
         startDate == other.startDate &&
         endDate == other.endDate &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        vendor == other.vendor &&
-        product == other.product;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -117,8 +109,6 @@ class _$Promotion extends Promotion {
     _$hash = $jc(_$hash, endDate.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, vendor.hashCode);
-    _$hash = $jc(_$hash, product.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -141,9 +131,7 @@ class _$Promotion extends Promotion {
           ..add('startDate', startDate)
           ..add('endDate', endDate)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('vendor', vendor)
-          ..add('product', product))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -176,9 +164,9 @@ class PromotionBuilder implements Builder<Promotion, PromotionBuilder> {
   String? get imageUrl => _$this._imageUrl;
   set imageUrl(String? imageUrl) => _$this._imageUrl = imageUrl;
 
-  JsonObject? _type;
-  JsonObject? get type => _$this._type;
-  set type(JsonObject? type) => _$this._type = type;
+  PromotionType? _type;
+  PromotionType? get type => _$this._type;
+  set type(PromotionType? type) => _$this._type = type;
 
   String? _vendorId;
   String? get vendorId => _$this._vendorId;
@@ -216,14 +204,6 @@ class PromotionBuilder implements Builder<Promotion, PromotionBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  JsonObject? _vendor;
-  JsonObject? get vendor => _$this._vendor;
-  set vendor(JsonObject? vendor) => _$this._vendor = vendor;
-
-  JsonObject? _product;
-  JsonObject? get product => _$this._product;
-  set product(JsonObject? product) => _$this._product = product;
-
   PromotionBuilder() {
     Promotion._defaults(this);
   }
@@ -247,8 +227,6 @@ class PromotionBuilder implements Builder<Promotion, PromotionBuilder> {
       _endDate = $v.endDate;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _vendor = $v.vendor;
-      _product = $v.product;
       _$v = null;
     }
     return this;
@@ -285,7 +263,11 @@ class PromotionBuilder implements Builder<Promotion, PromotionBuilder> {
             r'Promotion',
             'imageUrl',
           ),
-          type: type,
+          type: BuiltValueNullFieldError.checkNotNull(
+            type,
+            r'Promotion',
+            'type',
+          ),
           vendorId: vendorId,
           productId: productId,
           externalUrl: externalUrl,
@@ -311,8 +293,6 @@ class PromotionBuilder implements Builder<Promotion, PromotionBuilder> {
             r'Promotion',
             'updatedAt',
           ),
-          vendor: vendor,
-          product: product,
         );
     replace(_$result);
     return _$result;

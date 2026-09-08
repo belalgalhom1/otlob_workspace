@@ -4,15 +4,19 @@
 
 import 'dart:async';
 
-
+import 'package:built_value/json_object.dart';
+import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
+import 'package:api/src/model/api_controller_root200_response.dart';
 
 class HealthSystemApi {
 
   final Dio _dio;
 
-  const HealthSystemApi(this._dio);
+  final Serializers _serializers;
+
+  const HealthSystemApi(this._dio, this._serializers);
 
   /// API Health Check
   /// 
@@ -25,9 +29,9 @@ class HealthSystemApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future]
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<void>> apiControllerRoot({ 
+  Future<Response<ApiControllerRoot200Response>> apiControllerRoot({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -56,7 +60,35 @@ class HealthSystemApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    return _response;
+    ApiControllerRoot200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<ApiControllerRoot200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
   }
 
 }

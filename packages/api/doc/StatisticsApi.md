@@ -21,7 +21,7 @@ Method | HTTP request | Description
 
 
 # **statisticsControllerGetAppStats**
-> AuthControllerRegister200Response statisticsControllerGetAppStats()
+> ApiControllerRoot200Response statisticsControllerGetAppStats()
 
 [Admin] Get platform-wide statistics
 
@@ -44,7 +44,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -58,7 +58,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetDriverStats**
-> AuthControllerRegister200Response statisticsControllerGetDriverStats(driverId)
+> ApiControllerRoot200Response statisticsControllerGetDriverStats(driverId)
 
 [Admin] Get statistics for a specific driver
 
@@ -85,7 +85,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -99,7 +99,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetMostOrderedProduct**
-> AuthControllerRegister200Response statisticsControllerGetMostOrderedProduct(vendorId)
+> ApiControllerRoot200Response statisticsControllerGetMostOrderedProduct(vendorId)
 
 Get the most ordered product for a vendor
 
@@ -126,7 +126,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -140,7 +140,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetMyDriverStats**
-> AuthControllerRegister200Response statisticsControllerGetMyDriverStats()
+> ApiControllerRoot200Response statisticsControllerGetMyDriverStats()
 
 Get my driver statistics
 
@@ -163,7 +163,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -177,7 +177,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetTopCustomers**
-> AuthControllerRegister200Response statisticsControllerGetTopCustomers(limit)
+> ApiControllerRoot200Response statisticsControllerGetTopCustomers(limit)
 
 [Admin] Get top customers leaderboard
 
@@ -204,7 +204,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -218,7 +218,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetTopDrivers**
-> AuthControllerRegister200Response statisticsControllerGetTopDrivers(limit)
+> ApiControllerRoot200Response statisticsControllerGetTopDrivers(limit)
 
 [Admin] Get top drivers leaderboard
 
@@ -245,7 +245,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -259,7 +259,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetTopProducts**
-> AuthControllerRegister200Response statisticsControllerGetTopProducts(limit)
+> ApiControllerRoot200Response statisticsControllerGetTopProducts(limit)
 
 [Admin] Get top products leaderboard
 
@@ -286,7 +286,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -300,7 +300,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetTopVendors**
-> AuthControllerRegister200Response statisticsControllerGetTopVendors(limit)
+> ApiControllerRoot200Response statisticsControllerGetTopVendors(limit)
 
 [Admin] Get top vendors leaderboard
 
@@ -327,7 +327,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -341,7 +341,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetVendorStats**
-> AuthControllerRegister200Response statisticsControllerGetVendorStats(vendorId, period)
+> ApiControllerRoot200Response statisticsControllerGetVendorStats(vendorId, period)
 
 Get vendor statistics (member or admin)
 
@@ -370,7 +370,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

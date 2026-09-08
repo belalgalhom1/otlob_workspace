@@ -1,8 +1,8 @@
-# openapi.model.OrderItemOption
+# api.model.OrderItemOption
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -13,8 +13,6 @@ Name | Type | Description | Notes
 **optionId** | **String** |  | [optional] 
 **optionName** | **String** |  | 
 **priceAdded** | **num** |  | 
-**option** | [**ProductOption**](ProductOption.md) |  | [optional] 
-**orderItem** | [**OrderItem**](OrderItem.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

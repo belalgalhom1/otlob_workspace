@@ -13,16 +13,16 @@ Method | HTTP request | Description
 [**driverShiftsControllerAdminAssignShift**](DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
 [**driverShiftsControllerBookOvertimeShift**](DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [**driverShiftsControllerBookWeeklyShifts**](DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
-[**driverShiftsControllerDeleteShiftPool**](DriverShiftsApi.md#drivershiftscontrollerdeleteshiftpool) | **DELETE** /driver-shifts/admin/pools/{poolId} | [Admin] Delete a shift pool
 [**driverShiftsControllerGenerateShiftPools**](DriverShiftsApi.md#drivershiftscontrollergenerateshiftpools) | **POST** /driver-shifts/admin/pools | [Admin] Generate shift pools for a date range
 [**driverShiftsControllerGetAvailablePools**](DriverShiftsApi.md#drivershiftscontrollergetavailablepools) | **GET** /driver-shifts/available | Get available shift pools for booking
 [**driverShiftsControllerGetShiftPools**](DriverShiftsApi.md#drivershiftscontrollergetshiftpools) | **GET** /driver-shifts/admin/pools | [Admin] Get shift pools
 [**driverShiftsControllerGetSwapBoard**](DriverShiftsApi.md#drivershiftscontrollergetswapboard) | **GET** /driver-shifts/swap-board | View available swaps from other drivers
 [**driverShiftsControllerOfferSwap**](DriverShiftsApi.md#drivershiftscontrollerofferswap) | **POST** /driver-shifts/{shiftId}/swap | Offer a shift to the swap board
+[**driverShiftsControllerTerminateShiftPool**](DriverShiftsApi.md#drivershiftscontrollerterminateshiftpool) | **DELETE** /driver-shifts/admin/pools/{poolId} | [Admin] Terminate/Delete a shift pool
 
 
 # **driverShiftsControllerAcceptSwap**
-> AuthControllerRegister200Response driverShiftsControllerAcceptSwap(swapId)
+> ApiControllerRoot200Response driverShiftsControllerAcceptSwap(swapId)
 
 Claim someone else's shift from the swap board
 
@@ -49,7 +49,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -63,7 +63,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerAdminAssignShift**
-> AuthControllerRegister200Response driverShiftsControllerAdminAssignShift(adminAssignShiftDto)
+> ApiControllerRoot200Response driverShiftsControllerAdminAssignShift(adminAssignShiftDto)
 
 [Admin] Force-assign a driver to a shift pool
 
@@ -90,7 +90,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -104,7 +104,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerBookOvertimeShift**
-> AuthControllerRegister200Response driverShiftsControllerBookOvertimeShift(bookOvertimeShiftDto)
+> ApiControllerRoot200Response driverShiftsControllerBookOvertimeShift(bookOvertimeShiftDto)
 
 Book a single extra shift
 
@@ -131,7 +131,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -145,7 +145,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerBookWeeklyShifts**
-> AuthControllerRegister200Response driverShiftsControllerBookWeeklyShifts(bookWeeklyShiftsDto)
+> ApiControllerRoot200Response driverShiftsControllerBookWeeklyShifts(bookWeeklyShiftsDto)
 
 Book 6 shifts for the week
 
@@ -172,7 +172,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -185,49 +185,8 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **driverShiftsControllerDeleteShiftPool**
-> AuthControllerRegister200Response driverShiftsControllerDeleteShiftPool(poolId)
-
-[Admin] Delete a shift pool
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getDriverShiftsApi();
-final String poolId = poolId_example; // String | 
-
-try {
-    final response = api.driverShiftsControllerDeleteShiftPool(poolId);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling DriverShiftsApi->driverShiftsControllerDeleteShiftPool: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **poolId** | **String**|  | 
-
-### Return type
-
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
 # **driverShiftsControllerGenerateShiftPools**
-> AuthControllerRegister200Response driverShiftsControllerGenerateShiftPools(generateShiftPoolsDto)
+> ApiControllerRoot200Response driverShiftsControllerGenerateShiftPools(generateShiftPoolsDto)
 
 [Admin] Generate shift pools for a date range
 
@@ -254,7 +213,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -268,7 +227,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerGetAvailablePools**
-> AuthControllerRegister200Response driverShiftsControllerGetAvailablePools(zoneId)
+> ApiControllerRoot200Response driverShiftsControllerGetAvailablePools(zoneId)
 
 Get available shift pools for booking
 
@@ -295,7 +254,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -309,7 +268,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerGetShiftPools**
-> AuthControllerRegister200Response driverShiftsControllerGetShiftPools(date, zoneId)
+> ApiControllerRoot200Response driverShiftsControllerGetShiftPools(date, zoneId)
 
 [Admin] Get shift pools
 
@@ -338,7 +297,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -352,7 +311,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerGetSwapBoard**
-> AuthControllerRegister200Response driverShiftsControllerGetSwapBoard()
+> ApiControllerRoot200Response driverShiftsControllerGetSwapBoard()
 
 View available swaps from other drivers
 
@@ -375,7 +334,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -389,7 +348,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driverShiftsControllerOfferSwap**
-> AuthControllerRegister200Response driverShiftsControllerOfferSwap(shiftId)
+> ApiControllerRoot200Response driverShiftsControllerOfferSwap(shiftId)
 
 Offer a shift to the swap board
 
@@ -416,7 +375,48 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driverShiftsControllerTerminateShiftPool**
+> ApiControllerRoot200Response driverShiftsControllerTerminateShiftPool(poolId)
+
+[Admin] Terminate/Delete a shift pool
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverShiftsApi();
+final String poolId = poolId_example; // String | 
+
+try {
+    final response = api.driverShiftsControllerTerminateShiftPool(poolId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverShiftsApi->driverShiftsControllerTerminateShiftPool: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **poolId** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

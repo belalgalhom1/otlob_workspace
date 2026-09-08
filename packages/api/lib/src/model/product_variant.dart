@@ -3,13 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/product_option_group.dart';
-import 'package:api/src/model/order_item.dart';
-import 'package:api/src/model/cart_item.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'product_variant.g.dart';
@@ -27,10 +21,6 @@ part 'product_variant.g.dart';
 /// * [stock] 
 /// * [isActive] 
 /// * [version] 
-/// * [cartItems] 
-/// * [orderItems] 
-/// * [optionGroups] 
-/// * [product] 
 @BuiltValue()
 abstract class ProductVariant implements Built<ProductVariant, ProductVariantBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -62,18 +52,6 @@ abstract class ProductVariant implements Built<ProductVariant, ProductVariantBui
 
   @BuiltValueField(wireName: r'version')
   num get version;
-
-  @BuiltValueField(wireName: r'cartItems')
-  BuiltList<CartItem> get cartItems;
-
-  @BuiltValueField(wireName: r'orderItems')
-  BuiltList<OrderItem> get orderItems;
-
-  @BuiltValueField(wireName: r'optionGroups')
-  BuiltList<ProductOptionGroup> get optionGroups;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
 
   ProductVariant._();
 
@@ -155,26 +133,6 @@ class _$ProductVariantSerializer implements PrimitiveSerializer<ProductVariant> 
     yield serializers.serialize(
       object.version,
       specifiedType: const FullType(num),
-    );
-    yield r'cartItems';
-    yield serializers.serialize(
-      object.cartItems,
-      specifiedType: const FullType(BuiltList, [FullType(CartItem)]),
-    );
-    yield r'orderItems';
-    yield serializers.serialize(
-      object.orderItems,
-      specifiedType: const FullType(BuiltList, [FullType(OrderItem)]),
-    );
-    yield r'optionGroups';
-    yield serializers.serialize(
-      object.optionGroups,
-      specifiedType: const FullType(BuiltList, [FullType(ProductOptionGroup)]),
-    );
-    yield r'product';
-    yield serializers.serialize(
-      object.product,
-      specifiedType: const FullType(Product),
     );
   }
 
@@ -268,34 +226,6 @@ class _$ProductVariantSerializer implements PrimitiveSerializer<ProductVariant> 
             specifiedType: const FullType(num),
           ) as num;
           result.version = valueDes;
-          break;
-        case r'cartItems':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(CartItem)]),
-          ) as BuiltList<CartItem>;
-          result.cartItems.replace(valueDes);
-          break;
-        case r'orderItems':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(OrderItem)]),
-          ) as BuiltList<OrderItem>;
-          result.orderItems.replace(valueDes);
-          break;
-        case r'optionGroups':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(ProductOptionGroup)]),
-          ) as BuiltList<ProductOptionGroup>;
-          result.optionGroups.replace(valueDes);
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
           break;
         default:
           unhandled.add(key);

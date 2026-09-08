@@ -28,7 +28,7 @@ Method | HTTP request | Description
 
 
 # **customersControllerAdminDisableOrdering**
-> AuthControllerRegister200Response customersControllerAdminDisableOrdering(customerId)
+> ApiControllerRoot200Response customersControllerAdminDisableOrdering(customerId)
 
 [Admin] Prevent customer from placing orders (canOrder → false)
 
@@ -55,7 +55,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -69,7 +69,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminEnableOrdering**
-> AuthControllerRegister200Response customersControllerAdminEnableOrdering(customerId)
+> ApiControllerRoot200Response customersControllerAdminEnableOrdering(customerId)
 
 [Admin] Allow customer to place orders (canOrder → true)
 
@@ -96,7 +96,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -110,7 +110,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminFindAll**
-> AuthControllerRegister200Response customersControllerAdminFindAll(canOrder, includeDeleted, search, page, limit)
+> ApiControllerRoot200Response customersControllerAdminFindAll(canOrder, includeDeleted, search, page, limit)
 
 [Admin] List all customers — filter by canOrder, includeDeleted, search
 
@@ -145,7 +145,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -159,7 +159,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminFindByUserId**
-> AuthControllerRegister200Response customersControllerAdminFindByUserId(userId)
+> ApiControllerRoot200Response customersControllerAdminFindByUserId(userId)
 
 [Admin] Get a customer by their userId
 
@@ -186,7 +186,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -200,7 +200,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminFindOne**
-> AuthControllerRegister200Response customersControllerAdminFindOne(customerId)
+> ApiControllerRoot200Response customersControllerAdminFindOne(customerId)
 
 [Admin] Get a customer — includes counts + last 5 orders
 
@@ -227,7 +227,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -241,7 +241,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminGetAddresses**
-> AuthControllerRegister200Response customersControllerAdminGetAddresses(customerId)
+> ApiControllerRoot200Response customersControllerAdminGetAddresses(customerId)
 
 [Admin] List a customer's saved addresses
 
@@ -268,7 +268,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -282,7 +282,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminGetOrders**
-> AuthControllerRegister200Response customersControllerAdminGetOrders(customerId, page, limit)
+> ApiControllerRoot200Response customersControllerAdminGetOrders(customerId, page, limit)
 
 [Admin] List a customer's full order history (paginated)
 
@@ -313,7 +313,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -327,7 +327,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerAdminRemove**
-> AuthControllerRegister200Response customersControllerAdminRemove(customerId)
+> ApiControllerRoot200Response customersControllerAdminRemove(customerId)
 
 [Admin] Hard-delete a customer (cascades to addresses, carts, favorites). Parent User is untouched.
 
@@ -354,7 +354,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -368,7 +368,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerCreateAddress**
-> AuthControllerRegister200Response customersControllerCreateAddress(createAddressDto)
+> ApiControllerRoot200Response customersControllerCreateAddress(createAddressDto)
 
 Add a new address
 
@@ -395,7 +395,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -409,7 +409,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerDeleteAddress**
-> AuthControllerRegister200Response customersControllerDeleteAddress(id)
+> ApiControllerRoot200Response customersControllerDeleteAddress(id)
 
 Delete an address
 
@@ -436,7 +436,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -450,7 +450,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerGetAddresses**
-> AuthControllerRegister200Response customersControllerGetAddresses()
+> ApiControllerRoot200Response customersControllerGetAddresses()
 
 Get my addresses
 
@@ -473,7 +473,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -487,7 +487,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerGetCoinHistory**
-> AuthControllerRegister200Response customersControllerGetCoinHistory(page, limit)
+> ApiControllerRoot200Response customersControllerGetCoinHistory(page, limit)
 
 Get coin transaction history
 
@@ -516,7 +516,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -530,7 +530,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerGetFavorites**
-> AuthControllerRegister200Response customersControllerGetFavorites()
+> ApiControllerRoot200Response customersControllerGetFavorites()
 
 Get my favorites (vendors + products)
 
@@ -553,7 +553,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -567,7 +567,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerToggleFavoriteProduct**
-> AuthControllerRegister200Response customersControllerToggleFavoriteProduct(productId)
+> ApiControllerRoot200Response customersControllerToggleFavoriteProduct(productId)
 
 Toggle product favorite
 
@@ -594,7 +594,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -608,7 +608,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerToggleFavoriteVendor**
-> AuthControllerRegister200Response customersControllerToggleFavoriteVendor(vendorId)
+> ApiControllerRoot200Response customersControllerToggleFavoriteVendor(vendorId)
 
 Toggle vendor favorite
 
@@ -635,7 +635,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -649,7 +649,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **customersControllerUpdateAddress**
-> AuthControllerRegister200Response customersControllerUpdateAddress(id, updateAddressDto)
+> ApiControllerRoot200Response customersControllerUpdateAddress(id, updateAddressDto)
 
 Update an address
 
@@ -678,7 +678,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

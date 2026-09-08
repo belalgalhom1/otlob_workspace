@@ -3,10 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/product.dart';
-import 'package:api/src/model/customer.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'favorite_product.g.dart';
@@ -18,8 +15,6 @@ part 'favorite_product.g.dart';
 /// * [customerId] 
 /// * [productId] 
 /// * [createdAt] 
-/// * [customer] 
-/// * [product] 
 @BuiltValue()
 abstract class FavoriteProduct implements Built<FavoriteProduct, FavoriteProductBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -33,12 +28,6 @@ abstract class FavoriteProduct implements Built<FavoriteProduct, FavoriteProduct
 
   @BuiltValueField(wireName: r'createdAt')
   DateTime get createdAt;
-
-  @BuiltValueField(wireName: r'customer')
-  JsonObject? get customer;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
 
   FavoriteProduct._();
 
@@ -82,16 +71,6 @@ class _$FavoriteProductSerializer implements PrimitiveSerializer<FavoriteProduct
     yield serializers.serialize(
       object.createdAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'customer';
-    yield serializers.serialize(
-      object.customer,
-      specifiedType: const FullType(Customer),
-    );
-    yield r'product';
-    yield serializers.serialize(
-      object.product,
-      specifiedType: const FullType(Product),
     );
   }
 
@@ -143,20 +122,6 @@ class _$FavoriteProductSerializer implements PrimitiveSerializer<FavoriteProduct
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.createdAt = valueDes;
-          break;
-        case r'customer':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.customer = valueDes;
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
           break;
         default:
           unhandled.add(key);

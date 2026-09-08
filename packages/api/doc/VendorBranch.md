@@ -1,8 +1,8 @@
-# openapi.model.VendorBranch
+# api.model.VendorBranch
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -18,10 +18,6 @@ Name | Type | Description | Notes
 **zoneId** | **String** |  | 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**vendor** | [**Vendor**](Vendor.md) |  | 
-**zone** | [**Zone**](Zone.md) |  | 
-**vendorMembers** | [**BuiltList&lt;VendorMember&gt;**](VendorMember.md) |  | 
-**orders** | [**BuiltList&lt;Order&gt;**](Order.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

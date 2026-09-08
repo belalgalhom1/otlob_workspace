@@ -4,14 +4,14 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:api/src/api_util.dart';
-import 'package:api/src/model/auth_controller_register200_response.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/dispatch_announcement_dto.dart';
 import 'package:api/src/model/mark_notifications_read_dto.dart';
-import 'package:api/src/model/notifications_controller_list200_response.dart';
 
 class NotificationsApi {
 
@@ -32,9 +32,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> notificationsControllerDeleteAllRead({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerDeleteAllRead({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -69,14 +69,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -88,7 +88,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -112,9 +112,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [NotificationsControllerList200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<NotificationsControllerList200Response>> notificationsControllerDeleteOne({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerDeleteOne({ 
     required String id,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -150,14 +150,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    NotificationsControllerList200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(NotificationsControllerList200Response),
-      ) as NotificationsControllerList200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -169,7 +169,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<NotificationsControllerList200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -193,9 +193,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> notificationsControllerDispatchAnnouncement({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerDispatchAnnouncement({ 
     required DispatchAnnouncementDto dispatchAnnouncementDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -251,14 +251,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -270,7 +270,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -294,9 +294,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [NotificationsControllerList200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<NotificationsControllerList200Response>> notificationsControllerGetOne({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerGetOne({ 
     required String id,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -332,14 +332,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    NotificationsControllerList200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(NotificationsControllerList200Response),
-      ) as NotificationsControllerList200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -351,7 +351,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<NotificationsControllerList200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -378,9 +378,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [NotificationsControllerList200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<NotificationsControllerList200Response>> notificationsControllerList({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerList({ 
     bool? unreadOnly,
     String? type,
     num? page = 1,
@@ -427,14 +427,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    NotificationsControllerList200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(NotificationsControllerList200Response),
-      ) as NotificationsControllerList200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -446,7 +446,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<NotificationsControllerList200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -470,9 +470,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [NotificationsControllerList200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<NotificationsControllerList200Response>> notificationsControllerMarkOneRead({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerMarkOneRead({ 
     required String id,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -508,14 +508,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    NotificationsControllerList200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(NotificationsControllerList200Response),
-      ) as NotificationsControllerList200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -527,7 +527,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<NotificationsControllerList200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -551,9 +551,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> notificationsControllerMarkRead({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerMarkRead({ 
     required MarkNotificationsReadDto markNotificationsReadDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -609,14 +609,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -628,7 +628,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -651,9 +651,9 @@ class NotificationsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> notificationsControllerUnreadCount({ 
+  Future<Response<ApiControllerRoot200Response>> notificationsControllerUnreadCount({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -688,14 +688,14 @@ class NotificationsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -707,7 +707,7 @@ class NotificationsApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

@@ -20,7 +20,7 @@ Method | HTTP request | Description
 
 
 # **vendorBranchesControllerAdminCreate**
-> AuthControllerRegister200Response vendorBranchesControllerAdminCreate(vendorId, createVendorBranchDto)
+> ApiControllerRoot200Response vendorBranchesControllerAdminCreate(vendorId, createVendorBranchDto)
 
 Create a new branch (Admin Override)
 
@@ -49,7 +49,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -63,7 +63,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerAdminRemove**
-> AuthControllerRegister200Response vendorBranchesControllerAdminRemove(vendorId, branchId)
+> ApiControllerRoot200Response vendorBranchesControllerAdminRemove(vendorId, branchId)
 
 Delete a branch (Admin Override)
 
@@ -92,7 +92,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -106,7 +106,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerAdminUpdate**
-> AuthControllerRegister200Response vendorBranchesControllerAdminUpdate(vendorId, branchId, updateVendorBranchDto)
+> ApiControllerRoot200Response vendorBranchesControllerAdminUpdate(vendorId, branchId, updateVendorBranchDto)
 
 Update a branch (Admin Override)
 
@@ -137,7 +137,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -151,7 +151,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerCreate**
-> AuthControllerRegister200Response vendorBranchesControllerCreate(vendorId, createVendorBranchDto)
+> ApiControllerRoot200Response vendorBranchesControllerCreate(vendorId, createVendorBranchDto)
 
 Create a new branch (Member)
 
@@ -180,7 +180,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -194,7 +194,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerFindAll**
-> AuthControllerRegister200Response vendorBranchesControllerFindAll(vendorId)
+> ApiControllerRoot200Response vendorBranchesControllerFindAll(vendorId)
 
 List all branches for a vendor
 
@@ -221,7 +221,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -235,7 +235,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerFindOne**
-> AuthControllerRegister200Response vendorBranchesControllerFindOne(vendorId, branchId)
+> ApiControllerRoot200Response vendorBranchesControllerFindOne(vendorId, branchId)
 
 Get a specific branch by ID
 
@@ -264,7 +264,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -278,7 +278,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerRemove**
-> AuthControllerRegister200Response vendorBranchesControllerRemove(vendorId, branchId)
+> ApiControllerRoot200Response vendorBranchesControllerRemove(vendorId, branchId)
 
 Delete a branch (Member)
 
@@ -307,7 +307,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -321,7 +321,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorBranchesControllerUpdate**
-> AuthControllerRegister200Response vendorBranchesControllerUpdate(vendorId, branchId, updateVendorBranchDto)
+> ApiControllerRoot200Response vendorBranchesControllerUpdate(vendorId, branchId, updateVendorBranchDto)
 
 Update a branch (Member)
 
@@ -352,7 +352,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

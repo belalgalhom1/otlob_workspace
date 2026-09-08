@@ -3,25 +3,11 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/support_ticket.dart';
-import 'package:api/src/model/role.dart';
-import 'package:api/src/model/conversation.dart';
 import 'package:api/src/model/language.dart';
-import 'package:api/src/model/driver.dart';
-import 'package:api/src/model/wallet_top_up_request.dart';
 import 'package:api/src/model/permission.dart';
-import 'package:api/src/model/session.dart';
-import 'package:api/src/model/customer.dart';
-import 'package:api/src/model/device.dart';
-import 'package:api/src/model/vendor_member.dart';
 import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/conversation_participant.dart';
-import 'package:api/src/model/notification.dart';
-import 'package:api/src/model/audit_log.dart';
-import 'package:api/src/model/notification_setting.dart';
-import 'package:api/src/model/message.dart';
+import 'package:api/src/model/role.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'user.g.dart';
@@ -48,20 +34,6 @@ part 'user.g.dart';
 /// * [createdAt] 
 /// * [updatedAt] 
 /// * [deletedAt] 
-/// * [auditLogs] 
-/// * [conversations] 
-/// * [customer] 
-/// * [devices] 
-/// * [driver] 
-/// * [messages] 
-/// * [notificationSettings] 
-/// * [notifications] 
-/// * [sessions] 
-/// * [assignedTickets] 
-/// * [createdTickets] 
-/// * [vendorMemberships] 
-/// * [createdConversations] 
-/// * [approvedTopUps] 
 @BuiltValue()
 abstract class User implements Built<User, UserBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -74,13 +46,13 @@ abstract class User implements Built<User, UserBuilder> {
   String? get phone;
 
   @BuiltValueField(wireName: r'password')
-  String get password;
+  String? get password;
 
   @BuiltValueField(wireName: r'name')
   String get name;
 
   @BuiltValueField(wireName: r'role')
-  JsonObject? get role;
+  Role get role;
   // enum roleEnum {  CUSTOMER,  DRIVER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
 
   @BuiltValueField(wireName: r'title')
@@ -96,7 +68,7 @@ abstract class User implements Built<User, UserBuilder> {
   String? get avatar;
 
   @BuiltValueField(wireName: r'language')
-  JsonObject? get language;
+  Language get language;
   // enum languageEnum {  EN,  AR,  };
 
   @BuiltValueField(wireName: r'isEmailVerified')
@@ -122,48 +94,6 @@ abstract class User implements Built<User, UserBuilder> {
 
   @BuiltValueField(wireName: r'deletedAt')
   DateTime? get deletedAt;
-
-  @BuiltValueField(wireName: r'auditLogs')
-  BuiltList<AuditLog> get auditLogs;
-
-  @BuiltValueField(wireName: r'conversations')
-  BuiltList<ConversationParticipant> get conversations;
-
-  @BuiltValueField(wireName: r'customer')
-  JsonObject? get customer;
-
-  @BuiltValueField(wireName: r'devices')
-  BuiltList<Device> get devices;
-
-  @BuiltValueField(wireName: r'driver')
-  JsonObject? get driver;
-
-  @BuiltValueField(wireName: r'messages')
-  BuiltList<Message> get messages;
-
-  @BuiltValueField(wireName: r'notificationSettings')
-  JsonObject? get notificationSettings;
-
-  @BuiltValueField(wireName: r'notifications')
-  BuiltList<Notification> get notifications;
-
-  @BuiltValueField(wireName: r'sessions')
-  BuiltList<Session> get sessions;
-
-  @BuiltValueField(wireName: r'assignedTickets')
-  BuiltList<SupportTicket> get assignedTickets;
-
-  @BuiltValueField(wireName: r'createdTickets')
-  BuiltList<SupportTicket> get createdTickets;
-
-  @BuiltValueField(wireName: r'vendorMemberships')
-  BuiltList<VendorMember> get vendorMemberships;
-
-  @BuiltValueField(wireName: r'createdConversations')
-  BuiltList<Conversation> get createdConversations;
-
-  @BuiltValueField(wireName: r'approvedTopUps')
-  BuiltList<WalletTopUpRequest> get approvedTopUps;
 
   User._();
 
@@ -207,11 +137,13 @@ class _$UserSerializer implements PrimitiveSerializer<User> {
         specifiedType: const FullType(String),
       );
     }
-    yield r'password';
-    yield serializers.serialize(
-      object.password,
-      specifiedType: const FullType(String),
-    );
+    if (object.password != null) {
+      yield r'password';
+      yield serializers.serialize(
+        object.password,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'name';
     yield serializers.serialize(
       object.name,
@@ -299,82 +231,6 @@ class _$UserSerializer implements PrimitiveSerializer<User> {
         specifiedType: const FullType(DateTime),
       );
     }
-    yield r'auditLogs';
-    yield serializers.serialize(
-      object.auditLogs,
-      specifiedType: const FullType(BuiltList, [FullType(AuditLog)]),
-    );
-    yield r'conversations';
-    yield serializers.serialize(
-      object.conversations,
-      specifiedType: const FullType(BuiltList, [FullType(ConversationParticipant)]),
-    );
-    if (object.customer != null) {
-      yield r'customer';
-      yield serializers.serialize(
-        object.customer,
-        specifiedType: const FullType(Customer),
-      );
-    }
-    yield r'devices';
-    yield serializers.serialize(
-      object.devices,
-      specifiedType: const FullType(BuiltList, [FullType(Device)]),
-    );
-    if (object.driver != null) {
-      yield r'driver';
-      yield serializers.serialize(
-        object.driver,
-        specifiedType: const FullType(Driver),
-      );
-    }
-    yield r'messages';
-    yield serializers.serialize(
-      object.messages,
-      specifiedType: const FullType(BuiltList, [FullType(Message)]),
-    );
-    if (object.notificationSettings != null) {
-      yield r'notificationSettings';
-      yield serializers.serialize(
-        object.notificationSettings,
-        specifiedType: const FullType(NotificationSetting),
-      );
-    }
-    yield r'notifications';
-    yield serializers.serialize(
-      object.notifications,
-      specifiedType: const FullType(BuiltList, [FullType(Notification)]),
-    );
-    yield r'sessions';
-    yield serializers.serialize(
-      object.sessions,
-      specifiedType: const FullType(BuiltList, [FullType(Session)]),
-    );
-    yield r'assignedTickets';
-    yield serializers.serialize(
-      object.assignedTickets,
-      specifiedType: const FullType(BuiltList, [FullType(SupportTicket)]),
-    );
-    yield r'createdTickets';
-    yield serializers.serialize(
-      object.createdTickets,
-      specifiedType: const FullType(BuiltList, [FullType(SupportTicket)]),
-    );
-    yield r'vendorMemberships';
-    yield serializers.serialize(
-      object.vendorMemberships,
-      specifiedType: const FullType(BuiltList, [FullType(VendorMember)]),
-    );
-    yield r'createdConversations';
-    yield serializers.serialize(
-      object.createdConversations,
-      specifiedType: const FullType(BuiltList, [FullType(Conversation)]),
-    );
-    yield r'approvedTopUps';
-    yield serializers.serialize(
-      object.approvedTopUps,
-      specifiedType: const FullType(BuiltList, [FullType(WalletTopUpRequest)]),
-    );
   }
 
   @override
@@ -436,8 +292,8 @@ class _$UserSerializer implements PrimitiveSerializer<User> {
         case r'role':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
+            specifiedType: const FullType(Role),
+          ) as Role;
           result.role = valueDes;
           break;
         case r'title':
@@ -471,8 +327,8 @@ class _$UserSerializer implements PrimitiveSerializer<User> {
         case r'language':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
+            specifiedType: const FullType(Language),
+          ) as Language;
           result.language = valueDes;
           break;
         case r'isEmailVerified':
@@ -531,100 +387,6 @@ class _$UserSerializer implements PrimitiveSerializer<User> {
           ) as DateTime;
           result.deletedAt = valueDes;
           break;
-        case r'auditLogs':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(AuditLog)]),
-          ) as BuiltList<AuditLog>;
-          result.auditLogs.replace(valueDes);
-          break;
-        case r'conversations':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(ConversationParticipant)]),
-          ) as BuiltList<ConversationParticipant>;
-          result.conversations.replace(valueDes);
-          break;
-        case r'customer':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.customer = valueDes;
-          break;
-        case r'devices':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Device)]),
-          ) as BuiltList<Device>;
-          result.devices.replace(valueDes);
-          break;
-        case r'driver':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.driver = valueDes;
-          break;
-        case r'messages':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Message)]),
-          ) as BuiltList<Message>;
-          result.messages.replace(valueDes);
-          break;
-        case r'notificationSettings':
-          // Patched: skip complex nested type assignment (JsonObject? vs NotificationSettingBuilder?)
-          break;
-        case r'notifications':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Notification)]),
-          ) as BuiltList<Notification>;
-          result.notifications.replace(valueDes);
-          break;
-        case r'sessions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Session)]),
-          ) as BuiltList<Session>;
-          result.sessions.replace(valueDes);
-          break;
-        case r'assignedTickets':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(SupportTicket)]),
-          ) as BuiltList<SupportTicket>;
-          result.assignedTickets.replace(valueDes);
-          break;
-        case r'createdTickets':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(SupportTicket)]),
-          ) as BuiltList<SupportTicket>;
-          result.createdTickets.replace(valueDes);
-          break;
-        case r'vendorMemberships':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(VendorMember)]),
-          ) as BuiltList<VendorMember>;
-          result.vendorMemberships.replace(valueDes);
-          break;
-        case r'createdConversations':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Conversation)]),
-          ) as BuiltList<Conversation>;
-          result.createdConversations.replace(valueDes);
-          break;
-        case r'approvedTopUps':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(WalletTopUpRequest)]),
-          ) as BuiltList<WalletTopUpRequest>;
-          result.approvedTopUps.replace(valueDes);
-          break;
         default:
           unhandled.add(key);
           unhandled.add(value);
@@ -653,7 +415,4 @@ class _$UserSerializer implements PrimitiveSerializer<User> {
     return result.build();
   }
 }
-
-
-
 

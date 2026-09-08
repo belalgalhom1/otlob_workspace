@@ -26,20 +26,6 @@ class VendorCard extends ConsumerWidget {
     return AppColors.primary;
   }
 
-  Widget _chip(IconData icon, String label, {Color? textColor}) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 12, color: textColor ?? Colors.grey.shade600),
-      const SizedBox(width: 4),
-      Text(
-        label, 
-        style: TextStyle(
-          color: textColor ?? Colors.grey.shade700, 
-          fontSize: 12, 
-          fontWeight: FontWeight.w600
-        ), 
-      ),
-    ]);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

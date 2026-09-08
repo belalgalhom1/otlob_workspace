@@ -13,7 +13,7 @@ Method | HTTP request | Description
 
 
 # **inboxControllerGetCounts**
-> AuthControllerRegister200Response inboxControllerGetCounts()
+> ApiControllerRoot200Response inboxControllerGetCounts()
 
 Get unread counts for chat and notifications
 
@@ -36,7 +36,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -22,7 +22,7 @@ Method | HTTP request | Description
 
 
 # **authControllerConfirmVerification**
-> authControllerConfirmVerification(verifyOtpDto)
+> ApiControllerRoot200Response authControllerConfirmVerification(verifyOtpDto)
 
 Confirm verification code (OTP)
 
@@ -34,7 +34,8 @@ final api = Api().getAuthenticationApi();
 final VerifyOtpDto verifyOtpDto = ; // VerifyOtpDto | 
 
 try {
-    api.authControllerConfirmVerification(verifyOtpDto);
+    final response = api.authControllerConfirmVerification(verifyOtpDto);
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerConfirmVerification: $e\n');
 }
@@ -48,7 +49,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -57,12 +58,12 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerForgotPassword**
-> authControllerForgotPassword(forgotPasswordDto)
+> ApiControllerRoot200Response authControllerForgotPassword(forgotPasswordDto)
 
 Request password reset
 
@@ -74,7 +75,8 @@ final api = Api().getAuthenticationApi();
 final ForgotPasswordDto forgotPasswordDto = ; // ForgotPasswordDto | 
 
 try {
-    api.authControllerForgotPassword(forgotPasswordDto);
+    final response = api.authControllerForgotPassword(forgotPasswordDto);
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerForgotPassword: $e\n');
 }
@@ -88,7 +90,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -97,12 +99,12 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerLogin**
-> AuthControllerRegister200Response authControllerLogin(loginDto)
+> ApiControllerRoot200Response authControllerLogin(loginDto)
 
 Login with email and password
 
@@ -129,7 +131,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -143,7 +145,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerLogout**
-> authControllerLogout(logoutDto)
+> ApiControllerRoot200Response authControllerLogout(logoutDto)
 
 Logout from current session
 
@@ -155,7 +157,8 @@ final api = Api().getAuthenticationApi();
 final LogoutDto logoutDto = ; // LogoutDto | 
 
 try {
-    api.authControllerLogout(logoutDto);
+    final response = api.authControllerLogout(logoutDto);
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerLogout: $e\n');
 }
@@ -169,7 +172,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -178,12 +181,12 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerLogoutAll**
-> authControllerLogoutAll()
+> ApiControllerRoot200Response authControllerLogoutAll()
 
 Logout from all sessions
 
@@ -194,7 +197,8 @@ import 'package:api/api.dart';
 final api = Api().getAuthenticationApi();
 
 try {
-    api.authControllerLogoutAll();
+    final response = api.authControllerLogoutAll();
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerLogoutAll: $e\n');
 }
@@ -205,7 +209,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -214,12 +218,12 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: Not defined
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerRefreshTokens**
-> authControllerRefreshTokens()
+> ApiControllerRoot200Response authControllerRefreshTokens()
 
 Refresh access tokens
 
@@ -230,7 +234,8 @@ import 'package:api/api.dart';
 final api = Api().getAuthenticationApi();
 
 try {
-    api.authControllerRefreshTokens();
+    final response = api.authControllerRefreshTokens();
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerRefreshTokens: $e\n');
 }
@@ -241,7 +246,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -250,12 +255,12 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: Not defined
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerRegister**
-> AuthControllerRegister200Response authControllerRegister(registerDto)
+> ApiControllerRoot200Response authControllerRegister(registerDto)
 
 Register a new user
 
@@ -282,7 +287,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -296,7 +301,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerResetPassword**
-> authControllerResetPassword(resetPasswordDto)
+> ApiControllerRoot200Response authControllerResetPassword(resetPasswordDto)
 
 Reset password using code
 
@@ -308,7 +313,8 @@ final api = Api().getAuthenticationApi();
 final ResetPasswordDto resetPasswordDto = ; // ResetPasswordDto | 
 
 try {
-    api.authControllerResetPassword(resetPasswordDto);
+    final response = api.authControllerResetPassword(resetPasswordDto);
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerResetPassword: $e\n');
 }
@@ -322,7 +328,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -331,12 +337,12 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerSendVerification**
-> authControllerSendVerification(sendOtpDto)
+> ApiControllerRoot200Response authControllerSendVerification(sendOtpDto)
 
 Request a verification code (OTP)
 
@@ -348,7 +354,8 @@ final api = Api().getAuthenticationApi();
 final SendOtpDto sendOtpDto = ; // SendOtpDto | 
 
 try {
-    api.authControllerSendVerification(sendOtpDto);
+    final response = api.authControllerSendVerification(sendOtpDto);
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling AuthenticationApi->authControllerSendVerification: $e\n');
 }
@@ -362,7 +369,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -371,12 +378,12 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authControllerSocialLogin**
-> AuthControllerRegister200Response authControllerSocialLogin(socialLoginDto)
+> ApiControllerRoot200Response authControllerSocialLogin(socialLoginDto)
 
 Login with OAuth provider (Google/Apple)
 
@@ -403,7 +410,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

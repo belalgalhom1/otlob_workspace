@@ -14,7 +14,7 @@ Method | HTTP request | Description
 
 
 # **devicesControllerRegister**
-> AuthControllerRegister200Response devicesControllerRegister(registerDeviceDto)
+> ApiControllerRoot200Response devicesControllerRegister(registerDeviceDto)
 
 Register a device for push notifications
 
@@ -41,7 +41,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -55,7 +55,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **devicesControllerRemove**
-> AuthControllerRegister200Response devicesControllerRemove(token)
+> ApiControllerRoot200Response devicesControllerRemove(token)
 
 Remove a device token
 
@@ -82,7 +82,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

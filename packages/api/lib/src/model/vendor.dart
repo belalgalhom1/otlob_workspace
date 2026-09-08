@@ -3,23 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/menu_category.dart';
-import 'package:api/src/model/order.dart';
-import 'package:api/src/model/support_ticket.dart';
-import 'package:api/src/model/vendor_wallet_transaction.dart';
-import 'package:api/src/model/conversation.dart';
-import 'package:api/src/model/offer.dart';
-import 'package:api/src/model/vendor_statistic.dart';
-import 'package:api/src/model/favorite_vendor.dart';
-import 'package:api/src/model/vendor_branch.dart';
-import 'package:api/src/model/vendor_member.dart';
-import 'package:api/src/model/vendor_vertical.dart';
-import 'package:api/src/model/cart.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/product.dart';
-import 'package:api/src/model/promotion.dart';
 import 'package:api/src/model/vendor_status.dart';
-import 'package:api/src/model/audit_log.dart';
 import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -49,21 +33,6 @@ part 'vendor.g.dart';
 /// * [deletedAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [auditLogs] 
-/// * [carts] 
-/// * [conversations] 
-/// * [favoritedBy] 
-/// * [categories] 
-/// * [orders] 
-/// * [products] 
-/// * [supportTickets] 
-/// * [branches] 
-/// * [members] 
-/// * [statistics] 
-/// * [walletTransactions] 
-/// * [promotions] 
-/// * [offers] 
-/// * [vertical] 
 @BuiltValue()
 abstract class Vendor implements Built<Vendor, VendorBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -100,7 +69,7 @@ abstract class Vendor implements Built<Vendor, VendorBuilder> {
   num get commissionRate;
 
   @BuiltValueField(wireName: r'status')
-  JsonObject? get status;
+  VendorStatus get status;
   // enum statusEnum {  CLOSED,  OPEN,  PAUSED,  SUSPENDED,  };
 
   @BuiltValueField(wireName: r'walletBalance')
@@ -126,51 +95,6 @@ abstract class Vendor implements Built<Vendor, VendorBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'auditLogs')
-  BuiltList<AuditLog> get auditLogs;
-
-  @BuiltValueField(wireName: r'carts')
-  BuiltList<Cart> get carts;
-
-  @BuiltValueField(wireName: r'conversations')
-  BuiltList<Conversation> get conversations;
-
-  @BuiltValueField(wireName: r'favoritedBy')
-  BuiltList<FavoriteVendor> get favoritedBy;
-
-  @BuiltValueField(wireName: r'categories')
-  BuiltList<MenuCategory> get categories;
-
-  @BuiltValueField(wireName: r'orders')
-  BuiltList<Order> get orders;
-
-  @BuiltValueField(wireName: r'products')
-  BuiltList<Product> get products;
-
-  @BuiltValueField(wireName: r'supportTickets')
-  BuiltList<SupportTicket> get supportTickets;
-
-  @BuiltValueField(wireName: r'branches')
-  BuiltList<VendorBranch> get branches;
-
-  @BuiltValueField(wireName: r'members')
-  BuiltList<VendorMember> get members;
-
-  @BuiltValueField(wireName: r'statistics')
-  BuiltList<VendorStatistic> get statistics;
-
-  @BuiltValueField(wireName: r'walletTransactions')
-  BuiltList<VendorWalletTransaction> get walletTransactions;
-
-  @BuiltValueField(wireName: r'promotions')
-  BuiltList<Promotion> get promotions;
-
-  @BuiltValueField(wireName: r'offers')
-  BuiltList<Offer> get offers;
-
-  @BuiltValueField(wireName: r'vertical')
-  JsonObject? get vertical;
 
   Vendor._();
 
@@ -313,81 +237,6 @@ class _$VendorSerializer implements PrimitiveSerializer<Vendor> {
       object.updatedAt,
       specifiedType: const FullType(DateTime),
     );
-    yield r'auditLogs';
-    yield serializers.serialize(
-      object.auditLogs,
-      specifiedType: const FullType(BuiltList, [FullType(AuditLog)]),
-    );
-    yield r'carts';
-    yield serializers.serialize(
-      object.carts,
-      specifiedType: const FullType(BuiltList, [FullType(Cart)]),
-    );
-    yield r'conversations';
-    yield serializers.serialize(
-      object.conversations,
-      specifiedType: const FullType(BuiltList, [FullType(Conversation)]),
-    );
-    yield r'favoritedBy';
-    yield serializers.serialize(
-      object.favoritedBy,
-      specifiedType: const FullType(BuiltList, [FullType(FavoriteVendor)]),
-    );
-    yield r'categories';
-    yield serializers.serialize(
-      object.categories,
-      specifiedType: const FullType(BuiltList, [FullType(MenuCategory)]),
-    );
-    yield r'orders';
-    yield serializers.serialize(
-      object.orders,
-      specifiedType: const FullType(BuiltList, [FullType(Order)]),
-    );
-    yield r'products';
-    yield serializers.serialize(
-      object.products,
-      specifiedType: const FullType(BuiltList, [FullType(Product)]),
-    );
-    yield r'supportTickets';
-    yield serializers.serialize(
-      object.supportTickets,
-      specifiedType: const FullType(BuiltList, [FullType(SupportTicket)]),
-    );
-    yield r'branches';
-    yield serializers.serialize(
-      object.branches,
-      specifiedType: const FullType(BuiltList, [FullType(VendorBranch)]),
-    );
-    yield r'members';
-    yield serializers.serialize(
-      object.members,
-      specifiedType: const FullType(BuiltList, [FullType(VendorMember)]),
-    );
-    yield r'statistics';
-    yield serializers.serialize(
-      object.statistics,
-      specifiedType: const FullType(BuiltList, [FullType(VendorStatistic)]),
-    );
-    yield r'walletTransactions';
-    yield serializers.serialize(
-      object.walletTransactions,
-      specifiedType: const FullType(BuiltList, [FullType(VendorWalletTransaction)]),
-    );
-    yield r'promotions';
-    yield serializers.serialize(
-      object.promotions,
-      specifiedType: const FullType(BuiltList, [FullType(Promotion)]),
-    );
-    yield r'offers';
-    yield serializers.serialize(
-      object.offers,
-      specifiedType: const FullType(BuiltList, [FullType(Offer)]),
-    );
-    yield r'vertical';
-    yield serializers.serialize(
-      object.vertical,
-      specifiedType: const FullType(VendorVertical),
-    );
   }
 
   @override
@@ -491,8 +340,8 @@ class _$VendorSerializer implements PrimitiveSerializer<Vendor> {
         case r'status':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
+            specifiedType: const FullType(VendorStatus),
+          ) as VendorStatus;
           result.status = valueDes;
           break;
         case r'walletBalance':
@@ -551,107 +400,6 @@ class _$VendorSerializer implements PrimitiveSerializer<Vendor> {
           ) as DateTime;
           result.updatedAt = valueDes;
           break;
-        case r'auditLogs':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(AuditLog)]),
-          ) as BuiltList<AuditLog>;
-          result.auditLogs.replace(valueDes);
-          break;
-        case r'carts':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Cart)]),
-          ) as BuiltList<Cart>;
-          result.carts.replace(valueDes);
-          break;
-        case r'conversations':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Conversation)]),
-          ) as BuiltList<Conversation>;
-          result.conversations.replace(valueDes);
-          break;
-        case r'favoritedBy':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(FavoriteVendor)]),
-          ) as BuiltList<FavoriteVendor>;
-          result.favoritedBy.replace(valueDes);
-          break;
-        case r'categories':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(MenuCategory)]),
-          ) as BuiltList<MenuCategory>;
-          result.categories.replace(valueDes);
-          break;
-        case r'orders':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Order)]),
-          ) as BuiltList<Order>;
-          result.orders.replace(valueDes);
-          break;
-        case r'products':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Product)]),
-          ) as BuiltList<Product>;
-          result.products.replace(valueDes);
-          break;
-        case r'supportTickets':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(SupportTicket)]),
-          ) as BuiltList<SupportTicket>;
-          result.supportTickets.replace(valueDes);
-          break;
-        case r'branches':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(VendorBranch)]),
-          ) as BuiltList<VendorBranch>;
-          result.branches.replace(valueDes);
-          break;
-        case r'members':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(VendorMember)]),
-          ) as BuiltList<VendorMember>;
-          result.members.replace(valueDes);
-          break;
-        case r'statistics':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(VendorStatistic)]),
-          ) as BuiltList<VendorStatistic>;
-          result.statistics.replace(valueDes);
-          break;
-        case r'walletTransactions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(VendorWalletTransaction)]),
-          ) as BuiltList<VendorWalletTransaction>;
-          result.walletTransactions.replace(valueDes);
-          break;
-        case r'promotions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Promotion)]),
-          ) as BuiltList<Promotion>;
-          result.promotions.replace(valueDes);
-          break;
-        case r'offers':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Offer)]),
-          ) as BuiltList<Offer>;
-          result.offers.replace(valueDes);
-          break;
-        case r'vertical':
-          // Patched: skip complex nested type assignment (JsonObject? vs VendorVerticalBuilder?)
-          break;
         default:
           unhandled.add(key);
           unhandled.add(value);
@@ -680,7 +428,4 @@ class _$VendorSerializer implements PrimitiveSerializer<Vendor> {
     return result.build();
   }
 }
-
-
-
 

@@ -3,11 +3,8 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/vendor.dart';
 import 'package:api/src/model/promotion_type.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'promotion.g.dart';
@@ -31,8 +28,6 @@ part 'promotion.g.dart';
 /// * [endDate] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [vendor] 
-/// * [product] 
 @BuiltValue()
 abstract class Promotion implements Built<Promotion, PromotionBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -54,7 +49,7 @@ abstract class Promotion implements Built<Promotion, PromotionBuilder> {
   String get imageUrl;
 
   @BuiltValueField(wireName: r'type')
-  JsonObject? get type;
+  PromotionType get type;
   // enum typeEnum {  BANNER,  VENDOR,  PRODUCT,  EXTERNAL_LINK,  POPUP,  NOTIFICATION,  };
 
   @BuiltValueField(wireName: r'vendorId')
@@ -83,12 +78,6 @@ abstract class Promotion implements Built<Promotion, PromotionBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'vendor')
-  JsonObject? get vendor;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
 
   Promotion._();
 
@@ -209,20 +198,6 @@ class _$PromotionSerializer implements PrimitiveSerializer<Promotion> {
       object.updatedAt,
       specifiedType: const FullType(DateTime),
     );
-    if (object.vendor != null) {
-      yield r'vendor';
-      yield serializers.serialize(
-        object.vendor,
-        specifiedType: const FullType(Vendor),
-      );
-    }
-    if (object.product != null) {
-      yield r'product';
-      yield serializers.serialize(
-        object.product,
-        specifiedType: const FullType(Product),
-      );
-    }
   }
 
   @override
@@ -291,8 +266,8 @@ class _$PromotionSerializer implements PrimitiveSerializer<Promotion> {
         case r'type':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
+            specifiedType: const FullType(PromotionType),
+          ) as PromotionType;
           result.type = valueDes;
           break;
         case r'vendorId':
@@ -357,20 +332,6 @@ class _$PromotionSerializer implements PrimitiveSerializer<Promotion> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'vendor':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.vendor = valueDes;
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
           break;
         default:
           unhandled.add(key);

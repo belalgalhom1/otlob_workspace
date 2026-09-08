@@ -11,7 +11,7 @@ Name | Type | Description | Notes
 **success** | **bool** | Indicates if the operation was successful | 
 **statusCode** | **num** | HTTP status code | 
 **message** | **String** | Response message or translation key | 
-**data** | [**VendorWalletTransaction**](VendorWalletTransaction.md) |  | 
+**data** | [**VendorWalletTransactionResponseDto**](VendorWalletTransactionResponseDto.md) |  | 
 **errors** | [**BuiltMap&lt;String, BuiltList&lt;String&gt;&gt;**](BuiltList.md) | Validation errors dictionary | 
 **timestamp** | **String** | ISO Timestamp of the response | 
 

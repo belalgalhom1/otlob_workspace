@@ -21,20 +21,6 @@ class _$Customer extends Customer {
   final DateTime updatedAt;
   @override
   final num coinBalance;
-  @override
-  final BuiltList<Address> addresses;
-  @override
-  final BuiltList<Cart> carts;
-  @override
-  final JsonObject? user;
-  @override
-  final BuiltList<FavoriteProduct> favoriteProducts;
-  @override
-  final BuiltList<FavoriteVendor> favoriteVendors;
-  @override
-  final BuiltList<Order> orders;
-  @override
-  final BuiltList<CustomerCoinTransaction> coinTransactions;
 
   factory _$Customer([void Function(CustomerBuilder)? updates]) =>
       (CustomerBuilder()..update(updates))._build();
@@ -47,13 +33,6 @@ class _$Customer extends Customer {
     required this.createdAt,
     required this.updatedAt,
     required this.coinBalance,
-    required this.addresses,
-    required this.carts,
-    this.user,
-    required this.favoriteProducts,
-    required this.favoriteVendors,
-    required this.orders,
-    required this.coinTransactions,
   }) : super._();
   @override
   Customer rebuild(void Function(CustomerBuilder) updates) =>
@@ -72,14 +51,7 @@ class _$Customer extends Customer {
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt &&
-        coinBalance == other.coinBalance &&
-        addresses == other.addresses &&
-        carts == other.carts &&
-        user == other.user &&
-        favoriteProducts == other.favoriteProducts &&
-        favoriteVendors == other.favoriteVendors &&
-        orders == other.orders &&
-        coinTransactions == other.coinTransactions;
+        coinBalance == other.coinBalance;
   }
 
   @override
@@ -92,13 +64,6 @@ class _$Customer extends Customer {
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
     _$hash = $jc(_$hash, coinBalance.hashCode);
-    _$hash = $jc(_$hash, addresses.hashCode);
-    _$hash = $jc(_$hash, carts.hashCode);
-    _$hash = $jc(_$hash, user.hashCode);
-    _$hash = $jc(_$hash, favoriteProducts.hashCode);
-    _$hash = $jc(_$hash, favoriteVendors.hashCode);
-    _$hash = $jc(_$hash, orders.hashCode);
-    _$hash = $jc(_$hash, coinTransactions.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -112,14 +77,7 @@ class _$Customer extends Customer {
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt)
-          ..add('coinBalance', coinBalance)
-          ..add('addresses', addresses)
-          ..add('carts', carts)
-          ..add('user', user)
-          ..add('favoriteProducts', favoriteProducts)
-          ..add('favoriteVendors', favoriteVendors)
-          ..add('orders', orders)
-          ..add('coinTransactions', coinTransactions))
+          ..add('coinBalance', coinBalance))
         .toString();
   }
 }
@@ -155,43 +113,6 @@ class CustomerBuilder implements Builder<Customer, CustomerBuilder> {
   num? get coinBalance => _$this._coinBalance;
   set coinBalance(num? coinBalance) => _$this._coinBalance = coinBalance;
 
-  ListBuilder<Address>? _addresses;
-  ListBuilder<Address> get addresses =>
-      _$this._addresses ??= ListBuilder<Address>();
-  set addresses(ListBuilder<Address>? addresses) =>
-      _$this._addresses = addresses;
-
-  ListBuilder<Cart>? _carts;
-  ListBuilder<Cart> get carts => _$this._carts ??= ListBuilder<Cart>();
-  set carts(ListBuilder<Cart>? carts) => _$this._carts = carts;
-
-  JsonObject? _user;
-  JsonObject? get user => _$this._user;
-  set user(JsonObject? user) => _$this._user = user;
-
-  ListBuilder<FavoriteProduct>? _favoriteProducts;
-  ListBuilder<FavoriteProduct> get favoriteProducts =>
-      _$this._favoriteProducts ??= ListBuilder<FavoriteProduct>();
-  set favoriteProducts(ListBuilder<FavoriteProduct>? favoriteProducts) =>
-      _$this._favoriteProducts = favoriteProducts;
-
-  ListBuilder<FavoriteVendor>? _favoriteVendors;
-  ListBuilder<FavoriteVendor> get favoriteVendors =>
-      _$this._favoriteVendors ??= ListBuilder<FavoriteVendor>();
-  set favoriteVendors(ListBuilder<FavoriteVendor>? favoriteVendors) =>
-      _$this._favoriteVendors = favoriteVendors;
-
-  ListBuilder<Order>? _orders;
-  ListBuilder<Order> get orders => _$this._orders ??= ListBuilder<Order>();
-  set orders(ListBuilder<Order>? orders) => _$this._orders = orders;
-
-  ListBuilder<CustomerCoinTransaction>? _coinTransactions;
-  ListBuilder<CustomerCoinTransaction> get coinTransactions =>
-      _$this._coinTransactions ??= ListBuilder<CustomerCoinTransaction>();
-  set coinTransactions(
-    ListBuilder<CustomerCoinTransaction>? coinTransactions,
-  ) => _$this._coinTransactions = coinTransactions;
-
   CustomerBuilder() {
     Customer._defaults(this);
   }
@@ -206,13 +127,6 @@ class CustomerBuilder implements Builder<Customer, CustomerBuilder> {
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
       _coinBalance = $v.coinBalance;
-      _addresses = $v.addresses.toBuilder();
-      _carts = $v.carts.toBuilder();
-      _user = $v.user;
-      _favoriteProducts = $v.favoriteProducts.toBuilder();
-      _favoriteVendors = $v.favoriteVendors.toBuilder();
-      _orders = $v.orders.toBuilder();
-      _coinTransactions = $v.coinTransactions.toBuilder();
       _$v = null;
     }
     return this;
@@ -232,71 +146,37 @@ class CustomerBuilder implements Builder<Customer, CustomerBuilder> {
   Customer build() => _build();
 
   _$Customer _build() {
-    _$Customer _$result;
-    try {
-      _$result =
-          _$v ??
-          _$Customer._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'Customer', 'id'),
-            userId: BuiltValueNullFieldError.checkNotNull(
-              userId,
-              r'Customer',
-              'userId',
-            ),
-            canOrder: BuiltValueNullFieldError.checkNotNull(
-              canOrder,
-              r'Customer',
-              'canOrder',
-            ),
-            deletedAt: deletedAt,
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'Customer',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'Customer',
-              'updatedAt',
-            ),
-            coinBalance: BuiltValueNullFieldError.checkNotNull(
-              coinBalance,
-              r'Customer',
-              'coinBalance',
-            ),
-            addresses: addresses.build(),
-            carts: carts.build(),
-            user: user,
-            favoriteProducts: favoriteProducts.build(),
-            favoriteVendors: favoriteVendors.build(),
-            orders: orders.build(),
-            coinTransactions: coinTransactions.build(),
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'addresses';
-        addresses.build();
-        _$failedField = 'carts';
-        carts.build();
-
-        _$failedField = 'favoriteProducts';
-        favoriteProducts.build();
-        _$failedField = 'favoriteVendors';
-        favoriteVendors.build();
-        _$failedField = 'orders';
-        orders.build();
-        _$failedField = 'coinTransactions';
-        coinTransactions.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'Customer',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$Customer._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'Customer', 'id'),
+          userId: BuiltValueNullFieldError.checkNotNull(
+            userId,
+            r'Customer',
+            'userId',
+          ),
+          canOrder: BuiltValueNullFieldError.checkNotNull(
+            canOrder,
+            r'Customer',
+            'canOrder',
+          ),
+          deletedAt: deletedAt,
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'Customer',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'Customer',
+            'updatedAt',
+          ),
+          coinBalance: BuiltValueNullFieldError.checkNotNull(
+            coinBalance,
+            r'Customer',
+            'coinBalance',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

@@ -1,8 +1,8 @@
-# openapi.model.CartItem
+# api.model.CartItem
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -20,10 +20,6 @@ Name | Type | Description | Notes
 **optionHash** | **String** |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**selectedOptions** | [**BuiltList&lt;CartItemOption&gt;**](CartItemOption.md) |  | 
-**cart** | [**Cart**](Cart.md) |  | 
-**product** | [**Product**](Product.md) |  | [optional] 
-**variant** | [**ProductVariant**](ProductVariant.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

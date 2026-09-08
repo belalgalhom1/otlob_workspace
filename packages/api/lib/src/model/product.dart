@@ -3,18 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/menu_category.dart';
-import 'package:api/src/model/product_variant.dart';
-import 'package:api/src/model/vendor.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/offer.dart';
-import 'package:api/src/model/product_option_group.dart';
-import 'package:api/src/model/order_item.dart';
-import 'package:api/src/model/cart_item.dart';
-import 'package:api/src/model/favorite_product.dart';
-import 'package:api/src/model/promotion.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'product.g.dart';
@@ -43,15 +32,6 @@ part 'product.g.dart';
 /// * [deletedAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [cartItems] 
-/// * [favoritedBy] 
-/// * [orderItems] 
-/// * [optionGroups] 
-/// * [variants] 
-/// * [promotions] 
-/// * [offers] 
-/// * [category] 
-/// * [vendor] 
 @BuiltValue()
 abstract class Product implements Built<Product, ProductBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -116,33 +96,6 @@ abstract class Product implements Built<Product, ProductBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'cartItems')
-  BuiltList<CartItem> get cartItems;
-
-  @BuiltValueField(wireName: r'favoritedBy')
-  BuiltList<FavoriteProduct> get favoritedBy;
-
-  @BuiltValueField(wireName: r'orderItems')
-  BuiltList<OrderItem> get orderItems;
-
-  @BuiltValueField(wireName: r'optionGroups')
-  BuiltList<ProductOptionGroup> get optionGroups;
-
-  @BuiltValueField(wireName: r'variants')
-  BuiltList<ProductVariant> get variants;
-
-  @BuiltValueField(wireName: r'promotions')
-  BuiltList<Promotion> get promotions;
-
-  @BuiltValueField(wireName: r'offers')
-  BuiltList<Offer> get offers;
-
-  @BuiltValueField(wireName: r'category')
-  JsonObject? get category;
-
-  @BuiltValueField(wireName: r'vendor')
-  JsonObject? get vendor;
 
   Product._();
 
@@ -293,53 +246,6 @@ class _$ProductSerializer implements PrimitiveSerializer<Product> {
     yield serializers.serialize(
       object.updatedAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'cartItems';
-    yield serializers.serialize(
-      object.cartItems,
-      specifiedType: const FullType(BuiltList, [FullType(CartItem)]),
-    );
-    yield r'favoritedBy';
-    yield serializers.serialize(
-      object.favoritedBy,
-      specifiedType: const FullType(BuiltList, [FullType(FavoriteProduct)]),
-    );
-    yield r'orderItems';
-    yield serializers.serialize(
-      object.orderItems,
-      specifiedType: const FullType(BuiltList, [FullType(OrderItem)]),
-    );
-    yield r'optionGroups';
-    yield serializers.serialize(
-      object.optionGroups,
-      specifiedType: const FullType(BuiltList, [FullType(ProductOptionGroup)]),
-    );
-    yield r'variants';
-    yield serializers.serialize(
-      object.variants,
-      specifiedType: const FullType(BuiltList, [FullType(ProductVariant)]),
-    );
-    yield r'promotions';
-    yield serializers.serialize(
-      object.promotions,
-      specifiedType: const FullType(BuiltList, [FullType(Promotion)]),
-    );
-    yield r'offers';
-    yield serializers.serialize(
-      object.offers,
-      specifiedType: const FullType(BuiltList, [FullType(Offer)]),
-    );
-    if (object.category != null) {
-      yield r'category';
-      yield serializers.serialize(
-        object.category,
-        specifiedType: const FullType(MenuCategory),
-      );
-    }
-    yield r'vendor';
-    yield serializers.serialize(
-      object.vendor,
-      specifiedType: const FullType(Vendor),
     );
   }
 
@@ -510,69 +416,6 @@ class _$ProductSerializer implements PrimitiveSerializer<Product> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'cartItems':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(CartItem)]),
-          ) as BuiltList<CartItem>;
-          result.cartItems.replace(valueDes);
-          break;
-        case r'favoritedBy':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(FavoriteProduct)]),
-          ) as BuiltList<FavoriteProduct>;
-          result.favoritedBy.replace(valueDes);
-          break;
-        case r'orderItems':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(OrderItem)]),
-          ) as BuiltList<OrderItem>;
-          result.orderItems.replace(valueDes);
-          break;
-        case r'optionGroups':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(ProductOptionGroup)]),
-          ) as BuiltList<ProductOptionGroup>;
-          result.optionGroups.replace(valueDes);
-          break;
-        case r'variants':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(ProductVariant)]),
-          ) as BuiltList<ProductVariant>;
-          result.variants.replace(valueDes);
-          break;
-        case r'promotions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Promotion)]),
-          ) as BuiltList<Promotion>;
-          result.promotions.replace(valueDes);
-          break;
-        case r'offers':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Offer)]),
-          ) as BuiltList<Offer>;
-          result.offers.replace(valueDes);
-          break;
-        case r'category':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.category = valueDes;
-          break;
-        case r'vendor':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.vendor = valueDes;
           break;
         default:
           unhandled.add(key);

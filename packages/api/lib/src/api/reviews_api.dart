@@ -4,10 +4,12 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:api/src/api_util.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/create_review_dto.dart';
 import 'package:api/src/model/reviews_controller_get_vendor_reviews200_response.dart';
 
@@ -303,9 +305,9 @@ class ReviewsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future]
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<void>> reviewsControllerSubmitReview({ 
+  Future<Response<ApiControllerRoot200Response>> reviewsControllerSubmitReview({ 
     required String orderId,
     required CreateReviewDto createReviewDto,
     CancelToken? cancelToken,
@@ -362,7 +364,35 @@ class ReviewsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    return _response;
+    ApiControllerRoot200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<ApiControllerRoot200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
   }
 
 }

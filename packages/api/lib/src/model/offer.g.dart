@@ -29,10 +29,6 @@ class _$Offer extends Offer {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final JsonObject? vendor;
-  @override
-  final JsonObject? product;
 
   factory _$Offer([void Function(OfferBuilder)? updates]) =>
       (OfferBuilder()..update(updates))._build();
@@ -49,8 +45,6 @@ class _$Offer extends Offer {
     this.endDate,
     required this.createdAt,
     required this.updatedAt,
-    this.vendor,
-    this.product,
   }) : super._();
   @override
   Offer rebuild(void Function(OfferBuilder) updates) =>
@@ -73,9 +67,7 @@ class _$Offer extends Offer {
         startDate == other.startDate &&
         endDate == other.endDate &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        vendor == other.vendor &&
-        product == other.product;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -92,8 +84,6 @@ class _$Offer extends Offer {
     _$hash = $jc(_$hash, endDate.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, vendor.hashCode);
-    _$hash = $jc(_$hash, product.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -111,9 +101,7 @@ class _$Offer extends Offer {
           ..add('startDate', startDate)
           ..add('endDate', endDate)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('vendor', vendor)
-          ..add('product', product))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -166,14 +154,6 @@ class OfferBuilder implements Builder<Offer, OfferBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  JsonObject? _vendor;
-  JsonObject? get vendor => _$this._vendor;
-  set vendor(JsonObject? vendor) => _$this._vendor = vendor;
-
-  JsonObject? _product;
-  JsonObject? get product => _$this._product;
-  set product(JsonObject? product) => _$this._product = product;
-
   OfferBuilder() {
     Offer._defaults(this);
   }
@@ -192,8 +172,6 @@ class OfferBuilder implements Builder<Offer, OfferBuilder> {
       _endDate = $v.endDate;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _vendor = $v.vendor;
-      _product = $v.product;
       _$v = null;
     }
     return this;
@@ -259,8 +237,6 @@ class OfferBuilder implements Builder<Offer, OfferBuilder> {
             r'Offer',
             'updatedAt',
           ),
-          vendor: vendor,
-          product: product,
         );
     replace(_$result);
     return _$result;

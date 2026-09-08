@@ -3,12 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/product_variant.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/product_option.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'product_option_group.g.dart';
@@ -24,9 +19,6 @@ part 'product_option_group.g.dart';
 /// * [isRequired] 
 /// * [minSelect] 
 /// * [maxSelect] 
-/// * [product] 
-/// * [variant] 
-/// * [options] 
 @BuiltValue()
 abstract class ProductOptionGroup implements Built<ProductOptionGroup, ProductOptionGroupBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -52,15 +44,6 @@ abstract class ProductOptionGroup implements Built<ProductOptionGroup, ProductOp
 
   @BuiltValueField(wireName: r'maxSelect')
   num get maxSelect;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
-
-  @BuiltValueField(wireName: r'variant')
-  JsonObject? get variant;
-
-  @BuiltValueField(wireName: r'options')
-  BuiltList<ProductOption> get options;
 
   ProductOptionGroup._();
 
@@ -130,25 +113,6 @@ class _$ProductOptionGroupSerializer implements PrimitiveSerializer<ProductOptio
     yield serializers.serialize(
       object.maxSelect,
       specifiedType: const FullType(num),
-    );
-    if (object.product != null) {
-      yield r'product';
-      yield serializers.serialize(
-        object.product,
-        specifiedType: const FullType(Product),
-      );
-    }
-    if (object.variant != null) {
-      yield r'variant';
-      yield serializers.serialize(
-        object.variant,
-        specifiedType: const FullType(ProductVariant),
-      );
-    }
-    yield r'options';
-    yield serializers.serialize(
-      object.options,
-      specifiedType: const FullType(BuiltList, [FullType(ProductOption)]),
     );
   }
 
@@ -228,27 +192,6 @@ class _$ProductOptionGroupSerializer implements PrimitiveSerializer<ProductOptio
             specifiedType: const FullType(num),
           ) as num;
           result.maxSelect = valueDes;
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
-          break;
-        case r'variant':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.variant = valueDes;
-          break;
-        case r'options':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(ProductOption)]),
-          ) as BuiltList<ProductOption>;
-          result.options.replace(valueDes);
           break;
         default:
           unhandled.add(key);

@@ -23,7 +23,7 @@ Method | HTTP request | Description
 
 
 # **menuCategoriesControllerAdminCreate**
-> AuthControllerRegister200Response menuCategoriesControllerAdminCreate(vendorId, createMenuCategoryDto)
+> ApiControllerRoot200Response menuCategoriesControllerAdminCreate(vendorId, createMenuCategoryDto)
 
 Create a new menu category (Admin Override)
 
@@ -52,7 +52,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -66,7 +66,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerAdminRemove**
-> AuthControllerRegister200Response menuCategoriesControllerAdminRemove(vendorId, categoryId)
+> ApiControllerRoot200Response menuCategoriesControllerAdminRemove(vendorId, categoryId)
 
 Delete a menu category (Admin Override)
 
@@ -95,7 +95,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -109,7 +109,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerAdminUpdate**
-> AuthControllerRegister200Response menuCategoriesControllerAdminUpdate(vendorId, categoryId, updateMenuCategoryDto)
+> ApiControllerRoot200Response menuCategoriesControllerAdminUpdate(vendorId, categoryId, updateMenuCategoryDto)
 
 Update a menu category (Admin Override)
 
@@ -140,7 +140,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -154,7 +154,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerAdminUploadIcon**
-> AuthControllerRegister200Response menuCategoriesControllerAdminUploadIcon(vendorId, categoryId, file)
+> ApiControllerRoot200Response menuCategoriesControllerAdminUploadIcon(vendorId, categoryId, file)
 
 Upload menu category icon (Admin Override)
 
@@ -185,7 +185,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -199,7 +199,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerCreate**
-> AuthControllerRegister200Response menuCategoriesControllerCreate(vendorId, createMenuCategoryDto)
+> ApiControllerRoot200Response menuCategoriesControllerCreate(vendorId, createMenuCategoryDto)
 
 Create a new menu category (Member)
 
@@ -228,7 +228,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -242,7 +242,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerFindAll**
-> AuthControllerRegister200Response menuCategoriesControllerFindAll(vendorId, activeOnly)
+> ApiControllerRoot200Response menuCategoriesControllerFindAll(vendorId, activeOnly)
 
 List all menu categories for a vendor
 
@@ -271,7 +271,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -285,7 +285,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerFindOne**
-> AuthControllerRegister200Response menuCategoriesControllerFindOne(vendorId, categoryId)
+> ApiControllerRoot200Response menuCategoriesControllerFindOne(vendorId, categoryId)
 
 Get a specific menu category by ID
 
@@ -314,7 +314,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -328,7 +328,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerRemove**
-> AuthControllerRegister200Response menuCategoriesControllerRemove(vendorId, categoryId)
+> ApiControllerRoot200Response menuCategoriesControllerRemove(vendorId, categoryId)
 
 Delete a menu category (Member)
 
@@ -357,7 +357,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -371,7 +371,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerReorder**
-> AuthControllerRegister200Response menuCategoriesControllerReorder(vendorId, reorderCategoriesDto)
+> ApiControllerRoot200Response menuCategoriesControllerReorder(vendorId, reorderCategoriesDto)
 
 Reorder menu categories
 
@@ -400,7 +400,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -414,7 +414,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerUpdate**
-> AuthControllerRegister200Response menuCategoriesControllerUpdate(vendorId, categoryId, updateMenuCategoryDto)
+> ApiControllerRoot200Response menuCategoriesControllerUpdate(vendorId, categoryId, updateMenuCategoryDto)
 
 Update a menu category (Member)
 
@@ -445,7 +445,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -459,7 +459,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerUploadIcon**
-> AuthControllerRegister200Response menuCategoriesControllerUploadIcon(vendorId, categoryId, file)
+> ApiControllerRoot200Response menuCategoriesControllerUploadIcon(vendorId, categoryId, file)
 
 Upload menu category icon (Member)
 
@@ -490,7 +490,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

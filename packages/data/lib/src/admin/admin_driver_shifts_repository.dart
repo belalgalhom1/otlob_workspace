@@ -18,7 +18,7 @@ class AdminDriverShiftsRepository {
   }
 
   Future<dynamic> deleteShiftPool(String id) async {
-    final response = await _api.driverShiftsControllerDeleteShiftPool(poolId: id);
+    final response = await _api.driverShiftsControllerTerminateShiftPool(poolId: id);
     return ResponseParser.parse(response);
   }
 }

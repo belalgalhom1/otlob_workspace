@@ -4,11 +4,12 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:api/src/api_util.dart';
-import 'package:api/src/model/auth_controller_register200_response.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/create_vendor_dto.dart';
 import 'package:api/src/model/update_vendor_dto.dart';
 import 'package:api/src/model/update_vendor_status_dto.dart';
@@ -33,6 +34,7 @@ class VendorsCoreManagementApi {
   /// * [minRating] - Minimum rating (0-5)
   /// * [sortBy] 
   /// * [sortOrder] 
+  /// * [zoneId] - Filter or prioritize vendors by delivery zone ID
   /// * [lat] 
   /// * [lng] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
@@ -42,9 +44,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerAdminFindAll({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerAdminFindAll({ 
     String? status,
     String? verticalId,
     String? search,
@@ -53,6 +55,7 @@ class VendorsCoreManagementApi {
     num? minRating,
     String? sortBy,
     String? sortOrder,
+    String? zoneId,
     num? lat,
     num? lng,
     CancelToken? cancelToken,
@@ -90,6 +93,7 @@ class VendorsCoreManagementApi {
       if (minRating != null) r'minRating': encodeQueryParameter(_serializers, minRating, const FullType(num)),
       if (sortBy != null) r'sortBy': encodeQueryParameter(_serializers, sortBy, const FullType(String)),
       if (sortOrder != null) r'sortOrder': encodeQueryParameter(_serializers, sortOrder, const FullType(String)),
+      if (zoneId != null) r'zoneId': encodeQueryParameter(_serializers, zoneId, const FullType(String)),
       if (lat != null) r'lat': encodeQueryParameter(_serializers, lat, const FullType(num)),
       if (lng != null) r'lng': encodeQueryParameter(_serializers, lng, const FullType(num)),
     };
@@ -103,14 +107,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -122,7 +126,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -146,9 +150,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerCreate({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerCreate({ 
     required CreateVendorDto createVendorDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -204,14 +208,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -223,7 +227,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -247,6 +251,7 @@ class VendorsCoreManagementApi {
   /// * [minRating] - Minimum rating (0-5)
   /// * [sortBy] 
   /// * [sortOrder] 
+  /// * [zoneId] - Filter or prioritize vendors by delivery zone ID
   /// * [lat] 
   /// * [lng] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
@@ -256,9 +261,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerFindAll({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerFindAll({ 
     String? status,
     String? verticalId,
     String? search,
@@ -267,6 +272,7 @@ class VendorsCoreManagementApi {
     num? minRating,
     String? sortBy,
     String? sortOrder,
+    String? zoneId,
     num? lat,
     num? lng,
     CancelToken? cancelToken,
@@ -298,6 +304,7 @@ class VendorsCoreManagementApi {
       if (minRating != null) r'minRating': encodeQueryParameter(_serializers, minRating, const FullType(num)),
       if (sortBy != null) r'sortBy': encodeQueryParameter(_serializers, sortBy, const FullType(String)),
       if (sortOrder != null) r'sortOrder': encodeQueryParameter(_serializers, sortOrder, const FullType(String)),
+      if (zoneId != null) r'zoneId': encodeQueryParameter(_serializers, zoneId, const FullType(String)),
       if (lat != null) r'lat': encodeQueryParameter(_serializers, lat, const FullType(num)),
       if (lng != null) r'lng': encodeQueryParameter(_serializers, lng, const FullType(num)),
     };
@@ -311,14 +318,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -330,7 +337,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -354,9 +361,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerFindBySlug({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerFindBySlug({ 
     required String slug,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -386,14 +393,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -405,7 +412,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -429,9 +436,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerFindOne({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerFindOne({ 
     required String vendorId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -461,14 +468,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -480,7 +487,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -504,9 +511,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerGetMyVendor({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerGetMyVendor({ 
     required String vendorId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -542,14 +549,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -561,7 +568,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -585,9 +592,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerRemove({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerRemove({ 
     required String vendorId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -623,14 +630,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -642,7 +649,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -666,6 +673,7 @@ class VendorsCoreManagementApi {
   /// * [minRating] - Minimum rating (0-5)
   /// * [sortBy] 
   /// * [sortOrder] 
+  /// * [zoneId] - Filter or prioritize vendors by delivery zone ID
   /// * [lat] 
   /// * [lng] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
@@ -675,9 +683,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerSearchDiscovery({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerSearchDiscovery({ 
     String? status,
     String? verticalId,
     String? search,
@@ -686,6 +694,7 @@ class VendorsCoreManagementApi {
     num? minRating,
     String? sortBy,
     String? sortOrder,
+    String? zoneId,
     num? lat,
     num? lng,
     CancelToken? cancelToken,
@@ -717,6 +726,7 @@ class VendorsCoreManagementApi {
       if (minRating != null) r'minRating': encodeQueryParameter(_serializers, minRating, const FullType(num)),
       if (sortBy != null) r'sortBy': encodeQueryParameter(_serializers, sortBy, const FullType(String)),
       if (sortOrder != null) r'sortOrder': encodeQueryParameter(_serializers, sortOrder, const FullType(String)),
+      if (zoneId != null) r'zoneId': encodeQueryParameter(_serializers, zoneId, const FullType(String)),
       if (lat != null) r'lat': encodeQueryParameter(_serializers, lat, const FullType(num)),
       if (lng != null) r'lng': encodeQueryParameter(_serializers, lng, const FullType(num)),
     };
@@ -730,14 +740,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -749,7 +759,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -774,9 +784,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerUpdate({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerUpdate({ 
     required String vendorId,
     required UpdateVendorDto updateVendorDto,
     CancelToken? cancelToken,
@@ -833,14 +843,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -852,7 +862,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -877,9 +887,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerUpdateStatus({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerUpdateStatus({ 
     required String vendorId,
     required UpdateVendorStatusDto updateVendorStatusDto,
     CancelToken? cancelToken,
@@ -936,14 +946,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -955,7 +965,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -980,9 +990,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerUploadCover({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerUploadCover({ 
     required String vendorId,
     MultipartFile? file,
     CancelToken? cancelToken,
@@ -1040,14 +1050,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1059,7 +1069,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1084,9 +1094,9 @@ class VendorsCoreManagementApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> vendorsControllerUploadLogo({ 
+  Future<Response<ApiControllerRoot200Response>> vendorsControllerUploadLogo({ 
     required String vendorId,
     MultipartFile? file,
     CancelToken? cancelToken,
@@ -1144,14 +1154,14 @@ class VendorsCoreManagementApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1163,7 +1173,7 @@ class VendorsCoreManagementApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

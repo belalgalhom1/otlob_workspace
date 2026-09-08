@@ -27,14 +27,6 @@ class _$OrderItem extends OrderItem {
   final num totalPrice;
   @override
   final String? specialRequest;
-  @override
-  final BuiltList<OrderItemOption> selectedOptions;
-  @override
-  final JsonObject? order;
-  @override
-  final JsonObject? product;
-  @override
-  final JsonObject? variant;
 
   factory _$OrderItem([void Function(OrderItemBuilder)? updates]) =>
       (OrderItemBuilder()..update(updates))._build();
@@ -50,10 +42,6 @@ class _$OrderItem extends OrderItem {
     required this.quantity,
     required this.totalPrice,
     this.specialRequest,
-    required this.selectedOptions,
-    this.order,
-    this.product,
-    this.variant,
   }) : super._();
   @override
   OrderItem rebuild(void Function(OrderItemBuilder) updates) =>
@@ -75,11 +63,7 @@ class _$OrderItem extends OrderItem {
         unitPrice == other.unitPrice &&
         quantity == other.quantity &&
         totalPrice == other.totalPrice &&
-        specialRequest == other.specialRequest &&
-        selectedOptions == other.selectedOptions &&
-        order == other.order &&
-        product == other.product &&
-        variant == other.variant;
+        specialRequest == other.specialRequest;
   }
 
   @override
@@ -95,10 +79,6 @@ class _$OrderItem extends OrderItem {
     _$hash = $jc(_$hash, quantity.hashCode);
     _$hash = $jc(_$hash, totalPrice.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
-    _$hash = $jc(_$hash, selectedOptions.hashCode);
-    _$hash = $jc(_$hash, order.hashCode);
-    _$hash = $jc(_$hash, product.hashCode);
-    _$hash = $jc(_$hash, variant.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -115,11 +95,7 @@ class _$OrderItem extends OrderItem {
           ..add('unitPrice', unitPrice)
           ..add('quantity', quantity)
           ..add('totalPrice', totalPrice)
-          ..add('specialRequest', specialRequest)
-          ..add('selectedOptions', selectedOptions)
-          ..add('order', order)
-          ..add('product', product)
-          ..add('variant', variant))
+          ..add('specialRequest', specialRequest))
         .toString();
   }
 }
@@ -168,24 +144,6 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
-  ListBuilder<OrderItemOption>? _selectedOptions;
-  ListBuilder<OrderItemOption> get selectedOptions =>
-      _$this._selectedOptions ??= ListBuilder<OrderItemOption>();
-  set selectedOptions(ListBuilder<OrderItemOption>? selectedOptions) =>
-      _$this._selectedOptions = selectedOptions;
-
-  JsonObject? _order;
-  JsonObject? get order => _$this._order;
-  set order(JsonObject? order) => _$this._order = order;
-
-  JsonObject? _product;
-  JsonObject? get product => _$this._product;
-  set product(JsonObject? product) => _$this._product = product;
-
-  JsonObject? _variant;
-  JsonObject? get variant => _$this._variant;
-  set variant(JsonObject? variant) => _$this._variant = variant;
-
   OrderItemBuilder() {
     OrderItem._defaults(this);
   }
@@ -203,10 +161,6 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
       _quantity = $v.quantity;
       _totalPrice = $v.totalPrice;
       _specialRequest = $v.specialRequest;
-      _selectedOptions = $v.selectedOptions.toBuilder();
-      _order = $v.order;
-      _product = $v.product;
-      _variant = $v.variant;
       _$v = null;
     }
     return this;
@@ -226,60 +180,40 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
   OrderItem build() => _build();
 
   _$OrderItem _build() {
-    _$OrderItem _$result;
-    try {
-      _$result =
-          _$v ??
-          _$OrderItem._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'OrderItem', 'id'),
-            orderId: BuiltValueNullFieldError.checkNotNull(
-              orderId,
-              r'OrderItem',
-              'orderId',
-            ),
-            productId: productId,
-            variantId: variantId,
-            productName: BuiltValueNullFieldError.checkNotNull(
-              productName,
-              r'OrderItem',
-              'productName',
-            ),
-            variantName: variantName,
-            unitPrice: BuiltValueNullFieldError.checkNotNull(
-              unitPrice,
-              r'OrderItem',
-              'unitPrice',
-            ),
-            quantity: BuiltValueNullFieldError.checkNotNull(
-              quantity,
-              r'OrderItem',
-              'quantity',
-            ),
-            totalPrice: BuiltValueNullFieldError.checkNotNull(
-              totalPrice,
-              r'OrderItem',
-              'totalPrice',
-            ),
-            specialRequest: specialRequest,
-            selectedOptions: selectedOptions.build(),
-            order: order,
-            product: product,
-            variant: variant,
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'selectedOptions';
-        selectedOptions.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'OrderItem',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$OrderItem._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'OrderItem', 'id'),
+          orderId: BuiltValueNullFieldError.checkNotNull(
+            orderId,
+            r'OrderItem',
+            'orderId',
+          ),
+          productId: productId,
+          variantId: variantId,
+          productName: BuiltValueNullFieldError.checkNotNull(
+            productName,
+            r'OrderItem',
+            'productName',
+          ),
+          variantName: variantName,
+          unitPrice: BuiltValueNullFieldError.checkNotNull(
+            unitPrice,
+            r'OrderItem',
+            'unitPrice',
+          ),
+          quantity: BuiltValueNullFieldError.checkNotNull(
+            quantity,
+            r'OrderItem',
+            'quantity',
+          ),
+          totalPrice: BuiltValueNullFieldError.checkNotNull(
+            totalPrice,
+            r'OrderItem',
+            'totalPrice',
+          ),
+          specialRequest: specialRequest,
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

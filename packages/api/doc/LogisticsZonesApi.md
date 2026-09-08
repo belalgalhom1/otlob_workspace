@@ -19,7 +19,7 @@ Method | HTTP request | Description
 
 
 # **zonesControllerCheckLocation**
-> AuthControllerRegister200Response zonesControllerCheckLocation(checkLocationDto)
+> ApiControllerRoot200Response zonesControllerCheckLocation(checkLocationDto)
 
 Find zone by coordinates
 
@@ -46,7 +46,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -60,7 +60,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **zonesControllerCreate**
-> AuthControllerRegister200Response zonesControllerCreate(createZoneDto)
+> ApiControllerRoot200Response zonesControllerCreate(createZoneDto)
 
 Create a new delivery zone
 
@@ -87,7 +87,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -101,7 +101,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **zonesControllerFindAll**
-> AuthControllerRegister200Response zonesControllerFindAll()
+> ApiControllerRoot200Response zonesControllerFindAll()
 
 List all delivery zones
 
@@ -124,7 +124,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -138,7 +138,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **zonesControllerFindOne**
-> AuthControllerRegister200Response zonesControllerFindOne(id)
+> ApiControllerRoot200Response zonesControllerFindOne(id)
 
 Get a specific zone by ID
 
@@ -165,7 +165,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -179,7 +179,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **zonesControllerRemove**
-> AuthControllerRegister200Response zonesControllerRemove(id)
+> ApiControllerRoot200Response zonesControllerRemove(id)
 
 Delete a delivery zone
 
@@ -206,7 +206,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -220,7 +220,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **zonesControllerSearchCustomers**
-> AuthControllerRegister200Response zonesControllerSearchCustomers(searchCustomersInPolygonDto)
+> ApiControllerRoot200Response zonesControllerSearchCustomers(searchCustomersInPolygonDto)
 
 Search for customers within a polygon
 
@@ -247,7 +247,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -261,7 +261,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **zonesControllerUpdate**
-> AuthControllerRegister200Response zonesControllerUpdate(id, updateZoneDto)
+> ApiControllerRoot200Response zonesControllerUpdate(id, updateZoneDto)
 
 Update a delivery zone
 
@@ -290,7 +290,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

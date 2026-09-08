@@ -15,10 +15,6 @@ class _$FavoriteProduct extends FavoriteProduct {
   final String productId;
   @override
   final DateTime createdAt;
-  @override
-  final JsonObject? customer;
-  @override
-  final JsonObject? product;
 
   factory _$FavoriteProduct([void Function(FavoriteProductBuilder)? updates]) =>
       (FavoriteProductBuilder()..update(updates))._build();
@@ -28,8 +24,6 @@ class _$FavoriteProduct extends FavoriteProduct {
     required this.customerId,
     required this.productId,
     required this.createdAt,
-    this.customer,
-    this.product,
   }) : super._();
   @override
   FavoriteProduct rebuild(void Function(FavoriteProductBuilder) updates) =>
@@ -45,9 +39,7 @@ class _$FavoriteProduct extends FavoriteProduct {
         id == other.id &&
         customerId == other.customerId &&
         productId == other.productId &&
-        createdAt == other.createdAt &&
-        customer == other.customer &&
-        product == other.product;
+        createdAt == other.createdAt;
   }
 
   @override
@@ -57,8 +49,6 @@ class _$FavoriteProduct extends FavoriteProduct {
     _$hash = $jc(_$hash, customerId.hashCode);
     _$hash = $jc(_$hash, productId.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
-    _$hash = $jc(_$hash, customer.hashCode);
-    _$hash = $jc(_$hash, product.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -69,9 +59,7 @@ class _$FavoriteProduct extends FavoriteProduct {
           ..add('id', id)
           ..add('customerId', customerId)
           ..add('productId', productId)
-          ..add('createdAt', createdAt)
-          ..add('customer', customer)
-          ..add('product', product))
+          ..add('createdAt', createdAt))
         .toString();
   }
 }
@@ -96,14 +84,6 @@ class FavoriteProductBuilder
   DateTime? get createdAt => _$this._createdAt;
   set createdAt(DateTime? createdAt) => _$this._createdAt = createdAt;
 
-  JsonObject? _customer;
-  JsonObject? get customer => _$this._customer;
-  set customer(JsonObject? customer) => _$this._customer = customer;
-
-  JsonObject? _product;
-  JsonObject? get product => _$this._product;
-  set product(JsonObject? product) => _$this._product = product;
-
   FavoriteProductBuilder() {
     FavoriteProduct._defaults(this);
   }
@@ -115,8 +95,6 @@ class FavoriteProductBuilder
       _customerId = $v.customerId;
       _productId = $v.productId;
       _createdAt = $v.createdAt;
-      _customer = $v.customer;
-      _product = $v.product;
       _$v = null;
     }
     return this;
@@ -159,8 +137,6 @@ class FavoriteProductBuilder
             r'FavoriteProduct',
             'createdAt',
           ),
-          customer: customer,
-          product: product,
         );
     replace(_$result);
     return _$result;

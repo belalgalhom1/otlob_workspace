@@ -53,6 +53,7 @@ part 'update_platform_settings_dto.g.dart';
 /// * [driverSearchMaxAttempts] 
 /// * [fallbackOrderDistanceKm] 
 /// * [autoCancelPendingMins] 
+/// * [mobileWalletTimeoutMins] 
 /// * [driverAcceptTimeoutSecs] 
 /// * [maxDispatchBatchSize] 
 /// * [isMaintenanceMode] 
@@ -229,6 +230,9 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
 
   @BuiltValueField(wireName: r'autoCancelPendingMins')
   num? get autoCancelPendingMins;
+
+  @BuiltValueField(wireName: r'mobileWalletTimeoutMins')
+  num? get mobileWalletTimeoutMins;
 
   @BuiltValueField(wireName: r'driverAcceptTimeoutSecs')
   num? get driverAcceptTimeoutSecs;
@@ -710,6 +714,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'autoCancelPendingMins';
       yield serializers.serialize(
         object.autoCancelPendingMins,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.mobileWalletTimeoutMins != null) {
+      yield r'mobileWalletTimeoutMins';
+      yield serializers.serialize(
+        object.mobileWalletTimeoutMins,
         specifiedType: const FullType(num),
       );
     }
@@ -1351,6 +1362,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.autoCancelPendingMins = valueDes;
+          break;
+        case r'mobileWalletTimeoutMins':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.mobileWalletTimeoutMins = valueDes;
           break;
         case r'driverAcceptTimeoutSecs':
           final valueDes = serializers.deserialize(

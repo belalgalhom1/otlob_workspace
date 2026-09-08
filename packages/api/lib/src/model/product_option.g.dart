@@ -19,12 +19,6 @@ class _$ProductOption extends ProductOption {
   final num priceAdded;
   @override
   final bool isActive;
-  @override
-  final BuiltList<CartItemOption> cartItemOptions;
-  @override
-  final BuiltList<OrderItemOption> orderItemOptions;
-  @override
-  final JsonObject? group;
 
   factory _$ProductOption([void Function(ProductOptionBuilder)? updates]) =>
       (ProductOptionBuilder()..update(updates))._build();
@@ -36,9 +30,6 @@ class _$ProductOption extends ProductOption {
     this.nameAr,
     required this.priceAdded,
     required this.isActive,
-    required this.cartItemOptions,
-    required this.orderItemOptions,
-    this.group,
   }) : super._();
   @override
   ProductOption rebuild(void Function(ProductOptionBuilder) updates) =>
@@ -56,10 +47,7 @@ class _$ProductOption extends ProductOption {
         name == other.name &&
         nameAr == other.nameAr &&
         priceAdded == other.priceAdded &&
-        isActive == other.isActive &&
-        cartItemOptions == other.cartItemOptions &&
-        orderItemOptions == other.orderItemOptions &&
-        group == other.group;
+        isActive == other.isActive;
   }
 
   @override
@@ -71,9 +59,6 @@ class _$ProductOption extends ProductOption {
     _$hash = $jc(_$hash, nameAr.hashCode);
     _$hash = $jc(_$hash, priceAdded.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
-    _$hash = $jc(_$hash, cartItemOptions.hashCode);
-    _$hash = $jc(_$hash, orderItemOptions.hashCode);
-    _$hash = $jc(_$hash, group.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -86,10 +71,7 @@ class _$ProductOption extends ProductOption {
           ..add('name', name)
           ..add('nameAr', nameAr)
           ..add('priceAdded', priceAdded)
-          ..add('isActive', isActive)
-          ..add('cartItemOptions', cartItemOptions)
-          ..add('orderItemOptions', orderItemOptions)
-          ..add('group', group))
+          ..add('isActive', isActive))
         .toString();
   }
 }
@@ -122,22 +104,6 @@ class ProductOptionBuilder
   bool? get isActive => _$this._isActive;
   set isActive(bool? isActive) => _$this._isActive = isActive;
 
-  ListBuilder<CartItemOption>? _cartItemOptions;
-  ListBuilder<CartItemOption> get cartItemOptions =>
-      _$this._cartItemOptions ??= ListBuilder<CartItemOption>();
-  set cartItemOptions(ListBuilder<CartItemOption>? cartItemOptions) =>
-      _$this._cartItemOptions = cartItemOptions;
-
-  ListBuilder<OrderItemOption>? _orderItemOptions;
-  ListBuilder<OrderItemOption> get orderItemOptions =>
-      _$this._orderItemOptions ??= ListBuilder<OrderItemOption>();
-  set orderItemOptions(ListBuilder<OrderItemOption>? orderItemOptions) =>
-      _$this._orderItemOptions = orderItemOptions;
-
-  JsonObject? _group;
-  JsonObject? get group => _$this._group;
-  set group(JsonObject? group) => _$this._group = group;
-
   ProductOptionBuilder() {
     ProductOption._defaults(this);
   }
@@ -151,9 +117,6 @@ class ProductOptionBuilder
       _nameAr = $v.nameAr;
       _priceAdded = $v.priceAdded;
       _isActive = $v.isActive;
-      _cartItemOptions = $v.cartItemOptions.toBuilder();
-      _orderItemOptions = $v.orderItemOptions.toBuilder();
-      _group = $v.group;
       _$v = null;
     }
     return this;
@@ -173,57 +136,32 @@ class ProductOptionBuilder
   ProductOption build() => _build();
 
   _$ProductOption _build() {
-    _$ProductOption _$result;
-    try {
-      _$result =
-          _$v ??
-          _$ProductOption._(
-            id: BuiltValueNullFieldError.checkNotNull(
-              id,
-              r'ProductOption',
-              'id',
-            ),
-            groupId: BuiltValueNullFieldError.checkNotNull(
-              groupId,
-              r'ProductOption',
-              'groupId',
-            ),
-            name: BuiltValueNullFieldError.checkNotNull(
-              name,
-              r'ProductOption',
-              'name',
-            ),
-            nameAr: nameAr,
-            priceAdded: BuiltValueNullFieldError.checkNotNull(
-              priceAdded,
-              r'ProductOption',
-              'priceAdded',
-            ),
-            isActive: BuiltValueNullFieldError.checkNotNull(
-              isActive,
-              r'ProductOption',
-              'isActive',
-            ),
-            cartItemOptions: cartItemOptions.build(),
-            orderItemOptions: orderItemOptions.build(),
-            group: group,
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'cartItemOptions';
-        cartItemOptions.build();
-        _$failedField = 'orderItemOptions';
-        orderItemOptions.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'ProductOption',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$ProductOption._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'ProductOption', 'id'),
+          groupId: BuiltValueNullFieldError.checkNotNull(
+            groupId,
+            r'ProductOption',
+            'groupId',
+          ),
+          name: BuiltValueNullFieldError.checkNotNull(
+            name,
+            r'ProductOption',
+            'name',
+          ),
+          nameAr: nameAr,
+          priceAdded: BuiltValueNullFieldError.checkNotNull(
+            priceAdded,
+            r'ProductOption',
+            'priceAdded',
+          ),
+          isActive: BuiltValueNullFieldError.checkNotNull(
+            isActive,
+            r'ProductOption',
+            'isActive',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

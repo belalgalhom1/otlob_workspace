@@ -13,7 +13,7 @@ Method | HTTP request | Description
 
 
 # **apiControllerRoot**
-> apiControllerRoot()
+> ApiControllerRoot200Response apiControllerRoot()
 
 API Health Check
 
@@ -24,7 +24,8 @@ import 'package:api/api.dart';
 final api = Api().getHealthSystemApi();
 
 try {
-    api.apiControllerRoot();
+    final response = api.apiControllerRoot();
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling HealthSystemApi->apiControllerRoot: $e\n');
 }
@@ -35,7 +36,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -44,7 +45,7 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: Not defined
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

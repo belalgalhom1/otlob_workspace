@@ -18,7 +18,7 @@ Method | HTTP request | Description
 
 
 # **vendorMembersControllerAddMember**
-> AuthControllerRegister200Response vendorMembersControllerAddMember(vendorId, addVendorMemberDto)
+> ApiControllerRoot200Response vendorMembersControllerAddMember(vendorId, addVendorMemberDto)
 
 Add a new member to the vendor
 
@@ -47,7 +47,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -61,7 +61,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorMembersControllerAdminAddMember**
-> AuthControllerRegister200Response vendorMembersControllerAdminAddMember(vendorId, addVendorMemberDto)
+> ApiControllerRoot200Response vendorMembersControllerAdminAddMember(vendorId, addVendorMemberDto)
 
 Add a new member to a vendor (Admin Override)
 
@@ -90,7 +90,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -104,7 +104,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorMembersControllerAdminRemoveMember**
-> AuthControllerRegister200Response vendorMembersControllerAdminRemoveMember(vendorId, memberId)
+> ApiControllerRoot200Response vendorMembersControllerAdminRemoveMember(vendorId, memberId)
 
 Remove a member from a vendor (Admin Override)
 
@@ -133,7 +133,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -147,7 +147,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorMembersControllerFindAll**
-> AuthControllerRegister200Response vendorMembersControllerFindAll(vendorId)
+> ApiControllerRoot200Response vendorMembersControllerFindAll(vendorId)
 
 List all members of a vendor
 
@@ -174,7 +174,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -188,7 +188,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorMembersControllerRemoveMember**
-> AuthControllerRegister200Response vendorMembersControllerRemoveMember(vendorId, memberId)
+> ApiControllerRoot200Response vendorMembersControllerRemoveMember(vendorId, memberId)
 
 Remove a member from the vendor
 
@@ -217,7 +217,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -231,7 +231,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorMembersControllerUpdateRole**
-> AuthControllerRegister200Response vendorMembersControllerUpdateRole(vendorId, memberId, updateVendorMemberRoleDto)
+> ApiControllerRoot200Response vendorMembersControllerUpdateRole(vendorId, memberId, updateVendorMemberRoleDto)
 
 Update a member's role
 
@@ -262,7 +262,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -4,12 +4,13 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:api/src/api_util.dart';
 import 'package:api/src/model/add_cart_item_dto.dart';
-import 'package:api/src/model/auth_controller_register200_response.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/update_cart_item_dto.dart';
 
 class CartApi {
@@ -33,9 +34,9 @@ class CartApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> cartControllerAddItem({ 
+  Future<Response<ApiControllerRoot200Response>> cartControllerAddItem({ 
     required String vendorId,
     required AddCartItemDto addCartItemDto,
     CancelToken? cancelToken,
@@ -92,14 +93,14 @@ class CartApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -111,7 +112,7 @@ class CartApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -135,9 +136,9 @@ class CartApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> cartControllerClearCart({ 
+  Future<Response<ApiControllerRoot200Response>> cartControllerClearCart({ 
     required String vendorId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -173,14 +174,14 @@ class CartApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -192,7 +193,7 @@ class CartApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -216,9 +217,9 @@ class CartApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> cartControllerGetCart({ 
+  Future<Response<ApiControllerRoot200Response>> cartControllerGetCart({ 
     required String vendorId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -254,14 +255,14 @@ class CartApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -273,7 +274,7 @@ class CartApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -296,9 +297,9 @@ class CartApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> cartControllerGetMyCarts({ 
+  Future<Response<ApiControllerRoot200Response>> cartControllerGetMyCarts({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -333,14 +334,14 @@ class CartApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -352,7 +353,7 @@ class CartApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -377,9 +378,9 @@ class CartApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> cartControllerRemoveItem({ 
+  Future<Response<ApiControllerRoot200Response>> cartControllerRemoveItem({ 
     required String vendorId,
     required String itemId,
     CancelToken? cancelToken,
@@ -416,14 +417,14 @@ class CartApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -435,7 +436,7 @@ class CartApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -461,9 +462,9 @@ class CartApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> cartControllerUpdateItem({ 
+  Future<Response<ApiControllerRoot200Response>> cartControllerUpdateItem({ 
     required String vendorId,
     required String itemId,
     required UpdateCartItemDto updateCartItemDto,
@@ -521,14 +522,14 @@ class CartApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -540,7 +541,7 @@ class CartApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

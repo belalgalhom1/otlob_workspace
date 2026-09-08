@@ -4,15 +4,16 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:api/src/api_util.dart';
 import 'package:api/src/model/admin_assign_driver_dto.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/confirm_payment_dto.dart';
 import 'package:api/src/model/edit_order_items_dto.dart';
-import 'package:api/src/model/orders_controller_admin_find_all200_response.dart';
-import 'package:api/src/model/orders_controller_get_my_dispatches200_response.dart';
+import 'package:api/src/model/orders_controller_place_order200_response.dart';
 import 'package:api/src/model/place_custom_order_dto.dart';
 import 'package:api/src/model/place_direct_order_dto.dart';
 import 'package:api/src/model/place_order_dto.dart';
@@ -39,9 +40,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerAcceptOrderChanges({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerAcceptOrderChanges({ 
     required String id,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -77,14 +78,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -96,7 +97,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -125,9 +126,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerAdminFindAll({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerAdminFindAll({ 
     String? status,
     String? vendorId,
     String? driverId,
@@ -178,14 +179,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -197,7 +198,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -222,9 +223,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerAdminForceAssignDriver({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerAdminForceAssignDriver({ 
     required String orderId,
     required AdminAssignDriverDto adminAssignDriverDto,
     CancelToken? cancelToken,
@@ -281,14 +282,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -300,7 +301,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -324,9 +325,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerAdminPlaceDirectOrder({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerAdminPlaceDirectOrder({ 
     required PlaceDirectOrderDto placeDirectOrderDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -382,14 +383,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -401,7 +402,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -425,9 +426,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerApproveOrderFee({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerApproveOrderFee({ 
     required String orderId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -463,14 +464,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -482,7 +483,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -506,9 +507,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerCancelOrder({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerCancelOrder({ 
     required String orderId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -544,14 +545,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -563,7 +564,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -587,9 +588,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerCustomerMarkPaid({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerCustomerMarkPaid({ 
     required String orderId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -625,14 +626,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -644,7 +645,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -669,9 +670,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerDriverConfirmPayment({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerDriverConfirmPayment({ 
     required String orderId,
     required ConfirmPaymentDto confirmPaymentDto,
     CancelToken? cancelToken,
@@ -728,14 +729,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -747,7 +748,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -772,9 +773,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerDriverUpdateStatus({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerDriverUpdateStatus({ 
     required String orderId,
     required UpdateOrderStatusDto updateOrderStatusDto,
     CancelToken? cancelToken,
@@ -831,14 +832,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -850,7 +851,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -875,9 +876,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerEditOrderItems({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerEditOrderItems({ 
     required String id,
     required EditOrderItemsDto editOrderItemsDto,
     CancelToken? cancelToken,
@@ -934,14 +935,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -953,7 +954,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -976,9 +977,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerGetMyDispatches200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerGetMyDispatches200Response>> ordersControllerGetMyDispatches({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerGetMyDispatches({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -1013,14 +1014,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerGetMyDispatches200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerGetMyDispatches200Response),
-      ) as OrdersControllerGetMyDispatches200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1032,7 +1033,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerGetMyDispatches200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1061,9 +1062,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerGetMyOrdersAsCustomer({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerGetMyOrdersAsCustomer({ 
     String? status,
     String? vendorId,
     String? driverId,
@@ -1114,14 +1115,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1133,7 +1134,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1162,9 +1163,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerGetMyOrdersAsDriver({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerGetMyOrdersAsDriver({ 
     String? status,
     String? vendorId,
     String? driverId,
@@ -1215,14 +1216,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1234,7 +1235,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1258,9 +1259,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerGetOne({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerGetOne({ 
     required String orderId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1296,14 +1297,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1315,7 +1316,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1345,9 +1346,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerGetVendorOrders({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerGetVendorOrders({ 
     required String vendorId,
     String? status,
     String? vendorId2,
@@ -1399,14 +1400,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1418,7 +1419,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1442,9 +1443,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerPlaceCustomOrder({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerPlaceCustomOrder({ 
     required PlaceCustomOrderDto placeCustomOrderDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1500,14 +1501,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1519,7 +1520,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1543,9 +1544,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerPlaceOrder({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerPlaceOrder({ 
     required PlaceOrderDto placeOrderDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1601,14 +1602,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1620,7 +1621,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1644,9 +1645,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerRejectOrderChanges({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerRejectOrderChanges({ 
     required String id,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1682,14 +1683,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1701,7 +1702,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1726,9 +1727,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerRespondToDispatch({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerRespondToDispatch({ 
     required String dispatchId,
     required RespondToDispatchDto respondToDispatchDto,
     CancelToken? cancelToken,
@@ -1785,14 +1786,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1804,7 +1805,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1829,9 +1830,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [OrdersControllerAdminFindAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<OrdersControllerAdminFindAll200Response>> ordersControllerVendorUpdateStatus({ 
+  Future<Response<ApiControllerRoot200Response>> ordersControllerVendorUpdateStatus({ 
     required String orderId,
     required UpdateOrderStatusDto updateOrderStatusDto,
     CancelToken? cancelToken,
@@ -1888,14 +1889,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    OrdersControllerAdminFindAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(OrdersControllerAdminFindAll200Response),
-      ) as OrdersControllerAdminFindAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1907,7 +1908,7 @@ class OrdersApi {
       );
     }
 
-    return Response<OrdersControllerAdminFindAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

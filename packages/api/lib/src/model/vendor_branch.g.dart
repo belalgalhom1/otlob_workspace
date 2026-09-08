@@ -27,14 +27,6 @@ class _$VendorBranch extends VendorBranch {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final JsonObject? vendor;
-  @override
-  final JsonObject? zone;
-  @override
-  final BuiltList<VendorMember> vendorMembers;
-  @override
-  final BuiltList<Order> orders;
 
   factory _$VendorBranch([void Function(VendorBranchBuilder)? updates]) =>
       (VendorBranchBuilder()..update(updates))._build();
@@ -50,10 +42,6 @@ class _$VendorBranch extends VendorBranch {
     required this.zoneId,
     required this.createdAt,
     required this.updatedAt,
-    this.vendor,
-    this.zone,
-    required this.vendorMembers,
-    required this.orders,
   }) : super._();
   @override
   VendorBranch rebuild(void Function(VendorBranchBuilder) updates) =>
@@ -75,11 +63,7 @@ class _$VendorBranch extends VendorBranch {
         vendorId == other.vendorId &&
         zoneId == other.zoneId &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        vendor == other.vendor &&
-        zone == other.zone &&
-        vendorMembers == other.vendorMembers &&
-        orders == other.orders;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -95,10 +79,6 @@ class _$VendorBranch extends VendorBranch {
     _$hash = $jc(_$hash, zoneId.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, vendor.hashCode);
-    _$hash = $jc(_$hash, zone.hashCode);
-    _$hash = $jc(_$hash, vendorMembers.hashCode);
-    _$hash = $jc(_$hash, orders.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -115,11 +95,7 @@ class _$VendorBranch extends VendorBranch {
           ..add('vendorId', vendorId)
           ..add('zoneId', zoneId)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('vendor', vendor)
-          ..add('zone', zone)
-          ..add('vendorMembers', vendorMembers)
-          ..add('orders', orders))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -168,24 +144,6 @@ class VendorBranchBuilder
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  JsonObject? _vendor;
-  JsonObject? get vendor => _$this._vendor;
-  set vendor(JsonObject? vendor) => _$this._vendor = vendor;
-
-  JsonObject? _zone;
-  JsonObject? get zone => _$this._zone;
-  set zone(JsonObject? zone) => _$this._zone = zone;
-
-  ListBuilder<VendorMember>? _vendorMembers;
-  ListBuilder<VendorMember> get vendorMembers =>
-      _$this._vendorMembers ??= ListBuilder<VendorMember>();
-  set vendorMembers(ListBuilder<VendorMember>? vendorMembers) =>
-      _$this._vendorMembers = vendorMembers;
-
-  ListBuilder<Order>? _orders;
-  ListBuilder<Order> get orders => _$this._orders ??= ListBuilder<Order>();
-  set orders(ListBuilder<Order>? orders) => _$this._orders = orders;
-
   VendorBranchBuilder() {
     VendorBranch._defaults(this);
   }
@@ -203,10 +161,6 @@ class VendorBranchBuilder
       _zoneId = $v.zoneId;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _vendor = $v.vendor;
-      _zone = $v.zone;
-      _vendorMembers = $v.vendorMembers.toBuilder();
-      _orders = $v.orders.toBuilder();
       _$v = null;
     }
     return this;
@@ -226,74 +180,48 @@ class VendorBranchBuilder
   VendorBranch build() => _build();
 
   _$VendorBranch _build() {
-    _$VendorBranch _$result;
-    try {
-      _$result =
-          _$v ??
-          _$VendorBranch._(
-            id: BuiltValueNullFieldError.checkNotNull(
-              id,
-              r'VendorBranch',
-              'id',
-            ),
-            name: BuiltValueNullFieldError.checkNotNull(
-              name,
-              r'VendorBranch',
-              'name',
-            ),
-            nameAr: nameAr,
-            address: BuiltValueNullFieldError.checkNotNull(
-              address,
-              r'VendorBranch',
-              'address',
-            ),
-            phone: phone,
-            isOpen: BuiltValueNullFieldError.checkNotNull(
-              isOpen,
-              r'VendorBranch',
-              'isOpen',
-            ),
-            vendorId: BuiltValueNullFieldError.checkNotNull(
-              vendorId,
-              r'VendorBranch',
-              'vendorId',
-            ),
-            zoneId: BuiltValueNullFieldError.checkNotNull(
-              zoneId,
-              r'VendorBranch',
-              'zoneId',
-            ),
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'VendorBranch',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'VendorBranch',
-              'updatedAt',
-            ),
-            vendor: vendor,
-            zone: zone,
-            vendorMembers: vendorMembers.build(),
-            orders: orders.build(),
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'vendorMembers';
-        vendorMembers.build();
-        _$failedField = 'orders';
-        orders.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'VendorBranch',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$VendorBranch._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'VendorBranch', 'id'),
+          name: BuiltValueNullFieldError.checkNotNull(
+            name,
+            r'VendorBranch',
+            'name',
+          ),
+          nameAr: nameAr,
+          address: BuiltValueNullFieldError.checkNotNull(
+            address,
+            r'VendorBranch',
+            'address',
+          ),
+          phone: phone,
+          isOpen: BuiltValueNullFieldError.checkNotNull(
+            isOpen,
+            r'VendorBranch',
+            'isOpen',
+          ),
+          vendorId: BuiltValueNullFieldError.checkNotNull(
+            vendorId,
+            r'VendorBranch',
+            'vendorId',
+          ),
+          zoneId: BuiltValueNullFieldError.checkNotNull(
+            zoneId,
+            r'VendorBranch',
+            'zoneId',
+          ),
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'VendorBranch',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'VendorBranch',
+            'updatedAt',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

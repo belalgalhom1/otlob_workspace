@@ -3,16 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order.dart';
-import 'package:api/src/model/customer_coin_transaction.dart';
-import 'package:api/src/model/address.dart';
-import 'package:api/src/model/cart.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/user.dart';
-import 'package:api/src/model/favorite_product.dart';
-import 'package:api/src/model/favorite_vendor.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'customer.g.dart';
@@ -27,13 +18,6 @@ part 'customer.g.dart';
 /// * [createdAt] 
 /// * [updatedAt] 
 /// * [coinBalance] 
-/// * [addresses] 
-/// * [carts] 
-/// * [user] 
-/// * [favoriteProducts] 
-/// * [favoriteVendors] 
-/// * [orders] 
-/// * [coinTransactions] 
 @BuiltValue()
 abstract class Customer implements Built<Customer, CustomerBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -56,27 +40,6 @@ abstract class Customer implements Built<Customer, CustomerBuilder> {
 
   @BuiltValueField(wireName: r'coinBalance')
   num get coinBalance;
-
-  @BuiltValueField(wireName: r'addresses')
-  BuiltList<Address> get addresses;
-
-  @BuiltValueField(wireName: r'carts')
-  BuiltList<Cart> get carts;
-
-  @BuiltValueField(wireName: r'user')
-  JsonObject? get user;
-
-  @BuiltValueField(wireName: r'favoriteProducts')
-  BuiltList<FavoriteProduct> get favoriteProducts;
-
-  @BuiltValueField(wireName: r'favoriteVendors')
-  BuiltList<FavoriteVendor> get favoriteVendors;
-
-  @BuiltValueField(wireName: r'orders')
-  BuiltList<Order> get orders;
-
-  @BuiltValueField(wireName: r'coinTransactions')
-  BuiltList<CustomerCoinTransaction> get coinTransactions;
 
   Customer._();
 
@@ -137,41 +100,6 @@ class _$CustomerSerializer implements PrimitiveSerializer<Customer> {
     yield serializers.serialize(
       object.coinBalance,
       specifiedType: const FullType(num),
-    );
-    yield r'addresses';
-    yield serializers.serialize(
-      object.addresses,
-      specifiedType: const FullType(BuiltList, [FullType(Address)]),
-    );
-    yield r'carts';
-    yield serializers.serialize(
-      object.carts,
-      specifiedType: const FullType(BuiltList, [FullType(Cart)]),
-    );
-    yield r'user';
-    yield serializers.serialize(
-      object.user,
-      specifiedType: const FullType(User),
-    );
-    yield r'favoriteProducts';
-    yield serializers.serialize(
-      object.favoriteProducts,
-      specifiedType: const FullType(BuiltList, [FullType(FavoriteProduct)]),
-    );
-    yield r'favoriteVendors';
-    yield serializers.serialize(
-      object.favoriteVendors,
-      specifiedType: const FullType(BuiltList, [FullType(FavoriteVendor)]),
-    );
-    yield r'orders';
-    yield serializers.serialize(
-      object.orders,
-      specifiedType: const FullType(BuiltList, [FullType(Order)]),
-    );
-    yield r'coinTransactions';
-    yield serializers.serialize(
-      object.coinTransactions,
-      specifiedType: const FullType(BuiltList, [FullType(CustomerCoinTransaction)]),
     );
   }
 
@@ -244,55 +172,6 @@ class _$CustomerSerializer implements PrimitiveSerializer<Customer> {
             specifiedType: const FullType(num),
           ) as num;
           result.coinBalance = valueDes;
-          break;
-        case r'addresses':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Address)]),
-          ) as BuiltList<Address>;
-          result.addresses.replace(valueDes);
-          break;
-        case r'carts':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Cart)]),
-          ) as BuiltList<Cart>;
-          result.carts.replace(valueDes);
-          break;
-        case r'user':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.user = valueDes;
-          break;
-        case r'favoriteProducts':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(FavoriteProduct)]),
-          ) as BuiltList<FavoriteProduct>;
-          result.favoriteProducts.replace(valueDes);
-          break;
-        case r'favoriteVendors':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(FavoriteVendor)]),
-          ) as BuiltList<FavoriteVendor>;
-          result.favoriteVendors.replace(valueDes);
-          break;
-        case r'orders':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Order)]),
-          ) as BuiltList<Order>;
-          result.orders.replace(valueDes);
-          break;
-        case r'coinTransactions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(CustomerCoinTransaction)]),
-          ) as BuiltList<CustomerCoinTransaction>;
-          result.coinTransactions.replace(valueDes);
           break;
         default:
           unhandled.add(key);

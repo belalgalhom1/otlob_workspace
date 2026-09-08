@@ -3,11 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/user.dart';
-import 'package:api/src/model/audit_log.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'session.g.dart';
@@ -23,8 +19,6 @@ part 'session.g.dart';
 /// * [expiresAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [user] 
-/// * [auditLogs] 
 @BuiltValue()
 abstract class Session implements Built<Session, SessionBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -50,12 +44,6 @@ abstract class Session implements Built<Session, SessionBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'user')
-  JsonObject? get user;
-
-  @BuiltValueField(wireName: r'auditLogs')
-  BuiltList<AuditLog> get auditLogs;
 
   Session._();
 
@@ -123,16 +111,6 @@ class _$SessionSerializer implements PrimitiveSerializer<Session> {
     yield serializers.serialize(
       object.updatedAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'user';
-    yield serializers.serialize(
-      object.user,
-      specifiedType: const FullType(User),
-    );
-    yield r'auditLogs';
-    yield serializers.serialize(
-      object.auditLogs,
-      specifiedType: const FullType(BuiltList, [FullType(AuditLog)]),
     );
   }
 
@@ -212,20 +190,6 @@ class _$SessionSerializer implements PrimitiveSerializer<Session> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'user':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.user = valueDes;
-          break;
-        case r'auditLogs':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(AuditLog)]),
-          ) as BuiltList<AuditLog>;
-          result.auditLogs.replace(valueDes);
           break;
         default:
           unhandled.add(key);

@@ -18,7 +18,7 @@ Method | HTTP request | Description
 
 
 # **cartControllerAddItem**
-> AuthControllerRegister200Response cartControllerAddItem(vendorId, addCartItemDto)
+> ApiControllerRoot200Response cartControllerAddItem(vendorId, addCartItemDto)
 
 Add item to cart
 
@@ -47,7 +47,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -61,7 +61,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **cartControllerClearCart**
-> AuthControllerRegister200Response cartControllerClearCart(vendorId)
+> ApiControllerRoot200Response cartControllerClearCart(vendorId)
 
 Clear entire cart for a vendor
 
@@ -88,7 +88,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -102,7 +102,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **cartControllerGetCart**
-> AuthControllerRegister200Response cartControllerGetCart(vendorId)
+> ApiControllerRoot200Response cartControllerGetCart(vendorId)
 
 Get cart for a specific vendor
 
@@ -129,7 +129,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -143,7 +143,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **cartControllerGetMyCarts**
-> AuthControllerRegister200Response cartControllerGetMyCarts()
+> ApiControllerRoot200Response cartControllerGetMyCarts()
 
 Get all my carts (one per vendor)
 
@@ -166,7 +166,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -180,7 +180,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **cartControllerRemoveItem**
-> AuthControllerRegister200Response cartControllerRemoveItem(vendorId, itemId)
+> ApiControllerRoot200Response cartControllerRemoveItem(vendorId, itemId)
 
 Remove item from cart
 
@@ -209,7 +209,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -223,7 +223,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **cartControllerUpdateItem**
-> AuthControllerRegister200Response cartControllerUpdateItem(vendorId, itemId, updateCartItemDto)
+> ApiControllerRoot200Response cartControllerUpdateItem(vendorId, itemId, updateCartItemDto)
 
 Update cart item (quantity / options)
 
@@ -254,7 +254,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -1,8 +1,8 @@
-# openapi.model.OrderStatusEvent
+# api.model.OrderStatusEvent
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -14,7 +14,6 @@ Name | Type | Description | Notes
 **note** | **String** |  | [optional] 
 **createdBy** | **String** |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
-**order** | [**Order**](Order.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

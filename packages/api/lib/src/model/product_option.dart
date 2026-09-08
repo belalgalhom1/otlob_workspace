@@ -3,12 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order_item_option.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/product_option_group.dart';
-import 'package:api/src/model/cart_item_option.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'product_option.g.dart';
@@ -22,9 +17,6 @@ part 'product_option.g.dart';
 /// * [nameAr] 
 /// * [priceAdded] 
 /// * [isActive] 
-/// * [cartItemOptions] 
-/// * [orderItemOptions] 
-/// * [group] 
 @BuiltValue()
 abstract class ProductOption implements Built<ProductOption, ProductOptionBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -44,15 +36,6 @@ abstract class ProductOption implements Built<ProductOption, ProductOptionBuilde
 
   @BuiltValueField(wireName: r'isActive')
   bool get isActive;
-
-  @BuiltValueField(wireName: r'cartItemOptions')
-  BuiltList<CartItemOption> get cartItemOptions;
-
-  @BuiltValueField(wireName: r'orderItemOptions')
-  BuiltList<OrderItemOption> get orderItemOptions;
-
-  @BuiltValueField(wireName: r'group')
-  JsonObject? get group;
 
   ProductOption._();
 
@@ -108,21 +91,6 @@ class _$ProductOptionSerializer implements PrimitiveSerializer<ProductOption> {
     yield serializers.serialize(
       object.isActive,
       specifiedType: const FullType(bool),
-    );
-    yield r'cartItemOptions';
-    yield serializers.serialize(
-      object.cartItemOptions,
-      specifiedType: const FullType(BuiltList, [FullType(CartItemOption)]),
-    );
-    yield r'orderItemOptions';
-    yield serializers.serialize(
-      object.orderItemOptions,
-      specifiedType: const FullType(BuiltList, [FullType(OrderItemOption)]),
-    );
-    yield r'group';
-    yield serializers.serialize(
-      object.group,
-      specifiedType: const FullType(ProductOptionGroup),
     );
   }
 
@@ -188,27 +156,6 @@ class _$ProductOptionSerializer implements PrimitiveSerializer<ProductOption> {
             specifiedType: const FullType(bool),
           ) as bool;
           result.isActive = valueDes;
-          break;
-        case r'cartItemOptions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(CartItemOption)]),
-          ) as BuiltList<CartItemOption>;
-          result.cartItemOptions.replace(valueDes);
-          break;
-        case r'orderItemOptions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(OrderItemOption)]),
-          ) as BuiltList<OrderItemOption>;
-          result.orderItemOptions.replace(valueDes);
-          break;
-        case r'group':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.group = valueDes;
           break;
         default:
           unhandled.add(key);

@@ -1,8 +1,8 @@
-# openapi.model.Product
+# api.model.Product
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -29,15 +29,6 @@ Name | Type | Description | Notes
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**cartItems** | [**BuiltList&lt;CartItem&gt;**](CartItem.md) |  | 
-**favoritedBy** | [**BuiltList&lt;FavoriteProduct&gt;**](FavoriteProduct.md) |  | 
-**orderItems** | [**BuiltList&lt;OrderItem&gt;**](OrderItem.md) |  | 
-**optionGroups** | [**BuiltList&lt;ProductOptionGroup&gt;**](ProductOptionGroup.md) |  | 
-**variants** | [**BuiltList&lt;ProductVariant&gt;**](ProductVariant.md) |  | 
-**promotions** | [**BuiltList&lt;Promotion&gt;**](Promotion.md) |  | 
-**offers** | [**BuiltList&lt;Offer&gt;**](Offer.md) |  | 
-**category** | [**MenuCategory**](MenuCategory.md) |  | [optional] 
-**vendor** | [**Vendor**](Vendor.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

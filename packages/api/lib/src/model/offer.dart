@@ -3,10 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/vendor.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'offer.g.dart';
@@ -25,8 +22,6 @@ part 'offer.g.dart';
 /// * [endDate] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [vendor] 
-/// * [product] 
 @BuiltValue()
 abstract class Offer implements Built<Offer, OfferBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -61,12 +56,6 @@ abstract class Offer implements Built<Offer, OfferBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'vendor')
-  JsonObject? get vendor;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
 
   Offer._();
 
@@ -149,16 +138,6 @@ class _$OfferSerializer implements PrimitiveSerializer<Offer> {
     yield serializers.serialize(
       object.updatedAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'vendor';
-    yield serializers.serialize(
-      object.vendor,
-      specifiedType: const FullType(Vendor),
-    );
-    yield r'product';
-    yield serializers.serialize(
-      object.product,
-      specifiedType: const FullType(Product),
     );
   }
 
@@ -259,20 +238,6 @@ class _$OfferSerializer implements PrimitiveSerializer<Offer> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'vendor':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.vendor = valueDes;
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
           break;
         default:
           unhandled.add(key);

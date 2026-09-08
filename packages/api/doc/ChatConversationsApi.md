@@ -19,7 +19,7 @@ Method | HTTP request | Description
 
 
 # **conversationsControllerClose**
-> AuthControllerRegister200Response conversationsControllerClose(id)
+> ApiControllerRoot200Response conversationsControllerClose(id)
 
 Close a conversation
 
@@ -46,7 +46,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -60,7 +60,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **conversationsControllerCreateDirect**
-> AuthControllerRegister200Response conversationsControllerCreateDirect(createDirectConversationDto)
+> ApiControllerRoot200Response conversationsControllerCreateDirect(createDirectConversationDto)
 
 Create or get a direct conversation with a user
 
@@ -87,7 +87,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -101,7 +101,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **conversationsControllerCreateOrder**
-> AuthControllerRegister200Response conversationsControllerCreateOrder(createOrderConversationDto)
+> ApiControllerRoot200Response conversationsControllerCreateOrder(createOrderConversationDto)
 
 Create a new conversation for an order
 
@@ -128,7 +128,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -142,7 +142,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **conversationsControllerCreateSupport**
-> AuthControllerRegister200Response conversationsControllerCreateSupport(createSupportConversationDto)
+> ApiControllerRoot200Response conversationsControllerCreateSupport(createSupportConversationDto)
 
 Create a new support conversation
 
@@ -169,7 +169,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -183,7 +183,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **conversationsControllerCreateVendor**
-> AuthControllerRegister200Response conversationsControllerCreateVendor(createVendorConversationDto)
+> ApiControllerRoot200Response conversationsControllerCreateVendor(createVendorConversationDto)
 
 Create a new vendor conversation
 
@@ -210,7 +210,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -224,7 +224,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **conversationsControllerGetOne**
-> AuthControllerRegister200Response conversationsControllerGetOne(id)
+> ApiControllerRoot200Response conversationsControllerGetOne(id)
 
 Get a specific conversation by ID
 
@@ -251,7 +251,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -265,7 +265,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **conversationsControllerListMine**
-> AuthControllerRegister200Response conversationsControllerListMine(page, limit)
+> ApiControllerRoot200Response conversationsControllerListMine(page, limit)
 
 List my conversations
 
@@ -294,7 +294,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -31,7 +31,7 @@ Method | HTTP request | Description
 
 
 # **productsControllerAddOption**
-> AuthControllerRegister200Response productsControllerAddOption(vendorId, productId, groupId, createProductOptionDto)
+> ApiControllerRoot200Response productsControllerAddOption(vendorId, productId, groupId, createProductOptionDto)
 
 Add an option to a group
 
@@ -64,7 +64,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -78,7 +78,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerAddOptionGroup**
-> AuthControllerRegister200Response productsControllerAddOptionGroup(vendorId, productId, createOptionGroupDto)
+> ApiControllerRoot200Response productsControllerAddOptionGroup(vendorId, productId, createOptionGroupDto)
 
 Add an option group to a product
 
@@ -109,7 +109,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -123,7 +123,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerAddVariant**
-> AuthControllerRegister200Response productsControllerAddVariant(vendorId, productId, createProductVariantDto)
+> ApiControllerRoot200Response productsControllerAddVariant(vendorId, productId, createProductVariantDto)
 
 Add a variant to a product
 
@@ -154,7 +154,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -168,7 +168,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerAddVariantOptionGroup**
-> AuthControllerRegister200Response productsControllerAddVariantOptionGroup(vendorId, productId, variantId, createOptionGroupDto)
+> ApiControllerRoot200Response productsControllerAddVariantOptionGroup(vendorId, productId, variantId, createOptionGroupDto)
 
 Add an option group to a product variant
 
@@ -201,7 +201,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -215,7 +215,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerAdminCreate**
-> AuthControllerRegister200Response productsControllerAdminCreate(vendorId, createProductDto)
+> ApiControllerRoot200Response productsControllerAdminCreate(vendorId, createProductDto)
 
 Create a new product (Admin Override)
 
@@ -244,7 +244,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -258,7 +258,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerAdminRemove**
-> AuthControllerRegister200Response productsControllerAdminRemove(vendorId, productId)
+> ApiControllerRoot200Response productsControllerAdminRemove(vendorId, productId)
 
 Delete a product (Admin Override)
 
@@ -287,7 +287,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -301,7 +301,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerAdminUpdate**
-> AuthControllerRegister200Response productsControllerAdminUpdate(vendorId, productId, updateProductDto)
+> ApiControllerRoot200Response productsControllerAdminUpdate(vendorId, productId, updateProductDto)
 
 Update a product (Admin Override)
 
@@ -332,7 +332,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -346,7 +346,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerCreate**
-> AuthControllerRegister200Response productsControllerCreate(vendorId, createProductDto)
+> ProductsControllerCreate200Response productsControllerCreate(vendorId, createProductDto)
 
 Create a new product (Member)
 
@@ -375,7 +375,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ProductsControllerCreate200Response**](ProductsControllerCreate200Response.md)
 
 ### Authorization
 
@@ -389,7 +389,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerFindAll**
-> AuthControllerRegister200Response productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, page, limit)
+> ApiControllerRoot200Response productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, page, limit)
 
 List all products for a vendor
 
@@ -428,7 +428,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -442,7 +442,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerFindOne**
-> AuthControllerRegister200Response productsControllerFindOne(vendorId, productId)
+> ProductsControllerCreate200Response productsControllerFindOne(vendorId, productId)
 
 Get a specific product by ID
 
@@ -471,7 +471,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ProductsControllerCreate200Response**](ProductsControllerCreate200Response.md)
 
 ### Authorization
 
@@ -485,7 +485,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerRemove**
-> AuthControllerRegister200Response productsControllerRemove(vendorId, productId)
+> ApiControllerRoot200Response productsControllerRemove(vendorId, productId)
 
 Delete a product (Member)
 
@@ -514,7 +514,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -528,7 +528,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerRemoveOption**
-> AuthControllerRegister200Response productsControllerRemoveOption(vendorId, productId, groupId, optionId)
+> ApiControllerRoot200Response productsControllerRemoveOption(vendorId, productId, groupId, optionId)
 
 Delete an option from a group
 
@@ -561,7 +561,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -575,7 +575,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerRemoveOptionGroup**
-> AuthControllerRegister200Response productsControllerRemoveOptionGroup(vendorId, productId, groupId)
+> ApiControllerRoot200Response productsControllerRemoveOptionGroup(vendorId, productId, groupId)
 
 Delete a product option group
 
@@ -606,7 +606,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -620,7 +620,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerRemoveVariant**
-> AuthControllerRegister200Response productsControllerRemoveVariant(vendorId, productId, variantId)
+> ApiControllerRoot200Response productsControllerRemoveVariant(vendorId, productId, variantId)
 
 Delete a product variant
 
@@ -651,7 +651,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -665,7 +665,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerUpdate**
-> AuthControllerRegister200Response productsControllerUpdate(vendorId, productId, updateProductDto)
+> ProductsControllerCreate200Response productsControllerUpdate(vendorId, productId, updateProductDto)
 
 Update a product (Member)
 
@@ -696,7 +696,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ProductsControllerCreate200Response**](ProductsControllerCreate200Response.md)
 
 ### Authorization
 
@@ -710,7 +710,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerUpdateOption**
-> AuthControllerRegister200Response productsControllerUpdateOption(vendorId, productId, groupId, optionId, updateProductOptionDto)
+> ProductsControllerUpdateOption200Response productsControllerUpdateOption(vendorId, productId, groupId, optionId, updateProductOptionDto)
 
 Update an option in a group
 
@@ -745,7 +745,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ProductsControllerUpdateOption200Response**](ProductsControllerUpdateOption200Response.md)
 
 ### Authorization
 
@@ -759,7 +759,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerUpdateOptionGroup**
-> AuthControllerRegister200Response productsControllerUpdateOptionGroup(vendorId, productId, groupId, updateOptionGroupDto)
+> ProductsControllerUpdateOptionGroup200Response productsControllerUpdateOptionGroup(vendorId, productId, groupId, updateOptionGroupDto)
 
 Update a product option group
 
@@ -792,7 +792,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ProductsControllerUpdateOptionGroup200Response**](ProductsControllerUpdateOptionGroup200Response.md)
 
 ### Authorization
 
@@ -806,7 +806,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerUpdateVariant**
-> AuthControllerRegister200Response productsControllerUpdateVariant(vendorId, productId, variantId, updateProductVariantDto)
+> ProductsControllerUpdateVariant200Response productsControllerUpdateVariant(vendorId, productId, variantId, updateProductVariantDto)
 
 Update a product variant
 
@@ -839,7 +839,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ProductsControllerUpdateVariant200Response**](ProductsControllerUpdateVariant200Response.md)
 
 ### Authorization
 
@@ -853,7 +853,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerUploadImage**
-> AuthControllerRegister200Response productsControllerUploadImage(vendorId, productId, file)
+> ApiControllerRoot200Response productsControllerUploadImage(vendorId, productId, file)
 
 Upload product image
 
@@ -884,7 +884,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -6,7 +6,7 @@ class SharedPlatformSettingsRepository {
 
   SharedPlatformSettingsRepository(this._settingsApi);
 
-  Future<PlatformSettingsControllerGetAll200Response> getSettings() async {
+  Future<ApiControllerRoot200Response> getSettings() async {
     final response = await _settingsApi.platformSettingsControllerGetAll();
     return response.data!;
   }

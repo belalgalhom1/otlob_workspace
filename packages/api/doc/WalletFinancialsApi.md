@@ -183,7 +183,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **walletControllerGetMyDriverTransactions**
-> DriversControllerGetWalletTransactions200Response walletControllerGetMyDriverTransactions()
+> WalletControllerProcessDriverTransaction200Response walletControllerGetMyDriverTransactions()
 
 Get my personal driver wallet transactions
 
@@ -206,7 +206,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**DriversControllerGetWalletTransactions200Response**](DriversControllerGetWalletTransactions200Response.md)
+[**WalletControllerProcessDriverTransaction200Response**](WalletControllerProcessDriverTransaction200Response.md)
 
 ### Authorization
 
@@ -372,7 +372,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **walletControllerProcessDriverTransaction**
-> DriversControllerGetWalletTransactions200Response walletControllerProcessDriverTransaction(driverId, processManualTransactionDto)
+> WalletControllerProcessDriverTransaction200Response walletControllerProcessDriverTransaction(driverId, processManualTransactionDto)
 
 Manually adjust driver wallet (Payout, Penalty, etc.)
 
@@ -401,7 +401,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetWalletTransactions200Response**](DriversControllerGetWalletTransactions200Response.md)
+[**WalletControllerProcessDriverTransaction200Response**](WalletControllerProcessDriverTransaction200Response.md)
 
 ### Authorization
 
@@ -583,7 +583,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **walletControllerUploadReceipt**
-> AuthControllerRegister200Response walletControllerUploadReceipt(file)
+> ApiControllerRoot200Response walletControllerUploadReceipt(file)
 
 Upload a receipt image for a wallet top-up
 
@@ -610,7 +610,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

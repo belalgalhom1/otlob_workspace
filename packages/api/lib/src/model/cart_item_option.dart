@@ -3,10 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/product_option.dart';
-import 'package:api/src/model/cart_item.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'cart_item_option.g.dart';
@@ -17,8 +14,6 @@ part 'cart_item_option.g.dart';
 /// * [id] 
 /// * [cartItemId] 
 /// * [optionId] 
-/// * [cartItem] 
-/// * [option] 
 @BuiltValue()
 abstract class CartItemOption implements Built<CartItemOption, CartItemOptionBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -29,12 +24,6 @@ abstract class CartItemOption implements Built<CartItemOption, CartItemOptionBui
 
   @BuiltValueField(wireName: r'optionId')
   String get optionId;
-
-  @BuiltValueField(wireName: r'cartItem')
-  JsonObject? get cartItem;
-
-  @BuiltValueField(wireName: r'option')
-  JsonObject? get option;
 
   CartItemOption._();
 
@@ -73,16 +62,6 @@ class _$CartItemOptionSerializer implements PrimitiveSerializer<CartItemOption> 
     yield serializers.serialize(
       object.optionId,
       specifiedType: const FullType(String),
-    );
-    yield r'cartItem';
-    yield serializers.serialize(
-      object.cartItem,
-      specifiedType: const FullType(CartItem),
-    );
-    yield r'option';
-    yield serializers.serialize(
-      object.option,
-      specifiedType: const FullType(ProductOption),
     );
   }
 
@@ -127,20 +106,6 @@ class _$CartItemOptionSerializer implements PrimitiveSerializer<CartItemOption> 
             specifiedType: const FullType(String),
           ) as String;
           result.optionId = valueDes;
-          break;
-        case r'cartItem':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.cartItem = valueDes;
-          break;
-        case r'option':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.option = valueDes;
           break;
         default:
           unhandled.add(key);

@@ -3,13 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order.dart';
-import 'package:api/src/model/vendor_member.dart';
-import 'package:api/src/model/vendor.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/zone.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'vendor_branch.g.dart';
@@ -27,10 +21,6 @@ part 'vendor_branch.g.dart';
 /// * [zoneId] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [vendor] 
-/// * [zone] 
-/// * [vendorMembers] 
-/// * [orders] 
 @BuiltValue()
 abstract class VendorBranch implements Built<VendorBranch, VendorBranchBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -62,18 +52,6 @@ abstract class VendorBranch implements Built<VendorBranch, VendorBranchBuilder> 
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'vendor')
-  JsonObject? get vendor;
-
-  @BuiltValueField(wireName: r'zone')
-  JsonObject? get zone;
-
-  @BuiltValueField(wireName: r'vendorMembers')
-  BuiltList<VendorMember> get vendorMembers;
-
-  @BuiltValueField(wireName: r'orders')
-  BuiltList<Order> get orders;
 
   VendorBranch._();
 
@@ -151,26 +129,6 @@ class _$VendorBranchSerializer implements PrimitiveSerializer<VendorBranch> {
     yield serializers.serialize(
       object.updatedAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'vendor';
-    yield serializers.serialize(
-      object.vendor,
-      specifiedType: const FullType(Vendor),
-    );
-    yield r'zone';
-    yield serializers.serialize(
-      object.zone,
-      specifiedType: const FullType(Zone),
-    );
-    yield r'vendorMembers';
-    yield serializers.serialize(
-      object.vendorMembers,
-      specifiedType: const FullType(BuiltList, [FullType(VendorMember)]),
-    );
-    yield r'orders';
-    yield serializers.serialize(
-      object.orders,
-      specifiedType: const FullType(BuiltList, [FullType(Order)]),
     );
   }
 
@@ -264,34 +222,6 @@ class _$VendorBranchSerializer implements PrimitiveSerializer<VendorBranch> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'vendor':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.vendor = valueDes;
-          break;
-        case r'zone':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.zone = valueDes;
-          break;
-        case r'vendorMembers':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(VendorMember)]),
-          ) as BuiltList<VendorMember>;
-          result.vendorMembers.replace(valueDes);
-          break;
-        case r'orders':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Order)]),
-          ) as BuiltList<Order>;
-          result.orders.replace(valueDes);
           break;
         default:
           unhandled.add(key);

@@ -17,10 +17,6 @@ class _$OrderItemOption extends OrderItemOption {
   final String optionName;
   @override
   final num priceAdded;
-  @override
-  final JsonObject? option;
-  @override
-  final JsonObject? orderItem;
 
   factory _$OrderItemOption([void Function(OrderItemOptionBuilder)? updates]) =>
       (OrderItemOptionBuilder()..update(updates))._build();
@@ -31,8 +27,6 @@ class _$OrderItemOption extends OrderItemOption {
     this.optionId,
     required this.optionName,
     required this.priceAdded,
-    this.option,
-    this.orderItem,
   }) : super._();
   @override
   OrderItemOption rebuild(void Function(OrderItemOptionBuilder) updates) =>
@@ -49,9 +43,7 @@ class _$OrderItemOption extends OrderItemOption {
         orderItemId == other.orderItemId &&
         optionId == other.optionId &&
         optionName == other.optionName &&
-        priceAdded == other.priceAdded &&
-        option == other.option &&
-        orderItem == other.orderItem;
+        priceAdded == other.priceAdded;
   }
 
   @override
@@ -62,8 +54,6 @@ class _$OrderItemOption extends OrderItemOption {
     _$hash = $jc(_$hash, optionId.hashCode);
     _$hash = $jc(_$hash, optionName.hashCode);
     _$hash = $jc(_$hash, priceAdded.hashCode);
-    _$hash = $jc(_$hash, option.hashCode);
-    _$hash = $jc(_$hash, orderItem.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -75,9 +65,7 @@ class _$OrderItemOption extends OrderItemOption {
           ..add('orderItemId', orderItemId)
           ..add('optionId', optionId)
           ..add('optionName', optionName)
-          ..add('priceAdded', priceAdded)
-          ..add('option', option)
-          ..add('orderItem', orderItem))
+          ..add('priceAdded', priceAdded))
         .toString();
   }
 }
@@ -106,14 +94,6 @@ class OrderItemOptionBuilder
   num? get priceAdded => _$this._priceAdded;
   set priceAdded(num? priceAdded) => _$this._priceAdded = priceAdded;
 
-  JsonObject? _option;
-  JsonObject? get option => _$this._option;
-  set option(JsonObject? option) => _$this._option = option;
-
-  JsonObject? _orderItem;
-  JsonObject? get orderItem => _$this._orderItem;
-  set orderItem(JsonObject? orderItem) => _$this._orderItem = orderItem;
-
   OrderItemOptionBuilder() {
     OrderItemOption._defaults(this);
   }
@@ -126,8 +106,6 @@ class OrderItemOptionBuilder
       _optionId = $v.optionId;
       _optionName = $v.optionName;
       _priceAdded = $v.priceAdded;
-      _option = $v.option;
-      _orderItem = $v.orderItem;
       _$v = null;
     }
     return this;
@@ -171,8 +149,6 @@ class OrderItemOptionBuilder
             r'OrderItemOption',
             'priceAdded',
           ),
-          option: option,
-          orderItem: orderItem,
         );
     replace(_$result);
     return _$result;

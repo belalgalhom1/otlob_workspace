@@ -17,7 +17,7 @@ Method | HTTP request | Description
 
 
 # **ticketsControllerCreate**
-> AuthControllerRegister200Response ticketsControllerCreate(createTicketDto)
+> ApiControllerRoot200Response ticketsControllerCreate(createTicketDto)
 
 Create a new support ticket
 
@@ -44,7 +44,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -58,7 +58,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ticketsControllerGetOne**
-> AuthControllerRegister200Response ticketsControllerGetOne(id)
+> ApiControllerRoot200Response ticketsControllerGetOne(id)
 
 Get a specific support ticket by ID
 
@@ -85,7 +85,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -99,7 +99,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ticketsControllerList**
-> AuthControllerRegister200Response ticketsControllerList(status, priority, category, assigneeId, creatorId, page, limit)
+> ApiControllerRoot200Response ticketsControllerList(status, priority, category, assigneeId, creatorId, page, limit)
 
 List support tickets with filters
 
@@ -138,7 +138,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -152,7 +152,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ticketsControllerRemove**
-> AuthControllerRegister200Response ticketsControllerRemove(id)
+> ApiControllerRoot200Response ticketsControllerRemove(id)
 
 Delete/Cancel a support ticket
 
@@ -179,7 +179,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -193,7 +193,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ticketsControllerUpdate**
-> AuthControllerRegister200Response ticketsControllerUpdate(id, updateTicketDto)
+> ApiControllerRoot200Response ticketsControllerUpdate(id, updateTicketDto)
 
 Update a support ticket
 
@@ -222,7 +222,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

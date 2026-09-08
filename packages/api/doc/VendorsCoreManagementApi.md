@@ -24,7 +24,7 @@ Method | HTTP request | Description
 
 
 # **vendorsControllerAdminFindAll**
-> AuthControllerRegister200Response vendorsControllerAdminFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, lat, lng)
+> ApiControllerRoot200Response vendorsControllerAdminFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, zoneId, lat, lng)
 
 List all vendors (Admin)
 
@@ -41,11 +41,12 @@ final num limit = 20; // num |
 final num minRating = 4; // num | Minimum rating (0-5)
 final String sortBy = rating; // String | 
 final String sortOrder = desc; // String | 
+final String zoneId = zone-uuid-123; // String | Filter or prioritize vendors by delivery zone ID
 final num lat = 30.0444; // num | 
 final num lng = 31.2357; // num | 
 
 try {
-    final response = api.vendorsControllerAdminFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, lat, lng);
+    final response = api.vendorsControllerAdminFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, zoneId, lat, lng);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsCoreManagementApi->vendorsControllerAdminFindAll: $e\n');
@@ -64,12 +65,13 @@ Name | Type | Description  | Notes
  **minRating** | **num**| Minimum rating (0-5) | [optional] 
  **sortBy** | **String**|  | [optional] 
  **sortOrder** | **String**|  | [optional] 
+ **zoneId** | **String**| Filter or prioritize vendors by delivery zone ID | [optional] 
  **lat** | **num**|  | [optional] 
  **lng** | **num**|  | [optional] 
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -83,7 +85,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerCreate**
-> AuthControllerRegister200Response vendorsControllerCreate(createVendorDto)
+> ApiControllerRoot200Response vendorsControllerCreate(createVendorDto)
 
 Create a new vendor (Admin)
 
@@ -110,7 +112,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -124,7 +126,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerFindAll**
-> AuthControllerRegister200Response vendorsControllerFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, lat, lng)
+> ApiControllerRoot200Response vendorsControllerFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, zoneId, lat, lng)
 
 List all vendors with filters
 
@@ -141,11 +143,12 @@ final num limit = 20; // num |
 final num minRating = 4; // num | Minimum rating (0-5)
 final String sortBy = rating; // String | 
 final String sortOrder = desc; // String | 
+final String zoneId = zone-uuid-123; // String | Filter or prioritize vendors by delivery zone ID
 final num lat = 30.0444; // num | 
 final num lng = 31.2357; // num | 
 
 try {
-    final response = api.vendorsControllerFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, lat, lng);
+    final response = api.vendorsControllerFindAll(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, zoneId, lat, lng);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsCoreManagementApi->vendorsControllerFindAll: $e\n');
@@ -164,12 +167,13 @@ Name | Type | Description  | Notes
  **minRating** | **num**| Minimum rating (0-5) | [optional] 
  **sortBy** | **String**|  | [optional] 
  **sortOrder** | **String**|  | [optional] 
+ **zoneId** | **String**| Filter or prioritize vendors by delivery zone ID | [optional] 
  **lat** | **num**|  | [optional] 
  **lng** | **num**|  | [optional] 
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -183,7 +187,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerFindBySlug**
-> AuthControllerRegister200Response vendorsControllerFindBySlug(slug)
+> ApiControllerRoot200Response vendorsControllerFindBySlug(slug)
 
 Find a vendor by its slug
 
@@ -210,7 +214,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -224,7 +228,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerFindOne**
-> AuthControllerRegister200Response vendorsControllerFindOne(vendorId)
+> ApiControllerRoot200Response vendorsControllerFindOne(vendorId)
 
 Get a specific vendor by ID
 
@@ -251,7 +255,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -265,7 +269,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerGetMyVendor**
-> AuthControllerRegister200Response vendorsControllerGetMyVendor(vendorId)
+> ApiControllerRoot200Response vendorsControllerGetMyVendor(vendorId)
 
 Get my vendor profile (Member)
 
@@ -292,7 +296,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -306,7 +310,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerRemove**
-> AuthControllerRegister200Response vendorsControllerRemove(vendorId)
+> ApiControllerRoot200Response vendorsControllerRemove(vendorId)
 
 Delete a vendor (Admin)
 
@@ -333,7 +337,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -347,7 +351,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerSearchDiscovery**
-> AuthControllerRegister200Response vendorsControllerSearchDiscovery(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, lat, lng)
+> ApiControllerRoot200Response vendorsControllerSearchDiscovery(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, zoneId, lat, lng)
 
 Global discovery search for vendors and products
 
@@ -364,11 +368,12 @@ final num limit = 20; // num |
 final num minRating = 4; // num | Minimum rating (0-5)
 final String sortBy = rating; // String | 
 final String sortOrder = desc; // String | 
+final String zoneId = zone-uuid-123; // String | Filter or prioritize vendors by delivery zone ID
 final num lat = 30.0444; // num | 
 final num lng = 31.2357; // num | 
 
 try {
-    final response = api.vendorsControllerSearchDiscovery(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, lat, lng);
+    final response = api.vendorsControllerSearchDiscovery(status, verticalId, search, page, limit, minRating, sortBy, sortOrder, zoneId, lat, lng);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsCoreManagementApi->vendorsControllerSearchDiscovery: $e\n');
@@ -387,12 +392,13 @@ Name | Type | Description  | Notes
  **minRating** | **num**| Minimum rating (0-5) | [optional] 
  **sortBy** | **String**|  | [optional] 
  **sortOrder** | **String**|  | [optional] 
+ **zoneId** | **String**| Filter or prioritize vendors by delivery zone ID | [optional] 
  **lat** | **num**|  | [optional] 
  **lng** | **num**|  | [optional] 
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -406,7 +412,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerUpdate**
-> AuthControllerRegister200Response vendorsControllerUpdate(vendorId, updateVendorDto)
+> ApiControllerRoot200Response vendorsControllerUpdate(vendorId, updateVendorDto)
 
 Update vendor information
 
@@ -435,7 +441,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -449,7 +455,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerUpdateStatus**
-> AuthControllerRegister200Response vendorsControllerUpdateStatus(vendorId, updateVendorStatusDto)
+> ApiControllerRoot200Response vendorsControllerUpdateStatus(vendorId, updateVendorStatusDto)
 
 Update vendor status
 
@@ -478,7 +484,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -492,7 +498,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerUploadCover**
-> AuthControllerRegister200Response vendorsControllerUploadCover(vendorId, file)
+> ApiControllerRoot200Response vendorsControllerUploadCover(vendorId, file)
 
 Upload vendor cover image
 
@@ -521,7 +527,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -535,7 +541,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerUploadLogo**
-> AuthControllerRegister200Response vendorsControllerUploadLogo(vendorId, file)
+> ApiControllerRoot200Response vendorsControllerUploadLogo(vendorId, file)
 
 Upload vendor logo image
 
@@ -564,7 +570,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 
 void main() {
   test('Test ResponseParser', () {
-    final res = AuthControllerRegister200Response((b) => b
+    final res = ApiControllerRoot200Response((b) => b
       ..success = true
       ..statusCode = 200
       ..message = 'Test'

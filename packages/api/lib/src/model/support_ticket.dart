@@ -3,13 +3,9 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order.dart';
-import 'package:api/src/model/ticket_status.dart';
-import 'package:api/src/model/vendor.dart';
-import 'package:api/src/model/conversation.dart';
-import 'package:api/src/model/ticket_priority.dart';
-import 'package:api/src/model/user.dart';
 import 'package:api/src/model/ticket_category.dart';
+import 'package:api/src/model/ticket_status.dart';
+import 'package:api/src/model/ticket_priority.dart';
 import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -37,11 +33,6 @@ part 'support_ticket.g.dart';
 /// * [metadata] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [assignee] 
-/// * [conversation] 
-/// * [creator] 
-/// * [order] 
-/// * [vendor] 
 @BuiltValue()
 abstract class SupportTicket implements Built<SupportTicket, SupportTicketBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -57,18 +48,18 @@ abstract class SupportTicket implements Built<SupportTicket, SupportTicketBuilde
   String? get description;
 
   @BuiltValueField(wireName: r'status')
-  JsonObject? get status;
+  TicketStatus get status;
   // enum statusEnum {  OPEN,  IN_PROGRESS,  WAITING_ON_USER,  ESCALATED,  RESOLVED,  CLOSED,  };
 
   @BuiltValueField(wireName: r'category')
-  JsonObject? get category;
+  TicketCategory get category;
   // enum categoryEnum {  DELIVERY,  VENDOR,  PAYMENT,  ACCOUNT,  RETURN_COMPLAINT,  OTHER,  };
 
   @BuiltValueField(wireName: r'subCategory')
   String? get subCategory;
 
   @BuiltValueField(wireName: r'priority')
-  JsonObject? get priority;
+  TicketPriority get priority;
   // enum priorityEnum {  LOW,  MEDIUM,  HIGH,  URGENT,  };
 
   @BuiltValueField(wireName: r'creatorId')
@@ -100,21 +91,6 @@ abstract class SupportTicket implements Built<SupportTicket, SupportTicketBuilde
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'assignee')
-  JsonObject? get assignee;
-
-  @BuiltValueField(wireName: r'conversation')
-  JsonObject? get conversation;
-
-  @BuiltValueField(wireName: r'creator')
-  JsonObject? get creator;
-
-  @BuiltValueField(wireName: r'order')
-  JsonObject? get order;
-
-  @BuiltValueField(wireName: r'vendor')
-  JsonObject? get vendor;
 
   SupportTicket._();
 
@@ -245,39 +221,6 @@ class _$SupportTicketSerializer implements PrimitiveSerializer<SupportTicket> {
       object.updatedAt,
       specifiedType: const FullType(DateTime),
     );
-    if (object.assignee != null) {
-      yield r'assignee';
-      yield serializers.serialize(
-        object.assignee,
-        specifiedType: const FullType(User),
-      );
-    }
-    if (object.conversation != null) {
-      yield r'conversation';
-      yield serializers.serialize(
-        object.conversation,
-        specifiedType: const FullType(Conversation),
-      );
-    }
-    yield r'creator';
-    yield serializers.serialize(
-      object.creator,
-      specifiedType: const FullType(User),
-    );
-    if (object.order != null) {
-      yield r'order';
-      yield serializers.serialize(
-        object.order,
-        specifiedType: const FullType(Order),
-      );
-    }
-    if (object.vendor != null) {
-      yield r'vendor';
-      yield serializers.serialize(
-        object.vendor,
-        specifiedType: const FullType(Vendor),
-      );
-    }
   }
 
   @override
@@ -330,10 +273,18 @@ class _$SupportTicketSerializer implements PrimitiveSerializer<SupportTicket> {
           result.description = valueDes;
           break;
         case r'status':
-          // Patched: TicketStatus is an enum-like type, skip JsonObject? assignment
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(TicketStatus),
+          ) as TicketStatus;
+          result.status = valueDes;
           break;
         case r'category':
-          // Patched: TicketCategory is an enum-like type, skip JsonObject? assignment
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(TicketCategory),
+          ) as TicketCategory;
+          result.category = valueDes;
           break;
         case r'subCategory':
           final valueDes = serializers.deserialize(
@@ -343,7 +294,11 @@ class _$SupportTicketSerializer implements PrimitiveSerializer<SupportTicket> {
           result.subCategory = valueDes;
           break;
         case r'priority':
-          // Patched: TicketPriority is an enum-like type, skip JsonObject? assignment
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(TicketPriority),
+          ) as TicketPriority;
+          result.priority = valueDes;
           break;
         case r'creatorId':
           final valueDes = serializers.deserialize(
@@ -415,33 +370,6 @@ class _$SupportTicketSerializer implements PrimitiveSerializer<SupportTicket> {
           ) as DateTime;
           result.updatedAt = valueDes;
           break;
-        case r'assignee':
-          // Patched: skip complex nested type assignment
-          break;
-        case r'conversation':
-          // Patched: skip complex nested type assignment
-          break;
-        case r'creator':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.creator = valueDes;
-          break;
-        case r'order':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.order = valueDes;
-          break;
-        case r'vendor':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.vendor = valueDes;
-          break;
         default:
           unhandled.add(key);
           unhandled.add(value);
@@ -470,7 +398,4 @@ class _$SupportTicketSerializer implements PrimitiveSerializer<SupportTicket> {
     return result.build();
   }
 }
-
-
-
 

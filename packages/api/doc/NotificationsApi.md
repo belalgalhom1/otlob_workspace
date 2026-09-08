@@ -20,7 +20,7 @@ Method | HTTP request | Description
 
 
 # **notificationsControllerDeleteAllRead**
-> AuthControllerRegister200Response notificationsControllerDeleteAllRead()
+> ApiControllerRoot200Response notificationsControllerDeleteAllRead()
 
 Delete all read notifications
 
@@ -43,7 +43,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -57,7 +57,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerDeleteOne**
-> NotificationsControllerList200Response notificationsControllerDeleteOne(id)
+> ApiControllerRoot200Response notificationsControllerDeleteOne(id)
 
 Delete a specific notification
 
@@ -84,7 +84,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**NotificationsControllerList200Response**](NotificationsControllerList200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -98,7 +98,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerDispatchAnnouncement**
-> AuthControllerRegister200Response notificationsControllerDispatchAnnouncement(dispatchAnnouncementDto)
+> ApiControllerRoot200Response notificationsControllerDispatchAnnouncement(dispatchAnnouncementDto)
 
 Dispatch an announcement to a topic
 
@@ -125,7 +125,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -139,7 +139,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerGetOne**
-> NotificationsControllerList200Response notificationsControllerGetOne(id)
+> ApiControllerRoot200Response notificationsControllerGetOne(id)
 
 Get a specific notification by ID
 
@@ -166,7 +166,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**NotificationsControllerList200Response**](NotificationsControllerList200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -180,7 +180,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerList**
-> NotificationsControllerList200Response notificationsControllerList(unreadOnly, type, page, limit)
+> ApiControllerRoot200Response notificationsControllerList(unreadOnly, type, page, limit)
 
 List my notifications
 
@@ -213,7 +213,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**NotificationsControllerList200Response**](NotificationsControllerList200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -227,7 +227,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerMarkOneRead**
-> NotificationsControllerList200Response notificationsControllerMarkOneRead(id)
+> ApiControllerRoot200Response notificationsControllerMarkOneRead(id)
 
 Mark a specific notification as read
 
@@ -254,7 +254,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**NotificationsControllerList200Response**](NotificationsControllerList200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -268,7 +268,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerMarkRead**
-> AuthControllerRegister200Response notificationsControllerMarkRead(markNotificationsReadDto)
+> ApiControllerRoot200Response notificationsControllerMarkRead(markNotificationsReadDto)
 
 Mark multiple notifications as read
 
@@ -295,7 +295,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -309,7 +309,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **notificationsControllerUnreadCount**
-> AuthControllerRegister200Response notificationsControllerUnreadCount()
+> ApiControllerRoot200Response notificationsControllerUnreadCount()
 
 Get unread notifications count
 
@@ -332,7 +332,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

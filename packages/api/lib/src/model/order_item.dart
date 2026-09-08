@@ -3,13 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order.dart';
-import 'package:api/src/model/order_item_option.dart';
-import 'package:api/src/model/product_variant.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'order_item.g.dart';
@@ -27,10 +21,6 @@ part 'order_item.g.dart';
 /// * [quantity] 
 /// * [totalPrice] 
 /// * [specialRequest] 
-/// * [selectedOptions] 
-/// * [order] 
-/// * [product] 
-/// * [variant] 
 @BuiltValue()
 abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -62,18 +52,6 @@ abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
 
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
-
-  @BuiltValueField(wireName: r'selectedOptions')
-  BuiltList<OrderItemOption> get selectedOptions;
-
-  @BuiltValueField(wireName: r'order')
-  JsonObject? get order;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
-
-  @BuiltValueField(wireName: r'variant')
-  JsonObject? get variant;
 
   OrderItem._();
 
@@ -154,30 +132,6 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
       yield serializers.serialize(
         object.specialRequest,
         specifiedType: const FullType(String),
-      );
-    }
-    yield r'selectedOptions';
-    yield serializers.serialize(
-      object.selectedOptions,
-      specifiedType: const FullType(BuiltList, [FullType(OrderItemOption)]),
-    );
-    yield r'order';
-    yield serializers.serialize(
-      object.order,
-      specifiedType: const FullType(Order),
-    );
-    if (object.product != null) {
-      yield r'product';
-      yield serializers.serialize(
-        object.product,
-        specifiedType: const FullType(Product),
-      );
-    }
-    if (object.variant != null) {
-      yield r'variant';
-      yield serializers.serialize(
-        object.variant,
-        specifiedType: const FullType(ProductVariant),
       );
     }
   }
@@ -272,34 +226,6 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
             specifiedType: const FullType(String),
           ) as String;
           result.specialRequest = valueDes;
-          break;
-        case r'selectedOptions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(OrderItemOption)]),
-          ) as BuiltList<OrderItemOption>;
-          result.selectedOptions.replace(valueDes);
-          break;
-        case r'order':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.order = valueDes;
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
-          break;
-        case r'variant':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.variant = valueDes;
           break;
         default:
           unhandled.add(key);

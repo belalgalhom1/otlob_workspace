@@ -3,13 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/product_variant.dart';
-import 'package:api/src/model/cart.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/cart_item_option.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'cart_item.g.dart';
@@ -29,10 +23,6 @@ part 'cart_item.g.dart';
 /// * [optionHash] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [selectedOptions] 
-/// * [cart] 
-/// * [product] 
-/// * [variant] 
 @BuiltValue()
 abstract class CartItem implements Built<CartItem, CartItemBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -70,18 +60,6 @@ abstract class CartItem implements Built<CartItem, CartItemBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'selectedOptions')
-  BuiltList<CartItemOption> get selectedOptions;
-
-  @BuiltValueField(wireName: r'cart')
-  JsonObject? get cart;
-
-  @BuiltValueField(wireName: r'product')
-  JsonObject? get product;
-
-  @BuiltValueField(wireName: r'variant')
-  JsonObject? get variant;
 
   CartItem._();
 
@@ -180,30 +158,6 @@ class _$CartItemSerializer implements PrimitiveSerializer<CartItem> {
       object.updatedAt,
       specifiedType: const FullType(DateTime),
     );
-    yield r'selectedOptions';
-    yield serializers.serialize(
-      object.selectedOptions,
-      specifiedType: const FullType(BuiltList, [FullType(CartItemOption)]),
-    );
-    yield r'cart';
-    yield serializers.serialize(
-      object.cart,
-      specifiedType: const FullType(Cart),
-    );
-    if (object.product != null) {
-      yield r'product';
-      yield serializers.serialize(
-        object.product,
-        specifiedType: const FullType(Product),
-      );
-    }
-    if (object.variant != null) {
-      yield r'variant';
-      yield serializers.serialize(
-        object.variant,
-        specifiedType: const FullType(ProductVariant),
-      );
-    }
   }
 
   @override
@@ -310,34 +264,6 @@ class _$CartItemSerializer implements PrimitiveSerializer<CartItem> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'selectedOptions':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(CartItemOption)]),
-          ) as BuiltList<CartItemOption>;
-          result.selectedOptions.replace(valueDes);
-          break;
-        case r'cart':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.cart = valueDes;
-          break;
-        case r'product':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.product = valueDes;
-          break;
-        case r'variant':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.variant = valueDes;
           break;
         default:
           unhandled.add(key);

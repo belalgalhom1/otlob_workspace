@@ -1,8 +1,8 @@
-# openapi.model.MenuCategory
+# api.model.MenuCategory
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -19,8 +19,6 @@ Name | Type | Description | Notes
 **isActive** | **bool** |  | 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**vendor** | [**Vendor**](Vendor.md) |  | 
-**products** | [**BuiltList&lt;Product&gt;**](Product.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

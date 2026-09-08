@@ -92,6 +92,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? autoCancelPendingMins;
   @override
+  final num? mobileWalletTimeoutMins;
+  @override
   final num? driverAcceptTimeoutSecs;
   @override
   final num? maxDispatchBatchSize;
@@ -231,6 +233,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.driverSearchMaxAttempts,
     this.fallbackOrderDistanceKm,
     this.autoCancelPendingMins,
+    this.mobileWalletTimeoutMins,
     this.driverAcceptTimeoutSecs,
     this.maxDispatchBatchSize,
     this.isMaintenanceMode,
@@ -333,6 +336,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         driverSearchMaxAttempts == other.driverSearchMaxAttempts &&
         fallbackOrderDistanceKm == other.fallbackOrderDistanceKm &&
         autoCancelPendingMins == other.autoCancelPendingMins &&
+        mobileWalletTimeoutMins == other.mobileWalletTimeoutMins &&
         driverAcceptTimeoutSecs == other.driverAcceptTimeoutSecs &&
         maxDispatchBatchSize == other.maxDispatchBatchSize &&
         isMaintenanceMode == other.isMaintenanceMode &&
@@ -428,6 +432,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, driverSearchMaxAttempts.hashCode);
     _$hash = $jc(_$hash, fallbackOrderDistanceKm.hashCode);
     _$hash = $jc(_$hash, autoCancelPendingMins.hashCode);
+    _$hash = $jc(_$hash, mobileWalletTimeoutMins.hashCode);
     _$hash = $jc(_$hash, driverAcceptTimeoutSecs.hashCode);
     _$hash = $jc(_$hash, maxDispatchBatchSize.hashCode);
     _$hash = $jc(_$hash, isMaintenanceMode.hashCode);
@@ -523,6 +528,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('driverSearchMaxAttempts', driverSearchMaxAttempts)
           ..add('fallbackOrderDistanceKm', fallbackOrderDistanceKm)
           ..add('autoCancelPendingMins', autoCancelPendingMins)
+          ..add('mobileWalletTimeoutMins', mobileWalletTimeoutMins)
           ..add('driverAcceptTimeoutSecs', driverAcceptTimeoutSecs)
           ..add('maxDispatchBatchSize', maxDispatchBatchSize)
           ..add('isMaintenanceMode', isMaintenanceMode)
@@ -786,6 +792,11 @@ class UpdatePlatformSettingsDtoBuilder
   num? get autoCancelPendingMins => _$this._autoCancelPendingMins;
   set autoCancelPendingMins(num? autoCancelPendingMins) =>
       _$this._autoCancelPendingMins = autoCancelPendingMins;
+
+  num? _mobileWalletTimeoutMins;
+  num? get mobileWalletTimeoutMins => _$this._mobileWalletTimeoutMins;
+  set mobileWalletTimeoutMins(num? mobileWalletTimeoutMins) =>
+      _$this._mobileWalletTimeoutMins = mobileWalletTimeoutMins;
 
   num? _driverAcceptTimeoutSecs;
   num? get driverAcceptTimeoutSecs => _$this._driverAcceptTimeoutSecs;
@@ -1064,6 +1075,7 @@ class UpdatePlatformSettingsDtoBuilder
       _driverSearchMaxAttempts = $v.driverSearchMaxAttempts;
       _fallbackOrderDistanceKm = $v.fallbackOrderDistanceKm;
       _autoCancelPendingMins = $v.autoCancelPendingMins;
+      _mobileWalletTimeoutMins = $v.mobileWalletTimeoutMins;
       _driverAcceptTimeoutSecs = $v.driverAcceptTimeoutSecs;
       _maxDispatchBatchSize = $v.maxDispatchBatchSize;
       _isMaintenanceMode = $v.isMaintenanceMode;
@@ -1175,6 +1187,7 @@ class UpdatePlatformSettingsDtoBuilder
           driverSearchMaxAttempts: driverSearchMaxAttempts,
           fallbackOrderDistanceKm: fallbackOrderDistanceKm,
           autoCancelPendingMins: autoCancelPendingMins,
+          mobileWalletTimeoutMins: mobileWalletTimeoutMins,
           driverAcceptTimeoutSecs: driverAcceptTimeoutSecs,
           maxDispatchBatchSize: maxDispatchBatchSize,
           isMaintenanceMode: isMaintenanceMode,

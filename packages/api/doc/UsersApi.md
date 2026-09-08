@@ -28,7 +28,7 @@ Method | HTTP request | Description
 
 
 # **usersControllerAdminBan**
-> AuthControllerRegister200Response usersControllerAdminBan(userId, banUserDto)
+> ApiControllerRoot200Response usersControllerAdminBan(userId, banUserDto)
 
 [Admin] Ban a user — immediately revokes all sessions. Cannot ban SUPER_ADMIN.
 
@@ -57,7 +57,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -71,7 +71,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminCreate**
-> AuthControllerRegister200Response usersControllerAdminCreate(registerDto)
+> ApiControllerRoot200Response usersControllerAdminCreate(registerDto)
 
 [Admin] Create a new user directly
 
@@ -98,7 +98,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -112,7 +112,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminFindAll**
-> AuthControllerRegister200Response usersControllerAdminFindAll(role, isBanned, includeDeleted, search, page, limit)
+> ApiControllerRoot200Response usersControllerAdminFindAll(role, isBanned, includeDeleted, search, page, limit)
 
 [Admin] List all users — filter by role, isBanned, includeDeleted, search
 
@@ -149,7 +149,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -163,7 +163,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminFindOne**
-> AuthControllerRegister200Response usersControllerAdminFindOne(userId)
+> ApiControllerRoot200Response usersControllerAdminFindOne(userId)
 
 [Admin] Get a user — includes sessions, devices, vendor memberships, customer/driver snapshots
 
@@ -190,7 +190,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -204,7 +204,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminGetSessions**
-> AuthControllerRegister200Response usersControllerAdminGetSessions(userId)
+> ApiControllerRoot200Response usersControllerAdminGetSessions(userId)
 
 [Admin] List active sessions for a user
 
@@ -231,7 +231,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -245,7 +245,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminRemove**
-> AuthControllerRegister200Response usersControllerAdminRemove(userId)
+> ApiControllerRoot200Response usersControllerAdminRemove(userId)
 
 [Admin] Soft-delete a user — wipes email/phone PII. Cannot delete SUPER_ADMIN.
 
@@ -272,7 +272,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -286,7 +286,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminRevokeAllSessions**
-> AuthControllerRegister200Response usersControllerAdminRevokeAllSessions(userId)
+> ApiControllerRoot200Response usersControllerAdminRevokeAllSessions(userId)
 
 [Admin] Revoke all sessions for a user (force logout)
 
@@ -313,7 +313,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -327,7 +327,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminUnban**
-> AuthControllerRegister200Response usersControllerAdminUnban(userId)
+> ApiControllerRoot200Response usersControllerAdminUnban(userId)
 
 [Admin] Unban a user
 
@@ -354,7 +354,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -368,7 +368,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerAdminUpdate**
-> AuthControllerRegister200Response usersControllerAdminUpdate(userId, adminUpdateUserDto)
+> ApiControllerRoot200Response usersControllerAdminUpdate(userId, adminUpdateUserDto)
 
 [Admin] Update a user — name, email, phone, role, title, permissions, verification flags
 
@@ -397,7 +397,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -411,7 +411,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerChangePassword**
-> AuthControllerRegister200Response usersControllerChangePassword(changePasswordDto)
+> ApiControllerRoot200Response usersControllerChangePassword(changePasswordDto)
 
 Change my password
 
@@ -438,7 +438,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -452,7 +452,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerDeleteAccount**
-> AuthControllerRegister200Response usersControllerDeleteAccount()
+> ApiControllerRoot200Response usersControllerDeleteAccount()
 
 Delete my account
 
@@ -475,7 +475,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -489,7 +489,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerGetNotificationSettings**
-> AuthControllerRegister200Response usersControllerGetNotificationSettings()
+> ApiControllerRoot200Response usersControllerGetNotificationSettings()
 
 Get my notification settings
 
@@ -512,7 +512,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -526,7 +526,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerGetUser**
-> AuthControllerRegister200Response usersControllerGetUser()
+> ApiControllerRoot200Response usersControllerGetUser()
 
 Get my profile
 
@@ -549,7 +549,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -563,7 +563,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerUpdateNotificationSettings**
-> AuthControllerRegister200Response usersControllerUpdateNotificationSettings(updateNotificationSettingsDto)
+> ApiControllerRoot200Response usersControllerUpdateNotificationSettings(updateNotificationSettingsDto)
 
 Update my notification settings
 
@@ -590,7 +590,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -604,7 +604,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerUpdateUser**
-> AuthControllerRegister200Response usersControllerUpdateUser(updateUserDto)
+> ApiControllerRoot200Response usersControllerUpdateUser(updateUserDto)
 
 Update my profile (name, email, phone, language)
 
@@ -631,7 +631,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -645,7 +645,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersControllerUploadAvatar**
-> AuthControllerRegister200Response usersControllerUploadAvatar(file)
+> ApiControllerRoot200Response usersControllerUploadAvatar(file)
 
 Upload my avatar
 
@@ -672,7 +672,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

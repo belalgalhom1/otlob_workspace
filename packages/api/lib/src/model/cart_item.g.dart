@@ -31,14 +31,6 @@ class _$CartItem extends CartItem {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final BuiltList<CartItemOption> selectedOptions;
-  @override
-  final JsonObject? cart;
-  @override
-  final JsonObject? product;
-  @override
-  final JsonObject? variant;
 
   factory _$CartItem([void Function(CartItemBuilder)? updates]) =>
       (CartItemBuilder()..update(updates))._build();
@@ -56,10 +48,6 @@ class _$CartItem extends CartItem {
     this.optionHash,
     required this.createdAt,
     required this.updatedAt,
-    required this.selectedOptions,
-    this.cart,
-    this.product,
-    this.variant,
   }) : super._();
   @override
   CartItem rebuild(void Function(CartItemBuilder) updates) =>
@@ -83,11 +71,7 @@ class _$CartItem extends CartItem {
         specialRequest == other.specialRequest &&
         optionHash == other.optionHash &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        selectedOptions == other.selectedOptions &&
-        cart == other.cart &&
-        product == other.product &&
-        variant == other.variant;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -105,10 +89,6 @@ class _$CartItem extends CartItem {
     _$hash = $jc(_$hash, optionHash.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, selectedOptions.hashCode);
-    _$hash = $jc(_$hash, cart.hashCode);
-    _$hash = $jc(_$hash, product.hashCode);
-    _$hash = $jc(_$hash, variant.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -127,11 +107,7 @@ class _$CartItem extends CartItem {
           ..add('specialRequest', specialRequest)
           ..add('optionHash', optionHash)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('selectedOptions', selectedOptions)
-          ..add('cart', cart)
-          ..add('product', product)
-          ..add('variant', variant))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -189,24 +165,6 @@ class CartItemBuilder implements Builder<CartItem, CartItemBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  ListBuilder<CartItemOption>? _selectedOptions;
-  ListBuilder<CartItemOption> get selectedOptions =>
-      _$this._selectedOptions ??= ListBuilder<CartItemOption>();
-  set selectedOptions(ListBuilder<CartItemOption>? selectedOptions) =>
-      _$this._selectedOptions = selectedOptions;
-
-  JsonObject? _cart;
-  JsonObject? get cart => _$this._cart;
-  set cart(JsonObject? cart) => _$this._cart = cart;
-
-  JsonObject? _product;
-  JsonObject? get product => _$this._product;
-  set product(JsonObject? product) => _$this._product = product;
-
-  JsonObject? _variant;
-  JsonObject? get variant => _$this._variant;
-  set variant(JsonObject? variant) => _$this._variant = variant;
-
   CartItemBuilder() {
     CartItem._defaults(this);
   }
@@ -226,10 +184,6 @@ class CartItemBuilder implements Builder<CartItem, CartItemBuilder> {
       _optionHash = $v.optionHash;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _selectedOptions = $v.selectedOptions.toBuilder();
-      _cart = $v.cart;
-      _product = $v.product;
-      _variant = $v.variant;
       _$v = null;
     }
     return this;
@@ -249,58 +203,38 @@ class CartItemBuilder implements Builder<CartItem, CartItemBuilder> {
   CartItem build() => _build();
 
   _$CartItem _build() {
-    _$CartItem _$result;
-    try {
-      _$result =
-          _$v ??
-          _$CartItem._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'CartItem', 'id'),
-            cartId: BuiltValueNullFieldError.checkNotNull(
-              cartId,
-              r'CartItem',
-              'cartId',
-            ),
-            productId: productId,
-            variantId: variantId,
-            customName: customName,
-            customPrice: customPrice,
-            customImageUrl: customImageUrl,
-            quantity: BuiltValueNullFieldError.checkNotNull(
-              quantity,
-              r'CartItem',
-              'quantity',
-            ),
-            specialRequest: specialRequest,
-            optionHash: optionHash,
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'CartItem',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'CartItem',
-              'updatedAt',
-            ),
-            selectedOptions: selectedOptions.build(),
-            cart: cart,
-            product: product,
-            variant: variant,
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'selectedOptions';
-        selectedOptions.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'CartItem',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$CartItem._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'CartItem', 'id'),
+          cartId: BuiltValueNullFieldError.checkNotNull(
+            cartId,
+            r'CartItem',
+            'cartId',
+          ),
+          productId: productId,
+          variantId: variantId,
+          customName: customName,
+          customPrice: customPrice,
+          customImageUrl: customImageUrl,
+          quantity: BuiltValueNullFieldError.checkNotNull(
+            quantity,
+            r'CartItem',
+            'quantity',
+          ),
+          specialRequest: specialRequest,
+          optionHash: optionHash,
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'CartItem',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'CartItem',
+            'updatedAt',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

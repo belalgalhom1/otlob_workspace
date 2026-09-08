@@ -16,13 +16,13 @@ class _$SupportTicket extends SupportTicket {
   @override
   final String? description;
   @override
-  final JsonObject? status;
+  final TicketStatus status;
   @override
-  final JsonObject? category;
+  final TicketCategory category;
   @override
   final String? subCategory;
   @override
-  final JsonObject? priority;
+  final TicketPriority priority;
   @override
   final String creatorId;
   @override
@@ -43,16 +43,6 @@ class _$SupportTicket extends SupportTicket {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final JsonObject? assignee;
-  @override
-  final JsonObject? conversation;
-  @override
-  final JsonObject? creator;
-  @override
-  final JsonObject? order;
-  @override
-  final JsonObject? vendor;
 
   factory _$SupportTicket([void Function(SupportTicketBuilder)? updates]) =>
       (SupportTicketBuilder()..update(updates))._build();
@@ -62,10 +52,10 @@ class _$SupportTicket extends SupportTicket {
     required this.ticketNumber,
     required this.subject,
     this.description,
-    this.status,
-    this.category,
+    required this.status,
+    required this.category,
     this.subCategory,
-    this.priority,
+    required this.priority,
     required this.creatorId,
     this.assigneeId,
     this.orderId,
@@ -76,11 +66,6 @@ class _$SupportTicket extends SupportTicket {
     this.metadata,
     required this.createdAt,
     required this.updatedAt,
-    this.assignee,
-    this.conversation,
-    this.creator,
-    this.order,
-    this.vendor,
   }) : super._();
   @override
   SupportTicket rebuild(void Function(SupportTicketBuilder) updates) =>
@@ -110,12 +95,7 @@ class _$SupportTicket extends SupportTicket {
         escalatedAt == other.escalatedAt &&
         metadata == other.metadata &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        assignee == other.assignee &&
-        conversation == other.conversation &&
-        creator == other.creator &&
-        order == other.order &&
-        vendor == other.vendor;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -139,11 +119,6 @@ class _$SupportTicket extends SupportTicket {
     _$hash = $jc(_$hash, metadata.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, assignee.hashCode);
-    _$hash = $jc(_$hash, conversation.hashCode);
-    _$hash = $jc(_$hash, creator.hashCode);
-    _$hash = $jc(_$hash, order.hashCode);
-    _$hash = $jc(_$hash, vendor.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -168,12 +143,7 @@ class _$SupportTicket extends SupportTicket {
           ..add('escalatedAt', escalatedAt)
           ..add('metadata', metadata)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('assignee', assignee)
-          ..add('conversation', conversation)
-          ..add('creator', creator)
-          ..add('order', order)
-          ..add('vendor', vendor))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -198,21 +168,21 @@ class SupportTicketBuilder
   String? get description => _$this._description;
   set description(String? description) => _$this._description = description;
 
-  JsonObject? _status;
-  JsonObject? get status => _$this._status;
-  set status(JsonObject? status) => _$this._status = status;
+  TicketStatus? _status;
+  TicketStatus? get status => _$this._status;
+  set status(TicketStatus? status) => _$this._status = status;
 
-  JsonObject? _category;
-  JsonObject? get category => _$this._category;
-  set category(JsonObject? category) => _$this._category = category;
+  TicketCategory? _category;
+  TicketCategory? get category => _$this._category;
+  set category(TicketCategory? category) => _$this._category = category;
 
   String? _subCategory;
   String? get subCategory => _$this._subCategory;
   set subCategory(String? subCategory) => _$this._subCategory = subCategory;
 
-  JsonObject? _priority;
-  JsonObject? get priority => _$this._priority;
-  set priority(JsonObject? priority) => _$this._priority = priority;
+  TicketPriority? _priority;
+  TicketPriority? get priority => _$this._priority;
+  set priority(TicketPriority? priority) => _$this._priority = priority;
 
   String? _creatorId;
   String? get creatorId => _$this._creatorId;
@@ -256,27 +226,6 @@ class SupportTicketBuilder
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  JsonObject? _assignee;
-  JsonObject? get assignee => _$this._assignee;
-  set assignee(JsonObject? assignee) => _$this._assignee = assignee;
-
-  JsonObject? _conversation;
-  JsonObject? get conversation => _$this._conversation;
-  set conversation(JsonObject? conversation) =>
-      _$this._conversation = conversation;
-
-  JsonObject? _creator;
-  JsonObject? get creator => _$this._creator;
-  set creator(JsonObject? creator) => _$this._creator = creator;
-
-  JsonObject? _order;
-  JsonObject? get order => _$this._order;
-  set order(JsonObject? order) => _$this._order = order;
-
-  JsonObject? _vendor;
-  JsonObject? get vendor => _$this._vendor;
-  set vendor(JsonObject? vendor) => _$this._vendor = vendor;
-
   SupportTicketBuilder() {
     SupportTicket._defaults(this);
   }
@@ -302,11 +251,6 @@ class SupportTicketBuilder
       _metadata = $v.metadata;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _assignee = $v.assignee;
-      _conversation = $v.conversation;
-      _creator = $v.creator;
-      _order = $v.order;
-      _vendor = $v.vendor;
       _$v = null;
     }
     return this;
@@ -341,10 +285,22 @@ class SupportTicketBuilder
             'subject',
           ),
           description: description,
-          status: status,
-          category: category,
+          status: BuiltValueNullFieldError.checkNotNull(
+            status,
+            r'SupportTicket',
+            'status',
+          ),
+          category: BuiltValueNullFieldError.checkNotNull(
+            category,
+            r'SupportTicket',
+            'category',
+          ),
           subCategory: subCategory,
-          priority: priority,
+          priority: BuiltValueNullFieldError.checkNotNull(
+            priority,
+            r'SupportTicket',
+            'priority',
+          ),
           creatorId: BuiltValueNullFieldError.checkNotNull(
             creatorId,
             r'SupportTicket',
@@ -371,11 +327,6 @@ class SupportTicketBuilder
             r'SupportTicket',
             'updatedAt',
           ),
-          assignee: assignee,
-          conversation: conversation,
-          creator: creator,
-          order: order,
-          vendor: vendor,
         );
     replace(_$result);
     return _$result;

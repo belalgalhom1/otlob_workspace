@@ -30,7 +30,7 @@ class _$Vendor extends Vendor {
   @override
   final num commissionRate;
   @override
-  final JsonObject? status;
+  final VendorStatus status;
   @override
   final num walletBalance;
   @override
@@ -47,36 +47,6 @@ class _$Vendor extends Vendor {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final BuiltList<AuditLog> auditLogs;
-  @override
-  final BuiltList<Cart> carts;
-  @override
-  final BuiltList<Conversation> conversations;
-  @override
-  final BuiltList<FavoriteVendor> favoritedBy;
-  @override
-  final BuiltList<MenuCategory> categories;
-  @override
-  final BuiltList<Order> orders;
-  @override
-  final BuiltList<Product> products;
-  @override
-  final BuiltList<SupportTicket> supportTickets;
-  @override
-  final BuiltList<VendorBranch> branches;
-  @override
-  final BuiltList<VendorMember> members;
-  @override
-  final BuiltList<VendorStatistic> statistics;
-  @override
-  final BuiltList<VendorWalletTransaction> walletTransactions;
-  @override
-  final BuiltList<Promotion> promotions;
-  @override
-  final BuiltList<Offer> offers;
-  @override
-  final JsonObject? vertical;
 
   factory _$Vendor([void Function(VendorBuilder)? updates]) =>
       (VendorBuilder()..update(updates))._build();
@@ -93,7 +63,7 @@ class _$Vendor extends Vendor {
     this.phone,
     this.taxId,
     required this.commissionRate,
-    this.status,
+    required this.status,
     required this.walletBalance,
     required this.isContracted,
     this.workingHours,
@@ -102,21 +72,6 @@ class _$Vendor extends Vendor {
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
-    required this.auditLogs,
-    required this.carts,
-    required this.conversations,
-    required this.favoritedBy,
-    required this.categories,
-    required this.orders,
-    required this.products,
-    required this.supportTickets,
-    required this.branches,
-    required this.members,
-    required this.statistics,
-    required this.walletTransactions,
-    required this.promotions,
-    required this.offers,
-    this.vertical,
   }) : super._();
   @override
   Vendor rebuild(void Function(VendorBuilder) updates) =>
@@ -148,22 +103,7 @@ class _$Vendor extends Vendor {
         verticalId == other.verticalId &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        auditLogs == other.auditLogs &&
-        carts == other.carts &&
-        conversations == other.conversations &&
-        favoritedBy == other.favoritedBy &&
-        categories == other.categories &&
-        orders == other.orders &&
-        products == other.products &&
-        supportTickets == other.supportTickets &&
-        branches == other.branches &&
-        members == other.members &&
-        statistics == other.statistics &&
-        walletTransactions == other.walletTransactions &&
-        promotions == other.promotions &&
-        offers == other.offers &&
-        vertical == other.vertical;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -189,21 +129,6 @@ class _$Vendor extends Vendor {
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, auditLogs.hashCode);
-    _$hash = $jc(_$hash, carts.hashCode);
-    _$hash = $jc(_$hash, conversations.hashCode);
-    _$hash = $jc(_$hash, favoritedBy.hashCode);
-    _$hash = $jc(_$hash, categories.hashCode);
-    _$hash = $jc(_$hash, orders.hashCode);
-    _$hash = $jc(_$hash, products.hashCode);
-    _$hash = $jc(_$hash, supportTickets.hashCode);
-    _$hash = $jc(_$hash, branches.hashCode);
-    _$hash = $jc(_$hash, members.hashCode);
-    _$hash = $jc(_$hash, statistics.hashCode);
-    _$hash = $jc(_$hash, walletTransactions.hashCode);
-    _$hash = $jc(_$hash, promotions.hashCode);
-    _$hash = $jc(_$hash, offers.hashCode);
-    _$hash = $jc(_$hash, vertical.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -230,22 +155,7 @@ class _$Vendor extends Vendor {
           ..add('verticalId', verticalId)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('auditLogs', auditLogs)
-          ..add('carts', carts)
-          ..add('conversations', conversations)
-          ..add('favoritedBy', favoritedBy)
-          ..add('categories', categories)
-          ..add('orders', orders)
-          ..add('products', products)
-          ..add('supportTickets', supportTickets)
-          ..add('branches', branches)
-          ..add('members', members)
-          ..add('statistics', statistics)
-          ..add('walletTransactions', walletTransactions)
-          ..add('promotions', promotions)
-          ..add('offers', offers)
-          ..add('vertical', vertical))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -299,9 +209,9 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
   set commissionRate(num? commissionRate) =>
       _$this._commissionRate = commissionRate;
 
-  JsonObject? _status;
-  JsonObject? get status => _$this._status;
-  set status(JsonObject? status) => _$this._status = status;
+  VendorStatus? _status;
+  VendorStatus? get status => _$this._status;
+  set status(VendorStatus? status) => _$this._status = status;
 
   num? _walletBalance;
   num? get walletBalance => _$this._walletBalance;
@@ -338,87 +248,6 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  ListBuilder<AuditLog>? _auditLogs;
-  ListBuilder<AuditLog> get auditLogs =>
-      _$this._auditLogs ??= ListBuilder<AuditLog>();
-  set auditLogs(ListBuilder<AuditLog>? auditLogs) =>
-      _$this._auditLogs = auditLogs;
-
-  ListBuilder<Cart>? _carts;
-  ListBuilder<Cart> get carts => _$this._carts ??= ListBuilder<Cart>();
-  set carts(ListBuilder<Cart>? carts) => _$this._carts = carts;
-
-  ListBuilder<Conversation>? _conversations;
-  ListBuilder<Conversation> get conversations =>
-      _$this._conversations ??= ListBuilder<Conversation>();
-  set conversations(ListBuilder<Conversation>? conversations) =>
-      _$this._conversations = conversations;
-
-  ListBuilder<FavoriteVendor>? _favoritedBy;
-  ListBuilder<FavoriteVendor> get favoritedBy =>
-      _$this._favoritedBy ??= ListBuilder<FavoriteVendor>();
-  set favoritedBy(ListBuilder<FavoriteVendor>? favoritedBy) =>
-      _$this._favoritedBy = favoritedBy;
-
-  ListBuilder<MenuCategory>? _categories;
-  ListBuilder<MenuCategory> get categories =>
-      _$this._categories ??= ListBuilder<MenuCategory>();
-  set categories(ListBuilder<MenuCategory>? categories) =>
-      _$this._categories = categories;
-
-  ListBuilder<Order>? _orders;
-  ListBuilder<Order> get orders => _$this._orders ??= ListBuilder<Order>();
-  set orders(ListBuilder<Order>? orders) => _$this._orders = orders;
-
-  ListBuilder<Product>? _products;
-  ListBuilder<Product> get products =>
-      _$this._products ??= ListBuilder<Product>();
-  set products(ListBuilder<Product>? products) => _$this._products = products;
-
-  ListBuilder<SupportTicket>? _supportTickets;
-  ListBuilder<SupportTicket> get supportTickets =>
-      _$this._supportTickets ??= ListBuilder<SupportTicket>();
-  set supportTickets(ListBuilder<SupportTicket>? supportTickets) =>
-      _$this._supportTickets = supportTickets;
-
-  ListBuilder<VendorBranch>? _branches;
-  ListBuilder<VendorBranch> get branches =>
-      _$this._branches ??= ListBuilder<VendorBranch>();
-  set branches(ListBuilder<VendorBranch>? branches) =>
-      _$this._branches = branches;
-
-  ListBuilder<VendorMember>? _members;
-  ListBuilder<VendorMember> get members =>
-      _$this._members ??= ListBuilder<VendorMember>();
-  set members(ListBuilder<VendorMember>? members) => _$this._members = members;
-
-  ListBuilder<VendorStatistic>? _statistics;
-  ListBuilder<VendorStatistic> get statistics =>
-      _$this._statistics ??= ListBuilder<VendorStatistic>();
-  set statistics(ListBuilder<VendorStatistic>? statistics) =>
-      _$this._statistics = statistics;
-
-  ListBuilder<VendorWalletTransaction>? _walletTransactions;
-  ListBuilder<VendorWalletTransaction> get walletTransactions =>
-      _$this._walletTransactions ??= ListBuilder<VendorWalletTransaction>();
-  set walletTransactions(
-    ListBuilder<VendorWalletTransaction>? walletTransactions,
-  ) => _$this._walletTransactions = walletTransactions;
-
-  ListBuilder<Promotion>? _promotions;
-  ListBuilder<Promotion> get promotions =>
-      _$this._promotions ??= ListBuilder<Promotion>();
-  set promotions(ListBuilder<Promotion>? promotions) =>
-      _$this._promotions = promotions;
-
-  ListBuilder<Offer>? _offers;
-  ListBuilder<Offer> get offers => _$this._offers ??= ListBuilder<Offer>();
-  set offers(ListBuilder<Offer>? offers) => _$this._offers = offers;
-
-  JsonObject? _vertical;
-  JsonObject? get vertical => _$this._vertical;
-  set vertical(JsonObject? vertical) => _$this._vertical = vertical;
-
   VendorBuilder() {
     Vendor._defaults(this);
   }
@@ -446,21 +275,6 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _auditLogs = $v.auditLogs.toBuilder();
-      _carts = $v.carts.toBuilder();
-      _conversations = $v.conversations.toBuilder();
-      _favoritedBy = $v.favoritedBy.toBuilder();
-      _categories = $v.categories.toBuilder();
-      _orders = $v.orders.toBuilder();
-      _products = $v.products.toBuilder();
-      _supportTickets = $v.supportTickets.toBuilder();
-      _branches = $v.branches.toBuilder();
-      _members = $v.members.toBuilder();
-      _statistics = $v.statistics.toBuilder();
-      _walletTransactions = $v.walletTransactions.toBuilder();
-      _promotions = $v.promotions.toBuilder();
-      _offers = $v.offers.toBuilder();
-      _vertical = $v.vertical;
       _$v = null;
     }
     return this;
@@ -480,123 +294,66 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
   Vendor build() => _build();
 
   _$Vendor _build() {
-    _$Vendor _$result;
-    try {
-      _$result =
-          _$v ??
-          _$Vendor._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'Vendor', 'id'),
-            storeName: BuiltValueNullFieldError.checkNotNull(
-              storeName,
-              r'Vendor',
-              'storeName',
-            ),
-            storeNameAr: storeNameAr,
-            slug: BuiltValueNullFieldError.checkNotNull(
-              slug,
-              r'Vendor',
-              'slug',
-            ),
-            description: description,
-            descriptionAr: descriptionAr,
-            logo: logo,
-            coverImage: coverImage,
-            phone: phone,
-            taxId: taxId,
-            commissionRate: BuiltValueNullFieldError.checkNotNull(
-              commissionRate,
-              r'Vendor',
-              'commissionRate',
-            ),
-            status: status,
-            walletBalance: BuiltValueNullFieldError.checkNotNull(
-              walletBalance,
-              r'Vendor',
-              'walletBalance',
-            ),
-            isContracted: BuiltValueNullFieldError.checkNotNull(
-              isContracted,
-              r'Vendor',
-              'isContracted',
-            ),
-            workingHours: workingHours,
-            isScheduleActive: BuiltValueNullFieldError.checkNotNull(
-              isScheduleActive,
-              r'Vendor',
-              'isScheduleActive',
-            ),
-            verticalId: BuiltValueNullFieldError.checkNotNull(
-              verticalId,
-              r'Vendor',
-              'verticalId',
-            ),
-            deletedAt: deletedAt,
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'Vendor',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'Vendor',
-              'updatedAt',
-            ),
-            auditLogs: auditLogs.build(),
-            carts: carts.build(),
-            conversations: conversations.build(),
-            favoritedBy: favoritedBy.build(),
-            categories: categories.build(),
-            orders: orders.build(),
-            products: products.build(),
-            supportTickets: supportTickets.build(),
-            branches: branches.build(),
-            members: members.build(),
-            statistics: statistics.build(),
-            walletTransactions: walletTransactions.build(),
-            promotions: promotions.build(),
-            offers: offers.build(),
-            vertical: vertical,
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'auditLogs';
-        auditLogs.build();
-        _$failedField = 'carts';
-        carts.build();
-        _$failedField = 'conversations';
-        conversations.build();
-        _$failedField = 'favoritedBy';
-        favoritedBy.build();
-        _$failedField = 'categories';
-        categories.build();
-        _$failedField = 'orders';
-        orders.build();
-        _$failedField = 'products';
-        products.build();
-        _$failedField = 'supportTickets';
-        supportTickets.build();
-        _$failedField = 'branches';
-        branches.build();
-        _$failedField = 'members';
-        members.build();
-        _$failedField = 'statistics';
-        statistics.build();
-        _$failedField = 'walletTransactions';
-        walletTransactions.build();
-        _$failedField = 'promotions';
-        promotions.build();
-        _$failedField = 'offers';
-        offers.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'Vendor',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$Vendor._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'Vendor', 'id'),
+          storeName: BuiltValueNullFieldError.checkNotNull(
+            storeName,
+            r'Vendor',
+            'storeName',
+          ),
+          storeNameAr: storeNameAr,
+          slug: BuiltValueNullFieldError.checkNotNull(slug, r'Vendor', 'slug'),
+          description: description,
+          descriptionAr: descriptionAr,
+          logo: logo,
+          coverImage: coverImage,
+          phone: phone,
+          taxId: taxId,
+          commissionRate: BuiltValueNullFieldError.checkNotNull(
+            commissionRate,
+            r'Vendor',
+            'commissionRate',
+          ),
+          status: BuiltValueNullFieldError.checkNotNull(
+            status,
+            r'Vendor',
+            'status',
+          ),
+          walletBalance: BuiltValueNullFieldError.checkNotNull(
+            walletBalance,
+            r'Vendor',
+            'walletBalance',
+          ),
+          isContracted: BuiltValueNullFieldError.checkNotNull(
+            isContracted,
+            r'Vendor',
+            'isContracted',
+          ),
+          workingHours: workingHours,
+          isScheduleActive: BuiltValueNullFieldError.checkNotNull(
+            isScheduleActive,
+            r'Vendor',
+            'isScheduleActive',
+          ),
+          verticalId: BuiltValueNullFieldError.checkNotNull(
+            verticalId,
+            r'Vendor',
+            'verticalId',
+          ),
+          deletedAt: deletedAt,
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'Vendor',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'Vendor',
+            'updatedAt',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

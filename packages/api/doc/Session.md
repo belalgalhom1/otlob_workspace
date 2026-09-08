@@ -1,8 +1,8 @@
-# openapi.model.Session
+# api.model.Session
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -16,8 +16,6 @@ Name | Type | Description | Notes
 **expiresAt** | [**DateTime**](DateTime.md) |  | 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**user** | [**User**](User.md) |  | 
-**auditLogs** | [**BuiltList&lt;AuditLog&gt;**](AuditLog.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

@@ -4,13 +4,13 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
+import 'package:api/src/api_util.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/app_version_check_dto.dart';
-import 'package:api/src/model/auth_controller_register200_response.dart';
-import 'package:api/src/model/platform_settings_controller_get_all200_response.dart';
-import 'package:api/src/model/platform_settings_controller_get_public200_response.dart';
 import 'package:api/src/model/update_platform_settings_dto.dart';
 
 class PlatformSettingsVersioningApi {
@@ -33,9 +33,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> platformSettingsControllerCheckVersion({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerCheckVersion({ 
     required AppVersionCheckDto appVersionCheckDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -85,14 +85,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -104,7 +104,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -127,9 +127,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [PlatformSettingsControllerGetAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<PlatformSettingsControllerGetAll200Response>> platformSettingsControllerGetAll({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerGetAll({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -164,14 +164,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    PlatformSettingsControllerGetAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(PlatformSettingsControllerGetAll200Response),
-      ) as PlatformSettingsControllerGetAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -183,7 +183,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<PlatformSettingsControllerGetAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -206,9 +206,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [PlatformSettingsControllerGetPublic200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<PlatformSettingsControllerGetPublic200Response>> platformSettingsControllerGetPublic({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerGetPublic({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -237,14 +237,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    PlatformSettingsControllerGetPublic200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(PlatformSettingsControllerGetPublic200Response),
-      ) as PlatformSettingsControllerGetPublic200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -256,7 +256,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<PlatformSettingsControllerGetPublic200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -280,9 +280,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [PlatformSettingsControllerGetAll200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<PlatformSettingsControllerGetAll200Response>> platformSettingsControllerUpdate({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerUpdate({ 
     required UpdatePlatformSettingsDto updatePlatformSettingsDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -338,14 +338,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    PlatformSettingsControllerGetAll200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(PlatformSettingsControllerGetAll200Response),
-      ) as PlatformSettingsControllerGetAll200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -357,7 +357,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<PlatformSettingsControllerGetAll200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -381,9 +381,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> platformSettingsControllerUploadCarIcon({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerUploadCarIcon({ 
     MultipartFile? file,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -440,14 +440,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -459,7 +459,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -483,9 +483,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> platformSettingsControllerUploadDeliveryBannerIcon({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerUploadDeliveryBannerIcon({ 
     MultipartFile? file,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -542,14 +542,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -561,7 +561,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -585,9 +585,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> platformSettingsControllerUploadHomeCover({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerUploadHomeCover({ 
     MultipartFile? file,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -644,14 +644,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -663,7 +663,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -687,9 +687,9 @@ class PlatformSettingsVersioningApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> platformSettingsControllerUploadMotorcycleIcon({ 
+  Future<Response<ApiControllerRoot200Response>> platformSettingsControllerUploadMotorcycleIcon({ 
     MultipartFile? file,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -746,14 +746,14 @@ class PlatformSettingsVersioningApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -765,7 +765,7 @@ class PlatformSettingsVersioningApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

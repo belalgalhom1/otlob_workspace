@@ -23,14 +23,6 @@ class _$Zone extends Zone {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final BuiltList<JsonObject>? driverShifts;
-  @override
-  final BuiltList<JsonObject>? orders;
-  @override
-  final BuiltList<JsonObject>? vendorBranches;
-  @override
-  final BuiltList<JsonObject>? shiftPools;
 
   factory _$Zone([void Function(ZoneBuilder)? updates]) =>
       (ZoneBuilder()..update(updates))._build();
@@ -44,10 +36,6 @@ class _$Zone extends Zone {
     this.minOrderAmountOverride,
     required this.createdAt,
     required this.updatedAt,
-    this.driverShifts,
-    this.orders,
-    this.vendorBranches,
-    this.shiftPools,
   }) : super._();
   @override
   Zone rebuild(void Function(ZoneBuilder) updates) =>
@@ -67,11 +55,7 @@ class _$Zone extends Zone {
         baseDeliveryFeeOverride == other.baseDeliveryFeeOverride &&
         minOrderAmountOverride == other.minOrderAmountOverride &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        driverShifts == other.driverShifts &&
-        orders == other.orders &&
-        vendorBranches == other.vendorBranches &&
-        shiftPools == other.shiftPools;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -85,10 +69,6 @@ class _$Zone extends Zone {
     _$hash = $jc(_$hash, minOrderAmountOverride.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, driverShifts.hashCode);
-    _$hash = $jc(_$hash, orders.hashCode);
-    _$hash = $jc(_$hash, vendorBranches.hashCode);
-    _$hash = $jc(_$hash, shiftPools.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -103,11 +83,7 @@ class _$Zone extends Zone {
           ..add('baseDeliveryFeeOverride', baseDeliveryFeeOverride)
           ..add('minOrderAmountOverride', minOrderAmountOverride)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('driverShifts', driverShifts)
-          ..add('orders', orders)
-          ..add('vendorBranches', vendorBranches)
-          ..add('shiftPools', shiftPools))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -149,29 +125,6 @@ class ZoneBuilder implements Builder<Zone, ZoneBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  ListBuilder<JsonObject>? _driverShifts;
-  ListBuilder<JsonObject> get driverShifts =>
-      _$this._driverShifts ??= ListBuilder<JsonObject>();
-  set driverShifts(ListBuilder<JsonObject>? driverShifts) =>
-      _$this._driverShifts = driverShifts;
-
-  ListBuilder<JsonObject>? _orders;
-  ListBuilder<JsonObject> get orders =>
-      _$this._orders ??= ListBuilder<JsonObject>();
-  set orders(ListBuilder<JsonObject>? orders) => _$this._orders = orders;
-
-  ListBuilder<JsonObject>? _vendorBranches;
-  ListBuilder<JsonObject> get vendorBranches =>
-      _$this._vendorBranches ??= ListBuilder<JsonObject>();
-  set vendorBranches(ListBuilder<JsonObject>? vendorBranches) =>
-      _$this._vendorBranches = vendorBranches;
-
-  ListBuilder<JsonObject>? _shiftPools;
-  ListBuilder<JsonObject> get shiftPools =>
-      _$this._shiftPools ??= ListBuilder<JsonObject>();
-  set shiftPools(ListBuilder<JsonObject>? shiftPools) =>
-      _$this._shiftPools = shiftPools;
-
   ZoneBuilder() {
     Zone._defaults(this);
   }
@@ -187,10 +140,6 @@ class ZoneBuilder implements Builder<Zone, ZoneBuilder> {
       _minOrderAmountOverride = $v.minOrderAmountOverride;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _driverShifts = $v.driverShifts?.toBuilder();
-      _orders = $v.orders?.toBuilder();
-      _vendorBranches = $v.vendorBranches?.toBuilder();
-      _shiftPools = $v.shiftPools?.toBuilder();
       _$v = null;
     }
     return this;
@@ -210,52 +159,30 @@ class ZoneBuilder implements Builder<Zone, ZoneBuilder> {
   Zone build() => _build();
 
   _$Zone _build() {
-    _$Zone _$result;
-    try {
-      _$result =
-          _$v ??
-          _$Zone._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'Zone', 'id'),
-            name: BuiltValueNullFieldError.checkNotNull(name, r'Zone', 'name'),
-            nameAr: nameAr,
-            isActive: BuiltValueNullFieldError.checkNotNull(
-              isActive,
-              r'Zone',
-              'isActive',
-            ),
-            baseDeliveryFeeOverride: baseDeliveryFeeOverride,
-            minOrderAmountOverride: minOrderAmountOverride,
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'Zone',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'Zone',
-              'updatedAt',
-            ),
-            driverShifts: _driverShifts?.build(),
-            orders: _orders?.build(),
-            vendorBranches: _vendorBranches?.build(),
-            shiftPools: _shiftPools?.build(),
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'driverShifts';
-        _driverShifts?.build();
-        _$failedField = 'orders';
-        _orders?.build();
-        _$failedField = 'vendorBranches';
-        _vendorBranches?.build();
-        _$failedField = 'shiftPools';
-        _shiftPools?.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(r'Zone', _$failedField, e.toString());
-      }
-      rethrow;
-    }
+    final _$result =
+        _$v ??
+        _$Zone._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'Zone', 'id'),
+          name: BuiltValueNullFieldError.checkNotNull(name, r'Zone', 'name'),
+          nameAr: nameAr,
+          isActive: BuiltValueNullFieldError.checkNotNull(
+            isActive,
+            r'Zone',
+            'isActive',
+          ),
+          baseDeliveryFeeOverride: baseDeliveryFeeOverride,
+          minOrderAmountOverride: minOrderAmountOverride,
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'Zone',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'Zone',
+            'updatedAt',
+          ),
+        );
     replace(_$result);
     return _$result;
   }

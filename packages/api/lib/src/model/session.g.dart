@@ -23,10 +23,6 @@ class _$Session extends Session {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final JsonObject? user;
-  @override
-  final BuiltList<AuditLog> auditLogs;
 
   factory _$Session([void Function(SessionBuilder)? updates]) =>
       (SessionBuilder()..update(updates))._build();
@@ -40,8 +36,6 @@ class _$Session extends Session {
     required this.expiresAt,
     required this.createdAt,
     required this.updatedAt,
-    this.user,
-    required this.auditLogs,
   }) : super._();
   @override
   Session rebuild(void Function(SessionBuilder) updates) =>
@@ -61,9 +55,7 @@ class _$Session extends Session {
         userAgent == other.userAgent &&
         expiresAt == other.expiresAt &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        user == other.user &&
-        auditLogs == other.auditLogs;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -77,8 +69,6 @@ class _$Session extends Session {
     _$hash = $jc(_$hash, expiresAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, user.hashCode);
-    _$hash = $jc(_$hash, auditLogs.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -93,9 +83,7 @@ class _$Session extends Session {
           ..add('userAgent', userAgent)
           ..add('expiresAt', expiresAt)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('user', user)
-          ..add('auditLogs', auditLogs))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -135,16 +123,6 @@ class SessionBuilder implements Builder<Session, SessionBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  JsonObject? _user;
-  JsonObject? get user => _$this._user;
-  set user(JsonObject? user) => _$this._user = user;
-
-  ListBuilder<AuditLog>? _auditLogs;
-  ListBuilder<AuditLog> get auditLogs =>
-      _$this._auditLogs ??= ListBuilder<AuditLog>();
-  set auditLogs(ListBuilder<AuditLog>? auditLogs) =>
-      _$this._auditLogs = auditLogs;
-
   SessionBuilder() {
     Session._defaults(this);
   }
@@ -160,8 +138,6 @@ class SessionBuilder implements Builder<Session, SessionBuilder> {
       _expiresAt = $v.expiresAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _user = $v.user;
-      _auditLogs = $v.auditLogs.toBuilder();
       _$v = null;
     }
     return this;
@@ -181,56 +157,38 @@ class SessionBuilder implements Builder<Session, SessionBuilder> {
   Session build() => _build();
 
   _$Session _build() {
-    _$Session _$result;
-    try {
-      _$result =
-          _$v ??
-          _$Session._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'Session', 'id'),
-            userId: BuiltValueNullFieldError.checkNotNull(
-              userId,
-              r'Session',
-              'userId',
-            ),
-            hashedRt: BuiltValueNullFieldError.checkNotNull(
-              hashedRt,
-              r'Session',
-              'hashedRt',
-            ),
-            ipAddress: ipAddress,
-            userAgent: userAgent,
-            expiresAt: BuiltValueNullFieldError.checkNotNull(
-              expiresAt,
-              r'Session',
-              'expiresAt',
-            ),
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'Session',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'Session',
-              'updatedAt',
-            ),
-            user: user,
-            auditLogs: auditLogs.build(),
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'auditLogs';
-        auditLogs.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'Session',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$Session._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'Session', 'id'),
+          userId: BuiltValueNullFieldError.checkNotNull(
+            userId,
+            r'Session',
+            'userId',
+          ),
+          hashedRt: BuiltValueNullFieldError.checkNotNull(
+            hashedRt,
+            r'Session',
+            'hashedRt',
+          ),
+          ipAddress: ipAddress,
+          userAgent: userAgent,
+          expiresAt: BuiltValueNullFieldError.checkNotNull(
+            expiresAt,
+            r'Session',
+            'expiresAt',
+          ),
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'Session',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'Session',
+            'updatedAt',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

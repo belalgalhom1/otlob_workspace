@@ -29,10 +29,6 @@ class _$MenuCategory extends MenuCategory {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final JsonObject? vendor;
-  @override
-  final BuiltList<Product> products;
 
   factory _$MenuCategory([void Function(MenuCategoryBuilder)? updates]) =>
       (MenuCategoryBuilder()..update(updates))._build();
@@ -49,8 +45,6 @@ class _$MenuCategory extends MenuCategory {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
-    this.vendor,
-    required this.products,
   }) : super._();
   @override
   MenuCategory rebuild(void Function(MenuCategoryBuilder) updates) =>
@@ -73,9 +67,7 @@ class _$MenuCategory extends MenuCategory {
         sortOrder == other.sortOrder &&
         isActive == other.isActive &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        vendor == other.vendor &&
-        products == other.products;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -92,8 +84,6 @@ class _$MenuCategory extends MenuCategory {
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, vendor.hashCode);
-    _$hash = $jc(_$hash, products.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -111,9 +101,7 @@ class _$MenuCategory extends MenuCategory {
           ..add('sortOrder', sortOrder)
           ..add('isActive', isActive)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('vendor', vendor)
-          ..add('products', products))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -167,15 +155,6 @@ class MenuCategoryBuilder
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  JsonObject? _vendor;
-  JsonObject? get vendor => _$this._vendor;
-  set vendor(JsonObject? vendor) => _$this._vendor = vendor;
-
-  ListBuilder<Product>? _products;
-  ListBuilder<Product> get products =>
-      _$this._products ??= ListBuilder<Product>();
-  set products(ListBuilder<Product>? products) => _$this._products = products;
-
   MenuCategoryBuilder() {
     MenuCategory._defaults(this);
   }
@@ -194,8 +173,6 @@ class MenuCategoryBuilder
       _isActive = $v.isActive;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _vendor = $v.vendor;
-      _products = $v.products.toBuilder();
       _$v = null;
     }
     return this;
@@ -215,67 +192,45 @@ class MenuCategoryBuilder
   MenuCategory build() => _build();
 
   _$MenuCategory _build() {
-    _$MenuCategory _$result;
-    try {
-      _$result =
-          _$v ??
-          _$MenuCategory._(
-            id: BuiltValueNullFieldError.checkNotNull(
-              id,
-              r'MenuCategory',
-              'id',
-            ),
-            vendorId: BuiltValueNullFieldError.checkNotNull(
-              vendorId,
-              r'MenuCategory',
-              'vendorId',
-            ),
-            name: BuiltValueNullFieldError.checkNotNull(
-              name,
-              r'MenuCategory',
-              'name',
-            ),
-            nameAr: nameAr,
-            description: description,
-            descriptionAr: descriptionAr,
-            iconUrl: iconUrl,
-            sortOrder: BuiltValueNullFieldError.checkNotNull(
-              sortOrder,
-              r'MenuCategory',
-              'sortOrder',
-            ),
-            isActive: BuiltValueNullFieldError.checkNotNull(
-              isActive,
-              r'MenuCategory',
-              'isActive',
-            ),
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'MenuCategory',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'MenuCategory',
-              'updatedAt',
-            ),
-            vendor: vendor,
-            products: products.build(),
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'products';
-        products.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'MenuCategory',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$MenuCategory._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'MenuCategory', 'id'),
+          vendorId: BuiltValueNullFieldError.checkNotNull(
+            vendorId,
+            r'MenuCategory',
+            'vendorId',
+          ),
+          name: BuiltValueNullFieldError.checkNotNull(
+            name,
+            r'MenuCategory',
+            'name',
+          ),
+          nameAr: nameAr,
+          description: description,
+          descriptionAr: descriptionAr,
+          iconUrl: iconUrl,
+          sortOrder: BuiltValueNullFieldError.checkNotNull(
+            sortOrder,
+            r'MenuCategory',
+            'sortOrder',
+          ),
+          isActive: BuiltValueNullFieldError.checkNotNull(
+            isActive,
+            r'MenuCategory',
+            'isActive',
+          ),
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'MenuCategory',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'MenuCategory',
+            'updatedAt',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

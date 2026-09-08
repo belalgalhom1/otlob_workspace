@@ -149,7 +149,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **reviewsControllerSubmitReview**
-> reviewsControllerSubmitReview(orderId, createReviewDto)
+> ApiControllerRoot200Response reviewsControllerSubmitReview(orderId, createReviewDto)
 
 Submit a rating/review for a delivered order
 
@@ -162,7 +162,8 @@ final String orderId = orderId_example; // String |
 final CreateReviewDto createReviewDto = ; // CreateReviewDto | 
 
 try {
-    api.reviewsControllerSubmitReview(orderId, createReviewDto);
+    final response = api.reviewsControllerSubmitReview(orderId, createReviewDto);
+    print(response);
 } on DioException catch (e) {
     print('Exception when calling ReviewsApi->reviewsControllerSubmitReview: $e\n');
 }
@@ -177,7 +178,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -186,7 +187,7 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

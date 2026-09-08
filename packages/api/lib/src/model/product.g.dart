@@ -49,24 +49,6 @@ class _$Product extends Product {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
-  @override
-  final BuiltList<CartItem> cartItems;
-  @override
-  final BuiltList<FavoriteProduct> favoritedBy;
-  @override
-  final BuiltList<OrderItem> orderItems;
-  @override
-  final BuiltList<ProductOptionGroup> optionGroups;
-  @override
-  final BuiltList<ProductVariant> variants;
-  @override
-  final BuiltList<Promotion> promotions;
-  @override
-  final BuiltList<Offer> offers;
-  @override
-  final JsonObject? category;
-  @override
-  final JsonObject? vendor;
 
   factory _$Product([void Function(ProductBuilder)? updates]) =>
       (ProductBuilder()..update(updates))._build();
@@ -93,15 +75,6 @@ class _$Product extends Product {
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
-    required this.cartItems,
-    required this.favoritedBy,
-    required this.orderItems,
-    required this.optionGroups,
-    required this.variants,
-    required this.promotions,
-    required this.offers,
-    this.category,
-    this.vendor,
   }) : super._();
   @override
   Product rebuild(void Function(ProductBuilder) updates) =>
@@ -134,16 +107,7 @@ class _$Product extends Product {
         isFeatured == other.isFeatured &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
-        updatedAt == other.updatedAt &&
-        cartItems == other.cartItems &&
-        favoritedBy == other.favoritedBy &&
-        orderItems == other.orderItems &&
-        optionGroups == other.optionGroups &&
-        variants == other.variants &&
-        promotions == other.promotions &&
-        offers == other.offers &&
-        category == other.category &&
-        vendor == other.vendor;
+        updatedAt == other.updatedAt;
   }
 
   @override
@@ -170,15 +134,6 @@ class _$Product extends Product {
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, cartItems.hashCode);
-    _$hash = $jc(_$hash, favoritedBy.hashCode);
-    _$hash = $jc(_$hash, orderItems.hashCode);
-    _$hash = $jc(_$hash, optionGroups.hashCode);
-    _$hash = $jc(_$hash, variants.hashCode);
-    _$hash = $jc(_$hash, promotions.hashCode);
-    _$hash = $jc(_$hash, offers.hashCode);
-    _$hash = $jc(_$hash, category.hashCode);
-    _$hash = $jc(_$hash, vendor.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -206,16 +161,7 @@ class _$Product extends Product {
           ..add('isFeatured', isFeatured)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
-          ..add('updatedAt', updatedAt)
-          ..add('cartItems', cartItems)
-          ..add('favoritedBy', favoritedBy)
-          ..add('orderItems', orderItems)
-          ..add('optionGroups', optionGroups)
-          ..add('variants', variants)
-          ..add('promotions', promotions)
-          ..add('offers', offers)
-          ..add('category', category)
-          ..add('vendor', vendor))
+          ..add('updatedAt', updatedAt))
         .toString();
   }
 }
@@ -309,54 +255,6 @@ class ProductBuilder implements Builder<Product, ProductBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  ListBuilder<CartItem>? _cartItems;
-  ListBuilder<CartItem> get cartItems =>
-      _$this._cartItems ??= ListBuilder<CartItem>();
-  set cartItems(ListBuilder<CartItem>? cartItems) =>
-      _$this._cartItems = cartItems;
-
-  ListBuilder<FavoriteProduct>? _favoritedBy;
-  ListBuilder<FavoriteProduct> get favoritedBy =>
-      _$this._favoritedBy ??= ListBuilder<FavoriteProduct>();
-  set favoritedBy(ListBuilder<FavoriteProduct>? favoritedBy) =>
-      _$this._favoritedBy = favoritedBy;
-
-  ListBuilder<OrderItem>? _orderItems;
-  ListBuilder<OrderItem> get orderItems =>
-      _$this._orderItems ??= ListBuilder<OrderItem>();
-  set orderItems(ListBuilder<OrderItem>? orderItems) =>
-      _$this._orderItems = orderItems;
-
-  ListBuilder<ProductOptionGroup>? _optionGroups;
-  ListBuilder<ProductOptionGroup> get optionGroups =>
-      _$this._optionGroups ??= ListBuilder<ProductOptionGroup>();
-  set optionGroups(ListBuilder<ProductOptionGroup>? optionGroups) =>
-      _$this._optionGroups = optionGroups;
-
-  ListBuilder<ProductVariant>? _variants;
-  ListBuilder<ProductVariant> get variants =>
-      _$this._variants ??= ListBuilder<ProductVariant>();
-  set variants(ListBuilder<ProductVariant>? variants) =>
-      _$this._variants = variants;
-
-  ListBuilder<Promotion>? _promotions;
-  ListBuilder<Promotion> get promotions =>
-      _$this._promotions ??= ListBuilder<Promotion>();
-  set promotions(ListBuilder<Promotion>? promotions) =>
-      _$this._promotions = promotions;
-
-  ListBuilder<Offer>? _offers;
-  ListBuilder<Offer> get offers => _$this._offers ??= ListBuilder<Offer>();
-  set offers(ListBuilder<Offer>? offers) => _$this._offers = offers;
-
-  JsonObject? _category;
-  JsonObject? get category => _$this._category;
-  set category(JsonObject? category) => _$this._category = category;
-
-  JsonObject? _vendor;
-  JsonObject? get vendor => _$this._vendor;
-  set vendor(JsonObject? vendor) => _$this._vendor = vendor;
-
   ProductBuilder() {
     Product._defaults(this);
   }
@@ -385,15 +283,6 @@ class ProductBuilder implements Builder<Product, ProductBuilder> {
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _cartItems = $v.cartItems.toBuilder();
-      _favoritedBy = $v.favoritedBy.toBuilder();
-      _orderItems = $v.orderItems.toBuilder();
-      _optionGroups = $v.optionGroups.toBuilder();
-      _variants = $v.variants.toBuilder();
-      _promotions = $v.promotions.toBuilder();
-      _offers = $v.offers.toBuilder();
-      _category = $v.category;
-      _vendor = $v.vendor;
       _$v = null;
     }
     return this;
@@ -413,104 +302,63 @@ class ProductBuilder implements Builder<Product, ProductBuilder> {
   Product build() => _build();
 
   _$Product _build() {
-    _$Product _$result;
-    try {
-      _$result =
-          _$v ??
-          _$Product._(
-            id: BuiltValueNullFieldError.checkNotNull(id, r'Product', 'id'),
-            version: BuiltValueNullFieldError.checkNotNull(
-              version,
-              r'Product',
-              'version',
-            ),
-            vendorId: BuiltValueNullFieldError.checkNotNull(
-              vendorId,
-              r'Product',
-              'vendorId',
-            ),
-            categoryId: categoryId,
-            name: BuiltValueNullFieldError.checkNotNull(
-              name,
-              r'Product',
-              'name',
-            ),
-            nameAr: nameAr,
-            description: description,
-            descriptionAr: descriptionAr,
-            imageUrl: imageUrl,
-            sellByStrip: BuiltValueNullFieldError.checkNotNull(
-              sellByStrip,
-              r'Product',
-              'sellByStrip',
-            ),
-            stripsPerPackage: stripsPerPackage,
-            hasVariants: BuiltValueNullFieldError.checkNotNull(
-              hasVariants,
-              r'Product',
-              'hasVariants',
-            ),
-            basePrice: basePrice,
-            comparePrice: comparePrice,
-            sku: sku,
-            stock: stock,
-            isActive: BuiltValueNullFieldError.checkNotNull(
-              isActive,
-              r'Product',
-              'isActive',
-            ),
-            isFeatured: BuiltValueNullFieldError.checkNotNull(
-              isFeatured,
-              r'Product',
-              'isFeatured',
-            ),
-            deletedAt: deletedAt,
-            createdAt: BuiltValueNullFieldError.checkNotNull(
-              createdAt,
-              r'Product',
-              'createdAt',
-            ),
-            updatedAt: BuiltValueNullFieldError.checkNotNull(
-              updatedAt,
-              r'Product',
-              'updatedAt',
-            ),
-            cartItems: cartItems.build(),
-            favoritedBy: favoritedBy.build(),
-            orderItems: orderItems.build(),
-            optionGroups: optionGroups.build(),
-            variants: variants.build(),
-            promotions: promotions.build(),
-            offers: offers.build(),
-            category: category,
-            vendor: vendor,
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'cartItems';
-        cartItems.build();
-        _$failedField = 'favoritedBy';
-        favoritedBy.build();
-        _$failedField = 'orderItems';
-        orderItems.build();
-        _$failedField = 'optionGroups';
-        optionGroups.build();
-        _$failedField = 'variants';
-        variants.build();
-        _$failedField = 'promotions';
-        promotions.build();
-        _$failedField = 'offers';
-        offers.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'Product',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$Product._(
+          id: BuiltValueNullFieldError.checkNotNull(id, r'Product', 'id'),
+          version: BuiltValueNullFieldError.checkNotNull(
+            version,
+            r'Product',
+            'version',
+          ),
+          vendorId: BuiltValueNullFieldError.checkNotNull(
+            vendorId,
+            r'Product',
+            'vendorId',
+          ),
+          categoryId: categoryId,
+          name: BuiltValueNullFieldError.checkNotNull(name, r'Product', 'name'),
+          nameAr: nameAr,
+          description: description,
+          descriptionAr: descriptionAr,
+          imageUrl: imageUrl,
+          sellByStrip: BuiltValueNullFieldError.checkNotNull(
+            sellByStrip,
+            r'Product',
+            'sellByStrip',
+          ),
+          stripsPerPackage: stripsPerPackage,
+          hasVariants: BuiltValueNullFieldError.checkNotNull(
+            hasVariants,
+            r'Product',
+            'hasVariants',
+          ),
+          basePrice: basePrice,
+          comparePrice: comparePrice,
+          sku: sku,
+          stock: stock,
+          isActive: BuiltValueNullFieldError.checkNotNull(
+            isActive,
+            r'Product',
+            'isActive',
+          ),
+          isFeatured: BuiltValueNullFieldError.checkNotNull(
+            isFeatured,
+            r'Product',
+            'isFeatured',
+          ),
+          deletedAt: deletedAt,
+          createdAt: BuiltValueNullFieldError.checkNotNull(
+            createdAt,
+            r'Product',
+            'createdAt',
+          ),
+          updatedAt: BuiltValueNullFieldError.checkNotNull(
+            updatedAt,
+            r'Product',
+            'updatedAt',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

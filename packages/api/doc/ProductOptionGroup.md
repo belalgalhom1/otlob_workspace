@@ -1,8 +1,8 @@
-# openapi.model.ProductOptionGroup
+# api.model.ProductOptionGroup
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -16,9 +16,6 @@ Name | Type | Description | Notes
 **isRequired** | **bool** |  | 
 **minSelect** | **num** |  | 
 **maxSelect** | **num** |  | 
-**product** | [**Product**](Product.md) |  | [optional] 
-**variant** | [**ProductVariant**](ProductVariant.md) |  | [optional] 
-**options** | [**BuiltList&lt;ProductOption&gt;**](ProductOption.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

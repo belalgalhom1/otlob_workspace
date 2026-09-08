@@ -3,11 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/vendor.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/product.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'menu_category.g.dart';
@@ -26,8 +22,6 @@ part 'menu_category.g.dart';
 /// * [isActive] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [vendor] 
-/// * [products] 
 @BuiltValue()
 abstract class MenuCategory implements Built<MenuCategory, MenuCategoryBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -62,12 +56,6 @@ abstract class MenuCategory implements Built<MenuCategory, MenuCategoryBuilder> 
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'vendor')
-  JsonObject? get vendor;
-
-  @BuiltValueField(wireName: r'products')
-  BuiltList<Product> get products;
 
   MenuCategory._();
 
@@ -154,16 +142,6 @@ class _$MenuCategorySerializer implements PrimitiveSerializer<MenuCategory> {
     yield serializers.serialize(
       object.updatedAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'vendor';
-    yield serializers.serialize(
-      object.vendor,
-      specifiedType: const FullType(Vendor),
-    );
-    yield r'products';
-    yield serializers.serialize(
-      object.products,
-      specifiedType: const FullType(BuiltList, [FullType(Product)]),
     );
   }
 
@@ -264,20 +242,6 @@ class _$MenuCategorySerializer implements PrimitiveSerializer<MenuCategory> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'vendor':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.vendor = valueDes;
-          break;
-        case r'products':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(Product)]),
-          ) as BuiltList<Product>;
-          result.products.replace(valueDes);
           break;
         default:
           unhandled.add(key);

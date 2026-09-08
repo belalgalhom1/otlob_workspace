@@ -23,12 +23,6 @@ class _$ProductOptionGroup extends ProductOptionGroup {
   final num minSelect;
   @override
   final num maxSelect;
-  @override
-  final JsonObject? product;
-  @override
-  final JsonObject? variant;
-  @override
-  final BuiltList<ProductOption> options;
 
   factory _$ProductOptionGroup([
     void Function(ProductOptionGroupBuilder)? updates,
@@ -43,9 +37,6 @@ class _$ProductOptionGroup extends ProductOptionGroup {
     required this.isRequired,
     required this.minSelect,
     required this.maxSelect,
-    this.product,
-    this.variant,
-    required this.options,
   }) : super._();
   @override
   ProductOptionGroup rebuild(
@@ -67,10 +58,7 @@ class _$ProductOptionGroup extends ProductOptionGroup {
         nameAr == other.nameAr &&
         isRequired == other.isRequired &&
         minSelect == other.minSelect &&
-        maxSelect == other.maxSelect &&
-        product == other.product &&
-        variant == other.variant &&
-        options == other.options;
+        maxSelect == other.maxSelect;
   }
 
   @override
@@ -84,9 +72,6 @@ class _$ProductOptionGroup extends ProductOptionGroup {
     _$hash = $jc(_$hash, isRequired.hashCode);
     _$hash = $jc(_$hash, minSelect.hashCode);
     _$hash = $jc(_$hash, maxSelect.hashCode);
-    _$hash = $jc(_$hash, product.hashCode);
-    _$hash = $jc(_$hash, variant.hashCode);
-    _$hash = $jc(_$hash, options.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -101,10 +86,7 @@ class _$ProductOptionGroup extends ProductOptionGroup {
           ..add('nameAr', nameAr)
           ..add('isRequired', isRequired)
           ..add('minSelect', minSelect)
-          ..add('maxSelect', maxSelect)
-          ..add('product', product)
-          ..add('variant', variant)
-          ..add('options', options))
+          ..add('maxSelect', maxSelect))
         .toString();
   }
 }
@@ -145,19 +127,6 @@ class ProductOptionGroupBuilder
   num? get maxSelect => _$this._maxSelect;
   set maxSelect(num? maxSelect) => _$this._maxSelect = maxSelect;
 
-  JsonObject? _product;
-  JsonObject? get product => _$this._product;
-  set product(JsonObject? product) => _$this._product = product;
-
-  JsonObject? _variant;
-  JsonObject? get variant => _$this._variant;
-  set variant(JsonObject? variant) => _$this._variant = variant;
-
-  ListBuilder<ProductOption>? _options;
-  ListBuilder<ProductOption> get options =>
-      _$this._options ??= ListBuilder<ProductOption>();
-  set options(ListBuilder<ProductOption>? options) => _$this._options = options;
-
   ProductOptionGroupBuilder() {
     ProductOptionGroup._defaults(this);
   }
@@ -173,9 +142,6 @@ class ProductOptionGroupBuilder
       _isRequired = $v.isRequired;
       _minSelect = $v.minSelect;
       _maxSelect = $v.maxSelect;
-      _product = $v.product;
-      _variant = $v.variant;
-      _options = $v.options.toBuilder();
       _$v = null;
     }
     return this;
@@ -195,57 +161,38 @@ class ProductOptionGroupBuilder
   ProductOptionGroup build() => _build();
 
   _$ProductOptionGroup _build() {
-    _$ProductOptionGroup _$result;
-    try {
-      _$result =
-          _$v ??
-          _$ProductOptionGroup._(
-            id: BuiltValueNullFieldError.checkNotNull(
-              id,
-              r'ProductOptionGroup',
-              'id',
-            ),
-            productId: productId,
-            variantId: variantId,
-            name: BuiltValueNullFieldError.checkNotNull(
-              name,
-              r'ProductOptionGroup',
-              'name',
-            ),
-            nameAr: nameAr,
-            isRequired: BuiltValueNullFieldError.checkNotNull(
-              isRequired,
-              r'ProductOptionGroup',
-              'isRequired',
-            ),
-            minSelect: BuiltValueNullFieldError.checkNotNull(
-              minSelect,
-              r'ProductOptionGroup',
-              'minSelect',
-            ),
-            maxSelect: BuiltValueNullFieldError.checkNotNull(
-              maxSelect,
-              r'ProductOptionGroup',
-              'maxSelect',
-            ),
-            product: product,
-            variant: variant,
-            options: options.build(),
-          );
-    } catch (_) {
-      late String _$failedField;
-      try {
-        _$failedField = 'options';
-        options.build();
-      } catch (e) {
-        throw BuiltValueNestedFieldError(
-          r'ProductOptionGroup',
-          _$failedField,
-          e.toString(),
+    final _$result =
+        _$v ??
+        _$ProductOptionGroup._(
+          id: BuiltValueNullFieldError.checkNotNull(
+            id,
+            r'ProductOptionGroup',
+            'id',
+          ),
+          productId: productId,
+          variantId: variantId,
+          name: BuiltValueNullFieldError.checkNotNull(
+            name,
+            r'ProductOptionGroup',
+            'name',
+          ),
+          nameAr: nameAr,
+          isRequired: BuiltValueNullFieldError.checkNotNull(
+            isRequired,
+            r'ProductOptionGroup',
+            'isRequired',
+          ),
+          minSelect: BuiltValueNullFieldError.checkNotNull(
+            minSelect,
+            r'ProductOptionGroup',
+            'minSelect',
+          ),
+          maxSelect: BuiltValueNullFieldError.checkNotNull(
+            maxSelect,
+            r'ProductOptionGroup',
+            'maxSelect',
+          ),
         );
-      }
-      rethrow;
-    }
     replace(_$result);
     return _$result;
   }

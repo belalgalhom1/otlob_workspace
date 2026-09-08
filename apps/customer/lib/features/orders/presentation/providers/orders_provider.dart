@@ -1,6 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
-import 'package:api/api.dart';
+import 'package:api/api.dart' hide CartItem;
 import 'package:built_collection/built_collection.dart';
 import 'package:core/core.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';

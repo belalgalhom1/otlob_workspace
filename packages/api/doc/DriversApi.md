@@ -31,7 +31,7 @@ Method | HTTP request | Description
 
 
 # **driversControllerAdminCreate**
-> DriversControllerRegister200Response driversControllerAdminCreate(adminCreateDriverDto)
+> ApiControllerRoot200Response driversControllerAdminCreate(adminCreateDriverDto)
 
 [Admin] Create a new driver directly
 
@@ -58,7 +58,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -72,7 +72,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminCreateShift**
-> DriversControllerGetMyShifts200Response driversControllerAdminCreateShift(driverId, createDriverShiftDto)
+> ApiControllerRoot200Response driversControllerAdminCreateShift(driverId, createDriverShiftDto)
 
 [Admin] Create a shift for a driver
 
@@ -101,7 +101,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetMyShifts200Response**](DriversControllerGetMyShifts200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -115,7 +115,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminFindAll**
-> DriversControllerRegister200Response driversControllerAdminFindAll(status, search, page, limit)
+> ApiControllerRoot200Response driversControllerAdminFindAll(status, search, page, limit)
 
 [Admin] List all drivers
 
@@ -148,7 +148,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -162,7 +162,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminFindOne**
-> DriversControllerRegister200Response driversControllerAdminFindOne(driverId)
+> ApiControllerRoot200Response driversControllerAdminFindOne(driverId)
 
 [Admin] Get a driver by ID
 
@@ -189,7 +189,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -203,7 +203,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminGetShifts**
-> DriversControllerGetMyShifts200Response driversControllerAdminGetShifts(driverId)
+> ApiControllerRoot200Response driversControllerAdminGetShifts(driverId)
 
 [Admin] Get shifts for a driver
 
@@ -230,7 +230,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetMyShifts200Response**](DriversControllerGetMyShifts200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -244,7 +244,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminSuspend**
-> DriversControllerRegister200Response driversControllerAdminSuspend(driverId)
+> ApiControllerRoot200Response driversControllerAdminSuspend(driverId)
 
 [Admin] Suspend a driver
 
@@ -271,7 +271,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -285,7 +285,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminUnsuspend**
-> DriversControllerRegister200Response driversControllerAdminUnsuspend(driverId)
+> ApiControllerRoot200Response driversControllerAdminUnsuspend(driverId)
 
 [Admin] Unsuspend a driver
 
@@ -312,7 +312,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -326,7 +326,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerAdminUpdate**
-> DriversControllerRegister200Response driversControllerAdminUpdate(driverId, adminUpdateDriverDto)
+> ApiControllerRoot200Response driversControllerAdminUpdate(driverId, adminUpdateDriverDto)
 
 [Admin] Update driver profile and sensitive fields
 
@@ -355,7 +355,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -369,7 +369,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerCreateShift**
-> DriversControllerGetMyShifts200Response driversControllerCreateShift(createDriverShiftDto)
+> ApiControllerRoot200Response driversControllerCreateShift(createDriverShiftDto)
 
 Create a shift
 
@@ -396,7 +396,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetMyShifts200Response**](DriversControllerGetMyShifts200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -410,7 +410,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerEndShift**
-> DriversControllerGetMyShifts200Response driversControllerEndShift(shiftId)
+> ApiControllerRoot200Response driversControllerEndShift(shiftId)
 
 End a shift
 
@@ -437,7 +437,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetMyShifts200Response**](DriversControllerGetMyShifts200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -451,7 +451,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerGetMyProfile**
-> DriversControllerRegister200Response driversControllerGetMyProfile()
+> ApiControllerRoot200Response driversControllerGetMyProfile()
 
 Get my driver profile
 
@@ -474,7 +474,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -488,7 +488,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerGetMyShifts**
-> DriversControllerGetMyShifts200Response driversControllerGetMyShifts()
+> ApiControllerRoot200Response driversControllerGetMyShifts()
 
 Get my shifts
 
@@ -511,7 +511,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**DriversControllerGetMyShifts200Response**](DriversControllerGetMyShifts200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -525,7 +525,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerGetWalletBalance**
-> AuthControllerRegister200Response driversControllerGetWalletBalance()
+> ApiControllerRoot200Response driversControllerGetWalletBalance()
 
 Get wallet balance
 
@@ -548,7 +548,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -562,7 +562,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerGetWalletTransactions**
-> DriversControllerGetWalletTransactions200Response driversControllerGetWalletTransactions(page, limit)
+> ApiControllerRoot200Response driversControllerGetWalletTransactions(page, limit)
 
 Get wallet transaction history
 
@@ -591,7 +591,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetWalletTransactions200Response**](DriversControllerGetWalletTransactions200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -605,7 +605,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerRegister**
-> DriversControllerRegister200Response driversControllerRegister(registerDriverDto)
+> ApiControllerRoot200Response driversControllerRegister(registerDriverDto)
 
 Register as a driver (creates driver profile, upgrades role)
 
@@ -632,7 +632,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -646,7 +646,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerStartShift**
-> DriversControllerGetMyShifts200Response driversControllerStartShift(shiftId)
+> ApiControllerRoot200Response driversControllerStartShift(shiftId)
 
 Start a shift
 
@@ -673,7 +673,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerGetMyShifts200Response**](DriversControllerGetMyShifts200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -687,7 +687,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerUpdateProfile**
-> DriversControllerRegister200Response driversControllerUpdateProfile(updateDriverProfileDto)
+> ApiControllerRoot200Response driversControllerUpdateProfile(updateDriverProfileDto)
 
 Update my driver profile
 
@@ -714,7 +714,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -728,7 +728,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerUpdateStatus**
-> DriversControllerRegister200Response driversControllerUpdateStatus(updateDriverStatusDto)
+> ApiControllerRoot200Response driversControllerUpdateStatus(updateDriverStatusDto)
 
 Update driver status (ONLINE / OFFLINE / ON_BREAK)
 
@@ -755,7 +755,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**DriversControllerRegister200Response**](DriversControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -769,7 +769,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerUploadAvatar**
-> AuthControllerRegister200Response driversControllerUploadAvatar(file)
+> ApiControllerRoot200Response driversControllerUploadAvatar(file)
 
 Upload driver avatar
 
@@ -796,7 +796,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

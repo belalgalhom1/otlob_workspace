@@ -1,8 +1,8 @@
-# openapi.model.SupportTicket
+# api.model.SupportTicket
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -26,11 +26,6 @@ Name | Type | Description | Notes
 **metadata** | [**JsonObject**](.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**assignee** | [**User**](User.md) |  | [optional] 
-**conversation** | [**Conversation**](Conversation.md) |  | [optional] 
-**creator** | [**User**](User.md) |  | 
-**order** | [**Order**](Order.md) |  | [optional] 
-**vendor** | [**Vendor**](Vendor.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

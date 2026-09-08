@@ -17,7 +17,7 @@ Method | HTTP request | Description
 
 
 # **offersControllerCreate**
-> AuthControllerRegister200Response offersControllerCreate(createOfferDto)
+> ApiControllerRoot200Response offersControllerCreate(createOfferDto)
 
 Create new product offer
 
@@ -44,7 +44,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -58,7 +58,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **offersControllerFindAll**
-> AuthControllerRegister200Response offersControllerFindAll()
+> ApiControllerRoot200Response offersControllerFindAll()
 
 Get all offers (Admin)
 
@@ -81,7 +81,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -95,7 +95,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **offersControllerFindAllActive**
-> AuthControllerRegister200Response offersControllerFindAllActive()
+> ApiControllerRoot200Response offersControllerFindAllActive()
 
 Get all active product offers
 
@@ -118,7 +118,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -132,7 +132,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **offersControllerRemove**
-> AuthControllerRegister200Response offersControllerRemove(id)
+> ApiControllerRoot200Response offersControllerRemove(id)
 
 Delete product offer
 
@@ -159,7 +159,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -173,7 +173,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **offersControllerUpdate**
-> AuthControllerRegister200Response offersControllerUpdate(id, updateOfferDto)
+> ApiControllerRoot200Response offersControllerUpdate(id, updateOfferDto)
 
 Update product offer
 
@@ -202,7 +202,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

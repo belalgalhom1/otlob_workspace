@@ -13,10 +13,6 @@ class _$CartItemOption extends CartItemOption {
   final String cartItemId;
   @override
   final String optionId;
-  @override
-  final JsonObject? cartItem;
-  @override
-  final JsonObject? option;
 
   factory _$CartItemOption([void Function(CartItemOptionBuilder)? updates]) =>
       (CartItemOptionBuilder()..update(updates))._build();
@@ -25,8 +21,6 @@ class _$CartItemOption extends CartItemOption {
     required this.id,
     required this.cartItemId,
     required this.optionId,
-    this.cartItem,
-    this.option,
   }) : super._();
   @override
   CartItemOption rebuild(void Function(CartItemOptionBuilder) updates) =>
@@ -41,9 +35,7 @@ class _$CartItemOption extends CartItemOption {
     return other is CartItemOption &&
         id == other.id &&
         cartItemId == other.cartItemId &&
-        optionId == other.optionId &&
-        cartItem == other.cartItem &&
-        option == other.option;
+        optionId == other.optionId;
   }
 
   @override
@@ -52,8 +44,6 @@ class _$CartItemOption extends CartItemOption {
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, cartItemId.hashCode);
     _$hash = $jc(_$hash, optionId.hashCode);
-    _$hash = $jc(_$hash, cartItem.hashCode);
-    _$hash = $jc(_$hash, option.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -63,9 +53,7 @@ class _$CartItemOption extends CartItemOption {
     return (newBuiltValueToStringHelper(r'CartItemOption')
           ..add('id', id)
           ..add('cartItemId', cartItemId)
-          ..add('optionId', optionId)
-          ..add('cartItem', cartItem)
-          ..add('option', option))
+          ..add('optionId', optionId))
         .toString();
   }
 }
@@ -86,14 +74,6 @@ class CartItemOptionBuilder
   String? get optionId => _$this._optionId;
   set optionId(String? optionId) => _$this._optionId = optionId;
 
-  JsonObject? _cartItem;
-  JsonObject? get cartItem => _$this._cartItem;
-  set cartItem(JsonObject? cartItem) => _$this._cartItem = cartItem;
-
-  JsonObject? _option;
-  JsonObject? get option => _$this._option;
-  set option(JsonObject? option) => _$this._option = option;
-
   CartItemOptionBuilder() {
     CartItemOption._defaults(this);
   }
@@ -104,8 +84,6 @@ class CartItemOptionBuilder
       _id = $v.id;
       _cartItemId = $v.cartItemId;
       _optionId = $v.optionId;
-      _cartItem = $v.cartItem;
-      _option = $v.option;
       _$v = null;
     }
     return this;
@@ -143,8 +121,6 @@ class CartItemOptionBuilder
             r'CartItemOption',
             'optionId',
           ),
-          cartItem: cartItem,
-          option: option,
         );
     replace(_$result);
     return _$result;

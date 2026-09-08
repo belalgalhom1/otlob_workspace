@@ -32,7 +32,7 @@ Method | HTTP request | Description
 
 
 # **ordersControllerAcceptOrderChanges**
-> OrdersControllerAdminFindAll200Response ordersControllerAcceptOrderChanges(id)
+> OrdersControllerPlaceOrder200Response ordersControllerAcceptOrderChanges(id)
 
 
 
@@ -59,7 +59,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -73,7 +73,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerAdminFindAll**
-> OrdersControllerAdminFindAll200Response ordersControllerAdminFindAll(status, vendorId, driverId, customerId, page, limit)
+> ApiControllerRoot200Response ordersControllerAdminFindAll(status, vendorId, driverId, customerId, page, limit)
 
 [Admin] List all orders with filters
 
@@ -110,7 +110,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -124,7 +124,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerAdminForceAssignDriver**
-> OrdersControllerAdminFindAll200Response ordersControllerAdminForceAssignDriver(orderId, adminAssignDriverDto)
+> OrdersControllerPlaceOrder200Response ordersControllerAdminForceAssignDriver(orderId, adminAssignDriverDto)
 
 [Admin] Force-assign a driver to an order
 
@@ -153,7 +153,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -167,7 +167,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerAdminPlaceDirectOrder**
-> OrdersControllerAdminFindAll200Response ordersControllerAdminPlaceDirectOrder(placeDirectOrderDto)
+> OrdersControllerPlaceOrder200Response ordersControllerAdminPlaceDirectOrder(placeDirectOrderDto)
 
 [Admin/Vendor] Create a pending order directly for a customer
 
@@ -194,7 +194,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -208,7 +208,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerApproveOrderFee**
-> OrdersControllerAdminFindAll200Response ordersControllerApproveOrderFee(orderId)
+> OrdersControllerPlaceOrder200Response ordersControllerApproveOrderFee(orderId)
 
 Customer approves the final delivery fee (Standby Flow)
 
@@ -235,7 +235,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -249,7 +249,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerCancelOrder**
-> OrdersControllerAdminFindAll200Response ordersControllerCancelOrder(orderId)
+> OrdersControllerPlaceOrder200Response ordersControllerCancelOrder(orderId)
 
 Cancel an order (customer or vendor)
 
@@ -276,7 +276,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -290,7 +290,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerCustomerMarkPaid**
-> OrdersControllerAdminFindAll200Response ordersControllerCustomerMarkPaid(orderId)
+> OrdersControllerPlaceOrder200Response ordersControllerCustomerMarkPaid(orderId)
 
 Customer marks mobile wallet payment as paid
 
@@ -317,7 +317,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -331,7 +331,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerDriverConfirmPayment**
-> OrdersControllerAdminFindAll200Response ordersControllerDriverConfirmPayment(orderId, confirmPaymentDto)
+> OrdersControllerPlaceOrder200Response ordersControllerDriverConfirmPayment(orderId, confirmPaymentDto)
 
 Driver confirms or denies receiving mobile wallet payment
 
@@ -360,7 +360,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -374,7 +374,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerDriverUpdateStatus**
-> OrdersControllerAdminFindAll200Response ordersControllerDriverUpdateStatus(orderId, updateOrderStatusDto)
+> ApiControllerRoot200Response ordersControllerDriverUpdateStatus(orderId, updateOrderStatusDto)
 
 Driver updates order status (PICKED_UP / DELIVERED)
 
@@ -403,7 +403,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -417,7 +417,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerEditOrderItems**
-> OrdersControllerAdminFindAll200Response ordersControllerEditOrderItems(id, editOrderItemsDto)
+> OrdersControllerPlaceOrder200Response ordersControllerEditOrderItems(id, editOrderItemsDto)
 
 
 
@@ -446,7 +446,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -460,7 +460,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerGetMyDispatches**
-> OrdersControllerGetMyDispatches200Response ordersControllerGetMyDispatches()
+> ApiControllerRoot200Response ordersControllerGetMyDispatches()
 
 Get my pending dispatch requests
 
@@ -483,7 +483,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**OrdersControllerGetMyDispatches200Response**](OrdersControllerGetMyDispatches200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -497,7 +497,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerGetMyOrdersAsCustomer**
-> OrdersControllerAdminFindAll200Response ordersControllerGetMyOrdersAsCustomer(status, vendorId, driverId, customerId, page, limit)
+> ApiControllerRoot200Response ordersControllerGetMyOrdersAsCustomer(status, vendorId, driverId, customerId, page, limit)
 
 Get my order history (customer)
 
@@ -534,7 +534,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -548,7 +548,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerGetMyOrdersAsDriver**
-> OrdersControllerAdminFindAll200Response ordersControllerGetMyOrdersAsDriver(status, vendorId, driverId, customerId, page, limit)
+> ApiControllerRoot200Response ordersControllerGetMyOrdersAsDriver(status, vendorId, driverId, customerId, page, limit)
 
 Get my orders as driver
 
@@ -585,7 +585,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -599,7 +599,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerGetOne**
-> OrdersControllerAdminFindAll200Response ordersControllerGetOne(orderId)
+> OrdersControllerPlaceOrder200Response ordersControllerGetOne(orderId)
 
 Get a single order (customer/driver/vendor/admin)
 
@@ -626,7 +626,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -640,7 +640,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerGetVendorOrders**
-> OrdersControllerAdminFindAll200Response ordersControllerGetVendorOrders(vendorId, status, vendorId2, driverId, customerId, page, limit)
+> ApiControllerRoot200Response ordersControllerGetVendorOrders(vendorId, status, vendorId2, driverId, customerId, page, limit)
 
 Get orders for a vendor (vendor member or admin)
 
@@ -679,7 +679,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -693,7 +693,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerPlaceCustomOrder**
-> OrdersControllerAdminFindAll200Response ordersControllerPlaceCustomOrder(placeCustomOrderDto)
+> OrdersControllerPlaceOrder200Response ordersControllerPlaceCustomOrder(placeCustomOrderDto)
 
 Place a custom delivery or ride order
 
@@ -720,7 +720,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -734,7 +734,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerPlaceOrder**
-> OrdersControllerAdminFindAll200Response ordersControllerPlaceOrder(placeOrderDto)
+> OrdersControllerPlaceOrder200Response ordersControllerPlaceOrder(placeOrderDto)
 
 Place a new order from active cart
 
@@ -761,7 +761,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -775,7 +775,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerRejectOrderChanges**
-> OrdersControllerAdminFindAll200Response ordersControllerRejectOrderChanges(id)
+> OrdersControllerPlaceOrder200Response ordersControllerRejectOrderChanges(id)
 
 
 
@@ -802,7 +802,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -816,7 +816,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerRespondToDispatch**
-> OrdersControllerAdminFindAll200Response ordersControllerRespondToDispatch(dispatchId, respondToDispatchDto)
+> ApiControllerRoot200Response ordersControllerRespondToDispatch(dispatchId, respondToDispatchDto)
 
 Accept or reject a dispatch request
 
@@ -845,7 +845,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -859,7 +859,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerVendorUpdateStatus**
-> OrdersControllerAdminFindAll200Response ordersControllerVendorUpdateStatus(orderId, updateOrderStatusDto)
+> ApiControllerRoot200Response ordersControllerVendorUpdateStatus(orderId, updateOrderStatusDto)
 
 Vendor updates order status
 
@@ -888,7 +888,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**OrdersControllerAdminFindAll200Response**](OrdersControllerAdminFindAll200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

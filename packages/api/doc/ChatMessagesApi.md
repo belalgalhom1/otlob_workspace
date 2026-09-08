@@ -18,7 +18,7 @@ Method | HTTP request | Description
 
 
 # **messagesControllerDelete**
-> AuthControllerRegister200Response messagesControllerDelete(conversationId, messageId)
+> ApiControllerRoot200Response messagesControllerDelete(conversationId, messageId)
 
 Delete a message
 
@@ -47,7 +47,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -61,7 +61,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **messagesControllerList**
-> AuthControllerRegister200Response messagesControllerList(conversationId, before, limit)
+> ApiControllerRoot200Response messagesControllerList(conversationId, before, limit)
 
 List messages in a conversation
 
@@ -92,7 +92,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -106,7 +106,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **messagesControllerMarkRead**
-> AuthControllerRegister200Response messagesControllerMarkRead(conversationId, markReadDto)
+> ApiControllerRoot200Response messagesControllerMarkRead(conversationId, markReadDto)
 
 Mark messages as read
 
@@ -135,7 +135,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -149,7 +149,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **messagesControllerSend**
-> AuthControllerRegister200Response messagesControllerSend(conversationId, sendMessageDto)
+> ApiControllerRoot200Response messagesControllerSend(conversationId, sendMessageDto)
 
 Send a message in a conversation
 
@@ -178,7 +178,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -192,7 +192,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **messagesControllerUpdate**
-> AuthControllerRegister200Response messagesControllerUpdate(conversationId, messageId)
+> ApiControllerRoot200Response messagesControllerUpdate(conversationId, messageId)
 
 Update a message
 
@@ -221,7 +221,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -235,7 +235,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **messagesControllerUpload**
-> AuthControllerRegister200Response messagesControllerUpload(conversationId, file)
+> ApiControllerRoot200Response messagesControllerUpload(conversationId, file)
 
 Upload a media file for chat
 
@@ -264,7 +264,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

@@ -3,10 +3,8 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'order_status_event.g.dart';
@@ -20,7 +18,6 @@ part 'order_status_event.g.dart';
 /// * [note] 
 /// * [createdBy] 
 /// * [createdAt] 
-/// * [order] 
 @BuiltValue()
 abstract class OrderStatusEvent implements Built<OrderStatusEvent, OrderStatusEventBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -30,7 +27,7 @@ abstract class OrderStatusEvent implements Built<OrderStatusEvent, OrderStatusEv
   String get orderId;
 
   @BuiltValueField(wireName: r'status')
-  JsonObject? get status;
+  OrderStatus get status;
   // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  PENDING_CUSTOMER_APPROVAL,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
 
   @BuiltValueField(wireName: r'note')
@@ -41,9 +38,6 @@ abstract class OrderStatusEvent implements Built<OrderStatusEvent, OrderStatusEv
 
   @BuiltValueField(wireName: r'createdAt')
   DateTime get createdAt;
-
-  @BuiltValueField(wireName: r'order')
-  JsonObject? get order;
 
   OrderStatusEvent._();
 
@@ -102,11 +96,6 @@ class _$OrderStatusEventSerializer implements PrimitiveSerializer<OrderStatusEve
       object.createdAt,
       specifiedType: const FullType(DateTime),
     );
-    yield r'order';
-    yield serializers.serialize(
-      object.order,
-      specifiedType: const FullType(Order),
-    );
   }
 
   @override
@@ -147,8 +136,8 @@ class _$OrderStatusEventSerializer implements PrimitiveSerializer<OrderStatusEve
         case r'status':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
+            specifiedType: const FullType(OrderStatus),
+          ) as OrderStatus;
           result.status = valueDes;
           break;
         case r'note':
@@ -171,13 +160,6 @@ class _$OrderStatusEventSerializer implements PrimitiveSerializer<OrderStatusEve
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.createdAt = valueDes;
-          break;
-        case r'order':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.order = valueDes;
           break;
         default:
           unhandled.add(key);

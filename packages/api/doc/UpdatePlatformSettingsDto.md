@@ -50,6 +50,7 @@ Name | Type | Description | Notes
 **driverSearchMaxAttempts** | **num** |  | [optional] 
 **fallbackOrderDistanceKm** | **num** |  | [optional] 
 **autoCancelPendingMins** | **num** |  | [optional] 
+**mobileWalletTimeoutMins** | **num** |  | [optional] 
 **driverAcceptTimeoutSecs** | **num** |  | [optional] 
 **maxDispatchBatchSize** | **num** |  | [optional] 
 **isMaintenanceMode** | **bool** |  | [optional] 

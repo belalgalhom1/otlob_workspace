@@ -3,10 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order_item.dart';
-import 'package:api/src/model/product_option.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'order_item_option.g.dart';
@@ -19,8 +16,6 @@ part 'order_item_option.g.dart';
 /// * [optionId] 
 /// * [optionName] 
 /// * [priceAdded] 
-/// * [option] 
-/// * [orderItem] 
 @BuiltValue()
 abstract class OrderItemOption implements Built<OrderItemOption, OrderItemOptionBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -37,12 +32,6 @@ abstract class OrderItemOption implements Built<OrderItemOption, OrderItemOption
 
   @BuiltValueField(wireName: r'priceAdded')
   num get priceAdded;
-
-  @BuiltValueField(wireName: r'option')
-  JsonObject? get option;
-
-  @BuiltValueField(wireName: r'orderItem')
-  JsonObject? get orderItem;
 
   OrderItemOption._();
 
@@ -93,18 +82,6 @@ class _$OrderItemOptionSerializer implements PrimitiveSerializer<OrderItemOption
     yield serializers.serialize(
       object.priceAdded,
       specifiedType: const FullType(num),
-    );
-    if (object.option != null) {
-      yield r'option';
-      yield serializers.serialize(
-        object.option,
-        specifiedType: const FullType(ProductOption),
-      );
-    }
-    yield r'orderItem';
-    yield serializers.serialize(
-      object.orderItem,
-      specifiedType: const FullType(OrderItem),
     );
   }
 
@@ -163,20 +140,6 @@ class _$OrderItemOptionSerializer implements PrimitiveSerializer<OrderItemOption
             specifiedType: const FullType(num),
           ) as num;
           result.priceAdded = valueDes;
-          break;
-        case r'option':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.option = valueDes;
-          break;
-        case r'orderItem':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
-          result.orderItem = valueDes;
           break;
         default:
           unhandled.add(key);

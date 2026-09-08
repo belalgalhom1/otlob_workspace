@@ -12,15 +12,13 @@ class _$OrderStatusEvent extends OrderStatusEvent {
   @override
   final String orderId;
   @override
-  final JsonObject? status;
+  final OrderStatus status;
   @override
   final String? note;
   @override
   final String? createdBy;
   @override
   final DateTime createdAt;
-  @override
-  final JsonObject? order;
 
   factory _$OrderStatusEvent([
     void Function(OrderStatusEventBuilder)? updates,
@@ -29,11 +27,10 @@ class _$OrderStatusEvent extends OrderStatusEvent {
   _$OrderStatusEvent._({
     required this.id,
     required this.orderId,
-    this.status,
+    required this.status,
     this.note,
     this.createdBy,
     required this.createdAt,
-    this.order,
   }) : super._();
   @override
   OrderStatusEvent rebuild(void Function(OrderStatusEventBuilder) updates) =>
@@ -52,8 +49,7 @@ class _$OrderStatusEvent extends OrderStatusEvent {
         status == other.status &&
         note == other.note &&
         createdBy == other.createdBy &&
-        createdAt == other.createdAt &&
-        order == other.order;
+        createdAt == other.createdAt;
   }
 
   @override
@@ -65,7 +61,6 @@ class _$OrderStatusEvent extends OrderStatusEvent {
     _$hash = $jc(_$hash, note.hashCode);
     _$hash = $jc(_$hash, createdBy.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
-    _$hash = $jc(_$hash, order.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -78,8 +73,7 @@ class _$OrderStatusEvent extends OrderStatusEvent {
           ..add('status', status)
           ..add('note', note)
           ..add('createdBy', createdBy)
-          ..add('createdAt', createdAt)
-          ..add('order', order))
+          ..add('createdAt', createdAt))
         .toString();
   }
 }
@@ -96,9 +90,9 @@ class OrderStatusEventBuilder
   String? get orderId => _$this._orderId;
   set orderId(String? orderId) => _$this._orderId = orderId;
 
-  JsonObject? _status;
-  JsonObject? get status => _$this._status;
-  set status(JsonObject? status) => _$this._status = status;
+  OrderStatus? _status;
+  OrderStatus? get status => _$this._status;
+  set status(OrderStatus? status) => _$this._status = status;
 
   String? _note;
   String? get note => _$this._note;
@@ -111,10 +105,6 @@ class OrderStatusEventBuilder
   DateTime? _createdAt;
   DateTime? get createdAt => _$this._createdAt;
   set createdAt(DateTime? createdAt) => _$this._createdAt = createdAt;
-
-  JsonObject? _order;
-  JsonObject? get order => _$this._order;
-  set order(JsonObject? order) => _$this._order = order;
 
   OrderStatusEventBuilder() {
     OrderStatusEvent._defaults(this);
@@ -129,7 +119,6 @@ class OrderStatusEventBuilder
       _note = $v.note;
       _createdBy = $v.createdBy;
       _createdAt = $v.createdAt;
-      _order = $v.order;
       _$v = null;
     }
     return this;
@@ -162,7 +151,11 @@ class OrderStatusEventBuilder
             r'OrderStatusEvent',
             'orderId',
           ),
-          status: status,
+          status: BuiltValueNullFieldError.checkNotNull(
+            status,
+            r'OrderStatusEvent',
+            'status',
+          ),
           note: note,
           createdBy: createdBy,
           createdAt: BuiltValueNullFieldError.checkNotNull(
@@ -170,7 +163,6 @@ class OrderStatusEventBuilder
             r'OrderStatusEvent',
             'createdAt',
           ),
-          order: order,
         );
     replace(_$result);
     return _$result;

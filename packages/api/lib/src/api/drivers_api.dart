@@ -4,17 +4,15 @@
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:api/src/api_util.dart';
 import 'package:api/src/model/admin_create_driver_dto.dart';
 import 'package:api/src/model/admin_update_driver_dto.dart';
-import 'package:api/src/model/auth_controller_register200_response.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/create_driver_shift_dto.dart';
-import 'package:api/src/model/drivers_controller_get_my_shifts200_response.dart';
-import 'package:api/src/model/drivers_controller_get_wallet_transactions200_response.dart';
-import 'package:api/src/model/drivers_controller_register200_response.dart';
 import 'package:api/src/model/register_driver_dto.dart';
 import 'package:api/src/model/update_driver_profile_dto.dart';
 import 'package:api/src/model/update_driver_status_dto.dart';
@@ -39,9 +37,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerAdminCreate({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminCreate({ 
     required AdminCreateDriverDto adminCreateDriverDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -97,14 +95,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -116,7 +114,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -141,9 +139,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetMyShifts200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetMyShifts200Response>> driversControllerAdminCreateShift({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminCreateShift({ 
     required String driverId,
     required CreateDriverShiftDto createDriverShiftDto,
     CancelToken? cancelToken,
@@ -200,14 +198,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetMyShifts200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetMyShifts200Response),
-      ) as DriversControllerGetMyShifts200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -219,7 +217,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetMyShifts200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -246,9 +244,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerAdminFindAll({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminFindAll({ 
     String? status,
     String? search,
     num? page = 1,
@@ -295,14 +293,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -314,7 +312,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -338,9 +336,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerAdminFindOne({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminFindOne({ 
     required String driverId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -376,14 +374,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -395,7 +393,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -419,9 +417,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetMyShifts200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetMyShifts200Response>> driversControllerAdminGetShifts({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminGetShifts({ 
     required String driverId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -457,14 +455,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetMyShifts200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetMyShifts200Response),
-      ) as DriversControllerGetMyShifts200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -476,7 +474,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetMyShifts200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -500,9 +498,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerAdminSuspend({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminSuspend({ 
     required String driverId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -538,14 +536,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -557,7 +555,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -581,9 +579,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerAdminUnsuspend({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminUnsuspend({ 
     required String driverId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -619,14 +617,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -638,7 +636,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -663,9 +661,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerAdminUpdate({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerAdminUpdate({ 
     required String driverId,
     required AdminUpdateDriverDto adminUpdateDriverDto,
     CancelToken? cancelToken,
@@ -722,14 +720,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -741,7 +739,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -765,9 +763,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetMyShifts200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetMyShifts200Response>> driversControllerCreateShift({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerCreateShift({ 
     required CreateDriverShiftDto createDriverShiftDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -823,14 +821,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetMyShifts200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetMyShifts200Response),
-      ) as DriversControllerGetMyShifts200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -842,7 +840,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetMyShifts200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -866,9 +864,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetMyShifts200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetMyShifts200Response>> driversControllerEndShift({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerEndShift({ 
     required String shiftId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -904,14 +902,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetMyShifts200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetMyShifts200Response),
-      ) as DriversControllerGetMyShifts200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -923,7 +921,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetMyShifts200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -946,9 +944,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerGetMyProfile({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerGetMyProfile({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -983,14 +981,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1002,7 +1000,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1025,9 +1023,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetMyShifts200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetMyShifts200Response>> driversControllerGetMyShifts({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerGetMyShifts({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -1062,14 +1060,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetMyShifts200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetMyShifts200Response),
-      ) as DriversControllerGetMyShifts200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1081,7 +1079,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetMyShifts200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1104,9 +1102,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> driversControllerGetWalletBalance({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerGetWalletBalance({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -1141,14 +1139,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1160,7 +1158,7 @@ class DriversApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1185,9 +1183,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetWalletTransactions200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetWalletTransactions200Response>> driversControllerGetWalletTransactions({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerGetWalletTransactions({ 
     num? page = 1,
     num? limit = 20,
     CancelToken? cancelToken,
@@ -1230,14 +1228,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetWalletTransactions200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetWalletTransactions200Response),
-      ) as DriversControllerGetWalletTransactions200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1249,7 +1247,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetWalletTransactions200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1273,9 +1271,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerRegister({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerRegister({ 
     required RegisterDriverDto registerDriverDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1331,14 +1329,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1350,7 +1348,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1374,9 +1372,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerGetMyShifts200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerGetMyShifts200Response>> driversControllerStartShift({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerStartShift({ 
     required String shiftId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1412,14 +1410,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerGetMyShifts200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerGetMyShifts200Response),
-      ) as DriversControllerGetMyShifts200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1431,7 +1429,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerGetMyShifts200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1455,9 +1453,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerUpdateProfile({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerUpdateProfile({ 
     required UpdateDriverProfileDto updateDriverProfileDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1513,14 +1511,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1532,7 +1530,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1556,9 +1554,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [DriversControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<DriversControllerRegister200Response>> driversControllerUpdateStatus({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerUpdateStatus({ 
     required UpdateDriverStatusDto updateDriverStatusDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1614,14 +1612,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    DriversControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(DriversControllerRegister200Response),
-      ) as DriversControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1633,7 +1631,7 @@ class DriversApi {
       );
     }
 
-    return Response<DriversControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -1657,9 +1655,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [AuthControllerRegister200Response] as data
+  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<AuthControllerRegister200Response>> driversControllerUploadAvatar({ 
+  Future<Response<ApiControllerRoot200Response>> driversControllerUploadAvatar({ 
     MultipartFile? file,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -1716,14 +1714,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    AuthControllerRegister200Response? _responseData;
+    ApiControllerRoot200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(AuthControllerRegister200Response),
-      ) as AuthControllerRegister200Response;
+        specifiedType: const FullType(ApiControllerRoot200Response),
+      ) as ApiControllerRoot200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -1735,7 +1733,7 @@ class DriversApi {
       );
     }
 
-    return Response<AuthControllerRegister200Response>(
+    return Response<ApiControllerRoot200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

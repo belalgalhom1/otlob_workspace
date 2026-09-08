@@ -1,8 +1,8 @@
-# openapi.model.ProductOption
+# api.model.ProductOption
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties
@@ -14,9 +14,6 @@ Name | Type | Description | Notes
 **nameAr** | **String** |  | [optional] 
 **priceAdded** | **num** |  | 
 **isActive** | **bool** |  | 
-**cartItemOptions** | [**BuiltList&lt;CartItemOption&gt;**](CartItemOption.md) |  | 
-**orderItemOptions** | [**BuiltList&lt;OrderItemOption&gt;**](OrderItemOption.md) |  | 
-**group** | [**ProductOptionGroup**](ProductOptionGroup.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

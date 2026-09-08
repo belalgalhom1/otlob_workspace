@@ -13,6 +13,9 @@ class CustomerVendorsRepository {
     num page = 1,
     num? lat,
     num? lng,
+    String? zoneId,
+    String? sortBy,
+    String? sortOrder,
   }) async {
     final response = await _api.vendorsControllerFindAll(
       status: status,
@@ -22,6 +25,9 @@ class CustomerVendorsRepository {
       page: page,
       lat: lat,
       lng: lng,
+      zoneId: zoneId,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
     );
     return ResponseParser.parseList(response);
   }

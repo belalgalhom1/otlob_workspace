@@ -16,7 +16,7 @@ Method | HTTP request | Description
 
 
 # **vendorWalletControllerAdminGetBalance**
-> AuthControllerRegister200Response vendorWalletControllerAdminGetBalance(vendorId)
+> ApiControllerRoot200Response vendorWalletControllerAdminGetBalance(vendorId)
 
 Get any vendor's wallet balance (Admin)
 
@@ -43,7 +43,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -57,7 +57,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorWalletControllerAdminListTransactions**
-> AuthControllerRegister200Response vendorWalletControllerAdminListTransactions(vendorId, type, from, to, page, limit)
+> ApiControllerRoot200Response vendorWalletControllerAdminListTransactions(vendorId, type, from, to, page, limit)
 
 List any vendor's wallet transactions (Admin)
 
@@ -94,7 +94,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -108,7 +108,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorWalletControllerGetBalance**
-> AuthControllerRegister200Response vendorWalletControllerGetBalance(vendorId)
+> ApiControllerRoot200Response vendorWalletControllerGetBalance(vendorId)
 
 Get vendor wallet balance (Member)
 
@@ -135,7 +135,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 
@@ -149,7 +149,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorWalletControllerListTransactions**
-> AuthControllerRegister200Response vendorWalletControllerListTransactions(vendorId, type, from, to, page, limit)
+> ApiControllerRoot200Response vendorWalletControllerListTransactions(vendorId, type, from, to, page, limit)
 
 List vendor wallet transactions (Member)
 
@@ -186,7 +186,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**AuthControllerRegister200Response**](AuthControllerRegister200Response.md)
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
 
 ### Authorization
 

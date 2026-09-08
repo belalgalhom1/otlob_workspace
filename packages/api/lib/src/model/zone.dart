@@ -3,13 +3,7 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:api/src/model/order.dart';
-import 'package:api/src/model/shift_pool.dart';
-import 'package:built_collection/built_collection.dart';
-import 'package:api/src/model/driver_shift.dart';
-import 'package:api/src/model/vendor_branch.dart';
 import 'package:built_value/built_value.dart';
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 
 part 'zone.g.dart';
@@ -25,10 +19,6 @@ part 'zone.g.dart';
 /// * [minOrderAmountOverride] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [driverShifts] 
-/// * [orders] 
-/// * [vendorBranches] 
-/// * [shiftPools] 
 @BuiltValue()
 abstract class Zone implements Built<Zone, ZoneBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -54,18 +44,6 @@ abstract class Zone implements Built<Zone, ZoneBuilder> {
 
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
-
-  @BuiltValueField(wireName: r'driverShifts')
-  BuiltList<JsonObject>? get driverShifts;
-
-  @BuiltValueField(wireName: r'orders')
-  BuiltList<JsonObject>? get orders;
-
-  @BuiltValueField(wireName: r'vendorBranches')
-  BuiltList<JsonObject>? get vendorBranches;
-
-  @BuiltValueField(wireName: r'shiftPools')
-  BuiltList<JsonObject>? get shiftPools;
 
   Zone._();
 
@@ -135,26 +113,6 @@ class _$ZoneSerializer implements PrimitiveSerializer<Zone> {
     yield serializers.serialize(
       object.updatedAt,
       specifiedType: const FullType(DateTime),
-    );
-    yield r'driverShifts';
-    yield serializers.serialize(
-      object.driverShifts,
-      specifiedType: const FullType(BuiltList, [FullType(DriverShift)]),
-    );
-    yield r'orders';
-    yield serializers.serialize(
-      object.orders,
-      specifiedType: const FullType(BuiltList, [FullType(Order)]),
-    );
-    yield r'vendorBranches';
-    yield serializers.serialize(
-      object.vendorBranches,
-      specifiedType: const FullType(BuiltList, [FullType(VendorBranch)]),
-    );
-    yield r'shiftPools';
-    yield serializers.serialize(
-      object.shiftPools,
-      specifiedType: const FullType(BuiltList, [FullType(ShiftPool)]),
     );
   }
 
@@ -234,18 +192,6 @@ class _$ZoneSerializer implements PrimitiveSerializer<Zone> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.updatedAt = valueDes;
-          break;
-        case r'driverShifts':
-          // Field patched to BuiltList<JsonObject>? - skip deserialization
-          break;
-        case r'orders':
-          // Field patched to BuiltList<JsonObject>? - skip deserialization
-          break;
-        case r'vendorBranches':
-          // Field patched to BuiltList<JsonObject>? - skip deserialization
-          break;
-        case r'shiftPools':
-          // Field patched to BuiltList<JsonObject>? - skip deserialization
           break;
         default:
           unhandled.add(key);
