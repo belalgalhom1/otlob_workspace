@@ -35,6 +35,7 @@ import '../../notifications/presentation/announcements_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import 'package:vendor/features/driver_shifts/presentation/driver_shifts_screen.dart';
 import 'package:vendor/features/analytics/presentation/pages/analytics_screen.dart';
+import 'package:vendor/features/dashboard/presentation/widgets/user_profile_dialog.dart';
 
 final mostOrderedProductProvider = FutureProvider.family<dynamic, String>((ref, vendorId) async {
   try {
@@ -184,6 +185,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     });
 
+    final inboxCounts = ref.watch(inboxCountsProvider);
+
     return PopScope(
       canPop: _selectedIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
@@ -251,12 +254,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 LucideIcons.messageSquare,
                                 onTap: () => setState(() => _selectedIndex = 6),
                                 isMobile: isMobile,
+                                badgeCount: inboxCounts.chatUnread,
                               ),
                               SizedBox(width: isMobile ? 4 : 8),
                               _buildHeaderAction(
                                 LucideIcons.bell,
                                 onTap: () => setState(() => _selectedIndex = 17),
                                 isMobile: isMobile,
+                                badgeCount: inboxCounts.notificationsUnread,
                               ),
                               SizedBox(width: isMobile ? 4 : 8),
                               _buildThemeToggle(isMobile: isMobile),
@@ -305,6 +310,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildSidebar({required bool isMobile}) {
+    final inboxCounts = ref.watch(inboxCountsProvider);
 
     return Container(
       width: isMobile ? 280 : 110,
@@ -405,6 +411,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       LucideIcons.messageSquare,
                       AppLocalizations.of(context)!.inbox,
                       isMobile,
+                      badgeCount: inboxCounts.chatUnread,
+                    ),
+                    _buildMenuItem(
+                      17,
+                      LucideIcons.bell,
+                      AppLocalizations.of(context)!.notificationsTitle,
+                      isMobile,
+                      badgeCount: inboxCounts.notificationsUnread,
                     ),
                     _buildMenuItem(
                       11,
@@ -524,7 +538,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         LucideIcons.messageSquare,
                         AppLocalizations.of(context)!.inbox,
                         isMobile,
+                        badgeCount: inboxCounts.chatUnread,
                       ),
+                    _buildMenuItem(
+                      17,
+                      LucideIcons.bell,
+                      AppLocalizations.of(context)!.notificationsTitle,
+                      isMobile,
+                      badgeCount: inboxCounts.notificationsUnread,
+                    ),
                   ],
                 ],
               ),
@@ -533,7 +555,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Column(
             children: [
               Divider(color: Theme.of(context).dividerColor),
-              if (_userRole != 'ADMIN')
+              if (_hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN')
                 _buildMenuItem(
                   7,
                   LucideIcons.settings,
@@ -545,6 +567,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _openUserProfileDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => UserProfileDialog(
+        onProfileUpdated: () => _loadUserInfo(),
       ),
     );
   }
@@ -595,10 +626,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.primary,
-                  child: Text(initials, style: const TextStyle(fontSize: 12)),
+                InkWell(
+                  onTap: () => _openUserProfileDialog(context),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Tooltip(
+                    message: _userName ?? 'Profile',
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppColors.primary,
+                      child: Text(initials, style: const TextStyle(fontSize: 12)),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 IconButton(
@@ -614,36 +652,49 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             )
           : Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.primary,
-                  child: Text(initials, style: const TextStyle(fontSize: 12)),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _userName ?? '',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                  child: InkWell(
+                    onTap: () => _openUserProfileDialog(context),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppColors.primary,
+                            child: Text(initials, style: const TextStyle(fontSize: 12)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _userName ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  translatedRole,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 11,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        translatedRole,
-                        style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface,
-                          fontSize: 11,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 IconButton(
@@ -1222,7 +1273,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildMenuItem(int index, IconData icon, String title, bool isMobile) {
+  Widget _buildMenuItem(
+    int index,
+    IconData icon,
+    String title,
+    bool isMobile, {
+    int badgeCount = 0,
+  }) {
     final isSelected = _selectedIndex == index;
     bool isDesktop = !isMobile;
     final unselectedColor = Theme.of(context).colorScheme.onSurface;
@@ -1254,10 +1311,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ? Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      icon,
-                      color: isSelected ? AppColors.primary : unselectedColor,
-                      size: 22,
+                    Badge(
+                      isLabelVisible: badgeCount > 0,
+                      label: Text(
+                        '$badgeCount',
+                        style: const TextStyle(fontSize: 9, color: Colors.white),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: isSelected ? AppColors.primary : unselectedColor,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -1277,10 +1341,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 )
               : Row(
                   children: [
-                    Icon(
-                      icon,
-                      color: isSelected ? AppColors.primary : unselectedColor,
-                      size: 20,
+                    Badge(
+                      isLabelVisible: badgeCount > 0,
+                      label: Text(
+                        '$badgeCount',
+                        style: const TextStyle(fontSize: 10, color: Colors.white),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: isSelected ? AppColors.primary : unselectedColor,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -1303,7 +1374,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildHeaderAction(IconData icon, {VoidCallback? onTap, bool isMobile = false}) {
+  Widget _buildHeaderAction(
+    IconData icon, {
+    VoidCallback? onTap,
+    bool isMobile = false,
+    int badgeCount = 0,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -1314,7 +1390,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05)),
         ),
-        child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurface),
+        child: Badge(
+          isLabelVisible: badgeCount > 0,
+          label: Text(
+            '$badgeCount',
+            style: const TextStyle(fontSize: 10, color: Colors.white),
+          ),
+          child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurface),
+        ),
       ),
     );
   }
@@ -1427,6 +1510,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return l10n.driverShifts;
       case 16:
         return l10n.analytics;
+      case 17:
+        return l10n.notificationsTitle;
       default:
         return l10n.dashboard;
     }

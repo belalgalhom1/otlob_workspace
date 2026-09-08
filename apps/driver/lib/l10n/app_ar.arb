@@ -795,5 +795,11 @@
   "statusSuspended": "موقوف",
   "statusApproved": "معتمد",
   "profileStatusLabel": "حالة الملف الشخصي",
-  "waitingForCustomerApproval": "في إنتظار موافقة العميل"
+  "waitingForCustomerApproval": "في إنتظار موافقة العميل",
+  "deliveryHistory": "سجل التوصيلات",
+  "noDeliveriesYet": "لا توجد توصيلات بعد",
+  "noDeliveriesSubtitle": "ستظهر التوصيلات والرحلات المكتملة هنا.",
+  "deliveryFeeEarned": "أرباح التوصيل",
+  "deliveredAt": "تم التوصيل في",
+  "tripDetails": "تفاصيل الرحلة"
 }

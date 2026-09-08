@@ -2196,4 +2196,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get waitingForCustomerApproval => 'Waiting for Customer Approval';
+
+  @override
+  String get deliveryHistory => 'Delivery History';
+
+  @override
+  String get noDeliveriesYet => 'No Deliveries Yet';
+
+  @override
+  String get noDeliveriesSubtitle =>
+      'Completed deliveries and rides will appear here.';
+
+  @override
+  String get deliveryFeeEarned => 'Delivery Fee Earned';
+
+  @override
+  String get deliveredAt => 'Delivered at';
+
+  @override
+  String get tripDetails => 'Trip Details';
 }

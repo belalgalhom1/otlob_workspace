@@ -829,20 +829,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    wallet['provider'] ?? '',
+                                    (wallet['type'] ?? wallet['provider'] ?? '').toString(),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                   ),
                                   Text(
-                                    wallet['walletNumber'] ?? '',
+                                    (wallet['number'] ?? wallet['walletNumber'] ?? '').toString(),
                                     style: const TextStyle(fontSize: 15, color: Colors.black87),
                                   ),
                                 ],
                               ),
                               OutlinedButton.icon(
                                 onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: wallet['walletNumber'] ?? ''));
+                                  final walletNum = (wallet['number'] ?? wallet['walletNumber'] ?? '').toString();
+                                  Clipboard.setData(ClipboardData(text: walletNum));
                                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    content: Text(s.isArabic ? 'تم نسخ الرقم' : 'Number copied!'),
+                                    content: Text(s.isArabic ? 'تم نسخ الرقم: $walletNum' : 'Number copied: $walletNum'),
                                     duration: const Duration(seconds: 2),
                                   ));
                                 },

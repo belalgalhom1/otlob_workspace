@@ -15,13 +15,15 @@ import '../../../../core/providers/platform_settings_provider.dart';
 import 'package:data/providers.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 import '../widgets/customer_approval_bottom_sheet.dart';
+
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
 
   const OrderTrackingScreen({super.key, required this.orderId});
 
   @override
-  ConsumerState<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+  ConsumerState<OrderTrackingScreen> createState() =>
+      _OrderTrackingScreenState();
 }
 
 class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
@@ -44,7 +46,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     final socket = ref.read(socketServiceProvider);
     final tokenService = ref.read(tokenServiceProvider);
     final locationSvc = ref.read(locationServiceProvider);
-    
+
     try {
       final pos = await locationSvc.getCurrentLocation();
       if (mounted) {
@@ -61,14 +63,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       // Silently ignore and fallback to order's delivery location later if needed
     }
 
-    final order = await ref.read(ordersProvider.notifier).fetchOrderDetails(widget.orderId);
+    final order = await ref
+        .read(ordersProvider.notifier)
+        .fetchOrderDetails(widget.orderId);
     if (mounted && order != null) {
       setState(() {
         _orderDetails = order;
         _orderStatus = order['status'] ?? 'LOOKING_FOR_DRIVER';
-        
+
         // If we failed to get user location, use the delivery location as map center
-        if (_initialMapCenter == null && order['deliveryLat'] != null && order['deliveryLng'] != null) {
+        if (_initialMapCenter == null &&
+            order['deliveryLat'] != null &&
+            order['deliveryLng'] != null) {
           final lat = double.tryParse(order['deliveryLat'].toString());
           final lng = double.tryParse(order['deliveryLng'].toString());
           if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
@@ -79,7 +85,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           }
         }
       });
-      if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' || _orderStatus == 'DRIVER_ASSIGNED' || _orderStatus == 'PENDING_PAYMENT') {
+      if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' ||
+          _orderStatus == 'DRIVER_ASSIGNED' ||
+          _orderStatus == 'PENDING_PAYMENT') {
         _fetchOrderDetails();
       }
     }
@@ -87,14 +95,17 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     final token = await tokenService.getAccessToken();
     if (token != null) {
       await socket.initSocket(token);
-      
+
       socket.on('order.status', (data) {
         if (data != null && data['orderId'] == widget.orderId) {
           if (mounted) {
             setState(() {
-              _orderStatus = data['newStatus'] ?? data['status'] ?? _orderStatus;
+              _orderStatus =
+                  data['newStatus'] ?? data['status'] ?? _orderStatus;
             });
-            if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' || _orderStatus == 'DRIVER_ASSIGNED' || _orderStatus == 'PENDING_PAYMENT') {
+            if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' ||
+                _orderStatus == 'DRIVER_ASSIGNED' ||
+                _orderStatus == 'PENDING_PAYMENT') {
               _fetchOrderDetails();
             }
           }
@@ -105,7 +116,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         if (data != null && data['orderId'] == widget.orderId) {
           final lat = (data['latitude'] ?? data['lat']) as double?;
           final lng = (data['longitude'] ?? data['lng']) as double?;
-          if (lat != null && lng != null && lat.isFinite && lng.isFinite && mounted) {
+          if (lat != null &&
+              lng != null &&
+              lat.isFinite &&
+              lng.isFinite &&
+              mounted) {
             setState(() {
               _driverLocation = LatLng(lat, lng);
             });
@@ -126,11 +141,15 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   }
 
   Future<void> _fetchOrderDetails() async {
-    final order = await ref.read(ordersProvider.notifier).fetchOrderDetails(widget.orderId);
+    final order = await ref
+        .read(ordersProvider.notifier)
+        .fetchOrderDetails(widget.orderId);
     if (mounted && order != null) {
       setState(() {
         _orderDetails = order;
-        _orderUpdatedAt = DateTime.tryParse(order['updatedAt']?.toString() ?? '');
+        _orderUpdatedAt = DateTime.tryParse(
+          order['updatedAt']?.toString() ?? '',
+        );
       });
       if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL') {
         _startTimer();
@@ -141,18 +160,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   void _startTimer() {
     _countdownTimer?.cancel();
     if (_orderUpdatedAt == null) return;
-    
+
     final settings = ref.read(platformSettingsProvider).value;
     final timeoutMins = settings?.customerApprovalTimeoutMins ?? 10;
-    
+
     final expiryTime = _orderUpdatedAt!.add(Duration(minutes: timeoutMins));
-    
+
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      
+
       final now = DateTime.now();
       if (now.isAfter(expiryTime)) {
         timer.cancel();
@@ -169,21 +188,44 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
   String _getDisplayStatus(String rawStatus, bool isAr) {
     switch (rawStatus) {
-      case 'PENDING': return isAr ? 'بإنتظار المطعم' : 'Pending Vendor';
-      case 'CHANGES_REQUESTED': return isAr ? 'تعديلات مطلوبة' : 'Changes Requested';
-      case 'LOOKING_FOR_DRIVER': return isAr ? 'جاري البحث عن كابتن...' : 'Looking for Driver...';
-      case 'ACCEPTED': return isAr ? 'تم القبول' : 'Accepted';
-      case 'PREPARING': return isAr ? 'قيد التحضير' : 'Preparing';
-      case 'READY_FOR_PICKUP': return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
-      case 'PICKED_UP': return isAr ? 'تم الاستلام من المتجر' : 'Picked Up';
-      case 'ARRIVING': return isAr ? 'الكابتن في الطريق' : 'Driver Arriving';
-      case 'IN_TRANSIT': return isAr ? 'الطلب في الطريق' : 'In Transit';
-      case 'DELIVERED': return isAr ? 'تم التوصيل' : 'Delivered';
-      case 'CANCELLED': return isAr ? 'تم الإلغاء' : 'Cancelled';
-      case 'PENDING_CUSTOMER_APPROVAL': return isAr ? 'بانتظار موافقتك' : 'Pending Your Approval';
-      case 'DRIVER_ASSIGNED': return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
-      case 'PENDING_PAYMENT': return isAr ? 'بانتظار الدفع' : 'Pending Payment';
-      default: return rawStatus.replaceAll('_', ' ').split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ');
+      case 'PENDING':
+        return isAr ? 'بإنتظار المطعم' : 'Pending Vendor';
+      case 'CHANGES_REQUESTED':
+        return isAr ? 'تعديلات مطلوبة' : 'Changes Requested';
+      case 'LOOKING_FOR_DRIVER':
+        return isAr ? 'جاري البحث عن كابتن...' : 'Looking for Driver...';
+      case 'ACCEPTED':
+        return isAr ? 'تم القبول' : 'Accepted';
+      case 'PREPARING':
+        return isAr ? 'قيد التحضير' : 'Preparing';
+      case 'READY_FOR_PICKUP':
+        return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'PICKED_UP':
+        return isAr ? 'تم الاستلام من المتجر' : 'Picked Up';
+      case 'ARRIVING':
+        return isAr ? 'الكابتن في الطريق' : 'Driver Arriving';
+      case 'IN_TRANSIT':
+        return isAr ? 'الطلب في الطريق' : 'In Transit';
+      case 'DELIVERED':
+        return isAr ? 'تم التوصيل' : 'Delivered';
+      case 'CANCELLED':
+        return isAr ? 'تم الإلغاء' : 'Cancelled';
+      case 'PENDING_CUSTOMER_APPROVAL':
+        return isAr ? 'بانتظار موافقتك' : 'Pending Your Approval';
+      case 'DRIVER_ASSIGNED':
+        return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
+      case 'PENDING_PAYMENT':
+        return isAr ? 'بانتظار الدفع' : 'Pending Payment';
+      default:
+        return rawStatus
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map(
+              (word) => word.isNotEmpty
+                  ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                  : '',
+            )
+            .join(' ');
     }
   }
 
@@ -209,7 +251,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       body: Stack(
         children: [
           if (_driverLocation == null && _initialMapCenter == null)
-            const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           else
             FlutterMap(
               mapController: _mapController,
@@ -222,48 +266,48 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.otlob.customer',
                 ),
-              if (_driverLocation != null && _initialMapCenter != null)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: [_driverLocation!, _initialMapCenter!],
-                      color: AppColors.primary,
-                      strokeWidth: 4.0,
-                    ),
-                  ],
-                ),
-              if (_initialMapCenter != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _initialMapCenter!,
-                      width: 40,
-                      height: 40,
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 40,
-                      ),
-                    ),
-                  ],
-                ),
-              if (_driverLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _driverLocation!,
-                      width: 40,
-                      height: 40,
-                      child: const Icon(
-                        Icons.directions_car,
+                if (_driverLocation != null && _initialMapCenter != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: [_driverLocation!, _initialMapCenter!],
                         color: AppColors.primary,
-                        size: 40,
+                        strokeWidth: 4.0,
                       ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
+                    ],
+                  ),
+                if (_initialMapCenter != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _initialMapCenter!,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (_driverLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _driverLocation!,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.directions_car,
+                          color: AppColors.primary,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           Positioned(
             top: 16,
             left: 16,
@@ -274,7 +318,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                 color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
                 ],
               ),
               child: Column(
@@ -291,17 +339,24 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: _orderStatus == 'LOOKING_FOR_DRIVER' ? Colors.orange : AppColors.primary,
+                      color: _orderStatus == 'LOOKING_FOR_DRIVER'
+                          ? Colors.orange
+                          : AppColors.primary,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (_orderDetails != null && _orderDetails!['driver'] != null) ...[
+                  if (_orderDetails != null &&
+                      _orderDetails!['driver'] != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+                        color: isDark
+                            ? const Color(0xFF2A2A2A)
+                            : Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.grey.shade200,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -316,8 +371,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _orderDetails!['driver']['name'] ?? (s.isArabic ? 'كابتن التوصيل' : 'Delivery Captain'),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  _orderDetails!['driver']['name'] ??
+                                      (s.isArabic
+                                          ? 'كابتن التوصيل'
+                                          : 'Delivery Captain'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ],
                             ),
@@ -327,18 +388,30 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber,
+                                    size: 16,
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${(_orderDetails!['driver']['rating'] ?? 500) / 100}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ],
                               ),
-                              if (_orderDetails!['driver']['ratingCount'] != null && _orderDetails!['driver']['ratingCount'] > 0)
+                              if (_orderDetails!['driver']['ratingCount'] !=
+                                      null &&
+                                  _orderDetails!['driver']['ratingCount'] > 0)
                                 Text(
                                   '(${_orderDetails!['driver']['ratingCount']})',
-                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 11,
+                                  ),
                                 ),
                             ],
                           ),
@@ -352,27 +425,43 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         try {
-                          final chatRepo = ref.read(sharedChatRepositoryProvider);
-                          final conversation = await chatRepo.createOrderConversation(widget.orderId);
+                          final chatRepo = ref.read(
+                            sharedChatRepositoryProvider,
+                          );
+                          final conversation = await chatRepo
+                              .createOrderConversation(widget.orderId);
                           if (!context.mounted) return;
                           if (conversation != null) {
                             final convoId = conversation['id'];
-                            context.push('/chat/order/$convoId', extra: {'title': s.isArabic ? 'طلب' : 'Order'});
+                            context.push(
+                              '/chat/order/$convoId',
+                              extra: {'title': s.isArabic ? 'طلب' : 'Order'},
+                            );
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to start chat: $e')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to start chat: $e'),
+                              ),
+                            );
                           }
                         }
                       },
                       icon: const Icon(Icons.chat_rounded, size: 20),
-                      label: Text(s.isArabic ? 'محادثة الدعم' : 'Contact Support'),
+                      label: Text(
+                        s.isArabic ? 'محادثة الدعم' : 'Contact Support',
+                      ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.1,
+                        ),
                         foregroundColor: AppColors.primary,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -392,13 +481,19 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           );
                         },
                         icon: const Icon(Icons.fact_check_rounded, size: 20),
-                        label: Text(s.isArabic ? 'مراجعة رسوم التوصيل' : 'Review Delivery Fee'),
+                        label: Text(
+                          s.isArabic
+                              ? 'مراجعة رسوم التوصيل'
+                              : 'Review Delivery Fee',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -416,34 +511,62 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            s.isArabic ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.' : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
+                            s.isArabic
+                                ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
+                                : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
                             style: const TextStyle(fontSize: 13),
                           ),
                           const SizedBox(height: 8),
-                          if (_orderDetails != null && _orderDetails!['driver'] != null && _orderDetails!['driver']['mobileWallets'] != null && (_orderDetails!['driver']['mobileWallets'] as List).isNotEmpty)
+                          if (_orderDetails != null &&
+                              _orderDetails!['driver'] != null &&
+                              _orderDetails!['driver']['mobileWallets'] !=
+                                  null &&
+                              (_orderDetails!['driver']['mobileWallets']
+                                      as List)
+                                  .isNotEmpty)
                             Text(
                               '${s.isArabic ? 'رقم المحفظة' : 'Wallet Number'}: ${(_orderDetails!['driver']['mobileWallets'] as List).first['number'] ?? ''}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () async {
-                                final success = await ref.read(ordersProvider.notifier).markPaymentPaid(widget.orderId);
+                                final success = await ref
+                                    .read(ordersProvider.notifier)
+                                    .markPaymentPaid(widget.orderId);
                                 if (success && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'تم التأكيد!' : 'Confirmed!')));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        s.isArabic
+                                            ? 'تم التأكيد!'
+                                            : 'Confirmed!',
+                                      ),
+                                    ),
+                                  );
                                 }
                               },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                              child: Text(s.isArabic ? 'لقد قمت بالتحويل' : 'I have transferred the amount', style: const TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                              ),
+                              child: Text(
+                                s.isArabic
+                                    ? 'لقد قمت بالتحويل'
+                                    : 'I have transferred the amount',
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
                   ],
-                  if (_orderStatus == 'DELIVERED' && _orderDetails?['review'] == null) ...[
+                  if (_orderStatus == 'DELIVERED' &&
+                      _orderDetails?['review'] == null) ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -458,7 +581,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),

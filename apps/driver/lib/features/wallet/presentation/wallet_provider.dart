@@ -61,8 +61,18 @@ class DriverWallet extends _$DriverWallet {
       
       // 1. Upload receipt
       final uploadRes = await repository.uploadReceipt(imagePath);
-      final receiptUrl = uploadRes['data']['url']; // Assuming backend returns the URL in data.url
-      
+      final receiptUrl = (uploadRes is Map
+              ? (uploadRes['receiptUrl'] ??
+                  uploadRes['data']?['receiptUrl'] ??
+                  uploadRes['url'] ??
+                  uploadRes['data']?['url'])
+              : null)
+          ?.toString() ??
+          '';
+      if (receiptUrl.isEmpty) {
+        throw Exception('Failed to upload receipt: no URL returned by server');
+      }
+
       // 2. Submit top-up
       await repository.submitTopUpRequest(platformWalletId, amount, receiptUrl);
       
@@ -72,6 +82,7 @@ class DriverWallet extends _$DriverWallet {
       if (prev.hasValue) {
         state = prev;
       }
+      rethrow;
     }
   }
 
@@ -86,6 +97,7 @@ class DriverWallet extends _$DriverWallet {
       if (prev.hasValue) {
         state = prev;
       }
+      rethrow;
     }
   }
 }

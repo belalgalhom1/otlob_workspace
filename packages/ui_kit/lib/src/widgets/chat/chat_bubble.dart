@@ -11,6 +11,7 @@ class ChatBubbleWidget extends StatelessWidget {
   final String type; // 'text', 'image', 'video', 'audio', 'file'
   final Map<String, dynamic>? metadata;
   final String? time;
+  final bool isRead;
   
   // Localization Strings
   final String uploadingText;
@@ -30,6 +31,7 @@ class ChatBubbleWidget extends StatelessWidget {
     required this.type,
     this.metadata,
     this.time,
+    this.isRead = false,
     required this.uploadingText,
     required this.fileAttachmentText,
     this.buildOfferBubble,
@@ -47,6 +49,31 @@ class ChatBubbleWidget extends StatelessWidget {
       end: Alignment.bottomRight,
     );
     final primaryColor = const Color(0xFFD4920E);
+
+    if (type == 'system') {
+      return Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Text(
+            content,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -136,17 +163,33 @@ class ChatBubbleWidget extends StatelessWidget {
               ),
             if (metadata?['type'] == 'OFFER' && buildOfferBubble != null)
               buildOfferBubble!(metadata!, isDark),
-            if (time != null) ...[
+            if (time != null || isMe) ...[
               const SizedBox(height: 4),
-              Text(
-                time!,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.7)
-                      : colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (time != null)
+                    Text(
+                      time!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isMe
+                            ? Colors.white.withValues(alpha: 0.7)
+                            : colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      isRead ? Icons.done_all : Icons.done,
+                      size: 14,
+                      color: isRead
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.6),
+                    ),
+                  ],
+                ],
               ),
             ],
           ],

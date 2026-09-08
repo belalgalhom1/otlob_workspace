@@ -43,7 +43,11 @@ class SharedChat extends _$SharedChat {
       if (args.type == 'vendor') {
         conversation = await chatRepo.createVendorConversation(args.id);
       } else if (args.type == 'order') {
-        conversation = await chatRepo.createOrderConversation(args.id);
+        try {
+          conversation = await chatRepo.createOrderConversation(args.id);
+        } catch (_) {
+          conversation = await chatRepo.getConversation(args.id);
+        }
       } else if (args.type == 'support') {
         conversation = await chatRepo.createSupportConversation();
       } else {
@@ -63,8 +67,13 @@ class SharedChat extends _$SharedChat {
           .onEvent(SocketEvent.chatMessage)
           .listen(_onSocketMessage);
 
+      final readSub = socket
+          .onEvent(SocketEvent.chatRead)
+          .listen(_onSocketRead);
+
       ref.onDispose(() {
         sub.cancel();
+        readSub.cancel();
       });
 
       final fetchedMessages = await _fetchMessages();
@@ -106,6 +115,33 @@ class SharedChat extends _$SharedChat {
       );
 
       _addRealtimeMessage(newMessage);
+    }
+  }
+
+  void _onSocketRead(dynamic data) {
+    if (data is Map && data['conversationId'] == _conversationId) {
+      final lastReadAtStr = data['lastReadAt'];
+      final lastReadAt = lastReadAtStr != null
+          ? DateTime.tryParse(lastReadAtStr.toString())
+          : null;
+      final lastReadMessageId = data['lastReadMessageId'];
+      final readerUserId = data['userId']?.toString();
+
+      if (readerUserId != _currentUserId) {
+        state.whenData((messages) {
+          final updated = messages.map((m) {
+            if (!m.isMe || m.isRead) return m;
+            if (lastReadMessageId != null && m.id == lastReadMessageId) {
+              return m.copyWith(isRead: true);
+            }
+            if (lastReadAt != null && !m.timestamp.isAfter(lastReadAt)) {
+              return m.copyWith(isRead: true);
+            }
+            return m;
+          }).toList();
+          state = AsyncData(updated);
+        });
+      }
     }
   }
 
@@ -186,6 +222,7 @@ class SharedChat extends _$SharedChat {
           senderRole: senderRole,
           mediaUrl: _getFullUrl(mapData['mediaUrl']),
           metadata: mapData['metadata'],
+          isRead: mapData['isRead'] == true,
         );
       }).toList();
 
@@ -240,6 +277,12 @@ class SharedChat extends _$SharedChat {
         return MessageType.audio;
       case 'FILE':
         return MessageType.file;
+      case 'LOCATION':
+        return MessageType.location;
+      case 'SYSTEM':
+        return MessageType.system;
+      case 'PRODUCT':
+        return MessageType.product;
       default:
         return MessageType.text;
     }

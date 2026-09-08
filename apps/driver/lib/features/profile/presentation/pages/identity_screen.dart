@@ -4,6 +4,8 @@ import 'package:driver/features/dashboard/presentation/driver_profile_provider.d
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:data/data.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 import '../../../../l10n/l10n_error_helper.dart';
 
 class IdentityScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,40 @@ class _IdentityScreenState extends ConsumerState<IdentityScreen> {
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  void _showChangePassword(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => ChangePasswordDialog(
+        onSubmit: (currentPassword, newPassword) async {
+          final userRepo = ref.read(sharedUserRepositoryProvider);
+          await userRepo.changePassword(currentPassword, newPassword);
+          if (context.mounted) {
+            final isAr = Localizations.localeOf(context).languageCode == 'ar';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isAr ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showDeleteAccount(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => DeleteAccountDialog(
+        onConfirm: () async {
+          final userRepo = ref.read(sharedUserRepositoryProvider);
+          await userRepo.deleteAccount();
+          await ref.read(authProvider.notifier).logout();
+        },
+      ),
+    );
   }
 
   void _save() async {
@@ -58,6 +94,7 @@ class _IdentityScreenState extends ConsumerState<IdentityScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final profileState = ref.watch(driverProfileProvider);
 
     return Scaffold(
@@ -133,6 +170,75 @@ class _IdentityScreenState extends ConsumerState<IdentityScreen> {
                 const SizedBox(height: 16),
                 // National ID explicitly read-only based on user request
                 _buildReadOnlyField(l10n.nationalId, data['nationalId'] ?? l10n.notProvided, LucideIcons.creditCard),
+                const SizedBox(height: 32),
+                Text(
+                  isAr ? 'الأمان والحساب' : 'Security & Account',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () => _showChangePassword(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.keyRound, color: Theme.of(context).colorScheme.primary, size: 20),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            isAr ? 'تغيير كلمة المرور' : 'Change Password',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () => _showDeleteAccount(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(LucideIcons.trash2, color: AppColors.error, size: 20),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            isAr ? 'حذف الحساب نهائياً' : 'Delete Account Permanently',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppColors.error),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           );

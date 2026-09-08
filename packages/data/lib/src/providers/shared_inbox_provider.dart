@@ -55,9 +55,13 @@ class SharedInbox extends _$SharedInbox {
     final sub = socket
         .onEvent(SocketEvent.chatMessage)
         .listen(_onRealtimeEvent);
+    final readSub = socket
+        .onEvent(SocketEvent.chatRead)
+        .listen(_onRealtimeEvent);
 
     ref.onDispose(() {
       sub.cancel();
+      readSub.cancel();
     });
 
     return InboxState(isLoading: true);

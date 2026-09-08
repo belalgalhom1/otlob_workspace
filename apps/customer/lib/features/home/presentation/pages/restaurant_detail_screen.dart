@@ -623,14 +623,55 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${item['price']} ${s.egp}', 
-                        style: const TextStyle(
-                          color: AppColors.primary, 
-                          fontWeight: FontWeight.w900, 
-                          fontSize: 15,
-                        ),
-                      ),
+                      Builder(builder: (context) {
+                        final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+                        final comparePrice = (item['comparePrice'] as num?)?.toDouble();
+                        final hasDiscount = comparePrice != null && comparePrice > price;
+                        final discountPct = hasDiscount ? (((comparePrice - price) / comparePrice) * 100).round() : 0;
+
+                        return Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 2,
+                          children: [
+                            Text(
+                              '${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)} ${s.egp}', 
+                              style: const TextStyle(
+                                color: AppColors.primary, 
+                                fontWeight: FontWeight.w900, 
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (hasDiscount) ...[
+                              Text(
+                                '${comparePrice.toStringAsFixed(comparePrice % 1 == 0 ? 0 : 2)} ${s.egp}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                ),
+                                child: Text(
+                                  '-$discountPct%',
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      }),
                       if (isOpen)
                         GestureDetector(
                           onTap: () async {
@@ -709,24 +750,55 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
               ),
             ),
             const SizedBox(width: 16),
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: ((item['imageUrl'] ?? item['image'])?.toString().isEmpty ?? true)
-                    ? Icon(Icons.fastfood, color: Colors.grey.shade400, size: 36)
-                    : CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl((item['imageUrl'] ?? item['image']) as String?),
-                        fit: BoxFit.cover,
-                        width: 110,
-                        height: 110,
+            Stack(
+              children: [
+                Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: ((item['imageUrl'] ?? item['image'])?.toString().isEmpty ?? true)
+                        ? Icon(Icons.fastfood, color: Colors.grey.shade400, size: 36)
+                        : CachedNetworkImage(
+                            imageUrl: ImageUtils.formatImageUrl((item['imageUrl'] ?? item['image']) as String?),
+                            fit: BoxFit.cover,
+                            width: 110,
+                            height: 110,
+                          ),
+                  ),
+                ),
+                if (item['comparePrice'] != null && (item['comparePrice'] as num) > (item['price'] as num))
+                  PositionedDirectional(
+                    top: 6,
+                    start: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
-              ),
+                      child: Text(
+                        '-${((((item['comparePrice'] as num) - (item['price'] as num)) / (item['comparePrice'] as num)) * 100).round()}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

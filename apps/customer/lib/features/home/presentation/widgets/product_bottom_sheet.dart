@@ -243,9 +243,48 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           ),
                         ),
                       ),
-                      Text(
-                        '${currentUnitPrice.toStringAsFixed(2)} ${s.egp}',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${currentUnitPrice.toStringAsFixed(currentUnitPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                          if (item['comparePrice'] != null && (item['comparePrice'] as num) > currentUnitPrice) ...[
+                            const SizedBox(height: 3),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${(item['comparePrice'] as num).toStringAsFixed((item['comparePrice'] as num) % 1 == 0 ? 0 : 2)} ${s.egp}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                    decoration: TextDecoration.lineThrough,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                  ),
+                                  child: Text(
+                                    '-${((((item['comparePrice'] as num) - currentUnitPrice) / (item['comparePrice'] as num)) * 100).round()}%',
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

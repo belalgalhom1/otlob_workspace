@@ -4273,6 +4273,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Waiting for Customer Approval'**
   String get waitingForCustomerApproval;
+
+  /// No description provided for @deliveryHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery History'**
+  String get deliveryHistory;
+
+  /// No description provided for @noDeliveriesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No Deliveries Yet'**
+  String get noDeliveriesYet;
+
+  /// No description provided for @noDeliveriesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed deliveries and rides will appear here.'**
+  String get noDeliveriesSubtitle;
+
+  /// No description provided for @deliveryFeeEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery Fee Earned'**
+  String get deliveryFeeEarned;
+
+  /// No description provided for @deliveredAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered at'**
+  String get deliveredAt;
+
+  /// No description provided for @tripDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Details'**
+  String get tripDetails;
 }
 
 class _AppLocalizationsDelegate

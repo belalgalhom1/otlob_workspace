@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
+import 'package:core/core.dart';
 
 part 'auth_controller.g.dart';
 
@@ -36,15 +37,24 @@ class AuthController extends _$AuthController {
     // For now, treat all authenticated users as verified
     // If verification state is needed, fetch it from profile
     state = AuthStatus.authenticated;
+    try {
+      ref.read(pushNotificationServiceProvider).initialize();
+    } catch (_) {}
   }
 
   Future<void> login(String email, String password) async {
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     await authRepo.login(email, password);
     state = AuthStatus.authenticated;
+    try {
+      ref.read(pushNotificationServiceProvider).initialize();
+    } catch (_) {}
   }
 
   Future<void> logout() async {
+    try {
+      await ref.read(pushNotificationServiceProvider).unregisterToken();
+    } catch (_) {}
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     await authRepo.logout();
     state = AuthStatus.unauthenticated;

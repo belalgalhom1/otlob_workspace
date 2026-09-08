@@ -11,8 +11,10 @@ import 'package:driver/features/order_execution/presentation/pages/order_executi
 import 'package:driver/features/shifts/presentation/pages/shifts_screen.dart';
 import 'package:driver/features/chat/presentation/pages/chat_screen.dart';
 import 'package:driver/features/notifications/presentation/pages/notifications_screen.dart';
+import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:driver/features/profile/presentation/pages/identity_screen.dart';
 import 'package:driver/features/profile/presentation/pages/vehicle_screen.dart';
+import 'package:driver/features/orders/presentation/pages/deliveries_history_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -71,6 +73,10 @@ GoRouter appRouter(Ref ref) {
         },
       ),
       GoRoute(
+        path: '/inbox',
+        builder: (context, state) => const InboxScreen(),
+      ),
+      GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsScreen(),
       ),
@@ -81,6 +87,10 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/profile/vehicle',
         builder: (context, state) => const VehicleScreen(),
+      ),
+      GoRoute(
+        path: '/deliveries',
+        builder: (context, state) => const DeliveriesHistoryScreen(),
       ),
     ],
   );

@@ -10,6 +10,8 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:data/providers.dart';
+import '../../chat/presentation/pages/admin_chat_screen.dart';
 import '../presentation/orders_provider.dart';
 import 'widgets/assign_driver_sheet.dart';
 
@@ -894,6 +896,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       ),
                                     ),
                                   ],
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _openOrderChat(context, order, isArabic),
+                                      icon: const Icon(LucideIcons.messageSquare, size: 16, color: AppColors.primary),
+                                      label: Text(
+                                        isArabic ? 'محادثة الطلب (العميل والسائق)' : 'Order Chat (Customer & Driver)',
+                                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        side: const BorderSide(color: AppColors.primary),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1667,6 +1686,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _openOrderChat(BuildContext context, dynamic order, bool isArabic) async {
+    final orderId = order['id']?.toString();
+    final orderCode = order['orderNumber']?.toString() ?? (orderId != null && orderId.length >= 8 ? orderId.substring(0, 8) : orderId ?? '');
+    if (orderId == null) return;
+
+    try {
+      final chatRepo = ref.read(sharedChatRepositoryProvider);
+      final conversation = await chatRepo.createOrderConversation(orderId);
+      final convoData = conversation is Map && conversation.containsKey('data')
+          ? conversation['data']
+          : conversation;
+      final convoId = convoData?['id']?.toString() ?? orderId;
+
+      if (!context.mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (ctx) => AdminChatScreen(
+            conversationId: convoId,
+            title: isArabic ? 'محادثة الطلب #$orderCode' : 'Order Chat #$orderCode',
+            type: 'ORDER',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open chat: $e')),
+      );
+    }
   }
 
   void _showPrepTimeDialog(BuildContext context, String orderId) {

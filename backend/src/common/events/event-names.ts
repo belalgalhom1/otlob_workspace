@@ -4,6 +4,7 @@ export const EVENTS = {
 
   // Chat
   CHAT_MESSAGE_SENT: 'chat.message.sent',
+  CHAT_MESSAGE_READ: 'chat.message.read',
   CHAT_CONVERSATION_CREATED: 'chat.conversation.created',
   CHAT_CONVERSATION_CLOSED: 'chat.conversation.closed',
 

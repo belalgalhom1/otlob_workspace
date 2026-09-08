@@ -91,6 +91,18 @@ class PushNotificationService {
     }
   }
 
+  Future<void> unregisterToken() async {
+    try {
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _devicesApi.devicesControllerRemove(token: token);
+        debugPrint('FCM Token removed from backend successfully');
+      }
+    } catch (e) {
+      debugPrint('Failed to unregister FCM token: $e');
+    }
+  }
+
   void showLocalNotification({required String title, required String body, int? id}) {
     const androidDetails = AndroidNotificationDetails(
       'high_importance_channel', // channel id

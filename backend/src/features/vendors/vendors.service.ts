@@ -671,6 +671,16 @@ export class VendorsService {
               },
             },
           },
+          offers: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              offerPrice: true,
+              originalPrice: true,
+              startDate: true,
+              endDate: true,
+            },
+          },
         },
       },
     };
@@ -752,6 +762,7 @@ export class VendorsService {
       description: string | null;
       descriptionAr: string | null;
       basePrice: number | null;
+      comparePrice?: number | null;
       imageUrl: string | null;
       categoryId: string | null;
       sellByStrip: boolean;
@@ -759,6 +770,7 @@ export class VendorsService {
       hasVariants: boolean;
       variants: unknown[];
       optionGroups: unknown[];
+      offers?: unknown[];
     }[];
   }) {
     let status = vendor.status;
@@ -822,13 +834,42 @@ export class VendorsService {
           const isPharmacy = slug.includes('pharmacy') || slug.includes('pharmacies') || slug.includes('pharmacies-') || slug.includes('صيدلي') || slug.includes('صيدليات') || slug.includes('medical') || slug.includes('medicine') || slug.includes('pharma') ||
                              name.includes('pharmacy') || name.includes('pharmacies') || name.includes('medical') || name.includes('medicine') || name.includes('pharma') || nameAr.includes('صيدلي') || nameAr.includes('صيدليات') ||
                              vendorSlug.includes('pharmacy') || vendorSlug.includes('صيدلي') || vendorSlug.includes('صيدليات') || storeName.includes('pharmacy') || storeName.includes('صيدلي') || storeName.includes('صيدليات') || false;
+          const pOffers = (p as any).offers as Array<{
+            offerPrice: number;
+            originalPrice?: number | null;
+            startDate?: Date | null;
+            endDate?: Date | null;
+          }> | undefined;
+
+          const now = new Date();
+          const activeOffer = pOffers?.find((o) => {
+            if (o.startDate && new Date(o.startDate) > now) return false;
+            if (o.endDate && new Date(o.endDate) < now) return false;
+            return true;
+          });
+
+          const basePrice = p.basePrice ? Number(p.basePrice) : 0;
+          const rawComparePrice = p.comparePrice ? Number(p.comparePrice) : null;
+
+          let effectivePrice = basePrice;
+          let effectiveComparePrice = rawComparePrice;
+
+          if (activeOffer) {
+            effectivePrice = Number(activeOffer.offerPrice);
+            effectiveComparePrice = activeOffer.originalPrice
+              ? Number(activeOffer.originalPrice)
+              : (rawComparePrice && rawComparePrice > effectivePrice ? rawComparePrice : basePrice);
+          }
+
           return {
             id: p.id,
             name: p.name,
             nameAr: p.nameAr || '',
             description: p.description,
             descriptionAr: p.descriptionAr || '',
-            price: p.basePrice ? Number(p.basePrice) : 0,
+            price: effectivePrice,
+            basePrice: basePrice,
+            comparePrice: effectiveComparePrice && effectiveComparePrice > effectivePrice ? effectiveComparePrice : null,
             image: p.imageUrl || '',
             category: p.categoryId, // Link to category
             sellByStrip: isPharmacy ? p.sellByStrip : false,

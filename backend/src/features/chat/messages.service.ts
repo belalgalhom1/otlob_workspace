@@ -10,7 +10,7 @@ import { ConversationStatus, MessageType, Role, Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SendMessageDto, QueryMessagesDto, MarkReadDto } from './dto/chat.dto';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
-import { ChatMessageSentEvent } from 'src/common/events';
+import { ChatMessageSentEvent, ChatMessageReadEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import {
   ChatErrors,
@@ -182,6 +182,7 @@ export class MessagesService {
         message.mediaUrl,
         message.metadata as Record<string, any> | null,
         message.createdAt,
+        conversation.type,
       ),
     );
 
@@ -200,6 +201,7 @@ export class MessagesService {
       where: { id: conversationId },
       select: {
         id: true,
+        type: true,
         status: true,
         participants: { select: { userId: true } },
       },
@@ -234,6 +236,7 @@ export class MessagesService {
         null,
         metadata ?? null,
         message.createdAt,
+        conversation.type,
       ),
     );
 
@@ -298,6 +301,7 @@ export class MessagesService {
         null,
         null,
         message.createdAt,
+        conversation.type,
       ),
     );
 
@@ -377,8 +381,20 @@ export class MessagesService {
       (p) => p.userId === actor.sub,
     );
 
+    const otherParticipants = conversation.participants.filter(
+      (p) => p.userId !== actor.sub,
+    );
+    const latestOtherReadAt =
+      otherParticipants
+        .map((p) => p.lastReadAt)
+        .filter((d): d is Date => d !== null)
+        .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+
     return {
-      messages: ordered.map((m) => this.formatMessage(m)),
+      messages: ordered.map((m) => ({
+        ...this.formatMessage(m),
+        isRead: latestOtherReadAt ? m.createdAt <= latestOtherReadAt : false,
+      })),
       hasMore: messages.length === limit,
       nextCursor:
         messages.length === limit ? messages[messages.length - 1].id : null,
@@ -397,7 +413,7 @@ export class MessagesService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { vendorId: true },
+      select: { vendorId: true, participants: { select: { userId: true } } },
     });
 
     const isAdmin = actor.role === Role.SUPER_ADMIN;
@@ -435,6 +451,19 @@ export class MessagesService {
       where: { conversationId_userId: { conversationId, userId: actor.sub } },
       data: { lastReadAt: readAt },
     });
+
+    const participantIds = conversation?.participants.map((p) => p.userId) ?? [];
+
+    this.eventEmitter.emit(
+      EVENTS.CHAT_MESSAGE_READ,
+      new ChatMessageReadEvent(
+        conversationId,
+        actor.sub,
+        participantIds,
+        readAt,
+        dto.lastReadMessageId ?? null,
+      ),
+    );
 
     return { lastReadAt: readAt };
   }
@@ -526,8 +555,13 @@ export class MessagesService {
       (p) => p.userId === actor.sub,
     );
     const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isVendorMember = await this.isVendorMemberForConversation(
+      actor.sub,
+      actor.role,
+      conversation.vendorId,
+    );
 
-    if (!isParticipant && !isAdmin) {
+    if (!isParticipant && !isAdmin && !isVendorMember) {
       throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
     }
 

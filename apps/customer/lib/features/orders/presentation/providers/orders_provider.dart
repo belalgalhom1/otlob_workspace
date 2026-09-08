@@ -73,15 +73,15 @@ class Orders extends _$Orders {
   Future<void> _initFetch() async {
     state = state.copyWith(isLoading: true, error: null, activePage: 1, pastPage: 1);
     try {
-      final active = await _fetchFromApi(page: 1, limit: _limit, isActive: true);
-      final past = await _fetchFromApi(page: 1, limit: _limit, isActive: false);
+      final activeResult = await _fetchFromApi(page: 1, limit: _limit, isActive: true);
+      final pastResult = await _fetchFromApi(page: 1, limit: _limit, isActive: false);
       
       state = state.copyWith(
-        activeOrders: active,
-        pastOrders: past,
+        activeOrders: activeResult.orders,
+        pastOrders: pastResult.orders,
         isLoading: false,
-        hasMoreActive: active.length == _limit,
-        hasMorePast: past.length == _limit,
+        hasMoreActive: activeResult.hasMore,
+        hasMorePast: pastResult.hasMore,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -96,36 +96,49 @@ class Orders extends _$Orders {
 
   static const _pastStatuses = {'DELIVERED', 'CANCELLED'};
 
-  Future<List<Map<String, dynamic>>> _fetchFromApi({required int page, required int limit, required bool isActive}) async {
+  Future<({List<Map<String, dynamic>> orders, bool hasMore})> _fetchFromApi({
+    required int page,
+    required int limit,
+    required bool isActive,
+  }) async {
     final repo = ref.read(customerOrderRepositoryProvider);
     try {
       final allOrders = await repo.getMyOrders(page: page, limit: limit);
       if (allOrders != null) {
         final targetSet = isActive ? _activeStatuses : _pastStatuses;
-        return (allOrders as List)
-            .whereType<Map>()
-            .where((o) => targetSet.contains(o['status']?.toString()))
-            .map((o) => Map<String, dynamic>.from(o))
-            .toList();
+        final rawList = allOrders is Map
+            ? (allOrders['orders'] ?? allOrders['data'] ?? allOrders['items'])
+            : allOrders;
+
+        final totalPages = allOrders is Map ? (allOrders['totalPages'] as num?)?.toInt() ?? 1 : 1;
+        final hasMore = page < totalPages;
+
+        if (rawList is List) {
+          final mapped = rawList
+              .whereType<Map>()
+              .where((o) => targetSet.contains(o['status']?.toString()))
+              .map((o) => Map<String, dynamic>.from(o))
+              .toList();
+          return (orders: mapped, hasMore: hasMore);
+        }
       }
     } catch (e) {
       debugPrint('Error fetching orders: $e');
     }
-    return [];
+    return (orders: <Map<String, dynamic>>[], hasMore: false);
   }
-
 
   Future<void> loadMoreActive() async {
     if (state.isLoadingMoreActive || !state.hasMoreActive) return;
     state = state.copyWith(isLoadingMoreActive: true);
     
     final nextPage = state.activePage + 1;
-    final newOrders = await _fetchFromApi(page: nextPage, limit: _limit, isActive: true);
+    final result = await _fetchFromApi(page: nextPage, limit: _limit, isActive: true);
     
     state = state.copyWith(
-      activeOrders: [...state.activeOrders, ...newOrders],
+      activeOrders: [...state.activeOrders, ...result.orders],
       activePage: nextPage,
-      hasMoreActive: newOrders.length == _limit,
+      hasMoreActive: result.hasMore,
       isLoadingMoreActive: false,
     );
   }
@@ -135,12 +148,12 @@ class Orders extends _$Orders {
     state = state.copyWith(isLoadingMorePast: true);
     
     final nextPage = state.pastPage + 1;
-    final newOrders = await _fetchFromApi(page: nextPage, limit: _limit, isActive: false);
+    final result = await _fetchFromApi(page: nextPage, limit: _limit, isActive: false);
     
     state = state.copyWith(
-      pastOrders: [...state.pastOrders, ...newOrders],
+      pastOrders: [...state.pastOrders, ...result.orders],
       pastPage: nextPage,
-      hasMorePast: newOrders.length == _limit,
+      hasMorePast: result.hasMore,
       isLoadingMorePast: false,
     );
   }

@@ -26,6 +26,17 @@ export class ChatMessageSentEvent {
     public readonly mediaUrl: string | null,
     public readonly metadata: Record<string, unknown> | null,
     public readonly createdAt: Date,
+    public readonly conversationType?: string,
+  ) {}
+}
+
+export class ChatMessageReadEvent {
+  constructor(
+    public readonly conversationId: string,
+    public readonly userId: string,
+    public readonly participantIds: string[],
+    public readonly lastReadAt: Date,
+    public readonly lastReadMessageId: string | null,
   ) {}
 }
 

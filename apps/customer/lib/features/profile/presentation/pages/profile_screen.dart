@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:data/providers.dart';
+import 'package:ui_kit/ui_kit.dart' hide AppColors;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -99,6 +100,12 @@ class ProfileScreen extends ConsumerWidget {
                           title: s.editProfile,
                           onTap: () =>
                               _showEditProfile(context, ref, s, profileState),
+                        ),
+                        _buildNavTile(
+                          context: context,
+                          icon: Icons.lock_reset_rounded,
+                          title: s.isArabic ? 'تغيير كلمة المرور' : 'Change Password',
+                          onTap: () => _showChangePassword(context, ref, s),
                         ),
                         _buildNavTile(
                           context: context,
@@ -198,6 +205,17 @@ class ProfileScreen extends ConsumerWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => _showDeleteAccount(context, ref, s),
+                        icon: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent, size: 18),
+                        label: Text(
+                          s.isArabic ? 'حذف الحساب نهائياً' : 'Delete Account Permanently',
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -663,4 +681,46 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _showChangePassword(BuildContext context, WidgetRef ref, AppStrings s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => ChangePasswordDialog(
+        onSubmit: (currentPassword, newPassword) async {
+          final userRepo = ref.read(sharedUserRepositoryProvider);
+          await userRepo.changePassword(currentPassword, newPassword);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(s.isArabic ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showDeleteAccount(BuildContext context, WidgetRef ref, AppStrings s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => DeleteAccountDialog(
+        onConfirm: () async {
+          final userRepo = ref.read(sharedUserRepositoryProvider);
+          await userRepo.deleteAccount();
+          await ref.read(authControllerProvider.notifier).logout();
+          if (context.mounted) {
+            context.go('/home');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(s.isArabic ? 'تم حذف الحساب بنجاح' : 'Account deleted successfully'),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
 }
+

@@ -123,8 +123,12 @@ class CartScreen extends ConsumerWidget {
     final vendorName = s.isArabic 
         ? (firstProduct['vendorNameAr'] ?? firstProduct['vendorName'] ?? s.vendor) 
         : (firstProduct['vendorName'] ?? s.vendor);
-      final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
-      final total = subtotal;
+    final vendorStatus = firstProduct['vendorStatus']?.toString() ?? 'OPEN';
+    final isVendorOpen = vendorStatus == 'OPEN';
+    final hasInactiveItems = items.any((it) => it.product['isActive'] == false || (it.selectedVariant != null && it.selectedVariant!['isActive'] == false));
+    final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
+    final total = subtotal;
+    final canCheckout = isVendorOpen && !hasInactiveItems;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -190,14 +194,34 @@ class CartScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      vendorName, 
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900, 
-                        fontSize: 18,
-                        color: isDark ? Colors.white : Colors.black87
-                      )
-                    )
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          vendorName, 
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900, 
+                            fontSize: 18,
+                            color: isDark ? Colors.white : Colors.black87
+                          ),
+                        ),
+                        if (!isVendorOpen)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                s.isArabic ? 'مغلق حالياً' : 'Closed Now',
+                                style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                   Icon(
                     s.isArabic ? Icons.arrow_back_ios_rounded : Icons.arrow_forward_ios_rounded, 
@@ -230,6 +254,29 @@ class CartScreen extends ConsumerWidget {
             ),
             child: Column(
               children: [
+                if (hasInactiveItems)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            s.isArabic
+                                ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
+                                : 'Your basket contains unavailable items. Please remove them to proceed.',
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 _buildSummaryRow(s.subtotal, '${subtotal.toStringAsFixed(0)} ${s.egp}', isDark),
                 const SizedBox(height: 8),
                 Row(
@@ -275,10 +322,23 @@ class CartScreen extends ConsumerWidget {
                       ],
                     ),
                     ElevatedButton(
-                      onPressed: () => context.push('/checkout', extra: vendorId),
+                      onPressed: canCheckout
+                          ? () => context.push('/checkout', extra: vendorId)
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    !isVendorOpen
+                                        ? (s.isArabic ? 'المتجر مغلق حالياً ولا يستقبل طلبات' : 'Store is currently closed')
+                                        : (s.isArabic ? 'الرجاء إزالة المنتجات غير المتوفرة للمتابعة' : 'Please remove unavailable items to proceed'),
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
+                        backgroundColor: canCheckout ? AppColors.primary : Colors.grey,
+                        foregroundColor: canCheckout ? Colors.black : Colors.white70,
                         minimumSize: const Size(120, 54),
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -314,6 +374,13 @@ class CartScreen extends ConsumerWidget {
   }
 
   Widget _buildCartItem(BuildContext context, WidgetRef ref, CartItem item, AppStrings s, bool isDark) {
+    final isInactive = item.product['isActive'] == false || (item.selectedVariant != null && item.selectedVariant!['isActive'] == false);
+    final comparePrice = item.product['comparePrice'] is num
+        ? (item.product['comparePrice'] as num).toDouble()
+        : double.tryParse(item.product['comparePrice']?.toString() ?? '');
+    final itemUnitPrice = item.totalPrice / (item.quantity > 0 ? item.quantity : 1);
+    final hasDiscount = comparePrice != null && comparePrice > itemUnitPrice;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Row(
@@ -350,10 +417,25 @@ class CartScreen extends ConsumerWidget {
               children: [
                 Text(
                   s.isArabic ? (item.product['nameAr'] ?? item.product['name'] ?? '') : (item.product['name'] ?? ''), 
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: isDark ? Colors.white : Colors.black), 
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800, 
+                    fontSize: 15, 
+                    color: isInactive ? Colors.grey : (isDark ? Colors.white : Colors.black),
+                    decoration: isInactive ? TextDecoration.lineThrough : null,
+                  ), 
                   maxLines: 2, 
                   overflow: TextOverflow.ellipsis
                 ),
+                if (isInactive)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                    child: Text(
+                      s.isArabic ? 'غير متوفر حالياً' : 'Currently Unavailable',
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 if (item.selectedUnit == 'strip')
                   Container(
                     margin: const EdgeInsets.only(top: 4),
@@ -380,9 +462,25 @@ class CartScreen extends ConsumerWidget {
                     ),
                   ),
                 const SizedBox(height: 8),
-                Text(
-                  '${item.totalPrice.toStringAsFixed(0)} ${s.egp}', 
-                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16)
+                Row(
+                  children: [
+                    Text(
+                      '${item.totalPrice.toStringAsFixed(0)} ${s.egp}', 
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16)
+                    ),
+                    if (hasDiscount) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${(comparePrice * item.quantity).toStringAsFixed(0)} ${s.egp}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white38 : Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ]
             )

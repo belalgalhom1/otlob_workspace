@@ -185,6 +185,38 @@ export class ConversationsService {
     return conversation;
   }
 
+  async closeSystemOrderConversation(orderId: string) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        orderId,
+        type: ConversationType.ORDER,
+        status: ConversationStatus.OPEN,
+      },
+      include: { participants: true },
+    });
+
+    if (!conversation) return null;
+
+    await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { status: ConversationStatus.CLOSED },
+    });
+
+    const participantIds = conversation.participants.map((p) => p.userId);
+
+    this.eventEmitter.emit(
+      EVENTS.CHAT_CONVERSATION_CLOSED,
+      new ChatConversationClosedEvent(
+        conversation.id,
+        participantIds,
+        'system',
+      ),
+    );
+
+    this.logger.log(`System Order conversation closed for order ${orderId}`);
+    return conversation;
+  }
+
   async createOrderConversation(
     actor: JwtAccessPayload,
     dto: CreateOrderConversationDto,

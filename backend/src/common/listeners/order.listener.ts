@@ -269,8 +269,16 @@ export class OrderListener {
       }
     }
 
-    // Trigger settlement when driver marks delivered
+    // Trigger settlement and close chat when driver marks delivered
     if (event.newStatus === OrderStatus.DELIVERED) {
+      await this.conversationsService
+        .closeSystemOrderConversation(event.orderId)
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to close order conversation on delivery: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+
       await this.ordersQueue.add(
         ORDER_JOBS.SETTLE,
         { orderId: event.orderId, orderNumber: event.orderNumber },
@@ -366,6 +374,15 @@ export class OrderListener {
       .catch((err: unknown) =>
         this.logger.error(
           `Failed to create notification for cancelled order ${event.orderNumber}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+
+    // Close order chat conversation if open
+    await this.conversationsService
+      .closeSystemOrderConversation(event.orderId)
+      .catch((err: unknown) =>
+        this.logger.error(
+          `Failed to close order conversation on cancel: ${err instanceof Error ? err.message : String(err)}`,
         ),
       );
 

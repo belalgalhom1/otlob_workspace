@@ -4,6 +4,7 @@ import 'data.dart';
 export 'src/providers/shared_chat_provider.dart';
 export 'src/providers/shared_inbox_provider.dart';
 export 'src/providers/shared_notification_settings_provider.dart';
+export 'src/providers/shared_inbox_counts_provider.dart';
 
 final adminAuditLogsRepositoryProvider = Provider<AdminAuditLogsRepository>((ref) => AdminAuditLogsRepository(ref.watch(apiClientProvider).getAuditLogsApi()));
 final adminCustomersRepositoryProvider = Provider<AdminCustomersRepository>((ref) => AdminCustomersRepository(ref.watch(apiClientProvider).getCustomersApi()));

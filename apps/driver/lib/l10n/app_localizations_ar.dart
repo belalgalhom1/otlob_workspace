@@ -2182,4 +2182,22 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get waitingForCustomerApproval => 'في إنتظار موافقة العميل';
+
+  @override
+  String get deliveryHistory => 'سجل التوصيلات';
+
+  @override
+  String get noDeliveriesYet => 'لا توجد توصيلات بعد';
+
+  @override
+  String get noDeliveriesSubtitle => 'ستظهر التوصيلات والرحلات المكتملة هنا.';
+
+  @override
+  String get deliveryFeeEarned => 'أرباح التوصيل';
+
+  @override
+  String get deliveredAt => 'تم التوصيل في';
+
+  @override
+  String get tripDetails => 'تفاصيل الرحلة';
 }

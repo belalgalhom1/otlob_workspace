@@ -27,7 +27,18 @@ class DriverNotifications extends _$DriverNotifications {
     try {
       final repo = ref.read(sharedNotificationsRepositoryProvider);
       final res = await repo.list(page: 1, limit: 50);
-      final notifications = res['data'] as List<dynamic>? ?? [];
+      List<dynamic> notifications = [];
+      if (res is List) {
+        notifications = res;
+      } else if (res is Map) {
+        if (res['notifications'] is List) {
+          notifications = res['notifications'] as List<dynamic>;
+        } else if (res['data'] is List) {
+          notifications = res['data'] as List<dynamic>;
+        } else if (res['data'] is Map && res['data']['notifications'] is List) {
+          notifications = res['data']['notifications'] as List<dynamic>;
+        }
+      }
       state = AsyncValue.data(notifications);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -40,6 +51,7 @@ class DriverNotifications extends _$DriverNotifications {
       final repo = ref.read(sharedNotificationsRepositoryProvider);
       await repo.markOneRead(id);
       await _fetchNotifications();
+      ref.read(inboxCountsProvider.notifier).refresh();
     } catch (e) {
       if (prev.hasValue) {
         state = prev;
@@ -53,6 +65,7 @@ class DriverNotifications extends _$DriverNotifications {
       final repo = ref.read(sharedNotificationsRepositoryProvider);
       await repo.markRead();
       await _fetchNotifications();
+      ref.read(inboxCountsProvider.notifier).refresh();
     } catch (e) {
       if (prev.hasValue) {
         state = prev;

@@ -43,8 +43,10 @@ class VendorWalletScreen extends ConsumerWidget {
           return const Center(child: Text('No vendor selected or found.'));
         }
         
-        final balanceData = data['balance'] as Map<String, dynamic>;
-        final balance = double.tryParse(balanceData['balance']?.toString() ?? '0') ?? 0.0;
+        final balanceData = data['balance'] is Map ? data['balance'] as Map<String, dynamic> : <String, dynamic>{};
+        final balance = double.tryParse(
+            (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0').toString()
+        ) ?? 0.0;
         
         final transactions = data['transactions'] as List<dynamic>;
 

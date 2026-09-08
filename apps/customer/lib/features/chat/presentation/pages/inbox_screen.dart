@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:data/providers.dart';
+import 'package:data/providers.dart' hide inboxCountsProvider;
 import '../providers/inbox_counts_provider.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
@@ -208,8 +208,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       iconColor: iconColor,
       isSupport: type == 'SUPPORT',
       onTap: () async {
+        final targetId = (type == 'ORDER' && convo['orderId'] != null)
+            ? convo['orderId']
+            : id;
         await context.push(
-          '/chat/${type.toLowerCase()}/$id',
+          '/chat/${type.toLowerCase()}/$targetId',
           extra: {'title': title},
         );
         ref.read(inboxCountsProvider.notifier).refresh();

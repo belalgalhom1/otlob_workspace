@@ -39,7 +39,7 @@ type CartProduct = Prisma.ProductGetPayload<{
 
 type CartItemInclude = {
   id: string;
-  productId: string;
+  productId: string | null;
   variantId: string | null;
   quantity: number;
   specialRequest: string | null;
@@ -47,8 +47,11 @@ type CartItemInclude = {
   customPrice: number | null;
   customImageUrl: string | null;
   product: {
+    id?: string;
     basePrice: number;
+    comparePrice?: number | null;
     name: string | null;
+    nameAr?: string | null;
     isActive: boolean;
     stock: number | null;
     imageUrl: string | null;
@@ -59,7 +62,7 @@ type CartItemInclude = {
       startDate: Date | null;
       endDate: Date | null;
     }[];
-  };
+  } | null;
   variant: {
     basePrice: number;
     name: string | null;
@@ -406,7 +409,7 @@ export class CartService {
           item.variantId,
           (variantQuantities.get(item.variantId) ?? 0) + item.quantity,
         );
-      } else {
+      } else if (item.productId) {
         productQuantities.set(
           item.productId,
           (productQuantities.get(item.productId) ?? 0) + item.quantity,
@@ -513,6 +516,7 @@ export class CartService {
               nameAr: true,
               imageUrl: true,
               basePrice: true,
+              comparePrice: true,
               isActive: true,
               hasVariants: true,
               stock: true,
@@ -597,15 +601,39 @@ export class CartService {
 
       subtotal += totalPrice;
 
+      // Ensure item.product is never null (e.g. for custom negotiated items from chat)
+      const resolvedProduct = item.product
+        ? {
+            ...item.product,
+            comparePrice:
+              item.product.comparePrice ??
+              (activeOffer ? Number(item.product.basePrice) : null),
+          }
+        : {
+            id: item.productId ?? item.id,
+            name: item.customName ?? 'Custom Item',
+            nameAr: item.customName ?? 'طلب مخصص',
+            imageUrl: item.customImageUrl,
+            basePrice: item.customPrice ?? 0,
+            comparePrice: null,
+            isActive: true,
+            hasVariants: false,
+            stock: null,
+            offers: [],
+          };
+
       return {
         id: item.id,
         productId: item.productId,
         variantId: item.variantId,
-        product: item.product,
+        product: resolvedProduct,
         variant: item.variant,
         options: item.selectedOptions.map((so) => so.option),
         quantity: item.quantity,
         specialRequest: item.specialRequest,
+        customName: item.customName,
+        customPrice: item.customPrice,
+        customImageUrl: item.customImageUrl,
         unitPrice,
         totalPrice,
       };

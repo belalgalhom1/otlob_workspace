@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -8,6 +10,9 @@ import 'package:go_router/go_router.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 
 class OrderChatScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -24,8 +29,97 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   SharedChatArgs get _args => SharedChatArgs(id: widget.orderId, type: 'order');
 
+  FlutterSoundRecorder? _recorder;
+  bool _isRecorderInitialized = false;
+  bool _isRecording = false;
+  String? _recordingPath;
+  StreamSubscription? _recordingSubscription;
+  Duration _recordingDuration = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _initRecorder();
+    _textController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _initRecorder() async {
+    final status = await Permission.microphone.request();
+    if (status != PermissionStatus.granted) return;
+    _recorder = FlutterSoundRecorder();
+    await _recorder!.openRecorder();
+    _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
+    if (mounted) {
+      setState(() {
+        _isRecorderInitialized = true;
+      });
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (!_isRecorderInitialized) return;
+    final tempDir = await getTemporaryDirectory();
+    _recordingPath = '${tempDir.path}/driver_recording_${DateTime.now().millisecondsSinceEpoch}.aac';
+    await _recorder!.startRecorder(toFile: _recordingPath);
+    _recordingSubscription = _recorder!.onProgress!.listen((e) {
+      if (mounted) {
+        setState(() {
+          _recordingDuration = e.duration;
+        });
+      }
+    });
+    setState(() {
+      _isRecording = true;
+      _recordingDuration = Duration.zero;
+    });
+  }
+
+  Future<void> _cancelRecording() async {
+    if (!_isRecording) return;
+    await _recorder!.stopRecorder();
+    _recordingSubscription?.cancel();
+    if (_recordingPath != null) {
+      final file = File(_recordingPath!);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+    setState(() {
+      _isRecording = false;
+      _recordingDuration = Duration.zero;
+    });
+  }
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) return;
+    await _recorder!.stopRecorder();
+    _recordingSubscription?.cancel();
+    final duration = _recordingDuration;
+    setState(() {
+      _isRecording = false;
+      _recordingDuration = Duration.zero;
+    });
+
+    if (_recordingPath != null) {
+      final file = File(_recordingPath!);
+      if (await file.exists()) {
+        final size = await file.length();
+        if (size < 100 || duration.inMilliseconds < 800) {
+          await file.delete();
+          return;
+        }
+      }
+      ref.read(sharedChatProvider(_args).notifier).sendMedia(_recordingPath!, MessageType.audio);
+    }
+  }
+
   @override
   void dispose() {
+    _recordingSubscription?.cancel();
+    _recorder?.closeRecorder();
+    _recorder = null;
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -154,6 +248,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                         content: msg.content,
                         type: msg.type.name,
                         time: DateFormat.Hm().format(msg.timestamp.toLocal()),
+                        isRead: msg.isRead,
                         metadata: msg.metadata,
                         uploadingText: 'Uploading...',
                         fileAttachmentText: 'File Attachment',
@@ -172,6 +267,64 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   }
 
   Widget _buildInputBar(BuildContext context) {
+    if (_isRecording) {
+      final minutes = _recordingDuration.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final seconds = _recordingDuration.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+      return Container(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: MediaQuery.of(context).padding.bottom + 12,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(LucideIcons.trash2, color: AppColors.error),
+              onPressed: _cancelRecording,
+              tooltip: 'Cancel',
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$minutes:$seconds',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const Spacer(),
+            CircleAvatar(
+              backgroundColor: AppColors.primary,
+              radius: 22,
+              child: IconButton(
+                icon: const Icon(LucideIcons.send, color: Colors.white, size: 18),
+                onPressed: _stopRecording,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final hasText = _textController.text.trim().isNotEmpty;
+
     return Container(
       padding: EdgeInsets.only(
         left: 8,
@@ -222,18 +375,33 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          CircleAvatar(
-            backgroundColor: AppColors.primary,
-            radius: 24,
-            child: IconButton(
-              icon: Icon(
-                LucideIcons.send,
-                color: Theme.of(context).colorScheme.onPrimary,
-                size: 20,
+          if (hasText)
+            CircleAvatar(
+              backgroundColor: AppColors.primary,
+              radius: 24,
+              child: IconButton(
+                icon: Icon(
+                  LucideIcons.send,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 20,
+                ),
+                onPressed: _sendMessage,
               ),
-              onPressed: _sendMessage,
+            )
+          else
+            CircleAvatar(
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              radius: 24,
+              child: IconButton(
+                icon: const Icon(
+                  LucideIcons.mic,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                onPressed: _startRecording,
+                tooltip: 'Record Voice Note',
+              ),
             ),
-          ),
         ],
       ),
     );

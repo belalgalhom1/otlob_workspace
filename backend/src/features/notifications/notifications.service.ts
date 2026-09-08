@@ -23,6 +23,7 @@ import { randomUUID } from 'crypto';
 export const SOCKET_EVENTS = {
   NOTIFICATION: 'notification.new',
   CHAT_MESSAGE: 'chat.message',
+  CHAT_READ: 'chat.read',
   CONVERSATION_CREATED: 'conversation.created',
   CONVERSATION_CLOSED: 'conversation.closed',
 } as const;

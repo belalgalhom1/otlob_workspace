@@ -895,5 +895,11 @@
   "statusSuspended": "Suspended",
   "statusApproved": "Approved",
   "profileStatusLabel": "Profile Status",
-  "waitingForCustomerApproval": "Waiting for Customer Approval"
+  "waitingForCustomerApproval": "Waiting for Customer Approval",
+  "deliveryHistory": "Delivery History",
+  "noDeliveriesYet": "No Deliveries Yet",
+  "noDeliveriesSubtitle": "Completed deliveries and rides will appear here.",
+  "deliveryFeeEarned": "Delivery Fee Earned",
+  "deliveredAt": "Delivered at",
+  "tripDetails": "Trip Details"
 }

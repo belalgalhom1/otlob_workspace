@@ -13,6 +13,7 @@ import 'package:driver/features/profile/presentation/settings_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
+import 'package:data/providers.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -28,6 +29,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final profileState = ref.watch(driverProfileProvider);
     final appPreferences = ref.watch(appPreferencesProvider);
+    final inboxCounts = ref.watch(inboxCountsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isArabic = appPreferences.locale.languageCode == 'ar';
     final l10n = AppLocalizations.of(context)!;
@@ -94,7 +96,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(LucideIcons.bell),
+            icon: Badge(
+              isLabelVisible: inboxCounts.notificationsUnread > 0,
+              label: Text(
+                '${inboxCounts.notificationsUnread}',
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+              child: const Icon(LucideIcons.bell),
+            ),
             onPressed: () {
               context.push('/notifications');
             },
@@ -120,7 +129,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             label: l10n.wallet,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(LucideIcons.messageSquare),
+            icon: Badge(
+              isLabelVisible: inboxCounts.chatUnread > 0,
+              label: Text(
+                '${inboxCounts.chatUnread}',
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+              child: const Icon(LucideIcons.messageSquare),
+            ),
             label: l10n.inbox,
           ),
           BottomNavigationBarItem(
@@ -250,6 +266,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 icon: LucideIcons.car,
                 title: l10n.vehicleInformation,
                 onTap: () => context.push('/profile/vehicle'),
+              ),
+              const SizedBox(height: 12),
+              _buildProfileNavigationTile(
+                icon: LucideIcons.history,
+                title: l10n.deliveryHistory,
+                onTap: () => context.push('/deliveries'),
               ),
               
               const SizedBox(height: 32),
@@ -479,7 +501,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 _buildStatusCard(currentStatus, isOnline, l10n),
                 const SizedBox(height: 24),
-                _buildStatsRow(currency, l10n),
+                _buildStatsRow(data, currency, l10n),
                 const SizedBox(height: 24),
                 _buildActiveTaskPlaceholder(currentStatus, l10n),
               ],
@@ -541,7 +563,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildStatsRow(String currency, AppLocalizations l10n) {
+  Widget _buildStatsRow(Map<dynamic, dynamic> data, String currency, AppLocalizations l10n) {
+    final totalOrders = data['totalOrders'] ?? 0;
     return Row(
       children: [
         Expanded(
@@ -556,17 +579,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         Expanded(
           child: _buildStatCard(
             l10n.completedOrders,
-            l10n.countOrders('0'),
+            l10n.countOrders('$totalOrders'),
             LucideIcons.checkSquare,
             AppColors.success,
+            onTap: () => context.push('/deliveries'),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Container(
+  Widget _buildStatCard(String title, String value, IconData icon, Color color, {VoidCallback? onTap}) {
+    final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -603,6 +627,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: card,
+      );
+    }
+    return card;
   }
 
   Widget _buildActiveTaskPlaceholder(String status, AppLocalizations l10n) {

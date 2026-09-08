@@ -24,6 +24,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _selectedPayment = 'CASH_ON_DELIVERY';
   bool _isProcessing = false;
   bool _useCoins = false;
+  final TextEditingController _notesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
 
   void _placeOrder(AppStrings s, List<CartItem> vendorItems, int? coinsToUse, Map<String, dynamic>? selectedAddress) async {
     if (selectedAddress == null) {
@@ -55,6 +62,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
+    final specialRequest = _notesController.text.trim().isNotEmpty
+        ? _notesController.text.trim()
+        : null;
+
     final (errorMsg, orderId) = await ref.read(ordersProvider.notifier).placeOrder(
           vendorId: widget.vendorId ?? '',
           items: vendorItems,
@@ -63,6 +74,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               : 'CASH_ON_DELIVERY',
           address: selectedAddress['address'] ?? s.locationName,
           location: coords,
+          specialRequest: specialRequest,
           coinsToUse: coinsToUse,
         );
 
@@ -155,6 +167,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : s.vendor;
     final subtotal = cartState.getVendorSubtotal(widget.vendorId ?? '');
     final settings = ref.watch(platformSettingsProvider).value;
+
+    final minOrder = (settings?.minOrderAmount != null) ? settings!.minOrderAmount.toDouble() : 0.0;
+    final isBelowMinOrder = minOrder > 0 && subtotal < minOrder;
+    final minOrderDiff = isBelowMinOrder ? (minOrder - subtotal) : 0.0;
 
     // Delivery fee is dynamically determined upon driver match based on real distance
     final total = subtotal;
@@ -269,6 +285,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                 ]),
                 const SizedBox(height: 16),
+                _sectionCard(s.isArabic ? 'ملاحظات الطلب (اختياري)' : 'Order Notes (Optional)', [
+                  TextField(
+                    controller: _notesController,
+                    maxLines: 2,
+                    maxLength: 300,
+                    decoration: InputDecoration(
+                      hintText: s.isArabic
+                          ? 'اكتب أي تعليمات خاصة للمطعم أو مندوب التوصيل...'
+                          : 'Enter any special instructions for vendor or driver...',
+                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                      ),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
                 _sectionCard(s.orderSummary, [
                   ...vendorItems.map((item) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -371,6 +410,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     const SizedBox(height: 8),
                     _priceRow(s.isArabic ? 'خصم العملات' : 'Coin Discount', '-${coinDiscount.toStringAsFixed(0)} ${s.egp}'),
                   ],
+
+                  if (isBelowMinOrder)
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              s.isArabic
+                                  ? 'الحد الأدنى للطلب هو ${minOrder.toStringAsFixed(0)} ${s.egp} (ينقصك ${minOrderDiff.toStringAsFixed(0)} ${s.egp})'
+                                  : 'Minimum order amount is ${minOrder.toStringAsFixed(0)} ${s.egp} (${minOrderDiff.toStringAsFixed(0)} ${s.egp} remaining)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   
                   const Divider(height: 24),
                   Row(
@@ -459,15 +527,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => _placeOrder(s, vendorItems, coinsToUse, selectedAddress),
+                    onPressed: isBelowMinOrder
+                        ? null
+                        : () => _placeOrder(s, vendorItems, coinsToUse, selectedAddress),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: isBelowMinOrder ? Colors.grey : AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
-                        '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp} + ${s.isArabic ? 'التوصيل' : 'Delivery'})',
+                        isBelowMinOrder
+                            ? (s.isArabic ? 'المبلغ أقل من الحد الأدنى للطلب (${minOrder.toStringAsFixed(0)} ${s.egp})' : 'Below Min Order Amount (${minOrder.toStringAsFixed(0)} ${s.egp})')
+                            : '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp} + ${s.isArabic ? 'التوصيل' : 'Delivery'})',
                         style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

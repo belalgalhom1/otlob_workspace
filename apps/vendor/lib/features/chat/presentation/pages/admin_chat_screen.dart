@@ -105,6 +105,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   }
 
   StreamSubscription<dynamic>? _messageSubscription;
+  StreamSubscription<dynamic>? _readSubscription;
 
   void _setupSocket() async {
     await ref.read(socketServiceProvider).init();
@@ -112,10 +113,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         .read(socketServiceProvider)
         .onEvent(SocketEvent.chatMessage)
         .listen((data) {
-          debugPrint('ðŸ“¥ Admin Socket Message Received: $data');
+          debugPrint('📥 Admin Socket Message Received: $data');
           if (mounted && data['conversationId'] == widget.conversationId) {
             if (data['senderId']?.toString() != _currentUserId?.toString()) {
-              debugPrint('âœ… Adding real-time message to admin list');
+              debugPrint('✅ Adding real-time message to admin list');
               setState(() {
                 // Check for duplicates
                 if (!_messages.any(
@@ -144,6 +145,34 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             }
           }
         });
+
+    _readSubscription = ref
+        .read(socketServiceProvider)
+        .onEvent(SocketEvent.chatRead)
+        .listen((data) {
+          if (mounted && data['conversationId'] == widget.conversationId) {
+            final lastReadAtStr = data['lastReadAt'];
+            final lastReadAt = lastReadAtStr != null
+                ? DateTime.tryParse(lastReadAtStr.toString())
+                : null;
+            final readerUserId = data['userId']?.toString();
+            if (readerUserId != _currentUserId) {
+              setState(() {
+                for (var m in _messages) {
+                  final sender = m['sender'] as Map?;
+                  if (sender?['id']?.toString() == _currentUserId?.toString()) {
+                    if (lastReadAt != null) {
+                      final created = DateTime.tryParse(m['createdAt']?.toString() ?? '');
+                      if (created != null && !created.isAfter(lastReadAt)) {
+                        m['isRead'] = true;
+                      }
+                    }
+                  }
+                }
+              });
+            }
+          }
+        });
   }
 
   @override
@@ -152,6 +181,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _recorder?.closeRecorder();
     _recorder = null;
     _messageSubscription?.cancel();
+    _readSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -2201,15 +2231,30 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           ),
                         ),
                       const SizedBox(height: 4),
-                      Text(
-                        time,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: isMe
-                              ? Theme.of(context).colorScheme.onSurface
-                              : (Theme.of(context).brightness == Brightness.dark ? Colors.white60 : AppColors.textMuted),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            time,
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: isMe
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : (Theme.of(context).brightness == Brightness.dark ? Colors.white60 : AppColors.textMuted),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (isMe) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              message['isRead'] == true ? Icons.done_all : Icons.done,
+                              size: 13,
+                              color: message['isRead'] == true
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.6),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

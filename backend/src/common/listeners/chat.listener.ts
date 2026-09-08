@@ -8,6 +8,7 @@ import {
 } from '../../features/notifications/notifications.service';
 import {
   ChatMessageSentEvent,
+  ChatMessageReadEvent,
   ChatConversationCreatedEvent,
   ChatConversationClosedEvent,
 } from '../events';
@@ -73,6 +74,7 @@ export class ChatListener {
         conversationId: event.conversationId,
         messageId: event.messageId,
         senderId: event.senderId,
+        chatType: event.conversationType ?? null,
       },
     }));
 
@@ -83,6 +85,32 @@ export class ChatListener {
           `Failed to batch create chat notifications: ${err instanceof Error ? err.message : String(err)}`,
         ),
       );
+  }
+
+  @OnEvent(EVENTS.CHAT_MESSAGE_READ)
+  async handleMessageRead(event: ChatMessageReadEvent) {
+    const payload = {
+      conversationId: event.conversationId,
+      userId: event.userId,
+      lastReadAt: event.lastReadAt,
+      lastReadMessageId: event.lastReadMessageId,
+    };
+
+    const recipientIds = event.participantIds.filter(
+      (id) => id !== event.userId,
+    );
+
+    await Promise.all(
+      recipientIds.map((userId) =>
+        this.socketService
+          .emitToUser(userId, SOCKET_EVENTS.CHAT_READ, payload)
+          .catch((err: unknown) =>
+            this.logger.error(
+              `Failed to emit SOCKET_EVENTS.CHAT_READ for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+          ),
+      ),
+    );
   }
 
   @OnEvent(EVENTS.CHAT_CONVERSATION_CREATED)

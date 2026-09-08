@@ -4,6 +4,9 @@ enum MessageType {
   video,
   audio,
   file,
+  location,
+  system,
+  product,
 }
 
 class Message {
@@ -16,6 +19,7 @@ class Message {
   final String? senderRole;
   final String? mediaUrl;
   final Map<String, dynamic>? metadata;
+  final bool isRead;
 
   Message({
     required this.id,
@@ -27,6 +31,7 @@ class Message {
     this.senderRole,
     this.mediaUrl,
     this.metadata,
+    this.isRead = false,
   });
 
   Message copyWith({
@@ -39,6 +44,7 @@ class Message {
     String? senderRole,
     String? mediaUrl,
     Map<String, dynamic>? metadata,
+    bool? isRead,
   }) {
     return Message(
       id: id ?? this.id,
@@ -50,6 +56,7 @@ class Message {
       senderRole: senderRole ?? this.senderRole,
       mediaUrl: mediaUrl ?? this.mediaUrl,
       metadata: metadata ?? this.metadata,
+      isRead: isRead ?? this.isRead,
     );
   }
 
@@ -76,6 +83,15 @@ class Message {
       case 'FILE':
         type = MessageType.file;
         break;
+      case 'LOCATION':
+        type = MessageType.location;
+        break;
+      case 'SYSTEM':
+        type = MessageType.system;
+        break;
+      case 'PRODUCT':
+        type = MessageType.product;
+        break;
       default:
         type = MessageType.text;
     }
@@ -90,6 +106,7 @@ class Message {
       senderRole: senderRole,
       mediaUrl: json['mediaUrl']?.toString(),
       metadata: json['metadata'] as Map<String, dynamic>?,
+      isRead: json['isRead'] == true,
     );
   }
 }

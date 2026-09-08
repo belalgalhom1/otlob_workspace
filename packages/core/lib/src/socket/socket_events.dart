@@ -5,6 +5,7 @@ enum SocketEvent {
   
   /// Chat
   chatMessage('chat.message'),
+  chatRead('chat.read'),
   conversationCreated('conversation.created'),
   conversationClosed('conversation.closed'),
   

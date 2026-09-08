@@ -12,6 +12,8 @@ class CartItem {
   final String selectedUnit; // 'package' or 'strip'
   final Map<String, dynamic>? selectedVariant;
   final List<Map<String, dynamic>> selectedOptions;
+  final double? unitPrice;
+  final double? backendTotalPrice;
 
   CartItem({
     this.backendId,
@@ -20,9 +22,18 @@ class CartItem {
     this.selectedUnit = 'package',
     this.selectedVariant,
     this.selectedOptions = const [],
+    this.unitPrice,
+    this.backendTotalPrice,
   });
 
   double get totalPrice {
+    if (backendTotalPrice != null && backendTotalPrice! > 0) {
+      return backendTotalPrice!;
+    }
+    if (unitPrice != null && unitPrice! > 0) {
+      return unitPrice! * quantity;
+    }
+
     double price = 0.0;
     
     if (selectedVariant != null) {
@@ -56,6 +67,8 @@ class CartItem {
     String? selectedUnit,
     Map<String, dynamic>? selectedVariant,
     List<Map<String, dynamic>>? selectedOptions,
+    double? unitPrice,
+    double? backendTotalPrice,
   }) {
     return CartItem(
       backendId: backendId ?? this.backendId,
@@ -64,6 +77,8 @@ class CartItem {
       selectedUnit: selectedUnit ?? this.selectedUnit,
       selectedVariant: selectedVariant ?? this.selectedVariant,
       selectedOptions: selectedOptions ?? this.selectedOptions,
+      unitPrice: unitPrice ?? this.unitPrice,
+      backendTotalPrice: backendTotalPrice ?? this.backendTotalPrice,
     );
   }
 }
@@ -105,6 +120,60 @@ class Cart extends _$Cart {
     return const CartState(vendorBaskets: {});
   }
 
+  List<CartItem> _parseCartItems(
+    List<dynamic>? rawItems,
+    String vendorId,
+    Map<String, dynamic>? vendorJson, {
+    String defaultUnit = 'package',
+  }) {
+    if (rawItems == null) return [];
+    final vendorName = vendorJson?['storeName'];
+    final vendorNameAr = vendorJson?['storeNameAr'];
+    final vendorLogo = vendorJson?['logo'];
+    final vendorCoverImage = vendorJson?['coverImage'];
+    final commissionRate = vendorJson?['commissionRate'];
+    final isContracted = vendorJson?['isContracted'];
+    final vendorStatus = vendorJson?['status'] ?? 'OPEN';
+
+    final List<CartItem> items = [];
+    for (final i in rawItems) {
+      final itemJson = Map<String, dynamic>.from(i as Map);
+      final productJson = Map<String, dynamic>.from(itemJson['product'] as Map? ?? {});
+      final unitPrice = (itemJson['unitPrice'] as num?)?.toDouble();
+      final totalPrice = (itemJson['totalPrice'] as num?)?.toDouble();
+
+      final itemProduct = Map<String, dynamic>.from(productJson);
+      if (unitPrice != null) itemProduct['price'] = unitPrice;
+      if (productJson['comparePrice'] != null) itemProduct['comparePrice'] = productJson['comparePrice'];
+      itemProduct['vendorId'] = vendorId;
+      itemProduct['vendorName'] = vendorName;
+      itemProduct['vendorNameAr'] = vendorNameAr;
+      itemProduct['vendorLogo'] = vendorLogo;
+      itemProduct['vendorCoverImage'] = vendorCoverImage;
+      itemProduct['commissionRate'] = commissionRate;
+      itemProduct['isContracted'] = isContracted;
+      itemProduct['vendorStatus'] = vendorStatus;
+
+      items.add(CartItem(
+        backendId: itemJson['id'],
+        product: itemProduct,
+        quantity: itemJson['quantity'] as int? ?? 1,
+        selectedUnit: defaultUnit,
+        selectedVariant: itemJson['variant'] != null
+            ? Map<String, dynamic>.from(itemJson['variant'] as Map)
+            : null,
+        selectedOptions: itemJson['options'] != null
+            ? (itemJson['options'] as List)
+                .map((o) => Map<String, dynamic>.from(o as Map))
+                .toList()
+            : [],
+        unitPrice: unitPrice,
+        backendTotalPrice: totalPrice,
+      ));
+    }
+    return items;
+  }
+
   Future<void> _loadCarts() async {
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
@@ -117,36 +186,7 @@ class Cart extends _$Cart {
           final cartJson = Map<String, dynamic>.from(c as Map);
           final vendorId = cartJson['vendorId'] as String;
           final vendorJson = cartJson['vendor'] as Map<String, dynamic>?;
-          final vendorName = vendorJson?['storeName'];
-          final vendorNameAr = vendorJson?['storeNameAr'];
-          final vendorLogo = vendorJson?['logo'];
-          final vendorCoverImage = vendorJson?['coverImage'];
-          final List<CartItem> items = [];
-          
-          if (cartJson['items'] != null) {
-            for (final i in cartJson['items']) {
-              final itemJson = Map<String, dynamic>.from(i as Map);
-              items.add(CartItem(
-                backendId: itemJson['id'],
-                product: {
-                  ...Map<String, dynamic>.from(itemJson['product'] as Map? ?? {}),
-                  'vendorId': vendorId,
-                  'vendorName': vendorName,
-                  'vendorNameAr': vendorNameAr,
-                  'vendorLogo': vendorLogo,
-                  'vendorCoverImage': vendorCoverImage,
-                  'commissionRate': vendorJson?['commissionRate'],
-                  'isContracted': vendorJson?['isContracted'],
-                },
-                quantity: itemJson['quantity'] as int? ?? 1,
-                selectedUnit: 'package', 
-                selectedVariant: itemJson['variant'] != null ? Map<String, dynamic>.from(itemJson['variant'] as Map) : null,
-                selectedOptions: itemJson['options'] != null 
-                    ? (itemJson['options'] as List).map((o) => Map<String, dynamic>.from(o as Map)).toList() 
-                    : [],
-              ));
-            }
-          }
+          final items = _parseCartItems(cartJson['items'] as List?, vendorId, vendorJson);
           baskets[vendorId] = items;
         }
       }
@@ -192,36 +232,7 @@ class Cart extends _$Cart {
       if (response != null && response is Map) {
         final updatedCart = Map<String, dynamic>.from(response);
         final vendorJson = updatedCart['vendor'] as Map<String, dynamic>?;
-        final vendorName = vendorJson?['storeName'];
-        final vendorNameAr = vendorJson?['storeNameAr'];
-        final vendorLogo = vendorJson?['logo'];
-        final vendorCoverImage = vendorJson?['coverImage'];
-        final List<CartItem> items = [];
-        
-        if (updatedCart['items'] != null) {
-          for (final i in updatedCart['items']) {
-            final itemJson = Map<String, dynamic>.from(i as Map);
-            items.add(CartItem(
-              backendId: itemJson['id'],
-              product: {
-                ...Map<String, dynamic>.from(itemJson['product'] as Map? ?? {}),
-                'vendorId': vendorId,
-                'vendorName': vendorName,
-                'vendorNameAr': vendorNameAr,
-                'vendorLogo': vendorLogo,
-                'vendorCoverImage': vendorCoverImage,
-                'commissionRate': vendorJson?['commissionRate'],
-                'isContracted': vendorJson?['isContracted'],
-              },
-              quantity: itemJson['quantity'] as int? ?? 1,
-              selectedUnit: unit, 
-              selectedVariant: itemJson['variant'] != null ? Map<String, dynamic>.from(itemJson['variant'] as Map) : null,
-              selectedOptions: itemJson['options'] != null 
-                  ? (itemJson['options'] as List).map((o) => Map<String, dynamic>.from(o as Map)).toList() 
-                  : [],
-            ));
-          }
-        }
+        final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: unit);
         
         final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
         currentBaskets[vendorId] = items;
@@ -261,36 +272,7 @@ class Cart extends _$Cart {
       if (response != null && response is Map) {
         final updatedCart = Map<String, dynamic>.from(response);
         final vendorJson = updatedCart['vendor'] as Map<String, dynamic>?;
-        final vendorName = vendorJson?['storeName'];
-        final vendorNameAr = vendorJson?['storeNameAr'];
-        final vendorLogo = vendorJson?['logo'];
-        final vendorCoverImage = vendorJson?['coverImage'];
-        final List<CartItem> items = [];
-        
-        if (updatedCart['items'] != null) {
-          for (final i in updatedCart['items']) {
-            final itemJson = Map<String, dynamic>.from(i as Map);
-            items.add(CartItem(
-              backendId: itemJson['id'],
-              product: {
-                ...Map<String, dynamic>.from(itemJson['product'] as Map? ?? {}),
-                'vendorId': vendorId,
-                'vendorName': vendorName,
-                'vendorNameAr': vendorNameAr,
-                'vendorLogo': vendorLogo,
-                'vendorCoverImage': vendorCoverImage,
-                'commissionRate': vendorJson?['commissionRate'],
-                'isContracted': vendorJson?['isContracted'],
-              },
-              quantity: itemJson['quantity'] as int? ?? 1,
-              selectedUnit: cartItem.selectedUnit, 
-              selectedVariant: itemJson['variant'] != null ? Map<String, dynamic>.from(itemJson['variant'] as Map) : null,
-              selectedOptions: itemJson['options'] != null 
-                  ? (itemJson['options'] as List).map((o) => Map<String, dynamic>.from(o as Map)).toList() 
-                  : [],
-            ));
-          }
-        }
+        final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: cartItem.selectedUnit);
 
         final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
         currentBaskets[vendorId] = items;
