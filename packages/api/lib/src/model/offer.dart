@@ -30,6 +30,9 @@ abstract class Offer implements Built<Offer, OfferBuilder> {
   @BuiltValueField(wireName: r'productId')
   String get productId;
 
+  @BuiltValueField(wireName: r'variantId')
+  String? get variantId;
+
   @BuiltValueField(wireName: r'vendorId')
   String get vendorId;
 
@@ -90,6 +93,13 @@ class _$OfferSerializer implements PrimitiveSerializer<Offer> {
       object.productId,
       specifiedType: const FullType(String),
     );
+    if (object.variantId != null) {
+      yield r'variantId';
+      yield serializers.serialize(
+        object.variantId,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'vendorId';
     yield serializers.serialize(
       object.vendorId,
@@ -175,6 +185,13 @@ class _$OfferSerializer implements PrimitiveSerializer<Offer> {
             specifiedType: const FullType(String),
           ) as String;
           result.productId = valueDes;
+          break;
+        case r'variantId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.variantId = valueDes;
           break;
         case r'vendorId':
           final valueDes = serializers.deserialize(

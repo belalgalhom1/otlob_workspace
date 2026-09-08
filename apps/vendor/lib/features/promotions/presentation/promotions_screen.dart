@@ -605,6 +605,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
           await ref
               .read(adminOffersRepositoryProvider)
               .offersUpdate(id: offer['id'] ?? offer['_id'], updateOfferDto: UpdateOfferDto((b) => b
+                ..variantId = result['variantId']
                 ..originalPrice = result['originalPrice']
                 ..offerPrice = result['offerPrice']
                 ..sortOrder = result['sortOrder']
@@ -615,6 +616,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         } else {
           await ref.read(adminOffersRepositoryProvider).createOffer(CreateOfferDto((b) => b
             ..productId = result['productId'] ?? ''
+            ..variantId = result['variantId']
             ..vendorId = result['vendorId'] ?? ''
             ..originalPrice = result['originalPrice'] ?? 0
             ..offerPrice = result['offerPrice'] ?? 0

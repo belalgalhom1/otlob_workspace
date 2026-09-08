@@ -12,6 +12,8 @@ class _$Offer extends Offer {
   @override
   final String productId;
   @override
+  final String? variantId;
+  @override
   final String vendorId;
   @override
   final num originalPrice;
@@ -36,6 +38,7 @@ class _$Offer extends Offer {
   _$Offer._({
     required this.id,
     required this.productId,
+    this.variantId,
     required this.vendorId,
     required this.originalPrice,
     required this.offerPrice,
@@ -59,6 +62,7 @@ class _$Offer extends Offer {
     return other is Offer &&
         id == other.id &&
         productId == other.productId &&
+        variantId == other.variantId &&
         vendorId == other.vendorId &&
         originalPrice == other.originalPrice &&
         offerPrice == other.offerPrice &&
@@ -75,6 +79,7 @@ class _$Offer extends Offer {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, productId.hashCode);
+    _$hash = $jc(_$hash, variantId.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
     _$hash = $jc(_$hash, originalPrice.hashCode);
     _$hash = $jc(_$hash, offerPrice.hashCode);
@@ -93,6 +98,7 @@ class _$Offer extends Offer {
     return (newBuiltValueToStringHelper(r'Offer')
           ..add('id', id)
           ..add('productId', productId)
+          ..add('variantId', variantId)
           ..add('vendorId', vendorId)
           ..add('originalPrice', originalPrice)
           ..add('offerPrice', offerPrice)
@@ -116,6 +122,10 @@ class OfferBuilder implements Builder<Offer, OfferBuilder> {
   String? _productId;
   String? get productId => _$this._productId;
   set productId(String? productId) => _$this._productId = productId;
+
+  String? _variantId;
+  String? get variantId => _$this._variantId;
+  set variantId(String? variantId) => _$this._variantId = variantId;
 
   String? _vendorId;
   String? get vendorId => _$this._vendorId;
@@ -163,6 +173,7 @@ class OfferBuilder implements Builder<Offer, OfferBuilder> {
     if ($v != null) {
       _id = $v.id;
       _productId = $v.productId;
+      _variantId = $v.variantId;
       _vendorId = $v.vendorId;
       _originalPrice = $v.originalPrice;
       _offerPrice = $v.offerPrice;
@@ -200,6 +211,7 @@ class OfferBuilder implements Builder<Offer, OfferBuilder> {
             r'Offer',
             'productId',
           ),
+          variantId: variantId,
           vendorId: BuiltValueNullFieldError.checkNotNull(
             vendorId,
             r'Offer',

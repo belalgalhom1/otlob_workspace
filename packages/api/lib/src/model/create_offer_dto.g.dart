@@ -10,6 +10,8 @@ class _$CreateOfferDto extends CreateOfferDto {
   @override
   final String productId;
   @override
+  final String? variantId;
+  @override
   final String vendorId;
   @override
   final num originalPrice;
@@ -27,6 +29,7 @@ class _$CreateOfferDto extends CreateOfferDto {
 
   _$CreateOfferDto._({
     required this.productId,
+    this.variantId,
     required this.vendorId,
     required this.originalPrice,
     required this.offerPrice,
@@ -46,6 +49,7 @@ class _$CreateOfferDto extends CreateOfferDto {
     if (identical(other, this)) return true;
     return other is CreateOfferDto &&
         productId == other.productId &&
+        variantId == other.variantId &&
         vendorId == other.vendorId &&
         originalPrice == other.originalPrice &&
         offerPrice == other.offerPrice &&
@@ -58,6 +62,7 @@ class _$CreateOfferDto extends CreateOfferDto {
   int get hashCode {
     var _$hash = 0;
     _$hash = $jc(_$hash, productId.hashCode);
+    _$hash = $jc(_$hash, variantId.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
     _$hash = $jc(_$hash, originalPrice.hashCode);
     _$hash = $jc(_$hash, offerPrice.hashCode);
@@ -72,6 +77,7 @@ class _$CreateOfferDto extends CreateOfferDto {
   String toString() {
     return (newBuiltValueToStringHelper(r'CreateOfferDto')
           ..add('productId', productId)
+          ..add('variantId', variantId)
           ..add('vendorId', vendorId)
           ..add('originalPrice', originalPrice)
           ..add('offerPrice', offerPrice)
@@ -89,6 +95,10 @@ class CreateOfferDtoBuilder
   String? _productId;
   String? get productId => _$this._productId;
   set productId(String? productId) => _$this._productId = productId;
+
+  String? _variantId;
+  String? get variantId => _$this._variantId;
+  set variantId(String? variantId) => _$this._variantId = variantId;
 
   String? _vendorId;
   String? get vendorId => _$this._vendorId;
@@ -123,6 +133,7 @@ class CreateOfferDtoBuilder
     final $v = _$v;
     if ($v != null) {
       _productId = $v.productId;
+      _variantId = $v.variantId;
       _vendorId = $v.vendorId;
       _originalPrice = $v.originalPrice;
       _offerPrice = $v.offerPrice;
@@ -156,6 +167,7 @@ class CreateOfferDtoBuilder
             r'CreateOfferDto',
             'productId',
           ),
+          variantId: variantId,
           vendorId: BuiltValueNullFieldError.checkNotNull(
             vendorId,
             r'CreateOfferDto',

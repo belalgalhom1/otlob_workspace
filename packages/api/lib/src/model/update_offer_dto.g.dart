@@ -8,6 +8,8 @@ part of 'update_offer_dto.dart';
 
 class _$UpdateOfferDto extends UpdateOfferDto {
   @override
+  final String? variantId;
+  @override
   final num? originalPrice;
   @override
   final num? offerPrice;
@@ -24,6 +26,7 @@ class _$UpdateOfferDto extends UpdateOfferDto {
       (UpdateOfferDtoBuilder()..update(updates))._build();
 
   _$UpdateOfferDto._({
+    this.variantId,
     this.originalPrice,
     this.offerPrice,
     this.isActive,
@@ -42,6 +45,7 @@ class _$UpdateOfferDto extends UpdateOfferDto {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is UpdateOfferDto &&
+        variantId == other.variantId &&
         originalPrice == other.originalPrice &&
         offerPrice == other.offerPrice &&
         isActive == other.isActive &&
@@ -53,6 +57,7 @@ class _$UpdateOfferDto extends UpdateOfferDto {
   @override
   int get hashCode {
     var _$hash = 0;
+    _$hash = $jc(_$hash, variantId.hashCode);
     _$hash = $jc(_$hash, originalPrice.hashCode);
     _$hash = $jc(_$hash, offerPrice.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
@@ -66,6 +71,7 @@ class _$UpdateOfferDto extends UpdateOfferDto {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'UpdateOfferDto')
+          ..add('variantId', variantId)
           ..add('originalPrice', originalPrice)
           ..add('offerPrice', offerPrice)
           ..add('isActive', isActive)
@@ -79,6 +85,10 @@ class _$UpdateOfferDto extends UpdateOfferDto {
 class UpdateOfferDtoBuilder
     implements Builder<UpdateOfferDto, UpdateOfferDtoBuilder> {
   _$UpdateOfferDto? _$v;
+
+  String? _variantId;
+  String? get variantId => _$this._variantId;
+  set variantId(String? variantId) => _$this._variantId = variantId;
 
   num? _originalPrice;
   num? get originalPrice => _$this._originalPrice;
@@ -112,6 +122,7 @@ class UpdateOfferDtoBuilder
   UpdateOfferDtoBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
+      _variantId = $v.variantId;
       _originalPrice = $v.originalPrice;
       _offerPrice = $v.offerPrice;
       _isActive = $v.isActive;
@@ -140,6 +151,7 @@ class UpdateOfferDtoBuilder
     final _$result =
         _$v ??
         _$UpdateOfferDto._(
+          variantId: variantId,
           originalPrice: originalPrice,
           offerPrice: offerPrice,
           isActive: isActive,

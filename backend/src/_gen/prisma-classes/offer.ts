@@ -7,6 +7,9 @@ export class Offer {
   @ApiProperty({ type: String })
   productId: string;
 
+  @ApiPropertyOptional({ type: String })
+  variantId?: string;
+
   @ApiProperty({ type: String })
   vendorId: string;
 

@@ -19,6 +19,9 @@ part 'update_offer_dto.g.dart';
 /// * [endDate] 
 @BuiltValue()
 abstract class UpdateOfferDto implements Built<UpdateOfferDto, UpdateOfferDtoBuilder> {
+  @BuiltValueField(wireName: r'variantId')
+  String? get variantId;
+
   @BuiltValueField(wireName: r'originalPrice')
   num? get originalPrice;
 
@@ -60,6 +63,13 @@ class _$UpdateOfferDtoSerializer implements PrimitiveSerializer<UpdateOfferDto> 
     UpdateOfferDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    if (object.variantId != null) {
+      yield r'variantId';
+      yield serializers.serialize(
+        object.variantId,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.originalPrice != null) {
       yield r'originalPrice';
       yield serializers.serialize(
@@ -125,6 +135,13 @@ class _$UpdateOfferDtoSerializer implements PrimitiveSerializer<UpdateOfferDto> 
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
+        case r'variantId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.variantId = valueDes;
+          break;
         case r'originalPrice':
           final valueDes = serializers.deserialize(
             value,

@@ -136,6 +136,7 @@ class OffersApi {
   /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> offersControllerFindAll({ 
+    String? vendorId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -144,6 +145,9 @@ class OffersApi {
     ProgressCallback? onReceiveProgress,
   }) async {
     final _path = r'/offers/admin';
+    final _queryParams = <String, dynamic>{
+      if (vendorId != null) r'vendorId': encodeQueryParameter(_serializers, vendorId, const FullType(String)),
+    };
     final _options = Options(
       method: r'GET',
       headers: <String, dynamic>{
@@ -165,6 +169,7 @@ class OffersApi {
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParams,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,

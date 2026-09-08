@@ -5,13 +5,13 @@ class AdminOffersRepository {
   final OffersApi _api;
   AdminOffersRepository(this._api);
 
-  Future<List<dynamic>> getOffers() async {
-    final response = await _api.offersControllerFindAll();
+  Future<List<dynamic>> getOffers({String? vendorId}) async {
+    final response = await _api.offersControllerFindAll(vendorId: vendorId);
     return ResponseParser.parseList(response);
   }
 
-  Future<dynamic> offersFindAll() async {
-    final response = await _api.offersControllerFindAll();
+  Future<dynamic> offersFindAll({String? vendorId}) async {
+    final response = await _api.offersControllerFindAll(vendorId: vendorId);
     return ResponseParser.parse(response);
   }
 

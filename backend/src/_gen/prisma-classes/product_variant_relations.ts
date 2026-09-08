@@ -2,6 +2,7 @@ import { CartItem } from './cart_item';
 import { OrderItem } from './order_item';
 import { ProductOptionGroup } from './product_option_group';
 import { Product } from './product';
+import { Offer } from './offer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ProductVariantRelations {
@@ -13,6 +14,9 @@ export class ProductVariantRelations {
 
   @ApiProperty({ isArray: true, type: () => ProductOptionGroup })
   optionGroups: ProductOptionGroup[];
+
+  @ApiProperty({ isArray: true, type: () => Offer })
+  offers: Offer[];
 
   @ApiProperty({ type: () => Product })
   product: Product;
