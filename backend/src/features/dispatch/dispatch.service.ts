@@ -54,7 +54,14 @@ export class DispatchService {
       },
     });
 
-    if (!order || order.status !== OrderStatus.LOOKING_FOR_DRIVER) {
+    const dispatchableStatuses: OrderStatus[] = [
+      OrderStatus.LOOKING_FOR_DRIVER,
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+    ];
+
+    if (!order || !dispatchableStatuses.includes(order.status)) {
       this.logger.warn(
         `Dispatch skipped for ${orderNumber}: status is ${order?.status ?? 'not found'}`,
       );
@@ -101,7 +108,8 @@ export class DispatchService {
         (v === 'TRUCK' && settings.allowTruck) ||
         (v === 'MOTOR_TRICYCLE' && settings.allowMotorTricycle);
       if (isAllowed) allowedVehicleTypes = [v];
-    } else if (order.type === 'STANDARD') {
+    } else {
+      // STANDARD or CUSTOM_DELIVERY without explicit vehicle choice:
       if (settings.allowMotorcycle) allowedVehicleTypes.push('MOTORCYCLE');
       if (settings.allowBicycle && orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)) {
         allowedVehicleTypes.push('BICYCLE');
@@ -396,7 +404,14 @@ export class DispatchService {
       }
     });
 
-    if (!order || order.status !== OrderStatus.LOOKING_FOR_DRIVER) return;
+    const dispatchableStatuses: OrderStatus[] = [
+      OrderStatus.LOOKING_FOR_DRIVER,
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+    ];
+
+    if (!order || !dispatchableStatuses.includes(order.status)) return;
 
     const dispatchContext =
       await this.locationRepository.getOrderLocationContext(order.id);
@@ -438,7 +453,21 @@ export class DispatchService {
     const newGrandTotal = Number(order.grandTotal) + feeDifference;
     const settings = await this.platformSettings.getSettings();
     const requiresCustomerApproval = (settings as any).requireCustomerApproval ?? true;
-    const nextStatus = requiresCustomerApproval ? OrderStatus.PENDING_CUSTOMER_APPROVAL : (order.paymentMethod === 'MOBILE_WALLET' ? OrderStatus.PENDING_PAYMENT : OrderStatus.DRIVER_ASSIGNED);
+    let nextStatus: OrderStatus;
+    if (requiresCustomerApproval) {
+      nextStatus = OrderStatus.PENDING_CUSTOMER_APPROVAL;
+    } else if (order.paymentMethod === 'MOBILE_WALLET') {
+      nextStatus = OrderStatus.PENDING_PAYMENT;
+    } else {
+      // Preserve preparation progress if vendor already advanced it
+      if (order.status === OrderStatus.READY_FOR_PICKUP) {
+        nextStatus = OrderStatus.READY_FOR_PICKUP;
+      } else if (order.status === OrderStatus.PREPARING) {
+        nextStatus = OrderStatus.PREPARING;
+      } else {
+        nextStatus = OrderStatus.DRIVER_ASSIGNED;
+      }
+    }
 
     const losingCandidates = (dispatchData.candidates || []).filter(
       (c: any) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
@@ -464,7 +493,7 @@ export class DispatchService {
 
       // 2. Assign the order safely to prevent race conditions
       const updated = await tx.order.updateMany({
-        where: { id: order.id, status: OrderStatus.LOOKING_FOR_DRIVER },
+        where: { id: order.id, status: { in: dispatchableStatuses } },
         data: {
           driverId,
           driverShiftId: candidate.driverShiftId,
@@ -550,7 +579,7 @@ export class DispatchService {
       new OrderStatusChangedEvent(
         order.id,
         order.orderNumber,
-        OrderStatus.LOOKING_FOR_DRIVER,
+        order.status,
         nextStatus,
         order.customerId,
         order.customer?.userId || order.customerId, // Using customer.userId if loaded
@@ -566,11 +595,11 @@ export class DispatchService {
     );
 
     if (requiresCustomerApproval) {
-      const timeoutMins = (settings as any).customerApprovalTimeoutMins ?? 5;
+      const timeoutMins = Number((settings as any).customerApprovalTimeoutMins) || 5;
       await this.ordersQueue.add(
         ORDER_JOBS.CUSTOMER_APPROVAL_TIMEOUT,
         { orderId: order.id, orderNumber: order.orderNumber, driverId },
-        { delay: timeoutMins * 60 * 1000, jobId: `customer-approval-timeout-${order.id}` }
+        { delay: timeoutMins * 60 * 1000, jobId: `approval-timeout-${order.id}` }
       );
     }
   }

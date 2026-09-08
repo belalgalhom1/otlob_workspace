@@ -586,10 +586,13 @@ async editOrderItems(
       order.vendor && !order.vendor.isContracted
         ? Math.round(newSubtotal * (Number(order.vendor.commissionRate) / 100))
         : 0;
-    const tax =
-      Math.round(newSubtotal * Number(settings.defaultTaxRate) * 100) / 100;
-    const grandTotal =
-      newSubtotal + Number(order.deliveryFee) + serviceFee + tax;
+    const taxRate = Number(settings.defaultTaxRate) / 100;
+    const tax = Math.round((newSubtotal + serviceFee) * taxRate);
+    const discount = Number(order.discount ?? 0);
+    const grandTotal = Math.max(
+      0,
+      newSubtotal + Number(order.deliveryFee) + serviceFee + tax - discount,
+    );
 
     await this.prisma.$transaction(async (tx) => {
       // delete old

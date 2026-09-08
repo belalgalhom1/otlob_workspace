@@ -67,18 +67,22 @@ export class DispatchProcessor extends WorkerHost {
       throw new UnrecoverableError(`Order ${orderNumber} not found`);
     }
 
-    // Only valid entry states for dispatch
-    if (
-      order.status !== OrderStatus.ACCEPTED &&
-      order.status !== OrderStatus.LOOKING_FOR_DRIVER
-    ) {
+    // Valid entry states for dispatch (order can be dispatched while vendor prepares food)
+    const dispatchableStatuses: OrderStatus[] = [
+      OrderStatus.ACCEPTED,
+      OrderStatus.LOOKING_FOR_DRIVER,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+    ];
+
+    if (!dispatchableStatuses.includes(order.status)) {
       this.logger.warn(
         `Dispatch skipped for ${orderNumber}: status is ${order.status}`,
       );
       return { skipped: true, status: order.status };
     }
 
-    // Transition to LOOKING_FOR_DRIVER if still ACCEPTED
+    // Transition to LOOKING_FOR_DRIVER if still in initial ACCEPTED state
     if (order.status === OrderStatus.ACCEPTED) {
       await this.ordersRepository.updateStatus(
         orderId,

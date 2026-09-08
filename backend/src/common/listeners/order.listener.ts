@@ -230,10 +230,12 @@ export class OrderListener {
 
     // Manage Customer Approval Timeout
     if (event.newStatus === OrderStatus.PENDING_CUSTOMER_APPROVAL) {
+      const settings = await this.platformSettings.getSettings();
+      const timeoutMins = Number(settings.customerApprovalTimeoutMins) || 5;
       await this.ordersQueue.add(
         ORDER_JOBS.CUSTOMER_APPROVAL_TIMEOUT,
         { orderId: event.orderId, orderNumber: event.orderNumber },
-        { delay: 3 * 60 * 1000, jobId: `approval-timeout-${event.orderId}` }, // 3 minutes timeout
+        { delay: timeoutMins * 60 * 1000, jobId: `approval-timeout-${event.orderId}` },
       );
     } else if (
       event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
@@ -299,6 +301,8 @@ export class OrderListener {
     if (event.driverUserId && event.driverId) {
       if (
         event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
+        event.newStatus === OrderStatus.PENDING_CUSTOMER_APPROVAL ||
+        event.newStatus === OrderStatus.PENDING_PAYMENT ||
         event.newStatus === OrderStatus.PREPARING ||
         event.newStatus === OrderStatus.READY_FOR_PICKUP ||
         event.newStatus === OrderStatus.PICKED_UP

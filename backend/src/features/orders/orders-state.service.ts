@@ -342,6 +342,43 @@ async cancelOrder(
       );
     }
 
+    if (actor) {
+      if (actor.role === Role.CUSTOMER) {
+        if (order.customer.userId !== actor.sub) {
+          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+        }
+        // Customer cannot cancel if vendor has already started preparing or completed food
+        const customerCancellableStatuses: OrderStatus[] = [
+          OrderStatus.PENDING,
+          OrderStatus.CHANGES_REQUESTED,
+          OrderStatus.ACCEPTED,
+          OrderStatus.LOOKING_FOR_DRIVER,
+          OrderStatus.PENDING_CUSTOMER_APPROVAL,
+        ];
+        if (!customerCancellableStatuses.includes(order.status as OrderStatus)) {
+          throw new BadRequestException(
+            `Cannot cancel order once food preparation has started (current status: ${order.status})`,
+          );
+        }
+      } else if (actor.role === Role.VENDOR_MEMBER) {
+        const isMember = await this.prisma.vendorMember.findFirst({
+          where: { userId: actor.sub, vendorId: order.vendorId ?? '' },
+        });
+        if (!isMember) {
+          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
+        }
+      } else if (actor.role === Role.DRIVER) {
+        throw new ForbiddenException(
+          'Drivers cannot cancel orders. Please contact support or reject dispatch.',
+        );
+      } else if (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) {
+        const canManage = await this.canManageOrders(actor.sub, actor.role);
+        if (!canManage) {
+          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+        }
+      }
+    }
+
     const vendorUserIds = await this.ordersRepository.getVendorUserIds(order.vendorId);
 
     await this.ordersRepository.updateStatus(
@@ -425,8 +462,8 @@ private async applyStatusTransition(
     const newStatus = dto.status;
 
     const extraData: Prisma.OrderUpdateInput = {};
-    if (newStatus === OrderStatus.ACCEPTED) {
-      extraData.acceptedAt = new Date();
+    if (newStatus === OrderStatus.ACCEPTED || newStatus === OrderStatus.PREPARING) {
+      if (newStatus === OrderStatus.ACCEPTED) extraData.acceptedAt = new Date();
       if (dto.estimatedPrepTime)
         extraData.estimatedPrepTime = dto.estimatedPrepTime;
     }

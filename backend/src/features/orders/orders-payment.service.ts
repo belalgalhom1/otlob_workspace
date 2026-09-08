@@ -193,19 +193,23 @@ async driverConfirmPayment(
     }
 
     if (received) {
-      // Driver confirms they received the money. Transition order to DRIVER_ASSIGNED
-      // and finalize paymentStatus to COMPLETED.
+      // If the order was already picked up, preserve PICKED_UP so driver can deliver;
+      // otherwise, transition to DRIVER_ASSIGNED.
+      const nextStatus = (order as any).pickedUpAt
+        ? OrderStatus.PICKED_UP
+        : OrderStatus.DRIVER_ASSIGNED;
+
       const updatedOrder = await this.ordersRepository.updateStatus(
         orderId,
-        OrderStatus.DRIVER_ASSIGNED,
+        nextStatus,
         actor.sub,
         'Driver confirmed payment received.',
         { paymentStatus: 'COMPLETED' },
-        OrderStatus.PENDING_PAYMENT
+        OrderStatus.PENDING_PAYMENT,
       );
 
       this.logger.log(
-        `Driver confirmed payment for order ${order.orderNumber}. Order is now DRIVER_ASSIGNED.`,
+        `Driver confirmed payment for order ${order.orderNumber}. Order is now ${nextStatus}.`,
       );
 
       const vendorUserIds = await this.ordersRepository.getVendorUserIds(
@@ -230,7 +234,7 @@ async driverConfirmPayment(
           order.id,
           order.orderNumber,
           OrderStatus.PENDING_PAYMENT,
-          OrderStatus.DRIVER_ASSIGNED,
+          nextStatus,
           order.customerId,
           order.customer.user.id,
           order.vendorId,
@@ -242,7 +246,7 @@ async driverConfirmPayment(
         ),
       );
 
-      return { success: true, status: OrderStatus.DRIVER_ASSIGNED };
+      return { success: true, status: nextStatus };
     } else {
       // Driver says they did NOT receive the money. Revert payment status so customer can try again,
       // or we could cancel the order. For now, just revert payment status.

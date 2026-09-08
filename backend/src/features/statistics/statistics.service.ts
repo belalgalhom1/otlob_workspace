@@ -107,9 +107,14 @@ export class StatisticsService {
     const isDriverCollected = paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
     
     if (isDriverCollected) {
+      // For contracted vendors, the driver collects grandTotal (food + delivery + fees).
+      // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket,
+      // so net cash collected on behalf of the platform is grandTotal - subtotal.
+      const collectedAmount = isContracted ? grandTotal : Math.max(0, grandTotal - subtotal);
+
       await this.creditDriverWallet(
         driverId,
-        -grandTotal,
+        -collectedAmount,
         orderId,
         driverShiftId,
         `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
@@ -210,8 +215,8 @@ export class StatisticsService {
       });
     }
 
-    if (vendorId) {
-      // Vendor wallet: credit revenue (either subtotal-commission or full subtotal)
+    if (vendorId && isContracted) {
+      // Vendor wallet: credit revenue (subtotal) and debit commission ONLY if they are contracted
       await this.statsRepository.creditVendorWallet(
         vendorId,
         vendorRevenue,
@@ -220,16 +225,13 @@ export class StatisticsService {
         `Order ${orderNumber} revenue`,
       );
 
-      // Debit commission from vendor wallet ONLY if they are contracted
-      if (isContracted) {
-        await this.statsRepository.debitVendorWallet(
-          vendorId,
-          commission,
-          'COMMISSION_DEDUCTION',
-          orderId,
-          `Commission for order ${orderNumber}`,
-        );
-      }
+      await this.statsRepository.debitVendorWallet(
+        vendorId,
+        commission,
+        'COMMISSION_DEDUCTION',
+        orderId,
+        `Commission for order ${orderNumber}`,
+      );
     }
 
     const now = new Date();

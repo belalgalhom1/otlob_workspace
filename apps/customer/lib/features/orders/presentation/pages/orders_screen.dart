@@ -783,7 +783,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                               foregroundColor: Colors.red,
                               side: const BorderSide(color: Colors.red),
                             ),
-                            child: Text(s.cancel),
+                            child: Text(s.isArabic ? 'رفض' : 'Reject'),
                           ),
                         ),
                       ],
