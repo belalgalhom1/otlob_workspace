@@ -375,9 +375,10 @@ class CartScreen extends ConsumerWidget {
 
   Widget _buildCartItem(BuildContext context, WidgetRef ref, CartItem item, AppStrings s, bool isDark) {
     final isInactive = item.product['isActive'] == false || (item.selectedVariant != null && item.selectedVariant!['isActive'] == false);
-    final comparePrice = item.product['comparePrice'] is num
-        ? (item.product['comparePrice'] as num).toDouble()
-        : double.tryParse(item.product['comparePrice']?.toString() ?? '');
+    final rawCompare = item.selectedVariant?['comparePrice'] ?? item.product['comparePrice'];
+    final comparePrice = rawCompare is num
+        ? rawCompare.toDouble()
+        : double.tryParse(rawCompare?.toString() ?? '');
     final itemUnitPrice = item.totalPrice / (item.quantity > 0 ? item.quantity : 1);
     final hasDiscount = comparePrice != null && comparePrice > itemUnitPrice;
 

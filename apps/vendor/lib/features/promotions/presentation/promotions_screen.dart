@@ -264,11 +264,18 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
     final String type = isOffer ? 'OFFER' : (promo['type'] ?? 'BANNER');
     final bool isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final product = promo['product'] as Map?;
-    final title = isOffer
+    final variant = promo['variant'] as Map?;
+    final variantName = isArabic
+        ? (variant?['nameAr'] ?? variant?['name'])
+        : variant?['name'];
+    final productTitle = isOffer
         ? (isArabic ? (product?['nameAr'] ?? '') : (product?['name'] ?? ''))
         : ((isArabic && promo['titleAr'] != null)
               ? promo['titleAr']
               : promo['title']);
+    final title = (isOffer && variantName != null && variantName.toString().isNotEmpty)
+        ? '$productTitle ($variantName)'
+        : productTitle;
 
     final String? imageUrl = isOffer
         ? (product?['imageUrl'])
@@ -345,6 +352,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                   Row(
                     children: [
                       _buildBadge(type.toUpperCase(), AppColors.primary),
+                      if (isOffer && variantName != null && variantName.toString().isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _buildBadge(variantName.toString().toUpperCase(), Colors.purple),
+                      ],
                       const SizedBox(width: 8),
                       _buildBadge(
                         isActive ? 'ACTIVE' : 'INACTIVE',

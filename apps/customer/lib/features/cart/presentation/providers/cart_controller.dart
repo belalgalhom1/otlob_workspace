@@ -37,7 +37,7 @@ class CartItem {
     double price = 0.0;
     
     if (selectedVariant != null) {
-      final vPrice = selectedVariant!['basePrice'];
+      final vPrice = selectedVariant!['price'] ?? selectedVariant!['basePrice'];
       price = vPrice is num ? vPrice.toDouble() : (double.tryParse(vPrice?.toString() ?? '0') ?? 0.0);
     } else {
       final p = product['price'] ?? product['basePrice'];

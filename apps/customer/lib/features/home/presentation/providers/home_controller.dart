@@ -126,6 +126,7 @@ class HomeController extends _$HomeController {
           'offerPrice': offer['offerPrice'],
           'vendorId': offer['vendorId'],
           'productId': offer['productId'],
+          'variantId': offer['variantId'],
           'isActive': offer['isActive'],
           'sortOrder': offer['sortOrder'],
           // Enriched from relations
@@ -134,6 +135,9 @@ class HomeController extends _$HomeController {
           'productNameAr': offer['product']?['nameAr'],
           'productBasePrice': offer['product']?['basePrice'],
           'productComparePrice': offer['product']?['comparePrice'],
+          'productHasVariants': offer['product']?['hasVariants'] ?? false,
+          'variantName': offer['variant']?['name'],
+          'variantNameAr': offer['variant']?['nameAr'],
           'vendorStoreName': offer['vendor']?['storeName'],
           'vendorStoreNameAr': offer['vendor']?['storeNameAr'],
         };

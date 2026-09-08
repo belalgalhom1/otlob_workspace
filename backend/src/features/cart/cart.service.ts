@@ -57,15 +57,21 @@ type CartItemInclude = {
     imageUrl: string | null;
     hasVariants: boolean;
     offers?: {
+      id?: string;
+      variantId?: string | null;
       offerPrice: number;
+      originalPrice?: number | null;
       isActive: boolean;
       startDate: Date | null;
       endDate: Date | null;
     }[];
   } | null;
   variant: {
+    id?: string;
     basePrice: number;
+    comparePrice?: number | null;
     name: string | null;
+    nameAr?: string | null;
     isActive: boolean;
     stock: number | null;
   } | null;
@@ -523,7 +529,10 @@ export class CartService {
               offers: {
                 where: { isActive: true },
                 select: {
+                  id: true,
+                  variantId: true,
                   offerPrice: true,
+                  originalPrice: true,
                   isActive: true,
                   startDate: true,
                   endDate: true,
@@ -537,6 +546,7 @@ export class CartService {
               name: true,
               nameAr: true,
               basePrice: true,
+              comparePrice: true,
               isActive: true,
               stock: true,
             },
@@ -576,20 +586,63 @@ export class CartService {
     const now = new Date();
 
     const items = cart.items.map((item) => {
-      const activeOffer = item.product?.offers?.find((o) => {
+      const activeOffers = (item.product?.offers || []).filter((o) => {
         if (!o.isActive) return false;
         if (o.startDate && new Date(o.startDate) > now) return false;
         if (o.endDate && new Date(o.endDate) < now) return false;
         return true;
       });
 
-      const basePrice = item.customPrice !== null
-        ? Number(item.customPrice)
-        : item.variant
-          ? Number(item.variant.basePrice)
-          : item.product
-            ? activeOffer ? Number(activeOffer.offerPrice) : Number(item.product.basePrice ?? 0)
-            : 0;
+      const productActiveOffer = activeOffers.find((o) => !o.variantId);
+
+      const discountRatio = (productActiveOffer && productActiveOffer.originalPrice && Number(productActiveOffer.originalPrice) > Number(productActiveOffer.offerPrice))
+        ? (Number(productActiveOffer.originalPrice) - Number(productActiveOffer.offerPrice)) / Number(productActiveOffer.originalPrice)
+        : 0;
+
+      let basePrice = 0;
+      let originalBasePrice = 0;
+
+      if (item.customPrice !== null) {
+        basePrice = Number(item.customPrice);
+        originalBasePrice = basePrice;
+      } else if (item.variant) {
+        const vBase = Number(item.variant.basePrice || 0);
+        const vCompare = (item.variant as any).comparePrice ? Number((item.variant as any).comparePrice) : null;
+        const vOriginal = vCompare && vCompare > vBase ? vCompare : vBase;
+
+        // Check if an active offer specifically targets this variant
+        const variantOffer = activeOffers.find((o) => o.variantId === item.variantId);
+
+        if (variantOffer) {
+          basePrice = Number(variantOffer.offerPrice);
+          originalBasePrice = variantOffer.originalPrice ? Number(variantOffer.originalPrice) : vOriginal;
+        } else if (discountRatio > 0) {
+          basePrice = Math.max(0, Math.round(vOriginal * (1 - discountRatio)));
+          originalBasePrice = vOriginal;
+        } else if (vCompare && vCompare > vBase) {
+          basePrice = vBase;
+          originalBasePrice = vCompare;
+        } else {
+          basePrice = vBase;
+          originalBasePrice = vBase;
+        }
+      } else if (item.product) {
+        const pBase = Number(item.product.basePrice ?? 0);
+        const pCompare = item.product.comparePrice ? Number(item.product.comparePrice) : null;
+
+        if (productActiveOffer) {
+          basePrice = Number(productActiveOffer.offerPrice);
+          originalBasePrice = productActiveOffer.originalPrice
+            ? Number(productActiveOffer.originalPrice)
+            : (pCompare && pCompare > basePrice ? pCompare : pBase);
+        } else if (pCompare && pCompare > pBase) {
+          basePrice = pBase;
+          originalBasePrice = pCompare;
+        } else {
+          basePrice = pBase;
+          originalBasePrice = pBase;
+        }
+      }
 
       const optionsTotal = item.selectedOptions.reduce(
         (sum, so) => sum + Number(so.option.priceAdded),
@@ -597,17 +650,24 @@ export class CartService {
       );
 
       const unitPrice = basePrice + optionsTotal;
+      const compareUnitPrice = originalBasePrice > basePrice ? (originalBasePrice + optionsTotal) : null;
       const totalPrice = unitPrice * item.quantity;
 
       subtotal += totalPrice;
+
+      const resolvedVariant = item.variant
+        ? {
+            ...item.variant,
+            price: basePrice,
+            comparePrice: originalBasePrice > basePrice ? originalBasePrice : null,
+          }
+        : null;
 
       // Ensure item.product is never null (e.g. for custom negotiated items from chat)
       const resolvedProduct = item.product
         ? {
             ...item.product,
-            comparePrice:
-              item.product.comparePrice ??
-              (activeOffer ? Number(item.product.basePrice) : null),
+            comparePrice: compareUnitPrice,
           }
         : {
             id: item.productId ?? item.id,
@@ -627,7 +687,7 @@ export class CartService {
         productId: item.productId,
         variantId: item.variantId,
         product: resolvedProduct,
-        variant: item.variant,
+        variant: resolvedVariant,
         options: item.selectedOptions.map((so) => so.option),
         quantity: item.quantity,
         specialRequest: item.specialRequest,

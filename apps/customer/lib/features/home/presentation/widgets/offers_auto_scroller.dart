@@ -96,6 +96,14 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
         ? offer['productNameAr'].toString()
         : (offer['productName']?.toString() ?? (isAr ? offer['titleAr'] ?? offer['title'] : offer['title']) ?? '');
 
+    final variantName = (isAr && offer['variantNameAr'] != null && offer['variantNameAr'].toString().isNotEmpty)
+        ? offer['variantNameAr'].toString()
+        : (offer['variantName']?.toString() ?? '');
+
+    final displayTitle = variantName.isNotEmpty
+        ? '$productName ($variantName)'
+        : productName;
+
     final vendorName = (isAr && offer['vendorStoreNameAr'] != null && offer['vendorStoreNameAr'].toString().isNotEmpty)
         ? offer['vendorStoreNameAr'].toString()
         : (offer['vendorStoreName']?.toString() ?? '');
@@ -120,6 +128,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
             'id': vendorId,
             'name': vendorName,
             'productId': offer['productId']?.toString(),
+            'variantId': offer['variantId']?.toString(),
           });
         }
       },
@@ -255,7 +264,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      productName,
+                      displayTitle,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w900,

@@ -939,6 +939,7 @@ CREATE TABLE "promotions" (
 CREATE TABLE "product_offers" (
     "id" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
+    "variantId" TEXT,
     "vendorId" TEXT NOT NULL,
     "originalPrice" INTEGER NOT NULL,
     "offerPrice" INTEGER NOT NULL,
@@ -1355,6 +1356,12 @@ CREATE INDEX "promotions_isActive_sortOrder_idx" ON "promotions"("isActive", "so
 CREATE INDEX "product_offers_isActive_sortOrder_idx" ON "product_offers"("isActive", "sortOrder");
 
 -- CreateIndex
+CREATE INDEX "product_offers_productId_idx" ON "product_offers"("productId");
+
+-- CreateIndex
+CREATE INDEX "product_offers_variantId_idx" ON "product_offers"("variantId");
+
+-- CreateIndex
 CREATE INDEX "mobile_wallets_driverId_idx" ON "mobile_wallets"("driverId");
 
 -- CreateIndex
@@ -1604,7 +1611,10 @@ ALTER TABLE "promotions" ADD CONSTRAINT "promotions_productId_fkey" FOREIGN KEY 
 ALTER TABLE "product_offers" ADD CONSTRAINT "product_offers_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "product_offers" ADD CONSTRAINT "product_offers_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "product_offers" ADD CONSTRAINT "product_offers_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "product_offers" ADD CONSTRAINT "product_offers_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "product_variants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mobile_wallets" ADD CONSTRAINT "mobile_wallets_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;

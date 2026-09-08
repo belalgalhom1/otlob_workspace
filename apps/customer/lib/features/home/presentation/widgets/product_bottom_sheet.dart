@@ -134,21 +134,35 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     final bool supportsStrips = item['sellByStrip'] == true && item['stripsPerPackage'] != null;
     final int stripsCount = item['stripsPerPackage'] as int? ?? 1;
 
-    double basePrice = 0.0;
+    double effectiveBasePrice = 0.0;
+    double originalBasePrice = 0.0;
+
     if (_selectedVariant != null) {
-      final vp = _selectedVariant!['basePrice'];
-      basePrice = double.tryParse(vp?.toString() ?? '0') ?? 0.0;
+      final effectiveP = _selectedVariant!['price'] ?? _selectedVariant!['basePrice'];
+      effectiveBasePrice = double.tryParse(effectiveP?.toString() ?? '0') ?? 0.0;
+
+      final compareP = _selectedVariant!['comparePrice'] ?? _selectedVariant!['basePrice'];
+      originalBasePrice = double.tryParse(compareP?.toString() ?? '0') ?? effectiveBasePrice;
     } else {
-      final p = item['price'] ?? item['basePrice'];
-      basePrice = double.tryParse(p?.toString() ?? '0') ?? 0.0;
+      final effectiveP = item['price'] ?? item['basePrice'];
+      effectiveBasePrice = double.tryParse(effectiveP?.toString() ?? '0') ?? 0.0;
+
+      final compareP = item['comparePrice'] ?? effectiveBasePrice;
+      originalBasePrice = double.tryParse(compareP?.toString() ?? '0') ?? effectiveBasePrice;
     }
 
-    double currentUnitPrice = _selectedUnit == 'strip' ? (basePrice / stripsCount) : basePrice;
-    
+    double optionsTotal = 0.0;
     for (final opt in flatOptions) {
       final op = opt['priceAdded'];
-      currentUnitPrice += double.tryParse(op?.toString() ?? '0') ?? 0.0;
+      optionsTotal += double.tryParse(op?.toString() ?? '0') ?? 0.0;
     }
+
+    final double currentUnitPrice = (_selectedUnit == 'strip' ? (effectiveBasePrice / stripsCount) : effectiveBasePrice) + optionsTotal;
+    final double originalUnitPrice = (_selectedUnit == 'strip' ? (originalBasePrice / stripsCount) : originalBasePrice) + optionsTotal;
+    final bool hasDiscount = originalUnitPrice > currentUnitPrice;
+    final int discountPercentage = hasDiscount 
+        ? (((originalUnitPrice - currentUnitPrice) / originalUnitPrice) * 100).round()
+        : 0;
 
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final name = isAr && item['nameAr'] != null && item['nameAr'].toString().isNotEmpty
@@ -250,13 +264,13 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                             '${currentUnitPrice.toStringAsFixed(currentUnitPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
                             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary),
                           ),
-                          if (item['comparePrice'] != null && (item['comparePrice'] as num) > currentUnitPrice) ...[
+                          if (hasDiscount) ...[
                             const SizedBox(height: 3),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  '${(item['comparePrice'] as num).toStringAsFixed((item['comparePrice'] as num) % 1 == 0 ? 0 : 2)} ${s.egp}',
+                                  '${originalUnitPrice.toStringAsFixed(originalUnitPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: isDark ? Colors.white54 : Colors.grey.shade500,
@@ -273,7 +287,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                     border: Border.all(color: Colors.red.shade200, width: 0.5),
                                   ),
                                   child: Text(
-                                    '-${((((item['comparePrice'] as num) - currentUnitPrice) / (item['comparePrice'] as num)) * 100).round()}%',
+                                    '-$discountPercentage%',
                                     style: TextStyle(
                                       color: Colors.red.shade700,
                                       fontSize: 10,
@@ -317,7 +331,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           child: _buildUnitOption(
                             label: s.package,
                             isSelected: _selectedUnit == 'package',
-                            price: basePrice,
+                            price: effectiveBasePrice,
                             s: s,
                             onTap: () {
                               setState(() => _selectedUnit = 'package');
@@ -329,7 +343,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           child: _buildUnitOption(
                             label: s.strip,
                             isSelected: _selectedUnit == 'strip',
-                            price: basePrice / stripsCount,
+                            price: effectiveBasePrice / stripsCount,
                             s: s,
                             onTap: () {
                               setState(() => _selectedUnit = 'strip');
@@ -353,10 +367,54 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                     const SizedBox(height: 12),
                     ...variants.map((v) {
                       final vName = isAr && v['nameAr'] != null && v['nameAr'].toString().isNotEmpty ? v['nameAr'] : v['name'];
-                      final vPrice = double.tryParse(v['basePrice']?.toString() ?? '0') ?? 0.0;
+                      final effectiveVPrice = double.tryParse((v['price'] ?? v['basePrice'])?.toString() ?? '0') ?? 0.0;
+                      final originalVPrice = double.tryParse((v['comparePrice'] ?? v['basePrice'])?.toString() ?? '0') ?? effectiveVPrice;
+                      final hasVDiscount = originalVPrice > effectiveVPrice;
+                      final vDiscountPct = hasVDiscount 
+                          ? (((originalVPrice - effectiveVPrice) / originalVPrice) * 100).round()
+                          : 0;
+
                       return RadioListTile<String>(
                         title: Text(vName),
-                        subtitle: Text('${vPrice.toStringAsFixed(2)} ${s.egp}'),
+                        subtitle: Row(
+                          children: [
+                            Text(
+                              '${effectiveVPrice.toStringAsFixed(effectiveVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: hasVDiscount ? AppColors.primary : null,
+                              ),
+                            ),
+                            if (hasVDiscount) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '${originalVPrice.toStringAsFixed(originalVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                ),
+                                child: Text(
+                                  '-$vDiscountPct%',
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         value: v['id'],
                         groupValue: _selectedVariant?['id'],
                         activeColor: AppColors.primary,

@@ -851,7 +851,9 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                     return ListTile(
                       title: Text(variant['name'] ?? 'Unnamed'),
                       subtitle: Text(
-                        '\$${variant['basePrice']} • Stock: ${variant['stock']}',
+                        variant['comparePrice'] != null && (variant['comparePrice'] as num) > (variant['basePrice'] as num)
+                            ? '\$${variant['basePrice']} (Was: \$${variant['comparePrice']}) • Stock: ${variant['stock']}'
+                            : '\$${variant['basePrice']} • Stock: ${variant['stock']}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1020,6 +1022,9 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     final priceController = TextEditingController(
       text: variant?['basePrice']?.toString() ?? '',
     );
+    final comparePriceController = TextEditingController(
+      text: variant?['comparePrice']?.toString() ?? '',
+    );
     final stockController = TextEditingController(
       text: variant?['stock']?.toString() ?? '',
     );
@@ -1042,7 +1047,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 _buildTextField(
                   controller: nameController,
                   label: AppLocalizations.of(context)!.nameEn,
-                  hint: 'e.g. Small',
+                  hint: 'e.g. Cheese Pizza, Tuna Pizza',
                   icon: LucideIcons.type,
                   validator: (v) =>
                       (v == null || v.trim().isEmpty)
@@ -1053,7 +1058,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 _buildTextField(
                   controller: nameArController,
                   label: AppLocalizations.of(context)!.nameAr,
-                  hint: 'مثال: صغير',
+                  hint: 'مثال: بيتزا جبنة، بيتزا تونة',
                   icon: LucideIcons.languages,
                   textAlign: TextAlign.right,
                 ),
@@ -1079,6 +1084,20 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildTextField(
+                        controller: comparePriceController,
+                        label: AppLocalizations.of(context)!.comparePrice,
+                        hint: '0.00',
+                        icon: LucideIcons.tag,
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
                         controller: stockController,
                         label: AppLocalizations.of(context)!.stock,
                         hint: '0',
@@ -1086,14 +1105,16 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         keyboardType: TextInputType.number,
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: skuController,
+                        label: AppLocalizations.of(context)!.sku,
+                        hint: AppLocalizations.of(context)!.optional,
+                        icon: LucideIcons.hash,
+                      ),
+                    ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  controller: skuController,
-                  label: AppLocalizations.of(context)!.sku,
-                  hint: AppLocalizations.of(context)!.optional,
-                  icon: LucideIcons.hash,
                 ),
               ],
             ),
@@ -1109,10 +1130,14 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
               if (!(_variantFormKey.currentState?.validate() ?? false)) {
                 return;
               }
+              final comparePriceVal = comparePriceController.text.trim().isNotEmpty
+                  ? double.tryParse(comparePriceController.text.trim())
+                  : null;
               final data = {
                 'name': nameController.text,
                 'nameAr': nameArController.text,
                 'basePrice': double.tryParse(priceController.text) ?? 0.0,
+                'comparePrice': comparePriceVal,
                 'stock': int.tryParse(stockController.text),
                 'sku': skuController.text.trim().isEmpty ? null : skuController.text.trim(),
               };
@@ -1125,6 +1150,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                       'name': data['name'],
                       'nameAr': data['nameAr'],
                       'basePrice': data['basePrice'],
+                      'comparePrice': data['comparePrice'],
                       'stock': data['stock'],
                       'sku': data['sku'],
                       'optionGroups': [],
@@ -1138,6 +1164,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         b.name = data['name'] as String;
                         b.nameAr = data['nameAr'] as String;
                         b.basePrice = data['basePrice'] as num;
+                        if (data['comparePrice'] != null) b.comparePrice = data['comparePrice'] as num;
                         b.stock = data['stock'] as num?;
                         if (data['sku'] != null && (data['sku'] as String).isNotEmpty) b.sku = data['sku'] as String;
                       })); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
@@ -1154,6 +1181,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         'name': data['name'],
                         'nameAr': data['nameAr'],
                         'basePrice': data['basePrice'],
+                        'comparePrice': data['comparePrice'],
                         'stock': data['stock'],
                         'sku': data['sku'],
                       };
@@ -1171,6 +1199,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                           b.name = data['name'] as String;
                           b.nameAr = data['nameAr'] as String;
                           b.basePrice = data['basePrice'] as num;
+                          if (data['comparePrice'] != null) b.comparePrice = data['comparePrice'] as num;
                           b.stock = data['stock'] as num?;
                           if (data['sku'] != null && (data['sku'] as String).isNotEmpty) b.sku = data['sku'] as String;
                         }),
@@ -1278,14 +1307,14 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 _buildTextField(
                   controller: nameController,
                   label: AppLocalizations.of(context)!.groupNameEn,
-                  hint: 'e.g. Extras',
+                  hint: 'e.g. Size, Extras',
                   icon: LucideIcons.type,
                 ),
                 const SizedBox(height: 12),
                 _buildTextField(
                   controller: nameArController,
                   label: AppLocalizations.of(context)!.groupNameAr,
-                  hint: 'مثال: إضافات',
+                  hint: 'مثال: الحجم، الإضافات',
                   icon: LucideIcons.languages,
                   textAlign: TextAlign.right,
                 ),
@@ -1499,14 +1528,14 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
               _buildTextField(
                 controller: nameController,
                 label: AppLocalizations.of(context)!.optionNameEn,
-                hint: 'e.g. Cheese',
+                hint: 'e.g. Medium, Extra Mozzarella',
                 icon: LucideIcons.type,
               ),
               const SizedBox(height: 12),
               _buildTextField(
                 controller: nameArController,
                 label: AppLocalizations.of(context)!.optionNameAr,
-                hint: 'مثال: جبنة',
+                hint: 'مثال: وسط، جبنة موزاريلا إضافية',
                 icon: LucideIcons.languages,
                 textAlign: TextAlign.right,
               ),

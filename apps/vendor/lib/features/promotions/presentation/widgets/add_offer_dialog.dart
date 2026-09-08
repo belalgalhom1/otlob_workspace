@@ -27,6 +27,7 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   late bool _isActive;
   String? _selectedVendorId;
   String? _selectedProductId;
+  String? _selectedVariantId;
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -55,6 +56,7 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
         o?['vendorId'] ??
         (widget.userRole == 'VENDOR' ? widget.vendorId : null);
     _selectedProductId = o?['productId'];
+    _selectedVariantId = o?['variantId'];
 
     if (o?['startDate'] != null) {
       _startDate = DateTime.tryParse(o['startDate'].toString());
@@ -157,6 +159,11 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
                         if (_selectedVendorId != null) ...[
                           if (!isVendor) const SizedBox(height: 16),
                           _buildProductDropdown(l10n),
+                          if (_hasSelectedProductVariants()) ...[
+                            const SizedBox(height: 16),
+                            _buildVariantDropdown(context, l10n),
+                            _buildVariantOfferNotice(context, l10n),
+                          ],
                         ],
                         const SizedBox(height: 24),
                         _buildTextField(
@@ -320,6 +327,125 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
     );
   }
 
+  bool _hasSelectedProductVariants() {
+    if (_selectedProductId == null) return false;
+    final product = _products.firstWhere(
+      (p) => p['id'] == _selectedProductId,
+      orElse: () => null,
+    );
+    if (product == null) return false;
+    return product['hasVariants'] == true || (product['variants'] as List?)?.isNotEmpty == true;
+  }
+
+  List<dynamic> _getSelectedProductVariants() {
+    if (_selectedProductId == null) return [];
+    final product = _products.firstWhere(
+      (p) => p['id'] == _selectedProductId,
+      orElse: () => null,
+    );
+    if (product == null) return [];
+    return (product['variants'] as List?) ?? [];
+  }
+
+  Widget _buildVariantDropdown(BuildContext context, AppLocalizations l10n) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final variants = _getSelectedProductVariants();
+
+    return DropdownButtonFormField<String?>(
+      initialValue: _selectedVariantId,
+      decoration: InputDecoration(
+        labelText: isAr ? 'تطبيق العرض على' : 'Apply Offer To',
+        prefixIcon: const Icon(LucideIcons.layers, size: 18),
+      ),
+      items: [
+        DropdownMenuItem<String?>(
+          value: null,
+          child: Text(
+            isAr
+                ? '🌟 جميع الأصناف (خصم نسبي على كل الأصناف)'
+                : '🌟 All Variants (Proportional Discount)',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        ...variants.map((v) {
+          final vName = isAr
+              ? (v['nameAr'] ?? v['name'] ?? '')
+              : (v['name'] ?? '');
+          final vPrice = v['basePrice'] ?? v['price'] ?? '';
+          return DropdownMenuItem<String?>(
+            value: v['id'],
+            child: Text(
+              '$vName ($vPrice EGP)',
+            ),
+          );
+        }),
+      ],
+      onChanged: widget.offer != null
+          ? null
+          : (v) {
+              setState(() {
+                _selectedVariantId = v;
+                if (v == null) {
+                  final product = _products.firstWhere(
+                    (p) => p['id'] == _selectedProductId,
+                    orElse: () => null,
+                  );
+                  if (product != null) {
+                    final price = product['basePrice'] ?? product['price'];
+                    if (price != null) {
+                      _originalPriceController.text = price.toString();
+                    }
+                  }
+                } else {
+                  final variant = variants.firstWhere(
+                    (item) => item['id'] == v,
+                    orElse: () => null,
+                  );
+                  if (variant != null) {
+                    final price = variant['basePrice'] ?? variant['price'];
+                    if (price != null) {
+                      _originalPriceController.text = price.toString();
+                    }
+                  }
+                }
+              });
+            },
+    );
+  }
+
+  Widget _buildVariantOfferNotice(BuildContext context, AppLocalizations l10n) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(LucideIcons.info, size: 18, color: Colors.blue),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isAr
+                  ? 'اختر "جميع الأصناف" لتطبيق الخصم بنسبة مئوية على جميع الأنواع (مثل بيتزا جبنة، بيتزا تونة)، أو حدد صنفاً معيناً لخصم ذلك الصنف فقط.'
+                  : 'Select "All Variants" to apply the discount proportionally across all flavors/types (e.g. Cheese Pizza, Tuna Pizza), or choose a specific variant to discount only that item.',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.blue,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -457,6 +583,7 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
     if (_formKey.currentState?.validate() ?? false) {
       Navigator.pop(context, {
         'productId': _selectedProductId,
+        'variantId': _selectedVariantId,
         'vendorId': _selectedVendorId,
         'originalPrice': double.tryParse(_originalPriceController.text) ?? 0,
         'offerPrice': double.tryParse(_offerPriceController.text) ?? 0,

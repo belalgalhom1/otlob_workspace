@@ -675,6 +675,7 @@ export class VendorsService {
             where: { isActive: true },
             select: {
               id: true,
+              variantId: true,
               offerPrice: true,
               originalPrice: true,
               startDate: true,
@@ -835,6 +836,8 @@ export class VendorsService {
                              name.includes('pharmacy') || name.includes('pharmacies') || name.includes('medical') || name.includes('medicine') || name.includes('pharma') || nameAr.includes('صيدلي') || nameAr.includes('صيدليات') ||
                              vendorSlug.includes('pharmacy') || vendorSlug.includes('صيدلي') || vendorSlug.includes('صيدليات') || storeName.includes('pharmacy') || storeName.includes('صيدلي') || storeName.includes('صيدليات') || false;
           const pOffers = (p as any).offers as Array<{
+            id: string;
+            variantId?: string | null;
             offerPrice: number;
             originalPrice?: number | null;
             startDate?: Date | null;
@@ -842,11 +845,22 @@ export class VendorsService {
           }> | undefined;
 
           const now = new Date();
-          const activeOffer = pOffers?.find((o) => {
+          const activeOffers = (pOffers || []).filter((o) => {
             if (o.startDate && new Date(o.startDate) > now) return false;
             if (o.endDate && new Date(o.endDate) < now) return false;
             return true;
           });
+
+          // Product-wide active offer (where variantId is null or undefined)
+          const productActiveOffer = activeOffers.find((o) => !o.variantId);
+
+          // Variant-specific active offers mapped by variantId
+          const variantOffersMap = new Map<string, typeof activeOffers[0]>();
+          for (const o of activeOffers) {
+            if (o.variantId) {
+              variantOffersMap.set(o.variantId, o);
+            }
+          }
 
           const basePrice = p.basePrice ? Number(p.basePrice) : 0;
           const rawComparePrice = p.comparePrice ? Number(p.comparePrice) : null;
@@ -854,11 +868,58 @@ export class VendorsService {
           let effectivePrice = basePrice;
           let effectiveComparePrice = rawComparePrice;
 
-          if (activeOffer) {
-            effectivePrice = Number(activeOffer.offerPrice);
-            effectiveComparePrice = activeOffer.originalPrice
-              ? Number(activeOffer.originalPrice)
+          // Discount ratio from product-wide active offer (if present)
+          const productDiscountRatio = (productActiveOffer && productActiveOffer.originalPrice && productActiveOffer.originalPrice > productActiveOffer.offerPrice)
+            ? (Number(productActiveOffer.originalPrice) - Number(productActiveOffer.offerPrice)) / Number(productActiveOffer.originalPrice)
+            : 0;
+
+          if (productActiveOffer) {
+            effectivePrice = Number(productActiveOffer.offerPrice);
+            effectiveComparePrice = productActiveOffer.originalPrice
+              ? Number(productActiveOffer.originalPrice)
               : (rawComparePrice && rawComparePrice > effectivePrice ? rawComparePrice : basePrice);
+          }
+
+          // Map variants with discount calculations
+          const mappedVariants = (p.variants || []).map((v: any) => {
+            const vBasePrice = Number(v.basePrice || 0);
+            const vRawCompare = v.comparePrice ? Number(v.comparePrice) : null;
+            const originalRef = vRawCompare && vRawCompare > vBasePrice ? vRawCompare : vBasePrice;
+
+            let vEffectivePrice = vBasePrice;
+            let vEffectiveCompare = vRawCompare;
+
+            // 1. Check for a dedicated variant-specific active offer first!
+            const variantOffer = variantOffersMap.get(v.id);
+            if (variantOffer) {
+              vEffectivePrice = Number(variantOffer.offerPrice);
+              vEffectiveCompare = variantOffer.originalPrice
+                ? Number(variantOffer.originalPrice)
+                : originalRef;
+            } else if (productDiscountRatio > 0) {
+              // 2. Otherwise apply product-wide proportional discount ratio
+              vEffectivePrice = Math.max(0, Math.round(originalRef * (1 - productDiscountRatio)));
+              vEffectiveCompare = originalRef;
+            }
+
+            return {
+              ...v,
+              price: vEffectivePrice,
+              basePrice: vBasePrice,
+              comparePrice: vEffectiveCompare && vEffectiveCompare > vEffectivePrice ? vEffectiveCompare : null,
+            };
+          });
+
+          // If product has variants, starting price reflects the lowest variant price
+          if (p.hasVariants && mappedVariants.length > 0) {
+            let minVariant = mappedVariants[0];
+            for (const mv of mappedVariants) {
+              if (mv.price < minVariant.price) {
+                minVariant = mv;
+              }
+            }
+            effectivePrice = minVariant.price;
+            effectiveComparePrice = minVariant.comparePrice;
           }
 
           return {
@@ -875,7 +936,7 @@ export class VendorsService {
             sellByStrip: isPharmacy ? p.sellByStrip : false,
             stripsPerPackage: p.stripsPerPackage,
             hasVariants: p.hasVariants,
-            variants: p.variants || [],
+            variants: mappedVariants,
             optionGroups: p.optionGroups || [],
           };
         }) || [],

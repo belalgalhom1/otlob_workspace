@@ -604,6 +604,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             letterSpacing: -0.5,
                           ), 
                           maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -622,57 +623,63 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Builder(builder: (context) {
-                        final price = (item['price'] as num?)?.toDouble() ?? 0.0;
-                        final comparePrice = (item['comparePrice'] as num?)?.toDouble();
-                        final hasDiscount = comparePrice != null && comparePrice > price;
-                        final discountPct = hasDiscount ? (((comparePrice - price) / comparePrice) * 100).round() : 0;
+                      Expanded(
+                        child: Builder(builder: (context) {
+                          final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+                          final comparePrice = (item['comparePrice'] as num?)?.toDouble();
+                          final hasDiscount = comparePrice != null && comparePrice > price;
+                          final discountPct = hasDiscount ? (((comparePrice - price) / comparePrice) * 100).round() : 0;
+                          final hasVariants = item['hasVariants'] == true && (item['variants'] as List?)?.isNotEmpty == true;
+                          final prefix = hasVariants ? (s.isArabic ? 'يبدأ من ' : 'From ') : '';
 
-                        return Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 6,
-                          runSpacing: 2,
-                          children: [
-                            Text(
-                              '${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)} ${s.egp}', 
-                              style: const TextStyle(
-                                color: AppColors.primary, 
-                                fontWeight: FontWeight.w900, 
-                                fontSize: 15,
-                              ),
-                            ),
-                            if (hasDiscount) ...[
+                          return Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
                               Text(
-                                '${comparePrice.toStringAsFixed(comparePrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.white54 : Colors.grey.shade500,
-                                  decoration: TextDecoration.lineThrough,
-                                  fontWeight: FontWeight.w600,
+                                '$prefix${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)} ${s.egp}', 
+                                style: const TextStyle(
+                                  color: AppColors.primary, 
+                                  fontWeight: FontWeight.w900, 
+                                  fontSize: 15,
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: Colors.red.shade200, width: 0.5),
-                                ),
-                                child: Text(
-                                  '-$discountPct%',
+                              if (hasDiscount) ...[
+                                Text(
+                                  '${comparePrice.toStringAsFixed(comparePrice % 1 == 0 ? 0 : 2)} ${s.egp}',
                                   style: TextStyle(
-                                    color: Colors.red.shade700,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                    decoration: TextDecoration.lineThrough,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                  ),
+                                  child: Text(
+                                    '-$discountPct%',
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        );
-                      }),
-                      if (isOpen)
+                          );
+                        }),
+                      ),
+                      if (isOpen) ...[
+                        const SizedBox(width: 8),
                         GestureDetector(
                           onTap: () async {
                             final authStatus = ref.read(authControllerProvider);
@@ -722,7 +729,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
@@ -739,11 +746,14 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ],

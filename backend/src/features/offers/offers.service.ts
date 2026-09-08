@@ -16,17 +16,33 @@ export class OffersService {
     return this.prisma.offer.findMany({
       where: {
         isActive: true,
-        OR: [{ startDate: null }, { startDate: { lte: now } }],
         AND: [
+          {
+            OR: [{ startDate: null }, { startDate: { lte: now } }],
+          },
           {
             OR: [{ endDate: null }, { endDate: { gte: now } }],
           },
+          {
+            OR: [
+              { variantId: null },
+              { variant: { isActive: true } },
+            ],
+          },
         ],
+        product: {
+          isActive: true,
+          deletedAt: null,
+        },
+        vendor: {
+          deletedAt: null,
+          status: { not: 'SUSPENDED' },
+        },
       },
       orderBy: { sortOrder: 'asc' },
       include: {
         vendor: {
-          select: { id: true, storeName: true, storeNameAr: true },
+          select: { id: true, storeName: true, storeNameAr: true, logo: true },
         },
         product: {
           select: {
@@ -36,26 +52,68 @@ export class OffersService {
             imageUrl: true,
             basePrice: true,
             comparePrice: true,
+            hasVariants: true,
+          },
+        },
+        variant: {
+          select: {
+            id: true,
+            name: true,
+            nameAr: true,
+            basePrice: true,
+            comparePrice: true,
           },
         },
       },
     });
   }
 
-  async findAll() {
+  async findAll(vendorId?: string) {
     return this.prisma.offer.findMany({
+      where: vendorId ? { vendorId } : undefined,
       orderBy: { createdAt: 'desc' },
       include: {
-        vendor: { select: { storeName: true } },
-        product: { select: { name: true } },
+        vendor: { select: { id: true, storeName: true, storeNameAr: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            nameAr: true,
+            imageUrl: true,
+            basePrice: true,
+            comparePrice: true,
+            hasVariants: true,
+          },
+        },
+        variant: {
+          select: {
+            id: true,
+            name: true,
+            nameAr: true,
+            basePrice: true,
+            comparePrice: true,
+          },
+        },
       },
     });
   }
 
   async create(dto: CreateOfferDto) {
+    if (dto.variantId) {
+      const variant = await this.prisma.productVariant.findUnique({
+        where: { id: dto.variantId },
+      });
+      if (!variant || variant.productId !== dto.productId) {
+        throw new NotFoundException(
+          'Selected variant does not exist or does not belong to the selected product',
+        );
+      }
+    }
+
     return this.prisma.offer.create({
       data: {
         productId: dto.productId,
+        variantId: dto.variantId ?? null,
         vendorId: dto.vendorId,
         originalPrice: dto.originalPrice,
         offerPrice: dto.offerPrice,
@@ -67,9 +125,28 @@ export class OffersService {
   }
 
   async update(id: string, dto: UpdateOfferDto) {
+    if (dto.variantId) {
+      const currentOffer = await this.prisma.offer.findUnique({
+        where: { id },
+      });
+      if (!currentOffer) {
+        throw new NotFoundException('Offer not found');
+      }
+
+      const variant = await this.prisma.productVariant.findUnique({
+        where: { id: dto.variantId },
+      });
+      if (!variant || variant.productId !== currentOffer.productId) {
+        throw new NotFoundException(
+          'Selected variant does not exist or does not belong to the offer product',
+        );
+      }
+    }
+
     return this.prisma.offer.update({
       where: { id },
       data: {
+        variantId: dto.variantId !== undefined ? (dto.variantId ?? null) : undefined,
         originalPrice: dto.originalPrice,
         offerPrice: dto.offerPrice,
         isActive: dto.isActive,

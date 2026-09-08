@@ -6,9 +6,10 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { OffersService } from './offers.service';
 import {
   CreateOfferDto,
@@ -38,8 +39,9 @@ export class OffersController {
   @ApiBearerAuth()
   @RequirePermissions(Permission.MANAGE_PROMOTIONS)
   @ApiOperation({ summary: 'Get all offers (Admin)' })
-  findAll() {
-    return this.offersService.findAll();
+  @ApiQuery({ name: 'vendorId', required: false, type: String })
+  findAll(@Query('vendorId') vendorId?: string) {
+    return this.offersService.findAll(vendorId);
   }
 
   @ApiStandardResponse()

@@ -472,6 +472,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   if (result['description'] != null) b.description = result['description'];
                   if (result['descriptionAr'] != null) b.descriptionAr = result['descriptionAr'];
                   if (result['basePrice'] != null) b.basePrice = num.tryParse(result['basePrice'].toString());
+                  if (result['comparePrice'] != null) b.comparePrice = num.tryParse(result['comparePrice'].toString());
                   if (result['stock'] != null) b.stock = num.tryParse(result['stock'].toString());
                   if (result['sku'] != null && result['sku'].toString().trim().isNotEmpty) {
                     b.sku = result['sku'].toString().trim();
@@ -494,6 +495,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   b.name = result['name'] ?? '';
                   b.nameAr = result['nameAr'] ?? '';
                   b.basePrice = num.tryParse(result['basePrice']?.toString() ?? '0') ?? 0;
+                  if (result['comparePrice'] != null) b.comparePrice = num.tryParse(result['comparePrice'].toString());
                   if (result['description'] != null) b.description = result['description'];
                   if (result['descriptionAr'] != null) b.descriptionAr = result['descriptionAr'];
                   if (result['stock'] != null) b.stock = num.tryParse(result['stock'].toString());
@@ -577,6 +579,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           b.nameAr = v['nameAr'].toString();
         }
         b.basePrice = num.tryParse(v['basePrice']?.toString() ?? '') ?? 0;
+        if (v['comparePrice'] != null) {
+          b.comparePrice = num.tryParse(v['comparePrice'].toString());
+        }
         if (v['sku']?.toString().isNotEmpty == true) {
           b.sku = v['sku'].toString();
         }
