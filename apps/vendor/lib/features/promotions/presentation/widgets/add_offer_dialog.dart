@@ -260,6 +260,9 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   }
 
   Widget _buildVendorDropdown(AppLocalizations l10n) {
+    if (_isLoadingVendors) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return DropdownButtonFormField<String>(
       initialValue: _selectedVendorId,
       decoration: InputDecoration(
