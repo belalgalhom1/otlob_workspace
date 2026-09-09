@@ -129,10 +129,25 @@ export class PlatformSettingsService {
       minCoinsToUse: s.minCoinsToUse,
       requireCustomerApproval: s.requireCustomerApproval,
       customerApprovalTimeoutMins: s.customerApprovalTimeoutMins,
+      allowBicycle: s.allowBicycle,
+      allowMotorcycle: s.allowMotorcycle,
+      allowCar: s.allowCar,
+      allowVan: s.allowVan,
+      allowTruck: s.allowTruck,
+      allowMotorTricycle: s.allowMotorTricycle,
+      maxKmForBicycle: s.maxKmForBicycle,
+      maxDeliveryRadiusKm: s.maxDeliveryRadiusKm,
+      minOrderKm: s.minOrderKm,
+      minDistanceFixedPrice: s.minDistanceFixedPrice,
       homeCoverUrl: s.homeCoverUrl,
       motorcycleIconUrl: s.motorcycleIconUrl,
       carIconUrl: s.carIconUrl,
       deliveryBannerIconUrl: s.deliveryBannerIconUrl,
+      driverBonusActive: s.driverBonusActive,
+      driverBonusAmount: s.driverBonusAmount,
+      driverBonusStartDate: s.driverBonusStartDate,
+      driverBonusEndDate: s.driverBonusEndDate,
+      driverBonusPaidByCustomer: s.driverBonusPaidByCustomer,
     };
   }
 
@@ -170,6 +185,12 @@ export class PlatformSettingsService {
       'maxDeliveryFeeTruck',
       'minDeliveryFeeMotorTricycle',
       'maxDeliveryFeeMotorTricycle',
+      'allowBicycle',
+      'allowMotorcycle',
+      'allowCar',
+      'allowVan',
+      'allowTruck',
+      'allowMotorTricycle',
       'minOrderKm',
       'minDistanceFixedPrice',
       'maxDeliveryRadiusKm',
@@ -287,19 +308,14 @@ export class PlatformSettingsService {
     perKmOverride?: number | null,
     isStandardOrder: boolean = true,
     prefetchedSettings?: PlatformSetting,
+    vehicleType?: string | null,
   ): Promise<number> {
     const s = prefetchedSettings ?? (await this.getSettings());
 
     const minOrderKm = Number(s.minOrderKm);
     const minFixedPrice = Number(s.minDistanceFixedPrice);
 
-    if (minOrderKm > 0 && distanceKm < minOrderKm) {
-      return Math.round(minFixedPrice * 100) / 100;
-    }
-
     // Zone override takes precedence over global base fee
-    // If perKmOverride is provided, we assume it's a custom delivery and might not have a base fee, but let's keep base fee unless instructed otherwise.
-    // Wait, rides don't usually have a standard base fee, but the platform setting baseFee is added.
     const baseFee =
       zoneBaseDeliveryFeeOverride != null
         ? Number(zoneBaseDeliveryFeeOverride)
@@ -312,9 +328,42 @@ export class PlatformSettingsService {
       perKm += Number(s.goldTierBonusPerKm ?? 0);
     }
 
-    let fee = baseFee + distanceKm * perKm;
+    let fee =
+      minOrderKm > 0 && distanceKm < minOrderKm
+        ? minFixedPrice
+        : baseFee + distanceKm * perKm;
 
-    const maxFee = Number(s.maxDeliveryFee);
+    // Vehicle-specific min and max fee overrides
+    let vehicleMinFee = 0;
+    let vehicleMaxFee = 0;
+    if (vehicleType) {
+      const v = vehicleType.toUpperCase();
+      if (v === 'BICYCLE') {
+        vehicleMinFee = Number(s.minDeliveryFeeBicycle);
+        vehicleMaxFee = Number(s.maxDeliveryFeeBicycle);
+      } else if (v === 'MOTORCYCLE') {
+        vehicleMinFee = Number(s.minDeliveryFeeMotorcycle);
+        vehicleMaxFee = Number(s.maxDeliveryFeeMotorcycle);
+      } else if (v === 'CAR') {
+        vehicleMinFee = Number(s.minDeliveryFeeCar);
+        vehicleMaxFee = Number(s.maxDeliveryFeeCar);
+      } else if (v === 'VAN') {
+        vehicleMinFee = Number(s.minDeliveryFeeVan);
+        vehicleMaxFee = Number(s.maxDeliveryFeeVan);
+      } else if (v === 'TRUCK') {
+        vehicleMinFee = Number(s.minDeliveryFeeTruck);
+        vehicleMaxFee = Number(s.maxDeliveryFeeTruck);
+      } else if (v === 'MOTOR_TRICYCLE') {
+        vehicleMinFee = Number(s.minDeliveryFeeMotorTricycle);
+        vehicleMaxFee = Number(s.maxDeliveryFeeMotorTricycle);
+      }
+    }
+
+    if (vehicleMinFee > 0 && fee < vehicleMinFee) {
+      fee = vehicleMinFee;
+    }
+
+    const maxFee = vehicleMaxFee > 0 ? vehicleMaxFee : Number(s.maxDeliveryFee);
     if (maxFee > 0 && fee > maxFee) {
       fee = maxFee;
     }

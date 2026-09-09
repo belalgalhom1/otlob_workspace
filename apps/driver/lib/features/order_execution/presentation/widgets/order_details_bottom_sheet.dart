@@ -270,6 +270,23 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 currency,
                 isTotal: true
               ),
+              if (order['upfrontAmount'] != null && (double.tryParse(order['upfrontAmount'].toString()) ?? 0.0) > 0) ...[
+                const SizedBox(height: 8),
+                _buildTotalRow(
+                  context,
+                  l10n.localeName == 'ar' ? 'المدفوع مقدماً' : 'Paid Upfront',
+                  '-${order['upfrontAmount']}',
+                  currency,
+                ),
+                const SizedBox(height: 8),
+                _buildTotalRow(
+                  context,
+                  l10n.localeName == 'ar' ? 'المطلوب تحصيله كاش' : 'Cash to Collect',
+                  ((double.tryParse((order['total'] ?? order['grandTotal']).toString()) ?? 0.0) - (double.tryParse(order['upfrontAmount'].toString()) ?? 0.0)),
+                  currency,
+                  isTotal: true,
+                ),
+              ],
               
               const SizedBox(height: 24),
               PrimaryButton(

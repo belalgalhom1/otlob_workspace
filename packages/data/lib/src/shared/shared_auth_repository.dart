@@ -21,8 +21,14 @@ class SharedAuthRepository {
   }
 
   Future<dynamic> logoutAll() async {
-    final response = await _api.authControllerLogoutAll();
-    return ResponseParser.parse(response);
+    try {
+      final response = await _api.authControllerLogoutAll();
+      await _tokenService.clearSession();
+      return ResponseParser.parse(response);
+    } catch (_) {
+      await _tokenService.clearSession();
+      rethrow;
+    }
   }
 
   Future<dynamic> forgotPassword(String contact) async {
@@ -120,9 +126,63 @@ class SharedAuthRepository {
     throw Exception('auth.error.invalid_credentials');
   }
 
-  Future<void> logout() async {
+  Future<dynamic> socialLogin(SocialLoginDto socialLoginDto) async {
+    final response = await _api.authControllerSocialLogin(
+      socialLoginDto: socialLoginDto,
+    );
+    final rawData = response.data;
+    if (rawData == null) {
+      throw Exception('auth.error.invalid_credentials');
+    }
+
+    Map<String, dynamic> payload = {};
+    if (rawData.data != null && rawData.data!.value is Map) {
+      payload = Map<String, dynamic>.from(rawData.data!.value as Map);
+    } else {
+      final parsed = ResponseParser.parse(response);
+      payload = (parsed is Map && parsed.containsKey('data') && parsed['data'] != null)
+          ? parsed['data']
+          : (parsed is Map ? parsed : {});
+    }
+
+    if (payload.isNotEmpty && payload['access_token'] != null) {
+      final user = payload['user'];
+      List<dynamic> vendorMemberships = [];
+      List<dynamic> permissions = [];
+
+      if (user != null && user['vendorMemberships'] != null) {
+        vendorMemberships = user['vendorMemberships'] as List<dynamic>;
+      }
+
+      if (user != null && user['permissions'] != null) {
+        permissions = user['permissions'] as List<dynamic>;
+      }
+
+      await _tokenService.saveSession(
+        accessToken: payload['access_token'],
+        refreshToken: payload['refresh_token'],
+        userId: user?['id'],
+        role: user?['role'],
+        name: user?['name'],
+        vendorMemberships: vendorMemberships,
+        permissions: permissions,
+      );
+
+      payload['vendorMemberships'] = vendorMemberships;
+      payload['permissions'] = permissions;
+      return payload;
+    }
+
+    throw Exception('auth.error.invalid_credentials');
+  }
+
+  Future<void> logout({String? fcmToken}) async {
     try {
-      await _api.authControllerLogout(logoutDto: LogoutDto());
+      await _api.authControllerLogout(
+        logoutDto: LogoutDto((b) {
+          if (fcmToken != null) b.fcmToken = fcmToken;
+        }),
+      );
     } catch (_) {}
     await _tokenService.clearSession();
   }

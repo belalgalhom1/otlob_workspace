@@ -49,19 +49,83 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     
     if (_pickupLocation == null || _dropoffLocation == null) return 0.0;
     final distanceKm = _calculateDistance();
-    
-    double perKm = 0;
-    switch (_selectedVehicle) {
-      case 'bicycle': perKm = settings.pricePerKmBicycle; break;
-      case 'motorcycle': perKm = settings.pricePerKmMotorcycle; break;
-      case 'car': perKm = settings.pricePerKmCar; break;
-      case 'van': perKm = settings.pricePerKmVan; break;
-      case 'truck': perKm = settings.pricePerKmTruck; break;
-      case 'motor_tricycle': perKm = settings.pricePerKmMotorTricycle; break;
-      default: perKm = settings.pricePerKmMotorcycle;
+
+    final serviceFee = settings.customOrderPlatformFee;
+    final tax = (serviceFee * (settings.defaultTaxRate / 100.0)).roundToDouble();
+
+    if (settings.minOrderKm > 0 && distanceKm < settings.minOrderKm) {
+      final base = settings.minDistanceFixedPrice;
+      return base + serviceFee + tax;
     }
     
-    return settings.baseDeliveryFee + (distanceKm * perKm);
+    double perKm = 0;
+    double minFee = 0;
+    double maxFee = 0;
+    switch (_selectedVehicle) {
+      case 'bicycle':
+        perKm = settings.pricePerKmBicycle.toDouble();
+        minFee = settings.minDeliveryFeeBicycle.toDouble();
+        maxFee = settings.maxDeliveryFeeBicycle.toDouble();
+        break;
+      case 'motorcycle':
+        perKm = settings.pricePerKmMotorcycle.toDouble();
+        minFee = settings.minDeliveryFeeMotorcycle.toDouble();
+        maxFee = settings.maxDeliveryFeeMotorcycle.toDouble();
+        break;
+      case 'car':
+        perKm = settings.pricePerKmCar.toDouble();
+        minFee = settings.minDeliveryFeeCar.toDouble();
+        maxFee = settings.maxDeliveryFeeCar.toDouble();
+        break;
+      case 'van':
+        perKm = settings.pricePerKmVan.toDouble();
+        minFee = settings.minDeliveryFeeVan.toDouble();
+        maxFee = settings.maxDeliveryFeeVan.toDouble();
+        break;
+      case 'truck':
+        perKm = settings.pricePerKmTruck.toDouble();
+        minFee = settings.minDeliveryFeeTruck.toDouble();
+        maxFee = settings.maxDeliveryFeeTruck.toDouble();
+        break;
+      case 'motor_tricycle':
+        perKm = settings.pricePerKmMotorTricycle.toDouble();
+        minFee = settings.minDeliveryFeeMotorTricycle.toDouble();
+        maxFee = settings.maxDeliveryFeeMotorTricycle.toDouble();
+        break;
+      default:
+        perKm = settings.pricePerKmMotorcycle.toDouble();
+        minFee = settings.minDeliveryFeeMotorcycle.toDouble();
+        maxFee = settings.maxDeliveryFeeMotorcycle.toDouble();
+    }
+
+    double deliveryFee = (settings.minOrderKm > 0 && distanceKm < settings.minOrderKm)
+        ? settings.minDistanceFixedPrice.toDouble()
+        : settings.baseDeliveryFee.toDouble() + (distanceKm * perKm);
+
+    if (minFee > 0 && deliveryFee < minFee) {
+      deliveryFee = minFee;
+    }
+    final effectiveMaxFee = maxFee > 0 ? maxFee : settings.maxDeliveryFee.toDouble();
+    if (effectiveMaxFee > 0 && deliveryFee > effectiveMaxFee) {
+      deliveryFee = effectiveMaxFee;
+    }
+
+    double driverBonusFee = 0;
+    final now = DateTime.now();
+    if (settings.driverBonusActive &&
+        settings.driverBonusAmount > 0 &&
+        settings.driverBonusStartDate != null &&
+        settings.driverBonusEndDate != null &&
+        now.isAfter(settings.driverBonusStartDate!) &&
+        now.isBefore(settings.driverBonusEndDate!)) {
+      driverBonusFee = settings.driverBonusAmount.toDouble();
+    }
+
+    double total = deliveryFee + serviceFee + tax;
+    if (settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
+      total += driverBonusFee;
+    }
+    return total;
   }
 
   @override
@@ -90,6 +154,23 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
       final coinState = ref.read(coinHistoryProvider);
       final settings = ref.read(platformSettingsProvider).value;
+
+      final distanceKm = _calculateDistance();
+      if (_selectedVehicle == 'bicycle' && settings != null) {
+        final maxBicycle = settings.maxKmForBicycle;
+        if (distanceKm > maxBicycle) {
+          final s = AppStrings.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(s.isArabic
+                ? 'المسافة (${distanceKm.toStringAsFixed(1)} كم) تتجاوز الحد الأقصى للدراجة (${maxBicycle.toStringAsFixed(1)} كم)'
+                : 'Distance (${distanceKm.toStringAsFixed(1)} km) exceeds bicycle maximum (${maxBicycle.toStringAsFixed(1)} km)'),
+          ));
+          if (_serviceType == 'ride') {
+            setState(() => _rideState = RideState.form);
+          }
+          return;
+        }
+      }
       
       int? coinsToUse;
       if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
@@ -460,24 +541,40 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       );
     }
 
+    final vehicleOptions = <Widget>[];
+
+    void addOption(Widget option) {
+      if (vehicleOptions.isNotEmpty) {
+        vehicleOptions.add(const SizedBox(width: 12));
+      }
+      vehicleOptions.add(option);
+    }
+
+    if (platformSettings?.allowBicycle ?? true) {
+      addOption(_vehicleOption(s.isArabic ? 'دراجة' : 'Bicycle', Icons.pedal_bike_rounded, 'bicycle', isDark, null));
+    }
+    if (platformSettings?.allowMotorcycle ?? true) {
+      addOption(_vehicleOption(s.motorcycle, Icons.moped_rounded, 'motorcycle', isDark, platformSettings?.motorcycleIconUrl));
+    }
+    if (platformSettings?.allowMotorTricycle ?? true) {
+      addOption(_vehicleOption(s.isArabic ? 'تروسيكل' : 'Tricycle', Icons.electric_rickshaw_rounded, 'motor_tricycle', isDark, null));
+    }
+    if (platformSettings?.allowCar ?? true) {
+      addOption(_vehicleOption(s.car, Icons.directions_car_filled_rounded, 'car', isDark, platformSettings?.carIconUrl));
+    }
+    if (platformSettings?.allowVan ?? true) {
+      addOption(_vehicleOption(s.isArabic ? 'فان' : 'Van', Icons.airport_shuttle_rounded, 'van', isDark, null));
+    }
+    if (platformSettings?.allowTruck ?? true) {
+      addOption(_vehicleOption(s.isArabic ? 'نقل' : 'Truck', Icons.local_shipping_rounded, 'truck', isDark, null));
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _vehicleOption(s.isArabic ? 'دراجة' : 'Bicycle', Icons.pedal_bike_rounded, 'bicycle', isDark, null),
-          const SizedBox(width: 12),
-          _vehicleOption(s.motorcycle, Icons.moped_rounded, 'motorcycle', isDark, platformSettings?.motorcycleIconUrl),
-          const SizedBox(width: 12),
-          _vehicleOption(s.isArabic ? 'تروسيكل' : 'Tricycle', Icons.electric_rickshaw_rounded, 'motor_tricycle', isDark, null),
-          const SizedBox(width: 12),
-          _vehicleOption(s.car, Icons.directions_car_filled_rounded, 'car', isDark, platformSettings?.carIconUrl),
-          const SizedBox(width: 12),
-          _vehicleOption(s.isArabic ? 'فان' : 'Van', Icons.airport_shuttle_rounded, 'van', isDark, null),
-          const SizedBox(width: 12),
-          _vehicleOption(s.isArabic ? 'نقل' : 'Truck', Icons.local_shipping_rounded, 'truck', isDark, null),
-        ],
+        children: vehicleOptions,
       ),
     );
   }

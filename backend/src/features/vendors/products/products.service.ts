@@ -278,9 +278,7 @@ export class ProductsService implements OnModuleInit {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
-        throw new ConflictException(
-          'Product has been updated by another request. Please reload and try again.',
-        );
+        throw new ConflictException(ProductErrors.CONCURRENT_MODIFICATION);
       }
       throw error;
     }
@@ -430,9 +428,7 @@ export class ProductsService implements OnModuleInit {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
-        throw new ConflictException(
-          'Variant has been updated by another request. Please reload and try again.',
-        );
+        throw new ConflictException(ProductErrors.CONCURRENT_MODIFICATION);
       }
       throw error;
     }

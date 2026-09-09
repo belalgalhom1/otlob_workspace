@@ -163,6 +163,8 @@ export class DispatchService {
           totalDistanceKm,
           perKmOverride,
           settings,
+          order.type === 'STANDARD',
+          dispatchContext.requestedVehicleType,
         );
 
         const pickupLocationName = order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor';
@@ -443,15 +445,18 @@ export class DispatchService {
         zoneBaseOverride = Number(zone.baseDeliveryFeeOverride);
     }
 
+    const settings = await this.platformSettings.getSettings();
     const finalDeliveryFee = await this.platformSettings.calculateDeliveryFee(
       totalDistanceKm,
       zoneBaseOverride,
       perKmOverride,
+      order.type === 'STANDARD',
+      settings,
+      dispatchContext.requestedVehicleType,
     );
 
-    const feeDifference = finalDeliveryFee - Number(order.deliveryFee);
-    const newGrandTotal = Number(order.grandTotal) + feeDifference;
-    const settings = await this.platformSettings.getSettings();
+    const feeDifference = Math.round(finalDeliveryFee) - Number(order.deliveryFee);
+    const newGrandTotal = Math.round(Number(order.grandTotal) + feeDifference);
     const requiresCustomerApproval = (settings as any).requireCustomerApproval ?? true;
     let nextStatus: OrderStatus;
     if (requiresCustomerApproval) {
@@ -499,8 +504,9 @@ export class DispatchService {
           driverShiftId: candidate.driverShiftId,
           status: nextStatus,
           driverAssignedAt: new Date(),
-          deliveryFee: finalDeliveryFee,
-          grandTotal: newGrandTotal,
+          deliveryFee: Math.round(finalDeliveryFee),
+          grandTotal: Math.round(newGrandTotal),
+          distanceKm: totalDistanceKm,
         },
       });
 
@@ -883,13 +889,16 @@ export class DispatchService {
     distanceKm: number,
     perKmOverride?: number | null,
     prefetchedSettings?: any,
+    isStandardOrder: boolean = true,
+    vehicleType?: string | null,
   ): Promise<number> {
     const deliveryFee = await this.platformSettings.calculateDeliveryFee(
       distanceKm,
       null,
       perKmOverride,
-      true,
+      isStandardOrder,
       prefetchedSettings,
+      vehicleType,
     );
     const settings = prefetchedSettings ?? (await this.platformSettings.getSettings());
     const driverCommissionRate = settings.deliveryCommissionRate ?? 20;

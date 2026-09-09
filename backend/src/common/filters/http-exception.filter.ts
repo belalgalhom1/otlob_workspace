@@ -74,13 +74,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002':
-          messageKey = 'common.error.resource_already_exists';
+          messageKey = CommonErrors.RESOURCE_ALREADY_EXISTS;
           break;
         case 'P2025':
-          messageKey = 'common.error.resource_not_found';
+          messageKey = CommonErrors.RESOURCE_NOT_FOUND;
           break;
         default:
-          messageKey = 'common.error.database_error';
+          messageKey = CommonErrors.DATABASE_ERROR;
       }
       return { messageKey, errors };
     }
@@ -159,7 +159,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const base = `[${requestId}] ${request.method} ${path}`;
     if (
       status === HttpStatus.INTERNAL_SERVER_ERROR ||
-      message === 'common.error.database_error'
+      message === CommonErrors.DATABASE_ERROR
     ) {
       this.logger.error(
         `💥 ${base} -> ${status} | ${message}`,

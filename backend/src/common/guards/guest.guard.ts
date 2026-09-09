@@ -10,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { JWT_ACCESS_SERVICE } from 'src/common/constants/jwt.constants';
 
+import { CommonErrors } from 'src/common/constants/response.constants';
+
 @Injectable()
 export class GuestGuard implements CanActivate {
   private readonly logger = new Logger(GuestGuard.name);
@@ -24,8 +26,12 @@ export class GuestGuard implements CanActivate {
     if (!token) return true;
 
     try {
-      await this.accessTokenService.verifyAsync(token);
-      throw new ForbiddenException();
+      const payload = await this.accessTokenService.verifyAsync(token);
+      // Allow unverified users to access verification endpoints
+      if (payload && !payload.verified && request.path.includes('/verify')) {
+        return true;
+      }
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
     } catch (error) {
       if (error instanceof ForbiddenException) throw error;
       return true;

@@ -54,7 +54,7 @@ class CoreSocketService with WidgetsBindingObserver {
       final token = await const FlutterSecureStorage().read(key: 'access_token');
       if (token != null) {
         final remaining = JwtDecoder.getRemainingTime(token);
-        if (remaining.inMinutes < 5) needsRefresh = true;
+        if (remaining.inSeconds < 60) needsRefresh = true;
       }
     }
 

@@ -24,7 +24,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     private readonly statisticsService: StatisticsService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
-      private readonly cartService: CartService,
+    private readonly cartService: CartService,
     @InjectQueue(QUEUES.ORDERS) private readonly queue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
   ) {
@@ -138,6 +138,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         distanceKm: true,
         deliveryFee: true,
         driverBonusFee: true,
+        serviceFee: true,
         subtotal: true,
         tax: true,
         paymentMethod: true,
@@ -168,7 +169,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     }
 
     const settings = await this.platformSettings.getSettings();
-    const deliveryCommissionRate = settings.deliveryCommissionRate ?? 2000;
+    const deliveryCommissionRate = settings.deliveryCommissionRate ?? 20;
 
     await this.statisticsService.settleOrder({
       orderId,
@@ -184,6 +185,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       deliveryFee: Number(order.deliveryFee),
       driverBonusFee: Number(order.driverBonusFee),
       subtotal: Number(order.subtotal),
+      serviceFee: Number(order.serviceFee ?? 0),
       tax: Number(order.tax),
       paymentMethod: order.paymentMethod,
       customerId: order.customerId,
@@ -326,7 +328,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       const settings = await this.platformSettings.getSettings();
       const cutoff = new Date(
         Date.now() -
-          settings.retentionExpiredSessionsDays * 24 * 60 * 60 * 1000,
+        settings.retentionExpiredSessionsDays * 24 * 60 * 60 * 1000,
       );
 
       const result = await this.prisma.session.deleteMany({
@@ -338,9 +340,21 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       if (result.count > 0) {
         this.logger.log(`🗑️  Hard-deleted ${result.count} expired sessions`);
       }
+
+      // Clean up dead/inactive devices older than 90 days
+      const deviceCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const deadDevices = await this.prisma.device.deleteMany({
+        where: {
+          lastActive: { lt: deviceCutoff },
+        },
+      });
+
+      if (deadDevices.count > 0) {
+        this.logger.log(`🗑️  Cleaned up ${deadDevices.count} inactive device tokens`);
+      }
     } catch (error) {
       this.logger.error(
-        'Failed to run expired sessions cleanup',
+        'Failed to run expired sessions and devices cleanup',
         (error as Error).stack,
       );
     }

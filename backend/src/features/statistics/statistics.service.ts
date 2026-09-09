@@ -22,6 +22,7 @@ export interface SettleOrderPayload {
   deliveryFee: number;
   driverBonusFee: number;
   subtotal: number;
+  serviceFee: number;
   tax: number;
   commissionRate: number;
   deliveryCommissionRate: number;
@@ -59,6 +60,7 @@ export class StatisticsService {
       deliveryFee,
       driverBonusFee,
       subtotal,
+      serviceFee,
       tax,
       commissionRate,
       deliveryCommissionRate,
@@ -103,7 +105,14 @@ export class StatisticsService {
     const applicationDeliveryCut = deliveryFee - driverEarnings;
 
     // Sequentially process driver and vendor wallets to prevent DB row deadlocks
-    const platformRevenue = commission + applicationDeliveryCut;
+    const platformFee = isContracted ? commission : (serviceFee ?? commission);
+    let platformRevenue = platformFee + applicationDeliveryCut;
+
+    // If the platform pays the driver bonus fee (not paid by customer), deduct from net platform revenue
+    if (!settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
+      platformRevenue -= driverBonusFee;
+    }
+
     const isDriverCollected = paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
     
     if (isDriverCollected) {
@@ -252,7 +261,7 @@ export class StatisticsService {
               {
                 totalOrders: 1,
                 totalRevenue: vendorRevenue,
-                totalCommission: commission,
+                totalCommission: isContracted ? commission : 0,
                 totalTax: tax,
                 completedOrders: 1,
               },

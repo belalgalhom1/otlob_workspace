@@ -8,10 +8,22 @@ import '../../features/auth/presentation/providers/auth_controller.dart';
 class JwtInterceptor extends Interceptor {
   final Ref ref;
   final Dio dio;
-  
+
   JwtInterceptor(this.ref, this.dio);
 
   Future<String?>? _refreshTokenFuture;
+
+  bool _isGuestAuthPath(String path) {
+    if (path == '/auth/login' ||
+        path == '/auth/refresh' ||
+        path == '/auth/register' ||
+        path == '/auth/social' ||
+        path.startsWith('/auth/verify/') ||
+        path.startsWith('/auth/password/')) {
+      return true;
+    }
+    return false;
+  }
 
   @override
   Future<void> onRequest(
@@ -19,7 +31,7 @@ class JwtInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     final requiresAuth = options.extra['requiresAuth'] ?? true;
-    if (!requiresAuth) {
+    if (!requiresAuth || _isGuestAuthPath(options.path)) {
       return handler.next(options);
     }
 
@@ -46,7 +58,9 @@ class JwtInterceptor extends Interceptor {
     final is401 = err.response?.statusCode == 401;
     final alreadyRetried = err.requestOptions.extra['retried'] == true;
 
-    if (is401 && !alreadyRetried) {
+    if (is401 &&
+        !alreadyRetried &&
+        !_isGuestAuthPath(err.requestOptions.path)) {
       try {
         final newToken = await _refreshTokenIfNeeded();
 
@@ -84,7 +98,7 @@ class JwtInterceptor extends Interceptor {
   Future<String?> _refresh() async {
     try {
       final authRepository = ref.read(sharedAuthRepositoryProvider);
-      
+
       return await authRepository.refreshToken();
     } catch (e) {
       _handleLogout();

@@ -165,6 +165,43 @@ class PushNotificationService {
       debugPrint('FCM: Failed to subscribe to topics: $e');
     }
   }
+
+  Future<String?> getToken() => _messaging.getToken();
+
+  Future<void> unsubscribeFromRoleTopics(String? role) async {
+    try {
+      await _messaging.unsubscribeFromTopic('topic_all');
+      debugPrint('FCM: Unsubscribed from topic_all');
+
+      if (role != null) {
+        String? specificTopic;
+        switch (role.toUpperCase()) {
+          case 'CUSTOMER':
+            specificTopic = 'topic_customers';
+            break;
+          case 'DRIVER':
+            specificTopic = 'topic_drivers';
+            break;
+          case 'VENDOR':
+          case 'VENDOR_MEMBER':
+          case 'VENDOR_OWNER':
+            specificTopic = 'topic_vendors';
+            break;
+          case 'ADMIN':
+          case 'SUPER_ADMIN':
+            specificTopic = 'topic_admin';
+            break;
+        }
+
+        if (specificTopic != null) {
+          await _messaging.unsubscribeFromTopic(specificTopic);
+          debugPrint('FCM: Unsubscribed from $specificTopic');
+        }
+      }
+    } catch (e) {
+      debugPrint('FCM: Failed to unsubscribe from topics: $e');
+    }
+  }
 }
 
 @pragma('vm:entry-point')

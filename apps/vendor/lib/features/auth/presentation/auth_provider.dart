@@ -28,9 +28,25 @@ class AuthNotifier extends _$AuthNotifier {
     try {
       debugPrint('DEBUG: Calling repository.login...');
       final repository = ref.read(sharedAuthRepositoryProvider);
-      final response = await repository.login(email, password);
+      final response = await repository.login(email, password, appType: 'vendor');
       debugPrint('DEBUG: repository.login returned: $response');
       if (response != null && response['access_token'] != null) {
+        final role = await repository.getUserRole();
+        if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+          await repository.logout();
+          state = AsyncValue.error(
+            'auth.error.unauthorized_role',
+            StackTrace.current,
+          );
+          return;
+        }
+
+        try {
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
+        } catch (_) {}
+
         debugPrint('DEBUG: Setting state to data(true)');
         state = const AsyncValue.data(true);
       } else {
@@ -60,12 +76,29 @@ class AuthNotifier extends _$AuthNotifier {
         return;
       }
 
+      final role = await repository.getUserRole();
+      if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+        await repository.logout();
+        state = const AsyncValue.data(false);
+        return;
+      }
+
       final isExpired = await repository.isTokenExpired();
       if (!isExpired) {
+        try {
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
+        } catch (_) {}
         state = const AsyncValue.data(true);
       } else {
         try {
           await repository.refreshToken();
+          try {
+            final pushService = ref.read(pushNotificationServiceProvider);
+            await pushService.initialize();
+            await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
+          } catch (_) {}
           state = const AsyncValue.data(true);
         } catch (e) {
           await repository.logout();
@@ -79,8 +112,17 @@ class AuthNotifier extends _$AuthNotifier {
   }
 
   Future<void> logout() async {
+    String? fcmToken;
+    try {
+      final push = ref.read(pushNotificationServiceProvider);
+      final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
+      fcmToken = await push.getToken();
+      await push.unsubscribeFromRoleTopics(role ?? 'VENDOR');
+      await push.unregisterToken();
+    } catch (_) {}
+
     final repository = ref.read(sharedAuthRepositoryProvider);
-    await repository.logout();
+    await repository.logout(fcmToken: fcmToken);
     try {
       state = const AsyncValue.data(false);
     } catch (_) {
@@ -88,4 +130,3 @@ class AuthNotifier extends _$AuthNotifier {
     }
   }
 }
-

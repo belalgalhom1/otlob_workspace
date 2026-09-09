@@ -7,6 +7,7 @@ import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -35,14 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           context.go('/');
         }
       } else if (state.hasError && state.error != null) {
-        final errorString = state.error.toString();
-        String displayMessage = errorString;
-        
-        if (errorString.contains('auth.error.pending_approval')) {
-          displayMessage = l10n.pendingApproval;
-        } else if (errorString.contains('auth.error.unauthorized_role')) {
-          displayMessage = l10n.common_error_unauthorized;
-        }
+        final displayMessage = ErrorUtils.translate(context, state.error);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

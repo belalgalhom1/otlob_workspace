@@ -4,6 +4,10 @@ import {
   CreateOfferDto,
   UpdateOfferDto,
 } from '../promotions/dto/promotions.dto';
+import {
+  ProductErrors,
+  PromotionErrors,
+} from 'src/common/constants/response.constants';
 
 @Injectable()
 export class OffersService {
@@ -104,9 +108,7 @@ export class OffersService {
         where: { id: dto.variantId },
       });
       if (!variant || variant.productId !== dto.productId) {
-        throw new NotFoundException(
-          'Selected variant does not exist or does not belong to the selected product',
-        );
+        throw new NotFoundException(ProductErrors.VARIANT_NOT_FOUND);
       }
     }
 
@@ -130,16 +132,14 @@ export class OffersService {
         where: { id },
       });
       if (!currentOffer) {
-        throw new NotFoundException('Offer not found');
+        throw new NotFoundException(PromotionErrors.NOT_FOUND);
       }
 
       const variant = await this.prisma.productVariant.findUnique({
         where: { id: dto.variantId },
       });
       if (!variant || variant.productId !== currentOffer.productId) {
-        throw new NotFoundException(
-          'Selected variant does not exist or does not belong to the offer product',
-        );
+        throw new NotFoundException(ProductErrors.VARIANT_NOT_FOUND);
       }
     }
 

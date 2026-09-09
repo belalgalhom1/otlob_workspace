@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class OrderExecutionScreen extends ConsumerStatefulWidget {
   const OrderExecutionScreen({super.key});
@@ -335,7 +336,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
     void showErr(Object e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        final message = ErrorUtils.translate(context, e);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
 
@@ -380,7 +382,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       if (isCashOnDelivery) {
         final totalStr = order['total']?.toString() ?? order['grandTotal']?.toString() ?? order['totalFee']?.toString() ?? '0.00';
         final total = double.tryParse(totalStr) ?? 0.0;
-        final text = '${l10n.collectCashAndDeliver} (${total.toStringAsFixed(2)} EGP)';
+        final upfrontStr = order['upfrontAmount']?.toString() ?? '0.00';
+        final upfront = double.tryParse(upfrontStr) ?? 0.0;
+        final collectAmount = (total - upfront) > 0 ? (total - upfront) : 0.0;
+        final text = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
             
         return PrimaryButton(
           text: text,

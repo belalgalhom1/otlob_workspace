@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
@@ -9,8 +10,18 @@ part 'auth_provider.g.dart';
 
 @Riverpod(keepAlive: true)
 class Auth extends _$Auth {
+  StreamSubscription<void>? _unauthSub;
+
   @override
   AsyncValue<bool> build() {
+    _unauthSub?.cancel();
+    _unauthSub = unauthenticatedEventStream.stream.listen((_) {
+      logout();
+    });
+    ref.onDispose(() {
+      _unauthSub?.cancel();
+    });
+
     Future.microtask(() => _checkInitialAuth());
     return const AsyncValue.loading();
   }
@@ -22,6 +33,11 @@ class Auth extends _$Auth {
       if (isLoggedIn) {
         final role = await repository.getUserRole();
         if (role == 'DRIVER') {
+          try {
+            final pushService = ref.read(pushNotificationServiceProvider);
+            await pushService.initialize();
+            await pushService.subscribeToRoleTopics('DRIVER');
+          } catch (_) {}
           state = const AsyncValue.data(true);
           return;
         } else {
@@ -54,13 +70,11 @@ class Auth extends _$Auth {
       }
 
       // Initialize Push Notifications and register FCM token
-      Future(() async {
-        try {
-          final pushService = ref.read(pushNotificationServiceProvider);
-          await pushService.initialize();
-          await pushService.subscribeToRoleTopics('DRIVER');
-        } catch (_) {}
-      });
+      try {
+        final pushService = ref.read(pushNotificationServiceProvider);
+        await pushService.initialize();
+        await pushService.subscribeToRoleTopics('DRIVER');
+      } catch (_) {}
       
       state = const AsyncValue.data(true);
     } catch (e, st) {
@@ -77,8 +91,16 @@ class Auth extends _$Auth {
   Future<void> logout() async {
     state = const AsyncValue.loading();
     try {
+      String? fcmToken;
+      try {
+        final push = ref.read(pushNotificationServiceProvider);
+        fcmToken = await push.getToken();
+        await push.unsubscribeFromRoleTopics('DRIVER');
+        await push.unregisterToken();
+      } catch (_) {}
+
       final repository = ref.read(sharedAuthRepositoryProvider);
-      await repository.logout();
+      await repository.logout(fcmToken: fcmToken);
       state = const AsyncValue.data(false);
       ref.invalidate(splashProvider);
       

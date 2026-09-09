@@ -153,9 +153,7 @@ async vendorUpdateStatus(
 
     const allowed = VENDOR_ALLOWED_TRANSITIONS[order.status];
     if (!allowed || !allowed.includes(dto.status)) {
-      throw new BadRequestException(
-        `Invalid transition: ${order.status} → ${dto.status}`,
-      );
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
     return this.applyStatusTransition(actor, order, dto);
@@ -181,9 +179,7 @@ async driverUpdateStatus(
     // if the vendor employee forgets to update the status on their tablet.
     const expected = DRIVER_ALLOWED_TRANSITIONS[order.status];
     if (!expected || !expected.includes(dto.status)) {
-      throw new BadRequestException(
-        `Invalid transition: ${order.status} → ${dto.status}`,
-      );
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
     return this.applyStatusTransition(actor, order, dto);
@@ -258,7 +254,7 @@ async adminForceAssignDriver(
     ];
     if (!assignableStatuses.includes(order.status)) {
       throw new BadRequestException(
-        `Cannot force-assign driver to order in status: ${order.status}`,
+        OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER,
       );
     }
 
@@ -337,9 +333,7 @@ async cancelOrder(
     const order = await this.ordersRepository.findById(orderId);
 
     if (NON_CANCELLABLE.includes(order.status)) {
-      throw new BadRequestException(
-        `Cannot cancel order in status: ${order.status}`,
-      );
+      throw new BadRequestException(OrderErrors.CANNOT_CANCEL_ORDER);
     }
 
     if (actor) {
@@ -357,7 +351,7 @@ async cancelOrder(
         ];
         if (!customerCancellableStatuses.includes(order.status as OrderStatus)) {
           throw new BadRequestException(
-            `Cannot cancel order once food preparation has started (current status: ${order.status})`,
+            OrderErrors.CANNOT_CANCEL_PREPARATION_STARTED,
           );
         }
       } else if (actor.role === Role.VENDOR_MEMBER) {
@@ -368,9 +362,7 @@ async cancelOrder(
           throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
         }
       } else if (actor.role === Role.DRIVER) {
-        throw new ForbiddenException(
-          'Drivers cannot cancel orders. Please contact support or reject dispatch.',
-        );
+        throw new ForbiddenException(OrderErrors.DRIVERS_CANNOT_CANCEL);
       } else if (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) {
         const canManage = await this.canManageOrders(actor.sub, actor.role);
         if (!canManage) {

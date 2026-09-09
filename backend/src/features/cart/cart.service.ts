@@ -426,14 +426,10 @@ export class CartService {
     // Second pass: Validate existence, active status, and aggregated stock
     for (const item of formatted.items) {
       if (!item.product || !item.product.isActive) {
-        throw new BadRequestException(
-          `Product "${item.product?.name ?? item.productId}" is no longer available`,
-        );
+        throw new BadRequestException(CartErrors.PRODUCT_UNAVAILABLE);
       }
       if (item.variantId && !item.variant?.isActive) {
-        throw new BadRequestException(
-          `Selected variant is no longer available for "${item.product.name}"`,
-        );
+        throw new BadRequestException(CartErrors.VARIANT_UNAVAILABLE);
       }
 
       if (item.variantId) {
@@ -700,7 +696,7 @@ export class CartService {
     });
 
     const isContracted = cart.vendor?.isContracted ?? false;
-    const commissionRate = Number(cart.vendor?.commissionRate ?? 0);
+    const commissionRate = Number(cart.vendor?.commissionRate ?? 10);
     const serviceFee = !isContracted
       ? Math.round(subtotal * (commissionRate / 100))
       : 0;
@@ -733,6 +729,8 @@ export class CartService {
 
     if (!vendorId) return;
 
+    const items = order.items || order.orderItems || [];
+
     await this.prisma.$transaction(async (tx) => {
       const cart = await tx.cart.upsert({
         where: { customerId_vendorId: { customerId, vendorId } },
@@ -740,7 +738,15 @@ export class CartService {
         update: { updatedAt: new Date() },
       });
 
-      for (const item of order.orderItems) {
+      for (const item of items) {
+        const optionIds = (item.selectedOptions || [])
+          .map((so: any) => so.optionId)
+          .filter(Boolean)
+          .sort();
+        const optionHash = createHash('md5')
+          .update(optionIds.join(','))
+          .digest('hex');
+
         await tx.cartItem.create({
           data: {
             cartId: cart.id,
@@ -748,10 +754,13 @@ export class CartService {
             variantId: item.variantId,
             quantity: item.quantity,
             specialRequest: item.specialRequest,
+            optionHash,
             selectedOptions: {
-              create: (item.selectedOptions || []).map((so: any) => ({
-                optionId: so.optionId,
-              })),
+              create: (item.selectedOptions || [])
+                .filter((so: any) => so.optionId)
+                .map((so: any) => ({
+                  optionId: so.optionId,
+                })),
             },
           },
         });

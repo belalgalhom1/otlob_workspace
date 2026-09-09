@@ -39,6 +39,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         if (state.value == true) {
           final repo = ref.read(sharedAuthRepositoryProvider);
           final role = await repo.getUserRole();
+          if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+            await repo.logout();
+            if (context.mounted) context.go('/login');
+            return;
+          }
           if (role == 'VENDOR_MEMBER') {
             final vendorId = ref.read(activeVendorProvider);
             if (vendorId == null || vendorId.isEmpty) {

@@ -122,6 +122,18 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('bronzeTierBonusPerKm')) b.bronzeTierBonusPerKm = parseNum(settings['bronzeTierBonusPerKm']);
       if (settings.containsKey('silverTierBonusPerKm')) b.silverTierBonusPerKm = parseNum(settings['silverTierBonusPerKm']);
       if (settings.containsKey('goldTierBonusPerKm')) b.goldTierBonusPerKm = parseNum(settings['goldTierBonusPerKm']);
+      if (settings.containsKey('allowBicycle')) b.allowBicycle = parseBool(settings['allowBicycle']);
+      if (settings.containsKey('allowMotorcycle')) b.allowMotorcycle = parseBool(settings['allowMotorcycle']);
+      if (settings.containsKey('allowCar')) b.allowCar = parseBool(settings['allowCar']);
+      if (settings.containsKey('allowVan')) b.allowVan = parseBool(settings['allowVan']);
+      if (settings.containsKey('allowTruck')) b.allowTruck = parseBool(settings['allowTruck']);
+      if (settings.containsKey('allowMotorTricycle')) b.allowMotorTricycle = parseBool(settings['allowMotorTricycle']);
+      if (settings.containsKey('requireCustomerApproval')) b.requireCustomerApproval = parseBool(settings['requireCustomerApproval']);
+      if (settings.containsKey('customerApprovalTimeoutMins')) b.customerApprovalTimeoutMins = parseNum(settings['customerApprovalTimeoutMins']);
+      if (settings.containsKey('maxActiveOrdersPerCustomer')) b.maxActiveOrdersPerCustomer = parseNum(settings['maxActiveOrdersPerCustomer']);
+      if (settings.containsKey('requirePriorDeliveryForMultipleOrders')) b.requirePriorDeliveryForMultipleOrders = parseBool(settings['requirePriorDeliveryForMultipleOrders']);
+      if (settings.containsKey('maxOtpAttempts')) b.maxOtpAttempts = parseNum(settings['maxOtpAttempts']);
+      if (settings.containsKey('otpExpirySeconds')) b.otpExpirySeconds = parseNum(settings['otpExpirySeconds']);
     }));
     state = AsyncValue.data(updatedData);
   }

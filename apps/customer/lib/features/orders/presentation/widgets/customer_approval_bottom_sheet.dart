@@ -139,8 +139,10 @@ class _CustomerApprovalBottomSheetState extends ConsumerState<CustomerApprovalBo
 
     final subtotal = _order!['subtotal'] ?? 0.0;
     final deliveryFee = _order!['deliveryFee'] ?? 0.0;
+    final driverBonusFee = _order!['driverBonusFee'] ?? 0.0;
     final tax = _order!['tax'] ?? 0.0;
     final serviceFee = _order!['serviceFee'] ?? 0.0;
+    final discount = _order!['discount'] ?? 0.0;
     final total = _order!['grandTotal'] ?? _order!['total'] ?? 0.0;
 
     return Container(
@@ -187,8 +189,16 @@ class _CustomerApprovalBottomSheetState extends ConsumerState<CustomerApprovalBo
                     const SizedBox(height: 8),
                     _buildPriceRow(s.isArabic ? 'الضريبة' : 'Tax', tax, s),
                   ],
+                  if (driverBonusFee > 0) ...[
+                    const SizedBox(height: 8),
+                    _buildPriceRow(s.isArabic ? 'مكافأة السائق' : 'Driver Bonus', driverBonusFee, s),
+                  ],
                   const SizedBox(height: 8),
                   _buildPriceRow(s.deliveryFee, deliveryFee, s, isHighlight: true),
+                  if (discount > 0) ...[
+                    const SizedBox(height: 8),
+                    _buildPriceRow(s.isArabic ? 'الخصم' : 'Discount', -discount, s),
+                  ],
                   const Divider(height: 24),
                   _buildPriceRow(s.total, total, s, isTotal: true),
                 ],

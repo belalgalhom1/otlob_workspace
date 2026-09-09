@@ -46,14 +46,17 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiStandardResponse()
-  register(@Body() dto: RegisterDto) {
+  register(@Body() dto: RegisterDto, @Req() req: any) {
     if (dto.role && dto.role !== 'CUSTOMER') {
       throw new BadRequestException(AuthErrors.ONLY_CUSTOMER_REGISTRATION);
     }
     dto.role = 'CUSTOMER'; // Force CUSTOMER role
     dto.vendorId = undefined;
     dto.vendorRole = undefined;
-    return this.authService.register(dto, false);
+    return this.authService.register(dto, false, {
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+    });
   }
 
   @Guest()
@@ -65,8 +68,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiStandardResponse()
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: any) {
+    return this.authService.login(dto, {
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+    });
   }
 
   @Guest()
@@ -78,8 +84,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with OAuth provider (Google/Apple)' })
   @ApiStandardResponse()
-  socialLogin(@Body() dto: SocialLoginDto) {
-    return this.authService.socialLogin(dto);
+  socialLogin(@Body() dto: SocialLoginDto, @Req() req: any) {
+    return this.authService.socialLogin(dto, {
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+    });
   }
 
   @Guest()
@@ -147,10 +156,15 @@ export class AuthController {
     @Req()
     req: {
       user: { payload: JwtRefreshPayload; rawRefreshToken: string };
+      ip?: string;
+      headers?: Record<string, any>;
     },
   ) {
     const { payload, rawRefreshToken } = req.user;
-    return this.authService.refreshTokens(payload, rawRefreshToken);
+    return this.authService.refreshTokens(payload, rawRefreshToken, {
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+    });
   }
 
   @Throttle({

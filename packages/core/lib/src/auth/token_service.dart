@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:api/api.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -31,8 +32,20 @@ class TokenService {
     }
   }
 
+  static const _authStorageKeys = [
+    'access_token',
+    'refresh_token',
+    'user_id',
+    'user_role',
+    'user_name',
+    'vendor_memberships',
+    'user_permissions',
+  ];
+
   Future<void> clearSession() async {
-    await _storage.deleteAll();
+    for (final key in _authStorageKeys) {
+      await _storage.delete(key: key);
+    }
   }
 
   Future<bool> hasSession() async {
@@ -105,15 +118,31 @@ class TokenService {
 
         final newAccessToken = data['access_token'];
         final newRefreshToken = data['refresh_token'];
+        final user = data['user'] as Map<String, dynamic>?;
 
         await _storage.write(key: 'access_token', value: newAccessToken);
         await _storage.write(key: 'refresh_token', value: newRefreshToken);
+
+        if (user != null) {
+          if (user['role'] != null) {
+            await _storage.write(key: 'user_role', value: user['role'].toString());
+          }
+          if (user['name'] != null) {
+            await _storage.write(key: 'user_name', value: user['name'].toString());
+          }
+          if (user['permissions'] != null) {
+            await _storage.write(
+              key: 'user_permissions',
+              value: jsonEncode(user['permissions']),
+            );
+          }
+        }
 
         return newAccessToken;
       }
       throw 'REFRESH_FAILED';
     } catch (e) {
-      print('TokenService refreshToken error: $e');
+      debugPrint('TokenService refreshToken error: $e');
       rethrow;
     }
   }

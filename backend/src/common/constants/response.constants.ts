@@ -6,6 +6,9 @@ export const CommonErrors = {
   UNAUTHORIZED: 'common.error.unauthorized',
   TOO_MANY_REQUESTS: 'common.error.too_many_requests',
   FILE_REQUIRED: 'common.error.file_required',
+  RESOURCE_ALREADY_EXISTS: 'common.error.resource_already_exists',
+  RESOURCE_NOT_FOUND: 'common.error.resource_not_found',
+  DATABASE_ERROR: 'common.error.database_error',
 };
 
 export const CommonSuccess = {
@@ -64,6 +67,8 @@ export const AuthErrors = {
   UNSUPPORTED_SOCIAL_PROVIDER: 'auth.error.unsupported_social_provider',
   SOCIAL_ACCOUNT_VERIFICATION_FAILED: 'auth.error.social_account_verification_failed',
   ONLY_DRIVERS_APP_ALLOWED: 'auth.error.only_drivers_app_allowed',
+  ONLY_VENDOR_APP_ALLOWED: 'auth.error.only_vendor_app_allowed',
+  CANNOT_LOGOUT_ON_DELIVERY: 'auth.error.cannot_logout_on_delivery',
   NO_PAYLOAD_FOUND: 'auth.error.no_payload_found',
 };
 
@@ -156,6 +161,7 @@ export const ZoneErrors = {
 export const VendorVerticalErrors = {
   NOT_FOUND: 'vendor_vertical.error.not_found',
   SLUG_TAKEN: 'vendor_vertical.error.slug_taken',
+  IN_USE_BY_VENDORS: 'vendor_vertical.error.in_use_by_vendors',
 };
 
 export const VendorErrors = {
@@ -177,6 +183,7 @@ export const VendorMemberErrors = {
   OWNER_REQUIRED: 'vendor_member.error.owner_required',
   NOT_A_MEMBER: 'vendor_member.error.not_a_member',
   BRANCH_NOT_FOUND: 'vendor_member.error.branch_not_found',
+  INSUFFICIENT_PERMISSIONS: 'vendor_member.error.insufficient_permissions',
 };
 
 export const VendorBranchErrors = {
@@ -199,6 +206,7 @@ export const ProductErrors = {
   PRICE_REQUIRED: 'product.error.base_price_required_without_variants',
   CATEGORY_NOT_FOUND: 'product.error.category_not_found',
   IMAGE_UPLOAD_FAILED: 'product.error.image_upload_failed',
+  CONCURRENT_MODIFICATION: 'product.error.concurrent_modification',
 };
 
 export const DriverErrors = {
@@ -231,6 +239,7 @@ export const DriverErrors = {
   CANNOT_ACCEPT_OWN_SWAP: 'driver.error.cannot_accept_own_swap',
   VEHICLE_MISMATCH: 'driver.error.vehicle_mismatch',
   INVALID_START_END_DATE: 'driver.error.invalid_start_end_date',
+  CANNOT_GO_OFFLINE_ON_DELIVERY: 'driver.error.cannot_go_offline_on_delivery',
 };
 
 export const OrderErrors = {
@@ -268,6 +277,11 @@ export const OrderErrors = {
   MAX_ACTIVE_ORDERS_REACHED: 'order.error.max_active_orders_reached',
   CONCURRENT_MODIFICATION: 'order.error.concurrent_modification',
   CONCURRENT_STATE_CHANGE: 'order.error.concurrent_state_change',
+  MIN_ORDER_AMOUNT_NOT_MET: 'order.error.min_order_amount_not_met',
+  BICYCLE_DISTANCE_EXCEEDED: 'order.error.bicycle_distance_exceeded',
+  CANNOT_FORCE_ASSIGN_DRIVER: 'order.error.cannot_force_assign_driver',
+  CANNOT_CANCEL_PREPARATION_STARTED: 'order.error.cannot_cancel_preparation_started',
+  DRIVERS_CANNOT_CANCEL: 'order.error.drivers_cannot_cancel',
 };
 
 export const CartErrors = {
@@ -276,6 +290,8 @@ export const CartErrors = {
   NOT_FOUND: 'cart.error.not_found',
   ITEM_NOT_FOUND: 'cart.error.item_not_found',
   INVALID_OPTION: 'cart.error.invalid_option',
+  PRODUCT_UNAVAILABLE: 'cart.error.product_unavailable',
+  VARIANT_UNAVAILABLE: 'cart.error.variant_unavailable',
 };
 
 export const PromotionErrors = {

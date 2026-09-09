@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class DispatchModal extends ConsumerStatefulWidget {
   final Map<String, dynamic> dispatchData;
@@ -89,8 +90,9 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        final errMsg = ErrorUtils.translate(context, e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.failedToAcceptDispatch(e.toString()))),
+          SnackBar(content: Text(AppLocalizations.of(context)!.failedToAcceptDispatch(errMsg))),
         );
       }
     }

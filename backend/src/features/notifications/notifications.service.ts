@@ -17,7 +17,10 @@ import {
   AnnouncementAudience,
 } from './dto/dispatch-announcement.dto';
 import { Language, NotificationType, Prisma } from '@prisma/client';
-import { NotificationErrors } from 'src/common/constants/response.constants';
+import {
+  CommonErrors,
+  NotificationErrors,
+} from 'src/common/constants/response.constants';
 import { randomUUID } from 'crypto';
 
 export const SOCKET_EVENTS = {
@@ -304,7 +307,8 @@ export class NotificationsService {
 
     if (!notification)
       throw new NotFoundException(NotificationErrors.NOT_FOUND);
-    if (notification.userId !== userId) throw new ForbiddenException();
+    if (notification.userId !== userId)
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
     return notification;
   }
@@ -320,7 +324,8 @@ export class NotificationsService {
       const owned = await this.prisma.notification.count({
         where: { id: { in: dto.ids }, userId },
       });
-      if (owned !== dto.ids.length) throw new ForbiddenException();
+      if (owned !== dto.ids.length)
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
       await this.prisma.notification.updateMany({
         where: { id: { in: dto.ids }, userId },
@@ -345,7 +350,8 @@ export class NotificationsService {
 
     if (!notification)
       throw new NotFoundException(NotificationErrors.NOT_FOUND);
-    if (notification.userId !== userId) throw new ForbiddenException();
+    if (notification.userId !== userId)
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
     if (notification.isRead) return notification;
 
@@ -362,7 +368,8 @@ export class NotificationsService {
 
     if (!notification)
       throw new NotFoundException(NotificationErrors.NOT_FOUND);
-    if (notification.userId !== userId) throw new ForbiddenException();
+    if (notification.userId !== userId)
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
     await this.prisma.notification.delete({ where: { id: notificationId } });
     return { deleted: true };

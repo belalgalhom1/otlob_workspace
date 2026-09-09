@@ -54,4 +54,8 @@ export class SocketService implements OnModuleInit {
   disconnectUser(userId: string): Promise<void> {
     return this.disconnectRoom(`user_${userId}`);
   }
+
+  disconnectSession(sessionId: string): Promise<void> {
+    return this.disconnectRoom(`session_${sessionId}`);
+  }
 }

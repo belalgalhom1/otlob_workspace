@@ -88,9 +88,7 @@ export class VendorVerticalsService {
     });
 
     if (activeVendorsCount > 0) {
-      throw new ConflictException(
-        `Cannot delete this business type because it is currently used by ${activeVendorsCount} active vendor(s). Please reassign them first.`,
-      );
+      throw new ConflictException(VendorVerticalErrors.IN_USE_BY_VENDORS);
     }
 
     await this.prisma.vendor.deleteMany({

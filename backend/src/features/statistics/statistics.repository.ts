@@ -264,6 +264,7 @@ export class StatisticsRepository {
     >`
       SELECT "vendorId", SUM("totalOrders")::int as "totalOrders", SUM("totalRevenue")::int as "totalRevenue"
       FROM vendor_statistics
+      WHERE period = 'DAILY'
       GROUP BY "vendorId"
       ORDER BY "totalOrders" DESC
       LIMIT ${limit}

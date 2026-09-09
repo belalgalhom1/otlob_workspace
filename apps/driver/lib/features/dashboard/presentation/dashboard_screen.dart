@@ -565,14 +565,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildStatsRow(Map<dynamic, dynamic> data, String currency, AppLocalizations l10n) {
     final totalOrders = data['totalOrders'] ?? 0;
+    final rawBalance = data['walletBalance'];
+    final double walletBalance = rawBalance is num ? rawBalance.toDouble() : (double.tryParse(rawBalance?.toString() ?? '0') ?? 0.0);
+    final earningsText = data['todaysEarnings'] != null
+        ? '${(data['todaysEarnings'] is num ? data['todaysEarnings'] : double.tryParse(data['todaysEarnings'].toString()) ?? 0).toStringAsFixed(2)} $currency'
+        : '${walletBalance.toStringAsFixed(2)} $currency';
+
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
-            l10n.todaysEarnings,
-            '0.00 $currency',
+            data['todaysEarnings'] != null ? l10n.todaysEarnings : (l10n.localeName == 'ar' ? 'رصيد المحفظة' : 'Wallet Balance'),
+            earningsText,
             LucideIcons.banknote,
             AppColors.primary,
+            onTap: () => context.push('/wallet'),
           ),
         ),
         const SizedBox(width: 16),

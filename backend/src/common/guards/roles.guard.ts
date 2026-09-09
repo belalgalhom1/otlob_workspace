@@ -9,6 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { CommonErrors } from '../constants/response.constants';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -31,13 +32,13 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
     }
 
     const hasRole = requiredRoles.some((role) => role === user.role);
 
     if (!hasRole && user.role !== Role.SUPER_ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
     }
 
     return true;

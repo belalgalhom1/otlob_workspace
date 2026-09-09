@@ -112,8 +112,11 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
     AppLocalizations l10n,
   ) {
     final orderNumber = order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}';
+    final rawEarnings = order['driverEarnings'] ?? order['estimatedEarnings'];
     final rawFee = order['deliveryFee'] ?? order['fee'] ?? 0;
-    final double deliveryFee = rawFee is num ? rawFee.toDouble() : double.tryParse(rawFee.toString()) ?? 0.0;
+    final double deliveryFee = rawEarnings != null
+        ? (rawEarnings is num ? rawEarnings.toDouble() : double.tryParse(rawEarnings.toString()) ?? 0.0)
+        : (rawFee is num ? rawFee.toDouble() * 0.8 : (double.tryParse(rawFee.toString()) ?? 0.0) * 0.8);
     final vendor = order['vendor'] as Map<String, dynamic>?;
     final vendorName = l10n.localeName == 'ar'
         ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? (order['pickupAddress'] ?? ''))

@@ -12,6 +12,7 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { JwtAccessPayload } from '../interfaces/jwt-payload.interface';
 import { Role } from '@prisma/client';
+import { CommonErrors } from '../constants/response.constants';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -36,7 +37,7 @@ export class PermissionsGuard implements CanActivate {
       .getRequest<{ user?: JwtAccessPayload }>();
 
     const user = request.user;
-    if (!user?.sub) throw new UnauthorizedException();
+    if (!user?.sub) throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
 
     if (user.role === Role.SUPER_ADMIN) return true;
 
@@ -46,17 +47,17 @@ export class PermissionsGuard implements CanActivate {
         select: { permissions: true },
       });
 
-      if (!adminUser) throw new UnauthorizedException();
+      if (!adminUser) throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
 
       const hasAll = requiredPermissions.every((p) =>
         adminUser.permissions.includes(p),
       );
 
-      if (!hasAll) throw new ForbiddenException();
+      if (!hasAll) throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
       return true;
     }
 
-    throw new ForbiddenException();
+    throw new ForbiddenException(CommonErrors.FORBIDDEN);
   }
 }

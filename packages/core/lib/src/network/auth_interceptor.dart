@@ -1,25 +1,68 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-final StreamController<void> unauthenticatedEventStream = StreamController<void>.broadcast();
+final StreamController<void> unauthenticatedEventStream =
+    StreamController<void>.broadcast();
 
 class AuthInterceptor extends Interceptor {
   final Dio _dio;
   final FlutterSecureStorage _storage;
-  bool _isRefreshing = false;
-  final _requestsQueue = <Map<String, dynamic>>[];
+
+  Completer<String?>? _refreshCompleter;
 
   AuthInterceptor(this._dio, this._storage);
+
+  static const _authStorageKeys = [
+    'access_token',
+    'refresh_token',
+    'user_id',
+    'user_role',
+    'user_name',
+    'vendor_memberships',
+    'user_permissions',
+  ];
+
+  Future<void> _clearAuthData() async {
+    for (final key in _authStorageKeys) {
+      await _storage.delete(key: key);
+    }
+  }
+
+  bool _isGuestAuthPath(String path) {
+    if (path == '/auth/login' ||
+        path == '/auth/refresh' ||
+        path == '/auth/register' ||
+        path == '/auth/social' ||
+        path.startsWith('/auth/verify/') ||
+        path.startsWith('/auth/password/')) {
+      return true;
+    }
+    return false;
+  }
 
   @override
   Future<void> onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Don't add token for login or refresh requests
-    if (options.path == '/auth/login' || options.path == '/auth/refresh') {
+    // Guest/public auth endpoints should never have access token attached
+    if (_isGuestAuthPath(options.path)) {
       return handler.next(options);
+    }
+
+    // If a refresh is actively running, await the new token to avoid doomed 401s
+    if (_refreshCompleter != null) {
+      try {
+        final newToken = await _refreshCompleter!.future;
+        if (newToken != null) {
+          options.headers['Authorization'] = 'Bearer $newToken';
+        }
+        return handler.next(options);
+      } catch (_) {
+        return handler.next(options);
+      }
     }
 
     final token = await _storage.read(key: 'access_token');
@@ -35,104 +78,108 @@ class AuthInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) async {
     if (err.response?.statusCode == 401 &&
-        err.requestOptions.path != '/auth/login' &&
-        err.requestOptions.path != '/auth/refresh') {
-      if (!_isRefreshing) {
-        _isRefreshing = true;
+        !_isGuestAuthPath(err.requestOptions.path)) {
+      // Don't retry if already retried
+      if (err.requestOptions.extra['retried'] == true) {
+        return handler.next(err);
+      }
+
+      // If another request is already refreshing, wait on its completer
+      if (_refreshCompleter != null) {
         try {
-          final refreshToken = await _storage.read(key: 'refresh_token');
-          if (refreshToken != null) {
-            // Use a separate dio instance or directly fetch to avoid loop
-            final refreshDio = Dio(BaseOptions(baseUrl: _dio.options.baseUrl));
-            refreshDio.options.headers['Authorization'] =
-                'Bearer $refreshToken';
-
-            final response = await refreshDio.post('/auth/refresh');
-            if (response.statusCode == 200 || response.statusCode == 201) {
-              final responseMap = response.data as Map<String, dynamic>;
-              final data = responseMap['data'] as Map<String, dynamic>;
-              final newAccessToken = data['access_token'];
-              final newRefreshToken = data['refresh_token'];
-
-              if (newAccessToken != null) {
-                await _storage.write(
-                  key: 'access_token',
-                  value: newAccessToken,
-                );
-              }
-              if (newRefreshToken != null) {
-                await _storage.write(
-                  key: 'refresh_token',
-                  value: newRefreshToken,
-                );
-              }
-
-              // Retry failed request
-              err.requestOptions.headers['Authorization'] =
-                  'Bearer $newAccessToken';
-
-              // Process queued requests
-              for (var request in _requestsQueue) {
-                final options = request['options'] as RequestOptions;
-                final requestHandler =
-                    request['handler'] as ErrorInterceptorHandler;
-                options.headers['Authorization'] = 'Bearer $newAccessToken';
-                try {
-                  final retryResponse = await _dio.fetch(options);
-                  requestHandler.resolve(retryResponse);
-                } catch (e) {
-                  requestHandler.next(
-                    e is DioException
-                        ? e
-                        : DioException(requestOptions: options, error: e),
-                  );
-                }
-              }
-              _requestsQueue.clear();
-
-              _isRefreshing = false;
-
-              // Retry current request
-              final retryResponse = await _dio.fetch(err.requestOptions);
-              return handler.resolve(retryResponse);
-            }
+          final newToken = await _refreshCompleter!.future;
+          if (newToken != null) {
+            final requestOptions = err.requestOptions;
+            requestOptions.extra['retried'] = true;
+            requestOptions.headers['Authorization'] = 'Bearer $newToken';
+            final response = await _dio.fetch(requestOptions);
+            return handler.resolve(response);
           }
-        } catch (e) {
-          print('AuthInterceptor Refresh Error: $e');
+        } catch (_) {
+          return handler.next(err);
+        }
+      }
 
-          for (var request in _requestsQueue) {
-            final requestHandler =
-                request['handler'] as ErrorInterceptorHandler;
-            requestHandler.next(err);
-          }
-          _requestsQueue.clear();
+      // Begin refresh mutex queue
+      final completer = Completer<String?>();
+      _refreshCompleter = completer;
 
-          // Only clear tokens if the refresh token itself is definitely invalid (401/403)
-          if (e is DioException && (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
-            await _storage.deleteAll();
-            unauthenticatedEventStream.add(null);
-          }
-
-          _isRefreshing = false;
+      try {
+        final refreshToken = await _storage.read(key: 'refresh_token');
+        if (refreshToken == null) {
+          await _clearAuthData();
+          unauthenticatedEventStream.add(null);
+          completer.completeError(err);
+          _refreshCompleter = null;
           return handler.next(err);
         }
 
-        // If we reach here, it means refreshToken was null or session is gone
-        for (var request in _requestsQueue) {
-          final requestHandler = request['handler'] as ErrorInterceptorHandler;
-          requestHandler.next(err);
+        final refreshDio = Dio(BaseOptions(baseUrl: _dio.options.baseUrl));
+        refreshDio.options.headers['Authorization'] = 'Bearer $refreshToken';
+
+        final response = await refreshDio.post('/auth/refresh');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final responseMap = response.data as Map<String, dynamic>;
+          final data = responseMap['data'] as Map<String, dynamic>;
+          final newAccessToken = data['access_token'] as String?;
+          final newRefreshToken = data['refresh_token'] as String?;
+          final user = data['user'] as Map<String, dynamic>?;
+
+          if (newAccessToken != null) {
+            await _storage.write(key: 'access_token', value: newAccessToken);
+          }
+          if (newRefreshToken != null) {
+            await _storage.write(key: 'refresh_token', value: newRefreshToken);
+          }
+
+          if (user != null) {
+            if (user['role'] != null) {
+              await _storage.write(
+                key: 'user_role',
+                value: user['role'].toString(),
+              );
+            }
+            if (user['name'] != null) {
+              await _storage.write(
+                key: 'user_name',
+                value: user['name'].toString(),
+              );
+            }
+            if (user['permissions'] != null) {
+              await _storage.write(
+                key: 'user_permissions',
+                value: jsonEncode(user['permissions']),
+              );
+            }
+          }
+
+          completer.complete(newAccessToken);
+          _refreshCompleter = null;
+
+          // Retry current request with new token
+          final requestOptions = err.requestOptions;
+          requestOptions.extra['retried'] = true;
+          requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+
+          final retryResponse = await _dio.fetch(requestOptions);
+          return handler.resolve(retryResponse);
+        } else {
+          throw DioException(
+            requestOptions: err.requestOptions,
+            response: response,
+          );
         }
-        _requestsQueue.clear();
+      } catch (e) {
+        // Only clear auth data if refresh token is genuinely invalid
+        if (e is DioException &&
+            (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
+          await _clearAuthData();
+          unauthenticatedEventStream.add(null);
+        }
 
-        await _storage.deleteAll();
-        unauthenticatedEventStream.add(null);
-
-        _isRefreshing = false;
+        completer.completeError(e);
+        _refreshCompleter = null;
         return handler.next(err);
-      } else {
-        // Queue this request while refreshing
-        _requestsQueue.add({'options': err.requestOptions, 'handler': handler});
-        return;
       }
     }
 

@@ -45,8 +45,8 @@ export class SocketAuthService {
 
     if (!driver) return false;
 
-    // Reject offline or suspended drivers
-    if (driver.status === DriverStatus.OFFLINE || driver.status === DriverStatus.SUSPENDED) {
+    // Reject suspended drivers only
+    if (driver.status === DriverStatus.SUSPENDED) {
       this.logger.debug(`Rejecting WS for driver ${userId} (status: ${driver.status})`);
       return false;
     }

@@ -16,12 +16,14 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
-import { Role, VendorMemberRole } from '@prisma/client';
+import { DriverStatus, Role, VendorMemberRole, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-
+import { RedisService } from '../../infrastructure/redis/redis.service';
+import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { DriverStatusChangedEvent, OtpRequestedEvent } from 'src/common/events';
+import { EVENTS } from 'src/common/events/event-names';
 import { OtpService } from '../otp/otp.service';
-import { OtpRequestedEvent } from 'src/common/events';
 import {
   LoginDto,
   RegisterDto,
@@ -39,6 +41,8 @@ import {
 import {
   AuthErrors,
   CommonSuccess,
+  DriverErrors,
+  UserErrors,
 } from 'src/common/constants/response.constants';
 import {
   JWT_ACCESS_SERVICE,
@@ -57,9 +61,15 @@ export class AuthService {
     private eventEmitter: EventEmitter2,
     private config: ConfigService,
     private socketService: SocketService,
+    private redis: RedisService,
+    private locationRepository: LocationRepository,
   ) {}
 
-  async register(dto: RegisterDto, isAdminCreated: boolean = false) {
+  async register(
+    dto: RegisterDto,
+    isAdminCreated: boolean = false,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -69,6 +79,15 @@ export class AuthService {
         throw new ConflictException(AuthErrors.USER_EXISTS);
       }
       await this.prisma.user.delete({ where: { id: existing.id } });
+    }
+
+    if (dto.phone) {
+      const existingPhone = await this.prisma.user.findUnique({
+        where: { phone: dto.phone },
+      });
+      if (existingPhone) {
+        throw new ConflictException(UserErrors.PHONE_ALREADY_EXISTS);
+      }
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -104,12 +123,15 @@ export class AuthService {
       await this.requestVerification({ contact: user.email, method: 'EMAIL' });
     }
 
-    const tokens = await this.createSession(user.id, user.role, false);
+    const tokens = await this.createSession(user.id, user.role, false, meta);
     const { password: _, ...userWithoutPassword } = user;
     return { ...tokens, user: userWithoutPassword };
   }
 
-  async login(dto: LoginDto) {
+  async login(
+    dto: LoginDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     this.logger.log(`Login attempt for: ${dto.email}`);
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -148,11 +170,7 @@ export class AuthService {
 
     if (user.isBanned) {
       this.logger.warn(`Login failed: User is banned: ${dto.email}`);
-      throw new UnauthorizedException(
-        user.banReason
-          ? `${AuthErrors.BANNED}: ${user.banReason}`
-          : AuthErrors.BANNED,
-      );
+      throw new UnauthorizedException(AuthErrors.BANNED);
     }
 
     if (!user.isEmailVerified) {
@@ -164,21 +182,32 @@ export class AuthService {
       this.logger.warn(
         `Login failed: Invalid app access for user ${dto.email}`,
       );
-      throw new ForbiddenException(
-        'Drivers can only log in using the Driver App.',
-      );
+      throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
     }
 
-    if (user.role === Role.DRIVER && user.driver && !user.driver.isApproved) {
-      this.logger.warn(`Login failed: Driver pending approval: ${dto.email}`);
-      throw new ForbiddenException(
-        'Your account is pending approval.',
-        { description: 'DRIVER_NOT_APPROVED' },
+    if (
+      dto.app === 'vendor' &&
+      user.role !== Role.VENDOR_MEMBER &&
+      user.role !== Role.ADMIN &&
+      user.role !== Role.SUPER_ADMIN
+    ) {
+      this.logger.warn(
+        `Login failed: Non-vendor/admin user ${dto.email} attempted login to Vendor app`,
       );
+      throw new ForbiddenException(AuthErrors.ONLY_VENDOR_APP_ALLOWED);
+    }
+
+    if (dto.app === 'customer' && user.role === Role.DRIVER) {
+      throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
+    }
+
+    if (user.role === Role.DRIVER && (!user.driver || !user.driver.isApproved)) {
+      this.logger.warn(`Login failed: Driver pending approval: ${dto.email}`);
+      throw new ForbiddenException(DriverErrors.NOT_APPROVED);
     }
 
     this.logger.log(`Login success: ${dto.email}`);
-    const tokens = await this.createSession(user.id, user.role, true);
+    const tokens = await this.createSession(user.id, user.role, true, meta);
     const { password: _, ...userWithoutPassword } = user;
     return { ...tokens, user: userWithoutPassword };
   }
@@ -208,7 +237,7 @@ export class AuthService {
       const appleClientIds = this.config.get<string>('APPLE_CLIENT_IDS')?.split(',') || [];
       const payload = await appleSignin.verifyIdToken(idToken, {
         audience: appleClientIds.map((id) => id.trim()).filter(Boolean),
-        ignoreExpiration: true,
+        ignoreExpiration: false,
       });
       return {
         sub: payload.sub,
@@ -220,22 +249,25 @@ export class AuthService {
     }
   }
 
-  async socialLogin(dto: SocialLoginDto) {
+  async socialLogin(
+    dto: SocialLoginDto,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     this.logger.log(`Social login attempt for: ${dto.provider}`);
 
     let providerAccountId = dto.providerAccountId;
-    let email = dto.email;
+    let verifiedEmail: string | undefined;
     let name = dto.name;
 
     if (dto.provider === 'GOOGLE') {
       const payload = await this.verifyGoogleToken(dto.idToken);
       providerAccountId = payload.sub;
-      email = payload.email || email;
+      verifiedEmail = payload.email;
       name = payload.name || name;
     } else if (dto.provider === 'APPLE') {
       const payload = await this.verifyAppleToken(dto.idToken);
       providerAccountId = payload.sub;
-      email = payload.email || email;
+      verifiedEmail = payload.email;
     } else {
       throw new BadRequestException(AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER);
     }
@@ -263,17 +295,16 @@ export class AuthService {
 
     let user = account?.user || null;
 
-    // 2. If no account, check if User exists by email to link
-    if (!user && dto.email) {
+    // 2. If no account, check if User exists by verifiedEmail to link (NEVER untrusted client email)
+    if (!user && verifiedEmail) {
       user = await this.prisma.user.findUnique({
-        where: { email: dto.email },
+        where: { email: verifiedEmail },
         include: {
           driver: { select: { isApproved: true } },
         },
       });
 
       if (user) {
-        // Link new account to existing user
         await this.prisma.account.create({
           data: {
             userId: user.id,
@@ -290,10 +321,10 @@ export class AuthService {
       user = await this.prisma.$transaction(async (tx) => {
         const u = await tx.user.create({
           data: {
-            email: email ?? null,
+            email: verifiedEmail ?? (dto.email ? dto.email : null),
             name: name ?? 'New User',
             role: dto.app === 'driver' ? Role.DRIVER : Role.CUSTOMER,
-            isEmailVerified: true, // Social accounts are implicitly verified
+            isEmailVerified: true,
             accounts: {
               create: {
                 provider: dto.provider,
@@ -301,11 +332,23 @@ export class AuthService {
               },
             },
           },
-          include: {
-            driver: { select: { isApproved: true } },
-          },
         });
-        return u;
+
+        if (dto.app === 'driver') {
+          await tx.driver.create({
+            data: {
+              userId: u.id,
+              name: u.name,
+              vehicleType: 'MOTORCYCLE',
+              isApproved: false,
+            },
+          });
+        }
+
+        return tx.user.findUniqueOrThrow({
+          where: { id: u.id },
+          include: { driver: { select: { isApproved: true } } },
+        });
       });
       this.logger.log(`Auto-registered new user via ${dto.provider}: ${user.email}`);
     }
@@ -313,11 +356,7 @@ export class AuthService {
     // 4. Validate Role / App Access
     if (user.isBanned) {
       this.logger.warn(`Social login failed: User is banned: ${user.email}`);
-      throw new UnauthorizedException(
-        user.banReason
-          ? `${AuthErrors.BANNED}: ${user.banReason}`
-          : AuthErrors.BANNED,
-      );
+      throw new UnauthorizedException(AuthErrors.BANNED);
     }
 
     if (dto.app === 'driver' && user.role !== Role.DRIVER) {
@@ -325,16 +364,26 @@ export class AuthService {
       throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
     }
 
-    if (user.role === Role.DRIVER && user.driver && !user.driver.isApproved) {
+    if (
+      dto.app === 'vendor' &&
+      user.role !== Role.VENDOR_MEMBER &&
+      user.role !== Role.ADMIN &&
+      user.role !== Role.SUPER_ADMIN
+    ) {
+      throw new ForbiddenException(AuthErrors.ONLY_VENDOR_APP_ALLOWED);
+    }
+
+    if (dto.app === 'customer' && user.role === Role.DRIVER) {
+      throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
+    }
+
+    if (user.role === Role.DRIVER && (!user.driver || !user.driver.isApproved)) {
       this.logger.warn(`Social login failed: Driver pending approval: ${user.email}`);
-      throw new ForbiddenException(
-        'Your account is pending approval.',
-        { description: 'DRIVER_NOT_APPROVED' },
-      );
+      throw new ForbiddenException(DriverErrors.NOT_APPROVED);
     }
 
     // 5. Success
-    const tokens = await this.createSession(user.id, user.role, true);
+    const tokens = await this.createSession(user.id, user.role, true, meta);
     const { password: _, ...userWithoutPassword } = user;
     return { ...tokens, user: userWithoutPassword };
   }
@@ -417,22 +466,33 @@ export class AuthService {
     );
     if (!isValid) throw new BadRequestException(AuthErrors.OTP_INVALID);
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
     const isEmail = dto.contact.includes('@');
+    const existingUser = await this.prisma.user.findFirst({
+      where: { OR: [{ email: dto.contact }, { phone: dto.contact }] },
+    });
+    if (!existingUser) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
 
     const user = await this.prisma.user.update({
-      where: isEmail ? { email: dto.contact } : { phone: dto.contact },
+      where: { id: existingUser.id },
       data: { password: hashedPassword },
       select: { id: true },
     });
 
     await this.prisma.session.deleteMany({ where: { userId: user.id } });
+    const accessTtl = this.getAccessExpirySeconds();
+    await this.redis.set(`revoked:user:${user.id}`, '1', accessTtl);
     this.socketService.disconnectUser(user.id);
 
     return { message: CommonSuccess.OPERATION_SUCCESS };
   }
 
-  async refreshTokens(payload: JwtRefreshPayload, rawRefreshToken: string) {
+  async refreshTokens(
+    payload: JwtRefreshPayload,
+    rawRefreshToken: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+  ) {
     const session = await this.prisma.session.findUnique({
       where: { id: payload.sid },
       include: {
@@ -440,9 +500,16 @@ export class AuthService {
           select: {
             id: true,
             role: true,
+            name: true,
             isBanned: true,
             banReason: true,
             isEmailVerified: true,
+            permissions: true,
+            vendorMemberships: {
+              include: {
+                vendor: true,
+              },
+            },
           },
         },
       },
@@ -462,46 +529,138 @@ export class AuthService {
       select: { isApproved: true },
     });
 
-    const rtHashInput = crypto
-      .createHash('sha256')
-      .update(rawRefreshToken)
-      .digest('hex');
-    const isMatch = await bcrypt.compare(rtHashInput, session.hashedRt);
-    if (!isMatch) {
-      await this.prisma.session.deleteMany({ where: { userId: payload.sub } });
-      throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
-    }
-
     const user = session.user;
 
     if (user.isBanned) {
-      throw new UnauthorizedException(
-        user.banReason
-          ? `${AuthErrors.BANNED}: ${user.banReason}`
-          : AuthErrors.BANNED,
-      );
+      throw new UnauthorizedException(AuthErrors.BANNED);
     }
 
-    if (user.role === Role.DRIVER && driverProfile && !driverProfile.isApproved) {
-      throw new ForbiddenException(
-        'Your account is pending approval.',
-        { description: 'DRIVER_NOT_APPROVED' },
-      );
+    if (user.role === Role.DRIVER && (!driverProfile || !driverProfile.isApproved)) {
+      throw new ForbiddenException(DriverErrors.NOT_APPROVED);
     }
 
-    await this.prisma.session.deleteMany({ where: { id: session.id } });
-    return this.createSession(user.id, user.role, user.isEmailVerified);
+    const incomingHash = crypto
+      .createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
+
+    const isMatch =
+      incomingHash.length === session.hashedRt.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(incomingHash),
+        Buffer.from(session.hashedRt),
+      );
+
+    if (!isMatch) {
+      await this.prisma.session.deleteMany({ where: { userId: payload.sub } });
+      const accessTtl = this.getAccessExpirySeconds();
+      await this.redis.set(`revoked:user:${payload.sub}`, '1', accessTtl);
+      this.socketService.disconnectUser(payload.sub);
+      throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
+    }
+
+    const refreshExpiresIn = this.config.getOrThrow<string>(
+      'JWT_REFRESH_EXPIRATION',
+    );
+    const expiresAt = this.parseExpiry(refreshExpiresIn);
+
+    const accessPayload: JwtAccessPayload = {
+      sub: user.id,
+      sid: session.id,
+      role: user.role,
+      verified: user.isEmailVerified,
+    };
+
+    const refreshPayload: JwtRefreshPayload = {
+      sub: user.id,
+      sid: session.id,
+    };
+
+    const [access_token, refresh_token] = await Promise.all([
+      this.accessJwt.signAsync(accessPayload),
+      this.refreshJwt.signAsync(refreshPayload),
+    ]);
+
+    const newHashedRt = crypto
+      .createHash('sha256')
+      .update(refresh_token)
+      .digest('hex');
+
+    // In-place update preserving stable sessionId
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: {
+        hashedRt: newHashedRt,
+        expiresAt,
+        ipAddress: meta?.ipAddress ?? session.ipAddress,
+        userAgent: meta?.userAgent ?? session.userAgent,
+      },
+    });
+
+    const { password: _, ...userWithoutPassword } = user as any;
+    return { access_token, refresh_token, user: userWithoutPassword };
   }
 
-  async logout(userId: string, sessionId: string, dto: LogoutDto) {
+  async logout(userId: string, sessionId: string, dto?: LogoutDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: true,
+        driver: {
+          select: {
+            id: true,
+            orders: {
+              where: {
+                status: {
+                  in: [
+                    OrderStatus.DRIVER_ASSIGNED,
+                    OrderStatus.READY_FOR_PICKUP,
+                    OrderStatus.PICKED_UP,
+                  ],
+                },
+              },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    // If driver is attempting logout, ensure no deliveries are in progress
+    if (user?.role === Role.DRIVER && user.driver) {
+      if (user.driver.orders && user.driver.orders.length > 0) {
+        throw new BadRequestException(AuthErrors.CANNOT_LOGOUT_ON_DELIVERY);
+      }
+
+      await this.prisma.driver.update({
+        where: { id: user.driver.id },
+        data: { status: DriverStatus.OFFLINE },
+      });
+      await this.locationRepository.removeDriverLocation(user.driver.id);
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          user.driver.id,
+          userId,
+          'ONLINE',
+          DriverStatus.OFFLINE,
+        ),
+      );
+    }
+
     await this.prisma.session.deleteMany({
       where: { id: sessionId, userId },
     });
-    this.socketService.disconnectUser(userId);
 
-    if (dto.fcmToken) {
+    // Revoke session in Redis for access token lifespan
+    const accessTtl = this.getAccessExpirySeconds();
+    await this.redis.set(`revoked:session:${sessionId}`, '1', accessTtl);
+
+    this.socketService.disconnectSession(sessionId);
+
+    if (dto?.fcmToken) {
       await this.prisma.device.deleteMany({
-        where: { userId, token: dto.fcmToken },
+        where: { token: dto.fcmToken },
       });
     }
 
@@ -509,8 +668,57 @@ export class AuthService {
   }
 
   async logoutAll(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: true,
+        driver: {
+          select: {
+            id: true,
+            orders: {
+              where: {
+                status: {
+                  in: [
+                    OrderStatus.DRIVER_ASSIGNED,
+                    OrderStatus.READY_FOR_PICKUP,
+                    OrderStatus.PICKED_UP,
+                  ],
+                },
+              },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (user?.role === Role.DRIVER && user.driver) {
+      if (user.driver.orders && user.driver.orders.length > 0) {
+        throw new BadRequestException(
+          AuthErrors.CANNOT_LOGOUT_ON_DELIVERY,
+        );
+      }
+
+      await this.prisma.driver.update({
+        where: { id: user.driver.id },
+        data: { status: DriverStatus.OFFLINE },
+      });
+      await this.locationRepository.removeDriverLocation(user.driver.id);
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          user.driver.id,
+          userId,
+          'ONLINE',
+          DriverStatus.OFFLINE,
+        ),
+      );
+    }
+
     await this.prisma.session.deleteMany({ where: { userId } });
     await this.prisma.device.deleteMany({ where: { userId } });
+    const accessTtl = this.getAccessExpirySeconds();
+    await this.redis.set(`revoked:user:${userId}`, '1', accessTtl);
     this.socketService.disconnectUser(userId);
     return { message: CommonSuccess.OPERATION_SUCCESS };
   }
@@ -546,11 +754,10 @@ export class AuthService {
       this.refreshJwt.signAsync(refreshPayload),
     ]);
 
-    const rtHashInput = crypto
+    const hashedRt = crypto
       .createHash('sha256')
       .update(refresh_token)
       .digest('hex');
-    const hashedRt = await bcrypt.hash(rtHashInput, 10);
 
     await this.prisma.session.create({
       data: {
@@ -580,5 +787,12 @@ export class AuthService {
 
     const multiplier = ms[unit] ?? ms['d'];
     return new Date(now + value * multiplier);
+  }
+
+  private getAccessExpirySeconds(): number {
+    const accessExp = this.config.get<string>('JWT_ACCESS_EXPIRATION') ?? '5m';
+    const now = Date.now();
+    const expiryDate = this.parseExpiry(accessExp);
+    return Math.max(300, Math.ceil((expiryDate.getTime() - now) / 1000));
   }
 }

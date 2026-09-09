@@ -4,9 +4,12 @@ import {
   ForbiddenException,
   NotFoundException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrdersRepository, CreateOrderData, OrderItemData } from './orders.repository';
+import { OrdersStateService } from './orders-state.service';
 import { CartService } from '../cart/cart.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -57,6 +60,8 @@ export class OrdersCheckoutService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => OrdersStateService))
+    private readonly stateService: OrdersStateService,
   ) {}
 
 async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
@@ -81,9 +86,7 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
     const settings = await this.platformSettings.getSettings();
     const minOrder = Number(settings.minOrderAmount);
     if (minOrder > 0 && cart.subtotal < minOrder) {
-      throw new BadRequestException(
-        `Minimum order amount is ${minOrder} ${settings.currency}`,
-      );
+      throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
 
     const [lng, lat] = dto.deliveryLocation;
@@ -106,13 +109,24 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
         )
       : (Number(settings.fallbackOrderDistanceKm) ?? 3);
 
+    const maxRadius = Number(settings.maxDeliveryRadiusKm ?? 1500);
+    if (maxRadius > 0 && distanceKm > maxRadius) {
+      throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
+    }
+
     const deliveryFee = await this.platformSettings.calculateDeliveryFee(
       distanceKm,
       zone?.baseDeliveryFeeOverride ?? null,
+      null,
+      true,
+      settings,
     );
 
-    // Calculate commission/service rate based on manually configured percentage
-    const commissionRate = Number(vendor.commissionRate) / 100;
+    // Calculate commission/service rate based on manually configured percentage or platform default
+    const vendorCommission = vendor.commissionRate != null
+      ? Number(vendor.commissionRate)
+      : Number(settings.defaultCommissionRate ?? 10);
+    const commissionRate = vendorCommission / 100;
 
     // If vendor is NOT contracted with us, add their percentage as a service fee to the customer invoice
     const serviceFee = !vendor.isContracted
@@ -162,7 +176,7 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
     const grandTotal = preDiscountTotal - discount;
     const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
     const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(
-      preDiscountTotal / amountSpentPerCoin,
+      grandTotal / amountSpentPerCoin,
     ) : 0;
 
     let upfrontAmount = 0;
@@ -172,7 +186,9 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
       settings.highValueOrderThreshold > 0 &&
       grandTotal >= settings.highValueOrderThreshold
     ) {
-      upfrontAmount = 0;
+      upfrontAmount = Math.round(
+        grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
+      );
     }
 
     type CartItemPayload = {
@@ -291,6 +307,18 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     );
 
     const settings = await this.platformSettings.getSettings();
+    const maxRadius = Number(settings.maxDeliveryRadiusKm ?? 1500);
+    if (maxRadius > 0 && distanceKm > maxRadius) {
+      throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
+    }
+
+    if (dto.vehicleType === 'BICYCLE') {
+      const maxBicycleKm = Number(settings.maxKmForBicycle ?? 5.0);
+      if (distanceKm > maxBicycleKm) {
+        throw new BadRequestException(OrderErrors.BICYCLE_DISTANCE_EXCEEDED);
+      }
+    }
+
     let perKm = 0;
     switch (dto.vehicleType) {
       case 'BICYCLE':
@@ -330,6 +358,8 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
       null, // no zone override
       perKm,
       false, // isStandardOrder
+      settings,
+      dto.vehicleType,
     );
     const serviceFee = Number(settings.customOrderPlatformFee) || 0;
     const taxRate = Number(settings.defaultTaxRate) / 100;
@@ -375,8 +405,20 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     const grandTotal = preDiscountTotal - discount;
     const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
     const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(
-      preDiscountTotal / amountSpentPerCoin,
+      grandTotal / amountSpentPerCoin,
     ) : 0;
+
+    let upfrontAmount = 0;
+    if (
+      dto.paymentMethod === 'CASH_ON_DELIVERY' &&
+      settings.highValueOrderThreshold &&
+      settings.highValueOrderThreshold > 0 &&
+      grandTotal >= settings.highValueOrderThreshold
+    ) {
+      upfrontAmount = Math.round(
+        grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
+      );
+    }
 
     const orderNumber = await this.ordersRepository.generateOrderNumber();
     const created = await this.ordersRepository.createOrder(
@@ -399,7 +441,7 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
         coinsUsed,
         coinsEarned,
         grandTotal,
-        upfrontAmount: 0,
+        upfrontAmount,
         distanceKm,
         specialRequest: dto.specialRequest ?? null,
         type: dto.type,
@@ -413,31 +455,35 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
       actor.sub,
     );
 
-    // Custom Orders have no vendor to accept them, so they must be dispatched immediately
-    await this.ordersRepository.updateStatus(
-      created.id,
-      'LOOKING_FOR_DRIVER',
-      'system',
-      'Auto-dispatched custom order',
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
+    // Custom Orders have no vendor to accept them:
+    // If no upfront payment is required, dispatch immediately;
+    // if upfront payment is required, order stays in PENDING_PAYMENT until customer pays.
+    if (upfrontAmount === 0) {
+      await this.ordersRepository.updateStatus(
         created.id,
-        created.orderNumber,
-        OrderStatus.PENDING,
-        OrderStatus.LOOKING_FOR_DRIVER,
-        customerId,
-        actor.sub,
-        null,
-        [],
-        null,
-        null,
+        'LOOKING_FOR_DRIVER',
         'system',
         'Auto-dispatched custom order',
-      ),
-    );
+      );
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_STATUS_CHANGED,
+        new OrderStatusChangedEvent(
+          created.id,
+          created.orderNumber,
+          OrderStatus.PENDING,
+          OrderStatus.LOOKING_FOR_DRIVER,
+          customerId,
+          actor.sub,
+          null,
+          [],
+          null,
+          null,
+          'system',
+          'Auto-dispatched custom order',
+        ),
+      );
+    }
 
     this.eventEmitter.emit(
       EVENTS.ORDER_CREATED,
@@ -582,23 +628,30 @@ async editOrderItems(
     }
 
     const settings = await this.platformSettings.getSettings();
+    const vendorCommission = order.vendor?.commissionRate != null
+      ? Number(order.vendor.commissionRate)
+      : Number(settings.defaultCommissionRate ?? 10);
     const serviceFee =
       order.vendor && !order.vendor.isContracted
-        ? Math.round(newSubtotal * (Number(order.vendor.commissionRate) / 100))
+        ? Math.round(newSubtotal * (vendorCommission / 100))
         : 0;
     const taxRate = Number(settings.defaultTaxRate) / 100;
     const tax = Math.round((newSubtotal + serviceFee) * taxRate);
     const discount = Number(order.discount ?? 0);
+    const driverBonus = (settings.driverBonusPaidByCustomer && Number(order.driverBonusFee ?? 0) > 0)
+      ? Number(order.driverBonusFee)
+      : 0;
     const grandTotal = Math.max(
       0,
-      newSubtotal + Number(order.deliveryFee) + serviceFee + tax - discount,
+      newSubtotal + Number(order.deliveryFee) + serviceFee + tax + driverBonus - discount,
     );
+    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
+    const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(grandTotal / amountSpentPerCoin) : 0;
 
     await this.prisma.$transaction(async (tx) => {
       // delete old
       await tx.orderItem.deleteMany({ where: { orderId: order.id } });
 
-      // insert new
       // insert new
       const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
       const orderItemOptionsData: Prisma.OrderItemOptionCreateManyInput[] = [];
@@ -644,6 +697,7 @@ async editOrderItems(
           serviceFee,
           tax,
           grandTotal,
+          coinsEarned,
           status: OrderStatus.CHANGES_REQUESTED,
         },
       });
@@ -722,7 +776,10 @@ async adminPlaceDirectOrder(
     const settings = await this.platformSettings.getSettings();
 
     const subtotal = dto.price * (dto.quantity ?? 1);
-    const commissionRate = Number(vendor.commissionRate ?? 0) / 100;
+    const vendorCommission = vendor.commissionRate != null
+      ? Number(vendor.commissionRate)
+      : Number(settings.defaultCommissionRate ?? 10);
+    const commissionRate = vendorCommission / 100;
     const serviceFee = !vendor.isContracted
       ? Math.round(subtotal * commissionRate)
       : 0;
@@ -883,7 +940,7 @@ async acceptOrderChanges(actor: JwtAccessPayload, orderId: string) {
     return { message: 'Order changes accepted' };
   }
 
-async rejectOrderChanges(actor: JwtAccessPayload, orderId: string) {
+  async rejectOrderChanges(actor: JwtAccessPayload, orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { driver: true, customer: true },
@@ -894,53 +951,12 @@ async rejectOrderChanges(actor: JwtAccessPayload, orderId: string) {
     if (order.status !== OrderStatus.CHANGES_REQUESTED)
       throw new BadRequestException(OrderErrors.NO_PENDING_CHANGES);
 
-    const updated = await this.ordersRepository.updateStatus(
+    await this.stateService.cancelOrder(
+      actor,
       orderId,
-      OrderStatus.CANCELLED,
-      actor.sub,
       'Customer rejected order changes',
-      {},
-      OrderStatus.CHANGES_REQUESTED,
     );
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-      order.vendorId,
-    );
-    const driverUserId = order.driver?.userId ?? null;
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        order.id,
-        order.orderNumber,
-        OrderStatus.CHANGES_REQUESTED,
-        OrderStatus.CANCELLED,
-        order.customerId,
-        actor.sub,
-        order.vendorId,
-        vendorUserIds,
-        order.driverId,
-        driverUserId,
-        actor.sub,
-        'Customer rejected order changes',
-      ),
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_CANCELLED,
-      new OrderCancelledEvent(
-        order.id,
-        order.orderNumber,
-        order.customerId,
-        actor.sub,
-        order.vendorId,
-        vendorUserIds,
-        order.driverId,
-        driverUserId,
-        'Customer rejected order changes',
-        actor.sub,
-      ),
-    );
     return { message: 'Order changes rejected and order cancelled' };
   }
 

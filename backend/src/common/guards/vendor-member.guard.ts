@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { Permission, Role, VendorMemberRole } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
+  CommonErrors,
   VendorErrors,
   VendorMemberErrors,
 } from '../constants/response.constants';
@@ -35,7 +36,7 @@ export class VendorMemberGuard implements CanActivate {
     }>();
 
     const user = request.user;
-    if (!user?.sub) throw new UnauthorizedException();
+    if (!user?.sub) throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
 
     // SUPER_ADMIN always has full access across all vendors.
     if (user.role === Role.SUPER_ADMIN) return true;
@@ -62,9 +63,8 @@ export class VendorMemberGuard implements CanActivate {
 
     if (!vendorId) {
       // Guard is misconfigured — the param name doesn't match the route.
-      throw new ForbiddenException(
-        `VendorMemberGuard: route param "${vendorIdParam}" not found`,
-      );
+      this.logger.error(`VendorMemberGuard: route param "${vendorIdParam}" not found`);
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
     }
 
     // Check if the vendor exists and fetch the user's membership in a single query
@@ -94,9 +94,7 @@ export class VendorMemberGuard implements CanActivate {
       ) ?? [];
 
     if (requiredRoles.length > 0 && !requiredRoles.includes(membership.role)) {
-      throw new ForbiddenException(
-        `This action requires one of the following vendor roles: ${requiredRoles.join(', ')}`,
-      );
+      throw new ForbiddenException(VendorMemberErrors.INSUFFICIENT_PERMISSIONS);
     }
 
     (

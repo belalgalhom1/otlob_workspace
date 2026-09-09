@@ -62,7 +62,7 @@ async approveOrderFee(actor: JwtAccessPayload, orderId: string) {
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
 
     if (order.customer.userId !== actor.sub) {
-      throw new ForbiddenException();
+      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
     }
 
     if (order.status !== OrderStatus.PENDING_CUSTOMER_APPROVAL) {

@@ -120,7 +120,7 @@ export class DriversService {
       dto.status === DriverStatus.OFFLINE
     ) {
       throw new BadRequestException(
-        'Cannot go offline while on an active delivery',
+        DriverErrors.CANNOT_GO_OFFLINE_ON_DELIVERY,
       );
     }
 
@@ -444,17 +444,42 @@ export class DriversService {
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     
     this.socketService.disconnectUser(driver.userId);
+    await this.locationRepository.removeDriverLocation(driver.id);
 
-    return this.driversRepository.updateStatus(
+    const result = await this.driversRepository.updateStatus(
       driverId,
       DriverStatus.SUSPENDED,
     );
+
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_STATUS_CHANGED,
+      new DriverStatusChangedEvent(
+        driver.id,
+        driver.userId,
+        driver.status,
+        DriverStatus.SUSPENDED,
+      ),
+    );
+
+    return result;
   }
 
   async adminUnsuspend(driverId: string) {
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    return this.driversRepository.updateStatus(driverId, DriverStatus.OFFLINE);
+    const result = await this.driversRepository.updateStatus(driverId, DriverStatus.OFFLINE);
+
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_STATUS_CHANGED,
+      new DriverStatusChangedEvent(
+        driver.id,
+        driver.userId,
+        driver.status,
+        DriverStatus.OFFLINE,
+      ),
+    );
+
+    return result;
   }
 
   async adminCreateShift(driverId: string, dto: CreateDriverShiftDto) {

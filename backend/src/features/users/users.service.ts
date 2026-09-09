@@ -10,6 +10,8 @@ import {
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
+import { SocketService } from '../../infrastructure/socket/socket.service';
 import {
   UpdateNotificationSettingsDto,
   ChangePasswordDto,
@@ -23,7 +25,7 @@ import {
   UserErrors,
   AuthErrors,
 } from 'src/common/constants/response.constants';
-import { Role, VendorMemberRole, Prisma } from '@prisma/client';
+import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 
 // Fields returned for both self-service and admin reads (no password)
@@ -55,6 +57,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly redis: RedisService,
+    private readonly socketService: SocketService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -173,6 +177,12 @@ export class UsersService {
     }
 
     const hashed = await bcrypt.hash(dto.newPassword, 10);
+
+    const otherSessions = await this.prisma.session.findMany({
+      where: { userId, id: { not: sessionId } },
+      select: { id: true },
+    });
+
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
@@ -182,6 +192,11 @@ export class UsersService {
         where: { userId, id: { not: sessionId } },
       }),
     ]);
+
+    for (const s of otherSessions) {
+      await this.redis.set(`revoked:session:${s.id}`, '1', 300);
+      await this.socketService.disconnectSession(s.id);
+    }
 
     return { message: CommonSuccess.OPERATION_SUCCESS };
   }
@@ -468,12 +483,25 @@ export class UsersService {
     const updated = await this.prisma.$transaction(async (tx) => {
       // Immediately invalidate all active sessions
       await tx.session.deleteMany({ where: { userId } });
+      await tx.driver.updateMany({
+        where: { userId },
+        data: { status: DriverStatus.SUSPENDED },
+      });
       return tx.user.update({
         where: { id: userId },
         data: { isBanned: true, banReason: dto.reason ?? null },
         select: USER_SELECT,
       });
     });
+
+    // Invalidate immediately in Redis and disconnect active WebSockets
+    await this.redis.set(
+      `banned:user:${userId}`,
+      dto.reason ?? '1',
+      30 * 24 * 3600,
+    );
+    await this.redis.set(`revoked:user:${userId}`, '1', 300);
+    await this.socketService.disconnectUser(userId);
 
     this.logger.log(
       `Admin banned user ${userId}: ${dto.reason ?? 'no reason'}`,
@@ -497,6 +525,9 @@ export class UsersService {
       data: { isBanned: false, banReason: null },
       select: USER_SELECT,
     });
+
+    // Remove from Redis blacklist
+    await this.redis.del(`banned:user:${userId}`, `revoked:user:${userId}`);
 
     this.logger.log(`Admin unbanned user ${userId}`);
     return updated;
@@ -537,6 +568,9 @@ export class UsersService {
       where: { userId },
     });
 
+    await this.redis.set(`revoked:user:${userId}`, '1', 300);
+    await this.socketService.disconnectUser(userId);
+
     this.logger.log(`Admin revoked ${count} sessions for user ${userId}`);
     return { revoked: count, message: CommonSuccess.OPERATION_SUCCESS };
   }
@@ -571,11 +605,23 @@ export class UsersService {
 
       await tx.session.deleteMany({ where: { userId } });
       await tx.device.deleteMany({ where: { userId } });
+      await tx.driver.updateMany({
+        where: { userId },
+        data: { status: DriverStatus.SUSPENDED, deletedAt: new Date() },
+      });
       await tx.user.update({
         where: { id: userId },
         data: { deletedAt: new Date(), email: null, phone: null },
       });
     });
+
+    await this.redis.set(
+      `banned:user:${userId}`,
+      'Account deleted',
+      30 * 24 * 3600,
+    );
+    await this.redis.set(`revoked:user:${userId}`, '1', 300);
+    await this.socketService.disconnectUser(userId);
 
     this.logger.log(`Admin soft-deleted user ${userId}`);
     return { message: CommonSuccess.RESOURCE_DELETED };

@@ -272,7 +272,7 @@ export class DriverShiftsService {
     }
 
     const driver = await this.prisma.driver.findUnique({ where: { userId } });
-    if (!driver) throw new NotFoundException();
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const driverId = driver.id;
 
     return this.prisma.$transaction(async (tx) => {
@@ -350,7 +350,7 @@ export class DriverShiftsService {
     await this.checkShiftsEnabled();
 
     const driver = await this.prisma.driver.findUnique({ where: { userId } });
-    if (!driver) throw new NotFoundException();
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const driverId = driver.id;
 
     return this.prisma.$transaction(async (tx) => {
@@ -406,7 +406,7 @@ export class DriverShiftsService {
     await this.checkShiftsEnabled();
 
     const driver = await this.prisma.driver.findUnique({ where: { userId } });
-    if (!driver) throw new NotFoundException();
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const driverId = driver.id;
 
     const shift = await this.prisma.driverShift.findUnique({
@@ -446,7 +446,7 @@ export class DriverShiftsService {
     await this.checkShiftsEnabled();
 
     const me = await this.prisma.driver.findUnique({ where: { userId } });
-    if (!me) throw new NotFoundException();
+    if (!me) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const driverId = me.id;
 
     return this.prisma.shiftSwapRequest.findMany({
@@ -483,7 +483,7 @@ export class DriverShiftsService {
     }
 
     const me = await this.prisma.driver.findUnique({ where: { userId } });
-    if (!me) throw new NotFoundException();
+    if (!me) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const driverId = me.id;
 
     if (swap.offeredByDriverId === driverId) {

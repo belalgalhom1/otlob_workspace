@@ -332,11 +332,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     
     final rawTax = areFeesFinalized ? order['tax'] : null;
     final tax = _parseDouble(rawTax);
-    
+
     final discount = _parseDouble(order['discount']);
-    
+    final bool isCustomOrder = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+
     // Total is calculated directly by the backend
-    final rawTotal = areFeesFinalized ? (order['total'] ?? order['totalFee'] ?? order['grandTotal']) : subtotal;
+    final rawTotal = (areFeesFinalized || isCustomOrder)
+        ? (order['total'] ?? order['totalFee'] ?? order['grandTotal'])
+        : subtotal;
     final total = _parseDouble(rawTotal);
 
     Color statusColor = AppColors.primary;

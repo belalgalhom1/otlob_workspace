@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:core/core.dart';
 
 class ErrorUtils {
   /// Translates a backend error/success key to a localized string.
@@ -107,8 +108,8 @@ class ErrorUtils {
       // Add more mappings as needed...
 
       default:
-        // If it's already translated or not a key, return as is
-        return message;
+        final currentLocale = l10n.localeName;
+        return ApiErrorMapper.translate(message, locale: currentLocale, context: context);
     }
   }
 }

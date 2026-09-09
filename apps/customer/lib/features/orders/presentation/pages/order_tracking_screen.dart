@@ -162,7 +162,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     if (_orderUpdatedAt == null) return;
 
     final settings = ref.read(platformSettingsProvider).value;
-    final timeoutMins = settings?.customerApprovalTimeoutMins ?? 10;
+    final timeoutMins = settings?.customerApprovalTimeoutMins ?? 5;
 
     final expiryTime = _orderUpdatedAt!.add(Duration(minutes: timeoutMins));
 
