@@ -15,12 +15,19 @@ class GlobalMessageListener extends _$GlobalMessageListener {
   @override
   void build() {
     final authStatus = ref.watch(authControllerProvider);
-    
+
     if (authStatus == AuthStatus.authenticated) {
       _init();
+    } else {
+      _disconnect();
     }
-    
+
     return;
+  }
+
+  void _disconnect() {
+    _lastShownOfferId = null;
+    ref.read(socketServiceProvider).disconnect();
   }
 
   Future<void> _init() async {

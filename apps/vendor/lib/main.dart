@@ -13,6 +13,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:core/core.dart';
 
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
+import 'package:vendor/core/providers/global_order_listener.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,6 +86,9 @@ class OtlobAdminApp extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeProvider);
     final router = ref.watch(routerProvider);
+
+    // Instant order updates regardless of the visible tab / app focus
+    ref.watch(globalOrderListenerProvider);
 
     return MaterialApp.router(
       title: 'Otlob Admin',

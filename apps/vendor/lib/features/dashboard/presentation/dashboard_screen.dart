@@ -28,6 +28,7 @@ import 'package:vendor/features/zones/presentation/zone_provider.dart';
 import 'package:vendor/features/promotions/presentation/promotion_provider.dart';
 import 'package:vendor/features/dashboard/presentation/widgets/vendor_context_switcher.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/settings/presentation/settings_screen.dart';
 import 'package:vendor/features/chat/presentation/pages/inbox_screen.dart';
@@ -642,7 +643,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 IconButton(
                   icon: const Icon(LucideIcons.logOut, size: 16),
                   onPressed: () async {
-                    await ref.read(sharedAuthRepositoryProvider).logout();
+                    await ref.read(authProvider.notifier).logout();
                     if (context.mounted) {
                       context.go('/login');
                     }
@@ -700,7 +701,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 IconButton(
                   icon: const Icon(LucideIcons.logOut, size: 16),
                   onPressed: () async {
-                    await ref.read(sharedAuthRepositoryProvider).logout();
+                    await ref.read(authProvider.notifier).logout();
                     if (context.mounted) {
                       context.go('/login');
                     }

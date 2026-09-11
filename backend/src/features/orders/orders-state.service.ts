@@ -50,11 +50,11 @@ import {
 
 const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.ACCEPTED],
-  [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP],
-  [OrderStatus.LOOKING_FOR_DRIVER]: [
-    OrderStatus.PREPARING,
-    OrderStatus.READY_FOR_PICKUP,
-  ],
+  // Vendor can only start preparing once a driver is assigned
+  // (or is pending payment). Accepting and waiting-for-driver are
+  // too early — the vendor must wait for a driver to accept first.
+  [OrderStatus.ACCEPTED]: [],
+  [OrderStatus.LOOKING_FOR_DRIVER]: [],
   [OrderStatus.DRIVER_ASSIGNED]: [
     OrderStatus.PREPARING,
     OrderStatus.READY_FOR_PICKUP,
@@ -65,7 +65,8 @@ const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ],
   [OrderStatus.PREPARING]: [OrderStatus.READY_FOR_PICKUP],
   [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.PICKED_UP],
-  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [OrderStatus.PREPARING],
+  // Fee approval: vendor must wait for customer to approve before prepping
+  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
   [OrderStatus.PICKED_UP]: [],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],

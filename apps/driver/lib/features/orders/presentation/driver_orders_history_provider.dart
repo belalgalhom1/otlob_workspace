@@ -49,7 +49,7 @@ class DriverOrdersHistory extends _$DriverOrdersHistory {
 
   @override
   DriverOrdersHistoryState build() {
-    Future.microtask(() => fetchDeliveries());
+    Future.microtask(() => fetchDeliveries(isRefresh: true));
     return const DriverOrdersHistoryState(isLoading: true);
   }
 

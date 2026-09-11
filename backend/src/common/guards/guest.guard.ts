@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   Injectable,
   ForbiddenException,
+  UnauthorizedException,
   Inject,
   Logger,
 } from '@nestjs/common';
@@ -34,7 +35,10 @@ export class GuestGuard implements CanActivate {
       throw new ForbiddenException(CommonErrors.FORBIDDEN);
     } catch (error) {
       if (error instanceof ForbiddenException) throw error;
-      return true;
+      // A token was presented but could not be verified (expired/malformed).
+      // Don't silently downgrade an authenticated request to guest access;
+      // force the client to re-authenticate instead of treating it as a guest.
+      throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
     }
   }
 

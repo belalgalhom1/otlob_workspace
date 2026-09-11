@@ -118,7 +118,16 @@ class TokenService {
 
         final newAccessToken = data['access_token'];
         final newRefreshToken = data['refresh_token'];
-        final user = data['user'] as Map<String, dynamic>?;
+        final rawUser = data['user'];
+        final user = rawUser is Map<String, dynamic>
+            ? rawUser
+            : rawUser is Map
+                ? Map<String, dynamic>.from(rawUser)
+                : null;
+
+        if (newAccessToken is! String || newRefreshToken is! String) {
+          throw 'REFRESH_FAILED';
+        }
 
         await _storage.write(key: 'access_token', value: newAccessToken);
         await _storage.write(key: 'refresh_token', value: newRefreshToken);

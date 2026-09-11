@@ -16,7 +16,13 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
-import { DriverStatus, Role, VendorMemberRole, OrderStatus } from '@prisma/client';
+import {
+  DriverStatus,
+  Role,
+  VendorMemberRole,
+  OrderStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
@@ -49,6 +55,12 @@ import {
   JWT_REFRESH_SERVICE,
 } from 'src/common/constants/jwt.constants';
 
+// When two workers rotate the same session concurrently the second incoming
+// refresh token is a previously-valid token that was just superseded. Treating
+// it as reuse immediately would nuclear-revoke all sessions. This window lets
+// the duplicate pass without triggering that path.
+const REFRESH_ROTATION_GRACE_MS = 15_000;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -70,54 +82,78 @@ export class AuthService {
     isAdminCreated: boolean = false,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (existing) {
-      if (existing.isEmailVerified) {
-        throw new ConflictException(AuthErrors.USER_EXISTS);
-      }
-      await this.prisma.user.delete({ where: { id: existing.id } });
-    }
-
-    if (dto.phone) {
-      const existingPhone = await this.prisma.user.findUnique({
-        where: { phone: dto.phone },
-      });
-      if (existingPhone) {
-        throw new ConflictException(UserErrors.PHONE_ALREADY_EXISTS);
-      }
-    }
-
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({
-        data: {
-          email: dto.email,
-          phone: dto.phone ?? null,
-          password: hashedPassword,
-          name: dto.name,
-          role: dto.role ?? Role.CUSTOMER,
-          isEmailVerified: isAdminCreated,
-          isPhoneVerified: isAdminCreated ? !!dto.phone : false,
+    let user;
+    try {
+      user = await this.prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.user.findUnique({
+            where: { email: dto.email },
+          });
+
+          if (existing) {
+            if (existing.isEmailVerified) {
+              throw new ConflictException(AuthErrors.USER_EXISTS);
+            }
+            await tx.user.delete({ where: { id: existing.id } });
+          }
+
+          if (dto.phone) {
+            const existingPhone = await tx.user.findUnique({
+              where: { phone: dto.phone },
+            });
+            if (existingPhone) {
+              throw new ConflictException(UserErrors.PHONE_ALREADY_EXISTS);
+            }
+          }
+
+          const u = await tx.user.create({
+            data: {
+              email: dto.email,
+              phone: dto.phone ?? null,
+              password: hashedPassword,
+              name: dto.name,
+              role: dto.role ?? Role.CUSTOMER,
+              isEmailVerified: isAdminCreated,
+              isPhoneVerified: isAdminCreated ? !!dto.phone : false,
+            },
+          });
+
+          if (dto.role === Role.VENDOR_MEMBER && dto.vendorId) {
+            await tx.vendorMember.create({
+              data: {
+                userId: u.id,
+                vendorId: dto.vendorId,
+                role:
+                  (dto.vendorRole as VendorMemberRole) ?? VendorMemberRole.STAFF,
+              },
+            });
+          }
+
+          return u;
         },
-      });
-
-      if (dto.role === Role.VENDOR_MEMBER && dto.vendorId) {
-        await tx.vendorMember.create({
-          data: {
-            userId: u.id,
-            vendorId: dto.vendorId,
-            role:
-              (dto.vendorRole as VendorMemberRole) ?? VendorMemberRole.STAFF,
-          },
-        });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      // Race backstop: if a concurrent registration won the transaction, the
+      // unique constraint on email/phone surfaces as P2002, or the serializable
+      // tx aborts with P2034. Convert both to a clean 409 instead of a 500.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
+        const uniqueTarget = String(
+          (error.meta as { target?: string | string[] } | undefined)?.target ??
+            '',
+        );
+        if (error.code === 'P2002' && uniqueTarget.includes('phone')) {
+          throw new ConflictException(UserErrors.PHONE_ALREADY_EXISTS);
+        }
+        throw new ConflictException(AuthErrors.USER_EXISTS);
       }
-
-      return u;
-    });
+      throw error;
+    }
 
     if (user.email) {
       await this.requestVerification({ contact: user.email, method: 'EMAIL' });
@@ -154,23 +190,20 @@ export class AuthService {
       throw new UnauthorizedException(AuthErrors.INVALID_CREDENTIALS);
     }
 
+    if (user.isBanned) {
+      this.logger.warn(`Login failed: User is banned: ${dto.email}`);
+      throw new UnauthorizedException(AuthErrors.BANNED);
+    }
+
     if (!user.password) {
       this.logger.warn(`Login failed: OAuth account without password for ${dto.email}`);
       throw new UnauthorizedException(AuthErrors.SOCIAL_LOGIN_REQUIRED);
     }
 
-    this.logger.debug(
-      `Password lengths - Received: ${dto.password.length}, Stored: ${user.password.length}`,
-    );
     const isMatch = await bcrypt.compare(dto.password, user.password);
     if (!isMatch) {
       this.logger.warn(`Login failed: Password mismatch for ${dto.email}`);
       throw new UnauthorizedException(AuthErrors.INVALID_CREDENTIALS);
-    }
-
-    if (user.isBanned) {
-      this.logger.warn(`Login failed: User is banned: ${dto.email}`);
-      throw new UnauthorizedException(AuthErrors.BANNED);
     }
 
     if (!user.isEmailVerified) {
@@ -321,7 +354,7 @@ export class AuthService {
       user = await this.prisma.$transaction(async (tx) => {
         const u = await tx.user.create({
           data: {
-            email: verifiedEmail ?? (dto.email ? dto.email : null),
+            email: verifiedEmail ?? null,
             name: name ?? 'New User',
             role: dto.app === 'driver' ? Role.DRIVER : Role.CUSTOMER,
             isEmailVerified: true,
@@ -420,7 +453,7 @@ export class AuthService {
 
     if (!isPasswordReset) {
       const isEmail = dto.contact.includes('@');
-      await this.prisma.user.update({
+      await this.prisma.user.updateMany({
         where: isEmail ? { email: dto.contact } : { phone: dto.contact },
         data: {
           isEmailVerified: isEmail ? true : undefined,
@@ -520,7 +553,11 @@ export class AuthService {
     }
 
     if (session.expiresAt < new Date()) {
-      await this.prisma.session.deleteMany({ where: { id: session.id } });
+      // Opportunistically purge every expired session for this user instead of
+      // only the current one, so stale rows don't accumulate until the cron.
+      await this.prisma.session.deleteMany({
+        where: { userId: payload.sub, expiresAt: { lt: new Date() } },
+      });
       throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
     }
 
@@ -552,11 +589,24 @@ export class AuthService {
       );
 
     if (!isMatch) {
-      await this.prisma.session.deleteMany({ where: { userId: payload.sub } });
-      const accessTtl = this.getAccessExpirySeconds();
-      await this.redis.set(`revoked:user:${payload.sub}`, '1', accessTtl);
-      this.socketService.disconnectUser(payload.sub);
-      throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
+      // The app runs multiple workers (PM2) and both a refresh request and
+      // the app's background listeners can rotate the same session nearly
+      // simultaneously. Without a grace period, the second request looks like
+      // refresh-token REUSE and nukes every session for the user — logging
+      // them out from all devices for no reason.
+      const updatedAt = session.updatedAt
+        ? new Date(session.updatedAt).getTime()
+        : 0;
+      const rotatedRecently = Date.now() - updatedAt < REFRESH_ROTATION_GRACE_MS;
+
+      if (!rotatedRecently) {
+        // Refresh token reuse detected → nuke ALL sessions (nuclear revocation)
+        await this.prisma.session.deleteMany({ where: { userId: payload.sub } });
+        const accessTtl = this.getAccessExpirySeconds();
+        await this.redis.set(`revoked:user:${payload.sub}`, '1', accessTtl);
+        this.socketService.disconnectUser(payload.sub);
+        throw new UnauthorizedException(AuthErrors.SESSION_COMPROMISED);
+      }
     }
 
     const refreshExpiresIn = this.config.getOrThrow<string>(
@@ -609,6 +659,7 @@ export class AuthService {
         driver: {
           select: {
             id: true,
+            status: true,
             orders: {
               where: {
                 status: {
@@ -642,7 +693,7 @@ export class AuthService {
         new DriverStatusChangedEvent(
           user.driver.id,
           userId,
-          'ONLINE',
+          user.driver.status,
           DriverStatus.OFFLINE,
         ),
       );
@@ -675,6 +726,7 @@ export class AuthService {
         driver: {
           select: {
             id: true,
+            status: true,
             orders: {
               where: {
                 status: {
@@ -709,7 +761,7 @@ export class AuthService {
         new DriverStatusChangedEvent(
           user.driver.id,
           userId,
-          'ONLINE',
+          user.driver.status,
           DriverStatus.OFFLINE,
         ),
       );

@@ -14,7 +14,7 @@ class DriverProfile extends _$DriverProfile {
     return const AsyncValue.loading();
   }
 
-  Future<void> fetchProfile() async {
+  Future<void> fetchProfile({bool retried = false}) async {
     if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
@@ -41,6 +41,13 @@ class DriverProfile extends _$DriverProfile {
         // Explicitly set state to null so the UI knows profile is pending creation
         state = const AsyncValue.data(null);
       } else {
+        // Transient failures right after login (overlapping auth init calls)
+        // should self-heal instead of dead-ending on a generic error screen.
+        if (!retried && !state.hasValue) {
+          await Future.delayed(const Duration(milliseconds: 1500));
+          await fetchProfile(retried: true);
+          return;
+        }
         if (!state.hasValue) {
           state = AsyncValue.error(e, st);
         }

@@ -11,12 +11,13 @@ part 'auth_provider.g.dart';
 @Riverpod(keepAlive: true)
 class Auth extends _$Auth {
   StreamSubscription<void>? _unauthSub;
+  bool _logoutInProgress = false;
 
   @override
   AsyncValue<bool> build() {
     _unauthSub?.cancel();
     _unauthSub = unauthenticatedEventStream.stream.listen((_) {
-      logout();
+      _handleUnauthenticated();
     });
     ref.onDispose(() {
       _unauthSub?.cancel();
@@ -26,7 +27,17 @@ class Auth extends _$Auth {
     return const AsyncValue.loading();
   }
 
+  Future<void> _handleUnauthenticated() async {
+    if (_logoutInProgress) return;
+    final repository = ref.read(sharedAuthRepositoryProvider);
+    // The event also fires after the interceptor already cleared the session;
+    // re-running logout without a session would only re-enter the 401 loop.
+    if (!await repository.isLoggedIn()) return;
+    logout();
+  }
+
   Future<void> _checkInitialAuth() async {
+    if (state.hasValue && state.value == true) return;
     try {
       final repository = ref.read(sharedAuthRepositoryProvider);
       final isLoggedIn = await repository.isLoggedIn();
@@ -45,8 +56,9 @@ class Auth extends _$Auth {
         }
       }
       state = const AsyncValue.data(false);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (_) {
+      // A storage hiccup should not strand the router on the loading splash.
+      state = const AsyncValue.data(false);
     }
   }
 
@@ -80,7 +92,9 @@ class Auth extends _$Auth {
     } catch (e, st) {
       final errorString = e.toString();
       if (errorString.contains('404') || errorString.contains('PROFILE_NOT_FOUND')) {
-        ref.read(sharedAuthRepositoryProvider).logout();
+        try {
+          await ref.read(sharedAuthRepositoryProvider).logout();
+        } catch (_) {}
         state = AsyncValue.error(Exception('auth.error.pending_approval'), st);
       } else {
         state = AsyncValue.error(e, st);
@@ -89,8 +103,21 @@ class Auth extends _$Auth {
   }
 
   Future<void> logout() async {
-    state = const AsyncValue.loading();
+    if (_logoutInProgress) return;
+    _logoutInProgress = true;
     try {
+      final repository = ref.read(sharedAuthRepositoryProvider);
+
+      // No session: nothing to clean up or revoke. Running push cleanup here
+      // would fire authenticated calls, 401 (no token), and re-enter the
+      // logout/refresh/clear/emit loop.
+      if (!await repository.isLoggedIn()) {
+        state = const AsyncValue.data(false);
+        ref.invalidate(splashProvider);
+        _goToLogin();
+        return;
+      }
+
       String? fcmToken;
       try {
         final push = ref.read(pushNotificationServiceProvider);
@@ -99,16 +126,20 @@ class Auth extends _$Auth {
         await push.unregisterToken();
       } catch (_) {}
 
-      final repository = ref.read(sharedAuthRepositoryProvider);
       await repository.logout(fcmToken: fcmToken);
       state = const AsyncValue.data(false);
       ref.invalidate(splashProvider);
-      
-      if (rootNavigatorKey.currentContext != null) {
-        rootNavigatorKey.currentContext!.go('/login');
-      }
+      _goToLogin();
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    } finally {
+      _logoutInProgress = false;
+    }
+  }
+
+  void _goToLogin() {
+    if (rootNavigatorKey.currentContext != null) {
+      rootNavigatorKey.currentContext!.go('/login');
     }
   }
 }

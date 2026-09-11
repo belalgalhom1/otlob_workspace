@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:api/api.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 
 class UserProfileDialog extends ConsumerStatefulWidget {
@@ -200,7 +201,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
         onConfirm: () async {
           final userRepo = ref.read(sharedUserRepositoryProvider);
           await userRepo.deleteAccount();
-          await ref.read(sharedAuthRepositoryProvider).logout();
+          await ref.read(authProvider.notifier).logout();
           if (dialogCtx.mounted) {
             dialogCtx.go('/login');
           }

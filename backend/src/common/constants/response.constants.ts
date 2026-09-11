@@ -58,6 +58,7 @@ export const AuthErrors = {
   OTP_INVALID: 'auth.error.otp_invalid',
   OTP_EXPIRED: 'auth.error.otp_expired',
   SESSION_EXPIRED: 'auth.error.session_expired',
+  SESSION_COMPROMISED: 'auth.error.session_compromised',
   MISSING_HEADER: 'auth.error.missing_header',
   ONLY_CUSTOMER_REGISTRATION: 'auth.error.only_customer_registration',
   TOO_MANY_FAILED_OTP: 'auth.error.too_many_failed_otp',

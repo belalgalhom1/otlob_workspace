@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +8,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
-import 'package:vendor/core/providers.dart';
 import 'package:data/providers.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
 import '../presentation/orders_provider.dart';
@@ -24,8 +22,6 @@ class OrdersScreen extends ConsumerStatefulWidget {
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   String _userRole = '';
-  Timer? _refreshTimer;
-  StreamSubscription? _orderStatusSub;
   final Map<String, bool> _expandedOrders = {};
 
   @override
@@ -33,55 +29,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     super.initState();
     Future.microtask(() {
       ref.read(ordersProvider.notifier).fetchOrders();
-      _setupSocketListener();
     });
     _loadUserRole();
-
-    // Fallback safety-net poll every 60 seconds in case socket misses an event
-    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
-      if (mounted) {
-        _loadOrders();
-      }
-    });
-  }
-
-  void _setupSocketListener() {
-    final socket = ref.read(socketServiceProvider);
-    
-    void handleSocketEvent(dynamic data) {
-      if (data != null && data is Map && data['orderId'] != null) {
-        final newStatus = data['newStatus'] ?? data['status'];
-        if (newStatus != null) {
-          ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
-        }
-      }
-      _loadOrders();
-    }
-
-    // Listen to order.status events for instant updates
-    _orderStatusSub = socket.onEvent(SocketEvent.orderStatus).listen((data) {
-      if (mounted) {
-        handleSocketEvent(data);
-      }
-    });
-    // Also listen to notificationNew which fires for every order change
-    socket.onEvent(SocketEvent.notificationNew).listen((data) {
-      if (mounted) {
-        // Sometimes notification doesn't have orderId at root level, but we can pass it to handleSocketEvent safely
-        handleSocketEvent(data);
-      }
-    });
-    // Listen to new orders and cancelled orders
-    socket.onEvent(SocketEvent.orderNew).listen((data) {
-      if (mounted) {
-        _loadOrders();
-      }
-    });
-    socket.onEvent(SocketEvent.orderCancelled).listen((data) {
-      if (mounted) {
-        handleSocketEvent(data);
-      }
-    });
+    // Real-time updates (order.new / order.status / order.cancelled),
+    // foreground FCM fallback and app-resume refreshes are handled by the
+    // global listener at the app root so they work from any tab.
   }
 
   Future<void> _loadUserRole() async {
@@ -100,8 +52,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
-    _orderStatusSub?.cancel();
     super.dispose();
   }
 
@@ -1613,10 +1563,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       mainButtonText = isArabic ? 'قبول الطلب' : 'Accept Order';
       nextStatus = 'ACCEPTED';
       icon = LucideIcons.checkCheck;
-    } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER' || status == 'PENDING_CUSTOMER_APPROVAL' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
+    } else if (status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
+      // Driver accepted (and, when required, customer approved the fee) —
+      // vendor can now start preparing.
       mainButtonText = isArabic ? 'بدء التحضير' : 'Start Preparing';
       nextStatus = 'PREPARING';
       icon = LucideIcons.chefHat;
+    } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER') {
+      // Disabled: must wait until a driver accepts the order.
+      mainButtonText = isArabic ? 'بانتظار السائق' : 'Waiting for Driver';
+      icon = LucideIcons.clock;
+    } else if (status == 'PENDING_CUSTOMER_APPROVAL') {
+      // Disabled: must wait until the customer approves the final fee.
+      mainButtonText = isArabic ? 'بانتظار موافقة العميل' : 'Waiting Customer Approval';
+      icon = LucideIcons.clock;
     } else if (status == 'PREPARING') {
       mainButtonText = isArabic ? 'تأكيد جاهزية الطلب' : 'Mark as Ready';
       nextStatus = 'READY_FOR_PICKUP';

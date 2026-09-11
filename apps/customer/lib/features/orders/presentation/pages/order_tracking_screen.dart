@@ -16,6 +16,25 @@ import 'package:data/providers.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 import '../widgets/customer_approval_bottom_sheet.dart';
 
+class _TrackingLifecycleObserver with WidgetsBindingObserver {
+  final Future<void> Function() onResume;
+
+  _TrackingLifecycleObserver({required this.onResume}) {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      onResume();
+    }
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+  }
+}
+
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
 
@@ -35,6 +54,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   DateTime? _orderUpdatedAt;
   Timer? _countdownTimer;
   Duration _timeRemaining = Duration.zero;
+  StreamSubscription<dynamic>? _statusSub;
+  StreamSubscription<dynamic>? _driverLocSub;
+  _TrackingLifecycleObserver? _lifecycleObserver;
 
   @override
   void initState() {
@@ -96,7 +118,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     if (token != null) {
       await socket.initSocket(token);
 
-      socket.on('order.status', (data) {
+      // onEvent uses broadcast streams that survive socket reconnects/re-auth.
+      _statusSub?.cancel();
+      _statusSub = socket.onEvent('order.status').listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
           if (mounted) {
             setState(() {
@@ -112,7 +136,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         }
       });
 
-      socket.on('driver.location', (data) {
+      _driverLocSub?.cancel();
+      _driverLocSub = socket.onEvent('driver.location').listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
           final lat = (data['latitude'] ?? data['lat']) as double?;
           final lng = (data['longitude'] ?? data['lng']) as double?;
@@ -129,14 +154,19 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         }
       });
     }
+
+    // Refetch on resume so any status/driver change that happened while the
+    // app was backgrounded (and missed by the socket) is picked up instantly.
+    _lifecycleObserver?.dispose();
+    _lifecycleObserver = _TrackingLifecycleObserver(onResume: _fetchOrderDetails);
   }
 
   @override
   void dispose() {
+    _statusSub?.cancel();
+    _driverLocSub?.cancel();
+    _lifecycleObserver?.dispose();
     _countdownTimer?.cancel();
-    final socket = ref.read(socketServiceProvider);
-    socket.off('order.status');
-    socket.off('driver.location');
     super.dispose();
   }
 

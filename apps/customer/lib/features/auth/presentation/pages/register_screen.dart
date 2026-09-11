@@ -51,7 +51,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
         context.go(
           RoutePaths.verifyOtp,
-          extra: {'email': _emailController.text.trim()},
+          extra: {
+            'email': _emailController.text.trim(),
+            'password': _passwordController.text,
+          },
         );
       }
     }

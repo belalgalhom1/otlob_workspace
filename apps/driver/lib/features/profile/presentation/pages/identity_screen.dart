@@ -6,6 +6,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:data/data.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import '../../../../l10n/l10n_error_helper.dart';
 
 class IdentityScreen extends ConsumerStatefulWidget {
@@ -52,9 +53,21 @@ class _IdentityScreenState extends ConsumerState<IdentityScreen> {
       context: context,
       builder: (ctx) => DeleteAccountDialog(
         onConfirm: () async {
-          final userRepo = ref.read(sharedUserRepositoryProvider);
-          await userRepo.deleteAccount();
-          await ref.read(authProvider.notifier).logout();
+          try {
+            final userRepo = ref.read(sharedUserRepositoryProvider);
+            await userRepo.deleteAccount();
+            if (!ctx.mounted) return;
+            await ref.read(authProvider.notifier).logout();
+          } catch (e) {
+            if (ctx.mounted) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(
+                  content: Text(ErrorUtils.translate(ctx, e)),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          }
         },
       ),
     );

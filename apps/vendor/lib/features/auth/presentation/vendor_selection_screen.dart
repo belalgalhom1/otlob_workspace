@@ -4,7 +4,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
-import 'package:vendor/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -76,10 +75,7 @@ class VendorSelectionScreen extends ConsumerWidget {
                   onTap: () async {
                     await ref.read(activeVendorProvider.notifier).setActiveVendor(vendorId);
                     if (context.mounted) {
-                      // Navigate to dashboard
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                      );
+                      context.go('/dashboard');
                     }
                   },
                 ),

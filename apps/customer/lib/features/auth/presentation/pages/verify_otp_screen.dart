@@ -9,11 +9,13 @@ import 'package:easy_localization/easy_localization.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
   final String email;
+  final String password;
   final bool isPasswordReset;
 
   const VerifyOtpScreen({
     super.key,
     required this.email,
+    this.password = '',
     this.isPasswordReset = false,
   });
 
@@ -61,7 +63,12 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
       final email = _emailController.text.trim();
       final success = await ref
           .read(verifyOtpControllerProvider.notifier)
-          .verify(email, otp, isPasswordReset: widget.isPasswordReset);
+          .verify(
+            email,
+            otp,
+            isPasswordReset: widget.isPasswordReset,
+            password: widget.password,
+          );
       if (success && mounted) {
         if (widget.isPasswordReset) {
           context.push(
@@ -69,8 +76,9 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
             extra: {'email': email, 'otp': otp},
           );
         } else {
-          // It's part of registration verification. VerifyOtpController handles the token refresh.
-          // The router will automatically redirect to home if auth status becomes verified.
+          // Registration flow: VerifyOtpController auto-logs-in when a
+          // password is available. Once authenticated, the router redirects
+          // to home; only send the user to login if that did not happen.
           if (ref.read(authControllerProvider) != AuthStatus.authenticated) {
             context.go(RoutePaths.login);
           }

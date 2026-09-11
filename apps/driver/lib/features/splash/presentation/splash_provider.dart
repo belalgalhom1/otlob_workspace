@@ -12,7 +12,7 @@ enum AppStartupState {
   activeOrder,
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class Splash extends _$Splash {
   @override
   Future<AppStartupState> build() async {
@@ -64,7 +64,9 @@ class Splash extends _$Splash {
       final ordersRepo = ref.read(driverOrdersRepositoryProvider);
       final activeOrderResult = await ordersRepo.getActiveDriverOrder();
       
-      if (activeOrderResult != null && activeOrderResult.isNotEmpty) {
+      // The repository resolves to {'data': null} when no order is active,
+      // so an empty map must not be treated as an active order.
+      if (activeOrderResult != null && activeOrderResult['data'] != null) {
         // We have an active order
         return AppStartupState.activeOrder;
       }

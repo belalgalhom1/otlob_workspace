@@ -138,11 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       final password = _savedProfile!['password'] ?? '';
                       _emailController.text = email;
                       _passwordController.text = password;
-                      
-                      ref.read(loginControllerProvider.notifier).login(
-                        email: email.trim(),
-                        password: password,
-                      );
+                      _submit();
                     },
                     borderRadius: BorderRadius.circular(16),
                     child: _buildSavedProfileCard(s),

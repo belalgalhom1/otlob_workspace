@@ -25,13 +25,17 @@ class JwtInterceptor extends Interceptor {
     return false;
   }
 
+  bool _isTerminalAuthPath(String path) => path == '/auth/logout';
+
   @override
   Future<void> onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
     final requiresAuth = options.extra['requiresAuth'] ?? true;
-    if (!requiresAuth || _isGuestAuthPath(options.path)) {
+    if (!requiresAuth ||
+        _isGuestAuthPath(options.path) ||
+        _isTerminalAuthPath(options.path)) {
       return handler.next(options);
     }
 
@@ -57,9 +61,11 @@ class JwtInterceptor extends Interceptor {
   ) async {
     final is401 = err.response?.statusCode == 401;
     final alreadyRetried = err.requestOptions.extra['retried'] == true;
+    final isTerminal = _isTerminalAuthPath(err.requestOptions.path);
 
     if (is401 &&
         !alreadyRetried &&
+        !isTerminal &&
         !_isGuestAuthPath(err.requestOptions.path)) {
       try {
         final newToken = await _refreshTokenIfNeeded();
@@ -73,8 +79,10 @@ class JwtInterceptor extends Interceptor {
           final response = await dio.fetch(requestOptions);
           return handler.resolve(response);
         }
-      } catch (_) {
-        _handleLogout();
+      } catch (e) {
+        if (_isAuthFailure(e)) {
+          _handleLogout();
+        }
       }
     }
 
@@ -101,9 +109,16 @@ class JwtInterceptor extends Interceptor {
 
       return await authRepository.refreshToken();
     } catch (e) {
-      _handleLogout();
+      if (_isAuthFailure(e)) {
+        _handleLogout();
+      }
       throw ApiErrorMapper.fromError(e);
     }
+  }
+
+  bool _isAuthFailure(Object e) {
+    return e is DioException &&
+        (e.response?.statusCode == 401 || e.response?.statusCode == 403);
   }
 
   void _handleLogout() {

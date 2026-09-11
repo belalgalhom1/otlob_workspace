@@ -11,7 +11,12 @@ class VerifyOtpController extends _$VerifyOtpController {
   @override
   AsyncValue<void> build() => const AsyncData(null);
 
-  Future<bool> verify(String email, String otp, {bool isPasswordReset = false}) async {
+  Future<bool> verify(
+    String email,
+    String otp, {
+    bool isPasswordReset = false,
+    String? password,
+  }) async {
     state = const AsyncLoading();
     try {
       final authRepo = ref.read(sharedAuthRepositoryProvider);
@@ -20,16 +25,30 @@ class VerifyOtpController extends _$VerifyOtpController {
         otp,
         purpose: isPasswordReset ? 'PASSWORD_RESET' : 'VERIFICATION',
       );
-      
+
       if (!isPasswordReset) {
-        try {
-          await authRepo.refreshToken();
-          await ref.read(authControllerProvider.notifier).checkAuthStatus();
-        } catch (e) {
-          debugPrint('Refresh token failed after OTP verify: $e');
+        if (password != null && password.isNotEmpty) {
+          // Fresh registrations have no persisted session yet (no refresh
+          // token), so after OTP verification we finish the flow by logging in
+          // with the just-registered credentials instead of attempting a
+          // doomed token refresh.
+          try {
+            await ref
+                .read(authControllerProvider.notifier)
+                .login(email, password);
+          } catch (e) {
+            debugPrint('Auto-login after OTP verify failed: $e');
+          }
+        } else {
+          try {
+            await authRepo.refreshToken();
+            await ref.read(authControllerProvider.notifier).checkAuthStatus();
+          } catch (e) {
+            debugPrint('Refresh token failed after OTP verify: $e');
+          }
         }
       }
-      
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {

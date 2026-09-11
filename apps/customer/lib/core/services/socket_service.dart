@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -19,6 +20,27 @@ class SocketService with WidgetsBindingObserver {
   final Ref _ref;
   io.Socket? _socket;
   final Logger _logger = Logger();
+  String? _connectedToken;
+  bool _reAuthInProgress = false;
+
+  // Typed broadcast streams — survive socket re-auth / re-creation.
+  // Listeners attached here are never lost when initSocket creates a new socket
+  // because the controller lives on the service, not on the socket instance.
+  final Map<String, StreamController<dynamic>> _controllers =
+      <String, StreamController<dynamic>>{};
+
+  StreamController<dynamic> _controllerFor(String event) =>
+      _controllers.putIfAbsent(event, () => StreamController<dynamic>.broadcast());
+
+  /// Subscribe to a socket event. The returned [StreamSubscription] can be
+  /// cancelled without affecting any other consumer listening to the same event.
+  Stream<dynamic> onEvent(String event) => _controllerFor(event).stream;
+
+  void _forwardAllControllers() {
+    for (final entry in _controllers.entries) {
+      _socket?.on(entry.key, (dynamic data) => entry.value.add(data));
+    }
+  }
 
   SocketService(this._ref) {
     WidgetsBinding.instance.addObserver(this);
@@ -35,10 +57,15 @@ class SocketService with WidgetsBindingObserver {
   }
 
   Future<void> initSocket(String userToken) async {
-    // If already connected, don't re-init unless we want to force a new token
-    if (_socket != null && _socket!.connected) return;
+    // Re-authing a different account (or a rotated token) must not reuse the
+    // old socket: it stays bound to the previous user's session on the server.
+    if (_socket != null && _socket!.connected && userToken == _connectedToken) {
+      return;
+    }
 
     _socket?.dispose(); // Clean up old socket
+    _socket = null;
+    _connectedToken = null;
 
     var baseUrl = dotenv.env['SOCKET_URL'] ?? 'https://ws.otlob-egy.online';
     if (baseUrl.endsWith('/')) {
@@ -55,30 +82,46 @@ class SocketService with WidgetsBindingObserver {
           .build(),
     );
 
+    _connectedToken = userToken;
+
     _socket?.connect();
     _socket?.onConnect((_) {
       _logger.i('✅ Socket connected');
-      debugPrint('👤 Connected with Token: ${userToken.substring(0, 20)}...');
+      final preview = userToken.length > 20
+          ? userToken.substring(0, 20)
+          : userToken;
+      debugPrint('👤 Connected with Token: $preview...');
     });
-    
+
     _socket?.onConnectError((err) async {
       _logger.e('❌ Socket Connect Error: $err');
       final errorStr = err.toString().toLowerCase();
-      if (errorStr.contains('unauthorized') || errorStr.contains('expired') || errorStr.contains('auth')) {
+      if ((errorStr.contains('unauthorized') ||
+              errorStr.contains('expired') ||
+              errorStr.contains('auth')) &&
+          !_reAuthInProgress) {
+        _reAuthInProgress = true;
         _logger.w('🔐 Socket: Auth error detected, refreshing token...');
         try {
           final authRepo = _ref.read(sharedAuthRepositoryProvider);
           final newToken = await authRepo.refreshToken();
-          initSocket(newToken); // Retry with new token
+          await initSocket(newToken); // Retry with new token
         } catch (e) {
           _logger.e('❌ Socket: Re-auth failed: $e');
+        } finally {
+          _reAuthInProgress = false;
         }
       }
     });
 
     _socket?.onDisconnect((_) => _logger.w('❌ Socket disconnected'));
+
+    // Wire every existing typed subscriber to the new socket.
+    _forwardAllControllers();
   }
 
+  // Legacy API kept for chat/notification consumers that have not yet migrated
+  // to [onEvent]. New code should prefer [onEvent].
   void on(String eventName, Function(dynamic) callback) =>
       _socket?.on(eventName, callback);
 

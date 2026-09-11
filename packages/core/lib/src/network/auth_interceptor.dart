@@ -42,6 +42,11 @@ class AuthInterceptor extends Interceptor {
     return false;
   }
 
+  /// 401s on these endpoints must never re-arm the refresh/stream cycle.
+  /// `/auth/logout` is called when auth data was already cleared, so retrying
+  /// it just re-emits the unauthenticated event and loops back into logout.
+  bool _isTerminalAuthPath(String path) => path == '/auth/logout';
+
   @override
   Future<void> onRequest(
     RequestOptions options,
@@ -78,7 +83,8 @@ class AuthInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) async {
     if (err.response?.statusCode == 401 &&
-        !_isGuestAuthPath(err.requestOptions.path)) {
+        !_isGuestAuthPath(err.requestOptions.path) &&
+        !_isTerminalAuthPath(err.requestOptions.path)) {
       // Don't retry if already retried
       if (err.requestOptions.extra['retried'] == true) {
         return handler.next(err);
@@ -110,7 +116,6 @@ class AuthInterceptor extends Interceptor {
           await _clearAuthData();
           unauthenticatedEventStream.add(null);
           completer.completeError(err);
-          _refreshCompleter = null;
           return handler.next(err);
         }
 
@@ -119,16 +124,39 @@ class AuthInterceptor extends Interceptor {
 
         final response = await refreshDio.post('/auth/refresh');
         if (response.statusCode == 200 || response.statusCode == 201) {
-          final responseMap = response.data as Map<String, dynamic>;
-          final data = responseMap['data'] as Map<String, dynamic>;
-          final newAccessToken = data['access_token'] as String?;
-          final newRefreshToken = data['refresh_token'] as String?;
-          final user = data['user'] as Map<String, dynamic>?;
-
-          if (newAccessToken != null) {
-            await _storage.write(key: 'access_token', value: newAccessToken);
+          final body = response.data;
+          Map<String, dynamic> data = const {};
+          if (body is Map<String, dynamic>) {
+            final raw = body['data'];
+            if (raw is Map<String, dynamic>) {
+              data = raw;
+            } else if (raw is Map) {
+              data = Map<String, dynamic>.from(raw);
+            }
+          } else if (body is Map) {
+            final raw = body['data'];
+            if (raw is Map) {
+              data = Map<String, dynamic>.from(raw);
+            }
           }
-          if (newRefreshToken != null) {
+          final newAccessToken = data['access_token'];
+          final newRefreshToken = data['refresh_token'];
+          final rawUser = data['user'];
+          final user = rawUser is Map<String, dynamic>
+              ? rawUser
+              : rawUser is Map
+                  ? Map<String, dynamic>.from(rawUser)
+                  : null;
+
+          if (newAccessToken is! String) {
+            throw DioException(
+              requestOptions: err.requestOptions,
+              response: response,
+            );
+          }
+
+          await _storage.write(key: 'access_token', value: newAccessToken);
+          if (newRefreshToken is String) {
             await _storage.write(key: 'refresh_token', value: newRefreshToken);
           }
 
@@ -153,8 +181,10 @@ class AuthInterceptor extends Interceptor {
             }
           }
 
+          // Publish the new token to waiters. Keep the mutex held until the
+          // retry settles so a 401 arriving in the interim awaits this
+          // completer instead of kicking off a second, doomed refresh.
           completer.complete(newAccessToken);
-          _refreshCompleter = null;
 
           // Retry current request with new token
           final requestOptions = err.requestOptions;
@@ -178,8 +208,10 @@ class AuthInterceptor extends Interceptor {
         }
 
         completer.completeError(e);
-        _refreshCompleter = null;
         return handler.next(err);
+      } finally {
+        // Release the mutex only after retry/failure has settled.
+        _refreshCompleter = null;
       }
     }
 

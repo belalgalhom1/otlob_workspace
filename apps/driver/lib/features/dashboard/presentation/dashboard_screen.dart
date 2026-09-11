@@ -12,6 +12,7 @@ import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/profile/presentation/settings_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
 import 'package:data/providers.dart';
 
@@ -163,10 +164,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildProfileTab(AsyncValue<dynamic> profileState, AppLocalizations l10n) {
     return profileState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text(l10n.errorLoadingProfile)),
+      error: (err, _) => Center(child: Text(ErrorUtils.translate(context, err))),
       data: (profileData) {
         if (profileData == null) {
-          return Center(child: Text(l10n.errorLoadingProfile));
+          return Center(child: Text(l10n.pendingApproval));
         }
 
         final data = profileData is Map && profileData.containsKey('data') && profileData['data'] is Map
@@ -482,7 +483,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currency = ref.watch(configurationProvider.notifier).currency;
     return profileState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text(l10n.errorLoadingProfile)),
+      error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
       data: (profileData) {
         final data = profileData is Map && profileData.containsKey('data') && profileData['data'] is Map
             ? profileData['data']
@@ -579,7 +580,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             earningsText,
             LucideIcons.banknote,
             AppColors.primary,
-            onTap: () => context.push('/wallet'),
+            onTap: () => setState(() => _selectedIndex = 1),
           ),
         ),
         const SizedBox(width: 16),

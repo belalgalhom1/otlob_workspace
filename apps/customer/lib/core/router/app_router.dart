@@ -143,6 +143,7 @@ GoRouter appRouter(Ref ref) {
           final args = state.extra as Map<String, dynamic>? ?? {};
           return VerifyOtpScreen(
             email: args['email'] ?? '',
+            password: args['password'] ?? '',
             isPasswordReset: args['isPasswordReset'] ?? false,
           );
         },

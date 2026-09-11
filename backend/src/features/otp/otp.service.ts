@@ -85,7 +85,7 @@ export class OtpService {
 
     const storedCode = await this.redis.get(key);
 
-    if (storedCode !== code) {
+    if (!storedCode || storedCode !== code) {
       return false;
     }
 

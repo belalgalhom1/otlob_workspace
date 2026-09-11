@@ -15,6 +15,7 @@ import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:driver/features/profile/presentation/pages/identity_screen.dart';
 import 'package:driver/features/profile/presentation/pages/vehicle_screen.dart';
 import 'package:driver/features/orders/presentation/pages/deliveries_history_screen.dart';
+import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -91,6 +92,10 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/deliveries',
         builder: (context, state) => const DeliveriesHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/wallet',
+        builder: (context, state) => const WalletScreen(),
       ),
     ],
   );

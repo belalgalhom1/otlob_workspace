@@ -2,6 +2,12 @@ import 'package:api/api.dart';
 import 'package:core/core.dart';
 import '../shared/response_parser.dart';
 
+/// Fallback error key used only when the server returned a 2xx response that
+/// is missing the expected auth payload. Real auth failures (401/403/etc.)
+/// surface as [DioException] from the generated API client and propagate
+/// untouched so the backend's own error key reaches the UI.
+const _missingAuthPayloadKey = 'auth.error.invalid_credentials';
+
 class SharedAuthRepository {
   final AuthenticationApi _api;
   final TokenService _tokenService;
@@ -82,7 +88,7 @@ class SharedAuthRepository {
     );
     final rawData = response.data;
     if (rawData == null) {
-      throw Exception('auth.error.invalid_credentials');
+      throw Exception(_missingAuthPayloadKey);
     }
 
     Map<String, dynamic> payload = {};
@@ -123,7 +129,7 @@ class SharedAuthRepository {
       return payload;
     }
     
-    throw Exception('auth.error.invalid_credentials');
+    throw Exception(_missingAuthPayloadKey);
   }
 
   Future<dynamic> socialLogin(SocialLoginDto socialLoginDto) async {
@@ -132,7 +138,7 @@ class SharedAuthRepository {
     );
     final rawData = response.data;
     if (rawData == null) {
-      throw Exception('auth.error.invalid_credentials');
+      throw Exception(_missingAuthPayloadKey);
     }
 
     Map<String, dynamic> payload = {};
@@ -173,17 +179,23 @@ class SharedAuthRepository {
       return payload;
     }
 
-    throw Exception('auth.error.invalid_credentials');
+    throw Exception(_missingAuthPayloadKey);
   }
 
   Future<void> logout({String? fcmToken}) async {
-    try {
-      await _api.authControllerLogout(
-        logoutDto: LogoutDto((b) {
-          if (fcmToken != null) b.fcmToken = fcmToken;
-        }),
-      );
-    } catch (_) {}
+    // Skip the network call when there is no session to revoke. Calling it
+    // without a bearer token just 401s, and in combination with the auth
+    // interceptor's stream event can turn into a logout feedback loop.
+    final hasToken = await _tokenService.hasSession();
+    if (hasToken) {
+      try {
+        await _api.authControllerLogout(
+          logoutDto: LogoutDto((b) {
+            if (fcmToken != null) b.fcmToken = fcmToken;
+          }),
+        );
+      } catch (_) {}
+    }
     await _tokenService.clearSession();
   }
 

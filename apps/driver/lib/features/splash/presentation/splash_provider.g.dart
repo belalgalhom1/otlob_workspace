@@ -20,7 +20,7 @@ final class SplashProvider
         argument: null,
         retry: null,
         name: r'splashProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
