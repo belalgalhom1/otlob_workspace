@@ -374,6 +374,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         onPressed: null,
       );
     } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') {
+      final isCustomOrRide =
+          order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+      if (!isCustomOrRide && status == 'DRIVER_ASSIGNED') {
+        return PrimaryButton(
+          text: l10n.localeName == 'ar' ? 'بانتظار تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
+          onPressed: null,
+        );
+      }
       return PrimaryButton(
         text: l10n.confirmPickup,
         onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('PICKED_UP')),

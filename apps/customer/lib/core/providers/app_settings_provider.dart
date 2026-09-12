@@ -16,7 +16,7 @@ class AppSettingsState {
 
   const AppSettingsState({
     this.themeMode = ThemeMode.system,
-    this.languageCode = 'en',
+    this.languageCode = 'ar',
     this.hasSeenOnboarding = false,
   });
 
@@ -48,7 +48,7 @@ class AppSettings extends _$AppSettings {
     if (themeString == 'light') themeMode = ThemeMode.light;
     if (themeString == 'dark') themeMode = ThemeMode.dark;
 
-    final langCode = prefs.getString(_langKey) ?? 'en';
+    final langCode = prefs.getString(_langKey) ?? 'ar';
 
     final hasSeenOnboarding = prefs.getBool(_onboardingKey) ?? false;
 

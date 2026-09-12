@@ -175,9 +175,17 @@ async driverUpdateStatus(
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
-    // Restriction removed: allow drivers to mark the order as PICKED_UP 
-    // even if the store is contracted, to prevent drivers from getting stuck 
-    // if the vendor employee forgets to update the status on their tablet.
+    // Vendor orders must be marked READY_FOR_PICKUP by the vendor before
+    // the driver can confirm pickup. Custom delivery / ride orders have no
+    // vendor to mark them ready, so the driver can confirm directly.
+    if (
+      order.type === 'STANDARD' &&
+      order.status === OrderStatus.DRIVER_ASSIGNED &&
+      dto.status === OrderStatus.PICKED_UP
+    ) {
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+    }
+
     const expected = DRIVER_ALLOWED_TRANSITIONS[order.status];
     if (!expected || !expected.includes(dto.status)) {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
