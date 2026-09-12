@@ -757,7 +757,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 10:
         return const PromotionsScreen();
       case 11:
-        return WalletDashboardScreen(userRole: _userRole);
+        return WalletDashboardScreen(userRole: _userRole, canManageFinance: _hasPermission('MANAGE_FINANCE'));
       case 12:
         return const AuditLogsScreen();
       case 13:

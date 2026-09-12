@@ -268,7 +268,7 @@ export class WalletService {
       return tx.vendorWalletTransaction.create({
         data: {
           vendorId,
-          type: dto.type as VendorTransactionType,
+          type: this.normalizeVendorType(dto.type) as VendorTransactionType,
           amount: dto.amount,
           balanceAfter: updatedVendor.walletBalance,
           description: dto.description || 'Manual Admin Transaction',
@@ -297,7 +297,7 @@ export class WalletService {
       return tx.driverWalletTransaction.create({
         data: {
           driverId,
-          type: dto.type as WalletTransactionType,
+          type: this.normalizeDriverType(dto.type) as WalletTransactionType,
           amount: dto.amount,
           balanceAfter: updatedDriver.walletBalance,
           description: dto.description || 'Manual Admin Transaction',
@@ -318,9 +318,10 @@ export class WalletService {
     });
   }
 
-  async getDriverTransactions(driverId: string, skip = 0, take = 50) {
+  async getDriverTransactions(userId: string, skip = 0, take = 50) {
+    const driver = await this.getDriver(userId);
     return this.prisma.driverWalletTransaction.findMany({
-      where: { driverId },
+      where: { driverId: driver.id },
       orderBy: { createdAt: 'desc' },
       skip,
       take,
@@ -333,5 +334,23 @@ export class WalletService {
     const driver = await this.prisma.driver.findUnique({ where: { userId } });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     return driver;
+  }
+
+  private normalizeDriverType(type: string) {
+    const map: Record<string, string> = {
+      TOP_UP: 'ADJUSTMENT',
+      REFUND: 'ADJUSTMENT',
+      CASH_COLLECTION: 'CASH_COLLECTED',
+    };
+    return map[type] ?? type;
+  }
+
+  private normalizeVendorType(type: string) {
+    const map: Record<string, string> = {
+      TOP_UP: 'ADJUSTMENT',
+      PENALTY: 'ADJUSTMENT',
+      CASH_COLLECTION: 'CASH_COLLECTED',
+    };
+    return map[type] ?? type;
   }
 }

@@ -172,7 +172,7 @@ class VendorWalletScreen extends ConsumerWidget {
     final date = tx['createdAt'] != null ? DateTime.parse(tx['createdAt'].toString()) : DateTime.now();
     final description = tx['description'] as String? ?? '';
     
-    final isCredit = type == 'EARNING' || type == 'TOPUP_APPROVED' || type == 'CREDIT';
+    final isCredit = amount >= 0;
     final color = isCredit ? AppColors.success : AppColors.error;
     final icon = isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight;
     final sign = isCredit ? '+' : '-';

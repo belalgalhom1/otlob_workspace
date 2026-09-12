@@ -9,7 +9,8 @@ import 'vendor_wallet_screen.dart';
 
 class WalletDashboardScreen extends ConsumerWidget {
   final String? userRole;
-  const WalletDashboardScreen({super.key, this.userRole});
+  final bool? canManageFinance;
+  const WalletDashboardScreen({super.key, this.userRole, this.canManageFinance});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,10 +19,11 @@ class WalletDashboardScreen extends ConsumerWidget {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
-    final isVendor = userRole == 'VENDOR_MEMBER';
+    final showAdminTabs =
+        (userRole ?? '') != 'VENDOR_MEMBER' && canManageFinance == true;
 
     return DefaultTabController(
-      length: isVendor ? 1 : 2,
+      length: showAdminTabs ? 2 : 1,
       child: Scaffold(
         backgroundColor: theme.colorScheme.surface,
         body: Column(
@@ -89,20 +91,8 @@ class WalletDashboardScreen extends ConsumerWidget {
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
-                tabs: isVendor
+                tabs: showAdminTabs
                     ? [
-                        Tab(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(LucideIcons.wallet, size: 18),
-                              const SizedBox(width: 8),
-                              Text(l10n.walletAndFinancials), // Just "My Wallet" basically
-                            ],
-                          ),
-                        ),
-                      ]
-                    : [
                         Tab(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -123,6 +113,18 @@ class WalletDashboardScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
+                      ]
+                    : [
+                        Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(LucideIcons.wallet, size: 18),
+                              const SizedBox(width: 8),
+                              Text(l10n.walletAndFinancials), // Just "My Wallet" basically
+                            ],
+                          ),
+                        ),
                       ],
               ),
             ),
@@ -130,9 +132,9 @@ class WalletDashboardScreen extends ConsumerWidget {
             // Tab content
             Expanded(
               child: TabBarView(
-                children: isVendor
-                    ? [const VendorWalletScreen()]
-                    : [const PendingTopUpsScreen(), const PlatformWalletsScreen()],
+                children: showAdminTabs
+                    ? [const PendingTopUpsScreen(), const PlatformWalletsScreen()]
+                    : [const VendorWalletScreen()],
               ),
             ),
           ],

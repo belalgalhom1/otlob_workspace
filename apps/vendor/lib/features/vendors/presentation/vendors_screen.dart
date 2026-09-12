@@ -458,7 +458,11 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                 context: context,
                 builder: (context) =>
                     ManualTransactionDialog(entityId: v['id'], isVendor: true),
-              );
+              ).then((result) {
+                if (result == true) {
+                  ref.read(vendorProvider.notifier).fetchVendors();
+                }
+              });
             },
           ),
         _buildActionItem(

@@ -89,8 +89,16 @@ class _ManualTransactionDialogState
         Builder(
           builder: (btnCtx) => ElevatedButton(
             onPressed: () async {
-            final amount = double.tryParse(_amountController.text);
-            if (amount == null) return;
+            final amount = double.tryParse(_amountController.text.trim());
+            if (amount == null || amount % 1 != 0) {
+              ScaffoldMessenger.of(btnCtx).showSnackBar(
+                SnackBar(
+                  content: Text(AppLocalizations.of(btnCtx)!.failedWithError(AppLocalizations.of(btnCtx)!.invalidAmount)),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+              return;
+            }
 
             final repo = ref.read(adminWalletRepositoryProvider);
             try {

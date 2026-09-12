@@ -1352,6 +1352,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get amount => 'المبلغ';
 
   @override
+  String get invalidAmount => 'يرجى إدخال مبلغ صحيح (عدد صحيح)';
+
+  @override
   String get driverId => 'معرف السائق';
 
   @override

@@ -519,6 +519,7 @@
   "noPendingTopUps": "لا توجد طلبات شحن معلقة",
   "noPlatformWallets": "لم يتم تهيئة محافظ للمنصة",
   "amount": "المبلغ",
+  "invalidAmount": "يرجى إدخال مبلغ صحيح (عدد صحيح)",
   "driverId": "معرف السائق",
   "date": "التاريخ",
   "approved": "موافق عليه",

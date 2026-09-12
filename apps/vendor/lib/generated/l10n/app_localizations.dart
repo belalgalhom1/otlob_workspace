@@ -2690,6 +2690,12 @@ abstract class AppLocalizations {
   /// **'Amount'**
   String get amount;
 
+  /// No description provided for @invalidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid whole number amount'**
+  String get invalidAmount;
+
   /// No description provided for @driverId.
   ///
   /// In en, this message translates to:

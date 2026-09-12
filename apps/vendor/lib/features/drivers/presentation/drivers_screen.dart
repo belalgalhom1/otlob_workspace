@@ -294,7 +294,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                     showDialog(
                                       context: context,
                                       builder: (context) => ManualTransactionDialog(
-                                        entityId: driver.userId,
+                                        entityId: driver.id,
                                         isVendor: false,
                                       ),
                                     ).then(

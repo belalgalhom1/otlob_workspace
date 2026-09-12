@@ -522,6 +522,7 @@
   "noPendingTopUps": "No pending top-up requests",
   "noPlatformWallets": "No platform wallets configured",
   "amount": "Amount",
+  "invalidAmount": "Please enter a valid whole number amount",
   "driverId": "Driver ID",
   "date": "Date",
   "approved": "Approved",

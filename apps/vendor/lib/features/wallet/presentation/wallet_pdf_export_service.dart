@@ -21,7 +21,8 @@ class WalletPdfExportService {
 
     // Filter or map transactions
     final tableData = transactions.map((tx) {
-      final id = tx['id']?.toString().substring(0, 8) ?? 'Unknown';
+      final id = tx['id']?.toString() ?? '';
+      final idShort = id.length >= 8 ? id.substring(0, 8) : id;
       final type = tx['type']?.toString() ?? 'N/A';
       final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
       final createdAt = tx['createdAt'] != null
@@ -31,7 +32,7 @@ class WalletPdfExportService {
 
       return [
         createdAt,
-        id,
+        idShort,
         type,
         desc,
         '${amount.toStringAsFixed(2)} EGP',

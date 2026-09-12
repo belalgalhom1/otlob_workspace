@@ -56,7 +56,7 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
     }
     
     final amount = double.tryParse(amountText);
-    if (amount == null || amount <= 0) {
+    if (amount == null || amount <= 0 || amount % 1 != 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterValidAmount)),
       );

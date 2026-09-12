@@ -1365,6 +1365,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get amount => 'Amount';
 
   @override
+  String get invalidAmount => 'Please enter a valid whole number amount';
+
+  @override
   String get driverId => 'Driver ID';
 
   @override
