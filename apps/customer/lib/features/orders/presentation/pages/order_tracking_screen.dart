@@ -416,26 +416,29 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.star_rounded,
-                                    color: Colors.amber,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${(_orderDetails!['driver']['rating'] ?? 500) / 100}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                              if ((_orderDetails!['driver']['ratingCount'] ??
+                                      0) >
+                                  0) ...[
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      color: Colors.amber,
+                                      size: 16,
                                     ),
-                                  ),
-                                ],
-                              ),
-                              if (_orderDetails!['driver']['ratingCount'] !=
-                                      null &&
-                                  _orderDetails!['driver']['ratingCount'] > 0)
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      ((_orderDetails!['driver']['rating'] ??
+                                                  500) /
+                                              100)
+                                          .toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 Text(
                                   '(${_orderDetails!['driver']['ratingCount']})',
                                   style: TextStyle(
@@ -443,6 +446,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                     fontSize: 11,
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                         ],

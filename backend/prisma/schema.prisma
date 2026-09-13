@@ -1404,9 +1404,9 @@ model OrderReview {
   createdAt    DateTime @default(now()) @db.Timestamptz(3)
 
   order    Order    @relation(fields: [orderId], references: [id])
-  customer Customer @relation(fields: [customerId], references: [userId])
+  customer Customer @relation(fields: [customerId], references: [id])
   vendor   Vendor?  @relation(fields: [vendorId], references: [id])
-  driver   Driver?  @relation(fields: [driverId], references: [userId])
+  driver   Driver?  @relation(fields: [driverId], references: [id])
 
   @@index([vendorId])
   @@index([driverId])

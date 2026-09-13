@@ -786,7 +786,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
                                     const SizedBox(width: 4),
                                     Text(
-                                      '${linkedVendor['rating'] ?? 0}',
+                                      (linkedVendor['rating'] as num? ?? 0).toStringAsFixed(1),
                                       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900),
                                     ),
                                   ],

@@ -1,10 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { OrderStatus } from '@prisma/client';
-import { OrderErrors, ReviewErrors, CustomerErrors } from '../../common/constants/response.constants';
+import {
+  OrderErrors,
+  ReviewErrors,
+  CustomerErrors,
+  DriverErrors,
+} from '../../common/constants/response.constants';
 import { EVENTS } from '../../common/events/event-names';
 
 @Injectable()
@@ -14,7 +23,11 @@ export class ReviewsService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async submitReview(actor: JwtAccessPayload, orderId: string, dto: CreateReviewDto): Promise<void> {
+  async submitReview(
+    actor: JwtAccessPayload,
+    orderId: string,
+    dto: CreateReviewDto,
+  ): Promise<void> {
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
     });
@@ -54,7 +67,11 @@ export class ReviewsService {
     });
   }
 
-  async getVendorReviews(vendorId: string, page: number = 1, limit: number = 20) {
+  async getVendorReviews(
+    vendorId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.prisma.orderReview.findMany({
@@ -68,11 +85,11 @@ export class ReviewsService {
               user: {
                 select: {
                   name: true,
-                }
-              }
-            }
-          }
-        }
+                },
+              },
+            },
+          },
+        },
       }),
       this.prisma.orderReview.count({
         where: { vendorId, vendorRating: { not: null } },
@@ -90,7 +107,26 @@ export class ReviewsService {
     };
   }
 
-  async getDriverReviews(driverId: string, page: number = 1, limit: number = 20) {
+  async getMyDriverReviews(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!driver) {
+      throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+    }
+    return this.getDriverReviews(driver.id, page, limit);
+  }
+
+  async getDriverReviews(
+    driverId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.prisma.orderReview.findMany({
@@ -104,11 +140,11 @@ export class ReviewsService {
               user: {
                 select: {
                   name: true,
-                }
-              }
-            }
-          }
-        }
+                },
+              },
+            },
+          },
+        },
       }),
       this.prisma.orderReview.count({
         where: { driverId, driverRating: { not: null } },

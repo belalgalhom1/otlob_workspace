@@ -1,5 +1,20 @@
-import { Controller, Post, Get, Query, Param, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Get,
+  Query,
+  Param,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -27,9 +42,12 @@ export class ReviewsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Submit a rating/review for a delivered order' })
   @ApiResponse({ status: 200, description: 'Review submitted successfully' })
-  @ApiResponse({ status: 400, description: 'Order not delivered or already rated' })
+  @ApiResponse({
+    status: 400,
+    description: 'Order not delivered or already rated',
+  })
   @ApiResponse({ status: 404, description: 'Order not found' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   async submitReview(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
@@ -62,14 +80,20 @@ export class ReviewsController {
     @CurrentUser() actor: JwtAccessPayload,
     @Query() dto: QueryReviewsDto,
   ) {
-    return this.reviewsService.getDriverReviews(actor.sub, dto.page, dto.limit);
+    return this.reviewsService.getMyDriverReviews(
+      actor.sub,
+      dto.page,
+      dto.limit,
+    );
   }
 
   // ─── Admin: view any driver's reviews (permission-gated) ────────────────────
 
   @Get('driver/:driverId')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
-  @ApiOperation({ summary: '[Admin] Get paginated reviews for a specific driver' })
+  @ApiOperation({
+    summary: '[Admin] Get paginated reviews for a specific driver',
+  })
   @ApiStandardResponse(PaginatedReviewsResponseDto)
   async getDriverReviews(
     @Param('driverId') driverId: string,

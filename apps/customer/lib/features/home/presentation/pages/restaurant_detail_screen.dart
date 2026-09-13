@@ -173,7 +173,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             Row(children: [
                               const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
                               const SizedBox(width: 4),
-                              Text('${fullVendor['rating'] ?? 0}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+                              Text((fullVendor['rating'] as num? ?? 0).toStringAsFixed(1), style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
                               if (fullVendor['ratingCount'] != null && fullVendor['ratingCount'] > 0) ...[
                                 const SizedBox(width: 4),
                                 Text(

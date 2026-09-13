@@ -233,7 +233,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                             const SizedBox(width: 4),
                             const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
                             const SizedBox(width: 2),
-                            Text('${v['rating'] ?? 0}',
+                            Text((v['rating'] as num? ?? 0).toStringAsFixed(1),
                                 style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -456,7 +456,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                           const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            '${v['rating'] ?? 0}',
+                            (v['rating'] as num? ?? 0).toStringAsFixed(1),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                         ],
