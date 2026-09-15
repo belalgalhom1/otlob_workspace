@@ -9,11 +9,6 @@ class CustomerOrderRepository {
   final Dio? dio;
   CustomerOrderRepository(this._api, this._reviewsApi, {this.dio});
 
-  Future<dynamic> approveFee(String orderId) async {
-    final response = await _api.ordersControllerApproveOrderFee(orderId: orderId);
-    return ResponseParser.parse(response);
-  }
-
   Future<dynamic> getMyOrders({String? status, num limit = 20, num page = 1}) async {
     final response = await _api.ordersControllerGetMyOrdersAsCustomer(
       status: status,
@@ -35,8 +30,20 @@ class CustomerOrderRepository {
     return ResponseParser.parse(response);
   }
 
+  Future<dynamic> estimateCustomOrder(PlaceCustomOrderDto placeCustomOrderDto) async {
+    final response = await _api.ordersControllerEstimateCustomOrder(
+      placeCustomOrderDto: placeCustomOrderDto
+    );
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> placeOrder(PlaceOrderDto dto) async {
     final response = await _api.ordersControllerPlaceOrder(placeOrderDto: dto);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> estimateOrder(PlaceOrderDto dto) async {
+    final response = await _api.ordersControllerEstimateOrder(placeOrderDto: dto);
     return ResponseParser.parse(response);
   }
 

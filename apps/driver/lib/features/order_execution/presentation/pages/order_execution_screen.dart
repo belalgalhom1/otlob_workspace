@@ -120,7 +120,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final isMobileWallet = order['paymentMethod'] == 'MOBILE_WALLET';
     
     LatLng? targetLocation;
-    if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP' || status == 'PENDING_CUSTOMER_APPROVAL' || status == 'PREPARING') {
+    if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP' || status == 'PREPARING') {
       final lat = double.tryParse(vendorLat.toString());
       final lng = double.tryParse(vendorLng.toString());
       if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
@@ -248,10 +248,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            status == 'PENDING_CUSTOMER_APPROVAL'
-                                ? l10n.waitingForCustomerApproval
-                                : status == 'PENDING_PAYMENT'
-                                    ? (l10n.localeName == 'ar' ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
+                            status == 'PENDING_PAYMENT'
+                                ? (l10n.localeName == 'ar' ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
                                     : (status == 'PICKED_UP')
                                         ? l10n.navigatingToCustomer
                                         : (isCustomOrRide
@@ -260,9 +258,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface),
                           ),
                           Text(
-                            status == 'PENDING_CUSTOMER_APPROVAL'
-                                ? l10n.waitingForCustomerApproval
-                                : (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
+                            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
                                   ? ((order['customer'] is Map ? order['customer']['name'] : null) ?? l10n.customerFallback)
                                   : (isCustomOrRide
                                       ? (order['pickupAddress']?.toString() ?? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location'))
@@ -366,11 +362,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     if (status == 'PREPARING') {
       return PrimaryButton(
         text: l10n.localeName == 'ar' ? 'جاري تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
-        onPressed: null,
-      );
-    } else if (status == 'PENDING_CUSTOMER_APPROVAL') {
-      return PrimaryButton(
-        text: l10n.waitingForCustomerApproval,
         onPressed: null,
       );
     } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') {

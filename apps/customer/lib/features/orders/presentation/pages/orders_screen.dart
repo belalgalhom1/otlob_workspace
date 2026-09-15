@@ -32,8 +32,7 @@ String _translateStatus(String status, bool isArabic) {
     case 'ACCEPTED': return isArabic ? 'مقبول' : 'Accepted';
     case 'PREPARING': return isArabic ? 'قيد التحضير' : 'Preparing';
     case 'LOOKING_FOR_DRIVER': return isArabic ? 'جاري البحث عن مندوب' : 'Looking for Driver';
-    case 'DRIVER_ASSIGNED': return isArabic ? 'بانتظار موافقتك' : 'Pending Your Approval';
-    case 'PENDING_CUSTOMER_APPROVAL': return isArabic ? 'بانتظار موافقتك' : 'Pending Your Approval';
+    case 'DRIVER_ASSIGNED': return isArabic ? 'تم تعيين المندوب' : 'Driver Assigned';
     case 'PENDING_PAYMENT': return isArabic ? 'في انتظار الدفع' : 'Pending Payment';
     case 'READY_FOR_PICKUP': return isArabic ? 'جاهز للاستلام' : 'Ready for Pickup';
     case 'PICKED_UP': return isArabic ? 'تم الاستلام من المتجر' : 'Picked Up';
@@ -206,7 +205,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         status == 'CHANGES_REQUESTED' ||
         status == 'LOOKING_FOR_DRIVER' || 
         status == 'DRIVER_ASSIGNED' || 
-        status == 'PENDING_CUSTOMER_APPROVAL' ||
         status == 'PENDING_PAYMENT' ||
         status == 'READY_FOR_PICKUP') {
       currentStep = 1;
@@ -318,28 +316,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final status = order['status'] as String? ?? 'PENDING';
-    final bool hasDriver = order['driver'] != null || order['driverId'] != null;
     final bool isCancelled = status == 'CANCELLED';
-    final bool areFeesFinalized = hasDriver && !isCancelled && status != 'DRIVER_ASSIGNED' && status != 'PENDING_CUSTOMER_APPROVAL';
+    final bool areFeesFinalized = !isCancelled;
 
     final subtotal = _parseDouble(order['subtotal']);
     
-    final rawDeliveryFee = areFeesFinalized ? order['deliveryFee'] : null;
+    final rawDeliveryFee = order['deliveryFee'];
     final deliveryFee = _parseDouble(rawDeliveryFee);
     
-    final rawServiceFee = areFeesFinalized ? order['serviceFee'] : null;
+    final rawServiceFee = order['serviceFee'];
     final serviceFee = _parseDouble(rawServiceFee);
     
-    final rawTax = areFeesFinalized ? order['tax'] : null;
+    final rawTax = order['tax'];
     final tax = _parseDouble(rawTax);
 
     final discount = _parseDouble(order['discount']);
-    final bool isCustomOrder = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
 
     // Total is calculated directly by the backend
-    final rawTotal = (areFeesFinalized || isCustomOrder)
-        ? (order['total'] ?? order['totalFee'] ?? order['grandTotal'])
-        : subtotal;
+    final rawTotal = order['total'] ?? order['totalFee'] ?? order['grandTotal'];
     final total = _parseDouble(rawTotal);
 
     Color statusColor = AppColors.primary;

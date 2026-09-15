@@ -10,8 +10,7 @@ import {
   ORDER_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import { OrderStatus, DispatchStatus } from '@prisma/client';
-import { CartService } from '../cart/cart.service';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Processor(QUEUES.ORDERS, { concurrency: 25 })
@@ -24,7 +23,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     private readonly statisticsService: StatisticsService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
-    private readonly cartService: CartService,
     @InjectQueue(QUEUES.ORDERS) private readonly queue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
   ) {
@@ -109,8 +107,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         return this.handleStuckOrderMonitor();
       case CRON_JOBS.UNSETTLED_ORDER_MONITOR:
         return this.handleUnsettledOrderMonitor();
-      case ORDER_JOBS.CUSTOMER_APPROVAL_TIMEOUT:
-        return this.handleCustomerApprovalTimeout(job);
       default:
         this.logger.warn(`Unknown job name: ${job.name}`);
         return { ignored: true, reason: 'unknown_job_name' };
@@ -488,27 +484,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     }
 
     return { recovered };
-  }
-  async handleCustomerApprovalTimeout(job: Job) {
-    const { orderId } = job.data;
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: { include: { selectedOptions: true } } }
-    });
-    if (!order || order.status !== 'PENDING_CUSTOMER_APPROVAL') return { skipped: true };
-
-    // 1. Cancel the order (pass null for system actor, and orderId as second argument)
-    await this.stateService.cancelOrder(
-      null,
-      orderId,
-      'Customer did not approve the final fee in time.'
-    );
-
-    // 2. Rebuild the cart
-    await this.cartService.rebuildCartFromOrder(order);
-
-    this.logger.log(`Order ${orderId} cancelled due to customer approval timeout. Cart rebuilt.`);
-    return { success: true };
   }
 
 }

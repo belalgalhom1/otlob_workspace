@@ -13,12 +13,13 @@ Method | HTTP request | Description
 [**ordersControllerAdminFindAll**](OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [**ordersControllerAdminForceAssignDriver**](OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [**ordersControllerAdminPlaceDirectOrder**](OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
-[**ordersControllerApproveOrderFee**](OrdersApi.md#orderscontrollerapproveorderfee) | **POST** /orders/{orderId}/approve-fee | Customer approves the final delivery fee (Standby Flow)
 [**ordersControllerCancelOrder**](OrdersApi.md#orderscontrollercancelorder) | **POST** /orders/{orderId}/cancel | Cancel an order (customer or vendor)
 [**ordersControllerCustomerMarkPaid**](OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid
 [**ordersControllerDriverConfirmPayment**](OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
 [**ordersControllerDriverUpdateStatus**](OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
 [**ordersControllerEditOrderItems**](OrdersApi.md#orderscontrollereditorderitems) | **PATCH** /orders/{id}/items | 
+[**ordersControllerEstimateCustomOrder**](OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
+[**ordersControllerEstimateOrder**](OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
 [**ordersControllerGetMyDispatches**](OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
 [**ordersControllerGetMyOrdersAsCustomer**](OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [**ordersControllerGetMyOrdersAsDriver**](OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
@@ -203,47 +204,6 @@ Name | Type | Description  | Notes
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **ordersControllerApproveOrderFee**
-> OrdersControllerPlaceOrder200Response ordersControllerApproveOrderFee(orderId)
-
-Customer approves the final delivery fee (Standby Flow)
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getOrdersApi();
-final String orderId = orderId_example; // String | 
-
-try {
-    final response = api.ordersControllerApproveOrderFee(orderId);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling OrdersApi->ordersControllerApproveOrderFee: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **orderId** | **String**|  | 
-
-### Return type
-
-[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
@@ -447,6 +407,88 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **ordersControllerEstimateCustomOrder**
+> OrdersControllerEstimateCustomOrder200Response ordersControllerEstimateCustomOrder(placeCustomOrderDto)
+
+Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final PlaceCustomOrderDto placeCustomOrderDto = ; // PlaceCustomOrderDto | 
+
+try {
+    final response = api.ordersControllerEstimateCustomOrder(placeCustomOrderDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerEstimateCustomOrder: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **placeCustomOrderDto** | [**PlaceCustomOrderDto**](PlaceCustomOrderDto.md)|  | 
+
+### Return type
+
+[**OrdersControllerEstimateCustomOrder200Response**](OrdersControllerEstimateCustomOrder200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **ordersControllerEstimateOrder**
+> OrdersControllerEstimateCustomOrder200Response ordersControllerEstimateOrder(placeOrderDto)
+
+Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final PlaceOrderDto placeOrderDto = ; // PlaceOrderDto | 
+
+try {
+    final response = api.ordersControllerEstimateOrder(placeOrderDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerEstimateOrder: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **placeOrderDto** | [**PlaceOrderDto**](PlaceOrderDto.md)|  | 
+
+### Return type
+
+[**OrdersControllerEstimateCustomOrder200Response**](OrdersControllerEstimateCustomOrder200Response.md)
 
 ### Authorization
 

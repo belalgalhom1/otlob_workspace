@@ -91,7 +91,7 @@ class Orders extends _$Orders {
   static const _activeStatuses = {
     'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
     'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT',
-    'READY_FOR_PICKUP', 'PICKED_UP', 'PENDING_CUSTOMER_APPROVAL',
+    'READY_FOR_PICKUP', 'PICKED_UP',
   };
 
   static const _pastStatuses = {'DELIVERED', 'CANCELLED'};
@@ -230,16 +230,111 @@ class Orders extends _$Orders {
     return null;
   }
 
-  Future<void> approveOrderFee(String orderId) async {
+  Future<Map<String, dynamic>?> estimateOrder({
+    required String vendorId,
+    required String paymentMethod,
+    required String address,
+    required List<double> location,
+    String? specialRequest,
+    int? coinsToUse,
+  }) async {
     final repository = ref.read(customerOrderRepositoryProvider);
     try {
-      await repository.approveFee(orderId);
-      // Let backend process, then fetch updated order details (e.g. status changes to DRIVER_ASSIGNED or PENDING_PAYMENT)
-      await Future.delayed(const Duration(milliseconds: 500));
-      await fetchOrderDetails(orderId);
+      PlaceOrderDtoPaymentMethodEnum method;
+      if (paymentMethod == 'MOBILE_WALLET') {
+        method = PlaceOrderDtoPaymentMethodEnum.MOBILE_WALLET;
+      } else {
+        method = PlaceOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY;
+      }
+
+      final builder = PlaceOrderDtoBuilder()
+        ..vendorId = vendorId
+        ..paymentMethod = method
+        ..deliveryAddress = address;
+
+      if (specialRequest != null) {
+        builder.specialRequest = specialRequest;
+      }
+
+      if (coinsToUse != null && coinsToUse > 0) {
+        builder.coinsToUse = coinsToUse;
+      }
+
+      if (location.length >= 2) {
+        builder.deliveryLocation.replace([location[0], location[1]]);
+      }
+
+      final result = await repository.estimateOrder(builder.build());
+      if (result is Map<String, dynamic>) {
+        return result;
+      }
+      return null;
     } catch (e) {
-      debugPrint('Approve fee error: $e');
-      throw ApiErrorMapper.fromError(e);
+      debugPrint('Estimate order error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> estimateCustomOrder({
+    required String type,
+    required String pickup,
+    required List<double> pickupLocation,
+    required String dropoff,
+    required List<double> deliveryLocation,
+    String? vehicleType,
+    String? details,
+    int? coinsToUse,
+  }) async {
+    final repo = ref.read(customerOrderRepositoryProvider);
+    try {
+      PlaceCustomOrderDtoVehicleTypeEnum vType;
+      switch (vehicleType) {
+        case 'motorcycle':
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE;
+          break;
+        case 'car':
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.CAR;
+          break;
+        case 'van':
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.VAN;
+          break;
+        case 'truck':
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.TRUCK;
+          break;
+        case 'motor_tricycle':
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE;
+          break;
+        default:
+          vType = PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE;
+      }
+
+      final dto = PlaceCustomOrderDto((b) => b
+        ..type = type == 'ride'
+            ? PlaceCustomOrderDtoTypeEnum.RIDE
+            : PlaceCustomOrderDtoTypeEnum.CUSTOM_DELIVERY
+        ..paymentMethod = PlaceCustomOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
+        ..pickupAddress = pickup
+        ..deliveryAddress = dropoff
+        ..vehicleType = vType
+        ..pickupLocation = ListBuilder<num>(
+            pickupLocation.length >= 2
+                ? [pickupLocation[0], pickupLocation[1]]
+                : [0.0, 0.0])
+        ..deliveryLocation = ListBuilder<num>(
+            deliveryLocation.length >= 2
+                ? [deliveryLocation[0], deliveryLocation[1]]
+                : [0.0, 0.0])
+        ..itemDetails = details
+        ..coinsToUse = coinsToUse);
+
+      final result = await repo.estimateCustomOrder(dto);
+      if (result is Map<String, dynamic>) {
+        return result;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Estimate custom order error: $e');
+      return null;
     }
   }
 

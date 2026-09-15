@@ -21,6 +21,7 @@ import {
   EditOrderItemsDto,
   PlaceDirectOrderDto,
   ConfirmPaymentDto,
+  OrderFeeEstimateDto,
 } from './dto/order.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -29,8 +30,6 @@ import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interfa
 import { Permission, Role } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
-import { Order } from '../../_gen/prisma-classes/order';
-import { OrderDispatch } from '../../_gen/prisma-classes/order_dispatch';
 
 import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersStateService } from './orders-state.service';
@@ -74,6 +73,32 @@ export class OrdersController {
     @Body() dto: PlaceCustomOrderDto,
   ) {
     return this.checkoutService.placeCustomOrder(actor, dto);
+  }
+
+  @ApiStandardResponse(OrderFeeEstimateDto)
+  @Post('custom-fee-estimate')
+  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)',
+  })
+  estimateCustomOrder(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: PlaceCustomOrderDto,
+  ) {
+    return this.checkoutService.estimateCustomOrder(actor, dto);
+  }
+
+  @ApiStandardResponse(OrderFeeEstimateDto)
+  @Post('fee-estimate')
+  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)',
+  })
+  estimateOrder(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: PlaceOrderDto,
+  ) {
+    return this.checkoutService.estimateOrder(actor, dto);
   }
 
   @ApiStandardResponse()
@@ -210,18 +235,6 @@ export class OrdersController {
     @Param('orderId') orderId: string,
   ) {
     return this.ordersService.getOne(actor, orderId);
-  }
-
-  @ApiStandardResponse(OrderResponseDto)
-  @Post(':orderId/approve-fee')
-  @Roles(Role.CUSTOMER)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Customer approves the final delivery fee (Standby Flow)' })
-  approveOrderFee(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('orderId') orderId: string,
-  ) {
-    return this.paymentService.approveOrderFee(actor, orderId);
   }
 
   @ApiStandardResponse(OrderResponseDto)

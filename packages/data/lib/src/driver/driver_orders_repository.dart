@@ -26,7 +26,7 @@ class DriverOrdersRepository {
     final list = ResponseParser.parseList(response);
     
     // Find the first active order
-    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_CUSTOMER_APPROVAL', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
+    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
     final dataList = (list['data'] ?? list['orders'] ?? list['items']) as List?;
     if (dataList != null) {
       for (var order in dataList) {

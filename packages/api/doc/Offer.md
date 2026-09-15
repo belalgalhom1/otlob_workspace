@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
 **productId** | **String** |  | 
+**variantId** | **String** |  | [optional] 
 **vendorId** | **String** |  | 
 **originalPrice** | **num** |  | 
 **offerPrice** | **num** |  | 

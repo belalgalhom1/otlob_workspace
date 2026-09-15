@@ -89,6 +89,7 @@ Serializers _$serializers =
           ..add(Offer.serializer)
           ..add(Order.serializer)
           ..add(OrderDispatch.serializer)
+          ..add(OrderFeeEstimateDto.serializer)
           ..add(OrderItem.serializer)
           ..add(OrderItemOption.serializer)
           ..add(OrderItemUpdateDto.serializer)
@@ -96,6 +97,7 @@ Serializers _$serializers =
           ..add(OrderStatus.serializer)
           ..add(OrderStatusEvent.serializer)
           ..add(OrderType.serializer)
+          ..add(OrdersControllerEstimateCustomOrder200Response.serializer)
           ..add(OrdersControllerPlaceOrder200Response.serializer)
           ..add(PaginatedReviewsResponseDto.serializer)
           ..add(PaginationMetaDto.serializer)
@@ -256,6 +258,10 @@ Serializers _$serializers =
             () => ListBuilder<ProductOptionGroup>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(Offer)]),
+            () => ListBuilder<Offer>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(CartItemOption)]),
             () => ListBuilder<CartItemOption>(),
           )
@@ -406,6 +412,13 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(num)]),
             () => ListBuilder<num>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltMap, const [

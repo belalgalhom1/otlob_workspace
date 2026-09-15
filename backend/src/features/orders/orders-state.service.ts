@@ -65,12 +65,11 @@ const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ],
   [OrderStatus.PREPARING]: [OrderStatus.READY_FOR_PICKUP],
   [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.PICKED_UP],
-  // Fee approval: vendor must wait for customer to approve before prepping
-  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
   [OrderStatus.PICKED_UP]: [],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.CHANGES_REQUESTED]: [],
+  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
 };
 
 const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -86,13 +85,13 @@ const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.PICKED_UP],
   [OrderStatus.PICKED_UP]: [OrderStatus.DELIVERED, OrderStatus.PENDING_PAYMENT],
   [OrderStatus.PENDING]: [],
-  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
   [OrderStatus.CHANGES_REQUESTED]: [],
   [OrderStatus.ACCEPTED]: [],
   [OrderStatus.PREPARING]: [],
   [OrderStatus.LOOKING_FOR_DRIVER]: [],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
+  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
 };
 
 const NON_CANCELLABLE: OrderStatus[] = [
@@ -356,7 +355,6 @@ async cancelOrder(
           OrderStatus.CHANGES_REQUESTED,
           OrderStatus.ACCEPTED,
           OrderStatus.LOOKING_FOR_DRIVER,
-          OrderStatus.PENDING_CUSTOMER_APPROVAL,
         ];
         if (!customerCancellableStatuses.includes(order.status as OrderStatus)) {
           throw new BadRequestException(

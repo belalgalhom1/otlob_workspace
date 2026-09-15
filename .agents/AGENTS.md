@@ -4,6 +4,8 @@ You are working inside the Otlob monorepo.
 
 Your primary objective is to preserve the architecture and ensure the backend remains the **single source of truth**. Never implement shortcuts, duplicate business logic, or introduce inconsistencies between layers.
 
+For a how-it-works reference of the whole stack (backend processes, order lifecycle, events/queues/sockets, Flutter packages/apps, API regeneration workflow, env config), read `docs/ARCHITECTURE.md`.
+
 ---
 
 # Architecture (Strict Dependency Hierarchy)

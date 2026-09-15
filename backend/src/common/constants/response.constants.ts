@@ -266,8 +266,6 @@ export const OrderErrors = {
   INSERT_FAILED: 'order.error.insert_failed',
   NOT_MOBILE_WALLET: 'order.error.not_mobile_wallet',
   NOT_AWAITING_PAYMENT: 'order.error.not_awaiting_payment',
-  NOT_PENDING_APPROVAL: 'order.error.not_pending_customer_approval',
-  APPROVAL_TIMEOUT: 'order.error.customer_approval_timeout',
   CANNOT_EDIT_ITEMS: 'order.error.cannot_edit_items',
   NO_PENDING_CHANGES: 'order.error.no_pending_changes',
   NOT_ASSIGNED_TO_BRANCH: 'order.error.not_assigned_to_branch',

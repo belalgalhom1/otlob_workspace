@@ -174,12 +174,13 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminFindAll**](doc/OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminForceAssignDriver**](doc/OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminPlaceDirectOrder**](doc/OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerApproveOrderFee**](doc/OrdersApi.md#orderscontrollerapproveorderfee) | **POST** /orders/{orderId}/approve-fee | Customer approves the final delivery fee (Standby Flow)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCancelOrder**](doc/OrdersApi.md#orderscontrollercancelorder) | **POST** /orders/{orderId}/cancel | Cancel an order (customer or vendor)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCustomerMarkPaid**](doc/OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPayment**](doc/OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverUpdateStatus**](doc/OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEditOrderItems**](doc/OrdersApi.md#orderscontrollereditorderitems) | **PATCH** /orders/{id}/items | 
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateCustomOrder**](doc/OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateOrder**](doc/OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyDispatches**](doc/OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsCustomer**](doc/OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsDriver**](doc/OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
@@ -391,6 +392,7 @@ Class | Method | HTTP request | Description
  - [Offer](doc/Offer.md)
  - [Order](doc/Order.md)
  - [OrderDispatch](doc/OrderDispatch.md)
+ - [OrderFeeEstimateDto](doc/OrderFeeEstimateDto.md)
  - [OrderItem](doc/OrderItem.md)
  - [OrderItemOption](doc/OrderItemOption.md)
  - [OrderItemUpdateDto](doc/OrderItemUpdateDto.md)
@@ -398,6 +400,7 @@ Class | Method | HTTP request | Description
  - [OrderStatus](doc/OrderStatus.md)
  - [OrderStatusEvent](doc/OrderStatusEvent.md)
  - [OrderType](doc/OrderType.md)
+ - [OrdersControllerEstimateCustomOrder200Response](doc/OrdersControllerEstimateCustomOrder200Response.md)
  - [OrdersControllerPlaceOrder200Response](doc/OrdersControllerPlaceOrder200Response.md)
  - [PaginatedReviewsResponseDto](doc/PaginatedReviewsResponseDto.md)
  - [PaginationMetaDto](doc/PaginationMetaDto.md)

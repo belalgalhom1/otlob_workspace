@@ -32,9 +32,42 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   RideState _rideState = RideState.form;
   bool _isExpanded = false;
   bool _useCoins = false;
+  bool _isEstimating = false;
+  Map<String, dynamic>? _estimate;
+  String? _lastEstimateKey;
   
   LatLng? _pickupLocation;
   LatLng? _dropoffLocation;
+
+  Future<void> _fetchEstimate() async {
+    if (_isEstimating) return;
+    if (_pickupLocation == null || _dropoffLocation == null) {
+      _estimate = null;
+      return;
+    }
+
+    final estimateKey = '$_serviceType|$_selectedVehicle|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${_useCoins ? 1 : 0}';
+    if (estimateKey == _lastEstimateKey) return;
+    _lastEstimateKey = estimateKey;
+
+    setState(() => _isEstimating = true);
+    final result = await ref.read(ordersProvider.notifier).estimateCustomOrder(
+      type: _serviceType,
+      pickup: _pickupController.text.trim().isEmpty ? 'Pickup' : _pickupController.text.trim(),
+      pickupLocation: [_pickupLocation!.longitude, _pickupLocation!.latitude],
+      dropoff: _dropoffController.text.trim().isEmpty ? 'Dropoff' : _dropoffController.text.trim(),
+      deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
+      vehicleType: _selectedVehicle,
+      details: _detailsController.text.trim().isEmpty ? null : _detailsController.text.trim(),
+      coinsToUse: null,
+    );
+    if (mounted) {
+      setState(() {
+        _estimate = result;
+        _isEstimating = false;
+      });
+    }
+  }
 
   double _calculateDistance() {
     if (_pickupLocation == null || _dropoffLocation == null) return 0.0;
@@ -174,7 +207,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       
       int? coinsToUse;
       if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-        final totalFee = _calculateTotalFee();
+        final est = _estimate;
+        final totalFee = (est != null && est['grandTotal'] != null)
+            ? (est['grandTotal'] as num).toDouble()
+            : _calculateTotalFee();
         final maxDiscount = coinState.currentBalance * settings.coinValue;
         if (maxDiscount > totalFee) {
           coinsToUse = (totalFee / settings.coinValue).ceil();
@@ -222,7 +258,16 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    final totalFee = _calculateTotalFee();
+    if ((_pickupLocation != null || _dropoffLocation != null) && !_isEstimating) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fetchEstimate();
+      });
+    }
+    final est = _estimate;
+    final hasEstimate = est != null && (_pickupLocation != null) && (_dropoffLocation != null);
+    final totalFee = hasEstimate
+        ? ((est['grandTotal'] as num?)?.toDouble() ?? _calculateTotalFee())
+        : _calculateTotalFee();
     final isAr = s.isArabic;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
@@ -405,12 +450,12 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               ),
               child: Column(
                 children: [
-                  _priceRow(isAr ? 'رسوم التوصيل المقدرة' : 'Estimated Delivery Fare', '${_calculateTotalFee().toStringAsFixed(0)} ${s.egp}', isDark),
+                  _priceRow(isAr ? 'رسوم التوصيل المقدرة' : 'Estimated Delivery Fare', _isEstimating ? '...' : '${totalFee.toStringAsFixed(0)} ${s.egp}', isDark),
                   const SizedBox(height: 8),
                   Text(
                     isAr 
-                        ? 'الرسوم النهائية والضرائب سيتم تحديدها بعد موافقة السائق' 
-                        : 'Final total (including service fees and taxes) will be calculated based on the driver\'s accepted proposal.',
+                        ? 'الرسوم النهائية تشمل رسوم الخدمة والضرائب، وتُحتسب من مسافة الاستلام إلى التوصيل وتثبت عند تأكيد الطلب'
+                        : 'Final fare (including service fees and taxes) is calculated from the pickup-to-dropoff distance and confirmed at checkout.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),

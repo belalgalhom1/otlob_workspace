@@ -70,8 +70,156 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
 
     await this.validateActiveOrderLimit(customerId);
 
+    const money = await this.computeStandardOrderMoney(
+      dto.vendorId,
+      cart.subtotal,
+      dto.deliveryLocation,
+      dto.paymentMethod,
+      dto.coinsToUse,
+      coinBalance,
+    );
+
+    const items: OrderItemData[] = cart.items.map((item: any) => ({
+      productId: item.productId,
+      variantId: item.variantId ?? null,
+      productName: item.product.name ?? 'Unknown Product',
+      variantName: item.variant?.name ?? null,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      totalPrice: item.totalPrice,
+      specialRequest: item.specialRequest ?? null,
+      options: item.options.map((opt) => ({
+        optionId: opt.id,
+        optionName: opt.name,
+        priceAdded: Number(opt.priceAdded),
+      })),
+    }));
+
+    const orderNumber = await this.ordersRepository.generateOrderNumber();
+    const created = await this.ordersRepository.createOrder(
+      {
+        orderNumber,
+        customerId,
+        vendorId: dto.vendorId ?? null,
+        vendorBranchId: money.branch?.id ?? null,
+        zoneId: money.zone?.id ?? null,
+        paymentMethod: dto.paymentMethod,
+        deliveryAddress: dto.deliveryAddress,
+        deliveryLng: dto.deliveryLocation[0],
+        deliveryLat: dto.deliveryLocation[1],
+        subtotal: cart.subtotal,
+        deliveryFee: money.deliveryFee,
+        driverBonusFee: money.driverBonusFee,
+        serviceFee: money.serviceFee,
+        tax: money.tax,
+        discount: money.discount,
+        coinsUsed: money.coinsUsed,
+        coinsEarned: money.coinsEarned,
+        grandTotal: money.grandTotal,
+        upfrontAmount: money.upfrontAmount,
+        distanceKm: money.distanceKm,
+        specialRequest: dto.specialRequest ?? null,
+        type: 'STANDARD',
+        pickupAddress: null,
+        pickupLng: money.branch?.lng ?? null,
+        pickupLat: money.branch?.lat ?? null,
+        itemDetails: null,
+        requestedVehicleType: null,
+      },
+      items,
+      actor.sub,
+    );
+
+    // The cart listener will catch ORDER_CREATED and clear the cart automatically.
+
+    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+      dto.vendorId,
+    );
+
+    this.eventEmitter.emit(
+      EVENTS.ORDER_CREATED,
+      new OrderCreatedEvent(
+        created.id,
+        created.orderNumber,
+        customerId,
+        actor.sub,
+        dto.vendorId,
+        vendorUserIds,
+        money.grandTotal,
+        dto.paymentMethod,
+        'STANDARD',
+      ),
+    );
+
+    this.logger.log(
+      `Order placed: ${created.orderNumber} by user ${actor.sub}`,
+    );
+    return this.ordersRepository.findById(created.id);
+  }
+
+  async estimateOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
+    const { coinBalance, cart } = await this.cartService.validateForCheckout(
+      actor.sub,
+      dto.vendorId,
+    );
+
+    const money = await this.computeStandardOrderMoney(
+      dto.vendorId,
+      cart.subtotal,
+      dto.deliveryLocation,
+      dto.paymentMethod,
+      dto.coinsToUse,
+      coinBalance,
+    );
+
+    return {
+      distanceKm: money.distanceKm,
+      deliveryFee: money.deliveryFee,
+      serviceFee: money.serviceFee,
+      driverBonusFee: money.driverBonusFee,
+      tax: money.tax,
+      coinsUsed: money.coinsUsed,
+      discount: money.discount,
+      coinsEarned: money.coinsEarned,
+      grandTotal: money.grandTotal,
+      upfrontAmount: money.upfrontAmount,
+    };
+  }
+
+  async estimateCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId: actor.sub },
+      select: { coinBalance: true },
+    });
+    if (!customer)
+      throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
+
+    const money = await this.computeCustomOrderMoney(dto, customer.coinBalance);
+
+    return {
+      distanceKm: money.distanceKm,
+      deliveryFee: money.deliveryFee,
+      serviceFee: money.serviceFee,
+      driverBonusFee: money.driverBonusFee,
+      tax: money.tax,
+      coinsUsed: money.coinsUsed,
+      discount: money.discount,
+      coinsEarned: money.coinsEarned,
+      grandTotal: money.grandTotal,
+      upfrontAmount: money.upfrontAmount,
+    };
+  }
+
+  private async computeStandardOrderMoney(
+    vendorId: string,
+    subtotal: number,
+    deliveryLocation: [number, number],
+    paymentMethod: PaymentMethod,
+    coinsToUse: number | undefined,
+    coinBalance: number | null,
+  ) {
     const vendor = await this.prisma.vendor.findUnique({
-      where: { id: dto.vendorId },
+      where: { id: vendorId },
       select: {
         id: true,
         status: true,
@@ -85,18 +233,18 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
 
     const settings = await this.platformSettings.getSettings();
     const minOrder = Number(settings.minOrderAmount);
-    if (minOrder > 0 && cart.subtotal < minOrder) {
+    if (minOrder > 0 && subtotal < minOrder) {
       throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
 
-    const [lng, lat] = dto.deliveryLocation;
+    const [lng, lat] = deliveryLocation;
     const zone = await this.ordersRepository.getZoneAtLocation(lng, lat);
     if (!zone) {
       throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
     }
 
     const branch = await this.ordersRepository.getNearestOpenBranchLocation(
-      dto.vendorId,
+      vendorId,
       lng,
       lat,
     );
@@ -122,19 +270,17 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
       settings,
     );
 
-    // Calculate commission/service rate based on manually configured percentage or platform default
     const vendorCommission = vendor.commissionRate != null
       ? Number(vendor.commissionRate)
       : Number(settings.defaultCommissionRate ?? 10);
     const commissionRate = vendorCommission / 100;
 
-    // If vendor is NOT contracted with us, add their percentage as a service fee to the customer invoice
     const serviceFee = !vendor.isContracted
-      ? Math.round(cart.subtotal * commissionRate)
+      ? Math.round(subtotal * commissionRate)
       : 0;
 
     const taxRate = Number(settings.defaultTaxRate) / 100;
-    const tax = Math.round((cart.subtotal + serviceFee) * taxRate);
+    const tax = Math.round((subtotal + serviceFee) * taxRate);
 
     let driverBonusFee = 0;
     const now = new Date();
@@ -150,21 +296,21 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
       driverBonusFee = Number(settings.driverBonusAmount);
     }
 
-    let preDiscountTotal = cart.subtotal + deliveryFee + serviceFee + tax;
+    let preDiscountTotal = subtotal + deliveryFee + serviceFee + tax;
     if (settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
       preDiscountTotal += driverBonusFee;
     }
 
     let coinsUsed = 0;
     let discount = 0;
-    if (dto.coinsToUse && dto.coinsToUse > 0) {
+    if (coinsToUse && coinsToUse > 0) {
       if (!coinBalance || coinBalance < Number(settings.minCoinsToUse)) {
         throw new BadRequestException(CustomerErrors.MINIMUM_COINS_REQUIRED);
       }
-      if (coinBalance < dto.coinsToUse) {
+      if (coinBalance < coinsToUse) {
         throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
       }
-      coinsUsed = dto.coinsToUse;
+      coinsUsed = coinsToUse;
       const coinValue = Number(settings.coinValue) || 0;
       discount = coinsUsed * coinValue;
       if (discount > preDiscountTotal) {
@@ -181,7 +327,7 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
 
     let upfrontAmount = 0;
     if (
-      dto.paymentMethod === 'CASH_ON_DELIVERY' &&
+      paymentMethod === 'CASH_ON_DELIVERY' &&
       settings.highValueOrderThreshold &&
       settings.highValueOrderThreshold > 0 &&
       grandTotal >= settings.highValueOrderThreshold
@@ -191,107 +337,27 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
       );
     }
 
-    type CartItemPayload = {
-      productId: string;
-      variantId?: string | null;
-      unitPrice: number;
-      quantity: number;
-      totalPrice: number;
-      specialRequest?: string | null;
-      product: { name: string };
-      variant?: { name: string } | null;
-      options: { id: string; name: string; priceAdded: number | string }[];
+    return {
+      vendor,
+      zone,
+      branch,
+      distanceKm,
+      deliveryFee,
+      serviceFee,
+      driverBonusFee,
+      tax,
+      discount,
+      coinsUsed,
+      coinsEarned,
+      grandTotal,
+      upfrontAmount,
     };
-
-    const items: OrderItemData[] = cart.items.map((item: any) => ({
-      productId: item.productId,
-      variantId: item.variantId ?? null,
-      productName: item.product.name ?? 'Unknown Product',
-      variantName: item.variant?.name ?? null,
-      unitPrice: item.unitPrice,
-      quantity: item.quantity,
-      totalPrice: item.totalPrice,
-      specialRequest: item.specialRequest ?? null,
-      options: item.options.map((opt) => ({
-        optionId: opt.id,
-        optionName: opt.name,
-        priceAdded: Number(opt.priceAdded),
-      })),
-    }));
-
-    const orderNumber = await this.ordersRepository.generateOrderNumber();
-    const created = await this.ordersRepository.createOrder(
-      {
-        orderNumber,
-        customerId,
-        vendorId: dto.vendorId ?? null,
-        vendorBranchId: branch?.id ?? null,
-        zoneId: zone?.id ?? null,
-        paymentMethod: dto.paymentMethod,
-        deliveryAddress: dto.deliveryAddress,
-        deliveryLng: lng,
-        deliveryLat: lat,
-        subtotal: cart.subtotal,
-        deliveryFee,
-        driverBonusFee,
-        serviceFee,
-        tax,
-        discount,
-        coinsUsed,
-        coinsEarned,
-        grandTotal,
-        upfrontAmount,
-        distanceKm,
-        specialRequest: dto.specialRequest ?? null,
-        type: 'STANDARD',
-        pickupAddress: null,
-        pickupLng: branch?.lng ?? null,
-        pickupLat: branch?.lat ?? null,
-        itemDetails: null,
-        requestedVehicleType: null,
-      },
-      items,
-      actor.sub,
-    );
-
-    // The cart listener will catch ORDER_CREATED and clear the cart automatically.
-
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-      dto.vendorId,
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_CREATED,
-      new OrderCreatedEvent(
-        created.id,
-        created.orderNumber,
-        customerId,
-        actor.sub,
-        dto.vendorId,
-        vendorUserIds,
-        grandTotal,
-        dto.paymentMethod,
-        'STANDARD',
-      ),
-    );
-
-    this.logger.log(
-      `Order placed: ${created.orderNumber} by user ${actor.sub}`,
-    );
-    return this.ordersRepository.findById(created.id);
   }
 
-async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { userId: actor.sub },
-      select: { id: true, coinBalance: true },
-    });
-    if (!customer)
-      throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
-    const customerId = customer.id;
-
-    await this.validateActiveOrderLimit(customerId);
-
+  private async computeCustomOrderMoney(
+    dto: PlaceCustomOrderDto,
+    coinBalance: number,
+  ) {
     if (dto.type === 'RIDE' && dto.vehicleType !== 'CAR') {
       throw new BadRequestException(OrderErrors.RIDES_MUST_USE_CAR);
     }
@@ -387,10 +453,10 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     let coinsUsed = 0;
     let discount = 0;
     if (dto.coinsToUse && dto.coinsToUse > 0) {
-      if (customer.coinBalance < Number(settings.minCoinsToUse)) {
+      if (coinBalance < Number(settings.minCoinsToUse)) {
         throw new BadRequestException(CustomerErrors.MINIMUM_COINS_REQUIRED);
       }
-      if (customer.coinBalance < dto.coinsToUse) {
+      if (coinBalance < dto.coinsToUse) {
         throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
       }
       coinsUsed = dto.coinsToUse;
@@ -419,6 +485,53 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
         grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
       );
     }
+
+    return {
+      pickupLng,
+      pickupLat,
+      deliveryLng,
+      deliveryLat,
+      distanceKm,
+      deliveryFee,
+      serviceFee,
+      driverBonusFee,
+      tax,
+      discount,
+      coinsUsed,
+      coinsEarned,
+      grandTotal,
+      upfrontAmount,
+    };
+  }
+
+async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { userId: actor.sub },
+      select: { id: true, coinBalance: true },
+    });
+    if (!customer)
+      throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
+    const customerId = customer.id;
+
+    await this.validateActiveOrderLimit(customerId);
+
+    const money = await this.computeCustomOrderMoney(dto, customer.coinBalance);
+    const {
+      pickupLng,
+      pickupLat,
+      deliveryLng,
+      deliveryLat,
+      distanceKm,
+      deliveryFee,
+      serviceFee,
+      driverBonusFee,
+      tax,
+      discount,
+      coinsUsed,
+      coinsEarned,
+      grandTotal,
+      upfrontAmount,
+    } = money;
 
     const orderNumber = await this.ordersRepository.generateOrderNumber();
     const created = await this.ordersRepository.createOrder(

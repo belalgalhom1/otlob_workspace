@@ -13,6 +13,7 @@ part 'offer.g.dart';
 /// Properties:
 /// * [id] 
 /// * [productId] 
+/// * [variantId] 
 /// * [vendorId] 
 /// * [originalPrice] 
 /// * [offerPrice] 

@@ -34,6 +34,8 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
   @override
   final BuiltList<ProductOptionGroup>? optionGroups;
   @override
+  final BuiltList<Offer>? offers;
+  @override
   final Product? product;
 
   factory _$ProductVariantResponseDto([
@@ -54,6 +56,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
     this.cartItems,
     this.orderItems,
     this.optionGroups,
+    this.offers,
     this.product,
   }) : super._();
   @override
@@ -82,6 +85,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
         cartItems == other.cartItems &&
         orderItems == other.orderItems &&
         optionGroups == other.optionGroups &&
+        offers == other.offers &&
         product == other.product;
   }
 
@@ -101,6 +105,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
     _$hash = $jc(_$hash, cartItems.hashCode);
     _$hash = $jc(_$hash, orderItems.hashCode);
     _$hash = $jc(_$hash, optionGroups.hashCode);
+    _$hash = $jc(_$hash, offers.hashCode);
     _$hash = $jc(_$hash, product.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -122,6 +127,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
           ..add('cartItems', cartItems)
           ..add('orderItems', orderItems)
           ..add('optionGroups', optionGroups)
+          ..add('offers', offers)
           ..add('product', product))
         .toString();
   }
@@ -190,6 +196,10 @@ class ProductVariantResponseDtoBuilder
   set optionGroups(ListBuilder<ProductOptionGroup>? optionGroups) =>
       _$this._optionGroups = optionGroups;
 
+  ListBuilder<Offer>? _offers;
+  ListBuilder<Offer> get offers => _$this._offers ??= ListBuilder<Offer>();
+  set offers(ListBuilder<Offer>? offers) => _$this._offers = offers;
+
   ProductBuilder? _product;
   ProductBuilder get product => _$this._product ??= ProductBuilder();
   set product(ProductBuilder? product) => _$this._product = product;
@@ -214,6 +224,7 @@ class ProductVariantResponseDtoBuilder
       _cartItems = $v.cartItems?.toBuilder();
       _orderItems = $v.orderItems?.toBuilder();
       _optionGroups = $v.optionGroups?.toBuilder();
+      _offers = $v.offers?.toBuilder();
       _product = $v.product?.toBuilder();
       _$v = null;
     }
@@ -276,6 +287,7 @@ class ProductVariantResponseDtoBuilder
             cartItems: _cartItems?.build(),
             orderItems: _orderItems?.build(),
             optionGroups: _optionGroups?.build(),
+            offers: _offers?.build(),
             product: _product?.build(),
           );
     } catch (_) {
@@ -287,6 +299,8 @@ class ProductVariantResponseDtoBuilder
         _orderItems?.build();
         _$failedField = 'optionGroups';
         _optionGroups?.build();
+        _$failedField = 'offers';
+        _offers?.build();
         _$failedField = 'product';
         _product?.build();
       } catch (e) {

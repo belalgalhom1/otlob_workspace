@@ -33,7 +33,6 @@ export class DispatchService {
     private readonly redis: RedisService,
     private readonly locationRepository: LocationRepository,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
-    @InjectQueue(QUEUES.ORDERS) private readonly ordersQueue: Queue,
   ) { }
 
   // ─── Core dispatch logic ──────────────────────────────────────────────────
@@ -428,40 +427,8 @@ export class DispatchService {
 
     const totalDistanceKm = Number(candidate.distanceKm) + orderDistanceKm;
 
-    let perKmOverride: number | null = null;
-    if (dispatchContext.requestedVehicleType) {
-      perKmOverride = await this.platformSettings.getVehiclePerKm(
-        dispatchContext.requestedVehicleType,
-      );
-    }
-
-    let zoneBaseOverride: number | null = null;
-    if (order.zoneId) {
-      const zone = await this.prisma.zone.findUnique({
-        where: { id: order.zoneId },
-        select: { baseDeliveryFeeOverride: true },
-      });
-      if (zone && zone.baseDeliveryFeeOverride)
-        zoneBaseOverride = Number(zone.baseDeliveryFeeOverride);
-    }
-
-    const settings = await this.platformSettings.getSettings();
-    const finalDeliveryFee = await this.platformSettings.calculateDeliveryFee(
-      totalDistanceKm,
-      zoneBaseOverride,
-      perKmOverride,
-      order.type === 'STANDARD',
-      settings,
-      dispatchContext.requestedVehicleType,
-    );
-
-    const feeDifference = Math.round(finalDeliveryFee) - Number(order.deliveryFee);
-    const newGrandTotal = Math.round(Number(order.grandTotal) + feeDifference);
-    const requiresCustomerApproval = (settings as any).requireCustomerApproval ?? true;
     let nextStatus: OrderStatus;
-    if (requiresCustomerApproval) {
-      nextStatus = OrderStatus.PENDING_CUSTOMER_APPROVAL;
-    } else if (order.paymentMethod === 'MOBILE_WALLET') {
+    if (order.paymentMethod === 'MOBILE_WALLET') {
       nextStatus = OrderStatus.PENDING_PAYMENT;
     } else {
       // Preserve preparation progress if vendor already advanced it
@@ -504,8 +471,6 @@ export class DispatchService {
           driverShiftId: candidate.driverShiftId,
           status: nextStatus,
           driverAssignedAt: new Date(),
-          deliveryFee: Math.round(finalDeliveryFee),
-          grandTotal: Math.round(newGrandTotal),
           distanceKm: totalDistanceKm,
         },
       });
@@ -594,20 +559,9 @@ export class DispatchService {
         driverId,
         candidate.userId,
         candidate.userId,
-        requiresCustomerApproval
-          ? 'Driver found. Please approve final fee.'
-          : 'Driver found and auto-assigned.',
+        'Driver found and auto-assigned.',
       ),
     );
-
-    if (requiresCustomerApproval) {
-      const timeoutMins = Number((settings as any).customerApprovalTimeoutMins) || 5;
-      await this.ordersQueue.add(
-        ORDER_JOBS.CUSTOMER_APPROVAL_TIMEOUT,
-        { orderId: order.id, orderNumber: order.orderNumber, driverId },
-        { delay: timeoutMins * 60 * 1000, jobId: `approval-timeout-${order.id}` }
-      );
-    }
   }
 
   // ─── Handle rejection ─────────────────────────────────────────────────────

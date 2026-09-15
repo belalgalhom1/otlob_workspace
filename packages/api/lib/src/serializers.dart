@@ -80,6 +80,7 @@ import 'package:api/src/model/mobile_wallet_response_dto.dart';
 import 'package:api/src/model/offer.dart';
 import 'package:api/src/model/order.dart';
 import 'package:api/src/model/order_dispatch.dart';
+import 'package:api/src/model/order_fee_estimate_dto.dart';
 import 'package:api/src/model/order_item.dart';
 import 'package:api/src/model/order_item_option.dart';
 import 'package:api/src/model/order_item_update_dto.dart';
@@ -87,6 +88,7 @@ import 'package:api/src/model/order_response_dto.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:api/src/model/order_status_event.dart';
 import 'package:api/src/model/order_type.dart';
+import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
 import 'package:api/src/model/orders_controller_place_order200_response.dart';
 import 'package:api/src/model/paginated_reviews_response_dto.dart';
 import 'package:api/src/model/pagination_meta_dto.dart';
@@ -243,6 +245,7 @@ part 'serializers.g.dart';
   Offer,
   Order,
   OrderDispatch,
+  OrderFeeEstimateDto,
   OrderItem,
   OrderItemOption,
   OrderItemUpdateDto,
@@ -250,6 +253,7 @@ part 'serializers.g.dart';
   OrderStatus,
   OrderStatusEvent,
   OrderType,
+  OrdersControllerEstimateCustomOrder200Response,
   OrdersControllerPlaceOrder200Response,
   PaginatedReviewsResponseDto,
   PaginationMetaDto,

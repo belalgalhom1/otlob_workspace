@@ -106,6 +106,38 @@ export class PlaceOrderDto {
   coinsToUse?: number;
 }
 
+export class OrderFeeEstimateDto {
+  @ApiProperty({ description: 'Vendor branch to delivery distance in km' })
+  distanceKm!: number;
+
+  @ApiProperty()
+  deliveryFee!: number;
+
+  @ApiProperty()
+  serviceFee!: number;
+
+  @ApiProperty()
+  driverBonusFee!: number;
+
+  @ApiProperty()
+  tax!: number;
+
+  @ApiProperty()
+  coinsUsed!: number;
+
+  @ApiProperty()
+  discount!: number;
+
+  @ApiProperty()
+  coinsEarned!: number;
+
+  @ApiProperty()
+  grandTotal!: number;
+
+  @ApiProperty()
+  upfrontAmount!: number;
+}
+
 export class PlaceCustomOrderDto {
   @ApiProperty({ enum: [OrderType.CUSTOM_DELIVERY, OrderType.RIDE] })
   @IsEnum(OrderType)

@@ -8,6 +8,7 @@ import 'package:api/api.dart';
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**variantId** | **String** | Optional variant ID | [optional] 
 **originalPrice** | **num** |  | [optional] 
 **offerPrice** | **num** |  | [optional] 
 **isActive** | **bool** |  | [optional] 

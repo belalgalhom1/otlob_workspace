@@ -27,7 +27,6 @@ export const ORDER_JOBS = {
   DISPATCH_EXPIRE: 'order.dispatch_expire',
   SETTLE: 'order.settle',
   DELIVERY_WATCHDOG: 'order.delivery_watchdog',
-  CUSTOMER_APPROVAL_TIMEOUT: 'order.customer_approval_timeout',
 } as const;
 
 export const CRON_JOBS = {

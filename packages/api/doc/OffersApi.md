@@ -58,7 +58,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **offersControllerFindAll**
-> ApiControllerRoot200Response offersControllerFindAll()
+> ApiControllerRoot200Response offersControllerFindAll(vendorId)
 
 Get all offers (Admin)
 
@@ -67,9 +67,10 @@ Get all offers (Admin)
 import 'package:api/api.dart';
 
 final api = Api().getOffersApi();
+final String vendorId = vendorId_example; // String | 
 
 try {
-    final response = api.offersControllerFindAll();
+    final response = api.offersControllerFindAll(vendorId);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling OffersApi->offersControllerFindAll: $e\n');
@@ -77,7 +78,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **vendorId** | **String**|  | [optional] 
 
 ### Return type
 

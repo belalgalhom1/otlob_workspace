@@ -11,6 +11,7 @@ part 'update_offer_dto.g.dart';
 /// UpdateOfferDto
 ///
 /// Properties:
+/// * [variantId] - Optional variant ID
 /// * [originalPrice] 
 /// * [offerPrice] 
 /// * [isActive] 
@@ -19,6 +20,7 @@ part 'update_offer_dto.g.dart';
 /// * [endDate] 
 @BuiltValue()
 abstract class UpdateOfferDto implements Built<UpdateOfferDto, UpdateOfferDtoBuilder> {
+  /// Optional variant ID
   @BuiltValueField(wireName: r'variantId')
   String? get variantId;
 

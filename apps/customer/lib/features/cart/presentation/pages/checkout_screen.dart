@@ -24,12 +24,72 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _selectedPayment = 'CASH_ON_DELIVERY';
   bool _isProcessing = false;
   bool _useCoins = false;
+  bool _isEstimating = false;
+  Map<String, dynamic>? _estimate;
+  String? _lastEstimateKey;
   final TextEditingController _notesController = TextEditingController();
 
   @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchEstimate() async {
+    if (_isEstimating) return;
+    final vendorId = widget.vendorId;
+    if (vendorId == null) return;
+
+    final selectedAddress = ref.read(activeDeliveryAddressProvider);
+    if (selectedAddress == null) return;
+
+    final locationData = selectedAddress['location'];
+    List<double> coords = [];
+    if (locationData is List) {
+      coords = locationData.map((e) => (e as num).toDouble()).toList();
+    } else if (locationData is Map && locationData['coordinates'] is List) {
+      final coordinatesList = locationData['coordinates'] as List<dynamic>;
+      coords = coordinatesList.map((e) => (e as num).toDouble()).toList();
+    }
+    if (coords.length != 2) return;
+
+    final coinState = ref.read(coinHistoryProvider);
+    final settings = ref.read(platformSettingsProvider).value;
+    int? coinsToUse;
+    if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
+      final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
+      final subtotal = ref.read(cartProvider).getVendorSubtotal(widget.vendorId ?? '');
+      if (maxCoinDiscount > subtotal) {
+        coinsToUse = (subtotal / settings.coinValue).ceil();
+      } else {
+        coinsToUse = coinState.currentBalance;
+      }
+    }
+
+    final estimateKey = '$vendorId|${coords[0]},${coords[1]}|$_selectedPayment|${coinsToUse ?? 0}';
+    if (estimateKey == _lastEstimateKey) return;
+    _lastEstimateKey = estimateKey;
+
+    setState(() => _isEstimating = true);
+    try {
+      final result = await ref.read(ordersProvider.notifier).estimateOrder(
+        vendorId: vendorId,
+        paymentMethod: _selectedPayment,
+        address: selectedAddress['address'] ?? '',
+        location: coords,
+        coinsToUse: coinsToUse,
+      );
+      if (mounted) {
+        setState(() {
+          _estimate = result;
+          _isEstimating = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isEstimating = false);
+      }
+    }
   }
 
   void _placeOrder(AppStrings s, List<CartItem> vendorItems, int? coinsToUse, Map<String, dynamic>? selectedAddress) async {
@@ -172,28 +232,45 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final isBelowMinOrder = minOrder > 0 && subtotal < minOrder;
     final minOrderDiff = isBelowMinOrder ? (minOrder - subtotal) : 0.0;
 
-    // Delivery fee is dynamically determined upon driver match based on real distance
+    // Delivery fee is fixed to vendor→customer distance (server estimate at checkout)
     final total = subtotal;
     
     final coinState = ref.watch(coinHistoryProvider);
-    double coinDiscount = 0;
+    double localCoinDiscount = 0;
     int? coinsToUse;
 
     if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
       final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
       if (maxCoinDiscount > total) {
         // Cap — only use as many coins as needed to cover the total
-        coinDiscount = total;
+        localCoinDiscount = total;
         coinsToUse = (total / settings.coinValue).ceil();
       } else {
-        coinDiscount = maxCoinDiscount;
+        localCoinDiscount = maxCoinDiscount;
         coinsToUse = coinState.currentBalance;
       }
     }
     
-    final finalTotal = total - coinDiscount;
-
     final selectedAddress = ref.watch(activeDeliveryAddressProvider);
+
+    if (selectedAddress != null && !_isEstimating) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fetchEstimate();
+      });
+    }
+
+    final est = _estimate;
+    final deliveryFee = (est != null && est['deliveryFee'] != null) ? (est['deliveryFee'] as num).toDouble() : 0.0;
+    final serviceFee = (est != null && est['serviceFee'] != null) ? (est['serviceFee'] as num).toDouble() : 0.0;
+    final driverBonusFee = (est != null && est['driverBonusFee'] != null) ? (est['driverBonusFee'] as num).toDouble() : 0.0;
+    final tax = (est != null && est['tax'] != null) ? (est['tax'] as num).toDouble() : 0.0;
+    final hasEstimate = est != null;
+    final estDiscount = hasEstimate ? ((est['discount'] as num?)?.toDouble() ?? 0.0) : 0.0;
+    final coinDiscount = hasEstimate ? estDiscount : localCoinDiscount;
+    final totalWithFees = subtotal + deliveryFee + serviceFee + driverBonusFee + tax;
+    final finalTotal = hasEstimate
+        ? ((est['grandTotal'] as num?)?.toDouble() ?? totalWithFees)
+        : totalWithFees - coinDiscount;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -354,30 +431,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal',
                       '${subtotal.toStringAsFixed(0)} ${s.egp}'),
                   const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        s.deliveryFee,
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          s.isArabic ? 'تحدد بعد قبول الكابتن' : 'Determined after driver match',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _priceRow(
+                      s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
+                      hasEstimate ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}' : (_isEstimating ? '...' : '--')),
+                  if (serviceFee > 0) ...[
+                    const SizedBox(height: 6),
+                    _priceRow(
+                        s.isArabic ? 'رسوم الخدمة' : 'Service Fee',
+                        '${serviceFee.toStringAsFixed(0)} ${s.egp}'),
+                  ],
+                  if (driverBonusFee > 0) ...[
+                    const SizedBox(height: 6),
+                    _priceRow(
+                        s.isArabic ? 'عمولة الكابتن' : 'Driver Bonus',
+                        '${driverBonusFee.toStringAsFixed(0)} ${s.egp}'),
+                  ],
+                  if (tax > 0) ...[
+                    const SizedBox(height: 6),
+                    _priceRow(
+                        s.isArabic ? 'الضرائب' : 'Tax',
+                        '${tax.toStringAsFixed(0)} ${s.egp}'),
+                  ],
                   
                   if (coinState.currentBalance > 0 && settings != null && coinState.currentBalance >= settings.minCoinsToUse) ...[
                     const SizedBox(height: 8),
@@ -448,14 +522,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal',
+                            s.isArabic ? 'المجموع الإجمالي' : 'Total',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
                           Text(
-                            s.isArabic ? '(غير شامل التوصيل)' : '(Excluding delivery)',
+                            s.isArabic ? '(شامل جميع الرسوم)' : '(Including all fees)',
                             style: TextStyle(
                               fontSize: 11,
                               color: isDark ? Colors.white38 : Colors.grey.shade600,
@@ -509,8 +583,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             const SizedBox(height: 4),
                             Text(
                               s.isArabic
-                                  ? 'تُحسب الرسوم بدقة فور قبول الكابتن للطلب بناءً على مسافته الحقيقية، وتظهر لك شاشة لمراجعتها وتأكيدها.'
-                                  : 'The fee is accurately calculated when a driver accepts based on their actual distance, and you will review & approve it.',
+                                  ? 'تُحسب رسوم التوصيل بناءً على المسافة بين الفرع والموقع المحدد لديك وتُعرض أعلاه. الرسوم نهائية ولن تتغير بعد تأكيد الطلب.'
+                                  : 'Delivery fee is calculated based on the distance between the vendor branch and your selected address, and is shown above. Fees are final and will not change after placing the order.',
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.4,
@@ -539,7 +613,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     child: Text(
                         isBelowMinOrder
                             ? (s.isArabic ? 'المبلغ أقل من الحد الأدنى للطلب (${minOrder.toStringAsFixed(0)} ${s.egp})' : 'Below Min Order Amount (${minOrder.toStringAsFixed(0)} ${s.egp})')
-                            : '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp} + ${s.isArabic ? 'التوصيل' : 'Delivery'})',
+                            : '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp})',
                         style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

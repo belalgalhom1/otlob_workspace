@@ -8,7 +8,6 @@ import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../../features/notifications/notifications.service';
 import { DispatchService } from '../../features/dispatch/dispatch.service';
 import { StatisticsService } from '../../features/statistics/statistics.service';
-import { PlatformSettingsService } from '../../features/platform-settings/platform-settings.service';
 import { ConversationsService } from '../../features/chat/conversations.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import {
@@ -44,7 +43,6 @@ export class OrderListener {
     private readonly notificationsService: NotificationsService,
     private readonly dispatchService: DispatchService,
     private readonly statisticsService: StatisticsService,
-    private readonly platformSettings: PlatformSettingsService,
     private readonly conversationsService: ConversationsService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
@@ -228,29 +226,10 @@ export class OrderListener {
       );
     }
 
-    // Manage Customer Approval Timeout
-    if (event.newStatus === OrderStatus.PENDING_CUSTOMER_APPROVAL) {
-      const settings = await this.platformSettings.getSettings();
-      const timeoutMins = Number(settings.customerApprovalTimeoutMins) || 5;
-      await this.ordersQueue.add(
-        ORDER_JOBS.CUSTOMER_APPROVAL_TIMEOUT,
-        { orderId: event.orderId, orderNumber: event.orderNumber },
-        { delay: timeoutMins * 60 * 1000, jobId: `approval-timeout-${event.orderId}` },
-      );
-    } else if (
-      event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-      event.newStatus === OrderStatus.PENDING_PAYMENT ||
-      event.newStatus === OrderStatus.CANCELLED
-    ) {
-      // Remove the timeout if it was approved or cancelled
-      await this.ordersQueue.remove(`approval-timeout-${event.orderId}`).catch(() => {});
-    }
-
     // Assign driver to chat if they just took the order
     if (
       event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-      event.newStatus === OrderStatus.PENDING_PAYMENT ||
-      event.newStatus === OrderStatus.PENDING_CUSTOMER_APPROVAL
+      event.newStatus === OrderStatus.PENDING_PAYMENT
     ) {
       const order = await this.prisma.order.findUnique({
         where: { id: event.orderId },
@@ -301,7 +280,6 @@ export class OrderListener {
     if (event.driverUserId && event.driverId) {
       if (
         event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-        event.newStatus === OrderStatus.PENDING_CUSTOMER_APPROVAL ||
         event.newStatus === OrderStatus.PENDING_PAYMENT ||
         event.newStatus === OrderStatus.PREPARING ||
         event.newStatus === OrderStatus.READY_FOR_PICKUP ||
@@ -526,10 +504,6 @@ export class OrderListener {
       [OrderStatus.ACCEPTED]: {
         en: 'Your order was accepted!',
         ar: 'تم قبول طلبك!',
-      },
-      [OrderStatus.PENDING_CUSTOMER_APPROVAL]: {
-        en: 'Driver found! Please approve the exact delivery fee.',
-        ar: 'تم العثور على سائق! يرجى الموافقة على رسوم التوصيل النهائية.',
       },
       [OrderStatus.PREPARING]: {
         en: 'Your order is being prepared',

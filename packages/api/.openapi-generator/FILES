@@ -81,6 +81,7 @@ doc/Offer.md
 doc/OffersApi.md
 doc/Order.md
 doc/OrderDispatch.md
+doc/OrderFeeEstimateDto.md
 doc/OrderItem.md
 doc/OrderItemOption.md
 doc/OrderItemUpdateDto.md
@@ -89,6 +90,7 @@ doc/OrderStatus.md
 doc/OrderStatusEvent.md
 doc/OrderType.md
 doc/OrdersApi.md
+doc/OrdersControllerEstimateCustomOrder200Response.md
 doc/OrdersControllerPlaceOrder200Response.md
 doc/PaginatedReviewsResponseDto.md
 doc/PaginationMetaDto.md
@@ -294,6 +296,7 @@ lib/src/model/mobile_wallet_response_dto.dart
 lib/src/model/offer.dart
 lib/src/model/order.dart
 lib/src/model/order_dispatch.dart
+lib/src/model/order_fee_estimate_dto.dart
 lib/src/model/order_item.dart
 lib/src/model/order_item_option.dart
 lib/src/model/order_item_update_dto.dart
@@ -301,6 +304,7 @@ lib/src/model/order_response_dto.dart
 lib/src/model/order_status.dart
 lib/src/model/order_status_event.dart
 lib/src/model/order_type.dart
+lib/src/model/orders_controller_estimate_custom_order200_response.dart
 lib/src/model/orders_controller_place_order200_response.dart
 lib/src/model/paginated_reviews_response_dto.dart
 lib/src/model/pagination_meta_dto.dart
@@ -389,20 +393,3 @@ lib/src/model/wallet_type.dart
 lib/src/model/zone.dart
 lib/src/serializers.dart
 pubspec.yaml
-test/api_controller_root200_response_test.dart
-test/audit_log_response_dto_test.dart
-test/driver_wallet_transaction_response_dto_test.dart
-test/mobile_wallet_response_dto_test.dart
-test/order_response_dto_test.dart
-test/orders_controller_place_order200_response_test.dart
-test/product_option_group_response_dto_test.dart
-test/product_option_response_dto_test.dart
-test/product_response_dto_test.dart
-test/product_variant_response_dto_test.dart
-test/products_controller_create200_response_test.dart
-test/products_controller_update_option200_response_test.dart
-test/products_controller_update_option_group200_response_test.dart
-test/products_controller_update_variant200_response_test.dart
-test/vendor_wallet_transaction_response_dto_test.dart
-test/wallet_controller_process_driver_transaction200_response_test.dart
-test/wallet_top_up_request_response_dto_test.dart

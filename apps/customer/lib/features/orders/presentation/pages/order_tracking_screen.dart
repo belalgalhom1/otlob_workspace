@@ -11,10 +11,8 @@ import '../../../../core/services/token_service.dart';
 import 'dart:async';
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
-import '../../../../core/providers/platform_settings_provider.dart';
 import 'package:data/providers.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
-import '../widgets/customer_approval_bottom_sheet.dart';
 
 class _TrackingLifecycleObserver with WidgetsBindingObserver {
   final Future<void> Function() onResume;
@@ -51,9 +49,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   LatLng? _initialMapCenter;
   String _orderStatus = 'LOOKING_FOR_DRIVER';
   Map<String, dynamic>? _orderDetails;
-  DateTime? _orderUpdatedAt;
-  Timer? _countdownTimer;
-  Duration _timeRemaining = Duration.zero;
   StreamSubscription<dynamic>? _statusSub;
   StreamSubscription<dynamic>? _driverLocSub;
   _TrackingLifecycleObserver? _lifecycleObserver;
@@ -107,8 +102,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           }
         }
       });
-      if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' ||
-          _orderStatus == 'DRIVER_ASSIGNED' ||
+      if (_orderStatus == 'DRIVER_ASSIGNED' ||
           _orderStatus == 'PENDING_PAYMENT') {
         _fetchOrderDetails();
       }
@@ -127,8 +121,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               _orderStatus =
                   data['newStatus'] ?? data['status'] ?? _orderStatus;
             });
-            if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL' ||
-                _orderStatus == 'DRIVER_ASSIGNED' ||
+            if (_orderStatus == 'DRIVER_ASSIGNED' ||
                 _orderStatus == 'PENDING_PAYMENT') {
               _fetchOrderDetails();
             }
@@ -166,7 +159,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     _statusSub?.cancel();
     _driverLocSub?.cancel();
     _lifecycleObserver?.dispose();
-    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -177,43 +169,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     if (mounted && order != null) {
       setState(() {
         _orderDetails = order;
-        _orderUpdatedAt = DateTime.tryParse(
-          order['updatedAt']?.toString() ?? '',
-        );
       });
-      if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL') {
-        _startTimer();
-      }
     }
-  }
-
-  void _startTimer() {
-    _countdownTimer?.cancel();
-    if (_orderUpdatedAt == null) return;
-
-    final settings = ref.read(platformSettingsProvider).value;
-    final timeoutMins = settings?.customerApprovalTimeoutMins ?? 5;
-
-    final expiryTime = _orderUpdatedAt!.add(Duration(minutes: timeoutMins));
-
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      final now = DateTime.now();
-      if (now.isAfter(expiryTime)) {
-        timer.cancel();
-        setState(() {
-          _timeRemaining = Duration.zero;
-        });
-      } else {
-        setState(() {
-          _timeRemaining = expiryTime.difference(now);
-        });
-      }
-    });
   }
 
   String _getDisplayStatus(String rawStatus, bool isAr) {
@@ -240,8 +197,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         return isAr ? 'تم التوصيل' : 'Delivered';
       case 'CANCELLED':
         return isAr ? 'تم الإلغاء' : 'Cancelled';
-      case 'PENDING_CUSTOMER_APPROVAL':
-        return isAr ? 'بانتظار موافقتك' : 'Pending Your Approval';
       case 'DRIVER_ASSIGNED':
         return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
       case 'PENDING_PAYMENT':
@@ -499,39 +454,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       ),
                     ),
                   ),
-                  if (_orderStatus == 'PENDING_CUSTOMER_APPROVAL') ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (context) => CustomerApprovalBottomSheet(
-                              orderId: widget.orderId,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.fact_check_rounded, size: 20),
-                        label: Text(
-                          s.isArabic
-                              ? 'مراجعة رسوم التوصيل'
-                              : 'Review Delivery Fee',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                   if (_orderStatus == 'PENDING_PAYMENT') ...[
                     const SizedBox(height: 12),
                     Container(

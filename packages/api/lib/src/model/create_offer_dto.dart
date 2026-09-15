@@ -12,6 +12,7 @@ part 'create_offer_dto.g.dart';
 ///
 /// Properties:
 /// * [productId] 
+/// * [variantId] - Optional variant ID. If omitted, applies to product directly or all variants.
 /// * [vendorId] 
 /// * [originalPrice] 
 /// * [offerPrice] 
@@ -23,6 +24,7 @@ abstract class CreateOfferDto implements Built<CreateOfferDto, CreateOfferDtoBui
   @BuiltValueField(wireName: r'productId')
   String get productId;
 
+  /// Optional variant ID. If omitted, applies to product directly or all variants.
   @BuiltValueField(wireName: r'variantId')
   String? get variantId;
 

@@ -456,9 +456,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final status = order['status']?.toString() ?? 'PENDING';
     final driver = order['driver'] ?? {};
     final driverName = driver['name']?.toString() ?? '';
-    final hasDriver = driverName.isNotEmpty || order['driverId'] != null;
     final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
-    final areFeesFinalized = hasDriver && !isCancelled && status != 'DRIVER_ASSIGNED' && status != 'PENDING_CUSTOMER_APPROVAL';
+    final areFeesFinalized = !isCancelled;
     final orderNumber = order['orderNumber']?.toString() ?? 'N/A';
     
     final grandTotal = double.tryParse(
@@ -1284,11 +1283,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Widget _buildPricingBreakdown(dynamic order, bool isArabic) {
     final status = order['status'] as String? ?? 'PENDING';
-    final driver = order['driver'];
-    final driverName = (driver is Map) ? (driver['name']?.toString() ?? '') : '';
-    final hasDriver = driverName.isNotEmpty || order['driverId'] != null;
     final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
-    final areFeesFinalized = hasDriver && !isCancelled && status != 'DRIVER_ASSIGNED' && status != 'PENDING_CUSTOMER_APPROVAL';
+    final areFeesFinalized = !isCancelled;
 
     final subtotal =
         double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
@@ -1449,11 +1445,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         label = isArabic ? 'جديد' : 'New';
         icon = LucideIcons.clock;
         break;
-      case 'PENDING_CUSTOMER_APPROVAL':
-        color = Colors.orange;
-        label = isArabic ? 'بانتظار موافقة العميل' : 'Pending Approval';
-        icon = LucideIcons.clock;
-        break;
       case 'DRIVER_ASSIGNED':
         color = Colors.orange;
         label = isArabic ? 'بانتظار موافقة العميل' : 'Pending Approval';
@@ -1572,10 +1563,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER') {
       // Disabled: must wait until a driver accepts the order.
       mainButtonText = isArabic ? 'بانتظار السائق' : 'Waiting for Driver';
-      icon = LucideIcons.clock;
-    } else if (status == 'PENDING_CUSTOMER_APPROVAL') {
-      // Disabled: must wait until the customer approves the final fee.
-      mainButtonText = isArabic ? 'بانتظار موافقة العميل' : 'Waiting Customer Approval';
       icon = LucideIcons.clock;
     } else if (status == 'PREPARING') {
       mainButtonText = isArabic ? 'تأكيد جاهزية الطلب' : 'Mark as Ready';

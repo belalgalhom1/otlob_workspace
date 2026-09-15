@@ -6,7 +6,6 @@ import '../services/socket_service.dart';
 import '../services/navigation_service.dart';
 import '../services/token_service.dart';
 import '../../features/auth/presentation/providers/auth_controller.dart';
-import '../../features/orders/presentation/widgets/customer_approval_bottom_sheet.dart';
 import '../../features/orders/presentation/providers/orders_provider.dart';
 
 part 'global_order_listener.g.dart';
@@ -32,7 +31,6 @@ class _OrdersLifecycleObserver with WidgetsBindingObserver {
 
 @Riverpod(keepAlive: true)
 class GlobalOrderListener extends _$GlobalOrderListener {
-  String? _lastShownOrderId;
   StreamSubscription<dynamic>? _pushSub;
   StreamSubscription<dynamic>? _openedAppSub;
   StreamSubscription<dynamic>? _statusSub;
@@ -53,7 +51,6 @@ class GlobalOrderListener extends _$GlobalOrderListener {
   }
 
   void _disconnect() {
-    _lastShownOrderId = null;
     _pushSub?.cancel();
     _pushSub = null;
     _openedAppSub?.cancel();
@@ -99,7 +96,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
       if (message != null) _handlePushOpened(message);
     });
 
-    // --- App lifecycle: refresh + re-show approval if needed ---
+    // --- App lifecycle: refresh on resume ---
     _lifecycleObserver?.dispose();
     _lifecycleObserver = _OrdersLifecycleObserver(onResume: _onResume);
   }
@@ -108,24 +105,13 @@ class GlobalOrderListener extends _$GlobalOrderListener {
   Future<void> _onResume() async {
     final orders = ref.read(ordersProvider.notifier);
     await orders.refresh();
-    _scanForPendingApproval();
-  }
-
-  void _scanForPendingApproval() {
-    final state = ref.read(ordersProvider);
-    for (final o in state.activeOrders) {
-      if (o['status'] == 'PENDING_CUSTOMER_APPROVAL') {
-        _showApprovalSheet(o['id'].toString());
-        return;
-      }
-    }
   }
 
   void _handlePushOpened(dynamic message) {
     final data = message is Map ? message : (message?.data as Map?);
     if (data == null || data['orderId'] == null) return;
 
-    // Update the list / maybe show the approval sheet.
+    // Update the list instantly, then navigate to tracking.
     _handleOrderStatusUpdate(data);
 
     ref.read(navigationServiceProvider).go('/order-tracking/${data['orderId']}');
@@ -152,32 +138,5 @@ class GlobalOrderListener extends _$GlobalOrderListener {
       orders.updateOrderStatusFast(orderId, status);
     }
     orders.refresh();
-
-    if (status == 'PENDING_CUSTOMER_APPROVAL') {
-      _showApprovalSheet(orderId);
-    }
-  }
-
-  void _showApprovalSheet(String orderId) {
-    if (orderId == _lastShownOrderId) return;
-    _lastShownOrderId = orderId;
-
-    final navigation = ref.read(navigationServiceProvider);
-    final context = navigation.navigatorKey.currentContext;
-
-    if (context != null) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        isDismissible: false,
-        enableDrag: false,
-        backgroundColor: Colors.transparent,
-        builder: (context) => CustomerApprovalBottomSheet(
-          orderId: orderId,
-        ),
-      ).then((_) {
-        _lastShownOrderId = null;
-      });
-    }
   }
 }

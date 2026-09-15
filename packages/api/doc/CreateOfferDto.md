@@ -9,6 +9,7 @@ import 'package:api/api.dart';
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **productId** | **String** |  | 
+**variantId** | **String** | Optional variant ID. If omitted, applies to product directly or all variants. | [optional] 
 **vendorId** | **String** |  | 
 **originalPrice** | **num** |  | 
 **offerPrice** | **num** |  | 

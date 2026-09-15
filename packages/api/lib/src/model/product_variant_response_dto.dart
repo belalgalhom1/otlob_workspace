@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:api/src/model/offer.dart';
 import 'package:api/src/model/cart_item.dart';
 import 'package:api/src/model/order_item.dart';
 import 'package:built_collection/built_collection.dart';
@@ -29,6 +30,7 @@ part 'product_variant_response_dto.g.dart';
 /// * [cartItems] 
 /// * [orderItems] 
 /// * [optionGroups] 
+/// * [offers] 
 /// * [product] 
 @BuiltValue()
 abstract class ProductVariantResponseDto implements Built<ProductVariantResponseDto, ProductVariantResponseDtoBuilder> {
@@ -70,6 +72,9 @@ abstract class ProductVariantResponseDto implements Built<ProductVariantResponse
 
   @BuiltValueField(wireName: r'optionGroups')
   BuiltList<ProductOptionGroup>? get optionGroups;
+
+  @BuiltValueField(wireName: r'offers')
+  BuiltList<Offer>? get offers;
 
   @BuiltValueField(wireName: r'product')
   Product? get product;
@@ -174,6 +179,13 @@ class _$ProductVariantResponseDtoSerializer implements PrimitiveSerializer<Produ
       yield serializers.serialize(
         object.optionGroups,
         specifiedType: const FullType(BuiltList, [FullType(ProductOptionGroup)]),
+      );
+    }
+    if (object.offers != null) {
+      yield r'offers';
+      yield serializers.serialize(
+        object.offers,
+        specifiedType: const FullType(BuiltList, [FullType(Offer)]),
       );
     }
     if (object.product != null) {
@@ -296,6 +308,13 @@ class _$ProductVariantResponseDtoSerializer implements PrimitiveSerializer<Produ
             specifiedType: const FullType(BuiltList, [FullType(ProductOptionGroup)]),
           ) as BuiltList<ProductOptionGroup>;
           result.optionGroups.replace(valueDes);
+          break;
+        case r'offers':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(Offer)]),
+          ) as BuiltList<Offer>;
+          result.offers.replace(valueDes);
           break;
         case r'product':
           final valueDes = serializers.deserialize(
