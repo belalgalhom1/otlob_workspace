@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
+import 'package:driver/core/services/location_service.dart';
 import 'package:core/core.dart';
 
 part 'auth_provider.g.dart';
@@ -106,6 +108,17 @@ class Auth extends _$Auth {
     if (_logoutInProgress) return;
     _logoutInProgress = true;
     try {
+      // Stop background services before tearing down the session so stale
+      // location pings and buffered socket events are not sent under a
+      // revoked / expired token. Each is isolated so a failure to stop
+      // one never skips the other.
+      try {
+        await ref.read(locationServiceProvider).stopTracking();
+      } catch (e) {
+        debugPrint('Failed to stop location tracking on logout: $e');
+      }
+      ref.read(coreSocketServiceProvider).disconnect();
+
       final repository = ref.read(sharedAuthRepositoryProvider);
 
       // No session: nothing to clean up or revoke. Running push cleanup here

@@ -308,6 +308,19 @@ export class OrderListener {
   async handleOrderCancelled(event: OrderCancelledEvent) {
     this.logger.log(`Order cancelled: ${event.orderNumber} — ${event.reason}`);
 
+    // Live Tracking Cache: stop broadcasting this driver's location to the
+    // cancelled order's customer. The driver may still be ONLINE for new jobs,
+    // so we only clear the active-order mapping, not the driver's geo position.
+    if (event.driverId) {
+      await this.redis
+        .del(`otlobegy:driver-active-order:${event.driverId}`)
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to clear active-order cache for driver ${event.driverId}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+    }
+
     const socketPayload = {
       orderId: event.orderId,
       orderNumber: event.orderNumber,

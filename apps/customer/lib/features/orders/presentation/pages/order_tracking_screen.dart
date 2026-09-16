@@ -47,11 +47,16 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   final MapController _mapController = MapController();
   LatLng? _driverLocation;
   LatLng? _initialMapCenter;
+  LatLng? _deliveryLocation;
   String _orderStatus = 'LOOKING_FOR_DRIVER';
   Map<String, dynamic>? _orderDetails;
   StreamSubscription<dynamic>? _statusSub;
   StreamSubscription<dynamic>? _driverLocSub;
   _TrackingLifecycleObserver? _lifecycleObserver;
+  void Function(dynamic)? _onConnectHandler;
+  bool _followDriver = true;
+  Timer? _driverRenderTimer;
+  LatLng? _pendingDriverLocation;
 
   @override
   void initState() {
@@ -95,9 +100,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           final lat = double.tryParse(order['deliveryLat'].toString());
           final lng = double.tryParse(order['deliveryLng'].toString());
           if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
-            _initialMapCenter = LatLng(lat, lng);
-            if (_driverLocation == null) {
-              _mapController.move(_initialMapCenter!, 14.0);
+            _deliveryLocation = LatLng(lat, lng);
+            if (_initialMapCenter == null) {
+              _initialMapCenter = LatLng(lat, lng);
+              if (_driverLocation == null) {
+                _mapController.move(_initialMapCenter!, 14.0);
+              }
             }
           }
         }
@@ -111,6 +119,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     final token = await tokenService.getAccessToken();
     if (token != null) {
       await socket.initSocket(token);
+
+      // Seed the driver marker immediately: request the last known location
+      // (live Redis, or last persisted) for drivers that are stationary and
+      // therefore not emitting position updates.
+      _requestDriverLocation(socket);
+      _onConnectHandler = (_) => _requestDriverLocation(socket);
+      socket.on('connect', _onConnectHandler!);
 
       // onEvent uses broadcast streams that survive socket reconnects/re-auth.
       _statusSub?.cancel();
@@ -139,10 +154,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               lat.isFinite &&
               lng.isFinite &&
               mounted) {
-            setState(() {
-              _driverLocation = LatLng(lat, lng);
-            });
-            _mapController.move(_driverLocation!, 15.0);
+            _queueDriverLocation(LatLng(lat, lng));
           }
         }
       });
@@ -158,6 +170,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   void dispose() {
     _statusSub?.cancel();
     _driverLocSub?.cancel();
+    _driverRenderTimer?.cancel();
+    if (_onConnectHandler != null) {
+      ref.read(socketServiceProvider).off('connect', _onConnectHandler!);
+    }
     _lifecycleObserver?.dispose();
     super.dispose();
   }
@@ -188,11 +204,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       case 'READY_FOR_PICKUP':
         return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
       case 'PICKED_UP':
-        return isAr ? 'تم الاستلام من المتجر' : 'Picked Up';
-      case 'ARRIVING':
-        return isAr ? 'الكابتن في الطريق' : 'Driver Arriving';
-      case 'IN_TRANSIT':
-        return isAr ? 'الطلب في الطريق' : 'In Transit';
+        return isAr ? 'الطلب في الطريق إليك' : 'On the Way';
       case 'DELIVERED':
         return isAr ? 'تم التوصيل' : 'Delivered';
       case 'CANCELLED':
@@ -214,10 +226,70 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     }
   }
 
-  String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+  // Status label shown in the header. During the PICKED_UP leg (which covers the
+  // whole drive to the customer, since the backend has no ARRIVING/IN_TRANSIT),
+  // the wording depends on how close the driver actually is: "On the Way" until
+  // ~1km, then "Arriving".
+  String _statusLabel(bool isAr) {
+    if (_orderStatus == 'PICKED_UP') {
+      final distance = _driverDistanceMeters();
+      if (distance != null && distance < 1000) {
+        return isAr ? 'الكابتن على وشك الوصول' : 'Driver is almost there';
+      }
+      return isAr ? 'الكابتن في الطريق إليك' : 'Driver is on the way';
+    }
+    return _getDisplayStatus(_orderStatus, isAr);
+  }
+
+  void _requestDriverLocation(SocketService socket) {
+    try {
+      socket.emit('driver.location.request', {'orderId': widget.orderId});
+    } catch (e) {
+      debugPrint('Failed to request driver location: $e');
+    }
+  }
+
+  // Coalesce bursts of location events into a single map update (latest wins)
+  // so the UI rebuilds at most ~3x/second no matter how fast the socket emits.
+  void _queueDriverLocation(LatLng point) {
+    _pendingDriverLocation = point;
+    _driverRenderTimer ??=
+        Timer(const Duration(milliseconds: 300), _applyDriverLocation);
+  }
+
+  void _applyDriverLocation() {
+    _driverRenderTimer = null;
+    final target = _pendingDriverLocation;
+    _pendingDriverLocation = null;
+    if (target == null || !mounted) return;
+
+    setState(() {
+      _driverLocation = target;
+    });
+    if (_followDriver) {
+      _mapController.move(target, 15.0);
+    }
+  }
+
+  void _toggleFollow() {
+    setState(() => _followDriver = !_followDriver);
+    if (_followDriver && _driverLocation != null) {
+      _mapController.move(_driverLocation!, 16.0);
+    }
+  }
+
+  double? _driverDistanceMeters() {
+    final from = _initialMapCenter ?? _deliveryLocation;
+    if (_driverLocation == null || from == null) return null;
+    return const Distance().as(LengthUnit.Meter, from, _driverLocation!);
+  }
+
+  String _distanceLabel(double meters) {
+    final s = AppStrings.of(context);
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)} ${s.isArabic ? 'م' : 'm'}';
+    }
+    return '${(meters / 1000).toStringAsFixed(1)} ${s.isArabic ? 'كم' : 'km'}';
   }
 
   @override
@@ -245,6 +317,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               options: MapOptions(
                 initialCenter: _driverLocation ?? _initialMapCenter!,
                 initialZoom: 14.0,
+                // Stop following the driver as soon as the user pans the map;
+                // the follow button re-centers and resumes.
+                onPositionChanged: (camera, hasGesture) {
+                  if (hasGesture && _followDriver && mounted) {
+                    setState(() => _followDriver = false);
+                  }
+                },
               ),
               children: [
                 TileLayer(
@@ -294,6 +373,20 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ],
             ),
           Positioned(
+            right: 16,
+            bottom: 140,
+            child: FloatingActionButton(
+              heroTag: 'track_follow_driver',
+              onPressed: _toggleFollow,
+              backgroundColor: _followDriver ? AppColors.primary : Colors.white,
+              foregroundColor:
+                  _followDriver ? Colors.white : AppColors.primary,
+              child: Icon(
+                _followDriver ? Icons.my_location : Icons.location_searching,
+              ),
+            ),
+          ),
+          Positioned(
             top: 16,
             left: 16,
             right: 16,
@@ -320,7 +413,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _getDisplayStatus(_orderStatus, s.isArabic),
+                    _statusLabel(s.isArabic),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -329,6 +422,22 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           : AppColors.primary,
                     ),
                   ),
+                  if (_driverDistanceMeters() != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.route, size: 16, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text(
+                          _distanceLabel(_driverDistanceMeters()!),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   if (_orderDetails != null &&
                       _orderDetails!['driver'] != null) ...[

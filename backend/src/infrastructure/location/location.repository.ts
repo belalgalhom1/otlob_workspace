@@ -94,6 +94,21 @@ export class LocationRepository {
    */
   async trackDriverLocation(driverId: string, lng: number, lat: number): Promise<void> {
     await this.redis.geoadd('otlobegy:driver-locations', lng, lat, driverId);
+    // Freshness signal: expires shortly after the driver stops broadcasting,
+    // letting consumers tell a live position apart from a stale geo member.
+    await this.redis.set(
+      `otlobegy:driver-location-ts:${driverId}`,
+      String(Date.now()),
+      30,
+    );
+  }
+
+  /**
+   * Whether the driver has broadcast a location within the freshness window.
+   */
+  async isDriverLocationFresh(driverId: string): Promise<boolean> {
+    const ts = await this.redis.get(`otlobegy:driver-location-ts:${driverId}`);
+    return ts !== null;
   }
 
   /**
@@ -108,6 +123,54 @@ export class LocationRepository {
    */
   async removeDriverLocation(driverId: string): Promise<void> {
     await this.redis.zrem('otlobegy:driver-locations', driverId);
+  }
+
+  /**
+   * Resolve the current location of the driver assigned to an order.
+   *
+   * Ownership is enforced against the requesting customer user id. Prefers the
+   * live Redis geo position and falls back to the driver's last persisted
+   * location when the driver has never broadcast (e.g. stationary since going
+   * online). Returns null when the order has no driver or the caller is not the
+   * order's customer.
+   */
+  async getOrderDriverLocation(
+    orderId: string,
+    customerUserId: string,
+  ): Promise<{ lng: number; lat: number } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        driverId: string | null;
+        customerUserId: string;
+        lastLng: number | null;
+        lastLat: number | null;
+      }>
+    >`
+      SELECT
+        o."driverId" AS "driverId",
+        c."userId" AS "customerUserId",
+        ST_X(d."lastLocation"::geometry) AS "lastLng",
+        ST_Y(d."lastLocation"::geometry) AS "lastLat"
+      FROM orders o
+      JOIN customers c ON c.id = o."customerId"
+      LEFT JOIN drivers d ON d.id = o."driverId"
+      WHERE o.id = ${orderId}
+      LIMIT 1
+    `;
+
+    const row = rows[0];
+    if (!row || row.customerUserId !== customerUserId || !row.driverId) {
+      return null;
+    }
+
+    const live = await this.getDriverLocation(row.driverId);
+    if (live && (await this.isDriverLocationFresh(row.driverId))) return live;
+
+    if (row.lastLng != null && row.lastLat != null) {
+      return { lng: row.lastLng, lat: row.lastLat };
+    }
+
+    return null;
   }
 
   /**

@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../providers/app_preferences_provider.dart';
+import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 
 part 'location_service.g.dart';
 
@@ -14,6 +15,7 @@ LocationService locationService(Ref ref) {
   final service = LocationService(ref);
   ref.onDispose(() {
     service.stopTracking();
+    service.dispose();
   });
   return service;
 }
@@ -21,10 +23,17 @@ LocationService locationService(Ref ref) {
 class LocationService {
   final Ref _ref;
   StreamSubscription<Position>? _positionStreamSubscription;
+  StreamSubscription<void>? _connectSub;
   bool _isTracking = false;
+  int _restartSeq = 0;
+  Position? _lastPosition;
+  Position? _lastEmitted;
+  DateTime? _lastEmitAt;
 
   LocationService(this._ref) {
     _listenToLocaleChanges();
+    _listenToSocketReconnect();
+    _listenToProfileStatus();
   }
 
   void _listenToLocaleChanges() {
@@ -32,6 +41,51 @@ class LocationService {
       if (previous?.locale.languageCode != next.locale.languageCode && _isTracking) {
         debugPrint('🌐 LocationService: App locale changed to ${next.locale.languageCode}, refreshing foreground notification...');
         _restartTracking();
+      }
+    });
+  }
+
+  void _listenToProfileStatus() {
+    _ref.listen(driverProfileProvider, (previous, next) {
+      if (!_isTracking) return;
+      final prevDelivery = _extractStatus(previous?.value) == 'ON_DELIVERY';
+      final nextDelivery = _extractStatus(next.value) == 'ON_DELIVERY';
+      if (prevDelivery != nextDelivery) {
+        debugPrint(
+          '📍 LocationService: Delivery state '
+          '(${prevDelivery ? 'delivering' : 'idle'} -> '
+          '${nextDelivery ? 'delivering' : 'idle'}), adapting GPS rate.',
+        );
+        _restartTracking();
+      }
+    });
+  }
+
+  String? _extractStatus(Object? profile) {
+    if (profile is Map) {
+      final data = profile['data'];
+      if (data is Map && data['status'] != null) {
+        return data['status']?.toString();
+      }
+      return profile['status']?.toString();
+    }
+    return null;
+  }
+
+  bool get _onDelivery =>
+      _extractStatus(_ref.read(driverProfileProvider).value) == 'ON_DELIVERY';
+
+  void _listenToSocketReconnect() {
+    _connectSub = _ref
+        .read(coreSocketServiceProvider)
+        .onConnect
+        .listen((_) {
+      if (_isTracking && _lastPosition != null) {
+        debugPrint('📍 LocationService: Socket reconnected, re-broadcasting latest position.');
+        // Bypass coalescing so the customer gets a fresh fix immediately.
+        _lastEmitted = _lastPosition;
+        _lastEmitAt = DateTime.now();
+        _emitPosition(_lastPosition!);
       }
     });
   }
@@ -78,6 +132,14 @@ class LocationService {
   }
 
   LocationSettings _getLocationSettings() {
+    // Adaptive sampling: faster fixes while actively delivering (a customer is
+    // watching), slower while idle-online to save battery.
+    final active = _onDelivery;
+    final interval = active
+        ? const Duration(seconds: 3)
+        : const Duration(seconds: 15);
+    final distanceMeters = active ? 5 : 15;
+
     if (defaultTargetPlatform == TargetPlatform.android) {
       // Prioritize driver app preferences, fallback to system locale
       final prefLocale = _ref.read(appPreferencesProvider).locale;
@@ -96,9 +158,9 @@ class LocationService {
 
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Emit every 10 meters
+        distanceFilter: distanceMeters,
         forceLocationManager: false,
-        intervalDuration: const Duration(seconds: 5),
+        intervalDuration: interval,
         foregroundNotificationConfig: ForegroundNotificationConfig(
           notificationTitle: notificationTitle,
           notificationText: notificationText,
@@ -112,7 +174,7 @@ class LocationService {
       return AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.automotiveNavigation,
-        distanceFilter: 10,
+        distanceFilter: distanceMeters,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
         allowBackgroundLocationUpdates: true,
@@ -120,7 +182,7 @@ class LocationService {
     } else {
       return const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
+        distanceFilter: 15,
       );
     }
   }
@@ -132,13 +194,22 @@ class LocationService {
     if (!hasPermission) return;
 
     _isTracking = true;
+    // Reset the coalescing baseline so the first fix of this session is always
+    // broadcast (and the customer's marker appears instantly).
+    _lastEmitted = null;
+    _lastEmitAt = null;
     await _startPositionStream(fetchInitial: true);
   }
 
   Future<void> _restartTracking() async {
     if (!_isTracking) return;
+    // Serialize restarts: rapid locale/status changes would otherwise start two
+    // GPS streams and leak a subscription (double emits, battery drain). Only
+    // the most recent restart request gets to create the new stream.
+    final seq = ++_restartSeq;
     await _positionStreamSubscription?.cancel();
     _positionStreamSubscription = null;
+    if (seq != _restartSeq) return;
     await _startPositionStream(fetchInitial: false);
   }
 
@@ -170,17 +241,52 @@ class LocationService {
     _positionStreamSubscription = null;
   }
 
+  void dispose() {
+    _connectSub?.cancel();
+    _connectSub = null;
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = null;
+    _lastPosition = null;
+  }
+
   void _broadcastLocation(Position position) {
-    final socketService = _ref.read(coreSocketServiceProvider);
-    
-    final payload = {
+    // Reject unreliable fixes so the customer never sees random jumps.
+    if (position.accuracy > 100) {
+      debugPrint('📍 LocationService: Dropping fix with accuracy ${position.accuracy}m');
+      return;
+    }
+    _lastPosition = position;
+
+    final now = DateTime.now();
+    final active = _onDelivery;
+    final minDistance = active ? 5.0 : 15.0;
+    final heartbeatSeconds = active ? 15 : 30;
+
+    // Coalesce: emit only when the driver actually moved far enough, or enough
+    // time has passed that the customer needs a fresh heartbeat.
+    final moved = _lastEmitted == null ||
+        Geolocator.distanceBetween(
+              _lastEmitted!.latitude,
+              _lastEmitted!.longitude,
+              position.latitude,
+              position.longitude,
+            ) >=
+            minDistance;
+    final heartbeat = _lastEmitAt == null ||
+        now.difference(_lastEmitAt!).inSeconds >= heartbeatSeconds;
+
+    if (!moved && !heartbeat) return;
+
+    _lastEmitted = position;
+    _lastEmitAt = now;
+    _emitPosition(position);
+  }
+
+  void _emitPosition(Position position) {
+    // Lean payload: only what the backend/customer actually consume.
+    _ref.read(coreSocketServiceProvider).emit(SocketEvent.driverLocationUpdate, {
       'location': [position.longitude, position.latitude],
-      'heading': position.heading,
-      'speed': position.speed,
-      'accuracy': position.accuracy,
       'timestamp': DateTime.now().toUtc().toIso8601String(),
-    };
-    
-    socketService.emit(SocketEvent.driverLocationUpdate, payload);
+    });
   }
 }

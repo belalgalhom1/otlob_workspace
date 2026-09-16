@@ -94,14 +94,71 @@ export class SocketGateway
 
 
   @SubscribeMessage('driver.location.update')
-  handleDriverLocation(client: Socket, payload: { location: [number, number] }) {
+  async handleDriverLocation(client: Socket, payload: { location?: unknown }) {
     const user = client.data.user as { sub: string; role: string } | undefined;
-    if (user?.role === 'DRIVER') {
-      this.eventEmitter.emit('ws.driver.location.update', {
-        userId: user.sub,
-        location: payload.location,
-      });
+    if (user?.role !== 'DRIVER') return;
+
+    const location = payload?.location;
+    if (!Array.isArray(location) || location.length !== 2) return;
+
+    const [lng, lat] = location as [unknown, unknown];
+    if (
+      typeof lng !== 'number' ||
+      typeof lat !== 'number' ||
+      !Number.isFinite(lng) ||
+      !Number.isFinite(lat) ||
+      lng < -180 ||
+      lng > 180 ||
+      lat < -90 ||
+      lat > 90
+    ) {
+      return;
     }
+
+    // Throttle to at most one update per second per socket to protect the
+    // Redis geo pool and downstream broadcast fan-out.
+    const now = Date.now();
+    const lastAt = (client.data.lastLocationAt as number | undefined) ?? 0;
+    if (now - lastAt < 1000) return;
+    client.data.lastLocationAt = now;
+
+    // Distributed guard against abusive/rogue clients that re-open sockets to
+    // bypass the per-socket throttle. The per-socket gate caps a healthy driver
+    // at ~1 update/s, so the window limit carries generous headroom (3+ sockets
+    // incl. reconnect overlaps) and never trips legitimate traffic, while still
+    // throttling reconnect-spamming clients.
+    const count = await this.redis.incrementWindow(
+      `ratelimit:driver-location:${user.sub}`,
+      10,
+    );
+    if (count > 30) return;
+
+    this.eventEmitter.emit('ws.driver.location.update', {
+      userId: user.sub,
+      location: [lng, lat],
+    });
+  }
+
+  @SubscribeMessage('driver.location.request')
+  handleDriverLocationRequest(client: Socket, payload: { orderId?: unknown }) {
+    const user = client.data.user as { sub: string; role: string } | undefined;
+    if (!user?.sub) return;
+
+    const orderId = payload?.orderId;
+    if (typeof orderId !== 'string' || orderId.length === 0) return;
+
+    // Bound on-demand lookups: each socket may ask at most once per second.
+    // Prevents reconnect storms / app reopenings from hammering the DB.
+    const now = Date.now();
+    const lastRequestAt =
+      (client.data.lastLocationRequestAt as number | undefined) ?? 0;
+    if (now - lastRequestAt < 1000) return;
+    client.data.lastLocationRequestAt = now;
+
+    this.eventEmitter.emit('ws.driver.location.request', {
+      userId: user.sub,
+      orderId,
+    });
   }
 
   handleConnection(client: Socket) {

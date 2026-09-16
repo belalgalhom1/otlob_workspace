@@ -98,22 +98,26 @@ class CoreSocketService with WidgetsBindingObserver {
     if (autoConnect) {
       _socket?.connect();
     }
-    
+
+    // Forward backend events into the typed broadcast controllers. Registered
+    // ONCE per socket instance: socket_io_client keeps listeners across
+    // automatic reconnects, so re-registering inside onConnect (as before)
+    // stacked a duplicate handler on every reconnect, doubling each event.
+    for (var event in SocketEvent.values) {
+      // Skip client-emitted events
+      if (event == SocketEvent.driverLocationUpdate) continue;
+
+      _socket?.on(event.eventName, (data) {
+        if (!_controllers[event]!.isClosed) {
+          _controllers[event]!.add(data);
+        }
+      });
+    }
+
     _socket?.onConnect((_) {
       debugPrint('✅ Core Socket connected');
       if (!_connectController.isClosed) {
         _connectController.add(null);
-      }
-      // Reattach listeners to stream controllers automatically
-      for (var event in SocketEvent.values) {
-        // Skip client-emitted events
-        if (event == SocketEvent.driverLocationUpdate) continue;
-        
-        _socket?.on(event.eventName, (data) {
-          if (!_controllers[event]!.isClosed) {
-            _controllers[event]!.add(data);
-          }
-        });
       }
     });
     

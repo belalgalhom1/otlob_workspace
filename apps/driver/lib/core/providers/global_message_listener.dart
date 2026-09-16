@@ -186,6 +186,19 @@ final globalMessageListenerProvider = Provider<void>((ref) {
       ref.invalidate(orderExecutionProvider);
       ref.invalidate(driverProfileProvider);
     } else if (newStatus.isNotEmpty) {
+      // Refresh the profile on delivery-bound statuses so LocationService can
+      // switch to the fast delivery GPS rate as soon as the driver is on the way,
+      // even when no other code refreshed the profile for this transition.
+      const deliveryStatuses = {
+        'DRIVER_ASSIGNED',
+        'PENDING_PAYMENT',
+        'PREPARING',
+        'READY_FOR_PICKUP',
+        'PICKED_UP',
+      };
+      if (deliveryStatuses.contains(newStatus)) {
+        ref.invalidate(driverProfileProvider);
+      }
       final orderExecution = ref.read(orderExecutionProvider);
       if (orderExecution.hasValue && orderExecution.value != null) {
         final orderId = orderExecution.value['id']?.toString();

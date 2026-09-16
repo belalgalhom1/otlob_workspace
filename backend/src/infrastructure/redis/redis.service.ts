@@ -113,6 +113,29 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Atomic fixed-window counter: INCR + EXPIRE-on-first-hit in one Lua call.
+   * Returns the number of hits in the current window (1 for the first).
+   */
+  async incrementWindow(key: string, ttlSeconds: number): Promise<number> {
+    const script = `
+      local c = redis.call('INCR', KEYS[1])
+      if c == 1 then
+        redis.call('EXPIRE', KEYS[1], ARGV[1])
+      end
+      return c
+    `;
+    try {
+      return (await this.client.eval(script, 1, key, ttlSeconds)) as number;
+    } catch (error) {
+      this.logger.error(
+        `Failed to INCR window for key "${key}"`,
+        (error as Error).stack,
+      );
+      return 0;
+    }
+  }
+
   async exists(...keys: string[]): Promise<boolean> {
     try {
       const count = await this.client.exists(...keys);
