@@ -2105,6 +2105,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get actionApprove => 'موافقة';
 
   @override
+  String get actionLocation => 'الموقع';
+
+  @override
+  String get driverLiveLocation => 'موقع مباشر';
+
+  @override
+  String get driverLastKnownLocation => 'آخر موقع معروف';
+
+  @override
+  String get driverNoLocation => 'لا يوجد موقع متاح';
+
+  @override
   String get driverStatusApproved => 'مقبول';
 
   @override

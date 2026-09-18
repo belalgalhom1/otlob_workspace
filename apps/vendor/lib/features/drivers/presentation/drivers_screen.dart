@@ -110,6 +110,45 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     }
   }
 
+  Future<void> _locateDriver(DriverProfile driver) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final result =
+          await ref
+              .read(adminDriversRepositoryProvider)
+              .getDriverLocation(driverId: driver.id);
+      final data = (result is Map) ? result : null;
+      final lat = (data?['latitude'] as num?)?.toDouble();
+      final lng = (data?['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null || !mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.driverNoLocation)),
+        );
+        return;
+      }
+      setState(() => _selectedDriver = driver);
+      _mapController.move(LatLng(lat, lng), 16);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            data?['isLive'] == true
+                ? l10n.driverLiveLocation
+                : l10n.driverLastKnownLocation,
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (err) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error: $err'), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
   Widget _buildFilters() {
     return Card(
       elevation: 0,
@@ -323,6 +362,11 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                   },
                                 ),
                                 if (_canManageDrivers) ...[
+                                  _buildActionButton(
+                                    icon: LucideIcons.mapPin,
+                                    label: AppLocalizations.of(context)!.actionLocation,
+                                    onPressed: () => _locateDriver(driver),
+                                  ),
                                   _buildActionButton(
                                     icon: LucideIcons.pencil,
                                     label: AppLocalizations.of(context)!.actionEdit,

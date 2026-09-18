@@ -231,6 +231,14 @@ export class DriversController {
   }
 
   @ApiStandardResponse()
+  @Get(':driverId/location')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({ summary: '[Admin] Get a driver current location' })
+  adminGetDriverLocation(@Param('driverId') driverId: string) {
+    return this.driversService.adminGetDriverLocation(driverId);
+  }
+
+  @ApiStandardResponse()
   @Post(':driverId/suspend')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions(Permission.MANAGE_DRIVERS)

@@ -768,6 +768,10 @@
   "actionEdit": "تعديل",
   "actionSuspend": "إيقاف",
   "actionApprove": "موافقة",
+  "actionLocation": "الموقع",
+  "driverLiveLocation": "موقع مباشر",
+  "driverLastKnownLocation": "آخر موقع معروف",
+  "driverNoLocation": "لا يوجد موقع متاح",
   "driverStatusApproved": "مقبول",
   "driverStatusPending": "معلق",
   "@assignOrderToDriver": {

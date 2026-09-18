@@ -425,12 +425,50 @@ export class DriversService {
   }
 
   async adminFindAll(dto: QueryDriversDto) {
-    return this.driversRepository.findAll({
+    const result = await this.driversRepository.findAll({
       status: dto.status,
       search: dto.search,
       page: dto.page ?? 1,
       limit: dto.limit ?? 20,
     });
+
+    const ids = (result.drivers as any[]).map((d) => d.id);
+    const [liveMap, persistedMap] = await Promise.all([
+      this.locationRepository.getLiveDriverLocations(ids),
+      this.locationRepository.getPersistedDriverLocations(ids),
+    ]);
+
+    return {
+      ...result,
+      drivers: (result.drivers as any[]).map((d) => {
+        const { lastLocation, ...rest } = d;
+        const loc = liveMap.get(d.id) ?? persistedMap.get(d.id) ?? null;
+        return {
+          ...rest,
+          location: loc ? [loc.lng, loc.lat] : null,
+          locationIsLive: liveMap.has(d.id),
+        };
+      }),
+    };
+  }
+
+  async adminGetDriverLocation(driverId: string) {
+    const driver = await this.driversRepository.findById(driverId);
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const [location, activeOrder] = await Promise.all([
+      this.locationRepository.getDriverLocationWithState(driverId),
+      this.locationRepository.getDriverActiveOrder(driverId),
+    ]);
+
+    return {
+      driverId: driver.id,
+      status: driver.status,
+      latitude: location?.lat ?? null,
+      longitude: location?.lng ?? null,
+      isLive: location?.isLive ?? false,
+      activeOrderId: activeOrder?.orderId ?? null,
+    };
   }
 
   async adminFindOne(driverId: string) {

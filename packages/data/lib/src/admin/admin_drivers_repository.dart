@@ -56,6 +56,12 @@ class AdminDriversRepository {
     return ResponseParser.parse(response);
   }
 
+  Future<dynamic> getDriverLocation({required String driverId}) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.get('/drivers/$driverId/location');
+    return ResponseParser.parse(response);
+  }
+
 
   Future<dynamic> driversAdminGetShifts({required String driverId}) async {
     final response = await _api.driversControllerAdminGetShifts(driverId: driverId);

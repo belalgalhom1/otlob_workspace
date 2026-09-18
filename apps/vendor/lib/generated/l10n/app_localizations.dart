@@ -4142,6 +4142,30 @@ abstract class AppLocalizations {
   /// **'Approve'**
   String get actionApprove;
 
+  /// No description provided for @actionLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Locate'**
+  String get actionLocation;
+
+  /// No description provided for @driverLiveLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Live location'**
+  String get driverLiveLocation;
+
+  /// No description provided for @driverLastKnownLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Last known location'**
+  String get driverLastKnownLocation;
+
+  /// No description provided for @driverNoLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'No location available'**
+  String get driverNoLocation;
+
   /// No description provided for @driverStatusApproved.
   ///
   /// In en, this message translates to:

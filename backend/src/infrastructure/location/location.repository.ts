@@ -126,6 +126,86 @@ export class LocationRepository {
   }
 
   /**
+   * Live (fresh Redis broadcast) positions for a batch of drivers.
+   */
+  async getLiveDriverLocations(
+    driverIds: string[],
+  ): Promise<Map<string, { lng: number; lat: number }>> {
+    const map = new Map<string, { lng: number; lat: number }>();
+    for (const id of driverIds) {
+      const live = await this.getDriverLocation(id);
+      if (live && (await this.isDriverLocationFresh(id))) {
+        map.set(id, live);
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Last persisted PostGIS locations for a batch of drivers.
+   */
+  async getPersistedDriverLocations(
+    driverIds: string[],
+  ): Promise<Map<string, { lng: number; lat: number }>> {
+    const map = new Map<string, { lng: number; lat: number }>();
+    if (driverIds.length === 0) return map;
+
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: string; lng: number | null; lat: number | null }>
+    >`
+      SELECT
+        id,
+        ST_X("lastLocation"::geometry) AS "lng",
+        ST_Y("lastLocation"::geometry) AS "lat"
+      FROM drivers
+      WHERE id IN (${Prisma.join(driverIds)})
+    `;
+
+    for (const r of rows) {
+      if (r.lng != null && r.lat != null) {
+        map.set(r.id, { lng: Number(r.lng), lat: Number(r.lat) });
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Resolve a driver's location for admin/management views: live Redis
+   * position when fresh, falling back to the last persisted PostGIS point.
+   * Returns null when the driver has never had a location.
+   */
+  async getDriverLocationWithState(
+    driverId: string,
+  ): Promise<{ lng: number; lat: number; isLive: boolean } | null> {
+    const live = await this.getDriverLocation(driverId);
+    if (live && (await this.isDriverLocationFresh(driverId))) {
+      return { ...live, isLive: true };
+    }
+
+    const map = await this.getPersistedDriverLocations([driverId]);
+    const persisted = map.get(driverId);
+    if (persisted) return { ...persisted, isLive: false };
+
+    return null;
+  }
+
+  /**
+   * Active order being delivered by the driver (Redis cache), if any.
+   */
+  async getDriverActiveOrder(
+    driverId: string,
+  ): Promise<{ orderId: string } | null> {
+    const raw = await this.redis.get(`otlobegy:driver-active-order:${driverId}`);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed?.orderId ? { orderId: parsed.orderId } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Resolve the current location of the driver assigned to an order.
    *
    * Ownership is enforced against the requesting customer user id. Prefers the

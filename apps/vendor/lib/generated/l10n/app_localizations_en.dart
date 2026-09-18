@@ -2118,6 +2118,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get actionApprove => 'Approve';
 
   @override
+  String get actionLocation => 'Locate';
+
+  @override
+  String get driverLiveLocation => 'Live location';
+
+  @override
+  String get driverLastKnownLocation => 'Last known location';
+
+  @override
+  String get driverNoLocation => 'No location available';
+
+  @override
   String get driverStatusApproved => 'Approved';
 
   @override
