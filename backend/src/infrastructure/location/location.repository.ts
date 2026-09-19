@@ -96,10 +96,12 @@ export class LocationRepository {
     await this.redis.geoadd('otlobegy:driver-locations', lng, lat, driverId);
     // Freshness signal: expires shortly after the driver stops broadcasting,
     // letting consumers tell a live position apart from a stale geo member.
+    // Must comfortably exceed the driver app's slowest heartbeat (30s when
+    // idle/stationary) or a live position would be misreported as stale.
     await this.redis.set(
       `otlobegy:driver-location-ts:${driverId}`,
       String(Date.now()),
-      30,
+      90,
     );
   }
 
