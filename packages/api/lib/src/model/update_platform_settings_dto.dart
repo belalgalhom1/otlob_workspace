@@ -98,7 +98,8 @@ part 'update_platform_settings_dto.g.dart';
 /// * [bronzeTierBonusPerKm] - Per-km bonus for Bronze tier drivers
 /// * [silverTierBonusPerKm] - Per-km bonus for Silver tier drivers
 /// * [goldTierBonusPerKm] - Per-km bonus for Gold tier drivers (Used at checkout)
-/// * [requireCustomerApproval] 
+  /// * [driverSettlementOrderThreshold] - Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
+  /// * [requireCustomerApproval]
 /// * [customerApprovalTimeoutMins] 
 @BuiltValue()
 abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettingsDto, UpdatePlatformSettingsDtoBuilder> {
@@ -393,6 +394,10 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Per-km bonus for Gold tier drivers (Used at checkout)
   @BuiltValueField(wireName: r'goldTierBonusPerKm')
   num? get goldTierBonusPerKm;
+
+  /// Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
+  @BuiltValueField(wireName: r'driverSettlementOrderThreshold')
+  num? get driverSettlementOrderThreshold;
 
   @BuiltValueField(wireName: r'requireCustomerApproval')
   bool? get requireCustomerApproval;
@@ -1029,6 +1034,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'goldTierBonusPerKm';
       yield serializers.serialize(
         object.goldTierBonusPerKm,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.driverSettlementOrderThreshold != null) {
+      yield r'driverSettlementOrderThreshold';
+      yield serializers.serialize(
+        object.driverSettlementOrderThreshold,
         specifiedType: const FullType(num),
       );
     }
@@ -1677,6 +1689,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.goldTierBonusPerKm = valueDes;
+          break;
+        case r'driverSettlementOrderThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.driverSettlementOrderThreshold = valueDes;
           break;
         case r'requireCustomerApproval':
           final valueDes = serializers.deserialize(

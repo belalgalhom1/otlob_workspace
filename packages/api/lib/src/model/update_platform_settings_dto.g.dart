@@ -182,6 +182,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? goldTierBonusPerKm;
   @override
+  final num? driverSettlementOrderThreshold;
+  @override
   final bool? requireCustomerApproval;
   @override
   final num? customerApprovalTimeoutMins;
@@ -278,6 +280,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.bronzeTierBonusPerKm,
     this.silverTierBonusPerKm,
     this.goldTierBonusPerKm,
+    this.driverSettlementOrderThreshold,
     this.requireCustomerApproval,
     this.customerApprovalTimeoutMins,
   }) : super._();
@@ -383,6 +386,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         bronzeTierBonusPerKm == other.bronzeTierBonusPerKm &&
         silverTierBonusPerKm == other.silverTierBonusPerKm &&
         goldTierBonusPerKm == other.goldTierBonusPerKm &&
+        driverSettlementOrderThreshold ==
+            other.driverSettlementOrderThreshold &&
         requireCustomerApproval == other.requireCustomerApproval &&
         customerApprovalTimeoutMins == other.customerApprovalTimeoutMins;
   }
@@ -477,6 +482,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, bronzeTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, silverTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, goldTierBonusPerKm.hashCode);
+    _$hash = $jc(_$hash, driverSettlementOrderThreshold.hashCode);
     _$hash = $jc(_$hash, requireCustomerApproval.hashCode);
     _$hash = $jc(_$hash, customerApprovalTimeoutMins.hashCode);
     _$hash = $jf(_$hash);
@@ -579,6 +585,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('bronzeTierBonusPerKm', bronzeTierBonusPerKm)
           ..add('silverTierBonusPerKm', silverTierBonusPerKm)
           ..add('goldTierBonusPerKm', goldTierBonusPerKm)
+          ..add(
+            'driverSettlementOrderThreshold',
+            driverSettlementOrderThreshold,
+          )
           ..add('requireCustomerApproval', requireCustomerApproval)
           ..add('customerApprovalTimeoutMins', customerApprovalTimeoutMins))
         .toString();
@@ -1016,6 +1026,12 @@ class UpdatePlatformSettingsDtoBuilder
   set goldTierBonusPerKm(num? goldTierBonusPerKm) =>
       _$this._goldTierBonusPerKm = goldTierBonusPerKm;
 
+  num? _driverSettlementOrderThreshold;
+  num? get driverSettlementOrderThreshold =>
+      _$this._driverSettlementOrderThreshold;
+  set driverSettlementOrderThreshold(num? driverSettlementOrderThreshold) =>
+      _$this._driverSettlementOrderThreshold = driverSettlementOrderThreshold;
+
   bool? _requireCustomerApproval;
   bool? get requireCustomerApproval => _$this._requireCustomerApproval;
   set requireCustomerApproval(bool? requireCustomerApproval) =>
@@ -1121,6 +1137,7 @@ class UpdatePlatformSettingsDtoBuilder
       _bronzeTierBonusPerKm = $v.bronzeTierBonusPerKm;
       _silverTierBonusPerKm = $v.silverTierBonusPerKm;
       _goldTierBonusPerKm = $v.goldTierBonusPerKm;
+      _driverSettlementOrderThreshold = $v.driverSettlementOrderThreshold;
       _requireCustomerApproval = $v.requireCustomerApproval;
       _customerApprovalTimeoutMins = $v.customerApprovalTimeoutMins;
       _$v = null;
@@ -1233,6 +1250,7 @@ class UpdatePlatformSettingsDtoBuilder
           bronzeTierBonusPerKm: bronzeTierBonusPerKm,
           silverTierBonusPerKm: silverTierBonusPerKm,
           goldTierBonusPerKm: goldTierBonusPerKm,
+          driverSettlementOrderThreshold: driverSettlementOrderThreshold,
           requireCustomerApproval: requireCustomerApproval,
           customerApprovalTimeoutMins: customerApprovalTimeoutMins,
         );
