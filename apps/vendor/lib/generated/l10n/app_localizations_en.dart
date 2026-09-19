@@ -1662,6 +1662,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goldTierBonusPerKm => 'Gold Tier Bonus Per Km';
 
   @override
+  String get driverSettlementOrderThreshold => 'Orders Until Driver Settlement';
+
+  @override
   String get isMaintenanceMode => 'Maintenance Mode';
 
   @override

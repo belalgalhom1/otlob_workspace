@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/features/wallet/presentation/widgets/top_up_bottom_sheet.dart';
 import 'package:driver/features/wallet/presentation/widgets/manage_wallets_bottom_sheet.dart';
+import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
@@ -26,6 +27,11 @@ class WalletScreen extends ConsumerWidget {
         final transactions = data['transactions'] as List<dynamic>? ?? [];
         final topUpRequests = data['topUpRequests'] as List<dynamic>? ?? [];
         final pendingTopUps = topUpRequests.where((e) => e['status'] == 'PENDING').toList();
+        final profileValue = ref.watch(driverProfileProvider).value;
+        final profileData = (profileValue is Map && profileValue['data'] is Map)
+            ? profileValue['data'] as Map
+            : (profileValue is Map ? profileValue : <String, dynamic>{});
+        final settlementRequired = profileData['hasUnpaidCommission'] == true && balance < 0;
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -42,6 +48,10 @@ class WalletScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (settlementRequired) ...[
+                        _buildSettlementBanner(context, l10n),
+                        const SizedBox(height: 24),
+                      ],
                       _buildBalanceCard(context, ref, balance, currency, l10n),
                       const SizedBox(height: 32),
                       if (pendingTopUps.isNotEmpty) ...[
@@ -111,6 +121,29 @@ class WalletScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSettlementBanner(BuildContext context, AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.handCoins, color: AppColors.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              l10n.settlementRequiredBanner,
+              style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

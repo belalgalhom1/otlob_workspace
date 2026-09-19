@@ -195,6 +195,7 @@ export class WalletService {
           where: { id: request.driverId },
           data: {
             hasUnpaidCommission: isStillNegative, // Keep them locked if they still owe
+            ordersSinceSettlement: 0, // Restart the settlement cycle after a settled transfer
             ...statusUpdate,
           },
         });
@@ -222,19 +223,20 @@ export class WalletService {
       
       const updatedDriver = await this.prisma.driver.findUnique({
         where: { id: request.driverId },
-        select: { walletBalance: true }
+        select: { walletBalance: true, status: true }
       });
       
       const isNowUnlocked = (updatedDriver?.walletBalance ?? 0) >= -maxNegative;
 
-      if (request.driver?.status === DriverStatus.SUSPENDED && isNowUnlocked) {
-         this.eventEmitter.emit(
+      if (request.driver?.hasUnpaidCommission && isNowUnlocked) {
+        const wasSuspended = request.driver?.status === DriverStatus.SUSPENDED;
+        this.eventEmitter.emit(
           EVENTS.DRIVER_STATUS_CHANGED,
           new DriverStatusChangedEvent(
             request.driver.id,
             request.driver.userId,
-            DriverStatus.SUSPENDED,
-            DriverStatus.OFFLINE,
+            wasSuspended ? DriverStatus.SUSPENDED : (request.driver?.status ?? DriverStatus.ONLINE),
+            updatedDriver?.status ?? DriverStatus.OFFLINE,
             'UNPAID_COMMISSION_SETTLED',
           ),
         );

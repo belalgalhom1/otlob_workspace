@@ -1648,6 +1648,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get goldTierBonusPerKm => 'مكافأة الفئة الذهبية لكل كم';
 
   @override
+  String get driverSettlementOrderThreshold => 'عدد الطلبات حتى تسوية السائق';
+
+  @override
   String get isMaintenanceMode => 'وضع الصيانة';
 
   @override

@@ -246,6 +246,7 @@ export class PlatformSettingsService {
       'bronzeTierBonusPerKm',
       'silverTierBonusPerKm',
       'goldTierBonusPerKm',
+      'driverSettlementOrderThreshold',
       'requireCustomerApproval',
       'customerApprovalTimeoutMins',
     ];

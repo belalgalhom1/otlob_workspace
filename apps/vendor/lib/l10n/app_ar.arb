@@ -624,6 +624,7 @@
   "bronzeTierBonusPerKm": "مكافأة الفئة البرونزية لكل كم",
   "silverTierBonusPerKm": "مكافأة الفئة الفضية لكل كم",
   "goldTierBonusPerKm": "مكافأة الفئة الذهبية لكل كم",
+  "driverSettlementOrderThreshold": "عدد الطلبات حتى تسوية السائق",
   "isMaintenanceMode": "وضع الصيانة",
   "androidMinVersion": "الحد الأدنى لإصدار أندرويد",
   "androidLatestVersion": "أحدث إصدار لأندرويد",

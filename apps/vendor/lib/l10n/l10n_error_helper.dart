@@ -509,6 +509,7 @@ class L10nErrorHelper {
       case 'bronzeTierBonusPerKm': return l10n.bronzeTierBonusPerKm;
       case 'silverTierBonusPerKm': return l10n.silverTierBonusPerKm;
       case 'goldTierBonusPerKm': return l10n.goldTierBonusPerKm;
+      case 'driverSettlementOrderThreshold': return l10n.driverSettlementOrderThreshold;
       case 'isMaintenanceMode': return l10n.isMaintenanceMode;
       case 'androidMinVersion': return l10n.androidMinVersion;
       case 'androidLatestVersion': return l10n.androidLatestVersion;

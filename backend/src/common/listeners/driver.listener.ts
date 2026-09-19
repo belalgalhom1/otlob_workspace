@@ -60,7 +60,19 @@ export class DriverListener {
       }).catch(err => this.logger.error(`Failed to notify driver of lockout: ${err}`));
     }
 
-    if (event.reason === 'UNPAID_COMMISSION_SETTLED' && event.oldStatus === DriverStatus.SUSPENDED) {
+    if (event.reason === 'SETTLEMENT_REQUIRED') {
+      await this.notificationsService.create({
+        userId: event.driverUserId,
+        title: 'Settlement Required',
+        titleAr: 'مطلوب تسوية',
+        body: 'You have reached the settlement milestone. Please transfer the money you owe to the platform wallet to keep receiving new orders.',
+        bodyAr: 'وصلت إلى حد التسوية. يرجى تحويل المبلغ المستحق إلى محفظة المنصة لاستمرار استقبال طلبات جديدة.',
+        type: NotificationType.SYSTEM,
+        data: { reason: 'SETTLEMENT_REQUIRED' },
+      }).catch(err => this.logger.error(`Failed to notify driver of settlement requirement: ${err}`));
+    }
+
+    if (event.reason === 'UNPAID_COMMISSION_SETTLED') {
       await this.notificationsService.create({
         userId: event.driverUserId,
         title: 'Account Unsuspended',

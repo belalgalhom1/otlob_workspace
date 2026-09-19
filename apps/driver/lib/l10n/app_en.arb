@@ -901,5 +901,6 @@
   "noDeliveriesSubtitle": "Completed deliveries and rides will appear here.",
   "deliveryFeeEarned": "Delivery Fee Earned",
   "deliveredAt": "Delivered at",
+  "settlementRequiredBanner": "Settlement required — transfer the money you owe to the platform wallet to keep receiving new orders.",
   "tripDetails": "Trip Details"
 }

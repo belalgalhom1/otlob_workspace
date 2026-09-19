@@ -801,5 +801,6 @@
   "noDeliveriesSubtitle": "ستظهر التوصيلات والرحلات المكتملة هنا.",
   "deliveryFeeEarned": "أرباح التوصيل",
   "deliveredAt": "تم التوصيل في",
+  "settlementRequiredBanner": "مطلوب تسوية — قم بتحويل المبلغ المستحق إلى محفظة المنصة لاستمرار استقبال طلبات جديدة.",
   "tripDetails": "تفاصيل الرحلة"
 }

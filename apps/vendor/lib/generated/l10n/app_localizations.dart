@@ -3278,6 +3278,12 @@ abstract class AppLocalizations {
   /// **'Gold Tier Bonus Per Km'**
   String get goldTierBonusPerKm;
 
+  /// No description provided for @driverSettlementOrderThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders Until Driver Settlement'**
+  String get driverSettlementOrderThreshold;
+
   /// No description provided for @isMaintenanceMode.
   ///
   /// In en, this message translates to:

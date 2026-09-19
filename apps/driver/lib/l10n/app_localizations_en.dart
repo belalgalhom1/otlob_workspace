@@ -2214,5 +2214,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveredAt => 'Delivered at';
 
   @override
+  String get settlementRequiredBanner =>
+      'Settlement required — transfer the money you owe to the platform wallet to keep receiving new orders.';
+
+  @override
   String get tripDetails => 'Trip Details';
 }

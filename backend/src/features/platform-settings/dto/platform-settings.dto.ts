@@ -694,6 +694,19 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   goldTierBonusPerKm?: number;
 
+  // ─── Driver Settlement ────────────────────────────────────────────────────
+  @ApiProperty({
+    example: 10,
+    required: false,
+    description:
+      'Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.',
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  driverSettlementOrderThreshold?: number;
+
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
   @IsOptional()

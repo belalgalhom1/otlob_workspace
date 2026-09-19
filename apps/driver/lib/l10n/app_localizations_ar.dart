@@ -2199,5 +2199,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deliveredAt => 'تم التوصيل في';
 
   @override
+  String get settlementRequiredBanner =>
+      'مطلوب تسوية — قم بتحويل المبلغ المستحق إلى محفظة المنصة لاستمرار استقبال طلبات جديدة.';
+
+  @override
   String get tripDetails => 'تفاصيل الرحلة';
 }

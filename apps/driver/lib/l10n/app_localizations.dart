@@ -4304,6 +4304,12 @@ abstract class AppLocalizations {
   /// **'Delivered at'**
   String get deliveredAt;
 
+  /// No description provided for @settlementRequiredBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Settlement required — transfer the money you owe to the platform wallet to keep receiving new orders.'**
+  String get settlementRequiredBanner;
+
   /// No description provided for @tripDetails.
   ///
   /// In en, this message translates to:

@@ -165,17 +165,37 @@ export class StatisticsService {
     // Fetch updated wallet balance after transactions
     const driverSnapshot = await this.prisma.driver.findUnique({
       where: { id: driverId },
-      select: { id: true, userId: true, status: true, walletBalance: true },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        walletBalance: true,
+        ordersSinceSettlement: true,
+      },
     });
 
-    const isNegativeBalance = (driverSnapshot?.walletBalance ?? 0) < -((settings as any).maxNegativeDriverBalance ?? 500);
+    const currentBalance = driverSnapshot?.walletBalance ?? 0;
+    const maxNegative = Number((settings as any).maxNegativeDriverBalance ?? 500);
+    const isNegativeBalance = currentBalance < -maxNegative;
     const shouldLock = isNegativeBalance;
+
+    // Periodic settlement: after `driverSettlementOrderThreshold` delivered orders
+    // (default 10), a driver who owes the platform any money is blocked from new
+    // dispatches until they transfer it to the platform wallet via a top-up.
+    const settlementThreshold = Number(settings.driverSettlementOrderThreshold ?? 10);
+    const nextSettlementCount = (driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
+    const settlementDue =
+      !shouldLock &&
+      settlementThreshold > 0 &&
+      nextSettlementCount >= settlementThreshold &&
+      currentBalance < 0;
 
     const driver = await this.prisma.driver.update({
       where: { id: driverId },
       data: {
         totalOrders: { increment: 1 },
-        hasUnpaidCommission: shouldLock ? true : undefined,
+        ordersSinceSettlement: { increment: 1 },
+        hasUnpaidCommission: shouldLock || settlementDue ? true : undefined,
         status: shouldLock ? DriverStatus.SUSPENDED : undefined,
       },
       select: { id: true, userId: true, status: true },
@@ -194,6 +214,23 @@ export class StatisticsService {
           DriverStatus.ONLINE, // Approximation of previous state
           DriverStatus.SUSPENDED,
           'UNPAID_COMMISSION',
+        ),
+      );
+    }
+
+    if (settlementDue) {
+      this.logger.warn(
+        `Driver ${driverId} reached settlement milestone (${nextSettlementCount} orders) with negative balance — blocked from new orders until settled.`,
+      );
+
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          driver.id,
+          driver.userId,
+          driverSnapshot?.status ?? DriverStatus.ONLINE,
+          driver.status,
+          'SETTLEMENT_REQUIRED',
         ),
       );
     }

@@ -627,6 +627,7 @@
   "bronzeTierBonusPerKm": "Bronze Tier Bonus Per Km",
   "silverTierBonusPerKm": "Silver Tier Bonus Per Km",
   "goldTierBonusPerKm": "Gold Tier Bonus Per Km",
+  "driverSettlementOrderThreshold": "Orders Until Driver Settlement",
   "isMaintenanceMode": "Maintenance Mode",
   "androidMinVersion": "Android Min Version",
   "androidLatestVersion": "Android Latest Version",
