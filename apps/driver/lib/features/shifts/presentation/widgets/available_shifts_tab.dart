@@ -33,13 +33,11 @@ class AvailableShiftsTab extends ConsumerWidget {
     return availableState.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
       error: (error, _) {
-        if (error.toString().contains('shifts_disabled')) {
+        if (error.toString().toLowerCase().contains('shifts_disabled')) {
           return EmptyStateWidget(
             icon: LucideIcons.calendarOff,
-            title: l10n.localeName == 'ar' ? 'نظام النوبات معطل' : 'Shifts System Disabled',
-            subtitle: l10n.localeName == 'ar' 
-                ? 'لا توجد نوبات متاحة حالياً لأن الإدارة قامت بتعطيل نظام النوبات.' 
-                : 'No shifts are currently available because the administration has disabled the shifts system.',
+            title: l10n.shiftsDisabledTitle,
+            subtitle: l10n.shiftsDisabledAvailableSubtitle,
           );
         }
         return Center(child: Text(l10n.errorGeneric(error.toString())));

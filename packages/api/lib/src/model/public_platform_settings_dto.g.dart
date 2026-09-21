@@ -52,10 +52,6 @@ class _$PublicPlatformSettingsDto extends PublicPlatformSettingsDto {
   @override
   final num minCoinsToUse;
   @override
-  final bool requireCustomerApproval;
-  @override
-  final num customerApprovalTimeoutMins;
-  @override
   final String? homeCoverUrl;
   @override
   final String? motorcycleIconUrl;
@@ -99,8 +95,6 @@ class _$PublicPlatformSettingsDto extends PublicPlatformSettingsDto {
     required this.coinValue,
     required this.amountSpentPerCoin,
     required this.minCoinsToUse,
-    required this.requireCustomerApproval,
-    required this.customerApprovalTimeoutMins,
     this.homeCoverUrl,
     this.motorcycleIconUrl,
     this.carIconUrl,
@@ -145,8 +139,6 @@ class _$PublicPlatformSettingsDto extends PublicPlatformSettingsDto {
         coinValue == other.coinValue &&
         amountSpentPerCoin == other.amountSpentPerCoin &&
         minCoinsToUse == other.minCoinsToUse &&
-        requireCustomerApproval == other.requireCustomerApproval &&
-        customerApprovalTimeoutMins == other.customerApprovalTimeoutMins &&
         homeCoverUrl == other.homeCoverUrl &&
         motorcycleIconUrl == other.motorcycleIconUrl &&
         carIconUrl == other.carIconUrl &&
@@ -182,8 +174,6 @@ class _$PublicPlatformSettingsDto extends PublicPlatformSettingsDto {
     _$hash = $jc(_$hash, coinValue.hashCode);
     _$hash = $jc(_$hash, amountSpentPerCoin.hashCode);
     _$hash = $jc(_$hash, minCoinsToUse.hashCode);
-    _$hash = $jc(_$hash, requireCustomerApproval.hashCode);
-    _$hash = $jc(_$hash, customerApprovalTimeoutMins.hashCode);
     _$hash = $jc(_$hash, homeCoverUrl.hashCode);
     _$hash = $jc(_$hash, motorcycleIconUrl.hashCode);
     _$hash = $jc(_$hash, carIconUrl.hashCode);
@@ -221,8 +211,6 @@ class _$PublicPlatformSettingsDto extends PublicPlatformSettingsDto {
           ..add('coinValue', coinValue)
           ..add('amountSpentPerCoin', amountSpentPerCoin)
           ..add('minCoinsToUse', minCoinsToUse)
-          ..add('requireCustomerApproval', requireCustomerApproval)
-          ..add('customerApprovalTimeoutMins', customerApprovalTimeoutMins)
           ..add('homeCoverUrl', homeCoverUrl)
           ..add('motorcycleIconUrl', motorcycleIconUrl)
           ..add('carIconUrl', carIconUrl)
@@ -343,16 +331,6 @@ class PublicPlatformSettingsDtoBuilder
   set minCoinsToUse(num? minCoinsToUse) =>
       _$this._minCoinsToUse = minCoinsToUse;
 
-  bool? _requireCustomerApproval;
-  bool? get requireCustomerApproval => _$this._requireCustomerApproval;
-  set requireCustomerApproval(bool? requireCustomerApproval) =>
-      _$this._requireCustomerApproval = requireCustomerApproval;
-
-  num? _customerApprovalTimeoutMins;
-  num? get customerApprovalTimeoutMins => _$this._customerApprovalTimeoutMins;
-  set customerApprovalTimeoutMins(num? customerApprovalTimeoutMins) =>
-      _$this._customerApprovalTimeoutMins = customerApprovalTimeoutMins;
-
   String? _homeCoverUrl;
   String? get homeCoverUrl => _$this._homeCoverUrl;
   set homeCoverUrl(String? homeCoverUrl) => _$this._homeCoverUrl = homeCoverUrl;
@@ -416,8 +394,6 @@ class PublicPlatformSettingsDtoBuilder
       _coinValue = $v.coinValue;
       _amountSpentPerCoin = $v.amountSpentPerCoin;
       _minCoinsToUse = $v.minCoinsToUse;
-      _requireCustomerApproval = $v.requireCustomerApproval;
-      _customerApprovalTimeoutMins = $v.customerApprovalTimeoutMins;
       _homeCoverUrl = $v.homeCoverUrl;
       _motorcycleIconUrl = $v.motorcycleIconUrl;
       _carIconUrl = $v.carIconUrl;
@@ -557,16 +533,6 @@ class PublicPlatformSettingsDtoBuilder
             minCoinsToUse,
             r'PublicPlatformSettingsDto',
             'minCoinsToUse',
-          ),
-          requireCustomerApproval: BuiltValueNullFieldError.checkNotNull(
-            requireCustomerApproval,
-            r'PublicPlatformSettingsDto',
-            'requireCustomerApproval',
-          ),
-          customerApprovalTimeoutMins: BuiltValueNullFieldError.checkNotNull(
-            customerApprovalTimeoutMins,
-            r'PublicPlatformSettingsDto',
-            'customerApprovalTimeoutMins',
           ),
           homeCoverUrl: homeCoverUrl,
           motorcycleIconUrl: motorcycleIconUrl,

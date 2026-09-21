@@ -193,8 +193,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     switch (rawStatus) {
       case 'PENDING':
         return isAr ? 'بإنتظار المطعم' : 'Pending Vendor';
-      case 'CHANGES_REQUESTED':
-        return isAr ? 'تعديلات مطلوبة' : 'Changes Requested';
       case 'LOOKING_FOR_DRIVER':
         return isAr ? 'جاري البحث عن كابتن...' : 'Looking for Driver...';
       case 'ACCEPTED':

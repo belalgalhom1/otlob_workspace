@@ -10,6 +10,7 @@ import { AuditLogListener } from './audit-log.listener';
 import { DispatchListener } from './dispatch.listener';
 import { CartListener } from './cart.listener';
 import { ReviewListener } from './review.listener';
+import { SettingsListener } from './settings.listener';
 import { DispatchModule } from '../../features/dispatch/dispatch.module';
 import { CartModule } from '../../features/cart/cart.module';
 import { PlatformSettingsModule } from '../../features/platform-settings/platform-settings.module';
@@ -34,6 +35,7 @@ import { DriversModule } from '../../features/drivers/drivers.module';
     DispatchListener,
     CartListener,
     ReviewListener,
+    SettingsListener,
   ],
   exports: [
     MailListener,

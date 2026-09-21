@@ -1984,6 +1984,20 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noUpcomingShifts => 'ليس لديك أي نوبات قادمة.';
 
   @override
+  String get shiftsDisabledTitle => 'نظام النوبات معطل';
+
+  @override
+  String get shiftsDisabledSubtitle =>
+      'نظام النوبات معطل حالياً من قبل الإدارة.';
+
+  @override
+  String get shiftsDisabledSwapSubtitle => 'تبديل النوبات غير متاح حالياً.';
+
+  @override
+  String get shiftsDisabledAvailableSubtitle =>
+      'لا توجد نوبات متاحة حالياً لأن الإدارة قامت بتعطيل نظام النوبات.';
+
+  @override
   String get assignedZone => 'المنطقة المخصصة';
 
   @override
@@ -2179,9 +2193,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get profileStatusLabel => 'حالة الملف الشخصي';
-
-  @override
-  String get waitingForCustomerApproval => 'في إنتظار موافقة العميل';
 
   @override
   String get deliveryHistory => 'سجل التوصيلات';

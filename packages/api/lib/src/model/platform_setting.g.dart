@@ -48,10 +48,6 @@ class _$PlatformSetting extends PlatformSetting {
   @override
   final num minDeliveryFeeCar;
   @override
-  final bool requireCustomerApproval;
-  @override
-  final num customerApprovalTimeoutMins;
-  @override
   final num maxDeliveryFeeCar;
   @override
   final num minDeliveryFeeVan;
@@ -174,8 +170,6 @@ class _$PlatformSetting extends PlatformSetting {
   @override
   final bool driverShiftsEnabled;
   @override
-  final num customerApprovalTimeoutSecs;
-  @override
   final num maxActiveOrdersPerCustomer;
   @override
   final bool requirePriorDeliveryForMultipleOrders;
@@ -222,8 +216,6 @@ class _$PlatformSetting extends PlatformSetting {
     required this.minDeliveryFeeMotorcycle,
     required this.maxDeliveryFeeMotorcycle,
     required this.minDeliveryFeeCar,
-    required this.requireCustomerApproval,
-    required this.customerApprovalTimeoutMins,
     required this.maxDeliveryFeeCar,
     required this.minDeliveryFeeVan,
     required this.maxDeliveryFeeVan,
@@ -285,7 +277,6 @@ class _$PlatformSetting extends PlatformSetting {
     this.driverBonusEndDate,
     required this.driverBonusPaidByCustomer,
     required this.driverShiftsEnabled,
-    required this.customerApprovalTimeoutSecs,
     required this.maxActiveOrdersPerCustomer,
     required this.requirePriorDeliveryForMultipleOrders,
     required this.maxOtpAttempts,
@@ -329,8 +320,6 @@ class _$PlatformSetting extends PlatformSetting {
         minDeliveryFeeMotorcycle == other.minDeliveryFeeMotorcycle &&
         maxDeliveryFeeMotorcycle == other.maxDeliveryFeeMotorcycle &&
         minDeliveryFeeCar == other.minDeliveryFeeCar &&
-        requireCustomerApproval == other.requireCustomerApproval &&
-        customerApprovalTimeoutMins == other.customerApprovalTimeoutMins &&
         maxDeliveryFeeCar == other.maxDeliveryFeeCar &&
         minDeliveryFeeVan == other.minDeliveryFeeVan &&
         maxDeliveryFeeVan == other.maxDeliveryFeeVan &&
@@ -393,7 +382,6 @@ class _$PlatformSetting extends PlatformSetting {
         driverBonusEndDate == other.driverBonusEndDate &&
         driverBonusPaidByCustomer == other.driverBonusPaidByCustomer &&
         driverShiftsEnabled == other.driverShiftsEnabled &&
-        customerApprovalTimeoutSecs == other.customerApprovalTimeoutSecs &&
         maxActiveOrdersPerCustomer == other.maxActiveOrdersPerCustomer &&
         requirePriorDeliveryForMultipleOrders ==
             other.requirePriorDeliveryForMultipleOrders &&
@@ -431,8 +419,6 @@ class _$PlatformSetting extends PlatformSetting {
     _$hash = $jc(_$hash, minDeliveryFeeMotorcycle.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFeeMotorcycle.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeCar.hashCode);
-    _$hash = $jc(_$hash, requireCustomerApproval.hashCode);
-    _$hash = $jc(_$hash, customerApprovalTimeoutMins.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFeeCar.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeVan.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFeeVan.hashCode);
@@ -494,7 +480,6 @@ class _$PlatformSetting extends PlatformSetting {
     _$hash = $jc(_$hash, driverBonusEndDate.hashCode);
     _$hash = $jc(_$hash, driverBonusPaidByCustomer.hashCode);
     _$hash = $jc(_$hash, driverShiftsEnabled.hashCode);
-    _$hash = $jc(_$hash, customerApprovalTimeoutSecs.hashCode);
     _$hash = $jc(_$hash, maxActiveOrdersPerCustomer.hashCode);
     _$hash = $jc(_$hash, requirePriorDeliveryForMultipleOrders.hashCode);
     _$hash = $jc(_$hash, maxOtpAttempts.hashCode);
@@ -533,8 +518,6 @@ class _$PlatformSetting extends PlatformSetting {
           ..add('minDeliveryFeeMotorcycle', minDeliveryFeeMotorcycle)
           ..add('maxDeliveryFeeMotorcycle', maxDeliveryFeeMotorcycle)
           ..add('minDeliveryFeeCar', minDeliveryFeeCar)
-          ..add('requireCustomerApproval', requireCustomerApproval)
-          ..add('customerApprovalTimeoutMins', customerApprovalTimeoutMins)
           ..add('maxDeliveryFeeCar', maxDeliveryFeeCar)
           ..add('minDeliveryFeeVan', minDeliveryFeeVan)
           ..add('maxDeliveryFeeVan', maxDeliveryFeeVan)
@@ -599,7 +582,6 @@ class _$PlatformSetting extends PlatformSetting {
           ..add('driverBonusEndDate', driverBonusEndDate)
           ..add('driverBonusPaidByCustomer', driverBonusPaidByCustomer)
           ..add('driverShiftsEnabled', driverShiftsEnabled)
-          ..add('customerApprovalTimeoutSecs', customerApprovalTimeoutSecs)
           ..add('maxActiveOrdersPerCustomer', maxActiveOrdersPerCustomer)
           ..add(
             'requirePriorDeliveryForMultipleOrders',
@@ -718,16 +700,6 @@ class PlatformSettingBuilder
   num? get minDeliveryFeeCar => _$this._minDeliveryFeeCar;
   set minDeliveryFeeCar(num? minDeliveryFeeCar) =>
       _$this._minDeliveryFeeCar = minDeliveryFeeCar;
-
-  bool? _requireCustomerApproval;
-  bool? get requireCustomerApproval => _$this._requireCustomerApproval;
-  set requireCustomerApproval(bool? requireCustomerApproval) =>
-      _$this._requireCustomerApproval = requireCustomerApproval;
-
-  num? _customerApprovalTimeoutMins;
-  num? get customerApprovalTimeoutMins => _$this._customerApprovalTimeoutMins;
-  set customerApprovalTimeoutMins(num? customerApprovalTimeoutMins) =>
-      _$this._customerApprovalTimeoutMins = customerApprovalTimeoutMins;
 
   num? _maxDeliveryFeeCar;
   num? get maxDeliveryFeeCar => _$this._maxDeliveryFeeCar;
@@ -1022,11 +994,6 @@ class PlatformSettingBuilder
   set driverShiftsEnabled(bool? driverShiftsEnabled) =>
       _$this._driverShiftsEnabled = driverShiftsEnabled;
 
-  num? _customerApprovalTimeoutSecs;
-  num? get customerApprovalTimeoutSecs => _$this._customerApprovalTimeoutSecs;
-  set customerApprovalTimeoutSecs(num? customerApprovalTimeoutSecs) =>
-      _$this._customerApprovalTimeoutSecs = customerApprovalTimeoutSecs;
-
   num? _maxActiveOrdersPerCustomer;
   num? get maxActiveOrdersPerCustomer => _$this._maxActiveOrdersPerCustomer;
   set maxActiveOrdersPerCustomer(num? maxActiveOrdersPerCustomer) =>
@@ -1111,8 +1078,6 @@ class PlatformSettingBuilder
       _minDeliveryFeeMotorcycle = $v.minDeliveryFeeMotorcycle;
       _maxDeliveryFeeMotorcycle = $v.maxDeliveryFeeMotorcycle;
       _minDeliveryFeeCar = $v.minDeliveryFeeCar;
-      _requireCustomerApproval = $v.requireCustomerApproval;
-      _customerApprovalTimeoutMins = $v.customerApprovalTimeoutMins;
       _maxDeliveryFeeCar = $v.maxDeliveryFeeCar;
       _minDeliveryFeeVan = $v.minDeliveryFeeVan;
       _maxDeliveryFeeVan = $v.maxDeliveryFeeVan;
@@ -1174,7 +1139,6 @@ class PlatformSettingBuilder
       _driverBonusEndDate = $v.driverBonusEndDate;
       _driverBonusPaidByCustomer = $v.driverBonusPaidByCustomer;
       _driverShiftsEnabled = $v.driverShiftsEnabled;
-      _customerApprovalTimeoutSecs = $v.customerApprovalTimeoutSecs;
       _maxActiveOrdersPerCustomer = $v.maxActiveOrdersPerCustomer;
       _requirePriorDeliveryForMultipleOrders =
           $v.requirePriorDeliveryForMultipleOrders;
@@ -1308,16 +1272,6 @@ class PlatformSettingBuilder
             minDeliveryFeeCar,
             r'PlatformSetting',
             'minDeliveryFeeCar',
-          ),
-          requireCustomerApproval: BuiltValueNullFieldError.checkNotNull(
-            requireCustomerApproval,
-            r'PlatformSetting',
-            'requireCustomerApproval',
-          ),
-          customerApprovalTimeoutMins: BuiltValueNullFieldError.checkNotNull(
-            customerApprovalTimeoutMins,
-            r'PlatformSetting',
-            'customerApprovalTimeoutMins',
           ),
           maxDeliveryFeeCar: BuiltValueNullFieldError.checkNotNull(
             maxDeliveryFeeCar,
@@ -1572,11 +1526,6 @@ class PlatformSettingBuilder
             driverShiftsEnabled,
             r'PlatformSetting',
             'driverShiftsEnabled',
-          ),
-          customerApprovalTimeoutSecs: BuiltValueNullFieldError.checkNotNull(
-            customerApprovalTimeoutSecs,
-            r'PlatformSetting',
-            'customerApprovalTimeoutSecs',
           ),
           maxActiveOrdersPerCustomer: BuiltValueNullFieldError.checkNotNull(
             maxActiveOrdersPerCustomer,

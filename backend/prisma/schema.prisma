@@ -29,8 +29,6 @@ model PlatformSetting {
   minDeliveryFeeMotorcycle    Int     @default(15)
   maxDeliveryFeeMotorcycle    Int     @default(0)
   minDeliveryFeeCar           Int     @default(15)
-  requireCustomerApproval     Boolean @default(true)
-  customerApprovalTimeoutMins Int     @default(5)
   maxDeliveryFeeCar           Int     @default(0)
   minDeliveryFeeVan           Int     @default(15)
   maxDeliveryFeeVan           Int     @default(0)
@@ -95,7 +93,6 @@ model PlatformSetting {
   driverBonusEndDate                    DateTime? @db.Timestamptz(3)
   driverBonusPaidByCustomer             Boolean   @default(false)
   driverShiftsEnabled                   Boolean   @default(false)
-  customerApprovalTimeoutSecs           Int       @default(60)
   maxActiveOrdersPerCustomer            Int       @default(2)
   requirePriorDeliveryForMultipleOrders Boolean   @default(true)
   maxOtpAttempts                        Int       @default(5)
@@ -1218,7 +1215,6 @@ enum OrderStatus {
   ACCEPTED
   PREPARING
   LOOKING_FOR_DRIVER
-  PENDING_CUSTOMER_APPROVAL
   DRIVER_ASSIGNED
   PENDING_PAYMENT
   READY_FOR_PICKUP

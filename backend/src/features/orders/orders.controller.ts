@@ -18,7 +18,6 @@ import {
   RespondToDispatchDto,
   AdminAssignDriverDto,
   PlaceCustomOrderDto,
-  EditOrderItemsDto,
   PlaceDirectOrderDto,
   ConfirmPaymentDto,
   OrderFeeEstimateDto,
@@ -291,38 +290,5 @@ export class OrdersController {
     @Body() dto: PlaceDirectOrderDto,
   ) {
     return this.checkoutService.adminPlaceDirectOrder(actor, dto);
-  }
-
-  @ApiStandardResponse(OrderResponseDto)
-  @Patch(':id/items')
-  @Roles('SUPER_ADMIN', 'ADMIN', 'VENDOR_MEMBER')
-  async editOrderItems(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('id') orderId: string,
-    @Body() dto: EditOrderItemsDto,
-  ) {
-    return this.checkoutService.editOrderItems(actor, orderId, dto);
-  }
-
-  @ApiStandardResponse(OrderResponseDto)
-  @Post(':id/accept-changes')
-  @Roles('CUSTOMER')
-  @HttpCode(HttpStatus.OK)
-  async acceptOrderChanges(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('id') orderId: string,
-  ) {
-    return this.checkoutService.acceptOrderChanges(actor, orderId);
-  }
-
-  @ApiStandardResponse(OrderResponseDto)
-  @Post(':id/reject-changes')
-  @Roles('CUSTOMER')
-  @HttpCode(HttpStatus.OK)
-  async rejectOrderChanges(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('id') orderId: string,
-  ) {
-    return this.checkoutService.rejectOrderChanges(actor, orderId);
   }
 }

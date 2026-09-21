@@ -20,7 +20,6 @@ import {
   RespondToDispatchDto,
   AdminAssignDriverDto,
   PlaceCustomOrderDto,
-  EditOrderItemsDto,
   PlaceDirectOrderDto,
 } from './dto/order.dto';
 import {
@@ -619,241 +618,6 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     return this.ordersRepository.findById(created.id);
   }
 
-async editOrderItems(
-    actor: JwtAccessPayload,
-    orderId: string,
-    dto: EditOrderItemsDto,
-  ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { vendor: true, items: { include: { selectedOptions: true } } },
-    });
-    if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
-
-    if (actor.role === 'VENDOR_MEMBER') {
-      const member = await this.prisma.vendorMember.findFirst({
-        where: { userId: actor.sub, vendorId: order.vendorId ?? '' },
-      });
-      if (!member) {
-        throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
-      }
-    } else if (actor.role === 'ADMIN') {
-      const canManage = await this.canManageOrders(actor.sub, actor.role);
-      if (!canManage)
-        throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-    }
-
-    if (
-      order.status !== OrderStatus.PENDING &&
-      order.status !== OrderStatus.ACCEPTED
-    ) {
-      throw new BadRequestException(OrderErrors.CANNOT_EDIT_ITEMS);
-    }
-
-    let newSubtotal = 0;
-    const newItems: any[] = [];
-
-    const productIds = dto.items.map((i) => i.productId);
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds } },
-      include: {
-        variants: {
-          include: {
-            optionGroups: { include: { options: true } },
-          },
-        },
-        optionGroups: { include: { options: true } },
-      },
-    });
-    const productMap = new Map(products.map((p) => [p.id, p]));
-
-    for (const itemDto of dto.items) {
-      const product = productMap.get(itemDto.productId);
-      if (!product) throw new BadRequestException(ProductErrors.NOT_FOUND);
-
-      let basePrice = Number(product.basePrice ?? 0);
-      let variantName: string | null = null;
-
-      if (itemDto.variantId) {
-        const variant = product.variants.find(
-          (v) => v.id === itemDto.variantId,
-        );
-        if (!variant)
-          throw new BadRequestException(ProductErrors.VARIANT_NOT_FOUND);
-        basePrice = Number(variant.basePrice);
-        variantName = variant.name;
-      }
-
-      const oldItem = order.items.find(
-        (i) => i.productId === itemDto.productId && i.variantId === (itemDto.variantId ?? null)
-      );
-
-      if (oldItem) {
-        const oldOptionsTotal = oldItem.selectedOptions.reduce(
-          (sum, opt) => sum + Number(opt.priceAdded),
-          0,
-        );
-        basePrice = oldItem.unitPrice - oldOptionsTotal;
-      }
-
-      let optionsTotal = 0;
-      const selectedOptions: any[] = [];
-      if (itemDto.optionIds?.length) {
-        let allOptions = product.optionGroups.flatMap((g) => g.options);
-        if (itemDto.variantId) {
-          const variant = product.variants.find(
-            (v) => v.id === itemDto.variantId,
-          );
-          if (variant && variant.optionGroups) {
-            allOptions = allOptions.concat(
-              variant.optionGroups.flatMap((g) => g.options),
-            );
-          }
-        }
-        for (const optId of itemDto.optionIds) {
-          const opt = allOptions.find((o) => o.id === optId);
-          if (!opt)
-            throw new BadRequestException(ProductErrors.OPTION_NOT_FOUND);
-          optionsTotal += Number(opt.priceAdded);
-          selectedOptions.push({
-            optionId: opt.id,
-            optionName: opt.name,
-            priceAdded: Number(opt.priceAdded),
-          });
-        }
-      }
-
-      const unitPrice = basePrice + optionsTotal;
-      const totalPrice = unitPrice * itemDto.quantity;
-      newSubtotal += totalPrice;
-
-      newItems.push({
-        productId: product.id,
-        variantId: itemDto.variantId ?? null,
-        productName: product.name ?? 'Unknown Product',
-        variantName,
-        unitPrice,
-        quantity: itemDto.quantity,
-        totalPrice,
-        specialRequest: itemDto.specialRequest ?? null,
-        selectedOptions,
-      });
-    }
-
-    const settings = await this.platformSettings.getSettings();
-    const vendorCommission = order.vendor?.commissionRate != null
-      ? Number(order.vendor.commissionRate)
-      : Number(settings.defaultCommissionRate ?? 10);
-    const serviceFee =
-      order.vendor && !order.vendor.isContracted
-        ? Math.round(newSubtotal * (vendorCommission / 100))
-        : 0;
-    const taxRate = Number(settings.defaultTaxRate) / 100;
-    const tax = Math.round((newSubtotal + serviceFee) * taxRate);
-    const discount = Number(order.discount ?? 0);
-    const driverBonus = (settings.driverBonusPaidByCustomer && Number(order.driverBonusFee ?? 0) > 0)
-      ? Number(order.driverBonusFee)
-      : 0;
-    const grandTotal = Math.max(
-      0,
-      newSubtotal + Number(order.deliveryFee) + serviceFee + tax + driverBonus - discount,
-    );
-    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
-    const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(grandTotal / amountSpentPerCoin) : 0;
-
-    await this.prisma.$transaction(async (tx) => {
-      // delete old
-      await tx.orderItem.deleteMany({ where: { orderId: order.id } });
-
-      // insert new
-      const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
-      const orderItemOptionsData: Prisma.OrderItemOptionCreateManyInput[] = [];
-
-      for (const item of newItems) {
-        const orderItemId = randomUUID();
-        orderItemsData.push({
-          id: orderItemId,
-          orderId: order.id,
-          productId: item.productId,
-          variantId: item.variantId,
-          productName: item.productName,
-          variantName: item.variantName,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          totalPrice: item.totalPrice,
-          specialRequest: item.specialRequest,
-        });
-
-        if (item.selectedOptions.length > 0) {
-          for (const o of item.selectedOptions) {
-            orderItemOptionsData.push({
-              orderItemId: orderItemId,
-              optionId: o.optionId,
-              optionName: o.optionName,
-              priceAdded: o.priceAdded,
-            });
-          }
-        }
-      }
-
-      if (orderItemsData.length > 0) {
-        await tx.orderItem.createMany({ data: orderItemsData });
-      }
-      if (orderItemOptionsData.length > 0) {
-        await tx.orderItemOption.createMany({ data: orderItemOptionsData });
-      }
-
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          subtotal: newSubtotal,
-          serviceFee,
-          tax,
-          grandTotal,
-          coinsEarned,
-          status: OrderStatus.CHANGES_REQUESTED,
-        },
-      });
-
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId: order.id,
-          status: OrderStatus.CHANGES_REQUESTED,
-          note: 'Vendor modified order items',
-          createdBy: actor.sub,
-        },
-      });
-    });
-
-    const customer = await this.prisma.customer.findUnique({
-      where: { id: order.customerId },
-      select: { userId: true },
-    });
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-      order.vendorId,
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        order.id,
-        order.orderNumber,
-        order.status as OrderStatus,
-        OrderStatus.CHANGES_REQUESTED,
-        order.customerId,
-        customer?.userId ?? '',
-        order.vendorId,
-        vendorUserIds,
-        order.driverId,
-        null,
-        actor.sub,
-        'Vendor modified order items',
-      ),
-    );
-
-    return { message: 'Order items updated and awaiting customer approval' };
-  }
-
 async adminPlaceDirectOrder(
     actor: JwtAccessPayload,
     dto: PlaceDirectOrderDto,
@@ -949,16 +713,17 @@ async adminPlaceDirectOrder(
 
     const order = await this.ordersRepository.createOrder(orderData, itemsData, actor.sub);
 
-    // Update the created order's status to CHANGES_REQUESTED (createOrder sets to PENDING/PENDING_PAYMENT by default)
+    // Direct orders placed by a vendor/admin skip the customer-approval step and
+    // are treated as accepted immediately (createOrder sets PENDING by default).
     await this.prisma.order.update({
       where: { id: order.id },
-      data: { status: OrderStatus.CHANGES_REQUESTED }
+      data: { status: OrderStatus.ACCEPTED }
     });
 
-    // Also update the status event to CHANGES_REQUESTED instead of whatever createOrder created
+    // Also update the status event to ACCEPTED instead of whatever createOrder created
     await this.prisma.orderStatusEvent.updateMany({
       where: { orderId: order.id },
-      data: { status: OrderStatus.CHANGES_REQUESTED, note: 'Order created by Vendor/Admin directly from chat' }
+      data: { status: OrderStatus.ACCEPTED, note: 'Order created by Vendor/Admin directly from chat' }
     });
 
     const vendorUserIds = orderData.vendorId ? await this.ordersRepository.getVendorUserIds(orderData.vendorId) : [];
@@ -969,7 +734,7 @@ async adminPlaceDirectOrder(
         order.id,
         orderData.orderNumber,
         OrderStatus.PENDING,
-        OrderStatus.CHANGES_REQUESTED,
+        OrderStatus.ACCEPTED,
         orderData.customerId,
         customer.userId,
         orderData.vendorId,
@@ -997,80 +762,6 @@ async adminPlaceDirectOrder(
     );
 
     return order;
-  }
-
-async acceptOrderChanges(actor: JwtAccessPayload, orderId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { driver: true, customer: true },
-    });
-    if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
-    if (order.customer.userId !== actor.sub)
-      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-    if (order.status !== OrderStatus.CHANGES_REQUESTED)
-      throw new BadRequestException(OrderErrors.NO_PENDING_CHANGES);
-
-    const hasDriver = !!order.driverId;
-    let nextStatus: OrderStatus = OrderStatus.ACCEPTED;
-    if (hasDriver) {
-      nextStatus =
-        order.paymentMethod === 'MOBILE_WALLET'
-          ? OrderStatus.PENDING_PAYMENT
-          : OrderStatus.DRIVER_ASSIGNED;
-    }
-
-    const updated = await this.ordersRepository.updateStatus(
-      orderId,
-      nextStatus,
-      actor.sub,
-      'Customer approved order changes',
-      {},
-      OrderStatus.CHANGES_REQUESTED,
-    );
-
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-      order.vendorId,
-    );
-    const driverUserId = order.driver?.userId ?? null;
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        order.id,
-        order.orderNumber,
-        OrderStatus.CHANGES_REQUESTED,
-        nextStatus,
-        order.customerId,
-        actor.sub,
-        order.vendorId,
-        vendorUserIds,
-        order.driverId,
-        driverUserId,
-        actor.sub,
-        'Customer approved order changes',
-      ),
-    );
-    return { message: 'Order changes accepted' };
-  }
-
-  async rejectOrderChanges(actor: JwtAccessPayload, orderId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { driver: true, customer: true },
-    });
-    if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
-    if (order.customer.userId !== actor.sub)
-      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-    if (order.status !== OrderStatus.CHANGES_REQUESTED)
-      throw new BadRequestException(OrderErrors.NO_PENDING_CHANGES);
-
-    await this.stateService.cancelOrder(
-      actor,
-      orderId,
-      'Customer rejected order changes',
-    );
-
-    return { message: 'Order changes rejected and order cancelled' };
   }
 
 private async validateActiveOrderLimit(customerId: string) {

@@ -5,6 +5,7 @@ import 'package:core/core.dart' hide tokenServiceProvider;
 import '../services/socket_service.dart';
 import '../services/navigation_service.dart';
 import '../services/token_service.dart';
+import 'platform_settings_provider.dart';
 import '../../features/auth/presentation/providers/auth_controller.dart';
 import '../../features/orders/presentation/providers/orders_provider.dart';
 
@@ -35,6 +36,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
   StreamSubscription<dynamic>? _openedAppSub;
   StreamSubscription<dynamic>? _statusSub;
   StreamSubscription<dynamic>? _updatedSub;
+  StreamSubscription<dynamic>? _settingsSub;
   _OrdersLifecycleObserver? _lifecycleObserver;
 
   @override
@@ -59,6 +61,8 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     _statusSub = null;
     _updatedSub?.cancel();
     _updatedSub = null;
+    _settingsSub?.cancel();
+    _settingsSub = null;
     _lifecycleObserver?.dispose();
     _lifecycleObserver = null;
     ref.read(socketServiceProvider).disconnect();
@@ -78,6 +82,12 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
       _updatedSub?.cancel();
       _updatedSub = socket.onEvent('order.updated').listen(_handleOrderStatusUpdate);
+
+      _settingsSub?.cancel();
+      _settingsSub =
+          socket.onEvent('platform.settings.updated').listen((_) {
+        ref.invalidate(platformSettingsProvider);
+      });
     }
 
     // --- Foreground FCM ---
@@ -103,6 +113,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
   // Called on every app resume.
   Future<void> _onResume() async {
+    ref.invalidate(platformSettingsProvider);
     final orders = ref.read(ordersProvider.notifier);
     await orders.refresh();
   }

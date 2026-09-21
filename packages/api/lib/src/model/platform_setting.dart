@@ -31,8 +31,6 @@ part 'platform_setting.g.dart';
 /// * [minDeliveryFeeMotorcycle] 
 /// * [maxDeliveryFeeMotorcycle] 
 /// * [minDeliveryFeeCar] 
-/// * [requireCustomerApproval] 
-/// * [customerApprovalTimeoutMins] 
 /// * [maxDeliveryFeeCar] 
 /// * [minDeliveryFeeVan] 
 /// * [maxDeliveryFeeVan] 
@@ -94,7 +92,6 @@ part 'platform_setting.g.dart';
 /// * [driverBonusEndDate] 
 /// * [driverBonusPaidByCustomer] 
 /// * [driverShiftsEnabled] 
-/// * [customerApprovalTimeoutSecs] 
 /// * [maxActiveOrdersPerCustomer] 
 /// * [requirePriorDeliveryForMultipleOrders] 
 /// * [maxOtpAttempts] 
@@ -167,12 +164,6 @@ abstract class PlatformSetting implements Built<PlatformSetting, PlatformSetting
 
   @BuiltValueField(wireName: r'minDeliveryFeeCar')
   num get minDeliveryFeeCar;
-
-  @BuiltValueField(wireName: r'requireCustomerApproval')
-  bool get requireCustomerApproval;
-
-  @BuiltValueField(wireName: r'customerApprovalTimeoutMins')
-  num get customerApprovalTimeoutMins;
 
   @BuiltValueField(wireName: r'maxDeliveryFeeCar')
   num get maxDeliveryFeeCar;
@@ -357,9 +348,6 @@ abstract class PlatformSetting implements Built<PlatformSetting, PlatformSetting
   @BuiltValueField(wireName: r'driverShiftsEnabled')
   bool get driverShiftsEnabled;
 
-  @BuiltValueField(wireName: r'customerApprovalTimeoutSecs')
-  num get customerApprovalTimeoutSecs;
-
   @BuiltValueField(wireName: r'maxActiveOrdersPerCustomer')
   num get maxActiveOrdersPerCustomer;
 
@@ -514,16 +502,6 @@ class _$PlatformSettingSerializer implements PrimitiveSerializer<PlatformSetting
     yield r'minDeliveryFeeCar';
     yield serializers.serialize(
       object.minDeliveryFeeCar,
-      specifiedType: const FullType(num),
-    );
-    yield r'requireCustomerApproval';
-    yield serializers.serialize(
-      object.requireCustomerApproval,
-      specifiedType: const FullType(bool),
-    );
-    yield r'customerApprovalTimeoutMins';
-    yield serializers.serialize(
-      object.customerApprovalTimeoutMins,
       specifiedType: const FullType(num),
     );
     yield r'maxDeliveryFeeCar';
@@ -857,11 +835,6 @@ class _$PlatformSettingSerializer implements PrimitiveSerializer<PlatformSetting
       object.driverShiftsEnabled,
       specifiedType: const FullType(bool),
     );
-    yield r'customerApprovalTimeoutSecs';
-    yield serializers.serialize(
-      object.customerApprovalTimeoutSecs,
-      specifiedType: const FullType(num),
-    );
     yield r'maxActiveOrdersPerCustomer';
     yield serializers.serialize(
       object.maxActiveOrdersPerCustomer,
@@ -1079,20 +1052,6 @@ class _$PlatformSettingSerializer implements PrimitiveSerializer<PlatformSetting
             specifiedType: const FullType(num),
           ) as num;
           result.minDeliveryFeeCar = valueDes;
-          break;
-        case r'requireCustomerApproval':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.requireCustomerApproval = valueDes;
-          break;
-        case r'customerApprovalTimeoutMins':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.customerApprovalTimeoutMins = valueDes;
           break;
         case r'maxDeliveryFeeCar':
           final valueDes = serializers.deserialize(
@@ -1520,13 +1479,6 @@ class _$PlatformSettingSerializer implements PrimitiveSerializer<PlatformSetting
             specifiedType: const FullType(bool),
           ) as bool;
           result.driverShiftsEnabled = valueDes;
-          break;
-        case r'customerApprovalTimeoutSecs':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.customerApprovalTimeoutSecs = valueDes;
           break;
         case r'maxActiveOrdersPerCustomer':
           final valueDes = serializers.deserialize(

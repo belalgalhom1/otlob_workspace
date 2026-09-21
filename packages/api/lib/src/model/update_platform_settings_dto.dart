@@ -63,7 +63,6 @@ part 'update_platform_settings_dto.g.dart';
 /// * [androidStoreUrl] 
 /// * [iosMinVersion] 
 /// * [iosLatestVersion] 
-/// * [customerApprovalTimeoutSecs] - Seconds customer has to approve exact delivery fee
 /// * [maxActiveOrdersPerCustomer] - Max active orders a customer can have
 /// * [requirePriorDeliveryForMultipleOrders] - Requires prior delivery to place multiple orders
 /// * [maxOtpAttempts] - Max OTP attempts before block
@@ -98,9 +97,7 @@ part 'update_platform_settings_dto.g.dart';
 /// * [bronzeTierBonusPerKm] - Per-km bonus for Bronze tier drivers
 /// * [silverTierBonusPerKm] - Per-km bonus for Silver tier drivers
 /// * [goldTierBonusPerKm] - Per-km bonus for Gold tier drivers (Used at checkout)
-  /// * [driverSettlementOrderThreshold] - Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
-  /// * [requireCustomerApproval]
-/// * [customerApprovalTimeoutMins] 
+/// * [driverSettlementOrderThreshold] - Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
 @BuiltValue()
 abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettingsDto, UpdatePlatformSettingsDtoBuilder> {
   @BuiltValueField(wireName: r'currency')
@@ -262,10 +259,6 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'iosLatestVersion')
   String? get iosLatestVersion;
 
-  /// Seconds customer has to approve exact delivery fee
-  @BuiltValueField(wireName: r'customerApprovalTimeoutSecs')
-  num? get customerApprovalTimeoutSecs;
-
   /// Max active orders a customer can have
   @BuiltValueField(wireName: r'maxActiveOrdersPerCustomer')
   num? get maxActiveOrdersPerCustomer;
@@ -398,12 +391,6 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
   @BuiltValueField(wireName: r'driverSettlementOrderThreshold')
   num? get driverSettlementOrderThreshold;
-
-  @BuiltValueField(wireName: r'requireCustomerApproval')
-  bool? get requireCustomerApproval;
-
-  @BuiltValueField(wireName: r'customerApprovalTimeoutMins')
-  num? get customerApprovalTimeoutMins;
 
   UpdatePlatformSettingsDto._();
 
@@ -792,13 +779,6 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(String),
       );
     }
-    if (object.customerApprovalTimeoutSecs != null) {
-      yield r'customerApprovalTimeoutSecs';
-      yield serializers.serialize(
-        object.customerApprovalTimeoutSecs,
-        specifiedType: const FullType(num),
-      );
-    }
     if (object.maxActiveOrdersPerCustomer != null) {
       yield r'maxActiveOrdersPerCustomer';
       yield serializers.serialize(
@@ -1041,20 +1021,6 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'driverSettlementOrderThreshold';
       yield serializers.serialize(
         object.driverSettlementOrderThreshold,
-        specifiedType: const FullType(num),
-      );
-    }
-    if (object.requireCustomerApproval != null) {
-      yield r'requireCustomerApproval';
-      yield serializers.serialize(
-        object.requireCustomerApproval,
-        specifiedType: const FullType(bool),
-      );
-    }
-    if (object.customerApprovalTimeoutMins != null) {
-      yield r'customerApprovalTimeoutMins';
-      yield serializers.serialize(
-        object.customerApprovalTimeoutMins,
         specifiedType: const FullType(num),
       );
     }
@@ -1445,13 +1411,6 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as String;
           result.iosLatestVersion = valueDes;
           break;
-        case r'customerApprovalTimeoutSecs':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.customerApprovalTimeoutSecs = valueDes;
-          break;
         case r'maxActiveOrdersPerCustomer':
           final valueDes = serializers.deserialize(
             value,
@@ -1696,20 +1655,6 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.driverSettlementOrderThreshold = valueDes;
-          break;
-        case r'requireCustomerApproval':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.requireCustomerApproval = valueDes;
-          break;
-        case r'customerApprovalTimeoutMins':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.customerApprovalTimeoutMins = valueDes;
           break;
         default:
           unhandled.add(key);

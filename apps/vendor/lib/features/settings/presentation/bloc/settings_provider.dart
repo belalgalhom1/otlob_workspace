@@ -129,8 +129,6 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('allowVan')) b.allowVan = parseBool(settings['allowVan']);
       if (settings.containsKey('allowTruck')) b.allowTruck = parseBool(settings['allowTruck']);
       if (settings.containsKey('allowMotorTricycle')) b.allowMotorTricycle = parseBool(settings['allowMotorTricycle']);
-      if (settings.containsKey('requireCustomerApproval')) b.requireCustomerApproval = parseBool(settings['requireCustomerApproval']);
-      if (settings.containsKey('customerApprovalTimeoutMins')) b.customerApprovalTimeoutMins = parseNum(settings['customerApprovalTimeoutMins']);
       if (settings.containsKey('maxActiveOrdersPerCustomer')) b.maxActiveOrdersPerCustomer = parseNum(settings['maxActiveOrdersPerCustomer']);
       if (settings.containsKey('requirePriorDeliveryForMultipleOrders')) b.requirePriorDeliveryForMultipleOrders = parseBool(settings['requirePriorDeliveryForMultipleOrders']);
       if (settings.containsKey('maxOtpAttempts')) b.maxOtpAttempts = parseNum(settings['maxOtpAttempts']);

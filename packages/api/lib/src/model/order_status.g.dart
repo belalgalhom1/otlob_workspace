@@ -15,9 +15,6 @@ const OrderStatus _$PREPARING = const OrderStatus._('PREPARING');
 const OrderStatus _$LOOKING_FOR_DRIVER = const OrderStatus._(
   'LOOKING_FOR_DRIVER',
 );
-const OrderStatus _$PENDING_CUSTOMER_APPROVAL = const OrderStatus._(
-  'PENDING_CUSTOMER_APPROVAL',
-);
 const OrderStatus _$DRIVER_ASSIGNED = const OrderStatus._('DRIVER_ASSIGNED');
 const OrderStatus _$PENDING_PAYMENT = const OrderStatus._('PENDING_PAYMENT');
 const OrderStatus _$READY_FOR_PICKUP = const OrderStatus._('READY_FOR_PICKUP');
@@ -37,8 +34,6 @@ OrderStatus _$valueOf(String name) {
       return _$PREPARING;
     case 'LOOKING_FOR_DRIVER':
       return _$LOOKING_FOR_DRIVER;
-    case 'PENDING_CUSTOMER_APPROVAL':
-      return _$PENDING_CUSTOMER_APPROVAL;
     case 'DRIVER_ASSIGNED':
       return _$DRIVER_ASSIGNED;
     case 'PENDING_PAYMENT':
@@ -63,7 +58,6 @@ final BuiltSet<OrderStatus> _$values =
       _$ACCEPTED,
       _$PREPARING,
       _$LOOKING_FOR_DRIVER,
-      _$PENDING_CUSTOMER_APPROVAL,
       _$DRIVER_ASSIGNED,
       _$PENDING_PAYMENT,
       _$READY_FOR_PICKUP,
@@ -79,7 +73,6 @@ class _$OrderStatusMeta {
   OrderStatus get ACCEPTED => _$ACCEPTED;
   OrderStatus get PREPARING => _$PREPARING;
   OrderStatus get LOOKING_FOR_DRIVER => _$LOOKING_FOR_DRIVER;
-  OrderStatus get PENDING_CUSTOMER_APPROVAL => _$PENDING_CUSTOMER_APPROVAL;
   OrderStatus get DRIVER_ASSIGNED => _$DRIVER_ASSIGNED;
   OrderStatus get PENDING_PAYMENT => _$PENDING_PAYMENT;
   OrderStatus get READY_FOR_PICKUP => _$READY_FOR_PICKUP;
@@ -104,7 +97,6 @@ class _$OrderStatusSerializer implements PrimitiveSerializer<OrderStatus> {
     'ACCEPTED': 'ACCEPTED',
     'PREPARING': 'PREPARING',
     'LOOKING_FOR_DRIVER': 'LOOKING_FOR_DRIVER',
-    'PENDING_CUSTOMER_APPROVAL': 'PENDING_CUSTOMER_APPROVAL',
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',
@@ -118,7 +110,6 @@ class _$OrderStatusSerializer implements PrimitiveSerializer<OrderStatus> {
     'ACCEPTED': 'ACCEPTED',
     'PREPARING': 'PREPARING',
     'LOOKING_FOR_DRIVER': 'LOOKING_FOR_DRIVER',
-    'PENDING_CUSTOMER_APPROVAL': 'PENDING_CUSTOMER_APPROVAL',
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',

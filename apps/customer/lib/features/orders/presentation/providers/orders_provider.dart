@@ -89,7 +89,7 @@ class Orders extends _$Orders {
   }
 
   static const _activeStatuses = {
-    'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
+    'PENDING', 'ACCEPTED', 'PREPARING',
     'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT',
     'READY_FOR_PICKUP', 'PICKED_UP',
   };
@@ -473,30 +473,6 @@ class Orders extends _$Orders {
       return true;
     } catch (e) {
       debugPrint('Cancel order error: $e');
-      return false;
-    }
-  }
-
-  Future<bool> acceptOrderChanges(String orderId) async {
-    final repo = ref.read(customerOrderRepositoryProvider);
-    try {
-      await repo.acceptOrderChanges(orderId);
-      ref.invalidateSelf();
-      return true;
-    } catch (e) {
-      debugPrint('Accept changes error: $e');
-      return false;
-    }
-  }
-
-  Future<bool> rejectOrderChanges(String orderId) async {
-    final repo = ref.read(customerOrderRepositoryProvider);
-    try {
-      await repo.rejectOrderChanges(orderId);
-      ref.invalidateSelf();
-      return true;
-    } catch (e) {
-      debugPrint('Reject changes error: $e');
       return false;
     }
   }

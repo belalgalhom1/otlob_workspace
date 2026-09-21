@@ -61,12 +61,6 @@ export class PlatformSetting {
   @ApiProperty({ type: Number })
   minDeliveryFeeCar: number = 15;
 
-  @ApiProperty({ type: Boolean })
-  requireCustomerApproval: boolean = true;
-
-  @ApiProperty({ type: Number })
-  customerApprovalTimeoutMins: number = 5;
-
   @ApiProperty({ type: Number })
   maxDeliveryFeeCar: number;
 
@@ -252,9 +246,6 @@ export class PlatformSetting {
 
   @ApiProperty({ type: Boolean })
   driverShiftsEnabled: boolean;
-
-  @ApiProperty({ type: Number })
-  customerApprovalTimeoutSecs: number = 60;
 
   @ApiProperty({ type: Number })
   maxActiveOrdersPerCustomer: number = 2;

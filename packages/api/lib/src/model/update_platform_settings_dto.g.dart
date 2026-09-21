@@ -112,8 +112,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final String? iosLatestVersion;
   @override
-  final num? customerApprovalTimeoutSecs;
-  @override
   final num? maxActiveOrdersPerCustomer;
   @override
   final bool? requirePriorDeliveryForMultipleOrders;
@@ -183,10 +181,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   final num? goldTierBonusPerKm;
   @override
   final num? driverSettlementOrderThreshold;
-  @override
-  final bool? requireCustomerApproval;
-  @override
-  final num? customerApprovalTimeoutMins;
 
   factory _$UpdatePlatformSettingsDto([
     void Function(UpdatePlatformSettingsDtoBuilder)? updates,
@@ -245,7 +239,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.androidStoreUrl,
     this.iosMinVersion,
     this.iosLatestVersion,
-    this.customerApprovalTimeoutSecs,
     this.maxActiveOrdersPerCustomer,
     this.requirePriorDeliveryForMultipleOrders,
     this.maxOtpAttempts,
@@ -281,8 +274,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.silverTierBonusPerKm,
     this.goldTierBonusPerKm,
     this.driverSettlementOrderThreshold,
-    this.requireCustomerApproval,
-    this.customerApprovalTimeoutMins,
   }) : super._();
   @override
   UpdatePlatformSettingsDto rebuild(
@@ -349,7 +340,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         androidStoreUrl == other.androidStoreUrl &&
         iosMinVersion == other.iosMinVersion &&
         iosLatestVersion == other.iosLatestVersion &&
-        customerApprovalTimeoutSecs == other.customerApprovalTimeoutSecs &&
         maxActiveOrdersPerCustomer == other.maxActiveOrdersPerCustomer &&
         requirePriorDeliveryForMultipleOrders ==
             other.requirePriorDeliveryForMultipleOrders &&
@@ -386,10 +376,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         bronzeTierBonusPerKm == other.bronzeTierBonusPerKm &&
         silverTierBonusPerKm == other.silverTierBonusPerKm &&
         goldTierBonusPerKm == other.goldTierBonusPerKm &&
-        driverSettlementOrderThreshold ==
-            other.driverSettlementOrderThreshold &&
-        requireCustomerApproval == other.requireCustomerApproval &&
-        customerApprovalTimeoutMins == other.customerApprovalTimeoutMins;
+        driverSettlementOrderThreshold == other.driverSettlementOrderThreshold;
   }
 
   @override
@@ -447,7 +434,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, androidStoreUrl.hashCode);
     _$hash = $jc(_$hash, iosMinVersion.hashCode);
     _$hash = $jc(_$hash, iosLatestVersion.hashCode);
-    _$hash = $jc(_$hash, customerApprovalTimeoutSecs.hashCode);
     _$hash = $jc(_$hash, maxActiveOrdersPerCustomer.hashCode);
     _$hash = $jc(_$hash, requirePriorDeliveryForMultipleOrders.hashCode);
     _$hash = $jc(_$hash, maxOtpAttempts.hashCode);
@@ -483,8 +469,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, silverTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, goldTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, driverSettlementOrderThreshold.hashCode);
-    _$hash = $jc(_$hash, requireCustomerApproval.hashCode);
-    _$hash = $jc(_$hash, customerApprovalTimeoutMins.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -544,7 +528,6 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('androidStoreUrl', androidStoreUrl)
           ..add('iosMinVersion', iosMinVersion)
           ..add('iosLatestVersion', iosLatestVersion)
-          ..add('customerApprovalTimeoutSecs', customerApprovalTimeoutSecs)
           ..add('maxActiveOrdersPerCustomer', maxActiveOrdersPerCustomer)
           ..add(
             'requirePriorDeliveryForMultipleOrders',
@@ -588,9 +571,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add(
             'driverSettlementOrderThreshold',
             driverSettlementOrderThreshold,
-          )
-          ..add('requireCustomerApproval', requireCustomerApproval)
-          ..add('customerApprovalTimeoutMins', customerApprovalTimeoutMins))
+          ))
         .toString();
   }
 }
@@ -853,11 +834,6 @@ class UpdatePlatformSettingsDtoBuilder
   set iosLatestVersion(String? iosLatestVersion) =>
       _$this._iosLatestVersion = iosLatestVersion;
 
-  num? _customerApprovalTimeoutSecs;
-  num? get customerApprovalTimeoutSecs => _$this._customerApprovalTimeoutSecs;
-  set customerApprovalTimeoutSecs(num? customerApprovalTimeoutSecs) =>
-      _$this._customerApprovalTimeoutSecs = customerApprovalTimeoutSecs;
-
   num? _maxActiveOrdersPerCustomer;
   num? get maxActiveOrdersPerCustomer => _$this._maxActiveOrdersPerCustomer;
   set maxActiveOrdersPerCustomer(num? maxActiveOrdersPerCustomer) =>
@@ -1032,16 +1008,6 @@ class UpdatePlatformSettingsDtoBuilder
   set driverSettlementOrderThreshold(num? driverSettlementOrderThreshold) =>
       _$this._driverSettlementOrderThreshold = driverSettlementOrderThreshold;
 
-  bool? _requireCustomerApproval;
-  bool? get requireCustomerApproval => _$this._requireCustomerApproval;
-  set requireCustomerApproval(bool? requireCustomerApproval) =>
-      _$this._requireCustomerApproval = requireCustomerApproval;
-
-  num? _customerApprovalTimeoutMins;
-  num? get customerApprovalTimeoutMins => _$this._customerApprovalTimeoutMins;
-  set customerApprovalTimeoutMins(num? customerApprovalTimeoutMins) =>
-      _$this._customerApprovalTimeoutMins = customerApprovalTimeoutMins;
-
   UpdatePlatformSettingsDtoBuilder() {
     UpdatePlatformSettingsDto._defaults(this);
   }
@@ -1101,7 +1067,6 @@ class UpdatePlatformSettingsDtoBuilder
       _androidStoreUrl = $v.androidStoreUrl;
       _iosMinVersion = $v.iosMinVersion;
       _iosLatestVersion = $v.iosLatestVersion;
-      _customerApprovalTimeoutSecs = $v.customerApprovalTimeoutSecs;
       _maxActiveOrdersPerCustomer = $v.maxActiveOrdersPerCustomer;
       _requirePriorDeliveryForMultipleOrders =
           $v.requirePriorDeliveryForMultipleOrders;
@@ -1138,8 +1103,6 @@ class UpdatePlatformSettingsDtoBuilder
       _silverTierBonusPerKm = $v.silverTierBonusPerKm;
       _goldTierBonusPerKm = $v.goldTierBonusPerKm;
       _driverSettlementOrderThreshold = $v.driverSettlementOrderThreshold;
-      _requireCustomerApproval = $v.requireCustomerApproval;
-      _customerApprovalTimeoutMins = $v.customerApprovalTimeoutMins;
       _$v = null;
     }
     return this;
@@ -1214,7 +1177,6 @@ class UpdatePlatformSettingsDtoBuilder
           androidStoreUrl: androidStoreUrl,
           iosMinVersion: iosMinVersion,
           iosLatestVersion: iosLatestVersion,
-          customerApprovalTimeoutSecs: customerApprovalTimeoutSecs,
           maxActiveOrdersPerCustomer: maxActiveOrdersPerCustomer,
           requirePriorDeliveryForMultipleOrders:
               requirePriorDeliveryForMultipleOrders,
@@ -1251,8 +1213,6 @@ class UpdatePlatformSettingsDtoBuilder
           silverTierBonusPerKm: silverTierBonusPerKm,
           goldTierBonusPerKm: goldTierBonusPerKm,
           driverSettlementOrderThreshold: driverSettlementOrderThreshold,
-          requireCustomerApproval: requireCustomerApproval,
-          customerApprovalTimeoutMins: customerApprovalTimeoutMins,
         );
     replace(_$result);
     return _$result;

@@ -367,13 +367,6 @@ export class UpdatePlatformSettingsDto {
 
 
 
-  @ApiProperty({ example: 60, required: false, description: 'Seconds customer has to approve exact delivery fee' })
-  @IsInt()
-  @Min(10)
-  @IsOptional()
-  @Type(() => Number)
-  customerApprovalTimeoutSecs?: number;
-
   @ApiProperty({ example: 2, required: false, description: 'Max active orders a customer can have' })
   @IsInt()
   @Min(1)
@@ -706,18 +699,6 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   driverSettlementOrderThreshold?: number;
-
-  @ApiProperty({ example: true, required: false })
-  @IsBoolean()
-  @IsOptional()
-  requireCustomerApproval?: boolean;
-
-  @ApiProperty({ example: 5, required: false })
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  @Type(() => Number)
-  customerApprovalTimeoutMins?: number;
 }
 
 // Used by mobile clients to check app version requirements
@@ -798,12 +779,6 @@ export class PublicPlatformSettingsDto {
 
   @ApiProperty({ example: 1 })
   minCoinsToUse: number;
-
-  @ApiProperty({ example: true })
-  requireCustomerApproval: boolean;
-
-  @ApiProperty({ example: 10 })
-  customerApprovalTimeoutMins: number;
 
   @ApiProperty({ required: false })
   homeCoverUrl?: string;

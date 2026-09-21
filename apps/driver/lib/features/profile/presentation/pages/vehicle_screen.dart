@@ -96,7 +96,19 @@ class _VehicleScreenState extends ConsumerState<VehicleScreen> {
       ),
       body: profileState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text(l10n.errorLoadingProfile)),
+        error: (err, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.errorLoadingProfile),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => ref.invalidate(driverProfileProvider),
+                child: Text(l10n.retry),
+              ),
+            ],
+          ),
+        ),
         data: (profileData) {
           if (profileData == null) {
             return Center(child: Text(l10n.noDataAvailable));

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:core/core.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import '../data/wallet_providers.dart';
 import '../data/wallet_models.dart';
@@ -145,7 +146,7 @@ class PendingTopUpsScreen extends ConsumerWidget {
                             tooltip: l10n.viewScreenshot,
                             icon: const Icon(LucideIcons.image, size: 20),
                             color: AppColors.info,
-                            onPressed: () => _showScreenshot(context, topUp.receiptUrl, l10n),
+                            onPressed: () => _showScreenshot(context, _resolveReceiptUrl(ref, topUp.receiptUrl), l10n),
                           ),
                       ],
                     ),
@@ -204,6 +205,16 @@ class PendingTopUpsScreen extends ConsumerWidget {
         );
       },
     );
+  }
+
+  String _resolveReceiptUrl(WidgetRef ref, String url) {
+    if (url.startsWith('http')) return url;
+    final baseUrl = ref.read(dioProvider).options.baseUrl;
+    final cleanBaseUrl = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final cleanPath = url.startsWith('/') ? url : '/$url';
+    return '$cleanBaseUrl$cleanPath';
   }
 
   void _showScreenshot(BuildContext context, String url, AppLocalizations l10n) {

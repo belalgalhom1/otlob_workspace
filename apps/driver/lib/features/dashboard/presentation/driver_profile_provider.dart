@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
@@ -14,40 +15,51 @@ class DriverProfile extends _$DriverProfile {
     return const AsyncValue.loading();
   }
 
-  Future<void> fetchProfile({bool retried = false}) async {
+  Future<void> fetchProfile() async {
     if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
-    try {
-      final repository = ref.read(driverProfileRepositoryProvider);
-      final response = await repository.getMyProfile();
-      
-      final data = response is Map && response.containsKey('data') && response['data'] is Map
-          ? response['data']
-          : (response ?? {});
-          
-      final currentStatus = data['status'];
-      if (currentStatus == 'ONLINE' || currentStatus == 'ON_DELIVERY') {
-        ref.read(locationServiceProvider).startTracking();
-        ref.read(coreSocketServiceProvider).connect();
-      } else if (currentStatus == 'OFFLINE') {
-        ref.read(locationServiceProvider).stopTracking();
-        ref.read(coreSocketServiceProvider).disconnect();
-      }
-      
-      state = AsyncValue.data(response);
-    } catch (e, st) {
-      if (e.toString().contains('404') || e.toString().contains('PROFILE_NOT_FOUND')) {
-        // Explicitly set state to null so the UI knows profile is pending creation
-        state = const AsyncValue.data(null);
-      } else {
-        // Transient failures right after login (overlapping auth init calls)
-        // should self-heal instead of dead-ending on a generic error screen.
-        if (!retried && !state.hasValue) {
-          await Future.delayed(const Duration(milliseconds: 1500));
-          await fetchProfile(retried: true);
+
+    // Fresh-login cold starts can hit transient network/HTTP failures that a
+    // single retry misses. Loop with backoff so the first-open load self-heals
+    // the same way a faster restart would.
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final repository = ref.read(driverProfileRepositoryProvider);
+        final response = await repository.getMyProfile();
+
+        final data = response is Map && response.containsKey('data') && response['data'] is Map
+            ? response['data']
+            : (response ?? {});
+
+        final currentStatus = data['status'];
+        if (currentStatus == 'ONLINE' || currentStatus == 'ON_DELIVERY') {
+          ref.read(locationServiceProvider).startTracking();
+          ref.read(coreSocketServiceProvider).connect();
+        } else if (currentStatus == 'OFFLINE') {
+          ref.read(locationServiceProvider).stopTracking();
+          ref.read(coreSocketServiceProvider).disconnect();
+        }
+
+        state = AsyncValue.data(response);
+        return;
+      } catch (e, st) {
+        if (e.toString().contains('404') || e.toString().contains('PROFILE_NOT_FOUND')) {
+          // Explicitly set state to null so the UI knows profile is pending creation
+          state = const AsyncValue.data(null);
           return;
         }
+
+        debugPrint('Profile fetch attempt $attempt/$maxAttempts failed: $e');
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(seconds: attempt));
+          if (!ref.mounted) return;
+          continue;
+        }
+
+        // Exhausted all attempts. Surface the error only when we have no data
+        // to show; otherwise keep the stale value and let the user retry.
         if (!state.hasValue) {
           state = AsyncValue.error(e, st);
         }

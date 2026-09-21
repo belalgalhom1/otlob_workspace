@@ -1476,11 +1476,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         label = isArabic ? 'ملغي' : 'Cancelled';
         icon = LucideIcons.xCircle;
         break;
-      case 'CHANGES_REQUESTED':
-        color = Colors.orange;
-        label = isArabic ? 'تعديلات مطلوبة' : 'Changes Requested';
-        icon = LucideIcons.edit3;
-        break;
       case 'LOOKING_FOR_DRIVER':
         color = Colors.blueAccent;
         label = isArabic ? 'جاري البحث عن سائق' : 'Looking for Driver';

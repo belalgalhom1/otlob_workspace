@@ -1,9 +1,11 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSetting, Prisma } from '@prisma/client';
 import { StorageService } from '../../infrastructure/storage/storage.service';
+import { EVENTS } from '../../common/events/event-names';
 import {
   UpdatePlatformSettingsDto,
   AppVersionCheckDto,
@@ -33,8 +35,13 @@ export class PlatformSettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly eventEmitter: EventEmitter2,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
+
+  private emitSettingsUpdated() {
+    this.eventEmitter.emit(EVENTS.SETTINGS_UPDATED);
+  }
 
   // ─── Get settings ─────────────────────────────────────────────────────────
   // Seeds a default row if it has never been written (first boot).
@@ -127,8 +134,6 @@ export class PlatformSettingsService {
       coinValue: s.coinValue,
       amountSpentPerCoin: s.amountSpentPerCoin,
       minCoinsToUse: s.minCoinsToUse,
-      requireCustomerApproval: s.requireCustomerApproval,
-      customerApprovalTimeoutMins: s.customerApprovalTimeoutMins,
       allowBicycle: s.allowBicycle,
       allowMotorcycle: s.allowMotorcycle,
       allowCar: s.allowCar,
@@ -148,6 +153,7 @@ export class PlatformSettingsService {
       driverBonusStartDate: s.driverBonusStartDate,
       driverBonusEndDate: s.driverBonusEndDate,
       driverBonusPaidByCustomer: s.driverBonusPaidByCustomer,
+      driverShiftsEnabled: s.driverShiftsEnabled,
     };
   }
 
@@ -238,7 +244,6 @@ export class PlatformSettingsService {
       'highValueOrderThreshold',
       'highValueUpfrontRate',
       'driverShiftsEnabled',
-      'customerApprovalTimeoutSecs',
       'maxActiveOrdersPerCustomer',
       'requirePriorDeliveryForMultipleOrders',
       'maxOtpAttempts',
@@ -247,8 +252,6 @@ export class PlatformSettingsService {
       'silverTierBonusPerKm',
       'goldTierBonusPerKm',
       'driverSettlementOrderThreshold',
-      'requireCustomerApproval',
-      'customerApprovalTimeoutMins',
     ];
 
     for (const field of fields) {
@@ -264,6 +267,8 @@ export class PlatformSettingsService {
     });
 
     await this.cacheManager.del('platform_settings');
+
+    this.emitSettingsUpdated();
 
     return settings;
   }
@@ -406,6 +411,7 @@ export class PlatformSettingsService {
       data: { homeCoverUrl: url },
     });
     await this.cacheManager.del('platform_settings');
+    this.emitSettingsUpdated();
     return { url };
   }
 
@@ -420,6 +426,7 @@ export class PlatformSettingsService {
       data: { motorcycleIconUrl: url },
     });
     await this.cacheManager.del('platform_settings');
+    this.emitSettingsUpdated();
     return { url };
   }
 
@@ -434,6 +441,7 @@ export class PlatformSettingsService {
       data: { carIconUrl: url },
     });
     await this.cacheManager.del('platform_settings');
+    this.emitSettingsUpdated();
     return { url };
   }
 
@@ -448,6 +456,7 @@ export class PlatformSettingsService {
       data: { deliveryBannerIconUrl: url },
     });
     await this.cacheManager.del('platform_settings');
+    this.emitSettingsUpdated();
     return { url };
   }
 }

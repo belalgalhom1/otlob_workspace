@@ -21,6 +21,9 @@ enum SocketEvent {
   /// Driver (Server to Client)
   driverLocation('driver.location'),
 
+  /// Platform settings (Server to Client)
+  platformSettingsUpdated('platform.settings.updated'),
+
   /// Driver (Client to Server)
   driverLocationUpdate('driver.location.update');
 

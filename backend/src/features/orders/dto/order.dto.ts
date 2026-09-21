@@ -23,44 +23,6 @@ import {
 } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class OrderItemUpdateDto {
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
-  @IsUUID()
-  @IsNotEmpty()
-  productId!: string;
-
-  @ApiProperty({ required: false })
-  @IsUUID()
-  @IsOptional()
-  variantId?: string;
-
-  @ApiProperty({ example: 2 })
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  quantity!: number;
-
-  @ApiProperty({ type: [String], required: false })
-  @IsArray()
-  @IsUUID(undefined, { each: true })
-  @IsOptional()
-  optionIds?: string[];
-
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  @MaxLength(300)
-  specialRequest?: string;
-}
-
-export class EditOrderItemsDto {
-  @ApiProperty({ type: [OrderItemUpdateDto] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @Type(() => OrderItemUpdateDto)
-  items!: OrderItemUpdateDto[];
-}
-
 export class PlaceOrderDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsUUID()

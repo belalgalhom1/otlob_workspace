@@ -36,6 +36,9 @@ export const EVENTS = {
 
   // Reviews
   REVIEW_SUBMITTED: 'review.submitted',
+
+  // Platform settings
+  SETTINGS_UPDATED: 'platform.settings.updated',
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

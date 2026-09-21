@@ -679,7 +679,6 @@ class L10nErrorHelper {
       case 'statusSuspended': return l10n.statusSuspended;
       case 'statusApproved': return l10n.statusApproved;
       case 'profileStatusLabel': return l10n.profileStatusLabel;
-      case 'waitingForCustomerApproval': return l10n.waitingForCustomerApproval;
       default: return key;
     }
   }

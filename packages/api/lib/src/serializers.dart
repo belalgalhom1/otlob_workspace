@@ -65,7 +65,6 @@ import 'package:api/src/model/driver_status.dart';
 import 'package:api/src/model/driver_tier.dart';
 import 'package:api/src/model/driver_wallet_transaction.dart';
 import 'package:api/src/model/driver_wallet_transaction_response_dto.dart';
-import 'package:api/src/model/edit_order_items_dto.dart';
 import 'package:api/src/model/favorite_product.dart';
 import 'package:api/src/model/forgot_password_dto.dart';
 import 'package:api/src/model/generate_shift_pools_dto.dart';
@@ -83,7 +82,6 @@ import 'package:api/src/model/order_dispatch.dart';
 import 'package:api/src/model/order_fee_estimate_dto.dart';
 import 'package:api/src/model/order_item.dart';
 import 'package:api/src/model/order_item_option.dart';
-import 'package:api/src/model/order_item_update_dto.dart';
 import 'package:api/src/model/order_response_dto.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:api/src/model/order_status_event.dart';
@@ -230,7 +228,6 @@ part 'serializers.g.dart';
   DriverTier,
   DriverWalletTransaction,
   DriverWalletTransactionResponseDto,
-  EditOrderItemsDto,
   FavoriteProduct,
   ForgotPasswordDto,
   GenerateShiftPoolsDto,
@@ -248,7 +245,6 @@ part 'serializers.g.dart';
   OrderFeeEstimateDto,
   OrderItem,
   OrderItemOption,
-  OrderItemUpdateDto,
   OrderResponseDto,
   OrderStatus,
   OrderStatusEvent,

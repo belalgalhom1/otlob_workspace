@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 
 part 'wallet_provider.g.dart';
 
@@ -61,7 +62,7 @@ class DriverWallet extends _$DriverWallet {
       
       // 1. Upload receipt
       final uploadRes = await repository.uploadReceipt(imagePath);
-      final receiptUrl = (uploadRes is Map
+      var receiptUrl = (uploadRes is Map
               ? (uploadRes['receiptUrl'] ??
                   uploadRes['data']?['receiptUrl'] ??
                   uploadRes['url'] ??
@@ -72,6 +73,9 @@ class DriverWallet extends _$DriverWallet {
       if (receiptUrl.isEmpty) {
         throw Exception('Failed to upload receipt: no URL returned by server');
       }
+      // The upload endpoint returns a server-relative path (e.g. /media/receipts/..)
+      // but submitTopUpRequest validates receiptUrl as an absolute URL.
+      receiptUrl = _resolveUrl(receiptUrl);
 
       // 2. Submit top-up
       await repository.submitTopUpRequest(platformWalletId, amount, receiptUrl);
@@ -84,6 +88,16 @@ class DriverWallet extends _$DriverWallet {
       }
       rethrow;
     }
+  }
+
+  String _resolveUrl(String path) {
+    if (path.startsWith('http')) return path;
+    final baseUrl = ref.read(dioProvider).options.baseUrl;
+    final cleanBaseUrl = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    return '$cleanBaseUrl$cleanPath';
   }
 
   Future<void> addDriverWallet(String number, String type) async {

@@ -52,16 +52,6 @@ class CustomerOrderRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> acceptOrderChanges(String orderId) async {
-    final response = await _api.ordersControllerAcceptOrderChanges(id: orderId);
-    return ResponseParser.parse(response);
-  }
-
-  Future<dynamic> rejectOrderChanges(String orderId) async {
-    final response = await _api.ordersControllerRejectOrderChanges(id: orderId);
-    return ResponseParser.parse(response);
-  }
-
   Future<dynamic> getOrderById(String orderId) async {
     final response = await _api.ordersControllerGetOne(orderId: orderId);
     return ResponseParser.parse(response);

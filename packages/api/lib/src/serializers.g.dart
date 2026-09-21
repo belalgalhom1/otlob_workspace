@@ -74,7 +74,6 @@ Serializers _$serializers =
           ..add(DriverTier.serializer)
           ..add(DriverWalletTransaction.serializer)
           ..add(DriverWalletTransactionResponseDto.serializer)
-          ..add(EditOrderItemsDto.serializer)
           ..add(FavoriteProduct.serializer)
           ..add(ForgotPasswordDto.serializer)
           ..add(GenerateShiftPoolsDto.serializer)
@@ -92,7 +91,6 @@ Serializers _$serializers =
           ..add(OrderFeeEstimateDto.serializer)
           ..add(OrderItem.serializer)
           ..add(OrderItemOption.serializer)
-          ..add(OrderItemUpdateDto.serializer)
           ..add(OrderResponseDto.serializer)
           ..add(OrderStatus.serializer)
           ..add(OrderStatusEvent.serializer)
@@ -322,12 +320,6 @@ Serializers _$serializers =
             () => ListBuilder<VendorWalletTransaction>(),
           )
           ..addBuilderFactory(
-            const FullType(BuiltList, const [
-              const FullType(OrderItemUpdateDto),
-            ]),
-            () => ListBuilder<OrderItemUpdateDto>(),
-          )
-          ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(Permission)]),
             () => ListBuilder<Permission>(),
           )
@@ -338,10 +330,6 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(ReviewDto)]),
             () => ListBuilder<ReviewDto>(),
-          )
-          ..addBuilderFactory(
-            const FullType(BuiltList, const [const FullType(String)]),
-            () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(String)]),

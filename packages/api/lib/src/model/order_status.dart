@@ -21,8 +21,6 @@ class OrderStatus extends EnumClass {
   static const OrderStatus PREPARING = _$PREPARING;
   @BuiltValueEnumConst(wireName: r'LOOKING_FOR_DRIVER')
   static const OrderStatus LOOKING_FOR_DRIVER = _$LOOKING_FOR_DRIVER;
-  @BuiltValueEnumConst(wireName: r'PENDING_CUSTOMER_APPROVAL')
-  static const OrderStatus PENDING_CUSTOMER_APPROVAL = _$PENDING_CUSTOMER_APPROVAL;
   @BuiltValueEnumConst(wireName: r'DRIVER_ASSIGNED')
   static const OrderStatus DRIVER_ASSIGNED = _$DRIVER_ASSIGNED;
   @BuiltValueEnumConst(wireName: r'PENDING_PAYMENT')

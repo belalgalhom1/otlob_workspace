@@ -1999,6 +1999,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noUpcomingShifts => 'You don\'t have any upcoming shifts.';
 
   @override
+  String get shiftsDisabledTitle => 'Shifts System Disabled';
+
+  @override
+  String get shiftsDisabledSubtitle =>
+      'The shifts system is currently disabled by administration.';
+
+  @override
+  String get shiftsDisabledSwapSubtitle =>
+      'Shift swapping is currently unavailable.';
+
+  @override
+  String get shiftsDisabledAvailableSubtitle =>
+      'No shifts are currently available because the administration has disabled the shifts system.';
+
+  @override
   String get assignedZone => 'Assigned Zone';
 
   @override
@@ -2193,9 +2208,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileStatusLabel => 'Profile Status';
-
-  @override
-  String get waitingForCustomerApproval => 'Waiting for Customer Approval';
 
   @override
   String get deliveryHistory => 'Delivery History';

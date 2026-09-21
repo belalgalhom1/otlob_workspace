@@ -16,8 +16,7 @@ import {
   QueryOrdersDto,
   RespondToDispatchDto,
   AdminAssignDriverDto,
-  PlaceCustomOrderDto,
-  EditOrderItemsDto,
+PlaceCustomOrderDto,
   PlaceDirectOrderDto,
 } from './dto/order.dto';
 import {

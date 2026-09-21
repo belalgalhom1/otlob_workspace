@@ -51,8 +51,6 @@ class PlatformSettingsData {
   final double coinValue;
   final double amountSpentPerCoin;
   final int minCoinsToUse;
-  final bool requireCustomerApproval;
-  final int customerApprovalTimeoutMins;
 
   PlatformSettingsData({
     this.homeCoverUrl,
@@ -102,8 +100,6 @@ class PlatformSettingsData {
     this.coinValue = 1,
     this.amountSpentPerCoin = 10,
     this.minCoinsToUse = 1,
-    this.requireCustomerApproval = true,
-    this.customerApprovalTimeoutMins = 5,
   });
 
   factory PlatformSettingsData.fromJson(Map<String, dynamic> json) {
@@ -160,8 +156,6 @@ class PlatformSettingsData {
       coinValue: double.tryParse(json['coinValue']?.toString() ?? '1') ?? 1,
       amountSpentPerCoin: double.tryParse(json['amountSpentPerCoin']?.toString() ?? '10') ?? 10,
       minCoinsToUse: int.tryParse(json['minCoinsToUse']?.toString() ?? '1') ?? 1,
-      requireCustomerApproval: json['requireCustomerApproval'] ?? true,
-      customerApprovalTimeoutMins: int.tryParse(json['customerApprovalTimeoutMins']?.toString() ?? '5') ?? 5,
     );
   }
 }

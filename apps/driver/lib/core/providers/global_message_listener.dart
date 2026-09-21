@@ -7,6 +7,7 @@ import 'package:data/data.dart';
 import 'package:driver/core/services/location_service.dart';
 import 'package:driver/features/dispatch/presentation/pages/dispatch_modal.dart';
 import 'package:driver/core/router/app_router.dart';
+import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 
@@ -126,15 +127,27 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     dismissDispatchModal(dispatchId);
   });
 
+  // 1b. Platform settings live updates (vendor saved settings -> refresh config)
+  final settingsSub = socketService
+      .onEvent(SocketEvent.platformSettingsUpdated)
+      .listen((eventData) {
+    debugPrint('Global listener: platformSettingsUpdated -> refreshing configuration');
+    ref.invalidate(configurationProvider);
+  });
+
   // 2. WebSocket Reconnection Fallback
   socketService.onConnect.listen((_) {
     debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches');
+    ref.invalidate(configurationProvider);
     checkPendingDispatches();
   });
 
   // 3. App Lifecycle Resume Fallback
   final lifecycleObserver = _DispatchLifecycleObserver(
-    onResume: checkPendingDispatches,
+    onResume: () async {
+      ref.invalidate(configurationProvider);
+      await checkPendingDispatches();
+    },
   );
 
   // 4. Background Push Notification Clicks & Cold Start Check
@@ -217,6 +230,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   });
 
   ref.onDispose(() {
+    settingsSub.cancel();
     lifecycleObserver.dispose();
     pollTimer?.cancel();
   });

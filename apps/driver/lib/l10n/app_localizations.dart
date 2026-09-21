@@ -3890,6 +3890,30 @@ abstract class AppLocalizations {
   /// **'You don\'t have any upcoming shifts.'**
   String get noUpcomingShifts;
 
+  /// No description provided for @shiftsDisabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shifts System Disabled'**
+  String get shiftsDisabledTitle;
+
+  /// No description provided for @shiftsDisabledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The shifts system is currently disabled by administration.'**
+  String get shiftsDisabledSubtitle;
+
+  /// No description provided for @shiftsDisabledSwapSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift swapping is currently unavailable.'**
+  String get shiftsDisabledSwapSubtitle;
+
+  /// No description provided for @shiftsDisabledAvailableSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No shifts are currently available because the administration has disabled the shifts system.'**
+  String get shiftsDisabledAvailableSubtitle;
+
   /// No description provided for @assignedZone.
   ///
   /// In en, this message translates to:
@@ -4267,12 +4291,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Profile Status'**
   String get profileStatusLabel;
-
-  /// No description provided for @waitingForCustomerApproval.
-  ///
-  /// In en, this message translates to:
-  /// **'Waiting for Customer Approval'**
-  String get waitingForCustomerApproval;
 
   /// No description provided for @deliveryHistory.
   ///

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'package:driver/features/shifts/presentation/widgets/available_shifts_tab.dart';
 import 'package:driver/features/shifts/presentation/widgets/swap_board_tab.dart';
+import 'package:driver/core/providers/configuration_provider.dart';
 
 class ShiftsScreen extends ConsumerWidget {
   const ShiftsScreen({super.key});
@@ -15,7 +16,19 @@ class ShiftsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    
+    final config = ref.watch(configurationProvider);
+
+    if (config.hasValue && config.value?['driverShiftsEnabled'] == false) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.myShiftsTitle)),
+        body: EmptyStateWidget(
+          icon: LucideIcons.calendarOff,
+          title: l10n.shiftsDisabledTitle,
+          subtitle: l10n.shiftsDisabledSubtitle,
+        ),
+      );
+    }
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -55,13 +68,11 @@ class _MyShiftsTab extends ConsumerWidget {
     return shiftsState.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
       error: (error, _) {
-        if (error.toString().contains('shifts_disabled')) {
+        if (error.toString().toLowerCase().contains('shifts_disabled')) {
           return EmptyStateWidget(
             icon: LucideIcons.calendarOff,
-            title: l10n.localeName == 'ar' ? 'نظام النوبات معطل' : 'Shifts System Disabled',
-            subtitle: l10n.localeName == 'ar' 
-                ? 'نظام النوبات معطل حالياً من قبل الإدارة.' 
-                : 'The shifts system is currently disabled by administration.',
+            title: l10n.shiftsDisabledTitle,
+            subtitle: l10n.shiftsDisabledSubtitle,
           );
         }
         return Center(child: Text(l10n.errorGeneric(error.toString())));

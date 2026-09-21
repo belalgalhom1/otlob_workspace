@@ -17,7 +17,6 @@ import {
   RespondToDispatchDto,
   AdminAssignDriverDto,
   PlaceCustomOrderDto,
-  EditOrderItemsDto,
   PlaceDirectOrderDto,
 } from './dto/order.dto';
 import {
@@ -69,7 +68,6 @@ const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.CHANGES_REQUESTED]: [],
-  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
 };
 
 const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -91,7 +89,6 @@ const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.LOOKING_FOR_DRIVER]: [],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
-  [OrderStatus.PENDING_CUSTOMER_APPROVAL]: [],
 };
 
 const NON_CANCELLABLE: OrderStatus[] = [

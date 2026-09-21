@@ -17,13 +17,11 @@ class SwapBoardTab extends ConsumerWidget {
     return swapState.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
       error: (error, _) {
-        if (error.toString().contains('shifts_disabled')) {
+        if (error.toString().toLowerCase().contains('shifts_disabled')) {
           return EmptyStateWidget(
             icon: LucideIcons.calendarOff,
-            title: l10n.localeName == 'ar' ? 'نظام النوبات معطل' : 'Shifts System Disabled',
-            subtitle: l10n.localeName == 'ar' 
-                ? 'لا يمكن تبديل النوبات حالياً.' 
-                : 'Shift swapping is currently unavailable.',
+            title: l10n.shiftsDisabledTitle,
+            subtitle: l10n.shiftsDisabledSwapSubtitle,
           );
         }
         return Center(child: Text(l10n.errorGeneric(error.toString())));

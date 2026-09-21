@@ -34,8 +34,6 @@ part 'public_platform_settings_dto.g.dart';
 /// * [coinValue] 
 /// * [amountSpentPerCoin] 
 /// * [minCoinsToUse] 
-/// * [requireCustomerApproval] 
-/// * [customerApprovalTimeoutMins] 
 /// * [homeCoverUrl] 
 /// * [motorcycleIconUrl] 
 /// * [carIconUrl] 
@@ -111,12 +109,6 @@ abstract class PublicPlatformSettingsDto implements Built<PublicPlatformSettings
 
   @BuiltValueField(wireName: r'minCoinsToUse')
   num get minCoinsToUse;
-
-  @BuiltValueField(wireName: r'requireCustomerApproval')
-  bool get requireCustomerApproval;
-
-  @BuiltValueField(wireName: r'customerApprovalTimeoutMins')
-  num get customerApprovalTimeoutMins;
 
   @BuiltValueField(wireName: r'homeCoverUrl')
   String? get homeCoverUrl;
@@ -273,16 +265,6 @@ class _$PublicPlatformSettingsDtoSerializer implements PrimitiveSerializer<Publi
     yield r'minCoinsToUse';
     yield serializers.serialize(
       object.minCoinsToUse,
-      specifiedType: const FullType(num),
-    );
-    yield r'requireCustomerApproval';
-    yield serializers.serialize(
-      object.requireCustomerApproval,
-      specifiedType: const FullType(bool),
-    );
-    yield r'customerApprovalTimeoutMins';
-    yield serializers.serialize(
-      object.customerApprovalTimeoutMins,
       specifiedType: const FullType(num),
     );
     if (object.homeCoverUrl != null) {
@@ -509,20 +491,6 @@ class _$PublicPlatformSettingsDtoSerializer implements PrimitiveSerializer<Publi
             specifiedType: const FullType(num),
           ) as num;
           result.minCoinsToUse = valueDes;
-          break;
-        case r'requireCustomerApproval':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.requireCustomerApproval = valueDes;
-          break;
-        case r'customerApprovalTimeoutMins':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.customerApprovalTimeoutMins = valueDes;
           break;
         case r'homeCoverUrl':
           final valueDes = serializers.deserialize(

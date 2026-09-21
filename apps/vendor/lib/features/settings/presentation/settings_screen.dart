@@ -312,11 +312,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const Divider(),
           const SizedBox(height: 16),
           _buildFieldRow(l10n.driverSettlementOrderThreshold, 'driverSettlementOrderThreshold', settings['driverSettlementOrderThreshold'], isNumber: true),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          _buildFieldRow(l10n.localeName == 'ar' ? 'طلب موافقة العميل على الرسوم' : 'Require Customer Fee Approval', 'requireCustomerApproval', settings['requireCustomerApproval'], isBoolean: true),
-          _buildFieldRow(l10n.localeName == 'ar' ? 'مهلة موافقة العميل (دقائق)' : 'Customer Approval Timeout (Mins)', 'customerApprovalTimeoutMins', settings['customerApprovalTimeoutMins'], isNumber: true),
         ],
       ),
     );

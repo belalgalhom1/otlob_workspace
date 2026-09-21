@@ -28,7 +28,6 @@ class OrdersScreen extends ConsumerStatefulWidget {
 String _translateStatus(String status, bool isArabic) {
   switch (status) {
     case 'PENDING': return isArabic ? 'قيد الانتظار' : 'Pending';
-    case 'CHANGES_REQUESTED': return isArabic ? 'تعديلات مطلوبة' : 'Changes Requested';
     case 'ACCEPTED': return isArabic ? 'مقبول' : 'Accepted';
     case 'PREPARING': return isArabic ? 'قيد التحضير' : 'Preparing';
     case 'LOOKING_FOR_DRIVER': return isArabic ? 'جاري البحث عن مندوب' : 'Looking for Driver';
@@ -202,7 +201,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     int currentStep = 0;
     if (status == 'ACCEPTED' || 
         status == 'PREPARING' || 
-        status == 'CHANGES_REQUESTED' ||
         status == 'LOOKING_FOR_DRIVER' || 
         status == 'DRIVER_ASSIGNED' || 
         status == 'PENDING_PAYMENT' ||
@@ -345,9 +343,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     } else if (status == 'CANCELLED') {
       statusColor = Colors.red;
       statusBgColor = Colors.red.withValues(alpha: 0.1);
-    } else if (status == 'CHANGES_REQUESTED') {
-      statusColor = Colors.orange;
-      statusBgColor = Colors.orange.withValues(alpha: 0.1);
     } else if (status == 'PENDING_PAYMENT') {
       statusColor = Colors.purple;
       statusBgColor = Colors.purple.withValues(alpha: 0.1);
@@ -733,60 +728,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     ),
                   ),
                 ],
-              ),
-            ] else if (status == 'CHANGES_REQUESTED') ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      s.isArabic ? 'قام المتجر بتعديل الطلب. يرجى المراجعة:' : 'Vendor modified your order. Please review:',
-                      style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final res = await ref.read(ordersProvider.notifier).acceptOrderChanges(order['id']);
-                              if (res && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'تم قبول التعديلات' : 'Changes accepted')));
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Text(s.isArabic ? 'موافق' : 'Accept'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final res = await ref.read(ordersProvider.notifier).rejectOrderChanges(order['id']);
-                              if (res && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'تم رفض التعديلات' : 'Changes rejected')));
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              side: const BorderSide(color: Colors.red),
-                            ),
-                            child: Text(s.isArabic ? 'رفض' : 'Reject'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
               ),
             ] else if (status == 'PENDING_PAYMENT') ...[
               if (order['driver'] != null && order['driver']['mobileWallets'] != null && (order['driver']['mobileWallets'] as List).isNotEmpty) ...[
