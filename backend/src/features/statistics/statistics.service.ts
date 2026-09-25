@@ -6,7 +6,7 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import { OrderSettledEvent, DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-import { StatisticPeriod, DriverStatus } from '@prisma/client';
+import { Prisma, StatisticPeriod, DriverStatus } from '@prisma/client';
 
 export interface SettleOrderPayload {
   orderId: string;
@@ -113,219 +113,274 @@ export class StatisticsService {
       platformRevenue -= driverBonusFee;
     }
 
-    const isDriverCollected = paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
-    
-    if (isDriverCollected) {
-      // For contracted vendors, the driver collects grandTotal (food + delivery + fees).
-      // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket,
-      // so net cash collected on behalf of the platform is grandTotal - subtotal.
-      const collectedAmount = isContracted ? grandTotal : Math.max(0, grandTotal - subtotal);
+    const isDriverCollected =
+      paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
+
+    // Emission effects collected inside the transaction and replayed after
+    // commit (socket/events must not run inside the DB transaction).
+    const statusEffects: {
+      kind: 'LOCKED' | 'SETTLEMENT';
+      driver: { id: string; userId: string; status: DriverStatus };
+      prevStatus: DriverStatus;
+    }[] = [];
+
+    // The entire settlement is atomic and idempotent:
+    //  - We take a row lock on the ORDER so concurrent SETTLE jobs for the same
+    //    order (retry + unsettled-order monitor) serialize instead of double-running.
+    //  - If a DELIVERY_FEE wallet transaction already exists for this order, the
+    //    order was already settled — we skip all side effects (wallet credits,
+    //    counters, stats) so nothing can be applied twice.
+    await this.prisma.$transaction(async (client) => {
+      await client.$executeRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
+
+      const alreadySettled = await client.driverWalletTransaction.findFirst({
+        where: { orderId, type: 'DELIVERY_FEE' },
+      });
+      if (alreadySettled) {
+        this.logger.warn(
+          `Order ${orderNumber} already settled — skipping duplicate settlement.`,
+        );
+        return;
+      }
+
+      if (isDriverCollected) {
+        // For contracted vendors, the driver collects grandTotal (food + delivery + fees).
+        // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket,
+        // so net cash collected on behalf of the platform is grandTotal - subtotal.
+        const collectedAmount = isContracted
+          ? grandTotal
+          : Math.max(0, grandTotal - subtotal);
+
+        await this.creditDriverWallet(
+          client,
+          driverId,
+          -collectedAmount,
+          orderId,
+          driverShiftId,
+          `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
+          'CASH_COLLECTED',
+        );
+      }
 
       await this.creditDriverWallet(
+        client,
         driverId,
-        -collectedAmount,
+        driverEarnings,
         orderId,
         driverShiftId,
-        `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
-        'CASH_COLLECTED',
-      );
-    }
-
-    await this.creditDriverWallet(
-      driverId,
-      driverEarnings,
-      orderId,
-      driverShiftId,
-      `Delivery fee for order ${orderNumber}`,
-      'DELIVERY_FEE',
-    );
-
-    if (driverBonusFee > 0) {
-      await this.creditDriverWallet(
-        driverId,
-        driverBonusFee,
-        orderId,
-        driverShiftId,
-        `Time-based bonus for order ${orderNumber}`,
-        'BONUS',
-      );
-    }
-
-    if (payload.upfrontAmount > 0) {
-      await this.creditDriverWallet(
-        driverId,
-        payload.upfrontAmount,
-        orderId,
-        driverShiftId,
-        `Reimbursement for online upfront payment`,
-        'ADJUSTMENT',
-      );
-    }
-
-    // Fetch updated wallet balance after transactions
-    const driverSnapshot = await this.prisma.driver.findUnique({
-      where: { id: driverId },
-      select: {
-        id: true,
-        userId: true,
-        status: true,
-        walletBalance: true,
-        ordersSinceSettlement: true,
-      },
-    });
-
-    const currentBalance = driverSnapshot?.walletBalance ?? 0;
-    const maxNegative = Number((settings as any).maxNegativeDriverBalance ?? 500);
-    const isNegativeBalance = currentBalance < -maxNegative;
-    const shouldLock = isNegativeBalance;
-
-    // Periodic settlement: after `driverSettlementOrderThreshold` delivered orders
-    // (default 10), a driver who owes the platform any money is blocked from new
-    // dispatches until they transfer it to the platform wallet via a top-up.
-    const settlementThreshold = Number(settings.driverSettlementOrderThreshold ?? 10);
-    const nextSettlementCount = (driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
-    const settlementDue =
-      !shouldLock &&
-      settlementThreshold > 0 &&
-      nextSettlementCount >= settlementThreshold &&
-      currentBalance < 0;
-
-    const driver = await this.prisma.driver.update({
-      where: { id: driverId },
-      data: {
-        totalOrders: { increment: 1 },
-        ordersSinceSettlement: { increment: 1 },
-        hasUnpaidCommission: shouldLock || settlementDue ? true : undefined,
-        status: shouldLock ? DriverStatus.SUSPENDED : undefined,
-      },
-      select: { id: true, userId: true, status: true },
-    });
-
-    if (shouldLock) {
-      this.logger.warn(`Driver ${driverId} locked out due to unpaid commission on driver-collected order ${orderNumber}.`);
-      
-      this.socketService.disconnectUser(driver.userId);
-
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_STATUS_CHANGED,
-        new DriverStatusChangedEvent(
-          driver.id,
-          driver.userId,
-          DriverStatus.ONLINE, // Approximation of previous state
-          DriverStatus.SUSPENDED,
-          'UNPAID_COMMISSION',
-        ),
-      );
-    }
-
-    if (settlementDue) {
-      this.logger.warn(
-        `Driver ${driverId} reached settlement milestone (${nextSettlementCount} orders) with negative balance — blocked from new orders until settled.`,
+        `Delivery fee for order ${orderNumber}`,
+        'DELIVERY_FEE',
       );
 
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_STATUS_CHANGED,
-        new DriverStatusChangedEvent(
-          driver.id,
-          driver.userId,
-          driverSnapshot?.status ?? DriverStatus.ONLINE,
-          driver.status,
-          'SETTLEMENT_REQUIRED',
-        ),
-      );
-    }
+      if (driverBonusFee > 0) {
+        await this.creditDriverWallet(
+          client,
+          driverId,
+          driverBonusFee,
+          orderId,
+          driverShiftId,
+          `Time-based bonus for order ${orderNumber}`,
+          'BONUS',
+        );
+      }
 
-    if (coinsEarned > 0) {
-      await this.prisma.$transaction(async (tx) => {
-        const existing = await tx.customerCoinTransaction.findFirst({
+      if (payload.upfrontAmount > 0) {
+        await this.creditDriverWallet(
+          client,
+          driverId,
+          payload.upfrontAmount,
+          orderId,
+          driverShiftId,
+          `Reimbursement for online upfront payment`,
+          'ADJUSTMENT',
+        );
+      }
+
+      // Fetch updated wallet balance after transactions
+      const driverSnapshot = await client.driver.findUnique({
+        where: { id: driverId },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          walletBalance: true,
+          ordersSinceSettlement: true,
+        },
+      });
+
+      const currentBalance = driverSnapshot?.walletBalance ?? 0;
+      const maxNegative = Number(
+        (settings as any).maxNegativeDriverBalance ?? 500,
+      );
+      const shouldLock = currentBalance < -maxNegative;
+
+      // Periodic settlement: after `driverSettlementOrderThreshold` delivered orders
+      // (default 10), a driver who owes the platform any money is blocked from new
+      // dispatches until they transfer it to the platform wallet via a top-up.
+      const settlementThreshold = Number(
+        settings.driverSettlementOrderThreshold ?? 10,
+      );
+      const nextSettlementCount =
+        (driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
+      const settlementDue =
+        !shouldLock &&
+        settlementThreshold > 0 &&
+        nextSettlementCount >= settlementThreshold &&
+        currentBalance < 0;
+
+      const driver = await client.driver.update({
+        where: { id: driverId },
+        data: {
+          totalOrders: { increment: 1 },
+          ordersSinceSettlement: { increment: 1 },
+          hasUnpaidCommission: shouldLock || settlementDue ? true : undefined,
+          status: shouldLock ? DriverStatus.SUSPENDED : undefined,
+        },
+        select: { id: true, userId: true, status: true },
+      });
+
+      if (shouldLock) {
+        statusEffects.push({
+          kind: 'LOCKED',
+          driver,
+          prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
+        });
+      } else if (settlementDue) {
+        statusEffects.push({
+          kind: 'SETTLEMENT',
+          driver,
+          prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
+        });
+      }
+
+      if (coinsEarned > 0) {
+        const existing = await client.customerCoinTransaction.findFirst({
           where: { orderId, type: 'EARNED' },
         });
-        if (existing) return;
+        if (!existing) {
+          const customer = await client.customer.update({
+            where: { id: customerId },
+            data: { coinBalance: { increment: coinsEarned } },
+            select: { coinBalance: true },
+          });
 
-        const customer = await tx.customer.update({
-          where: { id: customerId },
-          data: { coinBalance: { increment: coinsEarned } },
-          select: { coinBalance: true },
-        });
-
-        await tx.customerCoinTransaction.create({
-          data: {
-            customerId,
-            orderId,
-            type: 'EARNED',
-            amount: coinsEarned,
-            balanceAfter: customer.coinBalance,
-            description: `Earned coins from order ${orderNumber}`,
-          },
-        });
-      });
-    }
-
-    if (vendorId && isContracted) {
-      // Vendor wallet: credit revenue (subtotal) and debit commission ONLY if they are contracted
-      await this.statsRepository.creditVendorWallet(
-        vendorId,
-        vendorRevenue,
-        'ORDER_REVENUE',
-        orderId,
-        `Order ${orderNumber} revenue`,
-      );
-
-      await this.statsRepository.debitVendorWallet(
-        vendorId,
-        commission,
-        'COMMISSION_DEDUCTION',
-        orderId,
-        `Commission for order ${orderNumber}`,
-      );
-    }
-
-    const now = new Date();
-    const periods = this.statsRepository.getPeriodsForDate(now);
-
-    // Upsert all stat periods concurrently
-    await Promise.all(
-      periods.flatMap(({ period, startDate, endDate }) => {
-        const jobs: Promise<any>[] = [];
-
-        if (vendorId) {
-          jobs.push(
-            this.statsRepository.upsertVendorStat(
-              vendorId,
-              period,
-              startDate,
-              endDate,
-              {
-                totalOrders: 1,
-                totalRevenue: vendorRevenue,
-                totalCommission: isContracted ? commission : 0,
-                totalTax: tax,
-                completedOrders: 1,
-              },
-            ),
-          );
+          await client.customerCoinTransaction.create({
+            data: {
+              customerId,
+              orderId,
+              type: 'EARNED',
+              amount: coinsEarned,
+              balanceAfter: customer.coinBalance,
+              description: `Earned coins from order ${orderNumber}`,
+            },
+          });
         }
-        jobs.push(
-          this.statsRepository.upsertDriverStat(
-            driverId,
+      }
+
+      if (vendorId && isContracted) {
+        // Vendor wallet: credit revenue (subtotal) and debit commission ONLY if they are contracted
+        await this.statsRepository.creditVendorWallet(
+          vendorId,
+          vendorRevenue,
+          'ORDER_REVENUE',
+          orderId,
+          `Order ${orderNumber} revenue`,
+          client,
+        );
+
+        await this.statsRepository.debitVendorWallet(
+          vendorId,
+          commission,
+          'COMMISSION_DEDUCTION',
+          orderId,
+          `Commission for order ${orderNumber}`,
+          client,
+        );
+      }
+
+      const now = new Date();
+      const periods = this.statsRepository.getPeriodsForDate(now);
+
+      // Upsert all stat periods sequentially inside the same transaction
+      for (const { period, startDate, endDate } of periods) {
+        if (vendorId) {
+          await this.statsRepository.upsertVendorStat(
+            vendorId,
             period,
             startDate,
             endDate,
             {
               totalOrders: 1,
-              totalEarnings: driverEarnings,
+              totalRevenue: vendorRevenue,
+              totalCommission: isContracted ? commission : 0,
+              totalTax: tax,
               completedOrders: 1,
             },
-          ),
-          this.statsRepository.upsertAppStat(period, startDate, endDate, {
+            client,
+          );
+        }
+        await this.statsRepository.upsertDriverStat(
+          driverId,
+          period,
+          startDate,
+          endDate,
+          {
+            totalOrders: 1,
+            totalEarnings: driverEarnings,
+            completedOrders: 1,
+          },
+          client,
+        );
+        await this.statsRepository.upsertAppStat(
+          period,
+          startDate,
+          endDate,
+          {
             totalOrders: 1,
             totalAdminRevenue: platformRevenue,
             totalDeliveryFees: deliveryFee,
-          }),
+          },
+          client,
         );
-        return jobs;
-      }),
-    );
+      }
+    });
+
+    // Emit events after a successful commit only
+    for (const effect of statusEffects) {
+      if (effect.kind === 'LOCKED') {
+        this.logger.warn(
+          `Driver ${driverId} locked out due to unpaid commission on driver-collected order ${orderNumber}.`,
+        );
+
+        this.socketService.disconnectUser(effect.driver.userId);
+
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_STATUS_CHANGED,
+          new DriverStatusChangedEvent(
+            effect.driver.id,
+            effect.driver.userId,
+            effect.prevStatus,
+            DriverStatus.SUSPENDED,
+            'UNPAID_COMMISSION',
+          ),
+        );
+      } else {
+        this.logger.warn(
+          `Driver ${driverId} reached settlement milestone (${effect.driver.status}) with negative balance — blocked from new orders until settled.`,
+        );
+
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_STATUS_CHANGED,
+          new DriverStatusChangedEvent(
+            effect.driver.id,
+            effect.driver.userId,
+            effect.prevStatus,
+            effect.driver.status,
+            'SETTLEMENT_REQUIRED',
+          ),
+        );
+      }
+    }
 
     // Emit settled event — listeners can send receipts etc.
     this.eventEmitter.emit(
@@ -562,6 +617,7 @@ export class StatisticsService {
   // ─── Private ──────────────────────────────────────────────────────────────
 
   private async creditDriverWallet(
+    client: Prisma.TransactionClient,
     driverId: string,
     amount: number,
     orderId: string,
@@ -576,32 +632,30 @@ export class StatisticsService {
       | 'CASH_COLLECTED'
       | 'CASH_HANDED_TO_VENDOR' = 'DELIVERY_FEE',
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      // 1. Acquire row lock on the driver to serialize concurrent transactions
-      await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+    // 1. Acquire row lock on the driver to serialize concurrent transactions
+    await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
 
-      const existing = await tx.driverWalletTransaction.findFirst({
-        where: { orderId, type },
-      });
-      if (existing) return;
+    const existing = await client.driverWalletTransaction.findFirst({
+      where: { orderId, type },
+    });
+    if (existing) return;
 
-      const driver = await tx.driver.update({
-        where: { id: driverId },
-        data: { walletBalance: { increment: amount } },
-        select: { walletBalance: true },
-      });
+    const driver = await client.driver.update({
+      where: { id: driverId },
+      data: { walletBalance: { increment: amount } },
+      select: { walletBalance: true },
+    });
 
-      await tx.driverWalletTransaction.create({
-        data: {
-          driverId,
-          orderId,
-          driverShiftId,
-          type,
-          amount,
-          balanceAfter: driver.walletBalance,
-          description,
-        },
-      });
+    await client.driverWalletTransaction.create({
+      data: {
+        driverId,
+        orderId,
+        driverShiftId,
+        type,
+        amount,
+        balanceAfter: driver.walletBalance,
+        description,
+      },
     });
   }
 }

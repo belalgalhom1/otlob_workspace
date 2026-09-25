@@ -109,7 +109,11 @@ export class CreateOfferDto {
   @IsNotEmpty()
   productId!: string;
 
-  @ApiProperty({ required: false, description: 'Optional variant ID. If omitted, applies to product directly or all variants.' })
+  @ApiProperty({
+    required: false,
+    description:
+      'Optional variant ID. If omitted, applies to product directly or all variants.',
+  })
   @IsUUID()
   @IsOptional()
   variantId?: string;

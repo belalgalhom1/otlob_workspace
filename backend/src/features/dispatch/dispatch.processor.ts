@@ -90,7 +90,7 @@ export class DispatchProcessor extends WorkerHost {
         'system',
         'Searching for available driver',
         undefined,
-        OrderStatus.ACCEPTED
+        OrderStatus.ACCEPTED,
       );
 
       const fullOrder = await this.prisma.order.findUnique({
@@ -158,7 +158,10 @@ export class DispatchProcessor extends WorkerHost {
         excludeDriverIds,
       });
     } catch (err: any) {
-      this.logger.error(`CRITICAL DISPATCH ERROR for ${orderNumber}: ${err.message}`, err.stack);
+      this.logger.error(
+        `CRITICAL DISPATCH ERROR for ${orderNumber}: ${err.message}`,
+        err.stack,
+      );
       throw err; // Re-throw for BullMQ retry
     }
 

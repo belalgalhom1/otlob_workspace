@@ -245,7 +245,7 @@ export class AdminUpdateDriverDto {
   @IsString()
   @IsOptional()
   vehiclePlate?: string;
-  
+
   @ApiProperty({ enum: DriverStatus, required: false })
   @IsEnum(DriverStatus)
   @IsOptional()
@@ -256,4 +256,3 @@ export class AdminUpdateDriverDto {
   @IsOptional()
   isApproved?: boolean;
 }
-

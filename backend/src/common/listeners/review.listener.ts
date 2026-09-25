@@ -10,7 +10,10 @@ export class ReviewListener {
   constructor(private readonly prisma: PrismaService) {}
 
   @OnEvent(EVENTS.REVIEW_SUBMITTED, { async: true })
-  async handleReviewSubmitted(payload: { vendorId?: string | null; driverId?: string | null }) {
+  async handleReviewSubmitted(payload: {
+    vendorId?: string | null;
+    driverId?: string | null;
+  }) {
     try {
       if (payload.vendorId) {
         const agg = await this.prisma.orderReview.aggregate({
@@ -26,8 +29,10 @@ export class ReviewListener {
             ratingCount: agg._count._all,
           },
         });
-        
-        this.logger.log(`Vendor ${payload.vendorId} rating updated: ${agg._avg.vendorRating} (${agg._count._all} reviews)`);
+
+        this.logger.log(
+          `Vendor ${payload.vendorId} rating updated: ${agg._avg.vendorRating} (${agg._count._all} reviews)`,
+        );
       }
 
       if (payload.driverId) {
@@ -37,8 +42,10 @@ export class ReviewListener {
           _count: { _all: true },
         });
 
-        const convertedRating = agg._avg.driverRating ? Math.round(agg._avg.driverRating * 100) : 500;
-        
+        const convertedRating = agg._avg.driverRating
+          ? Math.round(agg._avg.driverRating * 100)
+          : 500;
+
         await this.prisma.driver.update({
           where: { id: payload.driverId },
           data: {
@@ -46,11 +53,16 @@ export class ReviewListener {
             ratingCount: agg._count._all,
           },
         });
-        
-        this.logger.log(`Driver ${payload.driverId} rating updated: ${convertedRating} (${agg._count._all} reviews)`);
+
+        this.logger.log(
+          `Driver ${payload.driverId} rating updated: ${convertedRating} (${agg._count._all} reviews)`,
+        );
       }
     } catch (error: unknown) {
-      this.logger.error(`Error processing review submitted event: ${error instanceof Error ? error.message : String(error)}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Error processing review submitted event: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 }

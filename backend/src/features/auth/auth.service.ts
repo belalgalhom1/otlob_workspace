@@ -126,7 +126,8 @@ export class AuthService {
                 userId: u.id,
                 vendorId: dto.vendorId,
                 role:
-                  (dto.vendorRole as VendorMemberRole) ?? VendorMemberRole.STAFF,
+                  (dto.vendorRole as VendorMemberRole) ??
+                  VendorMemberRole.STAFF,
               },
             });
           }
@@ -196,7 +197,9 @@ export class AuthService {
     }
 
     if (!user.password) {
-      this.logger.warn(`Login failed: OAuth account without password for ${dto.email}`);
+      this.logger.warn(
+        `Login failed: OAuth account without password for ${dto.email}`,
+      );
       throw new UnauthorizedException(AuthErrors.SOCIAL_LOGIN_REQUIRED);
     }
 
@@ -234,7 +237,10 @@ export class AuthService {
       throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
     }
 
-    if (user.role === Role.DRIVER && (!user.driver || !user.driver.isApproved)) {
+    if (
+      user.role === Role.DRIVER &&
+      (!user.driver || !user.driver.isApproved)
+    ) {
       this.logger.warn(`Login failed: Driver pending approval: ${dto.email}`);
       throw new ForbiddenException(DriverErrors.NOT_APPROVED);
     }
@@ -245,15 +251,19 @@ export class AuthService {
     return { ...tokens, user: userWithoutPassword };
   }
 
-  private async verifyGoogleToken(idToken: string): Promise<{ sub: string; email?: string; name?: string }> {
+  private async verifyGoogleToken(
+    idToken: string,
+  ): Promise<{ sub: string; email?: string; name?: string }> {
     try {
-      const googleClientIds = this.config.get<string>('GOOGLE_CLIENT_IDS')?.split(',') || [];
+      const googleClientIds =
+        this.config.get<string>('GOOGLE_CLIENT_IDS')?.split(',') || [];
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
         audience: googleClientIds.map((id) => id.trim()).filter(Boolean),
       });
       const payload = ticket.getPayload();
-      if (!payload) throw new UnauthorizedException(AuthErrors.NO_PAYLOAD_FOUND);
+      if (!payload)
+        throw new UnauthorizedException(AuthErrors.NO_PAYLOAD_FOUND);
       return {
         sub: payload.sub,
         email: payload.email,
@@ -265,9 +275,12 @@ export class AuthService {
     }
   }
 
-  private async verifyAppleToken(idToken: string): Promise<{ sub: string; email?: string }> {
+  private async verifyAppleToken(
+    idToken: string,
+  ): Promise<{ sub: string; email?: string }> {
     try {
-      const appleClientIds = this.config.get<string>('APPLE_CLIENT_IDS')?.split(',') || [];
+      const appleClientIds =
+        this.config.get<string>('APPLE_CLIENT_IDS')?.split(',') || [];
       const payload = await appleSignin.verifyIdToken(idToken, {
         audience: appleClientIds.map((id) => id.trim()).filter(Boolean),
         ignoreExpiration: false,
@@ -306,7 +319,9 @@ export class AuthService {
     }
 
     if (!providerAccountId) {
-      throw new BadRequestException(AuthErrors.SOCIAL_ACCOUNT_VERIFICATION_FAILED);
+      throw new BadRequestException(
+        AuthErrors.SOCIAL_ACCOUNT_VERIFICATION_FAILED,
+      );
     }
 
     // 1. Check if Account exists
@@ -345,7 +360,9 @@ export class AuthService {
             providerAccountId: providerAccountId,
           },
         });
-        this.logger.log(`Linked ${dto.provider} account to existing user ${user.email}`);
+        this.logger.log(
+          `Linked ${dto.provider} account to existing user ${user.email}`,
+        );
       }
     }
 
@@ -383,7 +400,9 @@ export class AuthService {
           include: { driver: { select: { isApproved: true } } },
         });
       });
-      this.logger.log(`Auto-registered new user via ${dto.provider}: ${user.email}`);
+      this.logger.log(
+        `Auto-registered new user via ${dto.provider}: ${user.email}`,
+      );
     }
 
     // 4. Validate Role / App Access
@@ -393,7 +412,9 @@ export class AuthService {
     }
 
     if (dto.app === 'driver' && user.role !== Role.DRIVER) {
-      this.logger.warn(`Social login failed: Invalid app access for user ${user.email}`);
+      this.logger.warn(
+        `Social login failed: Invalid app access for user ${user.email}`,
+      );
       throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
     }
 
@@ -410,8 +431,13 @@ export class AuthService {
       throw new ForbiddenException(AuthErrors.ONLY_DRIVERS_APP_ALLOWED);
     }
 
-    if (user.role === Role.DRIVER && (!user.driver || !user.driver.isApproved)) {
-      this.logger.warn(`Social login failed: Driver pending approval: ${user.email}`);
+    if (
+      user.role === Role.DRIVER &&
+      (!user.driver || !user.driver.isApproved)
+    ) {
+      this.logger.warn(
+        `Social login failed: Driver pending approval: ${user.email}`,
+      );
       throw new ForbiddenException(DriverErrors.NOT_APPROVED);
     }
 
@@ -572,7 +598,10 @@ export class AuthService {
       throw new UnauthorizedException(AuthErrors.BANNED);
     }
 
-    if (user.role === Role.DRIVER && (!driverProfile || !driverProfile.isApproved)) {
+    if (
+      user.role === Role.DRIVER &&
+      (!driverProfile || !driverProfile.isApproved)
+    ) {
       throw new ForbiddenException(DriverErrors.NOT_APPROVED);
     }
 
@@ -597,11 +626,14 @@ export class AuthService {
       const updatedAt = session.updatedAt
         ? new Date(session.updatedAt).getTime()
         : 0;
-      const rotatedRecently = Date.now() - updatedAt < REFRESH_ROTATION_GRACE_MS;
+      const rotatedRecently =
+        Date.now() - updatedAt < REFRESH_ROTATION_GRACE_MS;
 
       if (!rotatedRecently) {
         // Refresh token reuse detected → nuke ALL sessions (nuclear revocation)
-        await this.prisma.session.deleteMany({ where: { userId: payload.sub } });
+        await this.prisma.session.deleteMany({
+          where: { userId: payload.sub },
+        });
         const accessTtl = this.getAccessExpirySeconds();
         await this.redis.set(`revoked:user:${payload.sub}`, '1', accessTtl);
         this.socketService.disconnectUser(payload.sub);
@@ -746,9 +778,7 @@ export class AuthService {
 
     if (user?.role === Role.DRIVER && user.driver) {
       if (user.driver.orders && user.driver.orders.length > 0) {
-        throw new BadRequestException(
-          AuthErrors.CANNOT_LOGOUT_ON_DELIVERY,
-        );
+        throw new BadRequestException(AuthErrors.CANNOT_LOGOUT_ON_DELIVERY);
       }
 
       await this.prisma.driver.update({

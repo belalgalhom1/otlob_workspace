@@ -5,7 +5,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { CreateZoneDto, UpdateZoneDto, CheckLocationDto, SearchCustomersInPolygonDto } from './dto/zone.dto';
+import {
+  CreateZoneDto,
+  UpdateZoneDto,
+  CheckLocationDto,
+  SearchCustomersInPolygonDto,
+} from './dto/zone.dto';
 import {
   ZoneErrors,
   CommonSuccess,

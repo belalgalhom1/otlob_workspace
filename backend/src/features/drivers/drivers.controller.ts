@@ -27,17 +27,17 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Permission, Role } from '@prisma/client';
-import { ApiStandardResponse, ApiPaginatedResponse, ApiArrayResponse } from 'src/common/decorators/api-response.decorator';
+import {
+  ApiStandardResponse,
+  ApiPaginatedResponse,
+  ApiArrayResponse,
+} from 'src/common/decorators/api-response.decorator';
 import { DriverResponseDto } from 'src/common/dto/response-models.dto';
 import { Driver } from '../../_gen/prisma-classes/driver';
 import { DriverShift } from '../../_gen/prisma-classes/driver_shift';
 import { DriverWalletTransaction } from '../../_gen/prisma-classes/driver_wallet_transaction';
 
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Drivers')
 @ApiBearerAuth()
@@ -105,8 +105,6 @@ export class DriversController {
   ) {
     return this.driversService.updateStatus(userId, dto);
   }
-
-
 
   // ─── Shifts ───────────────────────────────────────────────────────────────
 
@@ -205,7 +203,9 @@ export class DriversController {
   @ApiStandardResponse()
   @Patch(':driverId/admin')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
-  @ApiOperation({ summary: '[Admin] Update driver profile and sensitive fields' })
+  @ApiOperation({
+    summary: '[Admin] Update driver profile and sensitive fields',
+  })
   async adminUpdate(
     @CurrentUser() actor: any,
     @Param('driverId') driverId: string,

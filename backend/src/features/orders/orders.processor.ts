@@ -256,7 +256,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
           null, // system actor
           order.id,
           `Auto-cancelled: pending for more than ${settings.autoCancelPendingMins} minutes`,
-        )
+        ),
       );
 
       await Promise.allSettled(cancelPromises);
@@ -324,7 +324,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       const settings = await this.platformSettings.getSettings();
       const cutoff = new Date(
         Date.now() -
-        settings.retentionExpiredSessionsDays * 24 * 60 * 60 * 1000,
+          settings.retentionExpiredSessionsDays * 24 * 60 * 60 * 1000,
       );
 
       const result = await this.prisma.session.deleteMany({
@@ -346,7 +346,9 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       });
 
       if (deadDevices.count > 0) {
-        this.logger.log(`🗑️  Cleaned up ${deadDevices.count} inactive device tokens`);
+        this.logger.log(
+          `🗑️  Cleaned up ${deadDevices.count} inactive device tokens`,
+        );
       }
     } catch (error) {
       this.logger.error(
@@ -416,7 +418,9 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     const settings = await this.platformSettings.getSettings();
 
     // Find orders stuck in PENDING_PAYMENT for more than configured minutes (Customer didn't pay via Mobile Wallet)
-    const paymentCutoff = new Date(Date.now() - settings.mobileWalletTimeoutMins * 60 * 1000);
+    const paymentCutoff = new Date(
+      Date.now() - settings.mobileWalletTimeoutMins * 60 * 1000,
+    );
     const stuckPaymentOrders = await this.prisma.order.findMany({
       where: {
         status: OrderStatus.PENDING_PAYMENT,
@@ -427,17 +431,22 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     });
 
     if (stuckPaymentOrders.length > 0) {
-      this.logger.warn(`Found ${stuckPaymentOrders.length} stuck PENDING_PAYMENT orders. Auto-cancelling to free drivers...`);
+      this.logger.warn(
+        `Found ${stuckPaymentOrders.length} stuck PENDING_PAYMENT orders. Auto-cancelling to free drivers...`,
+      );
       for (const order of stuckPaymentOrders) {
         try {
           await this.stateService.cancelOrder(
             null, // system actor
             order.id,
-            'Auto-cancelled: Customer did not complete mobile wallet payment in time.'
+            'Auto-cancelled: Customer did not complete mobile wallet payment in time.',
           );
           recovered++;
         } catch (err) {
-          this.logger.error(`Failed to auto-cancel stuck payment order ${order.orderNumber}`, (err as Error).stack);
+          this.logger.error(
+            `Failed to auto-cancel stuck payment order ${order.orderNumber}`,
+            (err as Error).stack,
+          );
         }
       }
     }
@@ -468,12 +477,16 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     for (const order of deliveredOrders) {
       if (!order.driverId) continue; // Requires driver for driver settlement logic
 
-      const hasSettlement = await this.prisma.driverWalletTransaction.findFirst({
-        where: { orderId: order.id, type: 'DELIVERY_FEE' },
-      });
+      const hasSettlement = await this.prisma.driverWalletTransaction.findFirst(
+        {
+          where: { orderId: order.id, type: 'DELIVERY_FEE' },
+        },
+      );
 
       if (!hasSettlement) {
-        this.logger.warn(`Found unsettled delivered order ${order.orderNumber}. Re-queueing SETTLE...`);
+        this.logger.warn(
+          `Found unsettled delivered order ${order.orderNumber}. Re-queueing SETTLE...`,
+        );
         await this.queue.add(
           ORDER_JOBS.SETTLE,
           { orderId: order.id, orderNumber: order.orderNumber },
@@ -485,5 +498,4 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     return { recovered };
   }
-
 }

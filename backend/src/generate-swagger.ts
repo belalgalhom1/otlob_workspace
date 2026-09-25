@@ -11,13 +11,13 @@ async function bootstrap() {
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   fs.writeFileSync('../docs.json', JSON.stringify(document));
   console.log('Swagger docs generated successfully');
   process.exit(0);
 }
-bootstrap().catch(err => {
+bootstrap().catch((err) => {
   console.error(err);
   process.exit(1);
 });

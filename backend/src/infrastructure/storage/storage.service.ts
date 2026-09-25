@@ -64,7 +64,12 @@ export class StorageService {
     try {
       await fs.promises.mkdir(dir, { recursive: true });
     } catch (error: unknown) {
-      if (typeof error === 'object' && error !== null && 'code' in error && (error as Record<string, unknown>).code === 'EEXIST') {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as Record<string, unknown>).code === 'EEXIST'
+      ) {
         return;
       }
       throw error;

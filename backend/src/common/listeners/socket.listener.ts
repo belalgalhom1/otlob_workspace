@@ -13,12 +13,21 @@ export class SocketListener {
   ) {}
 
   @OnEvent('ws.driver.location.update', { async: true })
-  async handleDriverLocationUpdate(payload: { userId: string; location: [number, number] }) {
+  async handleDriverLocationUpdate(payload: {
+    userId: string;
+    location: [number, number];
+  }) {
     try {
-      await this.locationRepository.processLiveLocationUpdate(payload.userId, payload.location[0], payload.location[1]);
+      await this.locationRepository.processLiveLocationUpdate(
+        payload.userId,
+        payload.location[0],
+        payload.location[1],
+      );
     } catch (err) {
       if (err instanceof Error) {
-        this.logger.error(`Failed to update driver location via WS: ${err.message}`);
+        this.logger.error(
+          `Failed to update driver location via WS: ${err.message}`,
+        );
       }
     }
   }
@@ -29,13 +38,18 @@ export class SocketListener {
       await this.locationRepository.handleUserDisconnect(payload.userId);
     } catch (err) {
       if (err instanceof Error) {
-        this.logger.error(`Failed to handle driver disconnect via WS: ${err.message}`);
+        this.logger.error(
+          `Failed to handle driver disconnect via WS: ${err.message}`,
+        );
       }
     }
   }
 
   @OnEvent('ws.driver.location.request', { async: true })
-  async handleDriverLocationRequest(payload: { userId: string; orderId: string }) {
+  async handleDriverLocationRequest(payload: {
+    userId: string;
+    orderId: string;
+  }) {
     try {
       const location = await this.locationRepository.getOrderDriverLocation(
         payload.orderId,
@@ -57,7 +71,9 @@ export class SocketListener {
         );
     } catch (err) {
       if (err instanceof Error) {
-        this.logger.error(`Failed to handle driver location request: ${err.message}`);
+        this.logger.error(
+          `Failed to handle driver location request: ${err.message}`,
+        );
       }
     }
   }

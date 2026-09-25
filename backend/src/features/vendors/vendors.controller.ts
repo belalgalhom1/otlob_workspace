@@ -28,11 +28,7 @@ import { VendorErrors } from 'src/common/constants/response.constants';
 import { Permission, VendorMemberRole } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Vendors - Core Management')
 @Controller('vendors')

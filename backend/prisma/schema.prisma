@@ -612,6 +612,7 @@ model Product {
   comparePrice     Int?
   sku              String?              @unique
   stock            Int?
+  tracksStock      Boolean              @default(true)
   isActive         Boolean              @default(true)
   isFeatured       Boolean              @default(false)
   deletedAt        DateTime?            @db.Timestamptz(3)
@@ -642,6 +643,7 @@ model ProductVariant {
   basePrice    Int
   comparePrice Int?
   stock        Int?
+  tracksStock  Boolean              @default(true)
   isActive     Boolean              @default(true)
   version      Int                  @default(100)
   cartItems    CartItem[]

@@ -16,11 +16,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Cart')
 @ApiBearerAuth()
@@ -32,14 +28,14 @@ export class CartController {
   @ApiStandardResponse()
   @Get()
   @ApiOperation({ summary: 'Get all my carts (one per vendor)' })
-    getMyCarts(@CurrentUser('sub') userId: string) {
+  getMyCarts(@CurrentUser('sub') userId: string) {
     return this.cartService.getMyCarts(userId);
   }
 
   @ApiStandardResponse()
   @Get(':vendorId')
   @ApiOperation({ summary: 'Get cart for a specific vendor' })
-    getCart(
+  getCart(
     @CurrentUser('sub') userId: string,
     @Param('vendorId') vendorId: string,
   ) {
@@ -49,7 +45,7 @@ export class CartController {
   @ApiStandardResponse()
   @Post(':vendorId/items')
   @ApiOperation({ summary: 'Add item to cart' })
-    addItem(
+  addItem(
     @CurrentUser('sub') userId: string,
     @Param('vendorId') vendorId: string,
     @Body() dto: AddCartItemDto,
@@ -60,7 +56,7 @@ export class CartController {
   @ApiStandardResponse()
   @Patch(':vendorId/items/:itemId')
   @ApiOperation({ summary: 'Update cart item (quantity / options)' })
-    updateItem(
+  updateItem(
     @CurrentUser('sub') userId: string,
     @Param('vendorId') vendorId: string,
     @Param('itemId') itemId: string,
@@ -85,7 +81,7 @@ export class CartController {
   @Delete(':vendorId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Clear entire cart for a vendor' })
-    clearCart(
+  clearCart(
     @CurrentUser('sub') userId: string,
     @Param('vendorId') vendorId: string,
   ) {

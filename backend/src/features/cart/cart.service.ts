@@ -7,7 +7,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
-import { OrderStatus, PlatformSetting, Prisma, MessageType } from '@prisma/client';
+import {
+  OrderStatus,
+  PlatformSetting,
+  Prisma,
+  MessageType,
+} from '@prisma/client';
 import {
   CommonSuccess,
   CartErrors,
@@ -54,6 +59,7 @@ type CartItemInclude = {
     nameAr?: string | null;
     isActive: boolean;
     stock: number | null;
+    tracksStock: boolean;
     imageUrl: string | null;
     hasVariants: boolean;
     offers?: {
@@ -74,6 +80,7 @@ type CartItemInclude = {
     nameAr?: string | null;
     isActive: boolean;
     stock: number | null;
+    tracksStock: boolean;
   } | null;
   selectedOptions: {
     option: {
@@ -96,7 +103,7 @@ type CartInclude = {
 export class CartService {
   private readonly logger = new Logger(CartService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   // ─── Get or create cart for vendor ────────────────────────────────────────
 
@@ -220,8 +227,8 @@ export class CartService {
 
     const optionHash = dto.optionIds?.length
       ? createHash('sha256')
-        .update((dto.variantId ?? '') + [...dto.optionIds].sort().join(','))
-        .digest('hex')
+          .update((dto.variantId ?? '') + [...dto.optionIds].sort().join(','))
+          .digest('hex')
       : null;
 
     await this.prisma.$transaction(async (tx) => {
@@ -309,11 +316,11 @@ export class CartService {
         dto.optionIds !== undefined
           ? dto.optionIds.length
             ? createHash('sha256')
-              .update(
-                (cartItem.variantId ?? '') +
-                [...dto.optionIds].sort().join(','),
-              )
-              .digest('hex')
+                .update(
+                  (cartItem.variantId ?? '') +
+                    [...dto.optionIds].sort().join(','),
+                )
+                .digest('hex')
             : null
           : cartItem.optionHash;
 
@@ -433,9 +440,19 @@ export class CartService {
       }
 
       if (item.variantId) {
-        // Variant stock check removed as requested
+        const variantQty = variantQuantities.get(item.variantId) ?? 0;
+        if (item.variant?.tracksStock && item.variant.stock != null) {
+          if (item.variant.stock < variantQty) {
+            throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
+          }
+        }
       } else {
-        // Product stock check removed as requested
+        const productQty = productQuantities.get(item.productId!) ?? 0;
+        if (item.product.tracksStock && item.product.stock != null) {
+          if (item.product.stock < productQty) {
+            throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
+          }
+        }
       }
     }
 
@@ -522,6 +539,7 @@ export class CartService {
               isActive: true,
               hasVariants: true,
               stock: true,
+              tracksStock: true,
               offers: {
                 where: { isActive: true },
                 select: {
@@ -532,8 +550,8 @@ export class CartService {
                   isActive: true,
                   startDate: true,
                   endDate: true,
-                }
-              }
+                },
+              },
             },
           },
           variant: {
@@ -545,6 +563,7 @@ export class CartService {
               comparePrice: true,
               isActive: true,
               stock: true,
+              tracksStock: true,
             },
           },
           selectedOptions: {
@@ -591,9 +610,15 @@ export class CartService {
 
       const productActiveOffer = activeOffers.find((o) => !o.variantId);
 
-      const discountRatio = (productActiveOffer && productActiveOffer.originalPrice && Number(productActiveOffer.originalPrice) > Number(productActiveOffer.offerPrice))
-        ? (Number(productActiveOffer.originalPrice) - Number(productActiveOffer.offerPrice)) / Number(productActiveOffer.originalPrice)
-        : 0;
+      const discountRatio =
+        productActiveOffer &&
+        productActiveOffer.originalPrice &&
+        Number(productActiveOffer.originalPrice) >
+          Number(productActiveOffer.offerPrice)
+          ? (Number(productActiveOffer.originalPrice) -
+              Number(productActiveOffer.offerPrice)) /
+            Number(productActiveOffer.originalPrice)
+          : 0;
 
       let basePrice = 0;
       let originalBasePrice = 0;
@@ -603,15 +628,21 @@ export class CartService {
         originalBasePrice = basePrice;
       } else if (item.variant) {
         const vBase = Number(item.variant.basePrice || 0);
-        const vCompare = (item.variant as any).comparePrice ? Number((item.variant as any).comparePrice) : null;
+        const vCompare = (item.variant as any).comparePrice
+          ? Number((item.variant as any).comparePrice)
+          : null;
         const vOriginal = vCompare && vCompare > vBase ? vCompare : vBase;
 
         // Check if an active offer specifically targets this variant
-        const variantOffer = activeOffers.find((o) => o.variantId === item.variantId);
+        const variantOffer = activeOffers.find(
+          (o) => o.variantId === item.variantId,
+        );
 
         if (variantOffer) {
           basePrice = Number(variantOffer.offerPrice);
-          originalBasePrice = variantOffer.originalPrice ? Number(variantOffer.originalPrice) : vOriginal;
+          originalBasePrice = variantOffer.originalPrice
+            ? Number(variantOffer.originalPrice)
+            : vOriginal;
         } else if (discountRatio > 0) {
           basePrice = Math.max(0, Math.round(vOriginal * (1 - discountRatio)));
           originalBasePrice = vOriginal;
@@ -624,13 +655,17 @@ export class CartService {
         }
       } else if (item.product) {
         const pBase = Number(item.product.basePrice ?? 0);
-        const pCompare = item.product.comparePrice ? Number(item.product.comparePrice) : null;
+        const pCompare = item.product.comparePrice
+          ? Number(item.product.comparePrice)
+          : null;
 
         if (productActiveOffer) {
           basePrice = Number(productActiveOffer.offerPrice);
           originalBasePrice = productActiveOffer.originalPrice
             ? Number(productActiveOffer.originalPrice)
-            : (pCompare && pCompare > basePrice ? pCompare : pBase);
+            : pCompare && pCompare > basePrice
+              ? pCompare
+              : pBase;
         } else if (pCompare && pCompare > pBase) {
           basePrice = pBase;
           originalBasePrice = pCompare;
@@ -646,7 +681,8 @@ export class CartService {
       );
 
       const unitPrice = basePrice + optionsTotal;
-      const compareUnitPrice = originalBasePrice > basePrice ? (originalBasePrice + optionsTotal) : null;
+      const compareUnitPrice =
+        originalBasePrice > basePrice ? originalBasePrice + optionsTotal : null;
       const totalPrice = unitPrice * item.quantity;
 
       subtotal += totalPrice;
@@ -655,7 +691,8 @@ export class CartService {
         ? {
             ...item.variant,
             price: basePrice,
-            comparePrice: originalBasePrice > basePrice ? originalBasePrice : null,
+            comparePrice:
+              originalBasePrice > basePrice ? originalBasePrice : null,
           }
         : null;
 
@@ -675,6 +712,7 @@ export class CartService {
             isActive: true,
             hasVariants: false,
             stock: null,
+            tracksStock: false,
             offers: [],
           };
 

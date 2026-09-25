@@ -63,7 +63,9 @@ export class VendorMemberGuard implements CanActivate {
 
     if (!vendorId) {
       // Guard is misconfigured — the param name doesn't match the route.
-      this.logger.error(`VendorMemberGuard: route param "${vendorIdParam}" not found`);
+      this.logger.error(
+        `VendorMemberGuard: route param "${vendorIdParam}" not found`,
+      );
       throw new ForbiddenException(CommonErrors.FORBIDDEN);
     }
 

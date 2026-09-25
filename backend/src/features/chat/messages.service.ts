@@ -452,7 +452,8 @@ export class MessagesService {
       data: { lastReadAt: readAt },
     });
 
-    const participantIds = conversation?.participants.map((p) => p.userId) ?? [];
+    const participantIds =
+      conversation?.participants.map((p) => p.userId) ?? [];
 
     this.eventEmitter.emit(
       EVENTS.CHAT_MESSAGE_READ,
@@ -571,11 +572,11 @@ export class MessagesService {
 
   async getUnreadCount(userId: string): Promise<number> {
     const participants = await this.prisma.conversationParticipant.findMany({
-      where: { 
+      where: {
         userId,
         conversation: {
-          status: { not: 'ARCHIVED' }
-        }
+          status: { not: 'ARCHIVED' },
+        },
       },
       select: { conversationId: true, lastReadAt: true },
     });

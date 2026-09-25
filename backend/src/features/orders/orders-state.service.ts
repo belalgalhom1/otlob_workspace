@@ -6,7 +6,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrdersRepository, CreateOrderData, OrderItemData } from './orders.repository';
+import {
+  OrdersRepository,
+  CreateOrderData,
+  OrderItemData,
+} from './orders.repository';
 import { CartService } from '../cart/cart.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -45,7 +49,6 @@ import {
   CustomerErrors,
   DriverErrors,
 } from '../../common/constants/response.constants';
-
 
 const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.ACCEPTED],
@@ -104,12 +107,13 @@ export class OrdersStateService {
 
   constructor(
     private readonly ordersRepository: OrdersRepository,
-    @Inject(forwardRef(() => DispatchService)) private readonly dispatchService: DispatchService,
+    @Inject(forwardRef(() => DispatchService))
+    private readonly dispatchService: DispatchService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
   ) {}
 
-async vendorUpdateStatus(
+  async vendorUpdateStatus(
     actor: JwtAccessPayload,
     orderId: string,
     dto: UpdateOrderStatusDto,
@@ -156,7 +160,7 @@ async vendorUpdateStatus(
     return this.applyStatusTransition(actor, order, dto);
   }
 
-async driverUpdateStatus(
+  async driverUpdateStatus(
     actor: JwtAccessPayload,
     orderId: string,
     dto: UpdateOrderStatusDto,
@@ -190,7 +194,7 @@ async driverUpdateStatus(
     return this.applyStatusTransition(actor, order, dto);
   }
 
-async respondToDispatch(
+  async respondToDispatch(
     actor: JwtAccessPayload,
     dispatchId: string,
     dto: RespondToDispatchDto,
@@ -212,7 +216,7 @@ async respondToDispatch(
     if (dto.response === 'ACCEPTED') {
       try {
         await this.dispatchService.handleAcceptance(dispatchId, driver.id);
-        
+
         // Emit purely for analytical tracking after successful assignment
         this.eventEmitter.emit(
           EVENTS.ORDER_DISPATCH_RESPONDED,
@@ -224,8 +228,12 @@ async respondToDispatch(
           ),
         );
       } catch (error) {
-        if ((error as Error).message === OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED) {
-          throw new BadRequestException(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
+        if (
+          (error as Error).message === OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED
+        ) {
+          throw new BadRequestException(
+            OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED,
+          );
         }
         throw error;
       }
@@ -244,7 +252,7 @@ async respondToDispatch(
     return { response: dto.response };
   }
 
-async adminForceAssignDriver(
+  async adminForceAssignDriver(
     actor: JwtAccessPayload,
     orderId: string,
     dto: AdminAssignDriverDto,
@@ -258,9 +266,7 @@ async adminForceAssignDriver(
       OrderStatus.LOOKING_FOR_DRIVER,
     ];
     if (!assignableStatuses.includes(order.status)) {
-      throw new BadRequestException(
-        OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER,
-      );
+      throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
     }
 
     const driver = await this.prisma.driver.findUnique({
@@ -330,7 +336,7 @@ async adminForceAssignDriver(
     return updated;
   }
 
-async cancelOrder(
+  async cancelOrder(
     actor: JwtAccessPayload | null,
     orderId: string,
     reason: string,
@@ -353,7 +359,7 @@ async cancelOrder(
           OrderStatus.ACCEPTED,
           OrderStatus.LOOKING_FOR_DRIVER,
         ];
-        if (!customerCancellableStatuses.includes(order.status as OrderStatus)) {
+        if (!customerCancellableStatuses.includes(order.status)) {
           throw new BadRequestException(
             OrderErrors.CANNOT_CANCEL_PREPARATION_STARTED,
           );
@@ -375,7 +381,9 @@ async cancelOrder(
       }
     }
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(order.vendorId);
+    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+      order.vendorId,
+    );
 
     await this.ordersRepository.updateStatus(
       orderId,
@@ -383,11 +391,17 @@ async cancelOrder(
       actor?.sub ?? 'system',
       reason,
       undefined,
-      order.status
+      order.status,
     );
 
     if (order.coinsUsed > 0) {
       await this.prisma.$transaction(async (tx) => {
+        // Idempotency guard: a cancelled order must never refund coins twice.
+        const alreadyRefunded = await tx.customerCoinTransaction.findFirst({
+          where: { orderId: order.id, type: 'REFUNDED' },
+        });
+        if (alreadyRefunded) return;
+
         const customer = await tx.customer.update({
           where: { id: order.customerId },
           data: { coinBalance: { increment: order.coinsUsed } },
@@ -440,7 +454,7 @@ async cancelOrder(
     return this.ordersRepository.findById(orderId);
   }
 
-private async applyStatusTransition(
+  private async applyStatusTransition(
     actor: JwtAccessPayload,
     order: {
       id: string;
@@ -458,7 +472,10 @@ private async applyStatusTransition(
     const newStatus = dto.status;
 
     const extraData: Prisma.OrderUpdateInput = {};
-    if (newStatus === OrderStatus.ACCEPTED || newStatus === OrderStatus.PREPARING) {
+    if (
+      newStatus === OrderStatus.ACCEPTED ||
+      newStatus === OrderStatus.PREPARING
+    ) {
       if (newStatus === OrderStatus.ACCEPTED) extraData.acceptedAt = new Date();
       if (dto.estimatedPrepTime)
         extraData.estimatedPrepTime = dto.estimatedPrepTime;
@@ -509,7 +526,7 @@ private async applyStatusTransition(
     return updated;
   }
 
-private async canManageOrders(userId: string, role: Role): Promise<boolean> {
+  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
     if (role === Role.SUPER_ADMIN) return true;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -517,5 +534,4 @@ private async canManageOrders(userId: string, role: Role): Promise<boolean> {
     });
     return !!user?.permissions.includes(Permission.MANAGE_ORDERS);
   }
-
 }

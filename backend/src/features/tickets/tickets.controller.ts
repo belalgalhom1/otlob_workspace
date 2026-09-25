@@ -21,7 +21,6 @@ import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interfa
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
-
 @ApiTags('Support Tickets')
 @ApiBearerAuth()
 @Controller('tickets')

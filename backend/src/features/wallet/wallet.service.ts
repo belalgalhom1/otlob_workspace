@@ -102,6 +102,15 @@ export class WalletService {
         WalletErrors.PLATFORM_WALLET_NOT_FOUND_OR_INACTIVE,
       );
 
+    // Prevent duplicate PENDING requests for the same driver — approving two
+    // requests would credit the wallet twice for the same top-up.
+    const existingPending = await this.prisma.walletTopUpRequest.findFirst({
+      where: { driverId: driver.id, status: 'PENDING' },
+    });
+    if (existingPending) {
+      throw new BadRequestException(WalletErrors.DUPLICATE_PENDING_REQUEST);
+    }
+
     const request = await this.prisma.walletTopUpRequest.create({
       data: {
         driverId: driver.id,
@@ -187,15 +196,23 @@ export class WalletService {
 
         // Unblock the driver ONLY if they cleared their negative threshold AND were financially locked!
         let statusUpdate = {};
-        if (!isStillNegative && request.driver?.status === DriverStatus.SUSPENDED && request.driver?.hasUnpaidCommission) {
+        if (
+          !isStillNegative &&
+          request.driver?.status === DriverStatus.SUSPENDED &&
+          request.driver?.hasUnpaidCommission
+        ) {
           statusUpdate = { status: DriverStatus.OFFLINE };
         }
+
+        const cycleData = isStillNegative
+          ? {} // Still in debt — do NOT restart the settlement counter so the settle flow stays blocked
+          : { ordersSinceSettlement: 0 }; // Restart the settlement cycle only after the debt is cleared
 
         await tx.driver.update({
           where: { id: request.driverId },
           data: {
             hasUnpaidCommission: isStillNegative, // Keep them locked if they still owe
-            ordersSinceSettlement: 0, // Restart the settlement cycle after a settled transfer
+            ...cycleData,
             ...statusUpdate,
           },
         });
@@ -220,12 +237,12 @@ export class WalletService {
     if (dto.status === 'APPROVED') {
       const settings = await this.prisma.platformSetting.findFirst();
       const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
-      
+
       const updatedDriver = await this.prisma.driver.findUnique({
         where: { id: request.driverId },
-        select: { walletBalance: true, status: true }
+        select: { walletBalance: true, status: true },
       });
-      
+
       const isNowUnlocked = (updatedDriver?.walletBalance ?? 0) >= -maxNegative;
 
       if (request.driver?.hasUnpaidCommission && isNowUnlocked) {
@@ -235,7 +252,9 @@ export class WalletService {
           new DriverStatusChangedEvent(
             request.driver.id,
             request.driver.userId,
-            wasSuspended ? DriverStatus.SUSPENDED : (request.driver?.status ?? DriverStatus.ONLINE),
+            wasSuspended
+              ? DriverStatus.SUSPENDED
+              : (request.driver?.status ?? DriverStatus.ONLINE),
             updatedDriver?.status ?? DriverStatus.OFFLINE,
             'UNPAID_COMMISSION_SETTLED',
           ),

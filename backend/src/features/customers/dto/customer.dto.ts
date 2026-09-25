@@ -27,7 +27,12 @@ export class CreateAddressDto {
   @IsNotEmpty()
   address!: string;
 
-  @ApiProperty({ type: [Number], example: [30.0444, 31.2357], minItems: 2, maxItems: 2 })
+  @ApiProperty({
+    type: [Number],
+    example: [30.0444, 31.2357],
+    minItems: 2,
+    maxItems: 2,
+  })
   @IsArray()
   @ArrayMinSize(2)
   @ArrayMaxSize(2)

@@ -115,7 +115,8 @@ export class SearchCustomersInPolygonDto {
         [31.2, 30.0],
       ],
     ],
-    description: 'GeoJSON Polygon coordinates: array of linear rings (arrays of [lng, lat])',
+    description:
+      'GeoJSON Polygon coordinates: array of linear rings (arrays of [lng, lat])',
   })
   @IsArray()
   @ArrayMinSize(1)

@@ -27,7 +27,6 @@ import { Permission, VendorMemberRole } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';
 
-
 @ApiTags('Vendors - Branches')
 @Controller('vendors/:vendorId/branches')
 export class VendorBranchesController {

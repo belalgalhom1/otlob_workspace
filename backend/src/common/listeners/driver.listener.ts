@@ -48,40 +48,58 @@ export class DriverListener {
       `Driver ${event.driverId}: ${event.oldStatus} → ${event.newStatus}`,
     );
 
-    if (event.reason === 'UNPAID_COMMISSION' && event.newStatus === DriverStatus.SUSPENDED) {
-      await this.notificationsService.create({
-        userId: event.driverUserId,
-        title: 'Account Suspended',
-        titleAr: 'تم تعليق الحساب',
-        body: 'You have been suspended for unpaid commissions. Please settle your wallet to receive orders again.',
-        bodyAr: 'تم تعليق حسابك بسبب العمولات غير المدفوعة. يرجى تسوية محفظتك لاستقبال الطلبات مرة أخرى.',
-        type: NotificationType.SYSTEM,
-        data: { reason: 'UNPAID_COMMISSION' },
-      }).catch(err => this.logger.error(`Failed to notify driver of lockout: ${err}`));
+    if (
+      event.reason === 'UNPAID_COMMISSION' &&
+      event.newStatus === DriverStatus.SUSPENDED
+    ) {
+      await this.notificationsService
+        .create({
+          userId: event.driverUserId,
+          title: 'Account Suspended',
+          titleAr: 'تم تعليق الحساب',
+          body: 'You have been suspended for unpaid commissions. Please settle your wallet to receive orders again.',
+          bodyAr:
+            'تم تعليق حسابك بسبب العمولات غير المدفوعة. يرجى تسوية محفظتك لاستقبال الطلبات مرة أخرى.',
+          type: NotificationType.SYSTEM,
+          data: { reason: 'UNPAID_COMMISSION' },
+        })
+        .catch((err) =>
+          this.logger.error(`Failed to notify driver of lockout: ${err}`),
+        );
     }
 
     if (event.reason === 'SETTLEMENT_REQUIRED') {
-      await this.notificationsService.create({
-        userId: event.driverUserId,
-        title: 'Settlement Required',
-        titleAr: 'مطلوب تسوية',
-        body: 'You have reached the settlement milestone. Please transfer the money you owe to the platform wallet to keep receiving new orders.',
-        bodyAr: 'وصلت إلى حد التسوية. يرجى تحويل المبلغ المستحق إلى محفظة المنصة لاستمرار استقبال طلبات جديدة.',
-        type: NotificationType.SYSTEM,
-        data: { reason: 'SETTLEMENT_REQUIRED' },
-      }).catch(err => this.logger.error(`Failed to notify driver of settlement requirement: ${err}`));
+      await this.notificationsService
+        .create({
+          userId: event.driverUserId,
+          title: 'Settlement Required',
+          titleAr: 'مطلوب تسوية',
+          body: 'You have reached the settlement milestone. Please transfer the money you owe to the platform wallet to keep receiving new orders.',
+          bodyAr:
+            'وصلت إلى حد التسوية. يرجى تحويل المبلغ المستحق إلى محفظة المنصة لاستمرار استقبال طلبات جديدة.',
+          type: NotificationType.SYSTEM,
+          data: { reason: 'SETTLEMENT_REQUIRED' },
+        })
+        .catch((err) =>
+          this.logger.error(
+            `Failed to notify driver of settlement requirement: ${err}`,
+          ),
+        );
     }
 
     if (event.reason === 'UNPAID_COMMISSION_SETTLED') {
-      await this.notificationsService.create({
-        userId: event.driverUserId,
-        title: 'Account Unsuspended',
-        titleAr: 'تم فك تعليق الحساب',
-        body: 'Your wallet top-up was approved. You can now go online and receive orders!',
-        bodyAr: 'تمت الموافقة على شحن محفظتك. يمكنك الآن تسجيل الدخول واستقبال الطلبات!',
-        type: NotificationType.SYSTEM,
-        data: { reason: 'UNPAID_COMMISSION_SETTLED' },
-      }).catch(() => {});
+      await this.notificationsService
+        .create({
+          userId: event.driverUserId,
+          title: 'Account Unsuspended',
+          titleAr: 'تم فك تعليق الحساب',
+          body: 'Your wallet top-up was approved. You can now go online and receive orders!',
+          bodyAr:
+            'تمت الموافقة على شحن محفظتك. يمكنك الآن تسجيل الدخول واستقبال الطلبات!',
+          type: NotificationType.SYSTEM,
+          data: { reason: 'UNPAID_COMMISSION_SETTLED' },
+        })
+        .catch(() => {});
     }
   }
 }

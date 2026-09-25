@@ -197,14 +197,22 @@ export class QueryVendorsDto {
   @Max(50)
   limit?: number = 20;
 
-  @ApiProperty({ example: 4, required: false, description: 'Minimum rating (0-5)' })
+  @ApiProperty({
+    example: 4,
+    required: false,
+    description: 'Minimum rating (0-5)',
+  })
   @IsOptional()
   @Type(() => Number)
   @Min(0)
   @Max(5)
   minRating?: number;
 
-  @ApiProperty({ example: 'rating', required: false, enum: ['rating', 'createdAt', 'distance'] })
+  @ApiProperty({
+    example: 'rating',
+    required: false,
+    enum: ['rating', 'createdAt', 'distance'],
+  })
   @IsOptional()
   @IsString()
   sortBy?: string;
@@ -214,7 +222,11 @@ export class QueryVendorsDto {
   @IsString()
   sortOrder?: 'asc' | 'desc';
 
-  @ApiProperty({ example: 'zone-uuid-123', required: false, description: 'Filter or prioritize vendors by delivery zone ID' })
+  @ApiProperty({
+    example: 'zone-uuid-123',
+    required: false,
+    description: 'Filter or prioritize vendors by delivery zone ID',
+  })
   @IsOptional()
   @IsString()
   zoneId?: string;

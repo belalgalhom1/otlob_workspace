@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DriverStatus, OrderStatus, ConversationStatus, TicketStatus, Role } from '@prisma/client';
+import {
+  DriverStatus,
+  OrderStatus,
+  ConversationStatus,
+  TicketStatus,
+  Role,
+} from '@prisma/client';
 
 @Injectable()
 export class SocketAuthService {
@@ -15,7 +21,9 @@ export class SocketAuthService {
     try {
       // Ensure the role is a valid recognized role in the system
       if (!Object.values(Role).includes(role as Role)) {
-        this.logger.debug(`Rejecting WS for ${userId}: Invalid or unrecognized role '${role}'`);
+        this.logger.debug(
+          `Rejecting WS for ${userId}: Invalid or unrecognized role '${role}'`,
+        );
         return false;
       }
 
@@ -47,7 +55,9 @@ export class SocketAuthService {
 
     // Reject suspended drivers only
     if (driver.status === DriverStatus.SUSPENDED) {
-      this.logger.debug(`Rejecting WS for driver ${userId} (status: ${driver.status})`);
+      this.logger.debug(
+        `Rejecting WS for driver ${userId} (status: ${driver.status})`,
+      );
       return false;
     }
 

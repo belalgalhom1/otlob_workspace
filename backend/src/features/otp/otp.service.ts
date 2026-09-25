@@ -47,7 +47,7 @@ export class OtpService {
     if (attempts === 1) {
       await this.redis.expire(attemptsKey, settings.otpExpirySeconds);
     }
-    
+
     if (attempts > settings.maxOtpAttempts) {
       throw new BadRequestException(AuthErrors.TOO_MANY_FAILED_OTP);
     }
@@ -78,7 +78,7 @@ export class OtpService {
     if (attempts === 1) {
       await this.redis.expire(attemptsKey, settings.otpExpirySeconds);
     }
-    
+
     if (attempts > settings.maxOtpAttempts) {
       throw new BadRequestException(AuthErrors.TOO_MANY_FAILED_OTP);
     }

@@ -129,7 +129,10 @@ export class VendorBranchesService {
     const finalLocation =
       dto.location !== undefined ? dto.location : branch.location?.coordinates;
 
-    if (finalLocation && (dto.zoneId !== undefined || dto.location !== undefined)) {
+    if (
+      finalLocation &&
+      (dto.zoneId !== undefined || dto.location !== undefined)
+    ) {
       finalZoneId = await this.resolveValidZoneForLocation(
         finalLocation,
         finalZoneId,

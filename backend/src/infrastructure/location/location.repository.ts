@@ -19,7 +19,11 @@ export class LocationRepository {
   /**
    * Process a live high-frequency location update from WebSockets
    */
-  async processLiveLocationUpdate(userId: string, lng: number, lat: number): Promise<void> {
+  async processLiveLocationUpdate(
+    userId: string,
+    lng: number,
+    lat: number,
+  ): Promise<void> {
     // 1. Resolve userId -> driverId (with Redis caching)
     let driverId = await this.redis.get(`otlobegy:user-driver-map:${userId}`);
     if (!driverId) {
@@ -30,17 +34,23 @@ export class LocationRepository {
       if (!driver) return;
       driverId = driver.id;
       // Cache for 12 hours
-      await this.redis.set(`otlobegy:user-driver-map:${userId}`, driverId, 12 * 60 * 60);
+      await this.redis.set(
+        `otlobegy:user-driver-map:${userId}`,
+        driverId,
+        12 * 60 * 60,
+      );
     }
 
     // 2. Track geospatial location in Redis
     await this.trackDriverLocation(driverId, lng, lat);
 
     // 3. Check if driver is actively delivering an order
-    const activeOrderRaw = await this.redis.get(`otlobegy:driver-active-order:${driverId}`);
+    const activeOrderRaw = await this.redis.get(
+      `otlobegy:driver-active-order:${driverId}`,
+    );
     if (activeOrderRaw) {
       const activeOrder = JSON.parse(activeOrderRaw);
-      
+
       // 4. Emit event instantly to broadcast to customer (Zero DB hits!)
       this.eventEmitter.emit(
         EVENTS.DRIVER_LOCATION_UPDATED,
@@ -92,7 +102,11 @@ export class LocationRepository {
   /**
    * Track driver location in Redis
    */
-  async trackDriverLocation(driverId: string, lng: number, lat: number): Promise<void> {
+  async trackDriverLocation(
+    driverId: string,
+    lng: number,
+    lat: number,
+  ): Promise<void> {
     await this.redis.geoadd('otlobegy:driver-locations', lng, lat, driverId);
     // Freshness signal: expires shortly after the driver stops broadcasting,
     // letting consumers tell a live position apart from a stale geo member.
@@ -116,7 +130,9 @@ export class LocationRepository {
   /**
    * Get current driver location from Redis
    */
-  async getDriverLocation(driverId: string): Promise<{ lng: number; lat: number } | null> {
+  async getDriverLocation(
+    driverId: string,
+  ): Promise<{ lng: number; lat: number } | null> {
     return this.redis.geopos('otlobegy:driver-locations', driverId);
   }
 
@@ -197,7 +213,9 @@ export class LocationRepository {
   async getDriverActiveOrder(
     driverId: string,
   ): Promise<{ orderId: string } | null> {
-    const raw = await this.redis.get(`otlobegy:driver-active-order:${driverId}`);
+    const raw = await this.redis.get(
+      `otlobegy:driver-active-order:${driverId}`,
+    );
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw);
@@ -298,7 +316,12 @@ export class LocationRepository {
       activeShiftId: string | null;
     }[]
   > {
-    const nearby = await this.redis.georadius('otlobegy:driver-locations', longitude, latitude, radiusKm);
+    const nearby = await this.redis.georadius(
+      'otlobegy:driver-locations',
+      longitude,
+      latitude,
+      radiusKm,
+    );
     if (nearby.length === 0) return [];
 
     const candidateIds = nearby
@@ -339,12 +362,19 @@ export class LocationRepository {
     `;
 
     const onlineDriverIds = rows.map((r) => r.id);
-    const staleDriverIds = candidateIds.filter((id) => !onlineDriverIds.includes(id));
+    const staleDriverIds = candidateIds.filter(
+      (id) => !onlineDriverIds.includes(id),
+    );
 
     // Lazy sweep: Remove drivers from Redis who are no longer online in the database
     if (staleDriverIds.length > 0) {
-      (this.redis.zrem as any)('otlobegy:driver-locations', ...staleDriverIds).catch((err: Error) =>
-        this.logger.warn(`Failed to lazy-sweep stale drivers from Redis: ${err.message}`),
+      (this.redis.zrem as any)(
+        'otlobegy:driver-locations',
+        ...staleDriverIds,
+      ).catch((err: Error) =>
+        this.logger.warn(
+          `Failed to lazy-sweep stale drivers from Redis: ${err.message}`,
+        ),
       );
     }
 

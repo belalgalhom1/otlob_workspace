@@ -8,7 +8,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
-import { AuditLogResponseDto } from "src/common/dto/response-models.dto";
+import { AuditLogResponseDto } from 'src/common/dto/response-models.dto';
 
 @ApiTags('Audit Logs')
 @ApiBearerAuth()

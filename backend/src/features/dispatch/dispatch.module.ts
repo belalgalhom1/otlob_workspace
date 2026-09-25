@@ -9,7 +9,11 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
 import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [PlatformSettingsModule, forwardRef(() => OrdersModule), BullModule.registerQueue({ name: QUEUES.ORDERS })],
+  imports: [
+    PlatformSettingsModule,
+    forwardRef(() => OrdersModule),
+    BullModule.registerQueue({ name: QUEUES.ORDERS }),
+  ],
   providers: [DispatchService, DispatchRepository],
   exports: [DispatchService, DispatchRepository],
 })

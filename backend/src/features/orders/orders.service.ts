@@ -6,7 +6,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrdersRepository, CreateOrderData, OrderItemData } from './orders.repository';
+import {
+  OrdersRepository,
+  CreateOrderData,
+  OrderItemData,
+} from './orders.repository';
 import { CartService } from '../cart/cart.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -16,7 +20,7 @@ import {
   QueryOrdersDto,
   RespondToDispatchDto,
   AdminAssignDriverDto,
-PlaceCustomOrderDto,
+  PlaceCustomOrderDto,
   PlaceDirectOrderDto,
 } from './dto/order.dto';
 import {
@@ -55,7 +59,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
   ) {}
 
-async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
+  async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
       select: { id: true },
@@ -65,7 +69,7 @@ async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
     return this.ordersRepository.findMany({ ...dto, customerId: customer.id });
   }
 
-async getVendorOrders(
+  async getVendorOrders(
     actor: JwtAccessPayload,
     vendorId: string,
     dto: QueryOrdersDto,
@@ -85,7 +89,7 @@ async getVendorOrders(
     return this.ordersRepository.findMany({ ...dto, vendorId });
   }
 
-async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
+  async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
     const driver = await this.prisma.driver.findUnique({
       where: { userId: actor.sub },
       select: { id: true },
@@ -94,7 +98,7 @@ async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
     return this.ordersRepository.findMany({ ...dto, driverId: driver.id });
   }
 
-async getOne(actor: JwtAccessPayload, orderId: string) {
+  async getOne(actor: JwtAccessPayload, orderId: string) {
     const order = await this.ordersRepository.findById(orderId);
 
     if (await this.canManageOrders(actor.sub, actor.role)) return order;
@@ -127,11 +131,11 @@ async getOne(actor: JwtAccessPayload, orderId: string) {
     return order;
   }
 
-async adminFindAll(dto: QueryOrdersDto) {
+  async adminFindAll(dto: QueryOrdersDto) {
     return this.ordersRepository.findMany(dto);
   }
 
-private async canManageOrders(userId: string, role: Role): Promise<boolean> {
+  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
     if (role === Role.SUPER_ADMIN) return true;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -139,5 +143,4 @@ private async canManageOrders(userId: string, role: Role): Promise<boolean> {
     });
     return !!user?.permissions.includes(Permission.MANAGE_ORDERS);
   }
-
 }

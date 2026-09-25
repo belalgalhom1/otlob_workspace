@@ -7,7 +7,6 @@ import { Permission } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';
 
-
 @ApiTags('Vendors - Wallet & Transactions')
 @ApiBearerAuth()
 @Controller('vendors/:vendorId/wallet')

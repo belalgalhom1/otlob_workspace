@@ -42,7 +42,8 @@ export class PlaceOrderDto {
 
   @ApiProperty({
     example: [31.2357, 30.0444],
-    description: '[longitude, latitude]', type: [Number],
+    description: '[longitude, latitude]',
+    type: [Number],
   })
   @IsArray()
   @ArrayMinSize(2)
@@ -119,7 +120,8 @@ export class PlaceCustomOrderDto {
 
   @ApiProperty({
     example: [31.2357, 30.0444],
-    description: '[longitude, latitude]', type: [Number],
+    description: '[longitude, latitude]',
+    type: [Number],
   })
   @IsArray()
   @ArrayMinSize(2)
@@ -135,7 +137,8 @@ export class PlaceCustomOrderDto {
 
   @ApiProperty({
     example: [31.2, 30.0111],
-    description: '[longitude, latitude]', type: [Number],
+    description: '[longitude, latitude]',
+    type: [Number],
   })
   @IsArray()
   @ArrayMinSize(2)
@@ -221,7 +224,8 @@ export class PlaceDirectOrderDto {
 
   @ApiProperty({
     example: [31.2357, 30.0444],
-    description: '[longitude, latitude]', type: [Number],
+    description: '[longitude, latitude]',
+    type: [Number],
     required: false,
   })
   @IsArray()
@@ -328,5 +332,3 @@ export class ConfirmPaymentDto {
   @IsNotEmpty()
   received!: boolean;
 }
-
-

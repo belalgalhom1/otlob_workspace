@@ -7,7 +7,6 @@ import {
 import { PrismaClient, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
-
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 

@@ -21,11 +21,7 @@ import { Public } from '../../../common/decorators/public.decorator';
 import { Permission } from '@prisma/client';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';
 
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Vendors - Verticals (Categories)')
 @Controller('vendor-verticals')

@@ -138,27 +138,36 @@ export class DriverShiftsService {
 
     // COMPLETED or MISSED shifts must be preserved for history/earnings.
     const historicalShifts = shifts.filter(
-      (s) => s.status === 'COMPLETED' || s.status === 'MISSED'
+      (s) => s.status === 'COMPLETED' || s.status === 'MISSED',
     );
-    
+
     // ACTIVE, SCHEDULED, and CANCELLED shifts will be destroyed.
     const shiftsToKill = shifts.filter(
-      (s) => s.status === 'ACTIVE' || s.status === 'SCHEDULED' || s.status === 'CANCELLED'
+      (s) =>
+        s.status === 'ACTIVE' ||
+        s.status === 'SCHEDULED' ||
+        s.status === 'CANCELLED',
     );
 
     if (shiftsToKill.length > 0) {
       // For any driver currently ACTIVE on this shift, force them OFFLINE.
-      const activeShifts = shiftsToKill.filter(s => s.status === 'ACTIVE');
+      const activeShifts = shiftsToKill.filter((s) => s.status === 'ACTIVE');
       if (activeShifts.length > 0) {
         await this.prisma.driver.updateMany({
-          where: { id: { in: activeShifts.map(s => s.driverId) } },
+          where: { id: { in: activeShifts.map((s) => s.driverId) } },
           data: { status: 'OFFLINE' },
         });
 
         for (const shift of activeShifts) {
           this.eventEmitter.emit(
             EVENTS.DRIVER_STATUS_CHANGED,
-            new DriverStatusChangedEvent(shift.driverId, shift.driver.user.id, shift.driver.status, 'OFFLINE', 'Shift was forcefully deleted by admin.')
+            new DriverStatusChangedEvent(
+              shift.driverId,
+              shift.driver.user.id,
+              shift.driver.status,
+              'OFFLINE',
+              'Shift was forcefully deleted by admin.',
+            ),
           );
         }
       }
@@ -183,12 +192,20 @@ export class DriverShiftsService {
         where: { id: poolId },
         data: { maxDrivers: 0 },
       });
-      return { success: true, message: 'Pool contained past completed shifts. It was disabled, and all active/future shifts were killed.' };
+      return {
+        success: true,
+        message:
+          'Pool contained past completed shifts. It was disabled, and all active/future shifts were killed.',
+      };
     }
 
     // No completed history exists, completely obliterate the pool.
     await this.prisma.shiftPool.delete({ where: { id: poolId } });
-    return { success: true, message: 'Shift pool completely deleted and all active drivers kicked offline.' };
+    return {
+      success: true,
+      message:
+        'Shift pool completely deleted and all active drivers kicked offline.',
+    };
   }
 
   async adminAssignShift(dto: AdminAssignShiftDto) {
@@ -460,7 +477,7 @@ export class DriverShiftsService {
       },
       include: {
         driverShift: {
-          include: { 
+          include: {
             driver: { select: { name: true, vehicleType: true } },
             zone: true,
           },
@@ -565,7 +582,11 @@ export class DriverShiftsService {
         } else {
           this.eventEmitter.emit(
             EVENTS.SHIFT_REMINDER,
-            new ShiftReminderEvent(shift.driver.user.id, shift.id, shift.zoneId),
+            new ShiftReminderEvent(
+              shift.driver.user.id,
+              shift.id,
+              shift.zoneId,
+            ),
           );
         }
 
@@ -626,4 +647,3 @@ export class DriverShiftsService {
     }
   }
 }
-

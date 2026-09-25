@@ -8,7 +8,11 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrdersRepository, CreateOrderData, OrderItemData } from './orders.repository';
+import {
+  OrdersRepository,
+  CreateOrderData,
+  OrderItemData,
+} from './orders.repository';
 import { OrdersStateService } from './orders-state.service';
 import { CartService } from '../cart/cart.service';
 import { DispatchService } from '../dispatch/dispatch.service';
@@ -63,7 +67,7 @@ export class OrdersCheckoutService {
     private readonly stateService: OrdersStateService,
   ) {}
 
-async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
+  async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
     const { customerId, coinBalance, cart } =
       await this.cartService.validateForCheckout(actor.sub, dto.vendorId);
 
@@ -269,9 +273,10 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
       settings,
     );
 
-    const vendorCommission = vendor.commissionRate != null
-      ? Number(vendor.commissionRate)
-      : Number(settings.defaultCommissionRate ?? 10);
+    const vendorCommission =
+      vendor.commissionRate != null
+        ? Number(vendor.commissionRate)
+        : Number(settings.defaultCommissionRate ?? 10);
     const commissionRate = vendorCommission / 100;
 
     const serviceFee = !vendor.isContracted
@@ -320,9 +325,8 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
 
     const grandTotal = preDiscountTotal - discount;
     const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
-    const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(
-      grandTotal / amountSpentPerCoin,
-    ) : 0;
+    const coinsEarned =
+      amountSpentPerCoin > 0 ? Math.floor(grandTotal / amountSpentPerCoin) : 0;
 
     let upfrontAmount = 0;
     if (
@@ -469,9 +473,8 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
 
     const grandTotal = preDiscountTotal - discount;
     const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
-    const coinsEarned = amountSpentPerCoin > 0 ? Math.floor(
-      grandTotal / amountSpentPerCoin,
-    ) : 0;
+    const coinsEarned =
+      amountSpentPerCoin > 0 ? Math.floor(grandTotal / amountSpentPerCoin) : 0;
 
     let upfrontAmount = 0;
     if (
@@ -503,7 +506,7 @@ async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
     };
   }
 
-async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
+  async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
       select: { id: true, coinBalance: true },
@@ -618,7 +621,7 @@ async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     return this.ordersRepository.findById(created.id);
   }
 
-async adminPlaceDirectOrder(
+  async adminPlaceDirectOrder(
     actor: JwtAccessPayload,
     dto: PlaceDirectOrderDto,
   ) {
@@ -641,7 +644,8 @@ async adminPlaceDirectOrder(
     const customer = await this.prisma.customer.findUnique({
       where: { userId: dto.customerId },
     });
-    if (!customer) throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
+    if (!customer)
+      throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
 
     await this.validateActiveOrderLimit(customer.id);
 
@@ -653,9 +657,10 @@ async adminPlaceDirectOrder(
     const settings = await this.platformSettings.getSettings();
 
     const subtotal = dto.price * (dto.quantity ?? 1);
-    const vendorCommission = vendor.commissionRate != null
-      ? Number(vendor.commissionRate)
-      : Number(settings.defaultCommissionRate ?? 10);
+    const vendorCommission =
+      vendor.commissionRate != null
+        ? Number(vendor.commissionRate)
+        : Number(settings.defaultCommissionRate ?? 10);
     const commissionRate = vendorCommission / 100;
     const serviceFee = !vendor.isContracted
       ? Math.round(subtotal * commissionRate)
@@ -711,22 +716,31 @@ async adminPlaceDirectOrder(
       },
     ];
 
-    const order = await this.ordersRepository.createOrder(orderData, itemsData, actor.sub);
+    const order = await this.ordersRepository.createOrder(
+      orderData,
+      itemsData,
+      actor.sub,
+    );
 
     // Direct orders placed by a vendor/admin skip the customer-approval step and
     // are treated as accepted immediately (createOrder sets PENDING by default).
     await this.prisma.order.update({
       where: { id: order.id },
-      data: { status: OrderStatus.ACCEPTED }
+      data: { status: OrderStatus.ACCEPTED },
     });
 
     // Also update the status event to ACCEPTED instead of whatever createOrder created
     await this.prisma.orderStatusEvent.updateMany({
       where: { orderId: order.id },
-      data: { status: OrderStatus.ACCEPTED, note: 'Order created by Vendor/Admin directly from chat' }
+      data: {
+        status: OrderStatus.ACCEPTED,
+        note: 'Order created by Vendor/Admin directly from chat',
+      },
     });
 
-    const vendorUserIds = orderData.vendorId ? await this.ordersRepository.getVendorUserIds(orderData.vendorId) : [];
+    const vendorUserIds = orderData.vendorId
+      ? await this.ordersRepository.getVendorUserIds(orderData.vendorId)
+      : [];
 
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,
@@ -757,14 +771,14 @@ async adminPlaceDirectOrder(
         vendorUserIds,
         orderData.grandTotal,
         orderData.paymentMethod,
-        orderData.type
+        orderData.type,
       ),
     );
 
     return order;
   }
 
-private async validateActiveOrderLimit(customerId: string) {
+  private async validateActiveOrderLimit(customerId: string) {
     const settings = await this.platformSettings.getSettings();
 
     // 1. Get the current active order count
@@ -797,7 +811,7 @@ private async validateActiveOrderLimit(customerId: string) {
     }
   }
 
-private async canManageOrders(userId: string, role: Role): Promise<boolean> {
+  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
     if (role === Role.SUPER_ADMIN) return true;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -805,5 +819,4 @@ private async canManageOrders(userId: string, role: Role): Promise<boolean> {
     });
     return !!user?.permissions.includes(Permission.MANAGE_ORDERS);
   }
-
 }

@@ -49,7 +49,7 @@ export class VendorsService {
 
     let slug = base;
     let attempts = 0;
-    
+
     const settings = await this.platformSettings.getSettings();
 
     while (attempts < 5) {
@@ -63,7 +63,8 @@ export class VendorsService {
             descriptionAr: dto.descriptionAr ?? null,
             verticalId: dto.verticalId,
             taxId: dto.taxId ?? null,
-            commissionRate: dto.commissionRate ?? settings.defaultCommissionRate,
+            commissionRate:
+              dto.commissionRate ?? settings.defaultCommissionRate,
             phone: dto.phone ?? null,
             isContracted: dto.isContracted ?? false,
             workingHours: dto.workingHours ?? Prisma.DbNull,
@@ -114,12 +115,19 @@ export class VendorsService {
     let vendors: any[] = [];
     let total = 0;
 
-    if ((dto.lat !== undefined && dto.lng !== undefined && (!dto.sortBy || dto.sortBy === 'distance')) || dto.zoneId) {
+    if (
+      (dto.lat !== undefined &&
+        dto.lng !== undefined &&
+        (!dto.sortBy || dto.sortBy === 'distance')) ||
+      dto.zoneId
+    ) {
       // 1. Resolve target delivery zone (from dto.zoneId or containing/closest zone)
       let targetZoneId: string | null = dto.zoneId ?? null;
       if (!targetZoneId && dto.lat !== undefined && dto.lng !== undefined) {
         try {
-          const containingZoneRows = await this.prisma.$queryRaw<{ id: string }[]>`
+          const containingZoneRows = await this.prisma.$queryRaw<
+            { id: string }[]
+          >`
             SELECT id FROM zones
             WHERE ST_Contains(boundary, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326))
               AND "isActive" = true
@@ -129,7 +137,9 @@ export class VendorsService {
           targetZoneId = containingZoneRows[0]?.id ?? null;
 
           if (!targetZoneId) {
-            const closestZoneRows = await this.prisma.$queryRaw<{ id: string }[]>`
+            const closestZoneRows = await this.prisma.$queryRaw<
+              { id: string }[]
+            >`
               SELECT id FROM zones
               WHERE "isActive" = true
               ORDER BY ST_Distance(boundary::geography, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)::geography) ASC
@@ -387,9 +397,10 @@ export class VendorsService {
         ...(dto.workingHours !== undefined && {
           workingHours: dto.workingHours,
         }),
-        ...(dto.workingHours !== undefined && dto.isScheduleActive === undefined && {
-          isScheduleActive: true, // Auto-enable if working hours are modified and flag isn't explicitly passed
-        }),
+        ...(dto.workingHours !== undefined &&
+          dto.isScheduleActive === undefined && {
+            isScheduleActive: true, // Auto-enable if working hours are modified and flag isn't explicitly passed
+          }),
         ...(dto.isScheduleActive !== undefined && {
           isScheduleActive: dto.isScheduleActive,
         }),
@@ -449,7 +460,13 @@ export class VendorsService {
         description: p.description,
         price: p.basePrice,
         image: p.imageUrl,
-        sellByStrip: (p.vendor.vertical?.slug?.toLowerCase().includes('pharmacy') || p.vendor.vertical?.slug?.toLowerCase().includes('pharmacies') || p.vendor.vertical?.slug?.includes('صيدلي') || false) ? p.sellByStrip : false,
+        sellByStrip:
+          p.vendor.vertical?.slug?.toLowerCase().includes('pharmacy') ||
+          p.vendor.vertical?.slug?.toLowerCase().includes('pharmacies') ||
+          p.vendor.vertical?.slug?.includes('صيدلي') ||
+          false
+            ? p.sellByStrip
+            : false,
         stripsPerPackage: p.stripsPerPackage,
       });
     }
@@ -481,7 +498,9 @@ export class VendorsService {
     if (dto.lat !== undefined && dto.lng !== undefined && vendorMap.size > 0) {
       try {
         const vendorIds = Array.from(vendorMap.keys());
-        const branchDistances = await this.prisma.$queryRaw<{ vendorId: string; distanceKm: number }[]>`
+        const branchDistances = await this.prisma.$queryRaw<
+          { vendorId: string; distanceKm: number }[]
+        >`
           SELECT
             vb."vendorId",
             ROUND((MIN(ST_Distance(vb.location::geography, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)::geography)) / 1000.0)::numeric, 1)::float AS "distanceKm"
@@ -489,7 +508,9 @@ export class VendorsService {
           WHERE vb."vendorId" IN (${Prisma.join(vendorIds)})
           GROUP BY vb."vendorId"
         `;
-        const distanceMap = new Map(branchDistances.map((b) => [b.vendorId, b.distanceKm]));
+        const distanceMap = new Map(
+          branchDistances.map((b) => [b.vendorId, b.distanceKm]),
+        );
         const sortedResults = Array.from(vendorMap.values())
           .map((v) => {
             const d = distanceMap.get(v.id);
@@ -786,7 +807,8 @@ export class VendorsService {
     }
 
     const proximity = (vendor as any)._proximity;
-    const distanceKm: number | null = proximity?.distanceKm ?? (vendor as any).distanceKm ?? null;
+    const distanceKm: number | null =
+      proximity?.distanceKm ?? (vendor as any).distanceKm ?? null;
     const inCustomerZone: boolean = proximity?.inCustomerZone ?? false;
     const closestBranch = proximity?.closestBranch ?? null;
 
@@ -832,17 +854,39 @@ export class VendorsService {
           const nameAr = vendor.vertical?.nameAr || '';
           const vendorSlug = vendor.slug?.toLowerCase() || '';
           const storeName = vendor.storeName?.toLowerCase() || '';
-          const isPharmacy = slug.includes('pharmacy') || slug.includes('pharmacies') || slug.includes('pharmacies-') || slug.includes('صيدلي') || slug.includes('صيدليات') || slug.includes('medical') || slug.includes('medicine') || slug.includes('pharma') ||
-                             name.includes('pharmacy') || name.includes('pharmacies') || name.includes('medical') || name.includes('medicine') || name.includes('pharma') || nameAr.includes('صيدلي') || nameAr.includes('صيدليات') ||
-                             vendorSlug.includes('pharmacy') || vendorSlug.includes('صيدلي') || vendorSlug.includes('صيدليات') || storeName.includes('pharmacy') || storeName.includes('صيدلي') || storeName.includes('صيدليات') || false;
-          const pOffers = (p as any).offers as Array<{
-            id: string;
-            variantId?: string | null;
-            offerPrice: number;
-            originalPrice?: number | null;
-            startDate?: Date | null;
-            endDate?: Date | null;
-          }> | undefined;
+          const isPharmacy =
+            slug.includes('pharmacy') ||
+            slug.includes('pharmacies') ||
+            slug.includes('pharmacies-') ||
+            slug.includes('صيدلي') ||
+            slug.includes('صيدليات') ||
+            slug.includes('medical') ||
+            slug.includes('medicine') ||
+            slug.includes('pharma') ||
+            name.includes('pharmacy') ||
+            name.includes('pharmacies') ||
+            name.includes('medical') ||
+            name.includes('medicine') ||
+            name.includes('pharma') ||
+            nameAr.includes('صيدلي') ||
+            nameAr.includes('صيدليات') ||
+            vendorSlug.includes('pharmacy') ||
+            vendorSlug.includes('صيدلي') ||
+            vendorSlug.includes('صيدليات') ||
+            storeName.includes('pharmacy') ||
+            storeName.includes('صيدلي') ||
+            storeName.includes('صيدليات') ||
+            false;
+          const pOffers = (p as any).offers as
+            | Array<{
+                id: string;
+                variantId?: string | null;
+                offerPrice: number;
+                originalPrice?: number | null;
+                startDate?: Date | null;
+                endDate?: Date | null;
+              }>
+            | undefined;
 
           const now = new Date();
           const activeOffers = (pOffers || []).filter((o) => {
@@ -855,7 +899,7 @@ export class VendorsService {
           const productActiveOffer = activeOffers.find((o) => !o.variantId);
 
           // Variant-specific active offers mapped by variantId
-          const variantOffersMap = new Map<string, typeof activeOffers[0]>();
+          const variantOffersMap = new Map<string, (typeof activeOffers)[0]>();
           for (const o of activeOffers) {
             if (o.variantId) {
               variantOffersMap.set(o.variantId, o);
@@ -863,28 +907,40 @@ export class VendorsService {
           }
 
           const basePrice = p.basePrice ? Number(p.basePrice) : 0;
-          const rawComparePrice = p.comparePrice ? Number(p.comparePrice) : null;
+          const rawComparePrice = p.comparePrice
+            ? Number(p.comparePrice)
+            : null;
 
           let effectivePrice = basePrice;
           let effectiveComparePrice = rawComparePrice;
 
           // Discount ratio from product-wide active offer (if present)
-          const productDiscountRatio = (productActiveOffer && productActiveOffer.originalPrice && productActiveOffer.originalPrice > productActiveOffer.offerPrice)
-            ? (Number(productActiveOffer.originalPrice) - Number(productActiveOffer.offerPrice)) / Number(productActiveOffer.originalPrice)
-            : 0;
+          const productDiscountRatio =
+            productActiveOffer &&
+            productActiveOffer.originalPrice &&
+            productActiveOffer.originalPrice > productActiveOffer.offerPrice
+              ? (Number(productActiveOffer.originalPrice) -
+                  Number(productActiveOffer.offerPrice)) /
+                Number(productActiveOffer.originalPrice)
+              : 0;
 
           if (productActiveOffer) {
             effectivePrice = Number(productActiveOffer.offerPrice);
             effectiveComparePrice = productActiveOffer.originalPrice
               ? Number(productActiveOffer.originalPrice)
-              : (rawComparePrice && rawComparePrice > effectivePrice ? rawComparePrice : basePrice);
+              : rawComparePrice && rawComparePrice > effectivePrice
+                ? rawComparePrice
+                : basePrice;
           }
 
           // Map variants with discount calculations
           const mappedVariants = (p.variants || []).map((v: any) => {
             const vBasePrice = Number(v.basePrice || 0);
             const vRawCompare = v.comparePrice ? Number(v.comparePrice) : null;
-            const originalRef = vRawCompare && vRawCompare > vBasePrice ? vRawCompare : vBasePrice;
+            const originalRef =
+              vRawCompare && vRawCompare > vBasePrice
+                ? vRawCompare
+                : vBasePrice;
 
             let vEffectivePrice = vBasePrice;
             let vEffectiveCompare = vRawCompare;
@@ -898,7 +954,10 @@ export class VendorsService {
                 : originalRef;
             } else if (productDiscountRatio > 0) {
               // 2. Otherwise apply product-wide proportional discount ratio
-              vEffectivePrice = Math.max(0, Math.round(originalRef * (1 - productDiscountRatio)));
+              vEffectivePrice = Math.max(
+                0,
+                Math.round(originalRef * (1 - productDiscountRatio)),
+              );
               vEffectiveCompare = originalRef;
             }
 
@@ -906,7 +965,10 @@ export class VendorsService {
               ...v,
               price: vEffectivePrice,
               basePrice: vBasePrice,
-              comparePrice: vEffectiveCompare && vEffectiveCompare > vEffectivePrice ? vEffectiveCompare : null,
+              comparePrice:
+                vEffectiveCompare && vEffectiveCompare > vEffectivePrice
+                  ? vEffectiveCompare
+                  : null,
             };
           });
 
@@ -930,7 +992,10 @@ export class VendorsService {
             descriptionAr: p.descriptionAr || '',
             price: effectivePrice,
             basePrice: basePrice,
-            comparePrice: effectiveComparePrice && effectiveComparePrice > effectivePrice ? effectiveComparePrice : null,
+            comparePrice:
+              effectiveComparePrice && effectiveComparePrice > effectivePrice
+                ? effectiveComparePrice
+                : null,
             image: p.imageUrl || '',
             category: p.categoryId, // Link to category
             sellByStrip: isPharmacy ? p.sellByStrip : false,

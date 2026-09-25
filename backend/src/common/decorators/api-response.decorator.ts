@@ -104,4 +104,3 @@ export const ApiPaginatedResponse = <DataDto extends Type<unknown>>(
     }),
   );
 };
-

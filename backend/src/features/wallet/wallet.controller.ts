@@ -26,12 +26,16 @@ import { VendorMember } from 'src/common/decorators/vendor-member.decorator';
 import { Role, Permission, VendorMemberRole } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
-import { MobileWalletResponseDto, WalletTopUpRequestResponseDto, VendorWalletTransactionResponseDto, DriverWalletTransactionResponseDto } from 'src/common/dto/response-models.dto';
+import {
+  MobileWalletResponseDto,
+  WalletTopUpRequestResponseDto,
+  VendorWalletTransactionResponseDto,
+  DriverWalletTransactionResponseDto,
+} from 'src/common/dto/response-models.dto';
 import { MobileWallet } from '../../_gen/prisma-classes/mobile_wallet';
 import { WalletTopUpRequest } from '../../_gen/prisma-classes/wallet_top_up_request';
 import { VendorWalletTransaction } from '../../_gen/prisma-classes/vendor_wallet_transaction';
 import { DriverWalletTransaction } from '../../_gen/prisma-classes/driver_wallet_transaction';
-
 
 @ApiTags('Wallet & Financials')
 @ApiBearerAuth()
@@ -198,9 +202,7 @@ export class WalletController {
   @Roles(Role.DRIVER)
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({ summary: 'Upload a receipt image for a wallet top-up' })
-  uploadReceipt(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  uploadReceipt(@UploadedFile() file: Express.Multer.File) {
     return this.walletService.uploadReceipt(file);
   }
 }

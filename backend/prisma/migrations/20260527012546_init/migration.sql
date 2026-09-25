@@ -68,7 +68,7 @@ CREATE TYPE "VendorTransactionType" AS ENUM ('ORDER_REVENUE', 'COMMISSION_DEDUCT
 CREATE TYPE "StatisticPeriod" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY');
 
 -- CreateEnum
-CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CHANGES_REQUESTED', 'PENDING_CUSTOMER_APPROVAL', 'ACCEPTED', 'PREPARING', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "OrderType" AS ENUM ('STANDARD', 'CUSTOM_DELIVERY', 'RIDE');
@@ -126,8 +126,6 @@ CREATE TABLE "platform_settings" (
     "maxDeliveryFeeMotorcycle" INTEGER NOT NULL DEFAULT 0,
     "minDeliveryFeeCar" INTEGER NOT NULL DEFAULT 15,
     "maxDeliveryFeeCar" INTEGER NOT NULL DEFAULT 0,
-    "requireCustomerApproval" BOOLEAN NOT NULL DEFAULT true,
-    "customerApprovalTimeoutMins" INTEGER NOT NULL DEFAULT 5,
     "minDeliveryFeeVan" INTEGER NOT NULL DEFAULT 15,
     "maxDeliveryFeeVan" INTEGER NOT NULL DEFAULT 0,
     "minDeliveryFeeTruck" INTEGER NOT NULL DEFAULT 15,
@@ -189,11 +187,11 @@ CREATE TABLE "platform_settings" (
     "driverBonusEndDate" TIMESTAMPTZ(3),
     "driverBonusPaidByCustomer" BOOLEAN NOT NULL DEFAULT false,
     "driverShiftsEnabled" BOOLEAN NOT NULL DEFAULT false,
-    "customerApprovalTimeoutSecs" INTEGER NOT NULL DEFAULT 60,
     "maxActiveOrdersPerCustomer" INTEGER NOT NULL DEFAULT 2,
     "requirePriorDeliveryForMultipleOrders" BOOLEAN NOT NULL DEFAULT true,
     "maxOtpAttempts" INTEGER NOT NULL DEFAULT 5,
     "maxNegativeDriverBalance" INTEGER NOT NULL DEFAULT 500,
+    "driverSettlementOrderThreshold" INTEGER NOT NULL DEFAULT 10,
     "otpExpirySeconds" INTEGER NOT NULL DEFAULT 900,
     "bronzeTierBonusPerKm" INTEGER NOT NULL DEFAULT 0,
     "silverTierBonusPerKm" INTEGER NOT NULL DEFAULT 0,
@@ -587,6 +585,7 @@ CREATE TABLE "products" (
     "comparePrice" INTEGER,
     "sku" TEXT,
     "stock" INTEGER,
+    "tracksStock" BOOLEAN NOT NULL DEFAULT true,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "isFeatured" BOOLEAN NOT NULL DEFAULT false,
     "deletedAt" TIMESTAMPTZ(3),
@@ -606,6 +605,7 @@ CREATE TABLE "product_variants" (
     "basePrice" INTEGER NOT NULL,
     "comparePrice" INTEGER,
     "stock" INTEGER,
+    "tracksStock" BOOLEAN NOT NULL DEFAULT true,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "version" INTEGER NOT NULL DEFAULT 100,
 
@@ -780,6 +780,7 @@ CREATE TABLE "drivers" (
     "approvedById" TEXT,
     "isApproved" BOOLEAN NOT NULL DEFAULT false,
     "totalOrders" INTEGER NOT NULL DEFAULT 0,
+    "ordersSinceSettlement" INTEGER NOT NULL DEFAULT 0,
     "walletBalance" INTEGER NOT NULL DEFAULT 0,
     "hasUnpaidCommission" BOOLEAN NOT NULL DEFAULT false,
     "version" INTEGER NOT NULL DEFAULT 100,
@@ -1649,9 +1650,9 @@ CREATE INDEX "order_reviews_customerId_idx" ON "order_reviews"("customerId");
 
 -- AddForeignKey
 ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("userId") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("userId") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "drivers" ADD CONSTRAINT "drivers_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

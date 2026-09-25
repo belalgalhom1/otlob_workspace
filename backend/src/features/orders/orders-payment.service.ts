@@ -6,7 +6,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrdersRepository, CreateOrderData, OrderItemData } from './orders.repository';
+import {
+  OrdersRepository,
+  CreateOrderData,
+  OrderItemData,
+} from './orders.repository';
 import { CartService } from '../cart/cart.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -56,7 +60,7 @@ export class OrdersPaymentService {
     private readonly prisma: PrismaService,
   ) {}
 
-async customerMarkPaid(actor: JwtAccessPayload, orderId: string) {
+  async customerMarkPaid(actor: JwtAccessPayload, orderId: string) {
     const order = await this.ordersRepository.findById(orderId);
 
     if (order.customer.user.id !== actor.sub) {
@@ -75,7 +79,7 @@ async customerMarkPaid(actor: JwtAccessPayload, orderId: string) {
       where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
       data: { paymentStatus: 'PAID' },
     });
-    
+
     if (updated.count === 0) {
       throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
     }
@@ -106,7 +110,7 @@ async customerMarkPaid(actor: JwtAccessPayload, orderId: string) {
     };
   }
 
-async driverConfirmPayment(
+  async driverConfirmPayment(
     actor: JwtAccessPayload,
     orderId: string,
     received: boolean,
@@ -213,5 +217,4 @@ async driverConfirmPayment(
       };
     }
   }
-
 }

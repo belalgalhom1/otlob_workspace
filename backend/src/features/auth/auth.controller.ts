@@ -24,7 +24,11 @@ import {
 import { Guest } from 'src/common/decorators/guest.decorator';
 import { Public } from 'src/common/decorators/public.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { ApiStandardResponse, ApiPaginatedResponse, ApiArrayResponse } from 'src/common/decorators/api-response.decorator';
+import {
+  ApiStandardResponse,
+  ApiPaginatedResponse,
+  ApiArrayResponse,
+} from 'src/common/decorators/api-response.decorator';
 import { UserResponseDto } from 'src/common/dto/response-models.dto';
 import { AuthErrors } from 'src/common/constants/response.constants';
 import type {
@@ -98,7 +102,7 @@ export class AuthController {
   })
   @Post('verify/request')
   @ApiOperation({ summary: 'Request a verification code (OTP)' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   sendVerification(@Body() dto: SendOtpDto) {
     return this.authService.requestVerification(dto);
   }
@@ -111,7 +115,7 @@ export class AuthController {
   @Post('verify/confirm')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Confirm verification code (OTP)' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   confirmVerification(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyContact(dto);
   }
@@ -123,7 +127,7 @@ export class AuthController {
   })
   @Post('password/forgot')
   @ApiOperation({ summary: 'Request password reset' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
@@ -136,7 +140,7 @@ export class AuthController {
   @Post('password/reset')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password using code' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }
@@ -151,7 +155,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Refresh access tokens' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   refreshTokens(
     @Req()
     req: {
@@ -174,7 +178,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from current session' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   logout(@CurrentUser() user: JwtAccessPayload, @Body() dto: LogoutDto) {
     return this.authService.logout(user.sub, user.sid, dto);
   }
@@ -186,7 +190,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from all sessions' })
-    @ApiStandardResponse()
+  @ApiStandardResponse()
   logoutAll(@CurrentUser('sub') userId: string) {
     return this.authService.logoutAll(userId);
   }

@@ -21,11 +21,7 @@ import { Permission } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 import { PlatformSetting } from '../../_gen/prisma-classes/platform_setting';
 
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Platform - Settings & Versioning')
 @Controller('platform-settings')
@@ -81,9 +77,7 @@ export class PlatformSettingsController {
   @RequirePermissions(Permission.MANAGE_SETTINGS)
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({ summary: 'Upload home cover image' })
-  uploadHomeCover(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  uploadHomeCover(@UploadedFile() file: Express.Multer.File) {
     return this.service.uploadHomeCover(file);
   }
 
@@ -93,9 +87,7 @@ export class PlatformSettingsController {
   @RequirePermissions(Permission.MANAGE_SETTINGS)
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({ summary: 'Upload motorcycle icon' })
-  uploadMotorcycleIcon(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  uploadMotorcycleIcon(@UploadedFile() file: Express.Multer.File) {
     return this.service.uploadMotorcycleIcon(file);
   }
 
@@ -115,9 +107,7 @@ export class PlatformSettingsController {
   @RequirePermissions(Permission.MANAGE_SETTINGS)
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({ summary: 'Upload delivery banner icon' })
-  uploadDeliveryBannerIcon(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  uploadDeliveryBannerIcon(@UploadedFile() file: Express.Multer.File) {
     return this.service.uploadDeliveryBannerIcon(file);
   }
 }

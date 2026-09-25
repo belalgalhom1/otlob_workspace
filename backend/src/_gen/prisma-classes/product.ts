@@ -50,6 +50,9 @@ export class Product {
   stock?: number;
 
   @ApiProperty({ type: Boolean })
+  tracksStock: boolean = true;
+
+  @ApiProperty({ type: Boolean })
   isActive: boolean = true;
 
   @ApiProperty({ type: Boolean })

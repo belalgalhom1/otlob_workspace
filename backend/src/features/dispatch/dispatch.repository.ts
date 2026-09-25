@@ -97,8 +97,6 @@ export class DispatchRepository {
     return dispatches.map((d) => d.driverId);
   }
 
-
-
   async getOrderDispatchContext(orderId: string): Promise<{
     lng: number;
     lat: number;

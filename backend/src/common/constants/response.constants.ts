@@ -37,13 +37,13 @@ export const AppErrors = {
 
 export const PlatformSettingErrors = {
   NOT_FOUND: 'platform_settings.error.not_found',
-  CONCURRENT_CREATION_FAILED: 'platform_settings.error.concurrent_creation_failed',
+  CONCURRENT_CREATION_FAILED:
+    'platform_settings.error.concurrent_creation_failed',
 };
 
 export const ConfigErrors = {
   MISSING_ENV: 'config.error.missing_env',
 };
-
 
 export const SocketErrors = {
   MISSING_ADAPTER: 'socket.error.missing_adapter',
@@ -66,7 +66,8 @@ export const AuthErrors = {
   INVALID_GOOGLE_TOKEN: 'auth.error.invalid_google_token',
   INVALID_APPLE_TOKEN: 'auth.error.invalid_apple_token',
   UNSUPPORTED_SOCIAL_PROVIDER: 'auth.error.unsupported_social_provider',
-  SOCIAL_ACCOUNT_VERIFICATION_FAILED: 'auth.error.social_account_verification_failed',
+  SOCIAL_ACCOUNT_VERIFICATION_FAILED:
+    'auth.error.social_account_verification_failed',
   ONLY_DRIVERS_APP_ALLOWED: 'auth.error.only_drivers_app_allowed',
   ONLY_VENDOR_APP_ALLOWED: 'auth.error.only_vendor_app_allowed',
   CANNOT_LOGOUT_ON_DELIVERY: 'auth.error.cannot_logout_on_delivery',
@@ -277,7 +278,8 @@ export const OrderErrors = {
   MIN_ORDER_AMOUNT_NOT_MET: 'order.error.min_order_amount_not_met',
   BICYCLE_DISTANCE_EXCEEDED: 'order.error.bicycle_distance_exceeded',
   CANNOT_FORCE_ASSIGN_DRIVER: 'order.error.cannot_force_assign_driver',
-  CANNOT_CANCEL_PREPARATION_STARTED: 'order.error.cannot_cancel_preparation_started',
+  CANNOT_CANCEL_PREPARATION_STARTED:
+    'order.error.cannot_cancel_preparation_started',
   DRIVERS_CANNOT_CANCEL: 'order.error.drivers_cannot_cancel',
 };
 
@@ -307,6 +309,7 @@ export const WalletErrors = {
   PLATFORM_WALLET_NOT_FOUND_OR_INACTIVE:
     'wallet.error.platform_wallet_not_found_or_inactive',
   REQUEST_NOT_FOUND: 'wallet.error.request_not_found',
+  DUPLICATE_PENDING_REQUEST: 'wallet.error.duplicate_pending_request',
   VENDOR_NOT_FOUND: 'wallet.error.vendor_not_found',
   DRIVER_NOT_FOUND: 'wallet.error.driver_not_found',
 };
@@ -333,4 +336,3 @@ export const ReviewErrors = {
   NOT_DELIVERED: 'review.error.not_delivered',
   ALREADY_RATED: 'review.error.already_rated',
 };
-

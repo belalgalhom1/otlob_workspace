@@ -54,40 +54,46 @@ export class NotificationListener {
 
   @OnEvent(EVENTS.SHIFT_REMINDER)
   async handleShiftReminder(event: any) {
-    await this.notificationsService.create({
-      userId: event.driverUserId,
-      title: 'Upcoming Shift Reminder',
-      titleAr: 'تذكير بالوردية القادمة',
-      body: `Your shift at zone ${event.zoneId ?? 'Global'} starts in 30 minutes! Please go online.`,
-      bodyAr: `ورديتك في المنطقة ${event.zoneId ?? 'العامة'} تبدأ خلال 30 دقيقة! يرجى تسجيل الدخول.`,
-      type: NotificationType.SYSTEM,
-      data: { shiftId: event.shiftId },
-    }).catch(() => {});
+    await this.notificationsService
+      .create({
+        userId: event.driverUserId,
+        title: 'Upcoming Shift Reminder',
+        titleAr: 'تذكير بالوردية القادمة',
+        body: `Your shift at zone ${event.zoneId ?? 'Global'} starts in 30 minutes! Please go online.`,
+        bodyAr: `ورديتك في المنطقة ${event.zoneId ?? 'العامة'} تبدأ خلال 30 دقيقة! يرجى تسجيل الدخول.`,
+        type: NotificationType.SYSTEM,
+        data: { shiftId: event.shiftId },
+      })
+      .catch(() => {});
   }
 
   @OnEvent(EVENTS.SHIFT_MISSED)
   async handleShiftMissed(event: any) {
-    await this.notificationsService.create({
-      userId: event.driverUserId,
-      title: 'Shift Missed / Tier Demotion',
-      titleAr: 'تغيب عن الوردية / نزول المستوى',
-      body: `You failed to start your shift on time. You have been demoted to ${event.newTier} tier.`,
-      bodyAr: `لم تقم ببدء ورديتك في الوقت المحدد. تم تنزيل مستواك إلى ${event.newTier}.`,
-      type: NotificationType.SYSTEM,
-      data: { shiftId: event.shiftId, type: 'TIER_DEMOTION' },
-    }).catch(() => {});
+    await this.notificationsService
+      .create({
+        userId: event.driverUserId,
+        title: 'Shift Missed / Tier Demotion',
+        titleAr: 'تغيب عن الوردية / نزول المستوى',
+        body: `You failed to start your shift on time. You have been demoted to ${event.newTier} tier.`,
+        bodyAr: `لم تقم ببدء ورديتك في الوقت المحدد. تم تنزيل مستواك إلى ${event.newTier}.`,
+        type: NotificationType.SYSTEM,
+        data: { shiftId: event.shiftId, type: 'TIER_DEMOTION' },
+      })
+      .catch(() => {});
   }
 
   @OnEvent(EVENTS.SHIFT_SWAP_CANCELLED)
   async handleShiftSwapCancelled(event: any) {
-    await this.notificationsService.create({
-      userId: event.driverUserId,
-      title: 'Shift Swap Cancelled',
-      titleAr: 'تم إلغاء تبديل الوردية',
-      body: 'Your pending swap was not accepted. You are required to attend this shift in 30 mins.',
-      bodyAr: 'لم يتم قبول طلب التبديل. يرجى الحضور للوردية خلال 30 دقيقة.',
-      type: NotificationType.SYSTEM,
-      data: { shiftId: event.shiftId },
-    }).catch(() => {});
+    await this.notificationsService
+      .create({
+        userId: event.driverUserId,
+        title: 'Shift Swap Cancelled',
+        titleAr: 'تم إلغاء تبديل الوردية',
+        body: 'Your pending swap was not accepted. You are required to attend this shift in 30 mins.',
+        bodyAr: 'لم يتم قبول طلب التبديل. يرجى الحضور للوردية خلال 30 دقيقة.',
+        type: NotificationType.SYSTEM,
+        data: { shiftId: event.shiftId },
+      })
+      .catch(() => {});
   }
 }

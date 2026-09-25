@@ -101,14 +101,18 @@ export class UsersService {
     const phoneChanged = dto.phone && dto.phone !== user.phone;
 
     if (emailChanged) {
-      const existingEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+      });
       if (existingEmail && existingEmail.id !== userId) {
         throw new ConflictException(UserErrors.EMAIL_ALREADY_EXISTS);
       }
     }
 
     if (phoneChanged) {
-      const existingPhone = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+      const existingPhone = await this.prisma.user.findUnique({
+        where: { phone: dto.phone },
+      });
       if (existingPhone && existingPhone.id !== userId) {
         throw new ConflictException(UserErrors.PHONE_ALREADY_EXISTS);
       }

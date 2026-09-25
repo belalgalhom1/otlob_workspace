@@ -55,12 +55,16 @@ export class OrderListener {
   @OnEvent(EVENTS.ORDER_CREATED)
   async handleOrderCreated(event: OrderCreatedEvent) {
     const idempotencyKey = `notify:order_created:${event.orderId}`;
-    const isNew = await this.redis.getClient().set(idempotencyKey, '1', 'EX', 14400, 'NX');
+    const isNew = await this.redis
+      .getClient()
+      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
     if (!isNew) {
-      this.logger.debug(`Skipping duplicate order created event for ${event.orderNumber}`);
+      this.logger.debug(
+        `Skipping duplicate order created event for ${event.orderNumber}`,
+      );
       return;
     }
-    
+
     this.logger.log(`Order created: ${event.orderNumber}`);
 
     // Notify all vendor members via WS + push
@@ -146,9 +150,13 @@ export class OrderListener {
   @OnEvent(EVENTS.ORDER_STATUS_CHANGED)
   async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
     const idempotencyKey = `notify:order_status:${event.orderId}:${event.newStatus}`;
-    const isNew = await this.redis.getClient().set(idempotencyKey, '1', 'EX', 14400, 'NX');
+    const isNew = await this.redis
+      .getClient()
+      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
     if (!isNew) {
-      this.logger.debug(`Skipping duplicate order status event for ${event.orderNumber} to ${event.newStatus}`);
+      this.logger.debug(
+        `Skipping duplicate order status event for ${event.orderNumber} to ${event.newStatus}`,
+      );
       return;
     }
 

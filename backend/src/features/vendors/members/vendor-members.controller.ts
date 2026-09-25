@@ -22,7 +22,6 @@ import type { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.in
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';
 
-
 @ApiTags('Vendors - Members (Team)')
 @ApiBearerAuth()
 @Controller('vendors/:vendorId/members')

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { StatisticPeriod, VendorTransactionType } from '@prisma/client';
+import { Prisma, StatisticPeriod, VendorTransactionType } from '@prisma/client';
 
 export interface StatPeriodRange {
   period: StatisticPeriod;
@@ -90,7 +90,9 @@ export class StatisticsRepository {
       completedOrders?: number;
       cancelledOrders?: number;
     },
+    client?: Prisma.TransactionClient,
   ) {
+    const db = client ?? this.prisma;
     const to = increment.totalOrders ?? 0;
     const tr = increment.totalRevenue ?? 0;
     const tc = increment.totalCommission ?? 0;
@@ -98,7 +100,7 @@ export class StatisticsRepository {
     const co = increment.completedOrders ?? 0;
     const ca = increment.cancelledOrders ?? 0;
 
-    await this.prisma.$executeRaw`
+    await db.$executeRaw`
       INSERT INTO vendor_statistics (
         id, "vendorId", period, "startDate", "endDate",
         "totalOrders", "totalRevenue", "totalCommission", "totalTax",
@@ -150,7 +152,9 @@ export class StatisticsRepository {
       dispatchesRejected?: number;
       dispatchesExpired?: number;
     },
+    client?: Prisma.TransactionClient,
   ) {
+    const db = client ?? this.prisma;
     const to = increment.totalOrders ?? 0;
     const te = increment.totalEarnings ?? 0;
     const co = increment.completedOrders ?? 0;
@@ -160,7 +164,7 @@ export class StatisticsRepository {
     const dr = increment.dispatchesRejected ?? 0;
     const de = increment.dispatchesExpired ?? 0;
 
-    await this.prisma.$executeRaw`
+    await db.$executeRaw`
       INSERT INTO driver_statistics (
         id, "driverId", period, "startDate", "endDate",
         "totalOrders", "totalEarnings",
@@ -254,7 +258,7 @@ export class StatisticsRepository {
           totalOrders: c.totalOrders,
           totalSpent: c.totalSpent,
         };
-      })
+      }),
     );
   }
 
@@ -275,7 +279,13 @@ export class StatisticsRepository {
       topVendorStats.map(async (v) => {
         const vendor = await this.prisma.vendor.findUnique({
           where: { id: v.vendorId },
-          select: { id: true, storeName: true, storeNameAr: true, logo: true, walletBalance: true },
+          select: {
+            id: true,
+            storeName: true,
+            storeNameAr: true,
+            logo: true,
+            walletBalance: true,
+          },
         });
 
         const top = await this.prisma.$queryRaw<
@@ -289,7 +299,12 @@ export class StatisticsRepository {
           ORDER BY "totalOrders" DESC
           LIMIT 1
         `;
-        let topProduct: { name: string; nameAr: string | null; imageUrl: string | null; totalOrders: number } | null = null;
+        let topProduct: {
+          name: string;
+          nameAr: string | null;
+          imageUrl: string | null;
+          totalOrders: number;
+        } | null = null;
         if (top.length > 0) {
           const p = await this.prisma.product.findUnique({
             where: { id: top[0].productId },
@@ -297,11 +312,11 @@ export class StatisticsRepository {
           });
           if (p) topProduct = { ...p, totalOrders: top[0].totalOrders };
         }
-        return { 
-          ...vendor, 
+        return {
+          ...vendor,
           totalOrders: v.totalOrders,
           totalRevenue: v.totalRevenue,
-          topProduct 
+          topProduct,
         };
       }),
     );
@@ -331,7 +346,7 @@ export class StatisticsRepository {
           ...product,
           totalOrders: rp.totalOrders,
         };
-      })
+      }),
     );
   }
 
@@ -348,14 +363,16 @@ export class StatisticsRepository {
       activeCustomers?: number;
       activeDrivers?: number;
     },
+    client?: Prisma.TransactionClient,
   ) {
+    const db = client ?? this.prisma;
     const to = increment.totalOrders ?? 0;
     const tar = increment.totalAdminRevenue ?? 0;
     const tdf = increment.totalDeliveryFees ?? 0;
     const ac = increment.activeCustomers ?? 0;
     const ad = increment.activeDrivers ?? 0;
 
-    await this.prisma.$executeRaw`
+    await db.$executeRaw`
       INSERT INTO app_statistics (
         id, period, "startDate", "endDate",
         "totalOrders", "totalAdminRevenue", "totalDeliveryFees",
@@ -395,8 +412,9 @@ export class StatisticsRepository {
     type: string,
     orderId: string | null,
     description: string,
+    client?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       // 1. Acquire row lock on the vendor to serialize concurrent transactions
       await tx.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorId} FOR UPDATE`;
 
@@ -425,7 +443,9 @@ export class StatisticsRepository {
       });
 
       return vendor.walletBalance;
-    });
+    };
+
+    return client ? run(client) : this.prisma.$transaction(run);
   }
 
   async debitVendorWallet(
@@ -434,8 +454,9 @@ export class StatisticsRepository {
     type: string,
     orderId: string | null,
     description: string,
+    client?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
       // 1. Acquire row lock on the vendor to serialize concurrent transactions
       await tx.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorId} FOR UPDATE`;
 
@@ -464,6 +485,8 @@ export class StatisticsRepository {
       });
 
       return vendor.walletBalance;
-    });
+    };
+
+    return client ? run(client) : this.prisma.$transaction(run);
   }
 }

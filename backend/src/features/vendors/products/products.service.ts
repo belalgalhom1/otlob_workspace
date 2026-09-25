@@ -64,6 +64,7 @@ const PRODUCT_LIST_INCLUDE = {
       basePrice: true,
       comparePrice: true,
       stock: true,
+      tracksStock: true,
     },
   },
   _count: { select: { favoritedBy: true } },
@@ -90,7 +91,9 @@ export class ProductsService implements OnModuleInit {
         data: { sku: null },
       });
     } catch (err) {
-      this.logger.warn(`Failed to sanitize empty string SKUs on startup: ${err}`);
+      this.logger.warn(
+        `Failed to sanitize empty string SKUs on startup: ${err}`,
+      );
     }
   }
 
@@ -190,6 +193,7 @@ export class ProductsService implements OnModuleInit {
           comparePrice: dto.comparePrice ?? null,
           sku,
           stock: dto.stock ?? null,
+          tracksStock: dto.tracksStock ?? true,
           isActive: dto.isActive ?? true,
           isFeatured: dto.isFeatured ?? false,
           sellByStrip: dto.sellByStrip ?? false,
@@ -262,6 +266,9 @@ export class ProductsService implements OnModuleInit {
           }),
           ...(sku !== undefined && { sku }),
           ...(dto.stock !== undefined && { stock: dto.stock }),
+          ...(dto.tracksStock !== undefined && {
+            tracksStock: dto.tracksStock,
+          }),
           ...(dto.isActive !== undefined && { isActive: dto.isActive }),
           ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
           ...(dto.sellByStrip !== undefined && {
@@ -370,6 +377,7 @@ export class ProductsService implements OnModuleInit {
           basePrice: dto.basePrice,
           comparePrice: dto.comparePrice ?? null,
           stock: dto.stock ?? null,
+          tracksStock: dto.tracksStock ?? true,
           isActive: dto.isActive ?? true,
         },
       });
@@ -419,6 +427,9 @@ export class ProductsService implements OnModuleInit {
             comparePrice: dto.comparePrice,
           }),
           ...(dto.stock !== undefined && { stock: dto.stock }),
+          ...(dto.tracksStock !== undefined && {
+            tracksStock: dto.tracksStock,
+          }),
           ...(dto.isActive !== undefined && { isActive: dto.isActive }),
           version: { increment: 1 },
         },
@@ -637,6 +648,7 @@ export class ProductsService implements OnModuleInit {
         basePrice: dto.basePrice,
         comparePrice: dto.comparePrice ?? null,
         stock: dto.stock ?? null,
+        tracksStock: dto.tracksStock ?? true,
         isActive: dto.isActive ?? true,
       },
     });

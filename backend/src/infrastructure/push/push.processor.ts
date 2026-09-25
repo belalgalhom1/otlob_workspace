@@ -2,7 +2,10 @@ import { Inject, Logger } from '@nestjs/common';
 import { PushNotificationErrors } from 'src/common/constants/response.constants';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job, UnrecoverableError } from 'bullmq';
-import { Messaging, MessagingTopicManagementResponse } from 'firebase-admin/messaging';
+import {
+  Messaging,
+  MessagingTopicManagementResponse,
+} from 'firebase-admin/messaging';
 import { PrismaService } from '../prisma/prisma.service';
 import { FIREBASE_MESSAGING } from './firebase.provider';
 import { PushJob } from './push.interface';

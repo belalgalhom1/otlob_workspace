@@ -66,7 +66,10 @@ export class SocketGateway
         }
 
         // Enforce strict authorization rules based on user role and activity
-        const isAuthorized = await this.socketAuthService.authorize(payload.sub, payload.role);
+        const isAuthorized = await this.socketAuthService.authorize(
+          payload.sub,
+          payload.role,
+        );
         if (!isAuthorized) {
           return next(new Error('Forbidden'));
         }
@@ -91,7 +94,6 @@ export class SocketGateway
       }
     });
   }
-
 
   @SubscribeMessage('driver.location.update')
   async handleDriverLocation(client: Socket, payload: { location?: unknown }) {

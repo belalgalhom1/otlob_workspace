@@ -13,7 +13,19 @@ import { StatisticsModule } from '../statistics/statistics.module';
 @Module({
   imports: [CartModule, forwardRef(() => DispatchModule), StatisticsModule],
   controllers: [OrdersController],
-  providers: [OrdersService, OrdersCheckoutService, OrdersStateService, OrdersPaymentService, OrdersRepository],
-  exports: [OrdersService, OrdersCheckoutService, OrdersStateService, OrdersPaymentService, OrdersRepository],
+  providers: [
+    OrdersService,
+    OrdersCheckoutService,
+    OrdersStateService,
+    OrdersPaymentService,
+    OrdersRepository,
+  ],
+  exports: [
+    OrdersService,
+    OrdersCheckoutService,
+    OrdersStateService,
+    OrdersPaymentService,
+    OrdersRepository,
+  ],
 })
 export class OrdersModule {}

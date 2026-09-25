@@ -65,7 +65,8 @@ export class PlatformSettingsService {
           settings = await this.prisma.platformSetting.findUnique({
             where: { id: 'default' },
           });
-          if (!settings) throw new Error(PlatformSettingErrors.CONCURRENT_CREATION_FAILED);
+          if (!settings)
+            throw new Error(PlatformSettingErrors.CONCURRENT_CREATION_FAILED);
         } else {
           throw error;
         }
@@ -73,7 +74,7 @@ export class PlatformSettingsService {
     }
 
     await this.cacheManager.set('platform_settings', settings, 3600000);
-    return settings as PlatformSetting;
+    return settings;
   }
 
   // ─── Public projection — safe subset for unauthenticated callers ──────────

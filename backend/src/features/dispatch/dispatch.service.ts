@@ -1,11 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
-import { QUEUES, ORDER_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  QUEUES,
+  ORDER_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 import { Queue } from 'bullmq';
 import { v4 as uuidv4 } from 'uuid';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import { OrderDispatchSentEvent, OrderDispatchCancelledEvent } from 'src/common/events';
+import {
+  OrderDispatchSentEvent,
+  OrderDispatchCancelledEvent,
+} from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -33,7 +39,7 @@ export class DispatchService {
     private readonly redis: RedisService,
     private readonly locationRepository: LocationRepository,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
-  ) { }
+  ) {}
 
   // ─── Core dispatch logic ──────────────────────────────────────────────────
 
@@ -49,7 +55,7 @@ export class DispatchService {
         type: true,
         deliveryFee: true,
         customer: { select: { user: { select: { name: true } } } },
-        vendor: { select: { storeName: true, storeNameAr: true } }
+        vendor: { select: { storeName: true, storeNameAr: true } },
       },
     });
 
@@ -110,20 +116,26 @@ export class DispatchService {
     } else {
       // STANDARD or CUSTOM_DELIVERY without explicit vehicle choice:
       if (settings.allowMotorcycle) allowedVehicleTypes.push('MOTORCYCLE');
-      if (settings.allowBicycle && orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)) {
+      if (
+        settings.allowBicycle &&
+        orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)
+      ) {
         allowedVehicleTypes.push('BICYCLE');
       }
       if (settings.allowCar) allowedVehicleTypes.push('CAR');
       if (settings.allowVan) allowedVehicleTypes.push('VAN');
       if (settings.allowTruck) allowedVehicleTypes.push('TRUCK');
-      if (settings.allowMotorTricycle) allowedVehicleTypes.push('MOTOR_TRICYCLE');
+      if (settings.allowMotorTricycle)
+        allowedVehicleTypes.push('MOTOR_TRICYCLE');
     }
 
     const requireActiveShift =
       settings.driverShiftsEnabled && order.type === 'STANDARD';
 
     if (allowedVehicleTypes.length === 0) {
-      this.logger.warn(`No allowed vehicle types for order ${orderNumber}. Dispatch aborted.`);
+      this.logger.warn(
+        `No allowed vehicle types for order ${orderNumber}. Dispatch aborted.`,
+      );
       return false;
     }
 
@@ -166,7 +178,8 @@ export class DispatchService {
           dispatchContext.requestedVehicleType,
         );
 
-        const pickupLocationName = order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor';
+        const pickupLocationName =
+          order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor';
         const dropoffLocationName = order.customer?.user?.name ?? 'Customer';
 
         return {
@@ -255,7 +268,7 @@ export class DispatchService {
 
     this.logger.log(
       `Broadcast sent to ${candidates.length} drivers for order ${orderNumber} ` +
-      `(radius: ${radiusKm}km, attempt ${attempt})`,
+        `(radius: ${radiusKm}km, attempt ${attempt})`,
     );
 
     return true;
@@ -401,8 +414,8 @@ export class DispatchService {
       where: { id: orderId },
       include: {
         customer: { select: { userId: true } },
-        vendor: { select: { members: { select: { userId: true } } } }
-      }
+        vendor: { select: { members: { select: { userId: true } } } },
+      },
     });
 
     const dispatchableStatuses: OrderStatus[] = [
@@ -460,8 +473,6 @@ export class DispatchService {
           expiresAt: new Date(dispatchData.expiresAt),
         },
       });
-
-
 
       // 2. Assign the order safely to prevent race conditions
       const updated = await tx.order.updateMany({
@@ -531,19 +542,17 @@ export class DispatchService {
     for (const c of losingCandidates) {
       this.eventEmitter.emit(
         EVENTS.ORDER_DISPATCH_CANCELLED,
-        new OrderDispatchCancelledEvent(
-          dispatchId,
-          orderId,
-          c.userId,
-        ),
+        new OrderDispatchCancelledEvent(dispatchId, orderId, c.userId),
       );
     }
 
     const members = order.vendorId
-      ? await this.prisma.vendorMember.findMany({ where: { vendorId: order.vendorId }, select: { userId: true } })
+      ? await this.prisma.vendorMember.findMany({
+          where: { vendorId: order.vendorId },
+          select: { userId: true },
+        })
       : [];
-    const vendorUserIds = members.map(m => m.userId);
-
+    const vendorUserIds = members.map((m) => m.userId);
 
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,
@@ -599,7 +608,12 @@ export class DispatchService {
     );
 
     // Set TTL for the rejected set to automatically cleanup
-    const ttl = Math.max(1, Math.floor((new Date(dispatchData.expiresAt).getTime() - Date.now()) / 1000) + 60);
+    const ttl = Math.max(
+      1,
+      Math.floor(
+        (new Date(dispatchData.expiresAt).getTime() - Date.now()) / 1000,
+      ) + 60,
+    );
     await this.redis.expire(rejectedKey, ttl);
 
     // Persist terminal state to Postgres for this specific rejection
@@ -695,7 +709,9 @@ export class DispatchService {
     );
 
     if (!candidate) return null;
-    const isRejected = (await this.redis.smembers(`otlobegy:dispatch:${dispatchId}:rejected`)).includes(driverId);
+    const isRejected = (
+      await this.redis.smembers(`otlobegy:dispatch:${dispatchId}:rejected`)
+    ).includes(driverId);
     if (isRejected) return null;
 
     return dispatchData.orderId;
@@ -719,25 +735,41 @@ export class DispatchService {
     for (const dispatchId of dispatchIds) {
       const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
       if (!raw) {
-        await this.redis.srem(`otlobegy:driver-pending-dispatches:${driver.id}`, dispatchId);
+        await this.redis.srem(
+          `otlobegy:driver-pending-dispatches:${driver.id}`,
+          dispatchId,
+        );
         continue;
       }
 
       const dispatchData = JSON.parse(raw);
       if (Date.now() > new Date(dispatchData.expiresAt).getTime()) {
-        await this.redis.srem(`otlobegy:driver-pending-dispatches:${driver.id}`, dispatchId);
+        await this.redis.srem(
+          `otlobegy:driver-pending-dispatches:${driver.id}`,
+          dispatchId,
+        );
         continue;
       }
 
-      const rejectedBy = await this.redis.smembers(`otlobegy:dispatch:${dispatchId}:rejected`);
+      const rejectedBy = await this.redis.smembers(
+        `otlobegy:dispatch:${dispatchId}:rejected`,
+      );
       if (rejectedBy.includes(driver.id)) {
-        await this.redis.srem(`otlobegy:driver-pending-dispatches:${driver.id}`, dispatchId);
+        await this.redis.srem(
+          `otlobegy:driver-pending-dispatches:${driver.id}`,
+          dispatchId,
+        );
         continue;
       }
 
-      const candidate = (dispatchData.candidates || []).find((c: any) => c.driverId === driver.id);
+      const candidate = (dispatchData.candidates || []).find(
+        (c: any) => c.driverId === driver.id,
+      );
       if (!candidate) {
-        await this.redis.srem(`otlobegy:driver-pending-dispatches:${driver.id}`, dispatchId);
+        await this.redis.srem(
+          `otlobegy:driver-pending-dispatches:${driver.id}`,
+          dispatchId,
+        );
         continue;
       }
 
@@ -749,8 +781,10 @@ export class DispatchService {
         estimatedEarnings: candidate.estimatedEarnings,
         distanceKm: candidate.distanceKm,
         expiresAt: dispatchData.expiresAt,
-        pickupLocationName: candidate.pickupLocationName ?? dispatchData.pickupLocationName,
-        dropoffLocationName: candidate.dropoffLocationName ?? dispatchData.dropoffLocationName,
+        pickupLocationName:
+          candidate.pickupLocationName ?? dispatchData.pickupLocationName,
+        dropoffLocationName:
+          candidate.dropoffLocationName ?? dispatchData.dropoffLocationName,
       });
     }
 
@@ -854,9 +888,10 @@ export class DispatchService {
       prefetchedSettings,
       vehicleType,
     );
-    const settings = prefetchedSettings ?? (await this.platformSettings.getSettings());
+    const settings =
+      prefetchedSettings ?? (await this.platformSettings.getSettings());
     const driverCommissionRate = settings.deliveryCommissionRate ?? 20;
-    const driverShare = 1 - (driverCommissionRate / 100);
+    const driverShare = 1 - driverCommissionRate / 100;
 
     return Math.round(deliveryFee * driverShare);
   }

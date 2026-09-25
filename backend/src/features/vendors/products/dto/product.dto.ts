@@ -187,6 +187,11 @@ export class CreateProductVariantDto {
   @ApiProperty({ example: true, required: false, default: true })
   @IsBoolean()
   @IsOptional()
+  tracksStock?: boolean;
+
+  @ApiProperty({ example: true, required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
   isActive?: boolean;
 
   @ApiProperty({ type: [CreateOptionGroupDto], required: false })
@@ -234,6 +239,11 @@ export class UpdateProductVariantDto {
   @Min(0)
   @IsOptional()
   stock?: number;
+
+  @ApiProperty({ example: true, required: false })
+  @IsBoolean()
+  @IsOptional()
+  tracksStock?: boolean;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
@@ -315,6 +325,11 @@ export class CreateProductDto {
   @Min(0)
   @IsOptional()
   stock?: number;
+
+  @ApiProperty({ example: true, required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
+  tracksStock?: boolean;
 
   @ApiProperty({ example: true, required: false, default: true })
   @IsBoolean()
@@ -413,6 +428,11 @@ export class UpdateProductDto {
   @Min(0)
   @IsOptional()
   stock?: number;
+
+  @ApiProperty({ example: true, required: false })
+  @IsBoolean()
+  @IsOptional()
+  tracksStock?: boolean;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()

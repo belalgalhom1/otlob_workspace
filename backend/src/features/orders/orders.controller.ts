@@ -33,7 +33,7 @@ import { ApiStandardResponse } from '../../common/decorators/api-response.decora
 import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersStateService } from './orders-state.service';
 import { OrdersPaymentService } from './orders-payment.service';
-import { OrderResponseDto } from "src/common/dto/response-models.dto";
+import { OrderResponseDto } from 'src/common/dto/response-models.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -62,7 +62,6 @@ export class OrdersController {
     return this.checkoutService.placeOrder(actor, dto);
   }
 
-
   @ApiStandardResponse(OrderResponseDto)
   @Post('custom')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
@@ -78,7 +77,8 @@ export class OrdersController {
   @Post('custom-fee-estimate')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({
-    summary: 'Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)',
+    summary:
+      'Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)',
   })
   estimateCustomOrder(
     @CurrentUser() actor: JwtAccessPayload,
@@ -91,7 +91,8 @@ export class OrdersController {
   @Post('fee-estimate')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({
-    summary: 'Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)',
+    summary:
+      'Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)',
   })
   estimateOrder(
     @CurrentUser() actor: JwtAccessPayload,
@@ -173,7 +174,11 @@ export class OrdersController {
     @Param('orderId') orderId: string,
     @Body() dto: ConfirmPaymentDto,
   ) {
-    return this.paymentService.driverConfirmPayment(actor, orderId, dto.received);
+    return this.paymentService.driverConfirmPayment(
+      actor,
+      orderId,
+      dto.received,
+    );
   }
 
   @ApiStandardResponse()

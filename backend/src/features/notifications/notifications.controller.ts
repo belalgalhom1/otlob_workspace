@@ -23,7 +23,6 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 import { Notification } from '../../_gen/prisma-classes/notification';
 
-
 @ApiTags('Notifications')
 @ApiBearerAuth()
 @Controller('notifications')

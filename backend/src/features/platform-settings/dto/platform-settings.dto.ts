@@ -113,7 +113,11 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   pricePerKmMotorTricycle?: number;
 
-  @ApiProperty({ example: 0, required: false, description: 'Max limit on delivery fee' })
+  @ApiProperty({
+    example: 0,
+    required: false,
+    description: 'Max limit on delivery fee',
+  })
   @IsInt()
   @Min(0)
   @IsOptional()
@@ -234,14 +238,22 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   allowMotorTricycle?: boolean;
 
-  @ApiProperty({ example: 0, required: false, description: 'Distance below which fixed price is applied' })
+  @ApiProperty({
+    example: 0,
+    required: false,
+    description: 'Distance below which fixed price is applied',
+  })
   @IsInt()
   @Min(0)
   @IsOptional()
   @Type(() => Number)
   minOrderKm?: number;
 
-  @ApiProperty({ example: 0, required: false, description: 'Fixed price applied if distance is below minOrderKm' })
+  @ApiProperty({
+    example: 0,
+    required: false,
+    description: 'Fixed price applied if distance is below minOrderKm',
+  })
   @IsInt()
   @Min(0)
   @IsOptional()
@@ -365,28 +377,42 @@ export class UpdatePlatformSettingsDto {
   @MaxLength(20)
   iosLatestVersion?: string;
 
-
-
-  @ApiProperty({ example: 2, required: false, description: 'Max active orders a customer can have' })
+  @ApiProperty({
+    example: 2,
+    required: false,
+    description: 'Max active orders a customer can have',
+  })
   @IsInt()
   @Min(1)
   @IsOptional()
   @Type(() => Number)
   maxActiveOrdersPerCustomer?: number;
 
-  @ApiProperty({ example: true, required: false, description: 'Requires prior delivery to place multiple orders' })
+  @ApiProperty({
+    example: true,
+    required: false,
+    description: 'Requires prior delivery to place multiple orders',
+  })
   @IsBoolean()
   @IsOptional()
   requirePriorDeliveryForMultipleOrders?: boolean;
 
-  @ApiProperty({ example: 5, required: false, description: 'Max OTP attempts before block' })
+  @ApiProperty({
+    example: 5,
+    required: false,
+    description: 'Max OTP attempts before block',
+  })
   @IsInt()
   @Min(1)
   @IsOptional()
   @Type(() => Number)
   maxOtpAttempts?: number;
 
-  @ApiProperty({ example: 900, required: false, description: 'OTP expiry in seconds' })
+  @ApiProperty({
+    example: 900,
+    required: false,
+    description: 'OTP expiry in seconds',
+  })
   @IsInt()
   @Min(60)
   @IsOptional()
@@ -797,7 +823,8 @@ export class PublicPlatformSettingsDto {
       minVersion: '1.0.0',
       latestVersion: '1.0.0',
       forceUpdate: false,
-      storeUrl: 'https://play.google.com/store/apps/details?id=com.otlob.customer',
+      storeUrl:
+        'https://play.google.com/store/apps/details?id=com.otlob.customer',
     },
   })
   android: any;

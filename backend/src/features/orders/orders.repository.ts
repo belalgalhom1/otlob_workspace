@@ -125,7 +125,9 @@ export class OrdersRepository {
     });
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
 
-    const locations = await this.prisma.$queryRaw<Array<{lng: number, lat: number, pickupLng: number, pickupLat: number}>>`
+    const locations = await this.prisma.$queryRaw<
+      Array<{ lng: number; lat: number; pickupLng: number; pickupLat: number }>
+    >`
       SELECT ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat, ST_X("pickupLocation"::geometry) AS "pickupLng", ST_Y("pickupLocation"::geometry) AS "pickupLat"
       FROM orders WHERE id = ${orderId}
     `;
@@ -134,7 +136,10 @@ export class OrdersRepository {
         (order as any).deliveryLocation = [locations[0].lng, locations[0].lat];
       }
       if (locations[0].pickupLng !== null) {
-        (order as any).pickupLocation = [locations[0].pickupLng, locations[0].pickupLat];
+        (order as any).pickupLocation = [
+          locations[0].pickupLng,
+          locations[0].pickupLat,
+        ];
       }
     }
 
@@ -163,7 +168,15 @@ export class OrdersRepository {
               user: { select: { id: true, name: true, phone: true } },
             },
           },
-          vendor: { select: { id: true, storeName: true, logo: true, rating: true, ratingCount: true } },
+          vendor: {
+            select: {
+              id: true,
+              storeName: true,
+              logo: true,
+              rating: true,
+              ratingCount: true,
+            },
+          },
           driver: {
             select: {
               id: true,
@@ -184,13 +197,21 @@ export class OrdersRepository {
     ]);
 
     if (orders.length > 0) {
-      const orderIds = orders.map(o => o.id);
-      const locations = await this.prisma.$queryRaw<Array<{id: string, lng: number, lat: number, pickupLng: number, pickupLat: number}>>`
+      const orderIds = orders.map((o) => o.id);
+      const locations = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          lng: number;
+          lat: number;
+          pickupLng: number;
+          pickupLat: number;
+        }>
+      >`
         SELECT id, ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat, ST_X("pickupLocation"::geometry) AS "pickupLng", ST_Y("pickupLocation"::geometry) AS "pickupLat"
         FROM orders WHERE id IN (${Prisma.join(orderIds)})
       `;
       for (const order of orders) {
-        const loc = locations.find(l => l.id === order.id);
+        const loc = locations.find((l) => l.id === order.id);
         if (loc) {
           if (loc.lng !== null && loc.lat !== null) {
             (order as any).deliveryLocation = [loc.lng, loc.lat];
@@ -336,13 +357,13 @@ export class OrdersRepository {
           const rows = await tx.$executeRaw`
             UPDATE product_variants
             SET stock = stock - ${item.quantity}
-            WHERE id = ${item.variantId} AND stock IS NOT NULL
+            WHERE id = ${item.variantId} AND "tracksStock" = TRUE AND stock IS NOT NULL
           `;
         } else if (item.productId) {
           const rows = await tx.$executeRaw`
             UPDATE products
             SET stock = stock - ${item.quantity}
-            WHERE id = ${item.productId} AND stock IS NOT NULL
+            WHERE id = ${item.productId} AND "tracksStock" = TRUE AND stock IS NOT NULL
           `;
         }
       }

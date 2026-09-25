@@ -13,7 +13,9 @@ export class DispatchListener {
 
   @OnEvent(EVENTS.ORDER_CANCELLED)
   async handleOrderCancelled(event: OrderCancelledEvent) {
-    this.logger.debug(`Catching ORDER_CANCELLED event for ${event.orderId}. Terminating active dispatch...`);
+    this.logger.debug(
+      `Catching ORDER_CANCELLED event for ${event.orderId}. Terminating active dispatch...`,
+    );
     try {
       await this.dispatchService.cancelActiveDispatch(event.orderId);
     } catch (error) {
@@ -30,7 +32,9 @@ export class DispatchListener {
       event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
       event.newStatus === OrderStatus.PENDING_PAYMENT
     ) {
-      this.logger.debug(`Catching ORDER_STATUS_CHANGED to ${event.newStatus} for ${event.orderId}. Terminating active dispatch...`);
+      this.logger.debug(
+        `Catching ORDER_STATUS_CHANGED to ${event.newStatus} for ${event.orderId}. Terminating active dispatch...`,
+      );
       try {
         await this.dispatchService.cancelActiveDispatch(event.orderId);
       } catch (error) {

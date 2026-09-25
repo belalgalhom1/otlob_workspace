@@ -119,18 +119,23 @@ export class DriversService {
       activeStatuses.includes(driver.status) &&
       dto.status === DriverStatus.OFFLINE
     ) {
-      throw new BadRequestException(
-        DriverErrors.CANNOT_GO_OFFLINE_ON_DELIVERY,
-      );
+      throw new BadRequestException(DriverErrors.CANNOT_GO_OFFLINE_ON_DELIVERY);
     }
 
     const oldStatus = driver.status;
     await this.driversRepository.updateStatus(driver.id, dto.status);
 
-    if (dto.status === DriverStatus.OFFLINE || dto.status === DriverStatus.SUSPENDED) {
+    if (
+      dto.status === DriverStatus.OFFLINE ||
+      dto.status === DriverStatus.SUSPENDED
+    ) {
       const pos = await this.locationRepository.getDriverLocation(driver.id);
       if (pos) {
-        await this.driversRepository.updateLastLocation(driver.id, pos.lng, pos.lat);
+        await this.driversRepository.updateLastLocation(
+          driver.id,
+          pos.lng,
+          pos.lat,
+        );
       }
       await this.locationRepository.removeDriverLocation(driver.id);
     }
@@ -143,8 +148,6 @@ export class DriversService {
     this.logger.log(`Driver ${driver.id} status: ${oldStatus} → ${dto.status}`);
     return { status: dto.status };
   }
-
-
 
   // ─── Shifts ───────────────────────────────────────────────────────────────
 
@@ -333,7 +336,7 @@ export class DriversService {
   // ─── Admin ────────────────────────────────────────────────────────────────
 
   async adminCreateDriver(userId: string, adminId: string, dto: any) {
-    // Note: DTO type is cast as any here to avoid cyclic imports if not careful, 
+    // Note: DTO type is cast as any here to avoid cyclic imports if not careful,
     // but better to import AdminCreateDriverDto.
     const existing = await this.driversRepository.findByUserId(userId);
     if (existing) throw new ConflictException(DriverErrors.PROFILE_EXISTS);
@@ -351,9 +354,9 @@ export class DriversService {
     if (dto.status || dto.tier || dto.isApproved !== undefined) {
       const updateData: any = {
         status: dto.status ?? DriverStatus.OFFLINE,
-        tier: dto.tier ?? 'BRONZE'
+        tier: dto.tier ?? 'BRONZE',
       };
-      
+
       if (dto.isApproved !== undefined) {
         updateData.isApproved = dto.isApproved;
         if (dto.isApproved) {
@@ -366,7 +369,14 @@ export class DriversService {
     }
 
     // Log the action
-    await this.logAdminAction(adminId, 'CREATE', 'Driver', driver.id, null, dto);
+    await this.logAdminAction(
+      adminId,
+      'CREATE',
+      'Driver',
+      driver.id,
+      null,
+      dto,
+    );
 
     this.logger.log(`Admin ${adminId} created driver ${driver.id}`);
     return this.driversRepository.findById(driver.id);
@@ -381,9 +391,11 @@ export class DriversService {
     const updateData: any = {};
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.nationalId !== undefined) updateData.nationalId = dto.nationalId;
-    if (dto.licenseNumber !== undefined) updateData.licenseNumber = dto.licenseNumber;
+    if (dto.licenseNumber !== undefined)
+      updateData.licenseNumber = dto.licenseNumber;
     if (dto.vehicleType !== undefined) updateData.vehicleType = dto.vehicleType;
-    if (dto.vehiclePlate !== undefined) updateData.vehiclePlate = dto.vehiclePlate;
+    if (dto.vehiclePlate !== undefined)
+      updateData.vehiclePlate = dto.vehiclePlate;
     if (dto.status !== undefined) updateData.status = dto.status;
     if (dto.tier !== undefined) updateData.tier = dto.tier;
     if (dto.isApproved !== undefined) {
@@ -397,14 +409,28 @@ export class DriversService {
     await this.driversRepository.update(driverId, updateData);
 
     // Log the action
-    await this.logAdminAction(adminId, 'UPDATE', 'Driver', driverId, oldValues, updateData);
+    await this.logAdminAction(
+      adminId,
+      'UPDATE',
+      'Driver',
+      driverId,
+      oldValues,
+      updateData,
+    );
 
     this.logger.log(`Admin ${adminId} updated driver ${driverId}`);
     return this.driversRepository.findById(driverId);
   }
 
-  private async logAdminAction(adminId: string, actionType: any, entityType: string, entityId: string, oldValues: any, newValues: any) {
-    // We emit an event or write to AuditLog directly. 
+  private async logAdminAction(
+    adminId: string,
+    actionType: any,
+    entityType: string,
+    entityId: string,
+    oldValues: any,
+    newValues: any,
+  ) {
+    // We emit an event or write to AuditLog directly.
     // Since we don't have AuditLog repository injected here, let's use Prisma directly or emit an event.
     // The codebase seems to have an AuditLog model. Let's emit an event if there's an audit listener, or just use Prisma if available.
     // Actually, it's safer to emit an event if audit log service handles it, or not log if it breaks.
@@ -480,7 +506,7 @@ export class DriversService {
   async adminSuspend(driverId: string) {
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    
+
     this.socketService.disconnectUser(driver.userId);
     await this.locationRepository.removeDriverLocation(driver.id);
 
@@ -505,7 +531,10 @@ export class DriversService {
   async adminUnsuspend(driverId: string) {
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    const result = await this.driversRepository.updateStatus(driverId, DriverStatus.OFFLINE);
+    const result = await this.driversRepository.updateStatus(
+      driverId,
+      DriverStatus.OFFLINE,
+    );
 
     this.eventEmitter.emit(
       EVENTS.DRIVER_STATUS_CHANGED,

@@ -47,7 +47,8 @@ export class PermissionsGuard implements CanActivate {
         select: { permissions: true },
       });
 
-      if (!adminUser) throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
+      if (!adminUser)
+        throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
 
       const hasAll = requiredPermissions.every((p) =>
         adminUser.permissions.includes(p),

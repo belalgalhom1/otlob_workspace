@@ -28,10 +28,7 @@ export class OffersService {
             OR: [{ endDate: null }, { endDate: { gte: now } }],
           },
           {
-            OR: [
-              { variantId: null },
-              { variant: { isActive: true } },
-            ],
+            OR: [{ variantId: null }, { variant: { isActive: true } }],
           },
         ],
         product: {
@@ -146,7 +143,8 @@ export class OffersService {
     return this.prisma.offer.update({
       where: { id },
       data: {
-        variantId: dto.variantId !== undefined ? (dto.variantId ?? null) : undefined,
+        variantId:
+          dto.variantId !== undefined ? (dto.variantId ?? null) : undefined,
         originalPrice: dto.originalPrice,
         offerPrice: dto.offerPrice,
         isActive: dto.isActive,

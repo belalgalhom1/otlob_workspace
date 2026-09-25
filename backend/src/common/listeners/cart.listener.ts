@@ -13,8 +13,10 @@ export class CartListener {
   @OnEvent(EVENTS.ORDER_CREATED)
   async handleOrderCreated(event: OrderCreatedEvent) {
     if (!event.vendorId) return; // Cart logic is specific to vendor-based orders
-    
-    this.logger.debug(`Catching ORDER_CREATED event for ${event.orderId}. Clearing customer's cart...`);
+
+    this.logger.debug(
+      `Catching ORDER_CREATED event for ${event.orderId}. Clearing customer's cart...`,
+    );
     try {
       await this.cartService.clearCart(event.customerUserId, event.vendorId);
     } catch (error) {

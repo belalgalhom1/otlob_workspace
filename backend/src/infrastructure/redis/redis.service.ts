@@ -109,7 +109,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.expire(key, ttl);
     } catch (error) {
-      this.logger.error(`Failed to EXPIRE key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to EXPIRE key "${key}"`,
+        (error as Error).stack,
+      );
     }
   }
 
@@ -161,24 +164,48 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async geoadd(key: string, lng: number, lat: number, member: string): Promise<void> {
+  async geoadd(
+    key: string,
+    lng: number,
+    lat: number,
+    member: string,
+  ): Promise<void> {
     try {
       await this.client.geoadd(key, lng, lat, member);
     } catch (error) {
-      this.logger.error(`Failed to GEOADD for key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to GEOADD for key "${key}"`,
+        (error as Error).stack,
+      );
       throw error;
     }
   }
 
-  async georadius(key: string, lng: number, lat: number, radiusKm: number): Promise<Array<{ member: string, distanceKm: number }>> {
+  async georadius(
+    key: string,
+    lng: number,
+    lat: number,
+    radiusKm: number,
+  ): Promise<Array<{ member: string; distanceKm: number }>> {
     try {
-      const results = await this.client.georadius(key, lng, lat, radiusKm, 'km', 'WITHDIST', 'ASC');
+      const results = await this.client.georadius(
+        key,
+        lng,
+        lat,
+        radiusKm,
+        'km',
+        'WITHDIST',
+        'ASC',
+      );
       return (results as any[]).map((r) => ({
         member: r[0],
         distanceKm: parseFloat(r[1]),
       }));
     } catch (error) {
-      this.logger.error(`Failed to GEORADIUS for key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to GEORADIUS for key "${key}"`,
+        (error as Error).stack,
+      );
       return [];
     }
   }
@@ -187,11 +214,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.zrem(key, member);
     } catch (error) {
-      this.logger.error(`Failed to ZREM member from key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to ZREM member from key "${key}"`,
+        (error as Error).stack,
+      );
     }
   }
 
-  async geopos(key: string, member: string): Promise<{ lng: number, lat: number } | null> {
+  async geopos(
+    key: string,
+    member: string,
+  ): Promise<{ lng: number; lat: number } | null> {
     try {
       const pos = await this.client.geopos(key, member);
       if (pos && pos[0]) {
@@ -202,7 +235,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
       return null;
     } catch (error) {
-      this.logger.error(`Failed to GEOPOS for key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to GEOPOS for key "${key}"`,
+        (error as Error).stack,
+      );
       return null;
     }
   }
@@ -211,7 +247,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.client.sadd(key, ...members);
     } catch (error) {
-      this.logger.error(`Failed to SADD to key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to SADD to key "${key}"`,
+        (error as Error).stack,
+      );
       return 0;
     }
   }
@@ -229,7 +268,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.client.smembers(key);
     } catch (error) {
-      this.logger.error(`Failed to SMEMBERS key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to SMEMBERS key "${key}"`,
+        (error as Error).stack,
+      );
       return [];
     }
   }
@@ -238,7 +280,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.client.srem(key, ...members);
     } catch (error) {
-      this.logger.error(`Failed to SREM from key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to SREM from key "${key}"`,
+        (error as Error).stack,
+      );
       return 0;
     }
   }
@@ -248,7 +293,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       const res = await this.client.sismember(key, member);
       return res === 1;
     } catch (error) {
-      this.logger.error(`Failed to SISMEMBER key "${key}"`, (error as Error).stack);
+      this.logger.error(
+        `Failed to SISMEMBER key "${key}"`,
+        (error as Error).stack,
+      );
       return false;
     }
   }
