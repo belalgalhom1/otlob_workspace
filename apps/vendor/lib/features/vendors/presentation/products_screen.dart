@@ -368,10 +368,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     ),
                     if (product['stock'] != null)
                       Text(
-                        '${AppLocalizations.of(context)!.stock}: ${product['stock']}',
-                        style: const TextStyle(
+                        product['tracksStock'] == false
+                            ? '${AppLocalizations.of(context)!.stock}: ${AppLocalizations.of(context)!.notTracked}'
+                            : '${AppLocalizations.of(context)!.stock}: ${product['stock']}',
+                        style: TextStyle(
                           fontSize: 11,
-                          
+                          color: product['tracksStock'] != false &&
+                                  (num.tryParse(product['stock'].toString()) ?? 0) <= 0
+                              ? AppColors.error
+                              : null,
                         ),
                       ),
                   ],
@@ -479,6 +484,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   }
                   if (result['isActive'] != null) b.isActive = result['isActive'];
                   if (result['sellByStrip'] != null) b.sellByStrip = result['sellByStrip'];
+                  if (result['tracksStock'] != null) b.tracksStock = result['tracksStock'];
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
                   if (result['categoryId'] != null) b.categoryId = JsonObject(result['categoryId']);
                 }),
@@ -504,6 +510,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   }
                   b.isActive = result['isActive'] ?? true;
                   if (result['sellByStrip'] != null) b.sellByStrip = result['sellByStrip'];
+                  if (result['tracksStock'] != null) b.tracksStock = result['tracksStock'];
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
                   b.categoryId = result['categoryId'] ?? '';
                   final variants = (result['variants'] as List? ?? []);
@@ -586,6 +593,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           b.sku = v['sku'].toString();
         }
         if (v['stock'] != null) b.stock = num.tryParse(v['stock'].toString());
+        if (v['tracksStock'] != null) b.tracksStock = v['tracksStock'] == true;
         final variantGroups = (v['optionGroups'] as List? ?? []);
         if (variantGroups.isNotEmpty) {
           b.optionGroups.replace(_buildOptionGroupDtos(variantGroups));

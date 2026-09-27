@@ -24,6 +24,7 @@ Name | Type | Description | Notes
 **comparePrice** | **num** |  | [optional] 
 **sku** | **String** |  | [optional] 
 **stock** | **num** |  | [optional] 
+**tracksStock** | **bool** |  | 
 **isActive** | **bool** |  | 
 **isFeatured** | **bool** |  | 
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 

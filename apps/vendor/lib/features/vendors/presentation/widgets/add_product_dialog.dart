@@ -49,6 +49,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   late bool _isActive;
   late bool _isFeatured;
   late bool _sellByStrip;
+  late bool _tracksStock;
   final bool _isLoading = false;
 
   List<dynamic> _categories = [];
@@ -100,6 +101,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     _isActive = p?['isActive'] ?? true;
     _isFeatured = p?['isFeatured'] ?? false;
     _sellByStrip = p?['sellByStrip'] ?? false;
+    _tracksStock = p?['tracksStock'] ?? true;
     _stripsCountController = TextEditingController(
       text: p?['stripsPerPackage']?.toString() ?? '',
     );
@@ -805,6 +807,18 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                     onChanged: (v) => setState(() => _isFeatured = v),
                     icon: LucideIcons.star,
                   ),
+                  Divider(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                    height: 1,
+                    indent: 48,
+                  ),
+                  _buildSwitchTile(
+                    title: AppLocalizations.of(context)!.trackStock,
+                    subtitle: AppLocalizations.of(context)!.trackStockSubtitle,
+                    value: _tracksStock,
+                    onChanged: (v) => setState(() => _tracksStock = v),
+                    icon: LucideIcons.boxes,
+                  ),
                 ],
               ),
             ),
@@ -852,8 +866,8 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                       title: Text(variant['name'] ?? 'Unnamed'),
                       subtitle: Text(
                         variant['comparePrice'] != null && (variant['comparePrice'] as num) > (variant['basePrice'] as num)
-                            ? '\$${variant['basePrice']} (Was: \$${variant['comparePrice']}) • Stock: ${variant['stock']}'
-                            : '\$${variant['basePrice']} • Stock: ${variant['stock']}',
+                            ? '\$${variant['basePrice']} (Was: \$${variant['comparePrice']}) • Stock: ${variant['tracksStock'] == false ? 'Not tracked' : variant['stock']}'
+                            : '\$${variant['basePrice']} • Stock: ${variant['tracksStock'] == false ? 'Not tracked' : variant['stock']}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1015,6 +1029,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   }
 
   void _showAddVariantDialog({dynamic variant}) async {
+    var tracksStock = variant?['tracksStock'] ?? true;
     final nameController = TextEditingController(text: variant?['name'] ?? '');
     final nameArController = TextEditingController(
       text: variant?['nameAr'] ?? '',
@@ -1116,6 +1131,16 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                StatefulBuilder(
+                  builder: (context, setDialogState) => _buildSwitchTile(
+                    title: AppLocalizations.of(context)!.trackStock,
+                    subtitle: AppLocalizations.of(context)!.trackStockSubtitle,
+                    value: tracksStock,
+                    onChanged: (v) => setDialogState(() => tracksStock = v),
+                    icon: LucideIcons.boxes,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1140,6 +1165,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 'comparePrice': comparePriceVal,
                 'stock': int.tryParse(stockController.text),
                 'sku': skuController.text.trim().isEmpty ? null : skuController.text.trim(),
+                'tracksStock': tracksStock,
               };
               bool success = false;
               if (variant == null) {
@@ -1153,6 +1179,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                       'comparePrice': data['comparePrice'],
                       'stock': data['stock'],
                       'sku': data['sku'],
+                      'tracksStock': data['tracksStock'],
                       'optionGroups': [],
                     });
                   });
@@ -1166,6 +1193,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         b.basePrice = data['basePrice'] as num;
                         if (data['comparePrice'] != null) b.comparePrice = data['comparePrice'] as num;
                         b.stock = data['stock'] as num?;
+                        if (data['tracksStock'] != null) b.tracksStock = data['tracksStock'] as bool;
                         if (data['sku'] != null && (data['sku'] as String).isNotEmpty) b.sku = data['sku'] as String;
                       })); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
                 }
@@ -1184,6 +1212,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         'comparePrice': data['comparePrice'],
                         'stock': data['stock'],
                         'sku': data['sku'],
+                        'tracksStock': data['tracksStock'],
                       };
                     }
                   });
@@ -1201,6 +1230,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                           b.basePrice = data['basePrice'] as num;
                           if (data['comparePrice'] != null) b.comparePrice = data['comparePrice'] as num;
                           b.stock = data['stock'] as num?;
+                          if (data['tracksStock'] != null) b.tracksStock = data['tracksStock'] as bool;
                           if (data['sku'] != null && (data['sku'] as String).isNotEmpty) b.sku = data['sku'] as String;
                         }),
                       ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
@@ -1921,6 +1951,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
       'isFeatured': _isFeatured,
       'sellByStrip': _sellByStrip,
       'stripsPerPackage': int.tryParse(_stripsCountController.text),
+      'tracksStock': _tracksStock,
       'imageFile': _imageFile,
       'hasVariants': _variants.isNotEmpty,
       'variants': _variants,

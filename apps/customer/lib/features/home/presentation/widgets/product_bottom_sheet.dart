@@ -131,6 +131,18 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     
     final currentQty = currentCartItem?.quantity ?? 0;
     
+    final bool productTracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
+    final int productStock = _parseStock(item['stock']);
+    final int variantStock = _parseStock(_selectedVariant?['stock']);
+    final bool variantTracksStock = _selectedVariant == null
+        ? true
+        : (_selectedVariant!['tracksStock'] == null
+            ? productTracksStock
+            : (_selectedVariant!['tracksStock'] == true));
+    final bool isOutOfStock = _selectedVariant != null
+        ? variantTracksStock && variantStock <= 0
+        : productTracksStock && productStock <= 0;
+    
     final bool supportsStrips = item['sellByStrip'] == true && item['stripsPerPackage'] != null;
     final int stripsCount = item['stripsPerPackage'] as int? ?? 1;
 
@@ -216,31 +228,62 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: (item['image']?.toString().isEmpty ?? true)
-                        ? Container(
-                            width: double.infinity,
-                            height: 250,
-                            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                            child: Icon(Icons.fastfood_rounded, size: 80, color: Colors.grey.shade300),
-                          )
-                        : Container(
-                            width: double.infinity,
-                            height: 250,
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: CachedNetworkImage(
-                                imageUrl: ImageUtils.formatImageUrl(item['image'] as String?),
-                                fit: BoxFit.contain,
-                                errorWidget: (context, url, error) => Icon(Icons.fastfood, size: 40, color: isDark ? Colors.white24 : Colors.grey.shade300),
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: (item['image']?.toString().isEmpty ?? true)
+                            ? Container(
+                                width: double.infinity,
+                                height: 250,
+                                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                                child: Icon(Icons.fastfood_rounded, size: 80, color: Colors.grey.shade300),
+                              )
+                            : Container(
+                                width: double.infinity,
+                                height: 250,
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: CachedNetworkImage(
+                                    imageUrl: ImageUtils.formatImageUrl(item['image'] as String?),
+                                    fit: BoxFit.contain,
+                                    errorWidget: (context, url, error) => Icon(Icons.fastfood, size: 40, color: isDark ? Colors.white24 : Colors.grey.shade300),
+                                  ),
+                                ),
                               ),
+                      ),
+                      if (isOutOfStock)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.remove_shopping_cart_outlined, size: 16, color: Colors.white),
+                                const SizedBox(width: 6),
+                                Text(
+                                  s.outOfStock,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -591,7 +634,24 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                 BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
               ],
             ),
-            child: currentQty == 0
+            child: isOutOfStock
+                ? Container(
+                    height: 60,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      s.outOfStock,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textHint,
+                      ),
+                    ),
+                  )
+                : currentQty == 0
                 ? ElevatedButton(
                     onPressed: () async {
                       if (!requiredMet) {
@@ -751,6 +811,10 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
         ],
       ),
     );
+  }
+
+  int _parseStock(Object? value) {
+    return int.tryParse(value?.toString() ?? '0') ?? 0;
   }
 
   Widget _buildUnitOption({

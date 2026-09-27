@@ -13,6 +13,7 @@ Method | HTTP request | Description
 [**driversControllerAdminCreateShift**](DriversApi.md#driverscontrolleradmincreateshift) | **POST** /drivers/{driverId}/shifts | [Admin] Create a shift for a driver
 [**driversControllerAdminFindAll**](DriversApi.md#driverscontrolleradminfindall) | **GET** /drivers | [Admin] List all drivers
 [**driversControllerAdminFindOne**](DriversApi.md#driverscontrolleradminfindone) | **GET** /drivers/{driverId} | [Admin] Get a driver by ID
+[**driversControllerAdminGetDriverLocation**](DriversApi.md#driverscontrolleradmingetdriverlocation) | **GET** /drivers/{driverId}/location | [Admin] Get a driver current location
 [**driversControllerAdminGetShifts**](DriversApi.md#driverscontrolleradmingetshifts) | **GET** /drivers/{driverId}/shifts | [Admin] Get shifts for a driver
 [**driversControllerAdminSuspend**](DriversApi.md#driverscontrolleradminsuspend) | **POST** /drivers/{driverId}/suspend | [Admin] Suspend a driver
 [**driversControllerAdminUnsuspend**](DriversApi.md#driverscontrolleradminunsuspend) | **POST** /drivers/{driverId}/unsuspend | [Admin] Unsuspend a driver
@@ -178,6 +179,47 @@ try {
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DriversApi->driversControllerAdminFindOne: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **driverId** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driversControllerAdminGetDriverLocation**
+> ApiControllerRoot200Response driversControllerAdminGetDriverLocation(driverId)
+
+[Admin] Get a driver current location
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriversApi();
+final String driverId = driverId_example; // String | 
+
+try {
+    final response = api.driversControllerAdminGetDriverLocation(driverId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriversApi->driversControllerAdminGetDriverLocation: $e\n');
 }
 ```
 

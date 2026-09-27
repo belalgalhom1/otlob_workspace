@@ -938,6 +938,24 @@ abstract class AppLocalizations {
   /// **'Show at the top of the menu'**
   String get showAtTopOfMenu;
 
+  /// No description provided for @trackStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Track Stock'**
+  String get trackStock;
+
+  /// No description provided for @trackStockSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show as out of stock when quantity reaches zero'**
+  String get trackStockSubtitle;
+
+  /// No description provided for @notTracked.
+  ///
+  /// In en, this message translates to:
+  /// **'Not tracked'**
+  String get notTracked;
+
   /// No description provided for @uploadProductImage.
   ///
   /// In en, this message translates to:

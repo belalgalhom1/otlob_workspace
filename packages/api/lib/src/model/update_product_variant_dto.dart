@@ -17,6 +17,7 @@ part 'update_product_variant_dto.g.dart';
 /// * [basePrice] 
 /// * [comparePrice] 
 /// * [stock] 
+/// * [tracksStock] 
 /// * [isActive] 
 /// * [version] 
 @BuiltValue()
@@ -38,6 +39,9 @@ abstract class UpdateProductVariantDto implements Built<UpdateProductVariantDto,
 
   @BuiltValueField(wireName: r'stock')
   num? get stock;
+
+  @BuiltValueField(wireName: r'tracksStock')
+  bool? get tracksStock;
 
   @BuiltValueField(wireName: r'isActive')
   bool? get isActive;
@@ -108,6 +112,13 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
       yield serializers.serialize(
         object.stock,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.tracksStock != null) {
+      yield r'tracksStock';
+      yield serializers.serialize(
+        object.tracksStock,
+        specifiedType: const FullType(bool),
       );
     }
     if (object.isActive != null) {
@@ -188,6 +199,13 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
             specifiedType: const FullType(num),
           ) as num;
           result.stock = valueDes;
+          break;
+        case r'tracksStock':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.tracksStock = valueDes;
           break;
         case r'isActive':
           final valueDes = serializers.deserialize(

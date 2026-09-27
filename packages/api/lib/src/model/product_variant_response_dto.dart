@@ -25,6 +25,7 @@ part 'product_variant_response_dto.g.dart';
 /// * [basePrice] 
 /// * [comparePrice] 
 /// * [stock] 
+/// * [tracksStock] 
 /// * [isActive] 
 /// * [version] 
 /// * [cartItems] 
@@ -57,6 +58,9 @@ abstract class ProductVariantResponseDto implements Built<ProductVariantResponse
 
   @BuiltValueField(wireName: r'stock')
   num? get stock;
+
+  @BuiltValueField(wireName: r'tracksStock')
+  bool get tracksStock;
 
   @BuiltValueField(wireName: r'isActive')
   bool get isActive;
@@ -150,6 +154,11 @@ class _$ProductVariantResponseDtoSerializer implements PrimitiveSerializer<Produ
         specifiedType: const FullType(num),
       );
     }
+    yield r'tracksStock';
+    yield serializers.serialize(
+      object.tracksStock,
+      specifiedType: const FullType(bool),
+    );
     yield r'isActive';
     yield serializers.serialize(
       object.isActive,
@@ -273,6 +282,13 @@ class _$ProductVariantResponseDtoSerializer implements PrimitiveSerializer<Produ
             specifiedType: const FullType(num),
           ) as num;
           result.stock = valueDes;
+          break;
+        case r'tracksStock':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.tracksStock = valueDes;
           break;
         case r'isActive':
           final valueDes = serializers.deserialize(

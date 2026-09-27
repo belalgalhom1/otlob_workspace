@@ -26,6 +26,8 @@ class _$UpdateProductDto extends UpdateProductDto {
   @override
   final num? stock;
   @override
+  final bool? tracksStock;
+  @override
   final bool? isActive;
   @override
   final bool? isFeatured;
@@ -50,6 +52,7 @@ class _$UpdateProductDto extends UpdateProductDto {
     this.comparePrice,
     this.sku,
     this.stock,
+    this.tracksStock,
     this.isActive,
     this.isFeatured,
     this.sellByStrip,
@@ -77,6 +80,7 @@ class _$UpdateProductDto extends UpdateProductDto {
         comparePrice == other.comparePrice &&
         sku == other.sku &&
         stock == other.stock &&
+        tracksStock == other.tracksStock &&
         isActive == other.isActive &&
         isFeatured == other.isFeatured &&
         sellByStrip == other.sellByStrip &&
@@ -96,6 +100,7 @@ class _$UpdateProductDto extends UpdateProductDto {
     _$hash = $jc(_$hash, comparePrice.hashCode);
     _$hash = $jc(_$hash, sku.hashCode);
     _$hash = $jc(_$hash, stock.hashCode);
+    _$hash = $jc(_$hash, tracksStock.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, isFeatured.hashCode);
     _$hash = $jc(_$hash, sellByStrip.hashCode);
@@ -117,6 +122,7 @@ class _$UpdateProductDto extends UpdateProductDto {
           ..add('comparePrice', comparePrice)
           ..add('sku', sku)
           ..add('stock', stock)
+          ..add('tracksStock', tracksStock)
           ..add('isActive', isActive)
           ..add('isFeatured', isFeatured)
           ..add('sellByStrip', sellByStrip)
@@ -167,6 +173,10 @@ class UpdateProductDtoBuilder
   num? get stock => _$this._stock;
   set stock(num? stock) => _$this._stock = stock;
 
+  bool? _tracksStock;
+  bool? get tracksStock => _$this._tracksStock;
+  set tracksStock(bool? tracksStock) => _$this._tracksStock = tracksStock;
+
   bool? _isActive;
   bool? get isActive => _$this._isActive;
   set isActive(bool? isActive) => _$this._isActive = isActive;
@@ -204,6 +214,7 @@ class UpdateProductDtoBuilder
       _comparePrice = $v.comparePrice;
       _sku = $v.sku;
       _stock = $v.stock;
+      _tracksStock = $v.tracksStock;
       _isActive = $v.isActive;
       _isFeatured = $v.isFeatured;
       _sellByStrip = $v.sellByStrip;
@@ -240,6 +251,7 @@ class UpdateProductDtoBuilder
           comparePrice: comparePrice,
           sku: sku,
           stock: stock,
+          tracksStock: tracksStock,
           isActive: isActive,
           isFeatured: isFeatured,
           sellByStrip: sellByStrip,

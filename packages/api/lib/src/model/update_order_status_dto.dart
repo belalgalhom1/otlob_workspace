@@ -19,7 +19,7 @@ part 'update_order_status_dto.g.dart';
 abstract class UpdateOrderStatusDto implements Built<UpdateOrderStatusDto, UpdateOrderStatusDtoBuilder> {
   @BuiltValueField(wireName: r'status')
   UpdateOrderStatusDtoStatusEnum get status;
-  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  PENDING_CUSTOMER_APPROVAL,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
+  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
 
   @BuiltValueField(wireName: r'note')
   String? get note;
@@ -155,8 +155,6 @@ class UpdateOrderStatusDtoStatusEnum extends EnumClass {
   static const UpdateOrderStatusDtoStatusEnum PREPARING = _$updateOrderStatusDtoStatusEnum_PREPARING;
   @BuiltValueEnumConst(wireName: r'LOOKING_FOR_DRIVER')
   static const UpdateOrderStatusDtoStatusEnum LOOKING_FOR_DRIVER = _$updateOrderStatusDtoStatusEnum_LOOKING_FOR_DRIVER;
-  @BuiltValueEnumConst(wireName: r'PENDING_CUSTOMER_APPROVAL')
-  static const UpdateOrderStatusDtoStatusEnum PENDING_CUSTOMER_APPROVAL = _$updateOrderStatusDtoStatusEnum_PENDING_CUSTOMER_APPROVAL;
   @BuiltValueEnumConst(wireName: r'DRIVER_ASSIGNED')
   static const UpdateOrderStatusDtoStatusEnum DRIVER_ASSIGNED = _$updateOrderStatusDtoStatusEnum_DRIVER_ASSIGNED;
   @BuiltValueEnumConst(wireName: r'PENDING_PAYMENT')

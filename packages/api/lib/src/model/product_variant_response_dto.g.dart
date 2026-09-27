@@ -24,6 +24,8 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
   @override
   final num? stock;
   @override
+  final bool tracksStock;
+  @override
   final bool isActive;
   @override
   final num version;
@@ -51,6 +53,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
     required this.basePrice,
     this.comparePrice,
     this.stock,
+    required this.tracksStock,
     required this.isActive,
     required this.version,
     this.cartItems,
@@ -80,6 +83,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
         basePrice == other.basePrice &&
         comparePrice == other.comparePrice &&
         stock == other.stock &&
+        tracksStock == other.tracksStock &&
         isActive == other.isActive &&
         version == other.version &&
         cartItems == other.cartItems &&
@@ -100,6 +104,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
     _$hash = $jc(_$hash, basePrice.hashCode);
     _$hash = $jc(_$hash, comparePrice.hashCode);
     _$hash = $jc(_$hash, stock.hashCode);
+    _$hash = $jc(_$hash, tracksStock.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, version.hashCode);
     _$hash = $jc(_$hash, cartItems.hashCode);
@@ -122,6 +127,7 @@ class _$ProductVariantResponseDto extends ProductVariantResponseDto {
           ..add('basePrice', basePrice)
           ..add('comparePrice', comparePrice)
           ..add('stock', stock)
+          ..add('tracksStock', tracksStock)
           ..add('isActive', isActive)
           ..add('version', version)
           ..add('cartItems', cartItems)
@@ -169,6 +175,10 @@ class ProductVariantResponseDtoBuilder
   num? _stock;
   num? get stock => _$this._stock;
   set stock(num? stock) => _$this._stock = stock;
+
+  bool? _tracksStock;
+  bool? get tracksStock => _$this._tracksStock;
+  set tracksStock(bool? tracksStock) => _$this._tracksStock = tracksStock;
 
   bool? _isActive;
   bool? get isActive => _$this._isActive;
@@ -219,6 +229,7 @@ class ProductVariantResponseDtoBuilder
       _basePrice = $v.basePrice;
       _comparePrice = $v.comparePrice;
       _stock = $v.stock;
+      _tracksStock = $v.tracksStock;
       _isActive = $v.isActive;
       _version = $v.version;
       _cartItems = $v.cartItems?.toBuilder();
@@ -274,6 +285,11 @@ class ProductVariantResponseDtoBuilder
             ),
             comparePrice: comparePrice,
             stock: stock,
+            tracksStock: BuiltValueNullFieldError.checkNotNull(
+              tracksStock,
+              r'ProductVariantResponseDto',
+              'tracksStock',
+            ),
             isActive: BuiltValueNullFieldError.checkNotNull(
               isActive,
               r'ProductVariantResponseDto',

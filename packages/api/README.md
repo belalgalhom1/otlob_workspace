@@ -133,6 +133,7 @@ Class | Method | HTTP request | Description
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminCreateShift**](doc/DriversApi.md#driverscontrolleradmincreateshift) | **POST** /drivers/{driverId}/shifts | [Admin] Create a shift for a driver
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminFindAll**](doc/DriversApi.md#driverscontrolleradminfindall) | **GET** /drivers | [Admin] List all drivers
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminFindOne**](doc/DriversApi.md#driverscontrolleradminfindone) | **GET** /drivers/{driverId} | [Admin] Get a driver by ID
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGetDriverLocation**](doc/DriversApi.md#driverscontrolleradmingetdriverlocation) | **GET** /drivers/{driverId}/location | [Admin] Get a driver current location
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGetShifts**](doc/DriversApi.md#driverscontrolleradmingetshifts) | **GET** /drivers/{driverId}/shifts | [Admin] Get shifts for a driver
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminSuspend**](doc/DriversApi.md#driverscontrolleradminsuspend) | **POST** /drivers/{driverId}/suspend | [Admin] Suspend a driver
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminUnsuspend**](doc/DriversApi.md#driverscontrolleradminunsuspend) | **POST** /drivers/{driverId}/unsuspend | [Admin] Unsuspend a driver
@@ -170,7 +171,6 @@ Class | Method | HTTP request | Description
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerFindAllActive**](doc/OffersApi.md#offerscontrollerfindallactive) | **GET** /offers | Get all active product offers
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerRemove**](doc/OffersApi.md#offerscontrollerremove) | **DELETE** /offers/admin/{id} | Delete product offer
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerUpdate**](doc/OffersApi.md#offerscontrollerupdate) | **PATCH** /offers/admin/{id} | Update product offer
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAcceptOrderChanges**](doc/OrdersApi.md#orderscontrolleracceptorderchanges) | **POST** /orders/{id}/accept-changes | 
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminFindAll**](doc/OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminForceAssignDriver**](doc/OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminPlaceDirectOrder**](doc/OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
@@ -178,7 +178,6 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCustomerMarkPaid**](doc/OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPayment**](doc/OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverUpdateStatus**](doc/OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEditOrderItems**](doc/OrdersApi.md#orderscontrollereditorderitems) | **PATCH** /orders/{id}/items | 
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateCustomOrder**](doc/OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateOrder**](doc/OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyDispatches**](doc/OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
@@ -188,7 +187,6 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetVendorOrders**](doc/OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerPlaceCustomOrder**](doc/OrdersApi.md#orderscontrollerplacecustomorder) | **POST** /orders/custom | Place a custom delivery or ride order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerPlaceOrder**](doc/OrdersApi.md#orderscontrollerplaceorder) | **POST** /orders | Place a new order from active cart
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRejectOrderChanges**](doc/OrdersApi.md#orderscontrollerrejectorderchanges) | **POST** /orders/{id}/reject-changes | 
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRespondToDispatch**](doc/OrdersApi.md#orderscontrollerrespondtodispatch) | **POST** /orders/driver/dispatches/{dispatchId}/respond | Accept or reject a dispatch request
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerVendorUpdateStatus**](doc/OrdersApi.md#orderscontrollervendorupdatestatus) | **PATCH** /orders/vendor/{orderId}/status | Vendor updates order status
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerCheckVersion**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrollercheckversion) | **POST** /platform-settings/app-version-check | Check if app version is supported
@@ -377,7 +375,6 @@ Class | Method | HTTP request | Description
  - [DriverTier](doc/DriverTier.md)
  - [DriverWalletTransaction](doc/DriverWalletTransaction.md)
  - [DriverWalletTransactionResponseDto](doc/DriverWalletTransactionResponseDto.md)
- - [EditOrderItemsDto](doc/EditOrderItemsDto.md)
  - [FavoriteProduct](doc/FavoriteProduct.md)
  - [ForgotPasswordDto](doc/ForgotPasswordDto.md)
  - [GenerateShiftPoolsDto](doc/GenerateShiftPoolsDto.md)
@@ -395,7 +392,6 @@ Class | Method | HTTP request | Description
  - [OrderFeeEstimateDto](doc/OrderFeeEstimateDto.md)
  - [OrderItem](doc/OrderItem.md)
  - [OrderItemOption](doc/OrderItemOption.md)
- - [OrderItemUpdateDto](doc/OrderItemUpdateDto.md)
  - [OrderResponseDto](doc/OrderResponseDto.md)
  - [OrderStatus](doc/OrderStatus.md)
  - [OrderStatusEvent](doc/OrderStatusEvent.md)

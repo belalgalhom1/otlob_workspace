@@ -431,6 +431,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get showAtTopOfMenu => 'يظهر في أعلى المنيو';
 
   @override
+  String get trackStock => 'تتبع المخزون';
+
+  @override
+  String get trackStockSubtitle =>
+      'يظهر كمنتج غير متوفر عند وصول الكمية إلى صفر';
+
+  @override
+  String get notTracked => 'غير متتبع';
+
+  @override
   String get uploadProductImage => 'رفع صورة المنتج';
 
   @override

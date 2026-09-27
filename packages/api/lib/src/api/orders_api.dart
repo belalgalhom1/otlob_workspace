@@ -28,7 +28,6 @@ class OrdersApi {
 
   const OrdersApi(this._dio, this._serializers);
 
-
   /// [Admin] List all orders with filters
   /// 
   ///
@@ -701,7 +700,6 @@ class OrdersApi {
       extra: _response.extra,
     );
   }
-
 
   /// Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
   /// 
@@ -1572,7 +1570,6 @@ class OrdersApi {
     );
   }
 
-
   /// Accept or reject a dispatch request
   /// 
   ///
@@ -1780,4 +1777,3 @@ class OrdersApi {
   }
 
 }
-

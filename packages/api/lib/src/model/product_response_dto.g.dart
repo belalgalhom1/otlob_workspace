@@ -40,6 +40,8 @@ class _$ProductResponseDto extends ProductResponseDto {
   @override
   final num? stock;
   @override
+  final bool tracksStock;
+  @override
   final bool isActive;
   @override
   final bool isFeatured;
@@ -89,6 +91,7 @@ class _$ProductResponseDto extends ProductResponseDto {
     this.comparePrice,
     this.sku,
     this.stock,
+    required this.tracksStock,
     required this.isActive,
     required this.isFeatured,
     this.deletedAt,
@@ -133,6 +136,7 @@ class _$ProductResponseDto extends ProductResponseDto {
         comparePrice == other.comparePrice &&
         sku == other.sku &&
         stock == other.stock &&
+        tracksStock == other.tracksStock &&
         isActive == other.isActive &&
         isFeatured == other.isFeatured &&
         deletedAt == other.deletedAt &&
@@ -168,6 +172,7 @@ class _$ProductResponseDto extends ProductResponseDto {
     _$hash = $jc(_$hash, comparePrice.hashCode);
     _$hash = $jc(_$hash, sku.hashCode);
     _$hash = $jc(_$hash, stock.hashCode);
+    _$hash = $jc(_$hash, tracksStock.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, isFeatured.hashCode);
     _$hash = $jc(_$hash, deletedAt.hashCode);
@@ -205,6 +210,7 @@ class _$ProductResponseDto extends ProductResponseDto {
           ..add('comparePrice', comparePrice)
           ..add('sku', sku)
           ..add('stock', stock)
+          ..add('tracksStock', tracksStock)
           ..add('isActive', isActive)
           ..add('isFeatured', isFeatured)
           ..add('deletedAt', deletedAt)
@@ -292,6 +298,10 @@ class ProductResponseDtoBuilder
   num? _stock;
   num? get stock => _$this._stock;
   set stock(num? stock) => _$this._stock = stock;
+
+  bool? _tracksStock;
+  bool? get tracksStock => _$this._tracksStock;
+  set tracksStock(bool? tracksStock) => _$this._tracksStock = tracksStock;
 
   bool? _isActive;
   bool? get isActive => _$this._isActive;
@@ -385,6 +395,7 @@ class ProductResponseDtoBuilder
       _comparePrice = $v.comparePrice;
       _sku = $v.sku;
       _stock = $v.stock;
+      _tracksStock = $v.tracksStock;
       _isActive = $v.isActive;
       _isFeatured = $v.isFeatured;
       _deletedAt = $v.deletedAt;
@@ -463,6 +474,11 @@ class ProductResponseDtoBuilder
             comparePrice: comparePrice,
             sku: sku,
             stock: stock,
+            tracksStock: BuiltValueNullFieldError.checkNotNull(
+              tracksStock,
+              r'ProductResponseDto',
+              'tracksStock',
+            ),
             isActive: BuiltValueNullFieldError.checkNotNull(
               isActive,
               r'ProductResponseDto',

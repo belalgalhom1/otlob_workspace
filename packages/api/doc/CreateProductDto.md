@@ -18,6 +18,7 @@ Name | Type | Description | Notes
 **comparePrice** | **num** |  | [optional] 
 **sku** | **String** |  | [optional] 
 **stock** | **num** |  | [optional] [default to 0]
+**tracksStock** | **bool** |  | [optional] [default to true]
 **isActive** | **bool** |  | [optional] [default to true]
 **isFeatured** | **bool** |  | [optional] [default to false]
 **sellByStrip** | **bool** |  | [optional] [default to false]

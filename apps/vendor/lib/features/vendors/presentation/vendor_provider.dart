@@ -119,6 +119,7 @@ class VendorNotifier extends _$VendorNotifier {
       }
       b.isActive = data['isActive'] ?? true;
       if (data['sellByStrip'] != null) b.sellByStrip = data['sellByStrip'];
+      if (data['tracksStock'] != null) b.tracksStock = data['tracksStock'] == true;
       if (data['stripsPerPackage'] != null) {
         b.stripsPerPackage = num.tryParse(data['stripsPerPackage'].toString());
       }
@@ -256,6 +257,7 @@ List<CreateProductVariantDto> _buildVariantDtos(List<dynamic> variants) {
         b.sku = v['sku'].toString();
       }
       if (v['stock'] != null) b.stock = num.tryParse(v['stock'].toString());
+      if (v['tracksStock'] != null) b.tracksStock = v['tracksStock'] == true;
       final variantGroups = (v['optionGroups'] as List? ?? []);
       if (variantGroups.isNotEmpty) {
         b.optionGroups.replace(_buildOptionGroupDtos(variantGroups));

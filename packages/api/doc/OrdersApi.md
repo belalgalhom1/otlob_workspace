@@ -9,7 +9,6 @@ All URIs are relative to *http://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**ordersControllerAcceptOrderChanges**](OrdersApi.md#orderscontrolleracceptorderchanges) | **POST** /orders/{id}/accept-changes | 
 [**ordersControllerAdminFindAll**](OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [**ordersControllerAdminForceAssignDriver**](OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [**ordersControllerAdminPlaceDirectOrder**](OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
@@ -17,7 +16,6 @@ Method | HTTP request | Description
 [**ordersControllerCustomerMarkPaid**](OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid
 [**ordersControllerDriverConfirmPayment**](OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
 [**ordersControllerDriverUpdateStatus**](OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
-[**ordersControllerEditOrderItems**](OrdersApi.md#orderscontrollereditorderitems) | **PATCH** /orders/{id}/items | 
 [**ordersControllerEstimateCustomOrder**](OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
 [**ordersControllerEstimateOrder**](OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
 [**ordersControllerGetMyDispatches**](OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
@@ -27,51 +25,9 @@ Method | HTTP request | Description
 [**ordersControllerGetVendorOrders**](OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
 [**ordersControllerPlaceCustomOrder**](OrdersApi.md#orderscontrollerplacecustomorder) | **POST** /orders/custom | Place a custom delivery or ride order
 [**ordersControllerPlaceOrder**](OrdersApi.md#orderscontrollerplaceorder) | **POST** /orders | Place a new order from active cart
-[**ordersControllerRejectOrderChanges**](OrdersApi.md#orderscontrollerrejectorderchanges) | **POST** /orders/{id}/reject-changes | 
 [**ordersControllerRespondToDispatch**](OrdersApi.md#orderscontrollerrespondtodispatch) | **POST** /orders/driver/dispatches/{dispatchId}/respond | Accept or reject a dispatch request
 [**ordersControllerVendorUpdateStatus**](OrdersApi.md#orderscontrollervendorupdatestatus) | **PATCH** /orders/vendor/{orderId}/status | Vendor updates order status
 
-
-# **ordersControllerAcceptOrderChanges**
-> OrdersControllerPlaceOrder200Response ordersControllerAcceptOrderChanges(id)
-
-
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getOrdersApi();
-final String id = id_example; // String | 
-
-try {
-    final response = api.ordersControllerAcceptOrderChanges(id);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling OrdersApi->ordersControllerAcceptOrderChanges: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **id** | **String**|  | 
-
-### Return type
-
-[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerAdminFindAll**
 > ApiControllerRoot200Response ordersControllerAdminFindAll(status, vendorId, driverId, customerId, page, limit)
@@ -364,49 +320,6 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **ordersControllerEditOrderItems**
-> OrdersControllerPlaceOrder200Response ordersControllerEditOrderItems(id, editOrderItemsDto)
-
-
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getOrdersApi();
-final String id = id_example; // String | 
-final EditOrderItemsDto editOrderItemsDto = ; // EditOrderItemsDto | 
-
-try {
-    final response = api.ordersControllerEditOrderItems(id, editOrderItemsDto);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling OrdersApi->ordersControllerEditOrderItems: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **id** | **String**|  | 
- **editOrderItemsDto** | [**EditOrderItemsDto**](EditOrderItemsDto.md)|  | 
-
-### Return type
-
-[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 
@@ -812,47 +725,6 @@ Name | Type | Description  | Notes
 ### HTTP request headers
 
  - **Content-Type**: application/json
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **ordersControllerRejectOrderChanges**
-> OrdersControllerPlaceOrder200Response ordersControllerRejectOrderChanges(id)
-
-
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getOrdersApi();
-final String id = id_example; // String | 
-
-try {
-    final response = api.ordersControllerRejectOrderChanges(id);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling OrdersApi->ordersControllerRejectOrderChanges: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **id** | **String**|  | 
-
-### Return type
-
-[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

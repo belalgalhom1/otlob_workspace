@@ -433,6 +433,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showAtTopOfMenu => 'Show at the top of the menu';
 
   @override
+  String get trackStock => 'Track Stock';
+
+  @override
+  String get trackStockSubtitle =>
+      'Show as out of stock when quantity reaches zero';
+
+  @override
+  String get notTracked => 'Not tracked';
+
+  @override
   String get uploadProductImage => 'Upload Product Image';
 
   @override

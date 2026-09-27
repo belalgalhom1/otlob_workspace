@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **basePrice** | **num** |  | 
 **comparePrice** | **num** |  | [optional] 
 **stock** | **num** |  | [optional] [default to 0]
+**tracksStock** | **bool** |  | [optional] [default to true]
 **isActive** | **bool** |  | [optional] [default to true]
 **optionGroups** | [**BuiltList&lt;CreateOptionGroupDto&gt;**](CreateOptionGroupDto.md) |  | [optional] 
 

@@ -19,6 +19,7 @@ part 'product_variant.g.dart';
 /// * [basePrice] 
 /// * [comparePrice] 
 /// * [stock] 
+/// * [tracksStock] 
 /// * [isActive] 
 /// * [version] 
 @BuiltValue()
@@ -46,6 +47,9 @@ abstract class ProductVariant implements Built<ProductVariant, ProductVariantBui
 
   @BuiltValueField(wireName: r'stock')
   num? get stock;
+
+  @BuiltValueField(wireName: r'tracksStock')
+  bool get tracksStock;
 
   @BuiltValueField(wireName: r'isActive')
   bool get isActive;
@@ -124,6 +128,11 @@ class _$ProductVariantSerializer implements PrimitiveSerializer<ProductVariant> 
         specifiedType: const FullType(num),
       );
     }
+    yield r'tracksStock';
+    yield serializers.serialize(
+      object.tracksStock,
+      specifiedType: const FullType(bool),
+    );
     yield r'isActive';
     yield serializers.serialize(
       object.isActive,
@@ -212,6 +221,13 @@ class _$ProductVariantSerializer implements PrimitiveSerializer<ProductVariant> 
             specifiedType: const FullType(num),
           ) as num;
           result.stock = valueDes;
+          break;
+        case r'tracksStock':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.tracksStock = valueDes;
           break;
         case r'isActive':
           final valueDes = serializers.deserialize(

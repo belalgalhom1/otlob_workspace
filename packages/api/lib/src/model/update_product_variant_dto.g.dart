@@ -20,6 +20,8 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
   @override
   final num? stock;
   @override
+  final bool? tracksStock;
+  @override
   final bool? isActive;
   @override
   final num? version;
@@ -35,6 +37,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
     this.basePrice,
     this.comparePrice,
     this.stock,
+    this.tracksStock,
     this.isActive,
     this.version,
   }) : super._();
@@ -57,6 +60,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
         basePrice == other.basePrice &&
         comparePrice == other.comparePrice &&
         stock == other.stock &&
+        tracksStock == other.tracksStock &&
         isActive == other.isActive &&
         version == other.version;
   }
@@ -70,6 +74,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
     _$hash = $jc(_$hash, basePrice.hashCode);
     _$hash = $jc(_$hash, comparePrice.hashCode);
     _$hash = $jc(_$hash, stock.hashCode);
+    _$hash = $jc(_$hash, tracksStock.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, version.hashCode);
     _$hash = $jf(_$hash);
@@ -85,6 +90,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
           ..add('basePrice', basePrice)
           ..add('comparePrice', comparePrice)
           ..add('stock', stock)
+          ..add('tracksStock', tracksStock)
           ..add('isActive', isActive)
           ..add('version', version))
         .toString();
@@ -120,6 +126,10 @@ class UpdateProductVariantDtoBuilder
   num? get stock => _$this._stock;
   set stock(num? stock) => _$this._stock = stock;
 
+  bool? _tracksStock;
+  bool? get tracksStock => _$this._tracksStock;
+  set tracksStock(bool? tracksStock) => _$this._tracksStock = tracksStock;
+
   bool? _isActive;
   bool? get isActive => _$this._isActive;
   set isActive(bool? isActive) => _$this._isActive = isActive;
@@ -141,6 +151,7 @@ class UpdateProductVariantDtoBuilder
       _basePrice = $v.basePrice;
       _comparePrice = $v.comparePrice;
       _stock = $v.stock;
+      _tracksStock = $v.tracksStock;
       _isActive = $v.isActive;
       _version = $v.version;
       _$v = null;
@@ -171,6 +182,7 @@ class UpdateProductVariantDtoBuilder
           basePrice: basePrice,
           comparePrice: comparePrice,
           stock: stock,
+          tracksStock: tracksStock,
           isActive: isActive,
           version: version,
         );

@@ -16,6 +16,7 @@ Name | Type | Description | Notes
 **basePrice** | **num** |  | 
 **comparePrice** | **num** |  | [optional] 
 **stock** | **num** |  | [optional] 
+**tracksStock** | **bool** |  | 
 **isActive** | **bool** |  | 
 **version** | **num** |  | 
 **cartItems** | [**BuiltList&lt;CartItem&gt;**](CartItem.md) |  | [optional] 

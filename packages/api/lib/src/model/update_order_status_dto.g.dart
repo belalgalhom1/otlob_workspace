@@ -20,9 +20,6 @@ const UpdateOrderStatusDtoStatusEnum
 _$updateOrderStatusDtoStatusEnum_LOOKING_FOR_DRIVER =
     const UpdateOrderStatusDtoStatusEnum._('LOOKING_FOR_DRIVER');
 const UpdateOrderStatusDtoStatusEnum
-_$updateOrderStatusDtoStatusEnum_PENDING_CUSTOMER_APPROVAL =
-    const UpdateOrderStatusDtoStatusEnum._('PENDING_CUSTOMER_APPROVAL');
-const UpdateOrderStatusDtoStatusEnum
 _$updateOrderStatusDtoStatusEnum_DRIVER_ASSIGNED =
     const UpdateOrderStatusDtoStatusEnum._('DRIVER_ASSIGNED');
 const UpdateOrderStatusDtoStatusEnum
@@ -55,8 +52,6 @@ UpdateOrderStatusDtoStatusEnum _$updateOrderStatusDtoStatusEnumValueOf(
       return _$updateOrderStatusDtoStatusEnum_PREPARING;
     case 'LOOKING_FOR_DRIVER':
       return _$updateOrderStatusDtoStatusEnum_LOOKING_FOR_DRIVER;
-    case 'PENDING_CUSTOMER_APPROVAL':
-      return _$updateOrderStatusDtoStatusEnum_PENDING_CUSTOMER_APPROVAL;
     case 'DRIVER_ASSIGNED':
       return _$updateOrderStatusDtoStatusEnum_DRIVER_ASSIGNED;
     case 'PENDING_PAYMENT':
@@ -83,7 +78,6 @@ _$updateOrderStatusDtoStatusEnumValues =
         _$updateOrderStatusDtoStatusEnum_ACCEPTED,
         _$updateOrderStatusDtoStatusEnum_PREPARING,
         _$updateOrderStatusDtoStatusEnum_LOOKING_FOR_DRIVER,
-        _$updateOrderStatusDtoStatusEnum_PENDING_CUSTOMER_APPROVAL,
         _$updateOrderStatusDtoStatusEnum_DRIVER_ASSIGNED,
         _$updateOrderStatusDtoStatusEnum_PENDING_PAYMENT,
         _$updateOrderStatusDtoStatusEnum_READY_FOR_PICKUP,
@@ -105,7 +99,6 @@ class _$UpdateOrderStatusDtoStatusEnumSerializer
     'ACCEPTED': 'ACCEPTED',
     'PREPARING': 'PREPARING',
     'LOOKING_FOR_DRIVER': 'LOOKING_FOR_DRIVER',
-    'PENDING_CUSTOMER_APPROVAL': 'PENDING_CUSTOMER_APPROVAL',
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',
@@ -119,7 +112,6 @@ class _$UpdateOrderStatusDtoStatusEnumSerializer
     'ACCEPTED': 'ACCEPTED',
     'PREPARING': 'PREPARING',
     'LOOKING_FOR_DRIVER': 'LOOKING_FOR_DRIVER',
-    'PENDING_CUSTOMER_APPROVAL': 'PENDING_CUSTOMER_APPROVAL',
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',

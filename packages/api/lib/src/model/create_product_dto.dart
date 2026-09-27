@@ -24,6 +24,7 @@ part 'create_product_dto.g.dart';
 /// * [comparePrice] 
 /// * [sku] 
 /// * [stock] 
+/// * [tracksStock] 
 /// * [isActive] 
 /// * [isFeatured] 
 /// * [sellByStrip] 
@@ -62,6 +63,9 @@ abstract class CreateProductDto implements Built<CreateProductDto, CreateProduct
   @BuiltValueField(wireName: r'stock')
   num? get stock;
 
+  @BuiltValueField(wireName: r'tracksStock')
+  bool? get tracksStock;
+
   @BuiltValueField(wireName: r'isActive')
   bool? get isActive;
 
@@ -88,6 +92,7 @@ abstract class CreateProductDto implements Built<CreateProductDto, CreateProduct
   static void _defaults(CreateProductDtoBuilder b) => b
       ..hasVariants = false
       ..stock = 0
+      ..tracksStock = true
       ..isActive = true
       ..isFeatured = false
       ..sellByStrip = false;
@@ -174,6 +179,13 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
       yield serializers.serialize(
         object.stock,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.tracksStock != null) {
+      yield r'tracksStock';
+      yield serializers.serialize(
+        object.tracksStock,
+        specifiedType: const FullType(bool),
       );
     }
     if (object.isActive != null) {
@@ -310,6 +322,13 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
             specifiedType: const FullType(num),
           ) as num;
           result.stock = valueDes;
+          break;
+        case r'tracksStock':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.tracksStock = valueDes;
           break;
         case r'isActive':
           final valueDes = serializers.deserialize(

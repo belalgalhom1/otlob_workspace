@@ -146,6 +146,7 @@ class AppStrings {
   String get catMedicines => 'app.catMedicines'.tr(context: _context);
   String get catCosmetics => 'app.catCosmetics'.tr(context: _context);
   String get addToCart => 'app.addToCart'.tr(context: _context);
+  String get outOfStock => 'app.outOfStock'.tr(context: _context);
   String get done => 'app.done'.tr(context: _context);
   String get allStores => 'app.allStores'.tr(context: _context);
   String get stores => 'app.stores'.tr(context: _context);

@@ -60,7 +60,6 @@ Name | Type | Description | Notes
 **androidStoreUrl** | **String** |  | [optional] 
 **iosMinVersion** | **String** |  | [optional] 
 **iosLatestVersion** | **String** |  | [optional] 
-**customerApprovalTimeoutSecs** | **num** | Seconds customer has to approve exact delivery fee | [optional] 
 **maxActiveOrdersPerCustomer** | **num** | Max active orders a customer can have | [optional] 
 **requirePriorDeliveryForMultipleOrders** | **bool** | Requires prior delivery to place multiple orders | [optional] 
 **maxOtpAttempts** | **num** | Max OTP attempts before block | [optional] 
@@ -95,8 +94,7 @@ Name | Type | Description | Notes
 **bronzeTierBonusPerKm** | **num** | Per-km bonus for Bronze tier drivers | [optional] 
 **silverTierBonusPerKm** | **num** | Per-km bonus for Silver tier drivers | [optional] 
 **goldTierBonusPerKm** | **num** | Per-km bonus for Gold tier drivers (Used at checkout) | [optional] 
-**requireCustomerApproval** | **bool** |  | [optional] 
-**customerApprovalTimeoutMins** | **num** |  | [optional] 
+**driverSettlementOrderThreshold** | **num** | Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables. | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **basePrice** | **num** |  | [optional] 
 **comparePrice** | **num** |  | [optional] 
 **stock** | **num** |  | [optional] 
+**tracksStock** | **bool** |  | [optional] 
 **isActive** | **bool** |  | [optional] 
 **version** | **num** |  | [optional] 
 

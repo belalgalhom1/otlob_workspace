@@ -533,6 +533,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         .where((ci) => ci.product['id']?.toString() == item['id']?.toString())
         .fold<int>(0, (sum, ci) => sum + ci.quantity);
 
+    final bool tracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
+    final int itemStock = int.tryParse(item['stock']?.toString() ?? '0') ?? 0;
+    final List<dynamic> menuVariants = item['variants'] as List? ?? [];
+    final bool hasMenuVariants = item['hasVariants'] == true && menuVariants.isNotEmpty;
+    final bool isItemOutOfStock = totalCartQty == 0 && (hasMenuVariants
+        ? menuVariants.every((v) {
+            final vTracks = v['tracksStock'] == null ? true : (v['tracksStock'] == true);
+            final vStock = int.tryParse(v['stock']?.toString() ?? '0') ?? 0;
+            return vTracks && vStock <= 0;
+          })
+        : (tracksStock && itemStock <= 0));
+
     return GestureDetector(
       onTap: () {
         final authStatus = ref.read(authControllerProvider);
@@ -682,6 +694,8 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                         const SizedBox(width: 8),
                         GestureDetector(
                           onTap: () async {
+                            if (isItemOutOfStock) return;
+
                             final authStatus = ref.read(authControllerProvider);
                             if (authStatus == AuthStatus.unauthenticated) {
                               AuthPromptDialog.show(context);
@@ -731,18 +745,22 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
+                              color: isItemOutOfStock
+                                  ? (isDark ? Colors.white12 : Colors.grey.shade200)
+                                  : AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.add, size: 16, color: AppColors.primary),
+                                Icon(Icons.add, size: 16, color: isItemOutOfStock ? AppColors.textHint : AppColors.primary),
                                 const SizedBox(width: 4),
                                 Text(
-                                  totalCartQty > 0 ? '${s.addToCart} ($totalCartQty)' : s.addToCart,
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
+                                  isItemOutOfStock
+                                      ? s.outOfStock
+                                      : (totalCartQty > 0 ? '${s.addToCart} ($totalCartQty)' : s.addToCart),
+                                  style: TextStyle(
+                                    color: isItemOutOfStock ? AppColors.textHint : AppColors.primary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
