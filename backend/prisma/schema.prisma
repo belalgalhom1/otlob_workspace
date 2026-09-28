@@ -244,6 +244,7 @@ model Conversation {
   creatorId     String?
   createdAt     DateTime                  @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime                  @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?                 @db.Timestamptz(3)
   participants  ConversationParticipant[]
   creator       User?                     @relation("ConversationCreator", fields: [creatorId], references: [id])
   vendor        Vendor?                   @relation(fields: [vendorId], references: [id])
@@ -255,6 +256,7 @@ model Conversation {
   @@index([creatorId])
   @@index([createdAt])
   @@index([updatedAt])
+  @@index([deletedAt])
   @@map("conversations")
 }
 
@@ -368,6 +370,7 @@ model CustomerCoinTransaction {
 
   @@index([customerId])
   @@index([orderId])
+  @@unique([orderId, type])
   @@map("customer_coin_transactions")
 }
 
@@ -533,6 +536,7 @@ model VendorWalletTransaction {
   @@index([vendorId])
   @@index([orderId])
   @@index([createdAt])
+  @@unique([orderId, type])
   @@map("vendor_wallet_transactions")
 }
 
@@ -981,6 +985,7 @@ model DriverWalletTransaction {
   @@index([orderId])
   @@index([createdAt])
   @@index([driverShiftId])
+  @@unique([orderId, type])
   @@map("driver_wallet_transactions")
 }
 

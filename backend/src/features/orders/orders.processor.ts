@@ -277,15 +277,20 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         Date.now() - settings.retentionOrdersDays * 24 * 60 * 60 * 1000,
       );
 
-      const result = await this.prisma.order.deleteMany({
+      // Soft-delete: order rows (and their wallet/coin ledger, items and
+      // conversations) must survive for accounting. Prisma reads already
+      // exclude deletedAt != null.
+      const result = await this.prisma.order.updateMany({
         where: {
           status: { in: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
           updatedAt: { lt: cutoff },
+          deletedAt: null,
         },
+        data: { deletedAt: new Date() },
       });
 
       if (result.count > 0) {
-        this.logger.log(`🗑️  Hard-deleted ${result.count} old orders`);
+        this.logger.log(`🗑️  Soft-deleted ${result.count} old orders`);
       }
     } catch (error) {
       this.logger.error('Failed to run orders cleanup', (error as Error).stack);
@@ -299,16 +304,20 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         Date.now() - settings.retentionArchivedChatsDays * 24 * 60 * 60 * 1000,
       );
 
-      const result = await this.prisma.conversation.deleteMany({
+      // Soft-delete: keep chat/wallet ledger rows for audit; Prisma reads
+      // already exclude deletedAt != null.
+      const result = await this.prisma.conversation.updateMany({
         where: {
           status: 'ARCHIVED',
           updatedAt: { lt: cutoff },
+          deletedAt: null,
         },
+        data: { deletedAt: new Date() },
       });
 
       if (result.count > 0) {
         this.logger.log(
-          `🗑️  Hard-deleted ${result.count} archived conversations`,
+          `🗑️  Soft-deleted ${result.count} archived conversations`,
         );
       }
     } catch (error) {

@@ -385,49 +385,18 @@ export class OrdersStateService {
       order.vendorId,
     );
 
-    await this.ordersRepository.updateStatus(
+    const updatedOrder = await this.ordersRepository.cancelOrder(
       orderId,
-      OrderStatus.CANCELLED,
       actor?.sub ?? 'system',
       reason,
-      undefined,
       order.status,
+      order.coinsUsed,
+      order.customerId,
+      order.orderNumber,
+      order.driverId,
     );
 
-    if (order.coinsUsed > 0) {
-      await this.prisma.$transaction(async (tx) => {
-        // Idempotency guard: a cancelled order must never refund coins twice.
-        const alreadyRefunded = await tx.customerCoinTransaction.findFirst({
-          where: { orderId: order.id, type: 'REFUNDED' },
-        });
-        if (alreadyRefunded) return;
-
-        const customer = await tx.customer.update({
-          where: { id: order.customerId },
-          data: { coinBalance: { increment: order.coinsUsed } },
-          select: { coinBalance: true },
-        });
-        await tx.customerCoinTransaction.create({
-          data: {
-            customerId: order.customerId,
-            orderId: order.id,
-            type: 'REFUNDED',
-            amount: order.coinsUsed,
-            balanceAfter: customer.coinBalance,
-            description: `Refund for cancelled order ${order.orderNumber}`,
-          },
-        });
-      });
-    }
-
-    if (order.driverId) {
-      await this.ordersRepository.freeDriver(order.driverId);
-    }
-
-    // Always abort any active dispatch attempts
-    await this.ordersRepository.cancelPendingDispatches(orderId);
-
-    const orderWithRelations = order as {
+    const orderWithRelations = updatedOrder as {
       driver: { userId: string } | null;
       customer: { user: { id: string } };
     };

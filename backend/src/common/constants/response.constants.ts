@@ -281,6 +281,8 @@ export const OrderErrors = {
   CANNOT_CANCEL_PREPARATION_STARTED:
     'order.error.cannot_cancel_preparation_started',
   DRIVERS_CANNOT_CANCEL: 'order.error.drivers_cannot_cancel',
+  INSUFFICIENT_STOCK: 'order.error.insufficient_stock',
+  INVALID_AMOUNT: 'order.error.invalid_amount',
 };
 
 export const CartErrors = {
@@ -312,6 +314,7 @@ export const WalletErrors = {
   DUPLICATE_PENDING_REQUEST: 'wallet.error.duplicate_pending_request',
   VENDOR_NOT_FOUND: 'wallet.error.vendor_not_found',
   DRIVER_NOT_FOUND: 'wallet.error.driver_not_found',
+  INVALID_TRANSACTION_TYPE: 'wallet.error.invalid_transaction_type',
 };
 
 export const PushNotificationErrors = {

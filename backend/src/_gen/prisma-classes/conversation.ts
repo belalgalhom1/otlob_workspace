@@ -25,4 +25,7 @@ export class Conversation {
 
   @ApiProperty({ type: Date })
   updatedAt: Date;
+
+  @ApiPropertyOptional({ type: Date })
+  deletedAt?: Date;
 }

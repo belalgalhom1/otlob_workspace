@@ -88,7 +88,7 @@ export class MessagesService {
       throw new BadRequestException(ChatErrors.CONVERSATION_CLOSED);
     }
 
-    this.validateMessageContent(dto);
+    await this.validateMessageContent(dto, conversation);
 
     if (dto.replyToId) {
       const replyTo = await this.prisma.message.findUnique({
@@ -600,7 +600,10 @@ export class MessagesService {
     return counts.reduce((sum, count) => sum + count, 0);
   }
 
-  private validateMessageContent(dto: SendMessageDto) {
+  private async validateMessageContent(
+    dto: SendMessageDto,
+    conversation: { vendorId: string | null },
+  ) {
     if (dto.type === MessageType.TEXT && !dto.text?.trim()) {
       throw new BadRequestException(ChatErrors.TEXT_REQUIRED);
     }
@@ -619,12 +622,37 @@ export class MessagesService {
     if (dto.type === MessageType.PRODUCT) {
       const meta = dto.metadata as Record<string, unknown> | undefined;
       const product = meta?.product as Record<string, unknown> | undefined;
-      if (
+
+      const isInvalid =
         !product ||
         typeof product.name !== 'string' ||
-        typeof product.price !== 'number'
-      ) {
+        !product.name.trim() ||
+        typeof product.price !== 'number' ||
+        !Number.isFinite(product.price) ||
+        product.price < 0;
+
+      if (isInvalid) {
         throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
+      }
+
+      // Only trust product cards that reference an existing, live product owned
+      // by the conversation's vendor (when known). A fabricated id is rejected.
+      if (typeof product.id === 'string' && product.id.trim()) {
+        const existing = await this.prisma.product.findFirst({
+          where: { id: product.id, deletedAt: null },
+          select: { id: true, vendorId: true },
+        });
+
+        if (!existing) {
+          throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
+        }
+
+        if (
+          conversation.vendorId &&
+          existing.vendorId !== conversation.vendorId
+        ) {
+          throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
+        }
       }
     }
   }

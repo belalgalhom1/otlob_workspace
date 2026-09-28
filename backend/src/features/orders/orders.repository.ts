@@ -231,6 +231,24 @@ export class OrdersRepository {
     items: OrderItemData[],
     actorUserId: string,
   ) {
+    // Application-level guard: monetary magnitudes are all unsigned. Since the
+    // coin ledger (SPENT/REFUNDED) and payout math all derive from these order
+    // fields, this keeps every wallet/coin amount non-negative by construction.
+    if (
+      data.subtotal < 0 ||
+      data.deliveryFee < 0 ||
+      data.driverBonusFee < 0 ||
+      data.serviceFee < 0 ||
+      data.tax < 0 ||
+      (data.discount ?? 0) < 0 ||
+      (data.coinsUsed ?? 0) < 0 ||
+      (data.coinsEarned ?? 0) < 0 ||
+      data.grandTotal < 0 ||
+      data.upfrontAmount < 0
+    ) {
+      throw new BadRequestException(OrderErrors.INVALID_AMOUNT);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // Raw SQL required for geometry field
       await tx.$executeRaw`
@@ -353,18 +371,52 @@ export class OrdersRepository {
       }
 
       for (const item of items) {
+        if (item.quantity <= 0) {
+          throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+        }
+
         if (item.variantId) {
-          const rows = await tx.$executeRaw`
-            UPDATE product_variants
-            SET stock = stock - ${item.quantity}
-            WHERE id = ${item.variantId} AND "tracksStock" = TRUE AND stock IS NOT NULL
-          `;
+          const variant = await tx.productVariant.findUnique({
+            where: { id: item.variantId },
+            select: { tracksStock: true, stock: true },
+          });
+          if (variant?.tracksStock) {
+            if ((variant.stock ?? 0) < item.quantity) {
+              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+            }
+            const rows = await tx.$executeRaw`
+              UPDATE product_variants
+              SET stock = stock - ${item.quantity}
+              WHERE id = ${item.variantId}
+                AND stock IS NOT NULL
+                AND stock >= ${item.quantity}
+            `;
+            if (rows === 0) {
+              // Sold out concurrently between check and decrement
+              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+            }
+          }
         } else if (item.productId) {
-          const rows = await tx.$executeRaw`
-            UPDATE products
-            SET stock = stock - ${item.quantity}
-            WHERE id = ${item.productId} AND "tracksStock" = TRUE AND stock IS NOT NULL
-          `;
+          const product = await tx.product.findFirst({
+            where: { id: item.productId },
+            select: { tracksStock: true, stock: true },
+          });
+          if (product?.tracksStock) {
+            if ((product.stock ?? 0) < item.quantity) {
+              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+            }
+            const rows = await tx.$executeRaw`
+              UPDATE products
+              SET stock = stock - ${item.quantity}
+              WHERE id = ${item.productId}
+                AND stock IS NOT NULL
+                AND stock >= ${item.quantity}
+            `;
+            if (rows === 0) {
+              // Sold out concurrently between check and decrement
+              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+            }
+          }
         }
       }
 
@@ -377,6 +429,97 @@ export class OrdersRepository {
       });
 
       return created;
+    });
+  }
+
+  async cancelOrder(
+    orderId: string,
+    actorUserId: string,
+    reason: string,
+    expectedOldStatus: OrderStatus,
+    coinsUsed: number,
+    customerId: string,
+    orderNumber: string,
+    driverId: string | null | undefined,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const updatedCount = await tx.order.updateMany({
+        where: { id: orderId, status: expectedOldStatus },
+        data: { status: OrderStatus.CANCELLED },
+      });
+
+      if (updatedCount.count === 0) {
+        // Another process already transitioned this order. If it is already
+        // cancelled this is an idempotent re-cancel and must NOT refund twice.
+        const current = await tx.order.findUnique({
+          where: { id: orderId },
+          select: { status: true },
+        });
+        if (current?.status === OrderStatus.CANCELLED) {
+          const alreadyCancelled = await tx.order.findUnique({
+            where: { id: orderId },
+            include: ORDER_INCLUDE,
+          });
+          if (!alreadyCancelled) throw new Error(OrderErrors.NOT_FOUND);
+          return alreadyCancelled;
+        }
+        throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
+      }
+
+      await tx.orderStatusEvent.create({
+        data: {
+          orderId,
+          status: OrderStatus.CANCELLED,
+          note: reason,
+          createdBy: actorUserId,
+        },
+      });
+
+      // Refund coins atomically with the status change so a crash or a retry
+      // cannot leave the order cancelled without a refund, or refund it twice.
+      if (coinsUsed > 0) {
+        const alreadyRefunded = await tx.customerCoinTransaction.findFirst({
+          where: { orderId, type: 'REFUNDED' },
+        });
+        if (!alreadyRefunded) {
+          const customer = await tx.customer.update({
+            where: { id: customerId },
+            data: { coinBalance: { increment: coinsUsed } },
+            select: { coinBalance: true },
+          });
+          await tx.customerCoinTransaction.create({
+            data: {
+              customerId,
+              orderId,
+              type: 'REFUNDED',
+              amount: coinsUsed,
+              balanceAfter: customer.coinBalance,
+              description: `Refund for cancelled order ${orderNumber}`,
+            },
+          });
+        }
+      }
+
+      if (driverId) {
+        await tx.driver.update({
+          where: { id: driverId },
+          data: { status: DriverStatus.ONLINE },
+        });
+      }
+
+      // Always abort any active dispatch attempts
+      await tx.orderDispatch.updateMany({
+        where: { orderId, status: DispatchStatus.PENDING },
+        data: { status: DispatchStatus.CANCELLED },
+      });
+
+      const updated = await tx.order.findUnique({
+        where: { id: orderId },
+        include: ORDER_INCLUDE,
+      });
+      if (!updated) throw new Error(OrderErrors.NOT_FOUND);
+
+      return updated;
     });
   }
 

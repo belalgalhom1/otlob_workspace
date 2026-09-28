@@ -279,6 +279,21 @@ export class WalletService {
     });
     if (!vendor) throw new NotFoundException(WalletErrors.VENDOR_NOT_FOUND);
 
+    const type = this.normalizeVendorType(dto.type);
+    if (
+      !Object.values(VendorTransactionType).includes(
+        type as VendorTransactionType,
+      )
+    ) {
+      throw new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE);
+    }
+
+    const { orderId, referenceId } = await this.resolveOrderRelation(
+      dto.referenceId,
+      vendorId,
+      'vendor',
+    );
+
     return this.prisma.$transaction(async (tx) => {
       const updatedVendor = await tx.vendor.update({
         where: { id: vendorId },
@@ -289,11 +304,12 @@ export class WalletService {
       return tx.vendorWalletTransaction.create({
         data: {
           vendorId,
-          type: this.normalizeVendorType(dto.type) as VendorTransactionType,
+          type: type as VendorTransactionType,
           amount: dto.amount,
           balanceAfter: updatedVendor.walletBalance,
           description: dto.description || 'Manual Admin Transaction',
-          orderId: dto.referenceId,
+          orderId,
+          referenceId,
         },
       });
     });
@@ -308,6 +324,21 @@ export class WalletService {
     });
     if (!driver) throw new NotFoundException(WalletErrors.DRIVER_NOT_FOUND);
 
+    const type = this.normalizeDriverType(dto.type);
+    if (
+      !Object.values(WalletTransactionType).includes(
+        type as WalletTransactionType,
+      )
+    ) {
+      throw new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE);
+    }
+
+    const { orderId, referenceId } = await this.resolveOrderRelation(
+      dto.referenceId,
+      driverId,
+      'driver',
+    );
+
     return this.prisma.$transaction(async (tx) => {
       const updatedDriver = await tx.driver.update({
         where: { id: driverId },
@@ -318,11 +349,12 @@ export class WalletService {
       return tx.driverWalletTransaction.create({
         data: {
           driverId,
-          type: this.normalizeDriverType(dto.type) as WalletTransactionType,
+          type: type as WalletTransactionType,
           amount: dto.amount,
           balanceAfter: updatedDriver.walletBalance,
           description: dto.description || 'Manual Admin Transaction',
-          orderId: dto.referenceId,
+          orderId,
+          referenceId,
         },
       });
     });
@@ -350,6 +382,36 @@ export class WalletService {
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────
+
+  /**
+   * An admin-provided reference must never be stuffed into the orderId FK
+   * unless it is a real order that belongs to the wallet owner. Anything else
+   * is stored as a free-form reference so it cannot mark an unrelated order as
+   * settled or attach a bogus ledger row to it.
+   */
+  private async resolveOrderRelation(
+    reference: string | undefined,
+    ownerId: string,
+    ownerType: 'vendor' | 'driver',
+  ): Promise<{ orderId: string | null; referenceId: string | null }> {
+    if (!reference) return { orderId: null, referenceId: null };
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: reference },
+      select: { id: true, vendorId: true, driverId: true },
+    });
+
+    if (
+      order &&
+      (ownerType === 'vendor'
+        ? order.vendorId === ownerId
+        : order.driverId === ownerId)
+    ) {
+      return { orderId: order.id, referenceId: null };
+    }
+
+    return { orderId: null, referenceId: reference };
+  }
 
   private async getDriver(userId: string) {
     const driver = await this.prisma.driver.findUnique({ where: { userId } });

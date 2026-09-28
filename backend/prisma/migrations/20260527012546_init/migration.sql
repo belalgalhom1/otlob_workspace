@@ -309,6 +309,7 @@ CREATE TABLE "conversations" (
     "creatorId" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+    "deletedAt" TIMESTAMPTZ(3),
 
     CONSTRAINT "conversations_pkey" PRIMARY KEY ("id")
 );
@@ -1045,6 +1046,9 @@ CREATE INDEX "conversations_vendorId_idx" ON "conversations"("vendorId");
 CREATE INDEX "conversations_creatorId_idx" ON "conversations"("creatorId");
 
 -- CreateIndex
+CREATE INDEX "conversations_deletedAt_idx" ON "conversations"("deletedAt");
+
+-- CreateIndex
 CREATE INDEX "conversations_createdAt_idx" ON "conversations"("createdAt");
 
 -- CreateIndex
@@ -1102,6 +1106,9 @@ CREATE INDEX "customer_coin_transactions_customerId_idx" ON "customer_coin_trans
 CREATE INDEX "customer_coin_transactions_orderId_idx" ON "customer_coin_transactions"("orderId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "customer_coin_transactions_orderId_type_key" ON "customer_coin_transactions"("orderId", "type");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "favorite_vendors_customerId_vendorId_key" ON "favorite_vendors"("customerId", "vendorId");
 
 -- CreateIndex
@@ -1157,6 +1164,9 @@ CREATE INDEX "vendor_wallet_transactions_vendorId_idx" ON "vendor_wallet_transac
 
 -- CreateIndex
 CREATE INDEX "vendor_wallet_transactions_orderId_idx" ON "vendor_wallet_transactions"("orderId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "vendor_wallet_transactions_orderId_type_key" ON "vendor_wallet_transactions"("orderId", "type");
 
 -- CreateIndex
 CREATE INDEX "vendor_wallet_transactions_createdAt_idx" ON "vendor_wallet_transactions"("createdAt");
@@ -1304,6 +1314,9 @@ CREATE INDEX "driver_wallet_transactions_driverId_idx" ON "driver_wallet_transac
 
 -- CreateIndex
 CREATE INDEX "driver_wallet_transactions_orderId_idx" ON "driver_wallet_transactions"("orderId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "driver_wallet_transactions_orderId_type_key" ON "driver_wallet_transactions"("orderId", "type");
 
 -- CreateIndex
 CREATE INDEX "driver_wallet_transactions_createdAt_idx" ON "driver_wallet_transactions"("createdAt");
@@ -1659,3 +1672,5 @@ ALTER TABLE "drivers" ADD CONSTRAINT "drivers_approvedById_fkey" FOREIGN KEY ("a
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+
