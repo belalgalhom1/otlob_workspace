@@ -33,6 +33,12 @@ export class Vendor {
   taxId?: string;
 
   @ApiProperty({ type: Number })
+  rating: number = 0;
+
+  @ApiProperty({ type: Number })
+  ratingCount: number = 0;
+
+  @ApiProperty({ type: Number })
   commissionRate: number = 10;
 
   @ApiProperty({ enum: VendorStatus, enumName: 'VendorStatus' })
@@ -49,6 +55,9 @@ export class Vendor {
 
   @ApiProperty({ type: Boolean })
   isScheduleActive: boolean = true;
+
+  @ApiProperty({ type: Boolean })
+  is24Hours: boolean = false;
 
   @ApiProperty({ type: String })
   verticalId: string;

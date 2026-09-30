@@ -260,6 +260,9 @@ export class PlatformSetting {
   maxNegativeDriverBalance: number = 500;
 
   @ApiProperty({ type: Number })
+  driverSettlementOrderThreshold: number = 10;
+
+  @ApiProperty({ type: Number })
   otpExpirySeconds: number = 900;
 
   @ApiProperty({ type: Number })

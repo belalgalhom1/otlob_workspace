@@ -39,7 +39,13 @@ export class Driver {
   rating: number = 500;
 
   @ApiProperty({ type: Number })
+  ratingCount: number = 0;
+
+  @ApiProperty({ type: Number })
   totalOrders: number;
+
+  @ApiProperty({ type: Number })
+  ordersSinceSettlement: number = 0;
 
   @ApiProperty({ type: Number })
   walletBalance: number;
