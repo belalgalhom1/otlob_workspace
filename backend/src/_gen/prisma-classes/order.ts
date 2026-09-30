@@ -14,6 +14,9 @@ export class Order {
   @ApiProperty({ type: String })
   orderNumber: string;
 
+  @ApiPropertyOptional({ type: String })
+  clientOrderKey?: string;
+
   @ApiProperty({ enum: OrderType, enumName: 'OrderType' })
   type: OrderType = OrderType.STANDARD;
 
