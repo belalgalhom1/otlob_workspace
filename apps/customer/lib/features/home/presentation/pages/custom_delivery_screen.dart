@@ -35,6 +35,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   bool _isEstimating = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
+  String? _clientOrderKey;
+
+  String _clientOrderKeyForCheckout() =>
+      _clientOrderKey ??= generateClientOrderKey();
   
   LatLng? _pickupLocation;
   LatLng? _dropoffLocation;
@@ -228,11 +232,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         details: details,
         vehicleType: _selectedVehicle,
         coinsToUse: coinsToUse,
+        idempotencyKey: _clientOrderKeyForCheckout(),
       );
 
       if (!mounted) return;
 
       if (resultId != null) {
+        _clientOrderKey = null;
         if (_serviceType == 'ride' && resultId != 'SUCCESS') {
           context.push('/order-tracking/$resultId');
         } else {

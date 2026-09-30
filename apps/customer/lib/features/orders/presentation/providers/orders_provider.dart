@@ -5,8 +5,23 @@ import 'package:built_collection/built_collection.dart';
 import 'package:core/core.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:math';
 
 part 'orders_provider.g.dart';
+
+final _keyRandom = Random.secure();
+
+/// Generates a random UUID (v4) used as the Idempotency-Key for order
+/// creation. The key is created once per checkout intent and re-sent unchanged
+/// on retries so the server can deduplicate a double-tap or a repeated request.
+String generateClientOrderKey() {
+  final bytes = List<int>.generate(16, (_) => _keyRandom.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+  final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
+      '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+}
 
 class OrdersState {
   final List<Map<String, dynamic>> activeOrders;
@@ -346,6 +361,7 @@ class Orders extends _$Orders {
     required List<double> location,
     String? specialRequest,
     int? coinsToUse,
+    String? idempotencyKey,
   }) async {
     final repository = ref.read(customerOrderRepositoryProvider);
     
@@ -377,7 +393,8 @@ class Orders extends _$Orders {
         ]);
       }
 
-      final result = await repository.placeOrder(builder.build());
+      final result = await repository.placeOrder(builder.build(),
+          idempotencyKey: idempotencyKey);
       ref.invalidateSelf();
       
       String? orderId;
@@ -407,6 +424,7 @@ class Orders extends _$Orders {
     String? vehicleType,
     String? details,
     int? coinsToUse,
+    String? idempotencyKey,
   }) async {
     final repo = ref.read(customerOrderRepositoryProvider);
     try {
@@ -450,7 +468,8 @@ class Orders extends _$Orders {
         ..itemDetails = details
         ..coinsToUse = coinsToUse);
 
-      final result = await repo.placeCustomOrder(dto);
+      final result = await repo.placeCustomOrder(dto,
+          idempotencyKey: idempotencyKey);
       ref.invalidateSelf();
       
       if (result is Map && result['data'] != null && result['data']['id'] != null) {

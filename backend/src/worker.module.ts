@@ -28,6 +28,8 @@ import { TicketsModule } from './features/tickets/tickets.module';
 import { TicketsProcessor } from './features/tickets/tickets.processor';
 import { AuditLogsModule } from './features/audit-logs/audit-logs.module';
 import { AuditLogsProcessor } from './features/audit-logs/audit-logs.processor';
+import { ReviewsProcessor } from './features/reviews/reviews.processor';
+import { EventsProcessor } from './common/listeners/events.processor';
 import { DispatchProcessor } from './features/dispatch/dispatch.processor';
 import { VendorsModule } from './features/vendors/vendors.module';
 import { VendorsProcessor } from './features/vendors/vendors.processor';
@@ -82,6 +84,8 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     PromotionsProcessor,
     DispatchProcessor,
     AuditLogsProcessor,
+    ReviewsProcessor,
+    EventsProcessor,
   ],
 })
 export class WorkerModule {}

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -17,9 +18,11 @@ import {
   OrderStatus,
   Prisma,
 } from '@prisma/client';
+import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
 
 export interface CreateOrderData {
   orderNumber: string;
+  clientOrderKey?: string | null;
   customerId: string;
   vendorId: string | null;
   vendorBranchId: string | null;
@@ -250,10 +253,17 @@ export class OrdersRepository {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Raw SQL required for geometry field
-      await tx.$executeRaw`
+      // Generate the UUID in-process so the INSERT can return it to the caller
+      // without a second round-trip (the old flow re-read the row via
+      // findFirst just to learn the id the database had generated).
+      const orderId = randomUUID();
+
+      // Raw SQL required for geometry field. ON CONFLICT (clientOrderKey) makes
+      // creation idempotent: a re-submitted Idempotency-Key inserts 0 rows and
+      // the existing order is returned instead of a duplicate.
+      const inserted = await tx.$executeRaw`
         INSERT INTO orders (
-          id, "orderNumber", type, "customerId", "vendorId", "vendorBranchId", "zoneId",
+          id, "orderNumber", "clientOrderKey", type, "customerId", "vendorId", "vendorBranchId", "zoneId",
           status, "paymentMethod", "paymentStatus",
           "pickupAddress", "pickupLocation",
           "deliveryAddress", "deliveryLocation",
@@ -261,14 +271,15 @@ export class OrdersRepository {
           "itemDetails", "requestedVehicleType",
           "specialRequest", "updatedAt"
         ) VALUES (
-          gen_random_uuid()::text,
+          ${orderId},
           ${data.orderNumber},
+          ${data.clientOrderKey ?? null},
           ${data.type}::"OrderType",
           ${data.customerId},
           ${data.vendorId},
           ${data.vendorBranchId ?? null},
           ${data.zoneId ?? null},
-          ${data.upfrontAmount > 0 ? Prisma.sql`'PENDING_PAYMENT'::"OrderStatus"` : Prisma.sql`'PENDING'::"OrderStatus"`},
+          ${Prisma.sql`'PENDING'::"OrderStatus"`},
           ${data.paymentMethod}::"PaymentMethod",
           ${data.grandTotal <= 0 ? Prisma.sql`'PAID'::"PaymentStatus"` : Prisma.sql`'PENDING'::"PaymentStatus"`},
           ${data.pickupAddress ?? null},
@@ -294,14 +305,36 @@ export class OrdersRepository {
           ${data.specialRequest ?? null},
           NOW()
         )
+        ON CONFLICT ("clientOrderKey") DO NOTHING
       `;
 
-      const created = await tx.order.findFirst({
-        where: { orderNumber: data.orderNumber },
-        select: { id: true, orderNumber: true },
-      });
+      if (inserted === 0) {
+        // The caller re-used an Idempotency-Key that already created an order.
+        // Clashing inserts serialize on the unique arbiter, so by the time this
+        // INSERT resolves the winning row is committed and visible here. We
+        // short-circuit coins/items/events and hand back the existing order.
+        const existing = await tx.order.findUnique({
+          where: { clientOrderKey: data.clientOrderKey! },
+          select: { id: true, orderNumber: true, customerId: true },
+        });
+        if (!existing) {
+          throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
+        }
+        if (existing.customerId !== data.customerId) {
+          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+        }
+        return {
+          id: existing.id,
+          orderNumber: existing.orderNumber,
+          created: false,
+        };
+      }
 
-      if (!created) throw new Error(OrderErrors.INSERT_FAILED);
+      const created = {
+        id: orderId,
+        orderNumber: data.orderNumber,
+        created: true,
+      };
 
       if (data.coinsUsed && data.coinsUsed > 0) {
         const result = await tx.customer.updateMany({
@@ -370,53 +403,81 @@ export class OrdersRepository {
         await tx.orderItemOption.createMany({ data: orderItemOptionsData });
       }
 
+      // Aggregate stock decrements by distinct variant/product id. The old loop
+      // issued 2 round-trips (pre-check read + guarded UPDATE) per line item;
+      // with N cart lines that is O(2N) in the hot create-path. Following the
+      // aggregation we only hit the database once per distinct tracked id.
+      const aggregatedVariantQty = new Map<string, number>();
+      const aggregatedProductQty = new Map<string, number>();
+
       for (const item of items) {
         if (item.quantity <= 0) {
           throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
         }
-
         if (item.variantId) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: item.variantId },
-            select: { tracksStock: true, stock: true },
-          });
-          if (variant?.tracksStock) {
-            if ((variant.stock ?? 0) < item.quantity) {
-              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-            }
-            const rows = await tx.$executeRaw`
-              UPDATE product_variants
-              SET stock = stock - ${item.quantity}
-              WHERE id = ${item.variantId}
-                AND stock IS NOT NULL
-                AND stock >= ${item.quantity}
-            `;
-            if (rows === 0) {
-              // Sold out concurrently between check and decrement
-              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-            }
-          }
+          aggregatedVariantQty.set(
+            item.variantId,
+            (aggregatedVariantQty.get(item.variantId) ?? 0) + item.quantity,
+          );
         } else if (item.productId) {
-          const product = await tx.product.findFirst({
-            where: { id: item.productId },
-            select: { tracksStock: true, stock: true },
-          });
-          if (product?.tracksStock) {
-            if ((product.stock ?? 0) < item.quantity) {
-              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-            }
-            const rows = await tx.$executeRaw`
-              UPDATE products
-              SET stock = stock - ${item.quantity}
-              WHERE id = ${item.productId}
-                AND stock IS NOT NULL
-                AND stock >= ${item.quantity}
-            `;
-            if (rows === 0) {
-              // Sold out concurrently between check and decrement
-              throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-            }
-          }
+          aggregatedProductQty.set(
+            item.productId,
+            (aggregatedProductQty.get(item.productId) ?? 0) + item.quantity,
+          );
+        }
+      }
+
+      // One batched read to learn which of the referenced variants track stock.
+      const variantIds = [...aggregatedVariantQty.keys()];
+      const trackedVariants = variantIds.length
+        ? await tx.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            select: { id: true, tracksStock: true },
+          })
+        : [];
+      const trackedVariantIds = new Set(
+        trackedVariants.filter((v) => v.tracksStock).map((v) => v.id),
+      );
+
+      for (const [variantId, qty] of aggregatedVariantQty) {
+        if (!trackedVariantIds.has(variantId)) continue;
+        const rows = await tx.$executeRaw`
+          UPDATE product_variants
+          SET stock = stock - ${qty}
+          WHERE id = ${variantId}
+            AND stock IS NOT NULL
+            AND stock >= ${qty}
+        `;
+        if (rows === 0) {
+          // Sold out concurrently between check and decrement
+          throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+        }
+      }
+
+      // Same treatment for product-level tracked stock.
+      const productIds = [...aggregatedProductQty.keys()];
+      const trackedProducts = productIds.length
+        ? await tx.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, tracksStock: true },
+          })
+        : [];
+      const trackedProductIds = new Set(
+        trackedProducts.filter((p) => p.tracksStock).map((p) => p.id),
+      );
+
+      for (const [productId, qty] of aggregatedProductQty) {
+        if (!trackedProductIds.has(productId)) continue;
+        const rows = await tx.$executeRaw`
+          UPDATE products
+          SET stock = stock - ${qty}
+          WHERE id = ${productId}
+            AND stock IS NOT NULL
+            AND stock >= ${qty}
+        `;
+        if (rows === 0) {
+          // Sold out concurrently between check and decrement
+          throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
         }
       }
 
@@ -442,7 +503,7 @@ export class OrdersRepository {
     orderNumber: string,
     driverId: string | null | undefined,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const updatedCount = await tx.order.updateMany({
         where: { id: orderId, status: expectedOldStatus },
         data: { status: OrderStatus.CANCELLED },
@@ -456,12 +517,7 @@ export class OrdersRepository {
           select: { status: true },
         });
         if (current?.status === OrderStatus.CANCELLED) {
-          const alreadyCancelled = await tx.order.findUnique({
-            where: { id: orderId },
-            include: ORDER_INCLUDE,
-          });
-          if (!alreadyCancelled) throw new Error(OrderErrors.NOT_FOUND);
-          return alreadyCancelled;
+          return;
         }
         throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
       }
@@ -512,15 +568,17 @@ export class OrdersRepository {
         where: { orderId, status: DispatchStatus.PENDING },
         data: { status: DispatchStatus.CANCELLED },
       });
-
-      const updated = await tx.order.findUnique({
-        where: { id: orderId },
-        include: ORDER_INCLUDE,
-      });
-      if (!updated) throw new Error(OrderErrors.NOT_FOUND);
-
-      return updated;
     });
+
+    // Read the response-shaped aggregate AFTER commit — the ORDER_INCLUDE tree
+    // is read-only data and does not need to hold the transaction open.
+    const updated = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: ORDER_INCLUDE,
+    });
+    if (!updated) throw new Error(OrderErrors.NOT_FOUND);
+
+    return updated;
   }
 
   async updateStatus(
@@ -531,7 +589,7 @@ export class OrdersRepository {
     extraData?: Prisma.OrderUpdateInput,
     expectedOldStatus?: OrderStatus,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       if (expectedOldStatus) {
         const count = await tx.order.updateMany({
           where: { id: orderId, status: expectedOldStatus },
@@ -547,13 +605,6 @@ export class OrdersRepository {
         });
       }
 
-      const updated = await tx.order.findUnique({
-        where: { id: orderId },
-        include: ORDER_INCLUDE,
-      });
-
-      if (!updated) throw new Error(OrderErrors.NOT_FOUND);
-
       await tx.orderStatusEvent.create({
         data: {
           orderId,
@@ -562,9 +613,20 @@ export class OrdersRepository {
           createdBy: actorUserId,
         },
       });
-
-      return updated;
     });
+
+    // Read the response-shaped aggregate AFTER commit. The write transaction
+    // must stay tight; the ORDER_INCLUDE tree (11+ relations) is read-only
+    // data that belongs outside the transaction. We also verify existence here
+    // so a missing row surfaces the same NotFound as before.
+    const updated = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: ORDER_INCLUDE,
+    });
+
+    if (!updated) throw new Error(OrderErrors.NOT_FOUND);
+
+    return updated;
   }
 
   async assignDriver(
@@ -574,7 +636,26 @@ export class OrdersRepository {
     actorUserId: string,
     nextStatus: OrderStatus = OrderStatus.DRIVER_ASSIGNED,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
+      // Serialize concurrent assignments/acceptances for THE SAME driver, then
+      // enforce the single-active-order cap inside the transaction. The caller
+      // may pre-check in a service, but only this row lock makes it airtight:
+      // a driver who accepted another order between the pre-check and here is
+      // detected and rejected instead of being double-booked.
+      await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+
+      const alreadyOnOrder = await tx.order.findFirst({
+        where: {
+          driverId,
+          id: { not: orderId },
+          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+        },
+        select: { id: true },
+      });
+      if (alreadyOnOrder) {
+        throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+      }
+
       // Fetch the current order to check if a driver is already assigned
       const existingOrder = await tx.order.findUnique({
         where: { id: orderId },
@@ -595,7 +676,7 @@ export class OrdersRepository {
         data: { status: 'CANCELLED' },
       });
 
-      const updated = await tx.order.update({
+      await tx.order.update({
         where: { id: orderId },
         data: {
           driverId,
@@ -603,7 +684,6 @@ export class OrdersRepository {
           status: nextStatus,
           driverAssignedAt: new Date(),
         },
-        include: ORDER_INCLUDE,
       });
 
       await tx.orderStatusEvent.create({
@@ -619,9 +699,15 @@ export class OrdersRepository {
         where: { id: driverId },
         data: { status: DriverStatus.ON_DELIVERY },
       });
-
-      return updated;
     });
+
+    // Response shaping happens after the write transaction commits.
+    const updated = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: ORDER_INCLUDE,
+    });
+
+    return updated;
   }
 
   async cancelPendingDispatches(orderId: string) {

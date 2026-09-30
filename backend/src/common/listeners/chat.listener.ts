@@ -1,11 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { MessageType, NotificationType } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-import {
-  NotificationsService,
-  SOCKET_EVENTS,
-} from '../../features/notifications/notifications.service';
+import { SOCKET_EVENTS } from '../../features/notifications/notifications.service';
 import {
   ChatMessageSentEvent,
   ChatMessageReadEvent,
@@ -13,6 +12,10 @@ import {
   ChatConversationClosedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
+import {
+  QUEUES,
+  EVENT_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 
 @Injectable()
 export class ChatListener {
@@ -20,10 +23,10 @@ export class ChatListener {
 
   constructor(
     private readonly socketService: SocketService,
-    private readonly notificationsService: NotificationsService,
+    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
   ) {}
 
-  @OnEvent(EVENTS.CHAT_MESSAGE_SENT)
+  @OnEvent(EVENTS.CHAT_MESSAGE_SENT, { async: true })
   async handleMessageSent(event: ChatMessageSentEvent) {
     const isSystem = event.type === MessageType.SYSTEM;
 
@@ -41,8 +44,10 @@ export class ChatListener {
       createdAt: event.createdAt,
     };
 
+    // Realtime socket fan-out stays inline; only the DB batch (createMany)
+    // for push/notification records is offloaded to the worker.
     this.logger.log(
-      `📣 Notifying participants: ${event.participantIds.join(', ')}`,
+      `Notifying chat participants: ${event.participantIds.join(', ')}`,
     );
     await Promise.all(
       event.participantIds.map((userId) =>
@@ -61,13 +66,12 @@ export class ChatListener {
     const recipients = event.participantIds.filter(
       (id) => id !== event.senderId,
     );
-    const preview = this.buildPreview(event);
 
     const notificationPayloads = recipients.map((userId) => ({
       userId,
       title: 'New message',
       titleAr: 'رسالة جديدة',
-      body: preview,
+      body: this.buildPreview(event),
       bodyAr: null,
       type: NotificationType.CHAT_MESSAGE,
       data: {
@@ -78,13 +82,19 @@ export class ChatListener {
       },
     }));
 
-    await this.notificationsService
-      .createMany(notificationPayloads)
-      .catch((err: unknown) =>
-        this.logger.error(
-          `Failed to batch create chat notifications: ${err instanceof Error ? err.message : String(err)}`,
-        ),
+    if (!notificationPayloads.length) return;
+
+    try {
+      await this.eventsQueue.add(
+        EVENT_JOBS.CHAT_NOTIFICATIONS,
+        { dtos: notificationPayloads },
+        { attempts: 1 },
       );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue chat notifications: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   @OnEvent(EVENTS.CHAT_MESSAGE_READ)

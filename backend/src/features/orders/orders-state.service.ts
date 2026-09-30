@@ -13,6 +13,7 @@ import {
 } from './orders.repository';
 import { CartService } from '../cart/cart.service';
 import { DispatchService } from '../dispatch/dispatch.service';
+import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
   PlaceOrderDto,
@@ -191,6 +192,18 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
+    // Mobile-wallet orders are paid before pickup: the driver must never be able
+    // to advance the order while payment is still unpaid. The confirmation flow
+    // (driverConfirmPayment) writes paymentStatus=COMPLETED when it advances the
+    // order, so no transition here may run ahead of that.
+    if (
+      order.paymentMethod === 'MOBILE_WALLET' &&
+      order.paymentStatus !== 'COMPLETED' &&
+      dto.status !== OrderStatus.PENDING_PAYMENT
+    ) {
+      throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
+    }
+
     return this.applyStatusTransition(actor, order, dto);
   }
 
@@ -215,7 +228,19 @@ export class OrdersStateService {
 
     if (dto.response === 'ACCEPTED') {
       try {
-        await this.dispatchService.handleAcceptance(dispatchId, driver.id);
+        const assigned = await this.dispatchService.handleAcceptance(
+          dispatchId,
+          driver.id,
+        );
+
+        // The dispatch is no longer available for this driver (expired,
+        // already won by someone else, or cancelled). Surface a real error
+        // instead of pretending the acceptance succeeded.
+        if (!assigned) {
+          throw new BadRequestException(
+            OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED,
+          );
+        }
 
         // Emit purely for analytical tracking after successful assignment
         this.eventEmitter.emit(
@@ -234,6 +259,9 @@ export class OrdersStateService {
           throw new BadRequestException(
             OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED,
           );
+        }
+        if ((error as Error).message === OrderErrors.DRIVER_ALREADY_ON_ORDER) {
+          throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
         }
         throw error;
       }
@@ -277,6 +305,19 @@ export class OrdersStateService {
 
     if (driver.status === 'SUSPENDED') {
       throw new BadRequestException(OrderErrors.CANNOT_ASSIGN_SUSPENDED_DRIVER);
+    }
+
+    // Never put a driver on a second live order.
+    const activeOrder = await this.prisma.order.findFirst({
+      where: {
+        driverId: driver.id,
+        id: { not: orderId },
+        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+      },
+      select: { id: true },
+    });
+    if (activeOrder) {
+      throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
     }
 
     // Get active shift if any

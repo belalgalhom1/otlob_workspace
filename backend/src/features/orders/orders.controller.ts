@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Query,
+  Headers,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -28,6 +29,7 @@ import { RequirePermissions } from 'src/common/decorators/permissions.decorator'
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { Permission, Role } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
 import { OrdersCheckoutService } from './orders-checkout.service';
@@ -52,25 +54,35 @@ export class OrdersController {
   // ═══════════════════════════════════════════════════════════════════════════
 
   @ApiStandardResponse(OrderResponseDto)
+  @Throttle({
+    short: { limit: 3, ttl: 60000 },
+    medium: { limit: 10, ttl: 300000 },
+  })
   @Post()
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Place a new order from active cart' })
   placeOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: PlaceOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.checkoutService.placeOrder(actor, dto);
+    return this.checkoutService.placeOrder(actor, dto, idempotencyKey);
   }
 
   @ApiStandardResponse(OrderResponseDto)
+  @Throttle({
+    short: { limit: 3, ttl: 60000 },
+    medium: { limit: 10, ttl: 300000 },
+  })
   @Post('custom')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Place a custom delivery or ride order' })
   placeCustomOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: PlaceCustomOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.checkoutService.placeCustomOrder(actor, dto);
+    return this.checkoutService.placeCustomOrder(actor, dto, idempotencyKey);
   }
 
   @ApiStandardResponse(OrderFeeEstimateDto)
@@ -285,6 +297,10 @@ export class OrdersController {
   // ─── Order Item Modifications & Direct Orders ────────────────────────────────
 
   @ApiStandardResponse(OrderResponseDto)
+  @Throttle({
+    short: { limit: 3, ttl: 60000 },
+    medium: { limit: 10, ttl: 300000 },
+  })
   @Post('admin/direct')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.VENDOR_MEMBER)
   @ApiOperation({
@@ -293,7 +309,12 @@ export class OrdersController {
   adminPlaceDirectOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: PlaceDirectOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.checkoutService.adminPlaceDirectOrder(actor, dto);
+    return this.checkoutService.adminPlaceDirectOrder(
+      actor,
+      dto,
+      idempotencyKey,
+    );
   }
 }

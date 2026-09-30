@@ -67,7 +67,12 @@ export class OrdersCheckoutService {
     private readonly stateService: OrdersStateService,
   ) {}
 
-  async placeOrder(actor: JwtAccessPayload, dto: PlaceOrderDto) {
+  async placeOrder(
+    actor: JwtAccessPayload,
+    dto: PlaceOrderDto,
+    idempotencyKey?: string,
+  ) {
+    const clientOrderKey = idempotencyKey?.trim() || null;
     const { customerId, coinBalance, cart } =
       await this.cartService.validateForCheckout(actor.sub, dto.vendorId);
 
@@ -102,6 +107,7 @@ export class OrdersCheckoutService {
     const created = await this.ordersRepository.createOrder(
       {
         orderNumber,
+        clientOrderKey,
         customerId,
         vendorId: dto.vendorId ?? null,
         vendorBranchId: money.branch?.id ?? null,
@@ -135,28 +141,31 @@ export class OrdersCheckoutService {
 
     // The cart listener will catch ORDER_CREATED and clear the cart automatically.
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-      dto.vendorId,
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_CREATED,
-      new OrderCreatedEvent(
-        created.id,
-        created.orderNumber,
-        customerId,
-        actor.sub,
+    if (created.created) {
+      const vendorUserIds = await this.ordersRepository.getVendorUserIds(
         dto.vendorId,
-        vendorUserIds,
-        money.grandTotal,
-        dto.paymentMethod,
-        'STANDARD',
-      ),
-    );
+      );
 
-    this.logger.log(
-      `Order placed: ${created.orderNumber} by user ${actor.sub}`,
-    );
+      this.eventEmitter.emit(
+        EVENTS.ORDER_CREATED,
+        new OrderCreatedEvent(
+          created.id,
+          created.orderNumber,
+          customerId,
+          actor.sub,
+          dto.vendorId,
+          vendorUserIds,
+          money.grandTotal,
+          dto.paymentMethod,
+          'STANDARD',
+        ),
+      );
+
+      this.logger.log(
+        `Order placed: ${created.orderNumber} by user ${actor.sub}`,
+      );
+    }
+
     return this.ordersRepository.findById(created.id);
   }
 
@@ -506,7 +515,12 @@ export class OrdersCheckoutService {
     };
   }
 
-  async placeCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
+  async placeCustomOrder(
+    actor: JwtAccessPayload,
+    dto: PlaceCustomOrderDto,
+    idempotencyKey?: string,
+  ) {
+    const clientOrderKey = idempotencyKey?.trim() || null;
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
       select: { id: true, coinBalance: true },
@@ -539,6 +553,7 @@ export class OrdersCheckoutService {
     const created = await this.ordersRepository.createOrder(
       {
         orderNumber,
+        clientOrderKey,
         customerId,
         vendorId: null,
         vendorBranchId: null,
@@ -573,58 +588,63 @@ export class OrdersCheckoutService {
     // Custom Orders have no vendor to accept them:
     // If no upfront payment is required, dispatch immediately;
     // if upfront payment is required, order stays in PENDING_PAYMENT until customer pays.
-    if (upfrontAmount === 0) {
-      await this.ordersRepository.updateStatus(
-        created.id,
-        'LOOKING_FOR_DRIVER',
-        'system',
-        'Auto-dispatched custom order',
-      );
-
-      this.eventEmitter.emit(
-        EVENTS.ORDER_STATUS_CHANGED,
-        new OrderStatusChangedEvent(
+    if (created.created) {
+      if (upfrontAmount === 0) {
+        await this.ordersRepository.updateStatus(
           created.id,
-          created.orderNumber,
-          OrderStatus.PENDING,
-          OrderStatus.LOOKING_FOR_DRIVER,
-          customerId,
-          actor.sub,
-          null,
-          [],
-          null,
-          null,
+          'LOOKING_FOR_DRIVER',
           'system',
           'Auto-dispatched custom order',
+        );
+
+        this.eventEmitter.emit(
+          EVENTS.ORDER_STATUS_CHANGED,
+          new OrderStatusChangedEvent(
+            created.id,
+            created.orderNumber,
+            OrderStatus.PENDING,
+            OrderStatus.LOOKING_FOR_DRIVER,
+            customerId,
+            actor.sub,
+            null,
+            [],
+            null,
+            null,
+            'system',
+            'Auto-dispatched custom order',
+          ),
+        );
+      }
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_CREATED,
+        new OrderCreatedEvent(
+          created.id,
+          created.orderNumber,
+          customerId,
+          actor.sub,
+          null, // No vendor
+          [], // No vendor members
+          grandTotal,
+          dto.paymentMethod,
+          dto.type,
         ),
+      );
+
+      this.logger.log(
+        `${dto.type} order placed: ${created.orderNumber} by user ${actor.sub}`,
       );
     }
 
-    this.eventEmitter.emit(
-      EVENTS.ORDER_CREATED,
-      new OrderCreatedEvent(
-        created.id,
-        created.orderNumber,
-        customerId,
-        actor.sub,
-        null, // No vendor
-        [], // No vendor members
-        grandTotal,
-        dto.paymentMethod,
-        dto.type,
-      ),
-    );
-
-    this.logger.log(
-      `${dto.type} order placed: ${created.orderNumber} by user ${actor.sub}`,
-    );
     return this.ordersRepository.findById(created.id);
   }
 
   async adminPlaceDirectOrder(
     actor: JwtAccessPayload,
     dto: PlaceDirectOrderDto,
+    idempotencyKey?: string,
   ) {
+    const clientOrderKey = idempotencyKey?.trim() || null;
     if (actor.role !== Role.SUPER_ADMIN && actor.role !== Role.ADMIN) {
       const isVendorMember = await this.prisma.vendorMember.findUnique({
         where: {
@@ -674,6 +694,7 @@ export class OrdersCheckoutService {
     const orderNumber = await this.ordersRepository.generateOrderNumber();
     const orderData: CreateOrderData = {
       orderNumber,
+      clientOrderKey,
       customerId: customer.id,
       vendorId: dto.vendorId,
       vendorBranchId: null,
@@ -724,56 +745,58 @@ export class OrdersCheckoutService {
 
     // Direct orders placed by a vendor/admin skip the customer-approval step and
     // are treated as accepted immediately (createOrder sets PENDING by default).
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: { status: OrderStatus.ACCEPTED },
-    });
+    if (order.created) {
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.ACCEPTED },
+      });
 
-    // Also update the status event to ACCEPTED instead of whatever createOrder created
-    await this.prisma.orderStatusEvent.updateMany({
-      where: { orderId: order.id },
-      data: {
-        status: OrderStatus.ACCEPTED,
-        note: 'Order created by Vendor/Admin directly from chat',
-      },
-    });
+      // Also update the status event to ACCEPTED instead of whatever createOrder created
+      await this.prisma.orderStatusEvent.updateMany({
+        where: { orderId: order.id },
+        data: {
+          status: OrderStatus.ACCEPTED,
+          note: 'Order created by Vendor/Admin directly from chat',
+        },
+      });
 
-    const vendorUserIds = orderData.vendorId
-      ? await this.ordersRepository.getVendorUserIds(orderData.vendorId)
-      : [];
+      const vendorUserIds = orderData.vendorId
+        ? await this.ordersRepository.getVendorUserIds(orderData.vendorId)
+        : [];
 
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        order.id,
-        orderData.orderNumber,
-        OrderStatus.PENDING,
-        OrderStatus.ACCEPTED,
-        orderData.customerId,
-        customer.userId,
-        orderData.vendorId,
-        vendorUserIds,
-        null,
-        null,
-        actor.sub,
-        'Order created by Vendor/Admin directly from chat',
-      ),
-    );
+      this.eventEmitter.emit(
+        EVENTS.ORDER_STATUS_CHANGED,
+        new OrderStatusChangedEvent(
+          order.id,
+          orderData.orderNumber,
+          OrderStatus.PENDING,
+          OrderStatus.ACCEPTED,
+          orderData.customerId,
+          customer.userId,
+          orderData.vendorId,
+          vendorUserIds,
+          null,
+          null,
+          actor.sub,
+          'Order created by Vendor/Admin directly from chat',
+        ),
+      );
 
-    this.eventEmitter.emit(
-      EVENTS.ORDER_CREATED,
-      new OrderCreatedEvent(
-        order.id,
-        orderData.orderNumber,
-        orderData.customerId,
-        customer.userId,
-        orderData.vendorId,
-        vendorUserIds,
-        orderData.grandTotal,
-        orderData.paymentMethod,
-        orderData.type,
-      ),
-    );
+      this.eventEmitter.emit(
+        EVENTS.ORDER_CREATED,
+        new OrderCreatedEvent(
+          order.id,
+          orderData.orderNumber,
+          orderData.customerId,
+          customer.userId,
+          orderData.vendorId,
+          vendorUserIds,
+          orderData.grandTotal,
+          orderData.paymentMethod,
+          orderData.type,
+        ),
+      );
+    }
 
     return order;
   }

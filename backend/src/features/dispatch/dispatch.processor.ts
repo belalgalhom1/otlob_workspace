@@ -1,22 +1,27 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { OrdersStateService } from '../orders/orders-state.service';
 import { OrdersRepository } from '../orders/orders.repository';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { LocationRepository } from '../../infrastructure/location/location.repository';
 import {
   QUEUES,
   ORDER_JOBS,
+  CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
 import { OrderStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EVENTS } from 'src/common/events/event-names';
 import { OrderStatusChangedEvent } from 'src/common/events';
 
-@Processor(QUEUES.DISPATCH, { concurrency: 50 })
-export class DispatchProcessor extends WorkerHost {
+// Dispatch broadcasts already fan out to dozens of drivers per job; running 50
+// of them concurrently just queues more DB/Redis waits behind the shared pool.
+// 10 aligns with the worker's default Prisma pool (DB_POOL_SIZE=10).
+@Processor(QUEUES.DISPATCH, { concurrency: 10 })
+export class DispatchProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(DispatchProcessor.name);
 
   constructor(
@@ -25,10 +30,23 @@ export class DispatchProcessor extends WorkerHost {
     private readonly ordersRepository: OrdersRepository,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
+    private readonly locationRepository: LocationRepository,
     private readonly eventEmitter: EventEmitter2,
     @InjectQueue(QUEUES.DISPATCH) private readonly queue: Queue,
   ) {
     super();
+  }
+
+  async onModuleInit() {
+    this.logger.log('Scheduling geo freshness sweep cron...');
+    await this.queue.add(
+      CRON_JOBS.GEO_FRESHNESS_SWEEP,
+      {},
+      {
+        repeat: { pattern: '*/5 * * * *' },
+        jobId: CRON_JOBS.GEO_FRESHNESS_SWEEP,
+      },
+    );
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
@@ -39,6 +57,8 @@ export class DispatchProcessor extends WorkerHost {
         return this.handleDispatch(job);
       case ORDER_JOBS.DISPATCH_EXPIRE:
         return this.handleDispatchExpire(job);
+      case CRON_JOBS.GEO_FRESHNESS_SWEEP:
+        return this.handleGeoFreshnessSweep();
       default:
         this.logger.warn(`Unknown job name: ${job.name}`);
         return { ignored: true, reason: 'unknown_job_name' };
@@ -84,7 +104,7 @@ export class DispatchProcessor extends WorkerHost {
 
     // Transition to LOOKING_FOR_DRIVER if still in initial ACCEPTED state
     if (order.status === OrderStatus.ACCEPTED) {
-      await this.ordersRepository.updateStatus(
+      const fullOrder = await this.ordersRepository.updateStatus(
         orderId,
         OrderStatus.LOOKING_FOR_DRIVER,
         'system',
@@ -93,14 +113,9 @@ export class DispatchProcessor extends WorkerHost {
         OrderStatus.ACCEPTED,
       );
 
-      const fullOrder = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          customer: true,
-          vendor: { include: { members: true } },
-          driver: true,
-        },
-      });
+      const vendorUserIds = fullOrder?.vendorId
+        ? await this.ordersRepository.getVendorUserIds(fullOrder.vendorId)
+        : [];
 
       if (fullOrder) {
         this.eventEmitter.emit(
@@ -113,7 +128,7 @@ export class DispatchProcessor extends WorkerHost {
             fullOrder.customerId,
             fullOrder.customer?.userId || fullOrder.customerId,
             fullOrder.vendorId,
-            fullOrder.vendor?.members.map((m: any) => m.userId) || [],
+            vendorUserIds,
             fullOrder.driverId,
             fullOrder.driver?.userId || null,
             'system',
@@ -149,9 +164,9 @@ export class DispatchProcessor extends WorkerHost {
       return { noDriversFound: true, attempts: attempt, autoCancelled: true };
     }
 
-    let dispatched = false;
+    let outcome: Awaited<ReturnType<DispatchService['attemptDispatch']>>;
     try {
-      dispatched = await this.dispatchService.attemptDispatch({
+      outcome = await this.dispatchService.attemptDispatch({
         orderId,
         orderNumber,
         attempt,
@@ -165,7 +180,24 @@ export class DispatchProcessor extends WorkerHost {
       throw err; // Re-throw for BullMQ retry
     }
 
-    if (!dispatched) {
+    if (outcome === 'invalid') {
+      this.logger.warn(
+        `Dispatch invalid for ${orderNumber} (attempt ${attempt})`,
+      );
+      return { invalid: true, attempt };
+    }
+
+    if (outcome === 'in_flight') {
+      this.logger.warn(
+        `Dispatch already in flight for ${orderNumber} (attempt ${attempt})`,
+      );
+      // Another dispatch round is active for this order — do NOT schedule a
+      // duplicate broadcast. The active round's expiry watchdog resumes the
+      // attempt cycle.
+      return { inFlight: true, attempt };
+    }
+
+    if (outcome === 'no_drivers') {
       this.logger.warn(
         `No drivers available for ${orderNumber} (attempt ${attempt})`,
       );
@@ -189,5 +221,16 @@ export class DispatchProcessor extends WorkerHost {
     // We delegate the expiry logic to the DispatchService since it requires Redis
     await this.dispatchService.handleExpiry(job.data);
     return { success: true, processedExpiry: true };
+  }
+
+  // ─── Global geo-pool hygiene ──────────────────────────────────────────────
+
+  private async handleGeoFreshnessSweep() {
+    const started = Date.now();
+    const result = await this.locationRepository.sweepStaleDriverLocations();
+    this.logger.log(
+      `Geo freshness sweep done in ${Date.now() - started}ms (scanned ${result.scanned}, pruned ${result.removed})`,
+    );
+    return result;
   }
 }

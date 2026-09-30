@@ -6,7 +6,15 @@ import { RequirePermissions } from 'src/common/decorators/permissions.decorator'
 import { VendorMember } from 'src/common/decorators/vendor-member.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Permission, Role, StatisticPeriod } from '@prisma/client';
-import { IsEnum, IsOptional, IsInt, Min, Max } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsISO8601,
+  ValidateIf,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
@@ -28,6 +36,15 @@ class StatsQueryDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number = 30;
+
+  @IsISO8601()
+  @IsOptional()
+  from?: string;
+
+  @IsISO8601()
+  @IsOptional()
+  @ValidateIf((o: StatsQueryDto) => o.from !== undefined)
+  to?: string;
 }
 
 @ApiTags('Statistics')
@@ -43,6 +60,8 @@ export class StatisticsController {
   @VendorMember({ vendorIdParam: 'vendorId' })
   @ApiOperation({ summary: 'Get vendor statistics (member or admin)' })
   @ApiQuery({ name: 'period', enum: StatisticPeriod, required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
   getVendorStats(
     @Param('vendorId') vendorId: string,
     @Query() dto: StatsQueryDto,
@@ -51,6 +70,8 @@ export class StatisticsController {
       vendorId,
       dto.period ?? StatisticPeriod.DAILY,
       dto.limit,
+      dto.from,
+      dto.to,
     );
   }
 
@@ -68,6 +89,8 @@ export class StatisticsController {
   @Get('driver/me')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my driver statistics' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
   getMyDriverStats(
     @CurrentUser() actor: JwtAccessPayload,
     @Query() dto: StatsQueryDto,
@@ -76,6 +99,8 @@ export class StatisticsController {
       actor.sub,
       dto.period ?? StatisticPeriod.DAILY,
       dto.limit,
+      dto.from,
+      dto.to,
     );
   }
 
@@ -85,10 +110,14 @@ export class StatisticsController {
   @Get('app')
   @RequirePermissions(Permission.VIEW_STATISTICS)
   @ApiOperation({ summary: '[Admin] Get platform-wide statistics' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
   getAppStats(@Query() dto: StatsQueryDto) {
     return this.statisticsService.getAppStats(
       dto.period ?? StatisticPeriod.DAILY,
       dto.limit,
+      dto.from,
+      dto.to,
     );
   }
 
@@ -98,6 +127,8 @@ export class StatisticsController {
   @Get('drivers/:driverId')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Get statistics for a specific driver' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
   getDriverStats(
     @Param('driverId') driverId: string,
     @Query() dto: StatsQueryDto,
@@ -106,6 +137,8 @@ export class StatisticsController {
       driverId,
       dto.period ?? StatisticPeriod.DAILY,
       dto.limit,
+      dto.from,
+      dto.to,
     );
   }
 

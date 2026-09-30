@@ -67,6 +67,24 @@ export class DriverShiftsController {
     return this.shiftsService.adminAssignShift(dto);
   }
 
+  @ApiStandardResponse()
+  @Delete('admin/shifts/:shiftId')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({ summary: '[Admin] Remove a driver from a shift' })
+  removeDriverFromShift(@Param('shiftId') shiftId: string) {
+    return this.shiftsService.removeDriverFromShift(shiftId);
+  }
+
+  @ApiStandardResponse()
+  @Delete('admin/pools/:poolId/drivers')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({
+    summary: '[Admin] Remove all drivers from a shift pool (keep the pool)',
+  })
+  removeAllDriversFromPool(@Param('poolId') poolId: string) {
+    return this.shiftsService.removeAllDriversFromPool(poolId);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // DRIVER APP ENDPOINTS
   // ═══════════════════════════════════════════════════════════════════════════

@@ -45,6 +45,10 @@ class EnvironmentVariables {
   @IsString()
   DATABASE_URL!: string;
 
+  @IsOptional()
+  @IsNumber()
+  DB_POOL_SIZE?: number;
+
   @IsString()
   REDIS_URL!: string;
 

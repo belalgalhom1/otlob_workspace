@@ -269,6 +269,15 @@ export class DriversService {
   }
 
   async endShiftBySystem(driverId: string, shiftId: string) {
+    // Never end a shift while the driver is mid-delivery: the driver stays
+    // ON_DELIVERY until the order completes, so leave the shift ACTIVE and let
+    // the next cron pass end it once they are free. Ending it here (with the
+    // driver forced OFFLINE by the sweep) would conflict with the live order.
+    const driverById = await this.driversRepository.findById(driverId);
+    if (!driverById || driverById.status === DriverStatus.ON_DELIVERY) {
+      return;
+    }
+
     const shift = await this.driversRepository.findShiftById(shiftId, driverId);
     if (!shift || shift.status !== DriverShiftStatus.ACTIVE) {
       return;

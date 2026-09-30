@@ -1,12 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { StatisticsRepository } from './statistics.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { OrderSettledEvent, DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { SocketService } from '../../infrastructure/socket/socket.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import { Prisma, StatisticPeriod, DriverStatus } from '@prisma/client';
+import {
+  QUEUES,
+  STATS_JOBS,
+} from '../../infrastructure/queue/queues.constants';
+import type { StatPeriodRange } from './statistics.repository';
 
 export interface SettleOrderPayload {
   orderId: string;
@@ -44,7 +52,11 @@ export class StatisticsService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly socketService: SocketService,
+    private readonly redisService: RedisService,
+    @InjectQueue(QUEUES.STATS) private readonly statsQueue: Queue,
   ) {}
+
+  /** Tracks driver online-session start timestamps for onlineHours accrual. */
 
   // ─── Settle a delivered order ─────────────────────────────────────────────
 
@@ -130,6 +142,13 @@ export class StatisticsService {
     //  - If a DELIVERY_FEE wallet transaction already exists for this order, the
     //    order was already settled — we skip all side effects (wallet credits,
     //    counters, stats) so nothing can be applied twice.
+    //  - Stats are written asynchronously via the stats queue AFTER commit, so
+    //    the settlement transaction stays short (money only) and the stat
+    //    workers scale independently.
+    const now = new Date();
+    const periods = this.statsRepository.getPeriodsForDate(now);
+    let applied = false;
+
     await this.prisma.$transaction(async (client) => {
       await client.$executeRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
 
@@ -141,6 +160,23 @@ export class StatisticsService {
           `Order ${orderNumber} already settled — skipping duplicate settlement.`,
         );
         return;
+      }
+      applied = true;
+
+      // Serialize concurrent settlements exactly once per affected row. The
+      // order guard above already serializes duplicate jobs for THIS order;
+      // locking the driver and vendor guards here (fixed order: order → driver
+      // → vendor) prevents two settlements of different orders for the same
+      // driver/vendor from corrupting each other's balance. Wallet helpers are
+      // then told to skip re-locking (they would otherwise re-acquire it up to
+      // 4× per settlement).
+      await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+
+      if (vendorId && isContracted) {
+        // Vendor revenue + commission are applied below; lock the vendor once
+        // here (after the driver guard, matching acquisition order everywhere)
+        // so the two wallet writes don't each re-acquire the same row lock.
+        await client.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorId} FOR UPDATE`;
       }
 
       if (isDriverCollected) {
@@ -159,6 +195,7 @@ export class StatisticsService {
           driverShiftId,
           `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
           'CASH_COLLECTED',
+          { skipLock: true },
         );
       }
 
@@ -170,6 +207,7 @@ export class StatisticsService {
         driverShiftId,
         `Delivery fee for order ${orderNumber}`,
         'DELIVERY_FEE',
+        { skipLock: true },
       );
 
       if (driverBonusFee > 0) {
@@ -181,6 +219,7 @@ export class StatisticsService {
           driverShiftId,
           `Time-based bonus for order ${orderNumber}`,
           'BONUS',
+          { skipLock: true },
         );
       }
 
@@ -193,6 +232,7 @@ export class StatisticsService {
           driverShiftId,
           `Reimbursement for online upfront payment`,
           'ADJUSTMENT',
+          { skipLock: true },
         );
       }
 
@@ -286,6 +326,7 @@ export class StatisticsService {
           orderId,
           `Order ${orderNumber} revenue`,
           client,
+          { skipLock: true },
         );
 
         await this.statsRepository.debitVendorWallet(
@@ -295,55 +336,76 @@ export class StatisticsService {
           orderId,
           `Commission for order ${orderNumber}`,
           client,
-        );
-      }
-
-      const now = new Date();
-      const periods = this.statsRepository.getPeriodsForDate(now);
-
-      // Upsert all stat periods sequentially inside the same transaction
-      for (const { period, startDate, endDate } of periods) {
-        if (vendorId) {
-          await this.statsRepository.upsertVendorStat(
-            vendorId,
-            period,
-            startDate,
-            endDate,
-            {
-              totalOrders: 1,
-              totalRevenue: vendorRevenue,
-              totalCommission: isContracted ? commission : 0,
-              totalTax: tax,
-              completedOrders: 1,
-            },
-            client,
-          );
-        }
-        await this.statsRepository.upsertDriverStat(
-          driverId,
-          period,
-          startDate,
-          endDate,
-          {
-            totalOrders: 1,
-            totalEarnings: driverEarnings,
-            completedOrders: 1,
-          },
-          client,
-        );
-        await this.statsRepository.upsertAppStat(
-          period,
-          startDate,
-          endDate,
-          {
-            totalOrders: 1,
-            totalAdminRevenue: platformRevenue,
-            totalDeliveryFees: deliveryFee,
-          },
-          client,
+          { skipLock: true },
         );
       }
     });
+
+    // ─── Stats are applied via the queue after commit ───────────────────────
+    // The worker upserts the event-time DAILY bucket; coarser buckets are
+    // re-bucketed from DAILY on read (see statistics.repository).
+    // Exactly-once is enforced by the processing-marker claim inside the same
+    // transaction as the increment (see statistics.processor), not by job
+    // attempts — retries are therefore safe. Jobs carry an explicit payload.
+    if (applied) {
+      const statsJobs: Array<Promise<void>> = [
+        this.enqueueStatsJob({
+          name: STATS_JOBS.UPDATE_DRIVER,
+          sourceKey: `settle:${orderId}:${STATS_JOBS.UPDATE_DRIVER}`,
+          data: {
+            driverId,
+            increment: {
+              totalOrders: 1,
+              totalEarnings: driverEarnings,
+              completedOrders: 1,
+            },
+          },
+          periods,
+        }),
+        this.enqueueStatsJob({
+          name: STATS_JOBS.UPDATE_APP,
+          sourceKey: `settle:${orderId}:${STATS_JOBS.UPDATE_APP}`,
+          data: {
+            increment: {
+              totalOrders: 1,
+              totalAdminRevenue: platformRevenue,
+              totalDeliveryFees: deliveryFee,
+            },
+          },
+          periods,
+        }),
+      ];
+
+      if (vendorId) {
+        statsJobs.push(
+          this.enqueueStatsJob({
+            name: STATS_JOBS.UPDATE_VENDOR,
+            sourceKey: `settle:${orderId}:${STATS_JOBS.UPDATE_VENDOR}`,
+            data: {
+              vendorId,
+              increment: {
+                totalOrders: 1,
+                totalRevenue: vendorRevenue,
+                totalCommission: isContracted ? commission : 0,
+                totalTax: tax,
+                completedOrders: 1,
+              },
+            },
+            periods,
+          }),
+        );
+      }
+
+      await Promise.all(
+        statsJobs.map((job) =>
+          job.catch((err: unknown) =>
+            this.logger.error(
+              `Failed to enqueue stats for order ${orderNumber}: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+          ),
+        ),
+      );
+    }
 
     // Emit events after a successful commit only
     for (const effect of statusEffects) {
@@ -408,146 +470,271 @@ export class StatisticsService {
   // ─── Record cancelled order ───────────────────────────────────────────────
 
   async recordCancellation(
+    orderId: string,
     vendorId: string | null,
     driverId: string | null,
   ): Promise<void> {
-    const now = new Date();
-    const periods = this.statsRepository.getPeriodsForDate(now);
+    const periods = this.statsRepository.getPeriodsForDate(new Date());
 
-    await Promise.all(
-      periods.flatMap(({ period, startDate, endDate }) => {
-        const jobs: Promise<any>[] = [
-          this.statsRepository.upsertAppStat(period, startDate, endDate, {
-            totalOrders: 1,
-          }),
-        ];
-
-        if (vendorId) {
-          jobs.push(
-            this.statsRepository.upsertVendorStat(
-              vendorId,
-              period,
-              startDate,
-              endDate,
-              {
-                totalOrders: 1,
-                cancelledOrders: 1,
-              },
-            ),
-          );
-        }
-
-        if (driverId) {
-          jobs.push(
-            this.statsRepository.upsertDriverStat(
-              driverId,
-              period,
-              startDate,
-              endDate,
-              {
-                totalOrders: 1,
-                cancelledOrders: 1,
-              },
-            ),
-          );
-        }
-
-        return jobs;
+    await Promise.all([
+      this.enqueueStatsJob({
+        name: STATS_JOBS.UPDATE_APP,
+        sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_APP}`,
+        data: { increment: { totalOrders: 1 } },
+        periods,
       }),
+      ...(vendorId
+        ? [
+            this.enqueueStatsJob({
+              name: STATS_JOBS.UPDATE_VENDOR,
+              sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_VENDOR}`,
+              data: {
+                vendorId,
+                increment: { totalOrders: 1, cancelledOrders: 1 },
+              },
+              periods,
+            }),
+          ]
+        : []),
+      ...(driverId
+        ? [
+            this.enqueueStatsJob({
+              name: STATS_JOBS.UPDATE_DRIVER,
+              sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_DRIVER}`,
+              data: {
+                driverId,
+                increment: { totalOrders: 1, cancelledOrders: 1 },
+              },
+              periods,
+            }),
+          ]
+        : []),
+    ]).catch((err: unknown) =>
+      this.logger.error(
+        `Failed to record cancellation stats: ${err instanceof Error ? err.message : String(err)}`,
+      ),
     );
   }
 
   // ─── Dispatch counters ────────────────────────────────────────────────────
 
-  async recordDispatchSent(driverId: string): Promise<void> {
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertDriverStat(
-          driverId,
-          period,
-          startDate,
-          endDate,
-          {
-            totalDispatchesReceived: 1,
-          },
-        ),
-      ),
-    );
+  async recordDispatchSent(
+    dispatchId: string,
+    driverId: string,
+  ): Promise<void> {
+    await this.enqueueStatsJob({
+      name: STATS_JOBS.UPDATE_DRIVER,
+      sourceKey: `dispatch-sent:${dispatchId}`,
+      data: { driverId, increment: { totalDispatchesReceived: 1 } },
+      periods: this.statsRepository.getPeriodsForDate(new Date()),
+    });
   }
 
-  async recordDispatchAccepted(driverId: string): Promise<void> {
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertDriverStat(
-          driverId,
-          period,
-          startDate,
-          endDate,
-          {
-            dispatchesAccepted: 1,
-          },
-        ),
-      ),
-    );
+  async recordDispatchAccepted(
+    dispatchId: string,
+    driverId: string,
+  ): Promise<void> {
+    await this.enqueueStatsJob({
+      name: STATS_JOBS.UPDATE_DRIVER,
+      sourceKey: `dispatch-accepted:${dispatchId}`,
+      data: { driverId, increment: { dispatchesAccepted: 1 } },
+      periods: this.statsRepository.getPeriodsForDate(new Date()),
+    });
   }
 
-  async recordDispatchRejected(driverId: string): Promise<void> {
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertDriverStat(
-          driverId,
-          period,
-          startDate,
-          endDate,
-          {
-            dispatchesRejected: 1,
-          },
-        ),
-      ),
-    );
+  async recordDispatchRejected(
+    dispatchId: string,
+    driverId: string,
+  ): Promise<void> {
+    await this.enqueueStatsJob({
+      name: STATS_JOBS.UPDATE_DRIVER,
+      sourceKey: `dispatch-rejected:${dispatchId}`,
+      data: { driverId, increment: { dispatchesRejected: 1 } },
+      periods: this.statsRepository.getPeriodsForDate(new Date()),
+    });
   }
 
-  async recordDispatchExpired(driverId: string): Promise<void> {
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertDriverStat(
-          driverId,
-          period,
-          startDate,
-          endDate,
-          {
-            dispatchesExpired: 1,
-          },
-        ),
-      ),
+  async recordDispatchExpired(
+    dispatchId: string,
+    driverId: string,
+  ): Promise<void> {
+    await this.enqueueStatsJob({
+      name: STATS_JOBS.UPDATE_DRIVER,
+      sourceKey: `dispatch-expired:${dispatchId}`,
+      data: { driverId, increment: { dispatchesExpired: 1 } },
+      periods: this.statsRepository.getPeriodsForDate(new Date()),
+    });
+  }
+
+  // ─── Queue helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Enqueue a stats update job to the stats queue. `sourceKey` is the DB
+   * idempotency key: it must be deterministic for the underlying event
+   * (e.g. `settle:<orderId>:UPDATE_DRIVER`) so a re-delivered job is skipped by
+   * the worker instead of re-applying the `+=` upserts. It is safe for the job
+   * system to retry (the claim is made in the same transaction as the
+   * increment), so enqueues deliberately use the queue's default attempts.
+   */
+  private async enqueueStatsJob(params: {
+    name: string;
+    sourceKey: string;
+    data: Record<string, unknown>;
+    periods: StatPeriodRange[];
+  }) {
+    await this.statsQueue.add(params.name, {
+      ...params.data,
+      sourceKey: params.sourceKey,
+      // Serialize as ISO strings: BullMQ round-trips job.data through JSON
+      // and the worker rehydrates them into Dates.
+      periods: params.periods.map((p) => ({
+        period: p.period,
+        startDate: p.startDate.toISOString(),
+        endDate: p.endDate.toISOString(),
+      })),
+    });
+  }
+
+  // ─── Online hours ─────────────────────────────────────────────────────────
+
+  // Statuses that count as "on the clock".
+  private static readonly ONLINE_STATUSES = new Set<DriverStatus>([
+    DriverStatus.ONLINE,
+    DriverStatus.BUSY,
+    DriverStatus.ON_DELIVERY,
+  ]);
+
+  // Online-session start key lives in Redis so the tracker is accurate even
+  // with multiple API/worker instances (PM2 cluster mode) sharing one store.
+  private static readonly ONLINE_SINCE_KEY_PREFIX = 'stats:onlineSince:';
+  // Safety TTL: a stale key (e.g. missed offline event or process restart)
+  // self-cleans, while a real shift far exceeds this duration anyway.
+  private static readonly ONLINE_SINCE_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+  @OnEvent(EVENTS.DRIVER_STATUS_CHANGED)
+  async handleDriverStatusChanged(event: DriverStatusChangedEvent) {
+    const wasOnline = StatisticsService.ONLINE_STATUSES.has(
+      event.oldStatus as DriverStatus,
     );
+    const isOnline = StatisticsService.ONLINE_STATUSES.has(
+      event.newStatus as DriverStatus,
+    );
+
+    const key = `${StatisticsService.ONLINE_SINCE_KEY_PREFIX}${event.driverId}`;
+
+    if (!wasOnline && isOnline) {
+      // Session start — remember when the driver went on the clock.
+      await this.redisService
+        .set(
+          key,
+          String(Date.now()),
+          StatisticsService.ONLINE_SINCE_TTL_SECONDS,
+        )
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to record online-session start for driver ${event.driverId}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+      return;
+    }
+
+    if (wasOnline && !isOnline) {
+      // Session end — atomically claim + clear the start so every instance
+      // accrues the elapsed time exactly once.
+      const startedAtMs = await this.redisService.getdel(key);
+      if (!startedAtMs) {
+        this.logger.warn(
+          `Online-session start missing for driver ${event.driverId} (${event.oldStatus} → ${event.newStatus}); skipping onlineHours accrual.`,
+        );
+        return;
+      }
+
+      const hours = Math.max(0, (Date.now() - Number(startedAtMs)) / 3_600_000);
+      if (hours <= 0) return;
+
+      const periods = this.statsRepository.getPeriodsForDate(
+        new Date(Number(startedAtMs)),
+      );
+      await this.enqueueStatsJob({
+        name: STATS_JOBS.UPDATE_DRIVER,
+        // Session identity (driverId + start epoch) makes this deterministic:
+        // the same closed session can never be re-enqueued with a different key.
+        sourceKey: `online:${event.driverId}:${startedAtMs}`,
+        data: {
+          driverId: event.driverId,
+          increment: { onlineHours: Math.round(hours * 100) / 100 },
+        },
+        periods,
+      }).catch((err: unknown) =>
+        this.logger.error(
+          `Failed to record online hours for driver ${event.driverId}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    }
   }
 
   // ─── Read stats ───────────────────────────────────────────────────────────
 
-  async getVendorStats(vendorId: string, period: StatisticPeriod, limit = 30) {
-    return this.statsRepository.getVendorStats(vendorId, period, limit);
+  async getVendorStats(
+    vendorId: string,
+    period: StatisticPeriod,
+    limit = 30,
+    from?: string,
+    to?: string,
+  ) {
+    return this.statsRepository.getVendorStats(
+      vendorId,
+      period,
+      limit,
+      from,
+      to,
+    );
   }
 
-  async getDriverStats(driverId: string, period: StatisticPeriod, limit = 30) {
-    return this.statsRepository.getDriverStats(driverId, period, limit);
+  async getDriverStats(
+    driverId: string,
+    period: StatisticPeriod,
+    limit = 30,
+    from?: string,
+    to?: string,
+  ) {
+    return this.statsRepository.getDriverStats(
+      driverId,
+      period,
+      limit,
+      from,
+      to,
+    );
   }
 
-  async getMyDriverStats(userId: string, period: StatisticPeriod, limit = 30) {
+  async getMyDriverStats(
+    userId: string,
+    period: StatisticPeriod,
+    limit = 30,
+    from?: string,
+    to?: string,
+  ) {
     const driver = await this.prisma.driver.findUnique({
       where: { userId },
       select: { id: true },
     });
     if (!driver) return [];
-    return this.statsRepository.getDriverStats(driver.id, period, limit);
+    return this.statsRepository.getDriverStats(
+      driver.id,
+      period,
+      limit,
+      from,
+      to,
+    );
   }
 
-  async getAppStats(period: StatisticPeriod, limit = 30) {
-    return this.statsRepository.getAppStats(period, limit);
+  async getAppStats(
+    period: StatisticPeriod,
+    limit = 30,
+    from?: string,
+    to?: string,
+  ) {
+    return this.statsRepository.getAppStats(period, limit, from, to);
   }
 
   async getMostOrderedProduct(vendorId: string) {
@@ -631,9 +818,14 @@ export class StatisticsService {
       | 'PAYOUT'
       | 'CASH_COLLECTED'
       | 'CASH_HANDED_TO_VENDOR' = 'DELIVERY_FEE',
+    options: { skipLock?: boolean } = {},
   ): Promise<void> {
-    // 1. Acquire row lock on the driver to serialize concurrent transactions
-    await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+    // Unlike settleOrder, this method does not take a row lock by default so
+    // standalone use remains safe. settleOrder acquires the driver lock once at
+    // the top of its transaction and passes skipLock: true here.
+    if (!options.skipLock) {
+      await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+    }
 
     const existing = await client.driverWalletTransaction.findFirst({
       where: { orderId, type },

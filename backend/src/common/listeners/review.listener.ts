@@ -1,13 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EVENTS } from '../events/event-names';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import {
+  QUEUES,
+  REVIEW_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 
 @Injectable()
 export class ReviewListener {
   private readonly logger = new Logger(ReviewListener.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@InjectQueue(QUEUES.REVIEWS) private readonly queue: Queue) {}
 
   @OnEvent(EVENTS.REVIEW_SUBMITTED, { async: true })
   async handleReviewSubmitted(payload: {
@@ -15,52 +20,20 @@ export class ReviewListener {
     driverId?: string | null;
   }) {
     try {
-      if (payload.vendorId) {
-        const agg = await this.prisma.orderReview.aggregate({
-          where: { vendorId: payload.vendorId, vendorRating: { not: null } },
-          _avg: { vendorRating: true },
-          _count: { _all: true },
-        });
-
-        await this.prisma.vendor.update({
-          where: { id: payload.vendorId },
-          data: {
-            rating: agg._avg.vendorRating || 0,
-            ratingCount: agg._count._all,
-          },
-        });
-
-        this.logger.log(
-          `Vendor ${payload.vendorId} rating updated: ${agg._avg.vendorRating} (${agg._count._all} reviews)`,
-        );
-      }
-
-      if (payload.driverId) {
-        const agg = await this.prisma.orderReview.aggregate({
-          where: { driverId: payload.driverId, driverRating: { not: null } },
-          _avg: { driverRating: true },
-          _count: { _all: true },
-        });
-
-        const convertedRating = agg._avg.driverRating
-          ? Math.round(agg._avg.driverRating * 100)
-          : 500;
-
-        await this.prisma.driver.update({
-          where: { id: payload.driverId },
-          data: {
-            rating: convertedRating,
-            ratingCount: agg._count._all,
-          },
-        });
-
-        this.logger.log(
-          `Driver ${payload.driverId} rating updated: ${convertedRating} (${agg._count._all} reviews)`,
-        );
-      }
+      // Ratings are recomputed by the worker (QUEUES.REVIEWS) so the API event
+      // loop never runs the aggregate queries. The job is idempotent: it SETs
+      // rating/ratingCount from the full recomputed average, so retries are safe.
+      await this.queue.add(
+        REVIEW_JOBS.UPDATE_RATINGS,
+        {
+          vendorId: payload.vendorId ?? null,
+          driverId: payload.driverId ?? null,
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+      );
     } catch (error: unknown) {
       this.logger.error(
-        `Error processing review submitted event: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to enqueue review rating update: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

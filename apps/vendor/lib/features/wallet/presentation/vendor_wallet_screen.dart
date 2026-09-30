@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
-import 'vendor_wallet_provider.dart';
-import 'wallet_pdf_export_service.dart';
 import 'package:intl/intl.dart';
+import 'vendor_wallet_provider.dart';
+import 'vendor_finance_statistics_screen.dart';
 
 class VendorWalletScreen extends ConsumerWidget {
   const VendorWalletScreen({super.key});
@@ -66,18 +66,32 @@ class VendorWalletScreen extends ConsumerWidget {
                     Localizations.localeOf(context).languageCode == 'ar' ? 'المعاملات' : 'Transactions',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  if (transactions.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () {
-                        WalletPdfExportService.exportTransactionsPdf(
-                          context: context,
-                          balance: balance,
-                          transactions: transactions,
-                        );
-                      },
-                      icon: const Icon(Icons.picture_as_pdf, size: 18),
-                      label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير PDF' : 'Export PDF'),
-                    ),
+                  Row(
+                    children: [
+                      if (transactions.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () =>
+                              _exportTransactions(context, balance, transactions),
+                          icon: const Icon(Icons.download, size: 18),
+                          label: Text(
+                            Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير' : 'Export',
+                          ),
+                        ),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const VendorFinanceStatisticsScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(LucideIcons.chartNoAxesCombined, size: 18),
+                        label: Text(
+                          Localizations.localeOf(context).languageCode == 'ar' ? 'الإحصائيات' : 'Statistics',
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -103,6 +117,49 @@ class VendorWalletScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _exportTransactions(
+    BuildContext context,
+    double balance,
+    List<dynamic> transactions,
+  ) async {
+    final isArabic =
+        Localizations.localeOf(context).languageCode == 'ar';
+    final dateFormat = DateFormat('yyyy-MM-dd hh:mm a');
+    final headers = [
+      isArabic ? 'التاريخ' : 'Date',
+      isArabic ? 'النوع' : 'Type',
+      isArabic ? 'الوصف' : 'Description',
+      isArabic ? 'المبلغ' : 'Amount',
+      isArabic ? 'الرصيد بعد' : 'Balance After',
+    ];
+    final rows = [
+      for (final tx in transactions)
+        [
+          tx['createdAt'] != null
+              ? dateFormat.format(
+                  DateTime.parse(tx['createdAt'].toString()).toLocal())
+              : '',
+          (tx['type']?.toString() ?? '').replaceAll('_', ' '),
+          tx['description']?.toString() ?? '',
+          '${(double.tryParse(tx['amount']?.toString() ?? '0') ?? 0).toStringAsFixed(2)} EGP',
+          tx['balanceAfter'] != null
+              ? '${(double.tryParse(tx['balanceAfter'].toString()) ?? 0).toStringAsFixed(2)} EGP'
+              : '',
+        ],
+    ];
+
+    await DataExportService.showExportOptions(
+      context,
+      title: isArabic ? 'كشف حساب المعاملات المالية' : 'Financial Transactions',
+      subtitle: isArabic
+          ? 'الرصيد المتاح: ${balance.toStringAsFixed(2)} EGP'
+          : 'Available balance: ${balance.toStringAsFixed(2)} EGP',
+      headers: headers,
+      rows: rows,
+      filename: 'financial_transactions',
     );
   }
 

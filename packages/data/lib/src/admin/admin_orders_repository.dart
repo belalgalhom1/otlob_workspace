@@ -10,8 +10,12 @@ class AdminOrdersRepository {
     return ResponseParser.parseList(response);
   }
 
-  Future<dynamic> ordersAdminPlaceDirectOrder({required PlaceDirectOrderDto placeDirectOrderDto}) async {
-    final response = await _api.ordersControllerAdminPlaceDirectOrder(placeDirectOrderDto: placeDirectOrderDto);
+  Future<dynamic> ordersAdminPlaceDirectOrder(
+      {required PlaceDirectOrderDto placeDirectOrderDto, String? idempotencyKey}) async {
+    final response = await _api.ordersControllerAdminPlaceDirectOrder(
+      placeDirectOrderDto: placeDirectOrderDto,
+      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
+    );
     return ResponseParser.parse(response);
   }
 

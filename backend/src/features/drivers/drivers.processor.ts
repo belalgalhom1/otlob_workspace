@@ -3,7 +3,7 @@ import { Job, Queue } from 'bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QUEUES } from '../../infrastructure/queue/queues.constants';
-import { DriverShiftStatus } from '@prisma/client';
+import { DriverShiftStatus, DriverStatus } from '@prisma/client';
 import { CRON_JOBS } from '../../infrastructure/queue/queues.constants';
 import { DriverShiftsService } from '../driver-shifts/driver-shifts.service';
 import { DriversService } from './drivers.service';
@@ -77,9 +77,15 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
           `🏁 Auto-completed ${shiftsToComplete.length} finished driver shifts`,
         );
 
-        // Force drivers offline
+        // Force drivers offline — but never a driver who is still mid-delivery
+        // (their shift stays ACTIVE via endShiftBySystem and is completed on a
+        // later pass once they are free). Going OFFINE while carrying a live
+        // order would break the CANNOT_GO_OFFLINE_ON_DELIVERY invariant.
         await this.prisma.driver.updateMany({
-          where: { id: { in: driverIds } },
+          where: {
+            id: { in: driverIds },
+            status: { not: DriverStatus.ON_DELIVERY },
+          },
           data: { status: 'OFFLINE' },
         });
       }

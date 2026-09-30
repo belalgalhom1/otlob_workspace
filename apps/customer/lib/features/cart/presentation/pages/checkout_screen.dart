@@ -27,7 +27,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isEstimating = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
+  String? _clientOrderKey;
   final TextEditingController _notesController = TextEditingController();
+
+  String _clientOrderKeyForCheckout() =>
+      _clientOrderKey ??= generateClientOrderKey();
 
   @override
   void dispose() {
@@ -136,11 +140,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           location: coords,
           specialRequest: specialRequest,
           coinsToUse: coinsToUse,
+          idempotencyKey: _clientOrderKeyForCheckout(),
         );
 
     if (mounted) {
       setState(() => _isProcessing = false);
       if (errorMsg == null && orderId != null) {
+        _clientOrderKey = null;
         ref.read(cartProvider.notifier).clearVendorCart(widget.vendorId ?? '');
         _showSuccess(s, orderId);
       } else {
@@ -601,7 +607,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: isBelowMinOrder
+                    onPressed: (isBelowMinOrder || _isProcessing)
                         ? null
                         : () => _placeOrder(s, vendorItems, coinsToUse, selectedAddress),
                     style: ElevatedButton.styleFrom(

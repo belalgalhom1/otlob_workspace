@@ -1,7 +1,7 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
-import { StatisticsService } from './statistics.service';
+import { StatisticPeriod } from '@prisma/client';
 import { StatisticsRepository } from './statistics.repository';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -11,12 +11,17 @@ import {
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
 
+interface SerializedPeriod {
+  period: string;
+  startDate: string;
+  endDate: string;
+}
+
 @Processor(QUEUES.STATS, { concurrency: 5 })
 export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(StatisticsProcessor.name);
 
   constructor(
-    private readonly statisticsService: StatisticsService,
     private readonly statsRepository: StatisticsRepository,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
@@ -77,60 +82,124 @@ export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
   }
 
   private async handleUpdateVendor(
-    job: Job<{ vendorId: string; increment: Record<string, any> }>,
+    job: Job<{
+      sourceKey: string;
+      vendorId: string;
+      increment: Record<string, number>;
+      periods?: SerializedPeriod[];
+    }>,
   ) {
     this.logger.debug(`Vendor stat update for ${job.data.vendorId}`);
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertVendorStat(
+    const periods = this.resolvePeriods(job.data.periods);
+    // Idempotency claim + `+=` upserts commit in the SAME transaction, so a
+    // re-delivered job (stalled worker, manual retry) skips instead of
+    // double-counting. The claim row decides the winner atomically.
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await this.statsRepository.claimProcessingMarker(
+        job.data.sourceKey,
+        tx,
+      );
+      if (!claimed) {
+        this.logger.debug(
+          `Skipping vendor stats ${job.data.vendorId}: ${job.data.sourceKey} already processed.`,
+        );
+        return;
+      }
+      for (const { period, startDate, endDate } of periods) {
+        await this.statsRepository.upsertVendorStat(
           job.data.vendorId,
           period,
           startDate,
           endDate,
           job.data.increment,
-        ),
-      ),
-    );
+          tx,
+        );
+      }
+    });
     return { ok: true };
   }
 
   private async handleUpdateDriver(
-    job: Job<{ driverId: string; increment: Record<string, any> }>,
+    job: Job<{
+      sourceKey: string;
+      driverId: string;
+      increment: Record<string, number>;
+      periods?: SerializedPeriod[];
+    }>,
   ) {
     this.logger.debug(`Driver stat update for ${job.data.driverId}`);
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertDriverStat(
+    const periods = this.resolvePeriods(job.data.periods);
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await this.statsRepository.claimProcessingMarker(
+        job.data.sourceKey,
+        tx,
+      );
+      if (!claimed) {
+        this.logger.debug(
+          `Skipping driver stats ${job.data.driverId}: ${job.data.sourceKey} already processed.`,
+        );
+        return;
+      }
+      for (const { period, startDate, endDate } of periods) {
+        await this.statsRepository.upsertDriverStat(
           job.data.driverId,
           period,
           startDate,
           endDate,
           job.data.increment,
-        ),
-      ),
-    );
+          tx,
+        );
+      }
+    });
     return { ok: true };
   }
 
-  private async handleUpdateApp(job: Job<{ increment: Record<string, any> }>) {
+  private async handleUpdateApp(
+    job: Job<{
+      sourceKey: string;
+      increment: Record<string, number>;
+      periods?: SerializedPeriod[];
+    }>,
+  ) {
     this.logger.debug('App stat update');
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
-    await Promise.all(
-      periods.map(({ period, startDate, endDate }) =>
-        this.statsRepository.upsertAppStat(
+    const periods = this.resolvePeriods(job.data.periods);
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await this.statsRepository.claimProcessingMarker(
+        job.data.sourceKey,
+        tx,
+      );
+      if (!claimed) {
+        this.logger.debug(
+          `Skipping app stats: ${job.data.sourceKey} already processed.`,
+        );
+        return;
+      }
+      for (const { period, startDate, endDate } of periods) {
+        await this.statsRepository.upsertAppStat(
           period,
           startDate,
           endDate,
           job.data.increment,
-        ),
-      ),
-    );
+          tx,
+        );
+      }
+    });
     return { ok: true };
   }
 
-  // ─── CRON Jobs ────────────────────────────────────────────────────────────
+  /** Prefer event-time period buckets from the job payload; fall back to now. */
+  private resolvePeriods(periods?: SerializedPeriod[]) {
+    if (periods && periods.length > 0) {
+      return periods.map((p) => ({
+        period: p.period as StatisticPeriod,
+        startDate: new Date(p.startDate),
+        endDate: new Date(p.endDate),
+      }));
+    }
+    return this.statsRepository.getPeriodsForDate(new Date());
+  }
+
+  // ─── CRON jobs ────────────────────────────────────────────────────────────
 
   private async handleAuditLogsCleanup(): Promise<void> {
     try {
@@ -199,12 +268,17 @@ export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
       const p3 = this.prisma.appStatistic.deleteMany({
         where: { endDate: { lt: cutoff } },
       });
+      // Idempotency markers only need to outlive any possible job re-delivery;
+      // purge them once they've lived as long as the stats they guard.
+      const p4 = this.statsRepository.purgeProcessingMarkers(cutoff);
 
-      const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
-      const total = r1.count + r2.count + r3.count;
+      const [r1, r2, r3, r4] = await Promise.all([p1, p2, p3, p4]);
+      const total = r1.count + r2.count + r3.count + r4;
 
       if (total > 0) {
-        this.logger.log(`🗑️  Hard-deleted ${total} old statistics records`);
+        this.logger.log(
+          `🗑️  Hard-deleted ${r1.count + r2.count + r3.count} old statistics records and ${r4} idempotency markers`,
+        );
       }
     } catch (error) {
       this.logger.error(

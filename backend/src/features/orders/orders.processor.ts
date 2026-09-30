@@ -10,10 +10,14 @@ import {
   ORDER_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 
-@Processor(QUEUES.ORDERS, { concurrency: 25 })
+// Orders jobs hit Postgres (status transitions, settlement, coins/wallet
+// ledgers). BullMQ concurrency above the shared DB pool just queues waits, so
+// align to a worker's pool of 10 instead of issuing 25 parallel transactions.
+@Processor(QUEUES.ORDERS, { concurrency: 10 })
 export class OrdersProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(OrdersProcessor.name);
 
@@ -23,6 +27,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     private readonly statisticsService: StatisticsService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     @InjectQueue(QUEUES.ORDERS) private readonly queue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
   ) {
@@ -240,6 +245,9 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         Date.now() - settings.autoCancelPendingMins * 60 * 1000,
       );
 
+      // Bound the batch so a sudden backlog of stale PENDING orders cannot
+      // fan out an unbounded Promise.allSettled onto the shared DB pool.
+      const BATCH_LIMIT = 50;
       const staleOrders = await this.prisma.order.findMany({
         where: {
           status: OrderStatus.PENDING,
@@ -247,6 +255,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
           createdAt: { lt: cutoff },
         },
         select: { id: true, orderNumber: true },
+        take: BATCH_LIMIT,
       });
 
       if (staleOrders.length === 0) return;
@@ -415,10 +424,38 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     let recovered = 0;
     for (const order of stuckOrders) {
+      await this.clearStaleDispatchClaim(order.id);
+
+      // Resume from the last persisted dispatch attempt instead of resetting
+      // to 1. Resetting defeats driverSearchMaxAttempts and re-broadcasts to
+      // drivers who already rejected the order.
+      const stateRaw = await this.redis.get(
+        `otlobegy:dispatch-state:${order.id}`,
+      );
+      let attempt = 1;
+      let excludeDriverIds: string[] = [];
+      if (stateRaw) {
+        try {
+          const state: { attempt?: number; excludeDriverIds?: string[] } =
+            JSON.parse(stateRaw);
+          attempt = Number(state.attempt) || 1;
+          excludeDriverIds = Array.isArray(state.excludeDriverIds)
+            ? state.excludeDriverIds
+            : [];
+        } catch {
+          // Malformed state — fall back to a fresh attempt
+        }
+      }
+
       // Create a dispatch job for the order again
       await this.dispatchQueue.add(
         ORDER_JOBS.DISPATCH,
-        { orderId: order.id, orderNumber: order.orderNumber, attempt: 1 },
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          attempt,
+          excludeDriverIds,
+        },
         { removeOnComplete: true, removeOnFail: 100 },
       );
       recovered++;
@@ -433,6 +470,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     const stuckPaymentOrders = await this.prisma.order.findMany({
       where: {
         status: OrderStatus.PENDING_PAYMENT,
+        paymentMethod: PaymentMethod.MOBILE_WALLET,
         updatedAt: { lt: paymentCutoff },
       },
       select: { id: true, orderNumber: true },
@@ -463,6 +501,46 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     return { recovered };
   }
 
+  // An order here with a stale in-flight claim may still be running a live
+  // round; attemptDispatch's SET NX will answer 'in_flight' and that's fine.
+  // Only clear the claim when its payload is gone or already past expiresAt,
+  // which the DISPATCH_EXPIRE watchdog could only have reached if it either
+  // already ran (then the claim would be gone) or was lost in a crash (the
+  // worker died between claiming and scheduling the watchdog). Dropping the
+  // stale claim lets the re-queued job grab a fresh slot immediately instead
+  // of bouncing on 'in_flight' until the Redis TTL expires.
+  private async clearStaleDispatchClaim(orderId: string): Promise<void> {
+    try {
+      const activeKey = `otlobegy:order-dispatch-active:${orderId}`;
+      const activeDispatchId = await this.redis.get(activeKey);
+      if (!activeDispatchId) return;
+
+      const raw = await this.redis.get(`otlobegy:dispatch:${activeDispatchId}`);
+      let stale = false;
+      if (!raw) {
+        stale = true;
+      } else {
+        try {
+          const payload: { expiresAt?: string } = JSON.parse(raw);
+          stale =
+            !payload.expiresAt ||
+            Date.now() > new Date(payload.expiresAt).getTime();
+        } catch {
+          stale = true;
+        }
+      }
+
+      if (stale) {
+        await this.redis.del(activeKey);
+        this.logger.warn(`Cleared stale dispatch claim for order ${orderId}`);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to clear stale dispatch claim for order ${orderId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
   private async handleUnsettledOrderMonitor() {
     this.logger.debug('Running unsettled order monitor...');
 
@@ -482,17 +560,27 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     if (deliveredOrders.length === 0) return { count: 0 };
 
+    // One batched query for the whole batch instead of a findFirst per order
+    // (kills the N+1 that used to issue up to 100 round-trips every 5 minutes).
+    const deliveredOrderIds = deliveredOrders
+      .filter((o) => o.driverId)
+      .map((o) => o.id);
+
+    const settledRows = await this.prisma.driverWalletTransaction.findMany({
+      where: {
+        orderId: { in: deliveredOrderIds },
+        type: 'DELIVERY_FEE',
+      },
+      select: { orderId: true },
+      distinct: ['orderId'],
+    });
+    const settledOrderIds = new Set(settledRows.map((r) => r.orderId));
+
     let recovered = 0;
     for (const order of deliveredOrders) {
       if (!order.driverId) continue; // Requires driver for driver settlement logic
 
-      const hasSettlement = await this.prisma.driverWalletTransaction.findFirst(
-        {
-          where: { orderId: order.id, type: 'DELIVERY_FEE' },
-        },
-      );
-
-      if (!hasSettlement) {
+      if (!settledOrderIds.has(order.id)) {
         this.logger.warn(
           `Found unsettled delivered order ${order.orderNumber}. Re-queueing SETTLE...`,
         );

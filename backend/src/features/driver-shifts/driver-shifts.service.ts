@@ -28,6 +28,7 @@ import {
   DriverShiftStatus,
   SwapRequestStatus,
   DriverTier,
+  Prisma,
 } from '@prisma/client';
 import {
   endOfDay,
@@ -150,8 +151,19 @@ export class DriverShiftsService {
     );
 
     if (shiftsToKill.length > 0) {
-      // For any driver currently ACTIVE on this shift, force them OFFLINE.
+      // For any driver currently ACTIVE on this shift, force them OFFLINE —
+      // but never a driver mid-delivery, matching the guard every other shift
+      // teardown path honors.
       const activeShifts = shiftsToKill.filter((s) => s.status === 'ACTIVE');
+      const onDelivery = activeShifts.find(
+        (s) => s.driver.status === DriverStatus.ON_DELIVERY,
+      );
+      if (onDelivery) {
+        throw new BadRequestException(
+          DriverErrors.CANNOT_END_WHILE_ON_DELIVERY,
+        );
+      }
+
       if (activeShifts.length > 0) {
         await this.prisma.driver.updateMany({
           where: { id: { in: activeShifts.map((s) => s.driverId) } },
@@ -240,6 +252,149 @@ export class DriverShiftsService {
     return shift;
   }
 
+  // Remove a single driver from a single shift. SCHEDULED and ACTIVE shifts
+  // may be removed; COMPLETED/MISSED shifts are preserved for history and an
+  // ACTIVE driver mid-delivery cannot be yanked out from under a live order.
+  async removeDriverFromShift(shiftId: string) {
+    const shift = await this.prisma.driverShift.findUnique({
+      where: { id: shiftId },
+      include: {
+        driver: { include: { user: true } },
+        swapRequests: { where: { status: SwapRequestStatus.PENDING } },
+      },
+    });
+
+    if (!shift) throw new NotFoundException(DriverErrors.SHIFT_NOT_FOUND);
+
+    if (
+      shift.status === DriverShiftStatus.COMPLETED ||
+      shift.status === DriverShiftStatus.MISSED
+    ) {
+      throw new BadRequestException(
+        DriverErrors.CANNOT_REMOVE_HISTORICAL_SHIFT,
+      );
+    }
+
+    if (shift.status === DriverShiftStatus.ACTIVE) {
+      if (shift.driver.status === DriverStatus.ON_DELIVERY) {
+        throw new BadRequestException(
+          DriverErrors.CANNOT_END_WHILE_ON_DELIVERY,
+        );
+      }
+
+      await this.prisma.driver.update({
+        where: { id: shift.driverId },
+        data: { status: DriverStatus.OFFLINE },
+      });
+
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          shift.driverId,
+          shift.driver.user.id,
+          shift.driver.status,
+          DriverStatus.OFFLINE,
+          'Removed from shift by admin.',
+        ),
+      );
+    }
+
+    const pendingSwap = shift.swapRequests[0];
+    if (pendingSwap) {
+      await this.prisma.shiftSwapRequest.update({
+        where: { id: pendingSwap.id },
+        data: { status: SwapRequestStatus.CANCELLED },
+      });
+    }
+
+    await this.prisma.driverShift.delete({ where: { id: shiftId } });
+
+    this.eventEmitter.emit(
+      EVENTS.SHIFT_DISABLED,
+      new ShiftDisabledEvent(shift.driver.user.id, shift.id),
+    );
+
+    return { success: true, removed: 1 };
+  }
+
+  // Remove every SCHEDULED/ACTIVE driver from a pool without deleting the pool,
+  // freeing capacity for new bookings. Historical shifts are preserved and an
+  // ACTIVE driver mid-delivery fails the whole operation to avoid a partial wipe.
+  async removeAllDriversFromPool(poolId: string) {
+    const pool = await this.prisma.shiftPool.findUnique({
+      where: { id: poolId },
+    });
+    if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
+
+    const shifts = await this.prisma.driverShift.findMany({
+      where: { shiftPoolId: poolId },
+      include: { driver: { include: { user: true } } },
+    });
+
+    const removable = shifts.filter(
+      (s) =>
+        s.status === DriverShiftStatus.SCHEDULED ||
+        s.status === DriverShiftStatus.ACTIVE,
+    );
+
+    const onDelivery = removable.find(
+      (s) =>
+        s.status === DriverShiftStatus.ACTIVE &&
+        s.driver.status === DriverStatus.ON_DELIVERY,
+    );
+    if (onDelivery) {
+      throw new BadRequestException(DriverErrors.CANNOT_END_WHILE_ON_DELIVERY);
+    }
+
+    if (removable.length === 0) {
+      return { success: true, removed: 0, poolId };
+    }
+
+    const activeShifts = removable.filter(
+      (s) => s.status === DriverShiftStatus.ACTIVE,
+    );
+    if (activeShifts.length > 0) {
+      await this.prisma.driver.updateMany({
+        where: { id: { in: activeShifts.map((s) => s.driverId) } },
+        data: { status: DriverStatus.OFFLINE },
+      });
+
+      for (const shift of activeShifts) {
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_STATUS_CHANGED,
+          new DriverStatusChangedEvent(
+            shift.driverId,
+            shift.driver.user.id,
+            shift.driver.status,
+            DriverStatus.OFFLINE,
+            'Removed from shift pool by admin.',
+          ),
+        );
+      }
+    }
+
+    await this.prisma.shiftSwapRequest.updateMany({
+      where: {
+        driverShiftId: { in: removable.map((s) => s.id) },
+        status: SwapRequestStatus.PENDING,
+      },
+      data: { status: SwapRequestStatus.CANCELLED },
+    });
+
+    await this.prisma.driverShift.deleteMany({
+      where: { id: { in: removable.map((s) => s.id) } },
+    });
+
+    for (const shift of removable) {
+      this.eventEmitter.emit(
+        EVENTS.SHIFT_DISABLED,
+        new ShiftDisabledEvent(shift.driver.user.id, shift.id),
+      );
+    }
+
+    return { success: true, removed: removable.length, poolId };
+  }
+
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // DRIVER BOOKING
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -293,10 +448,10 @@ export class DriverShiftsService {
     const driverId = driver.id;
 
     return this.prisma.$transaction(async (tx) => {
-      // Lock the shift pools to prevent race conditions during booking
-      await tx.$executeRawUnsafe(
-        `SELECT 1 FROM shift_pools WHERE id IN (${dto.shiftPoolIds.map((id) => `'${id}'`).join(',')}) FOR UPDATE`,
-      );
+      // Lock the shift pools to prevent race conditions during booking. The
+      // IDs are bound as parameters (never string-interpolated) so a malicious
+      // driver cannot inject SQL through shiftPoolIds.
+      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id IN (${Prisma.join(dto.shiftPoolIds)}) FOR UPDATE`;
 
       const pools = await tx.shiftPool.findMany({
         where: { id: { in: dto.shiftPoolIds } },
@@ -371,9 +526,7 @@ export class DriverShiftsService {
     const driverId = driver.id;
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
-        `SELECT 1 FROM shift_pools WHERE id = '${dto.shiftPoolId}' FOR UPDATE`,
-      );
+      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id = ${dto.shiftPoolId} FOR UPDATE`;
 
       const pool = await tx.shiftPool.findUnique({
         where: { id: dto.shiftPoolId },
@@ -490,55 +643,64 @@ export class DriverShiftsService {
   async acceptSwap(userId: string, swapId: string) {
     await this.checkShiftsEnabled();
 
-    const swap = await this.prisma.shiftSwapRequest.findUnique({
-      where: { id: swapId },
-      include: { driverShift: { include: { driver: true } } },
-    });
-
-    if (!swap || swap.status !== SwapRequestStatus.PENDING) {
-      throw new BadRequestException(DriverErrors.SWAP_NOT_AVAILABLE);
-    }
-
     const me = await this.prisma.driver.findUnique({ where: { userId } });
     if (!me) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const driverId = me.id;
 
-    if (swap.offeredByDriverId === driverId) {
-      throw new BadRequestException(DriverErrors.CANNOT_ACCEPT_OWN_SWAP);
-    }
-
-    if (me.vehicleType !== swap.driverShift.driver.vehicleType) {
-      throw new BadRequestException(DriverErrors.VEHICLE_MISMATCH);
-    }
-
-    // Check overlap
-    const existing = await this.prisma.driverShift.findFirst({
-      where: {
-        driverId,
-        status: { in: [DriverShiftStatus.SCHEDULED, DriverShiftStatus.ACTIVE] },
-        startTime: { lt: swap.driverShift.endTime },
-        endTime: { gt: swap.driverShift.startTime },
-      },
-    });
-
-    if (existing) {
-      throw new BadRequestException(DriverErrors.OVERLAPPING_SHIFT);
-    }
-
+    // Everything is under one driver-row lock so two drivers accepting the
+    // same swap (or one driver accepting while another shift is being booked)
+    // are serialized. The guarded updateMany CAS means only one acceptor can
+    // ever go from PENDING to ACCEPTED; the loser gets SWAP_NOT_AVAILABLE.
     return this.prisma.$transaction(async (tx) => {
-      // Mark swap as accepted
-      await tx.shiftSwapRequest.update({
+      await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+
+      const swap = await tx.shiftSwapRequest.findUnique({
         where: { id: swapId },
-        data: { status: SwapRequestStatus.ACCEPTED },
+        include: { driverShift: { include: { driver: true } } },
       });
 
+      if (!swap || swap.status !== SwapRequestStatus.PENDING) {
+        throw new BadRequestException(DriverErrors.SWAP_NOT_AVAILABLE);
+      }
+
+      if (swap.offeredByDriverId === driverId) {
+        throw new BadRequestException(DriverErrors.CANNOT_ACCEPT_OWN_SWAP);
+      }
+
+      if (me.vehicleType !== swap.driverShift.driver.vehicleType) {
+        throw new BadRequestException(DriverErrors.VEHICLE_MISMATCH);
+      }
+
+      // Check overlap against this driver's existing shifts
+      const existing = await tx.driverShift.findFirst({
+        where: {
+          driverId,
+          status: {
+            in: [DriverShiftStatus.SCHEDULED, DriverShiftStatus.ACTIVE],
+          },
+          startTime: { lt: swap.driverShift.endTime },
+          endTime: { gt: swap.driverShift.startTime },
+        },
+      });
+
+      if (existing) {
+        throw new BadRequestException(DriverErrors.OVERLAPPING_SHIFT);
+      }
+
+      // Mark the swap as accepted — CAS so a concurrent acceptor cannot win too
+      const claimed = await tx.shiftSwapRequest.updateMany({
+        where: { id: swapId, status: SwapRequestStatus.PENDING },
+        data: { status: SwapRequestStatus.ACCEPTED },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestException(DriverErrors.SWAP_NOT_AVAILABLE);
+      }
+
       // Transfer shift
-      const updatedShift = await tx.driverShift.update({
+      return tx.driverShift.update({
         where: { id: swap.driverShiftId },
         data: { driverId },
       });
-
-      return updatedShift;
     });
   }
 

@@ -6,11 +6,18 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'pending_topups_screen.dart';
 import 'platform_wallets_screen.dart';
 import 'vendor_wallet_screen.dart';
+import 'platform_statistics_screen.dart';
 
 class WalletDashboardScreen extends ConsumerWidget {
   final String? userRole;
   final bool? canManageFinance;
-  const WalletDashboardScreen({super.key, this.userRole, this.canManageFinance});
+  final bool? canViewStatistics;
+  const WalletDashboardScreen({
+    super.key,
+    this.userRole,
+    this.canManageFinance,
+    this.canViewStatistics,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -129,6 +136,32 @@ class WalletDashboardScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            // Platform statistics shortcut (admin only)
+            if (showAdminTabs && canViewStatistics == true)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const PlatformStatisticsScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(LucideIcons.chartNoAxesCombined,
+                          size: 18),
+                      label: Text(
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? 'إحصائيات المنصة'
+                            : 'Platform Statistics',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Tab content
             Expanded(
               child: TabBarView(

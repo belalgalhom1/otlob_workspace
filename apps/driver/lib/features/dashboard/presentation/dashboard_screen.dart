@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
+import 'package:driver/features/statistics/presentation/driver_statistics_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:image_picker/image_picker.dart';
@@ -267,6 +268,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 icon: LucideIcons.car,
                 title: l10n.vehicleInformation,
                 onTap: () => context.push('/profile/vehicle'),
+              ),
+              const SizedBox(height: 12),
+              _buildProfileNavigationTile(
+                icon: LucideIcons.chartNoAxesCombined,
+                title: l10n.localeName == 'ar' ? 'الإحصائيات' : 'Statistics',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DriverStatisticsScreen(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               _buildProfileNavigationTile(

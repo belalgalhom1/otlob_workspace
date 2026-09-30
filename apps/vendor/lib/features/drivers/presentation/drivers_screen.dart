@@ -13,6 +13,7 @@ import '../../wallet/presentation/widgets/manual_transaction_dialog.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/providers.dart';
 import 'widgets/driver_form_dialog.dart';
+import 'driver_statistics_screen.dart';
 
 class DriversScreen extends ConsumerStatefulWidget {
   const DriversScreen({super.key});
@@ -338,6 +339,20 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                       ),
                                     ).then(
                                       (_) => ref.read(driversProvider.notifier).refresh(),
+                                    );
+                                  },
+                                ),
+                                _buildActionButton(
+                                  icon: LucideIcons.chartNoAxesCombined,
+                                  label: Localizations.localeOf(context).languageCode == 'ar'
+                                      ? 'إحصائيات'
+                                      : 'Statistics',
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            DriverStatisticsScreen(driverId: driver.id),
+                                      ),
                                     );
                                   },
                                 ),

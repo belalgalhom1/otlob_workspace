@@ -177,7 +177,7 @@ CREATE TABLE "platform_settings" (
     "driverSearchMaxAttempts" INTEGER NOT NULL DEFAULT 5,
     "fallbackOrderDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 3.0,
     "customOrderPlatformFee" INTEGER NOT NULL DEFAULT 10,
-    "maxDispatchBatchSize" INTEGER NOT NULL DEFAULT 300,
+    "maxDispatchBatchSize" INTEGER NOT NULL DEFAULT 20,
     "coinValue" INTEGER NOT NULL DEFAULT 1,
     "amountSpentPerCoin" INTEGER NOT NULL DEFAULT 10,
     "minCoinsToUse" INTEGER NOT NULL DEFAULT 1,
@@ -552,6 +552,17 @@ CREATE TABLE "app_statistics" (
 );
 
 -- CreateTable
+CREATE TABLE "stat_processing_markers" (
+    "sourceKey" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "stat_processing_markers_pkey" PRIMARY KEY ("sourceKey")
+);
+
+-- CreateIndex
+CREATE INDEX "stat_processing_markers_createdAt_idx" ON "stat_processing_markers"("createdAt");
+
+-- CreateTable
 CREATE TABLE "menu_categories" (
     "id" TEXT NOT NULL,
     "vendorId" TEXT NOT NULL,
@@ -681,6 +692,7 @@ CREATE TABLE "cart_item_options" (
 CREATE TABLE "orders" (
     "id" TEXT NOT NULL,
     "orderNumber" TEXT NOT NULL DEFAULT 'ORD-'::text || nextval('order_number_seq'::regclass),
+    "clientOrderKey" TEXT,
     "type" "OrderType" NOT NULL DEFAULT 'STANDARD',
     "customerId" TEXT NOT NULL,
     "vendorId" TEXT,
@@ -1229,6 +1241,9 @@ CREATE INDEX "cart_item_options_cartItemId_idx" ON "cart_item_options"("cartItem
 CREATE UNIQUE INDEX "orders_orderNumber_key" ON "orders"("orderNumber");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "orders_clientOrderKey_key" ON "orders"("clientOrderKey");
+
+-- CreateIndex
 CREATE INDEX "orders_customerId_idx" ON "orders"("customerId");
 
 -- CreateIndex
@@ -1248,6 +1263,24 @@ CREATE INDEX "orders_deletedAt_idx" ON "orders"("deletedAt");
 
 -- CreateIndex
 CREATE INDEX "orders_createdAt_idx" ON "orders"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "orders_status_createdAt_idx" ON "orders"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "orders_status_updatedAt_idx" ON "orders"("status", "updatedAt");
+
+-- CreateIndex
+CREATE INDEX "orders_customerId_createdAt_idx" ON "orders"("customerId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "orders_vendorId_createdAt_idx" ON "orders"("vendorId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "orders_driverId_createdAt_idx" ON "orders"("driverId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "orders_customerId_status_idx" ON "orders"("customerId", "status");
 
 -- CreateIndex
 CREATE INDEX "orders_deliveryLocation_idx" ON "orders" USING GIST ("deliveryLocation");
@@ -1344,6 +1377,9 @@ CREATE INDEX "order_dispatches_status_idx" ON "order_dispatches"("status");
 
 -- CreateIndex
 CREATE INDEX "order_dispatches_createdAt_idx" ON "order_dispatches"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "order_dispatches_driverId_status_idx" ON "order_dispatches"("driverId", "status");
 
 -- CreateIndex
 CREATE INDEX "audit_logs_userId_idx" ON "audit_logs"("userId");

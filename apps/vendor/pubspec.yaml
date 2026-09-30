@@ -45,8 +45,6 @@ dependencies:
   flutter_sound: ^9.30.0
   permission_handler: ^13.0.0
   path_provider: ^2.1.5
-  pdf: ^3.12.0
-  printing: ^5.14.3
 
   easy_localization: any
 dev_dependencies:

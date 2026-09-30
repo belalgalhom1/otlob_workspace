@@ -83,7 +83,7 @@ model PlatformSetting {
   driverSearchMaxAttempts               Int       @default(5)
   fallbackOrderDistanceKm               Float     @default(3.0)
   customOrderPlatformFee                Int       @default(10)
-  maxDispatchBatchSize                  Int       @default(300)
+  maxDispatchBatchSize                  Int       @default(20)
   coinValue                             Int       @default(1)
   amountSpentPerCoin                    Int       @default(10)
   minCoinsToUse                         Int       @default(1)
@@ -580,6 +580,23 @@ model AppStatistic {
   @@map("app_statistics")
 }
 
+/**
+ * Exactly-once guard for async stat updates (DB-anchored idempotency).
+ * Each stats job carries a deterministic `sourceKey` derived from its
+ * underlying event (e.g. `settle:<orderId>:UPDATE_VENDOR`). The worker CREATEd
+ * the marker row and applies the `+=` upserts in the SAME DB transaction, so a
+ * re-delivered job (worker crash, stall, manual retry) finds an existing
+ * sourceKey and skips — no double-count, no extra store, atomic with the data.
+ * Purged by the stats retention job once older than retentionStatisticsDays.
+ */
+model StatProcessingMarker {
+  sourceKey String   @id @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("stat_processing_markers")
+}
+
 model MenuCategory {
   id            String    @id @default(uuid())
   vendorId      String
@@ -744,6 +761,7 @@ model CartItemOption {
 model Order {
   id                   String                    @id @default(uuid())
   orderNumber          String                    @unique @default(dbgenerated("'ORD-'::text || nextval('order_number_seq'::regclass)"))
+  clientOrderKey       String?                   @unique
   type                 OrderType                 @default(STANDARD)
   customerId           String
   vendorId             String?
@@ -803,6 +821,12 @@ model Order {
   @@index([status])
   @@index([deletedAt])
   @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
+  @@index([customerId, createdAt])
+  @@index([vendorId, createdAt])
+  @@index([driverId, createdAt])
+  @@index([customerId, status])
   @@index([deliveryLocation], type: Gist)
   @@map("orders")
 }
@@ -1034,6 +1058,7 @@ model OrderDispatch {
   @@index([driverShiftId])
   @@index([status])
   @@index([createdAt])
+  @@index([driverId, status])
   @@map("order_dispatches")
 }
 

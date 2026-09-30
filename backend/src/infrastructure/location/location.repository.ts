@@ -144,6 +144,60 @@ export class LocationRepository {
   }
 
   /**
+   * Global geo-pool hygiene: prune members whose driver is no longer available
+   * (offline, suspended, deleted, or unpaid commission).
+   *
+   * ONLINE and ON_DELIVERY drivers are always preserved — a momentarily silent
+   * driver stays offerable and keep live-tracking data intact. The per-query
+   * lazy sweep in findNearbyDrivers only prunes within each search radius, so a
+   * single global pass here keeps the set bounded without touching hot paths.
+   */
+  async sweepStaleDriverLocations(): Promise<{
+    scanned: number;
+    removed: number;
+  }> {
+    const members = await this.redis.zrange('otlobegy:driver-locations');
+    if (members.length === 0) return { scanned: 0, removed: 0 };
+
+    // Batch the availability check to keep the SQL IN list reasonable.
+    const CHUNK = 500;
+    const stale: string[] = [];
+
+    for (let i = 0; i < members.length; i += CHUNK) {
+      const chunk = members.slice(i, i + CHUNK);
+      const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT d.id
+        FROM drivers d
+        WHERE d.id IN (${Prisma.join(chunk)})
+          AND d."deletedAt" IS NULL
+          AND d."hasUnpaidCommission" = false
+          AND d.status::text IN ('ONLINE', 'ON_DELIVERY')
+      `;
+
+      const valid = new Set(rows.map((r) => r.id));
+      for (const id of chunk) {
+        if (!valid.has(id)) stale.push(id);
+      }
+    }
+
+    if (stale.length === 0) return { scanned: members.length, removed: 0 };
+
+    // ZREM in batches to respect per-command argument limits. Freshness keys
+    // are left to their 90s TTL — no extra cleanup needed.
+    for (let i = 0; i < stale.length; i += 1000) {
+      await this.redis.zremMembers(
+        'otlobegy:driver-locations',
+        stale.slice(i, i + 1000),
+      );
+    }
+
+    this.logger.log(
+      `Geo freshness sweep: pruned ${stale.length} stale member(s) of ${members.length}`,
+    );
+    return { scanned: members.length, removed: stale.length };
+  }
+
+  /**
    * Live (fresh Redis broadcast) positions for a batch of drivers.
    */
   async getLiveDriverLocations(
@@ -316,11 +370,18 @@ export class LocationRepository {
       activeShiftId: string | null;
     }[]
   > {
+    // Bound the GEO radius scan to the nearest N candidates. The SQL filter
+    // (status/vehicleType/shift) may discard some, so keep a generous headroom
+    // above the final cap of 20 that dispatch actually consumes. Without this
+    // bound, a dense region can return the entire cluster on every round.
+    const GEORADIUS_CANDIDATE_LIMIT = 200;
+
     const nearby = await this.redis.georadius(
       'otlobegy:driver-locations',
       longitude,
       latitude,
       radiusKm,
+      GEORADIUS_CANDIDATE_LIMIT,
     );
     if (nearby.length === 0) return [];
 

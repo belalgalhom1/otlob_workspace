@@ -95,16 +95,13 @@ export class NotificationsService {
       body: dto.body ?? null,
       bodyAr: dto.bodyAr ?? null,
       type: dto.type,
-      data: dto.data ? JSON.stringify(dto.data) : null,
+      data: dto.data ?? null,
       isRead: false,
       createdAt: now,
     }));
 
     await this.prisma.notification.createMany({
-      data: payloads.map((p) => ({
-        ...p,
-        data: p.data ? JSON.parse(p.data) : null,
-      })),
+      data: payloads as Prisma.NotificationCreateManyInput[],
     });
 
     const userIds = [...new Set(dtos.map((d) => d.userId))];
@@ -142,12 +139,12 @@ export class NotificationsService {
           body: p.body,
           bodyAr: p.bodyAr,
           type: p.type,
-          data: p.data ? JSON.parse(p.data) : null,
+          data: p.data ?? null,
           createdAt: p.createdAt,
         })
         .catch((err) =>
           this.logger.error(
-            `Socket emit failed for user ${p.userId}: ${err.message}`,
+            `Socket emit failed for user ${p.userId}: ${(err as Error).message}`,
           ),
         );
 
@@ -166,14 +163,14 @@ export class NotificationsService {
       const pushTitle = isArabic ? (p.titleAr ?? p.title) : p.title;
       const pushBody = isArabic ? (p.bodyAr ?? p.body ?? '') : (p.body ?? '');
       const tokens = user.devices.map((d) => d.token);
-      const parsedData = p.data ? JSON.parse(p.data) : undefined;
+      const parsedData = p.data ?? undefined;
 
       pushPromises.push(
         this.pushService
           .sendToDevices(tokens, pushTitle, pushBody, parsedData)
           .catch((err) =>
             this.logger.error(
-              `Push dispatch failed for user ${p.userId}: ${err.message}`,
+              `Push dispatch failed for user ${p.userId}: ${(err as Error).message}`,
             ),
           ),
       );

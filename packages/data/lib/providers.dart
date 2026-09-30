@@ -13,7 +13,7 @@ final adminDriversRepositoryProvider = Provider<AdminDriversRepository>((ref) =>
 final adminOffersRepositoryProvider = Provider<AdminOffersRepository>((ref) => AdminOffersRepository(ref.watch(apiClientProvider).getOffersApi()));
 final adminOrdersRepositoryProvider = Provider<AdminOrdersRepository>((ref) => AdminOrdersRepository(ref.watch(apiClientProvider).getOrdersApi()));
 final adminPlatformSettingsRepositoryProvider = Provider<AdminPlatformSettingsRepository>((ref) => AdminPlatformSettingsRepository(ref.watch(apiClientProvider).getPlatformSettingsVersioningApi()));
-final adminStatisticsRepositoryProvider = Provider<AdminStatisticsRepository>((ref) => AdminStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi()));
+final adminStatisticsRepositoryProvider = Provider<AdminStatisticsRepository>((ref) => AdminStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final adminUsersRepositoryProvider = Provider<AdminUsersRepository>((ref) => AdminUsersRepository(ref.watch(apiClientProvider).getUsersApi()));
 final adminVendorBranchesRepositoryProvider = Provider<AdminVendorBranchesRepository>((ref) => AdminVendorBranchesRepository(ref.watch(apiClientProvider).getVendorsBranchesApi()));
 
@@ -42,7 +42,7 @@ final driverDispatchRepositoryProvider = Provider<DriverDispatchRepository>((ref
 final driverOrdersRepositoryProvider = Provider<DriverOrdersRepository>((ref) => DriverOrdersRepository(ref.watch(apiClientProvider).getOrdersApi()));
 final driverProfileRepositoryProvider = Provider<DriverProfileRepository>((ref) => DriverProfileRepository(ref.watch(apiClientProvider).getDriversApi()));
 final driverShiftsRepositoryProvider = Provider<DriverShiftsRepository>((ref) => DriverShiftsRepository(ref.watch(apiClientProvider).getDriverShiftsApi(), ref.watch(apiClientProvider).getDriversApi()));
-final driverStatisticsRepositoryProvider = Provider<DriverStatisticsRepository>((ref) => DriverStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi()));
+final driverStatisticsRepositoryProvider = Provider<DriverStatisticsRepository>((ref) => DriverStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final driverWalletRepositoryProvider = Provider<DriverWalletRepository>((ref) => DriverWalletRepository(ref.watch(apiClientProvider).getWalletFinancialsApi(), ref.watch(apiClientProvider).getDriversApi()));
 final sharedAuthRepositoryProvider = Provider<SharedAuthRepository>((ref) => SharedAuthRepository(ref.watch(apiClientProvider).getAuthenticationApi(), ref.watch(tokenServiceProvider)));
 final sharedChatRepositoryProvider = Provider<SharedChatRepository>((ref) => SharedChatRepository(ref.watch(apiClientProvider).getChatConversationsApi(), ref.watch(apiClientProvider).getChatMessagesApi(), ref.watch(apiClientProvider).dio));
@@ -65,6 +65,6 @@ final vendorMembersRepositoryProvider = Provider<VendorMembersRepository>((ref) 
 final vendorOrdersRepositoryProvider = Provider<VendorOrdersRepository>((ref) => VendorOrdersRepository(ref.watch(apiClientProvider).getOrdersApi()));
 final vendorProfileRepositoryProvider = Provider<VendorProfileRepository>((ref) => VendorProfileRepository(ref.watch(apiClientProvider).getVendorsCoreManagementApi()));
 final vendorPromotionsRepositoryProvider = Provider<VendorPromotionsRepository>((ref) => VendorPromotionsRepository(ref.watch(apiClientProvider).getPromotionsApi()));
-final vendorStatisticsRepositoryProvider = Provider<VendorStatisticsRepository>((ref) => VendorStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi()));
+final vendorStatisticsRepositoryProvider = Provider<VendorStatisticsRepository>((ref) => VendorStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final vendorWalletRepositoryProvider = Provider<VendorWalletRepository>((ref) => VendorWalletRepository(ref.watch(apiClientProvider).getVendorsWalletTransactionsApi(), ref.watch(apiClientProvider).getWalletFinancialsApi()));
 

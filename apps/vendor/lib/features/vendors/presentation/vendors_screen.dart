@@ -13,6 +13,7 @@ import 'package:vendor/features/vendors/presentation/branches_screen.dart';
 import 'package:vendor/features/vendors/presentation/products_screen.dart';
 import 'package:vendor/features/vendors/presentation/vendor_members_screen.dart';
 import 'package:vendor/features/wallet/presentation/widgets/manual_transaction_dialog.dart';
+import 'package:vendor/features/wallet/presentation/vendor_finance_statistics_screen.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
@@ -418,6 +419,22 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
           color: Colors.deepPurple,
           label: AppLocalizations.of(context)!.mostOrderedProduct,
           onPressed: () => _showMostOrderedProduct(context, v),
+        ),
+        _buildActionItem(
+          context: context,
+          icon: LucideIcons.chartNoAxesCombined,
+          color: AppColors.info,
+          label: Localizations.localeOf(context).languageCode == 'ar'
+              ? 'إحصائيات المبيعات'
+              : 'Statistics',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    VendorFinanceStatisticsScreen(vendorId: v['id']),
+              ),
+            );
+          },
         ),
 
         if (widget.userRole != 'VENDOR_MEMBER' || widget.vendorRole == 'OWNER' || widget.vendorRole == 'MANAGER')

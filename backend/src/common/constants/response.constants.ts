@@ -242,6 +242,7 @@ export const DriverErrors = {
   VEHICLE_MISMATCH: 'driver.error.vehicle_mismatch',
   INVALID_START_END_DATE: 'driver.error.invalid_start_end_date',
   CANNOT_GO_OFFLINE_ON_DELIVERY: 'driver.error.cannot_go_offline_on_delivery',
+  CANNOT_REMOVE_HISTORICAL_SHIFT: 'driver.error.cannot_remove_historical_shift',
 };
 
 export const OrderErrors = {
@@ -278,6 +279,7 @@ export const OrderErrors = {
   MIN_ORDER_AMOUNT_NOT_MET: 'order.error.min_order_amount_not_met',
   BICYCLE_DISTANCE_EXCEEDED: 'order.error.bicycle_distance_exceeded',
   CANNOT_FORCE_ASSIGN_DRIVER: 'order.error.cannot_force_assign_driver',
+  DRIVER_ALREADY_ON_ORDER: 'order.error.driver_already_on_order',
   CANNOT_CANCEL_PREPARATION_STARTED:
     'order.error.cannot_cancel_preparation_started',
   DRIVERS_CANNOT_CANCEL: 'order.error.drivers_cannot_cancel',

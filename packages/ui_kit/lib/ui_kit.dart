@@ -22,3 +22,9 @@ export 'src/widgets/chat/inbox_conversation_tile.dart';
 export 'src/widgets/profile/change_password_dialog.dart';
 export 'src/widgets/profile/delete_account_dialog.dart';
 
+export 'src/widgets/trend_bar_chart.dart';
+export 'src/widgets/statistics/statistics_config.dart';
+export 'src/widgets/statistics/statistics_screen.dart';
+
+export 'src/services/data_export_service.dart';
+

@@ -23,9 +23,11 @@ class CustomerOrderRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> placeCustomOrder(PlaceCustomOrderDto placeCustomOrderDto) async {
+  Future<dynamic> placeCustomOrder(PlaceCustomOrderDto placeCustomOrderDto,
+      {String? idempotencyKey}) async {
     final response = await _api.ordersControllerPlaceCustomOrder(
-      placeCustomOrderDto: placeCustomOrderDto
+      placeCustomOrderDto: placeCustomOrderDto,
+      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
     );
     return ResponseParser.parse(response);
   }
@@ -37,8 +39,11 @@ class CustomerOrderRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> placeOrder(PlaceOrderDto dto) async {
-    final response = await _api.ordersControllerPlaceOrder(placeOrderDto: dto);
+  Future<dynamic> placeOrder(PlaceOrderDto dto, {String? idempotencyKey}) async {
+    final response = await _api.ordersControllerPlaceOrder(
+      placeOrderDto: dto,
+      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
+    );
     return ResponseParser.parse(response);
   }
 

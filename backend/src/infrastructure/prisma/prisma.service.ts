@@ -19,9 +19,12 @@ export class PrismaService
 
   constructor(config: ConfigService) {
     const connectionString = config.getOrThrow<string>('DATABASE_URL');
+    // Overallocated pools multiply across cluster instances (api + ws + worker),
+    // so the per-process max must be tuned against the Postgres max_connections.
+    const poolSize = config.get<number>('DB_POOL_SIZE') ?? 10;
     const pool = new Pool({
       connectionString,
-      max: 20, // max number of connections in the pool
+      max: poolSize,
       idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
       connectionTimeoutMillis: 5000, // return an error after 5 seconds if connection could not be established
     });

@@ -76,6 +76,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async setNX(key: string, value: string, ttl: number): Promise<boolean> {
+    try {
+      const res = await this.client.set(key, value, 'EX', ttl, 'NX');
+      return res === 'OK';
+    } catch (error) {
+      this.logger.error(`Failed to SETNX key "${key}"`, (error as Error).stack);
+      throw error;
+    }
+  }
+
   async get(key: string): Promise<string | null> {
     try {
       return await this.client.get(key);
@@ -93,6 +103,31 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         `Failed to DEL keys "${keys.join(', ')}"`,
         (error as Error).stack,
       );
+    }
+  }
+
+  /**
+   * Atomically return the value of `key` and remove it (Redis GETDEL).
+   * Safe for cross-process coordination (e.g. claiming a session exactly once
+   * across cluster workers) even when Redis < 6.2 lacks native GETDEL.
+   * Returns null when the key does not exist.
+   */
+  async getdel(key: string): Promise<string | null> {
+    const script = `
+      local v = redis.call('GET', KEYS[1])
+      if v then
+        redis.call('DEL', KEYS[1])
+      end
+      return v
+    `;
+    try {
+      return (await this.client.eval(script, 1, key)) as string | null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to GETDEL key "${key}"`,
+        (error as Error).stack,
+      );
+      return null;
     }
   }
 
@@ -186,6 +221,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     lng: number,
     lat: number,
     radiusKm: number,
+    count?: number,
   ): Promise<Array<{ member: string; distanceKm: number }>> {
     try {
       const results = await this.client.georadius(
@@ -195,7 +231,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         radiusKm,
         'km',
         'WITHDIST',
-        'ASC',
+        ...(count ? (['COUNT', count, 'ASC'] as const) : (['ASC'] as const)),
       );
       return (results as any[]).map((r) => ({
         member: r[0],
@@ -218,6 +254,37 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         `Failed to ZREM member from key "${key}"`,
         (error as Error).stack,
       );
+    }
+  }
+
+  /**
+   * Remove multiple members from a sorted set in a single call (ZREM varargs).
+   */
+  async zremMembers(key: string, members: string[]): Promise<number> {
+    if (members.length === 0) return 0;
+    try {
+      return await this.client.zrem(key, ...members);
+    } catch (error) {
+      this.logger.error(
+        `Failed to ZREM members from key "${key}"`,
+        (error as Error).stack,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * All member names of a sorted set within [start, stop] (ZRANGE).
+   */
+  async zrange(key: string, start = 0, stop = -1): Promise<string[]> {
+    try {
+      return await this.client.zrange(key, start, stop);
+    } catch (error) {
+      this.logger.error(
+        `Failed to ZRANGE key "${key}"`,
+        (error as Error).stack,
+      );
+      return [];
     }
   }
 
