@@ -2016,6 +2016,26 @@ class AppLocalizationsAr extends AppLocalizations {
       'هل أنت متأكد أنك تريد حذف مجموعة الورديات هذه؟ لا يمكن التراجع عن هذا الإجراء.';
 
   @override
+  String get removeDriver => 'إزالة السائق';
+
+  @override
+  String get removeDriverConfirm =>
+      'هل أنت متأكد من إزالة هذا السائق من الوردية؟';
+
+  @override
+  String get removeDriverSuccess => 'تم إزالة السائق من الوردية';
+
+  @override
+  String get removeAllDrivers => 'إزالة جميع السائقين';
+
+  @override
+  String get removeAllDriversConfirm =>
+      'هل أنت متأكد من إزالة جميع السائقين من هذه المجموعة؟ سيتم الإبقاء على المجموعة نفسها.';
+
+  @override
+  String get removeAllDriversSuccess => 'تم إزالة جميع السائقين من المجموعة';
+
+  @override
   String get capacity => 'السعة';
 
   @override

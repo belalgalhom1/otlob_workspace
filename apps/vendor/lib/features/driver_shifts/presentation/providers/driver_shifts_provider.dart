@@ -52,6 +52,18 @@ class ShiftPools extends _$ShiftPools {
     await refresh();
   }
 
+  Future<void> removeDriverFromShift(String shiftId) async {
+    final dio = ref.read(dioProvider);
+    await dio.delete('/driver-shifts/admin/shifts/$shiftId');
+    await refresh();
+  }
+
+  Future<void> removeAllDriversFromPool(String poolId) async {
+    final dio = ref.read(dioProvider);
+    await dio.delete('/driver-shifts/admin/pools/$poolId/drivers');
+    await refresh();
+  }
+
   Future<void> assignDriver(AdminAssignShiftRequest request) async {
     final dio = ref.read(dioProvider);
     await dio.post('/driver-shifts/admin/assign', data: request.toJson());

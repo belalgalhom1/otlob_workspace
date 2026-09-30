@@ -2029,6 +2029,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'Are you sure you want to delete this shift pool? This action cannot be undone.';
 
   @override
+  String get removeDriver => 'Remove Driver';
+
+  @override
+  String get removeDriverConfirm =>
+      'Are you sure you want to remove this driver from the shift?';
+
+  @override
+  String get removeDriverSuccess => 'Driver removed from shift';
+
+  @override
+  String get removeAllDrivers => 'Remove All Drivers';
+
+  @override
+  String get removeAllDriversConfirm =>
+      'Are you sure you want to remove all drivers from this pool? The pool itself will be kept.';
+
+  @override
+  String get removeAllDriversSuccess => 'All drivers removed from pool';
+
+  @override
   String get capacity => 'Capacity';
 
   @override

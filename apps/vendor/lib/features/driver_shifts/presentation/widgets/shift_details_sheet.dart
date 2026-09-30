@@ -363,6 +363,27 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                   ),
                 ),
               ),
+              const Spacer(),
+              if (pool.driverShifts.isNotEmpty)
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () => _removeAllDrivers(l10n, pool),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Tooltip(
+                      message: l10n.removeAllDrivers,
+                      child: const Icon(
+                        LucideIcons.userX,
+                        size: 14,
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -470,9 +491,111 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               ),
             ),
           ),
+          const SizedBox(width: 4),
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => _removeDriver(shift),
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(LucideIcons.userX, size: 12, color: AppColors.error),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _removeDriver(DriverShift shift) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(l10n.removeDriver),
+        content: Text(l10n.removeDriverConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(shiftPoolsProvider.notifier).removeDriverFromShift(shift.id);
+      widget.onAssigned();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.removeDriverSuccess),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeAllDrivers(AppLocalizations l10n, ShiftPool pool) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(l10n.removeAllDrivers),
+        content: Text(l10n.removeAllDriversConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(shiftPoolsProvider.notifier).removeAllDriversFromPool(pool.id);
+      widget.onAssigned();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.removeAllDriversSuccess),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _assignDriver(

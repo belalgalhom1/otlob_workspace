@@ -3962,6 +3962,42 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to delete this shift pool? This action cannot be undone.'**
   String get deleteShiftPoolConfirm;
 
+  /// No description provided for @removeDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Driver'**
+  String get removeDriver;
+
+  /// No description provided for @removeDriverConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove this driver from the shift?'**
+  String get removeDriverConfirm;
+
+  /// No description provided for @removeDriverSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver removed from shift'**
+  String get removeDriverSuccess;
+
+  /// No description provided for @removeAllDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove All Drivers'**
+  String get removeAllDrivers;
+
+  /// No description provided for @removeAllDriversConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove all drivers from this pool? The pool itself will be kept.'**
+  String get removeAllDriversConfirm;
+
+  /// No description provided for @removeAllDriversSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'All drivers removed from pool'**
+  String get removeAllDriversSuccess;
+
   /// No description provided for @capacity.
   ///
   /// In en, this message translates to:
