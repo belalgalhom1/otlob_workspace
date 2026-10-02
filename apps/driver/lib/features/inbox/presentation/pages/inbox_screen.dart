@@ -6,6 +6,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:data/data.dart';
 import 'package:data/providers.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -70,7 +71,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      l10n.errorOccurred(inboxState.error ?? ''),
+                      ErrorUtils.translate(context, inboxState.error),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
                       ),

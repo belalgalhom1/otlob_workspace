@@ -5,6 +5,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
 import '../orders_provider.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class AssignDriverSheet extends ConsumerStatefulWidget {
   final String orderId;
@@ -48,7 +49,7 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
         setState(() => _isFetching = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.failedWithError(e.toString())),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -77,7 +78,7 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.failedWithError(e.toString())),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );

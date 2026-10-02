@@ -77,8 +77,29 @@ class Auth extends _$Auth {
       }
 
       final driverRepo = ref.read(driverProfileRepositoryProvider);
-      final profile = await driverRepo.getMyProfile();
-      if (profile == null || profile['isApproved'] != true) {
+      Map<String, dynamic>? profile;
+      var profileFetchFailed = false;
+      try {
+        profile = await driverRepo.getMyProfile();
+      } catch (e) {
+        final message = e.toString();
+        if (message.contains('404') || message.contains('PROFILE_NOT_FOUND')) {
+          await repository.logout();
+          throw Exception('auth.error.pending_approval');
+        }
+        // Tokens were already persisted by the successful login. A transient
+        // network/server failure on this very first authenticated read (cold
+        // socket/TLS, momentary 5xx, fresh KeyStore) must not strand the user
+        // on an error snackbar that only a force-restart escapes — the
+        // dashboard's fetchProfile (retries + error card) handles any lasting
+        // problem.
+        profileFetchFailed = true;
+        debugPrint(
+          'Login succeeded; post-login profile fetch failed transiently: $e',
+        );
+      }
+      if (!profileFetchFailed &&
+          (profile == null || profile['isApproved'] != true)) {
         await repository.logout();
         throw Exception('auth.error.pending_approval');
       }

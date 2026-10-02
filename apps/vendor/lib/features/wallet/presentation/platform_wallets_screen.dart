@@ -211,8 +211,37 @@ class PlatformWalletsScreen extends ConsumerWidget {
       builder: (c) {
         String selectedProvider = 'VODAFONE';
         final numberController = TextEditingController();
+        String? error;
+        bool submitting = false;
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (dialogContext, setState) {
+            Future<void> submit() async {
+              setState(() {
+                submitting = true;
+                error = null;
+              });
+              try {
+                await ref
+                    .read(platformWalletsProvider.notifier)
+                    .createWallet(selectedProvider, numberController.text);
+                if (!c.mounted) return;
+                Navigator.pop(c);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.walletAddedSuccessfully),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                if (!c.mounted) return;
+                setState(() {
+                  submitting = false;
+                  error = '${l10n.walletFailed}: $e';
+                });
+              }
+            }
+
             return DialogScaffold(child: AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
@@ -233,8 +262,8 @@ class PlatformWalletsScreen extends ConsumerWidget {
                       prefixIcon: const Icon(LucideIcons.building2),
                     ),
                     items: [
-                      DropdownMenuItem(value: 'VODAFONE', child: Text(AppLocalizations.of(context)!.mobileWallet)),
-                      DropdownMenuItem(value: 'INSTAPAY', child: Text(AppLocalizations.of(context)!.instaPay)),
+                      DropdownMenuItem(value: 'VODAFONE', child: Text(AppLocalizations.of(dialogContext)!.mobileWallet)),
+                      DropdownMenuItem(value: 'INSTAPAY', child: Text(AppLocalizations.of(dialogContext)!.instaPay)),
                     ],
                     onChanged: (v) {
                       setState(() {
@@ -253,11 +282,24 @@ class PlatformWalletsScreen extends ConsumerWidget {
                       prefixIcon: const Icon(LucideIcons.hash),
                     ),
                   ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 16),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(c),
+                  onPressed: submitting ? null : () => Navigator.pop(c),
                   child: Text(l10n.cancelAction),
                 ),
                 ElevatedButton.icon(
@@ -265,30 +307,14 @@ class PlatformWalletsScreen extends ConsumerWidget {
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                   ),
-                  icon: const Icon(LucideIcons.plus, size: 16),
-                  onPressed: () async {
-                    Navigator.pop(c);
-                    try {
-                      await ref
-                          .read(platformWalletsProvider.notifier)
-                          .createWallet(selectedProvider, numberController.text);
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(l10n.walletAddedSuccessfully),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${l10n.walletFailed}: $e'),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  },
+                  icon: submitting
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(LucideIcons.plus, size: 16),
+                  onPressed: submitting ? null : submit,
                   label: Text(l10n.addWallet),
                 ),
               ],

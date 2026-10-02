@@ -5,7 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import '../../data/driver_models.dart';
 import '../../data/driver_providers.dart';
-import '../../../../l10n/l10n_error_helper.dart';
+import '../../../../core/utils/error_utils.dart';
 
 class DriverFormDialog extends ConsumerStatefulWidget {
   final DriverProfile? driver;
@@ -119,7 +119,7 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(
-            content: Text(L10nErrorHelper.translate(ctx, e.toString())),
+            content: Text(ErrorUtils.translate(ctx, e)),
             backgroundColor: AppColors.error,
           ),
         );

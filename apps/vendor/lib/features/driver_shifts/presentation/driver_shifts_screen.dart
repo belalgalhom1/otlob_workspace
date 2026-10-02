@@ -8,6 +8,7 @@ import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.d
 import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/driver_shifts/presentation/widgets/generate_shifts_dialog.dart';
 import 'package:vendor/features/driver_shifts/presentation/widgets/shift_details_sheet.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class DriverShiftsScreen extends ConsumerStatefulWidget {
   const DriverShiftsScreen({super.key});
@@ -194,7 +195,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            error.toString().replaceAll('Exception: ', ''),
+            ErrorUtils.translate(context, error),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
@@ -386,6 +387,18 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
 
   void _confirmDelete(ShiftPool pool) {
     final l10n = AppLocalizations.of(context)!;
+    final hasAssignedDrivers = pool.driverShifts.any(
+      (s) => s.status == 'SCHEDULED' || s.status == 'ACTIVE',
+    );
+    if (hasAssignedDrivers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.deleteShiftPoolHasDrivers),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -25,6 +25,7 @@ export 'src/widgets/profile/delete_account_dialog.dart';
 export 'src/widgets/trend_bar_chart.dart';
 export 'src/widgets/statistics/statistics_config.dart';
 export 'src/widgets/statistics/statistics_screen.dart';
+export 'src/widgets/location_required_gate.dart';
 
 export 'src/services/data_export_service.dart';
 

@@ -153,7 +153,10 @@ class SharedInbox extends _$SharedInbox {
     } catch (e, stack) {
       if (!ref.mounted) return;
       debugPrint('SharedInbox fetch error: $e\n$stack');
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: ApiErrorMapper.fromError(e),
+      );
     }
   }
 

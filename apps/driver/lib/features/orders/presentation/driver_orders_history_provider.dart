@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 
 part 'driver_orders_history_provider.g.dart';
 
@@ -96,7 +97,7 @@ class DriverOrdersHistory extends _$DriverOrdersHistory {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: ApiErrorMapper.fromError(e),
       );
     }
   }
@@ -136,7 +137,7 @@ class DriverOrdersHistory extends _$DriverOrdersHistory {
     } catch (e) {
       state = state.copyWith(
         isLoadingMore: false,
-        error: e.toString(),
+        error: ApiErrorMapper.fromError(e),
       );
     }
   }

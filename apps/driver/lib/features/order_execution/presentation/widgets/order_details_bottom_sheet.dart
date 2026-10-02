@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:core/core.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -188,6 +189,77 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ],
               ],
 
+              const SizedBox(height: 24),
+
+              // Pickup proof photo
+              if (order['pickupImageUrl'] != null &&
+                  order['pickupImageUrl'].toString().isNotEmpty) ...[
+                Text(
+                  l10n.pickupPhoto,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () =>
+                      _viewPhoto(context, ref, order['pickupImageUrl'].toString()),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            _resolveMediaUrl(ref, order['pickupImageUrl'].toString()),
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 56,
+                              height: 56,
+                              color: Theme.of(context).dividerColor,
+                              child: const Icon(
+                                LucideIcons.imageOff,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            l10n.localeName == 'ar'
+                                ? 'اضغط لعرض صورة الاستلام'
+                                : 'Tap to view pickup photo',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          LucideIcons.chevronRight,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 32),
               
               // Order Items or Package Details
@@ -295,6 +367,51 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  String _resolveMediaUrl(WidgetRef ref, String path) {
+    final baseUrl = ref.read(dioProvider).options.baseUrl;
+    final cleanBaseUrl = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    return '$cleanBaseUrl$path';
+  }
+
+  void _viewPhoto(BuildContext context, WidgetRef ref, String url) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Center(
+                  child: Image.network(
+                    _resolveMediaUrl(ref, url),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      LucideIcons.imageOff,
+                      color: Colors.white70,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(LucideIcons.x, color: Colors.white),
+              ),
+            ),
+          ],
         ),
       ),
     );

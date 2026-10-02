@@ -478,6 +478,10 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get zoneInUseDeleteError =>
+      'هذه المنطقة قيد الاستخدام. قم بإعادة تعيين فروعها وطلباتها ووردياتها أو حذفها قبل محاولة حذفها.';
+
+  @override
   String get cancel => 'إلغاء';
 
   @override
@@ -2016,6 +2020,23 @@ class AppLocalizationsAr extends AppLocalizations {
       'هل أنت متأكد أنك تريد حذف مجموعة الورديات هذه؟ لا يمكن التراجع عن هذا الإجراء.';
 
   @override
+  String get deleteShift => 'حذف الوردية';
+
+  @override
+  String get deleteShiftConfirmTitle => 'حذف هذه الوردية؟';
+
+  @override
+  String get deleteShiftConfirmMessage =>
+      'سيتم حذف هذه الوردية نهائياً. سيفقد السائق الوردية فوراً.';
+
+  @override
+  String get shiftRemovedSuccessfully => 'تم حذف الوردية بنجاح';
+
+  @override
+  String get deleteShiftPoolHasDrivers =>
+      'هذه مجموعة الورديات بها سائقون معينون. قم بإزالة السائقين أولاً قبل حذفها.';
+
+  @override
   String get removeDriver => 'إزالة السائق';
 
   @override
@@ -2234,4 +2255,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noActiveOrdersFound => 'لا توجد طلبات نشطة';
+
+  @override
+  String get pickupPhoto => 'صورة الاستلام';
+
+  @override
+  String get viewPickupPhoto => 'عرض صورة الاستلام';
 }

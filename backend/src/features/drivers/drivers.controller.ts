@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -149,6 +150,18 @@ export class DriversController {
     @Param('shiftId') shiftId: string,
   ) {
     return this.driversService.endShift(userId, shiftId);
+  }
+
+  @ApiStandardResponse()
+  @Delete('me/shifts/:shiftId')
+  @Roles(Role.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete my shift (any status)' })
+  deleteMyShift(
+    @CurrentUser('sub') userId: string,
+    @Param('shiftId') shiftId: string,
+  ) {
+    return this.driversService.deleteMyShift(userId, shiftId);
   }
 
   // ─── Wallet ───────────────────────────────────────────────────────────────

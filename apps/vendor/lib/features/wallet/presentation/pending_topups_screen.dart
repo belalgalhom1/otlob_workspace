@@ -247,64 +247,99 @@ class PendingTopUpsScreen extends ConsumerWidget {
       context: context,
       builder: (c) {
         final controller = TextEditingController();
-        return DialogScaffold(child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(
-                status == 'APPROVED' ? LucideIcons.checkCircle : LucideIcons.xCircle,
-                color: status == 'APPROVED' ? AppColors.success : AppColors.error,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(l10n.reviewTopUp),
-            ],
-          ),
-          content: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: l10n.optionalNotes,
-              border: const OutlineInputBorder(),
-            ),
-            maxLines: 2,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: Text(l10n.cancelAction),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: status == 'APPROVED' ? AppColors.success : AppColors.error,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
+        String? error;
+        bool submitting = false;
+        return StatefulBuilder(
+          builder: (dialogContext, setState) {
+            Future<void> submit() async {
+              setState(() {
+                submitting = true;
+                error = null;
+              });
+              try {
+                await ref
+                    .read(pendingTopUpsProvider.notifier)
+                    .reviewTopUp(id, status, notes: controller.text);
+                if (!c.mounted) return;
                 Navigator.pop(c);
-                try {
-                  await ref
-                      .read(pendingTopUpsProvider.notifier)
-                      .reviewTopUp(id, status, notes: controller.text);
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(status == 'APPROVED' ? l10n.topUpApproved : l10n.topUpRejected),
-                      backgroundColor: status == 'APPROVED' ? AppColors.success : AppColors.error,
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(status == 'APPROVED' ? l10n.topUpApproved : l10n.topUpRejected),
+                    backgroundColor: status == 'APPROVED' ? AppColors.success : AppColors.error,
+                  ),
+                );
+              } catch (e) {
+                if (!c.mounted) return;
+                setState(() {
+                  submitting = false;
+                  error = '${l10n.topUpFailed}: $e';
+                });
+              }
+            }
+
+            return DialogScaffold(child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Icon(
+                    status == 'APPROVED' ? LucideIcons.checkCircle : LucideIcons.xCircle,
+                    color: status == 'APPROVED' ? AppColors.success : AppColors.error,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(l10n.reviewTopUp),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: l10n.optionalNotes,
+                      border: const OutlineInputBorder(),
                     ),
-                  );
-                } catch (e) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${l10n.topUpFailed}: $e'),
-                      backgroundColor: AppColors.error,
+                    maxLines: 2,
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 16),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                        ),
+                      ],
                     ),
-                  );
-                }
-              },
-              child: Text(status == 'APPROVED' ? l10n.approve : l10n.reject),
-            ),
-          ],
-        ));
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.pop(c),
+                  child: Text(l10n.cancelAction),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: status == 'APPROVED' ? AppColors.success : AppColors.error,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: submitting ? null : submit,
+                  child: submitting
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(status == 'APPROVED' ? l10n.approve : l10n.reject),
+                ),
+              ],
+            ));
+          },
+        );
       },
     );
   }

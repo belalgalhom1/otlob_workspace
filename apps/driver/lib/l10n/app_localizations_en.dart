@@ -1223,6 +1223,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelAction => 'Cancel';
 
   @override
+  String get deleteShift => 'Delete Shift';
+
+  @override
+  String get deleteShiftTitle => 'Delete this shift?';
+
+  @override
+  String get deleteShiftMessage => 'This shift will be permanently removed.';
+
+  @override
   String get processAction => 'Process';
 
   @override
@@ -2090,6 +2099,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmDelivery => 'CONFIRM DELIVERY';
 
   @override
+  String get capturePickupPhoto => 'Take order photo';
+
+  @override
+  String get retakePickupPhoto => 'Retake order photo';
+
+  @override
+  String get pickupPhoto => 'Pickup photo';
+
+  @override
+  String get pickupPhotoRequired =>
+      'A photo of the order is required before confirming pickup';
+
+  @override
   String get inboxEmpty => 'Inbox Empty';
 
   @override
@@ -2231,4 +2253,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tripDetails => 'Trip Details';
+
+  @override
+  String get locationRequiredTitle => 'Location required';
+
+  @override
+  String get locationRequiredMessage =>
+      'Enable location services to continue using the app.';
+
+  @override
+  String get locationRequiredButton => 'Enable location';
 }

@@ -568,7 +568,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(ErrorUtils.translate(context, e.toString())),
+              content: Text(ErrorUtils.translate(context, e)),
               backgroundColor: AppColors.error,
               behavior: SnackBarBehavior.floating,
             ),
@@ -724,7 +724,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  ErrorUtils.translate(context, e.toString()),
+                                  ErrorUtils.translate(context, e),
                                 ),
                                 backgroundColor: AppColors.error,
                                 behavior: SnackBarBehavior.floating,

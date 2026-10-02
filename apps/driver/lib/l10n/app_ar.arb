@@ -467,6 +467,9 @@
   "noSystemLogsFound": "لم يتم العثور على سجلات للنظام",
   "errorLoadingLogs": "حدث خطأ أثناء تحميل السجلات",
   "cancelAction": "إلغاء",
+  "deleteShift": "حذف الوردية",
+  "deleteShiftTitle": "حذف هذه الوردية؟",
+  "deleteShiftMessage": "سيتم حذف هذه الوردية نهائياً.",
   "processAction": "معالجة",
   "closeAction": "إغلاق",
   "reviewTopUp": "مراجعة عملية الشحن",
@@ -757,6 +760,10 @@
   "collectCashAndDeliver": "تحصيل النقود والتسليم",
   "moveCloserToCustomer": "اقترب أكثر من العميل",
   "confirmDelivery": "تأكيد التسليم",
+  "capturePickupPhoto": "التقاط صورة الطلب",
+  "retakePickupPhoto": "إعادة التقاط صورة الطلب",
+  "pickupPhoto": "صورة الاستلام",
+  "pickupPhotoRequired": "مطلوب التقاط صورة للطلب قبل تأكيد الاستلام",
   "inboxEmpty": "صندوق الوارد فارغ",
   "inboxEmptySubtitle": "لا توجد رسائل من العملاء أو الدعم الفني بعد.",
   "orderChat": "محادثة الطلب",
@@ -805,5 +812,8 @@
   "deliveryFeeEarned": "أرباح التوصيل",
   "deliveredAt": "تم التوصيل في",
   "settlementRequiredBanner": "مطلوب تسوية — قم بتحويل المبلغ المستحق إلى محفظة المنصة لاستمرار استقبال طلبات جديدة.",
-  "tripDetails": "تفاصيل الرحلة"
+  "tripDetails": "تفاصيل الرحلة",
+  "locationRequiredTitle": "الموقع مطلوب",
+  "locationRequiredMessage": "يرجى تفعيل خدمات الموقع لمواصلة استخدام التطبيق.",
+  "locationRequiredButton": "تفعيل الموقع"
 }

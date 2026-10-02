@@ -43,6 +43,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { StorageService } from '../../infrastructure/storage/storage.service';
 import {
   CartErrors,
   ProductErrors,
@@ -112,6 +113,7 @@ export class OrdersStateService {
     private readonly dispatchService: DispatchService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
   ) {}
 
   async vendorUpdateStatus(
@@ -192,6 +194,15 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
+    // The driver cannot confirm pickup without a photo of the order as proof.
+    if (
+      dto.status === OrderStatus.PICKED_UP &&
+      !dto.pickupImageUrl &&
+      !order.pickupImageUrl
+    ) {
+      throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
+    }
+
     // Mobile-wallet orders are paid before pickup: the driver must never be able
     // to advance the order while payment is still unpaid. The confirmation flow
     // (driverConfirmPayment) writes paymentStatus=COMPLETED when it advances the
@@ -205,6 +216,26 @@ export class OrdersStateService {
     }
 
     return this.applyStatusTransition(actor, order, dto);
+  }
+
+  // Driver-only pickup confirmation: the order photo is uploaded as part of the
+  // action, then the standard PICKED_UP transition runs (which itself enforces
+  // that a photo was provided). If the transition fails the upload is rolled back.
+  async driverConfirmPickup(
+    actor: JwtAccessPayload,
+    orderId: string,
+    file: Express.Multer.File,
+  ) {
+    const imageUrl = await this.storage.upload(file, 'pickups');
+    try {
+      return await this.driverUpdateStatus(actor, orderId, {
+        status: OrderStatus.PICKED_UP,
+        pickupImageUrl: imageUrl,
+      } as UpdateOrderStatusDto);
+    } catch (error) {
+      await this.storage.delete(imageUrl);
+      throw error;
+    }
   }
 
   async respondToDispatch(
@@ -492,7 +523,10 @@ export class OrdersStateService {
     }
     if (newStatus === OrderStatus.READY_FOR_PICKUP)
       extraData.preparedAt = new Date();
-    if (newStatus === OrderStatus.PICKED_UP) extraData.pickedUpAt = new Date();
+    if (newStatus === OrderStatus.PICKED_UP) {
+      extraData.pickedUpAt = new Date();
+      if (dto.pickupImageUrl) extraData.pickupImageUrl = dto.pickupImageUrl;
+    }
     if (newStatus === OrderStatus.DELIVERED)
       extraData.actualDeliveryTime = new Date();
 

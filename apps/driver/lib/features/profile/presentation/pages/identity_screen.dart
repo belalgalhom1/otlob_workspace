@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:data/data.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/core/utils/error_utils.dart';
-import '../../../../l10n/l10n_error_helper.dart';
 
 class IdentityScreen extends ConsumerStatefulWidget {
   const IdentityScreen({super.key});
@@ -98,7 +97,7 @@ class _IdentityScreenState extends ConsumerState<IdentityScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error),
+          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: AppColors.error),
         );
       }
     }

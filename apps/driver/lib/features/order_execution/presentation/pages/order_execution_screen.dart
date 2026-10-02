@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -8,6 +10,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:core/core.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
 
@@ -22,6 +26,74 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   final MapController _mapController = MapController();
   Position? _currentPosition;
   bool _isMapReady = false;
+  XFile? _pickupPhoto;
+
+  String _resolveMediaUrl(String path) {
+    final baseUrl = ref.read(dioProvider).options.baseUrl;
+    final cleanBaseUrl = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    return '$cleanBaseUrl$path';
+  }
+
+  Future<XFile?> _capturePickupPhoto() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 80,
+      );
+      if (file != null && mounted) {
+        setState(() => _pickupPhoto = file);
+      }
+      return file;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _viewPickupPhoto({String? remoteUrl, XFile? localFile}) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Center(
+                  child: localFile != null
+                      ? Image.file(
+                          File(localFile.path),
+                          fit: BoxFit.contain,
+                        )
+                      : Image.network(
+                          _resolveMediaUrl(remoteUrl!),
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => const Icon(
+                          LucideIcons.imageOff,
+                          color: Colors.white70,
+                          size: 48,
+                        ),
+                        ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(LucideIcons.x, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -68,7 +140,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       ),
       body: orderState.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-        error: (error, _) => Center(child: Text(l10n.errorGeneric(error.toString()))),
+        error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
         data: (orderData) {
           if (orderData == null) {
             return Center(child: Text(l10n.noActiveOrder));
@@ -307,12 +379,132 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
+                _buildPickupPhotoWidget(context, status, l10n, order),
                 _buildActionButton(context, status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPickupPhotoWidget(
+    BuildContext context,
+    String status,
+    AppLocalizations l10n,
+    Map<String, dynamic> order,
+  ) {
+    final isCustomOrRide =
+        order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+    final showCapture = (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') &&
+        (isCustomOrRide || status == 'READY_FOR_PICKUP');
+    final remoteUrl = order['pickupImageUrl']?.toString();
+
+    // After pickup show the proof photo, tappable to view full screen.
+    if (!showCapture && remoteUrl != null && remoteUrl.isNotEmpty) {
+      return _buildPhotoRow(
+        l10n: l10n,
+        label: l10n.pickupPhoto,
+        thumbnail: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            _resolveMediaUrl(remoteUrl),
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              width: 56,
+              height: 56,
+              color: Theme.of(context).dividerColor,
+              child: const Icon(LucideIcons.imageOff, size: 20),
+            ),
+          ),
+        ),
+        onTap: () => _viewPickupPhoto(remoteUrl: remoteUrl),
+      );
+    }
+
+    // Before pickup require a captured photo as proof.
+    if (showCapture) {
+      final preview = _pickupPhoto;
+      if (preview != null) {
+        return _buildPhotoRow(
+          l10n: l10n,
+          label: l10n.retakePickupPhoto,
+          thumbnail: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(preview.path),
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
+          ),
+          onTap: () => _capturePickupPhoto(),
+          leading: IconButton(
+            onPressed: () => _capturePickupPhoto(),
+            icon: const Icon(LucideIcons.refreshCw, size: 18),
+            tooltip: l10n.retakePickupPhoto,
+          ),
+        );
+      }
+      return _buildPhotoRow(
+        l10n: l10n,
+        label: l10n.capturePickupPhoto,
+        thumbnail: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(LucideIcons.camera, color: AppColors.primary),
+        ),
+        onTap: () => _capturePickupPhoto(),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildPhotoRow({
+    required AppLocalizations l10n,
+    required String label,
+    required Widget thumbnail,
+    required VoidCallback onTap,
+    Widget? leading,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(onTap: onTap, child: thumbnail),
+          const SizedBox(width: 12),
+          Expanded(
+            child: InkWell(
+              onTap: onTap,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          ?leading,
+          IconButton(
+            onPressed: onTap,
+            icon: const Icon(LucideIcons.chevronRight, size: 18),
+          ),
+        ],
+      ),
     );
   }
 
@@ -373,9 +565,32 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           onPressed: null,
         );
       }
-      return PrimaryButton(
-        text: l10n.confirmPickup,
-        onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('PICKED_UP')),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PrimaryButton(
+            text: l10n.confirmPickup,
+            onPressed: () => handleAction(() async {
+              var photo = _pickupPhoto;
+              if (photo == null) {
+                photo = await _capturePickupPhoto();
+                if (photo == null) return;
+              }
+              await ref
+                  .read(orderExecutionProvider.notifier)
+                  .confirmPickupWithPhoto(photo);
+            }),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.pickupPhotoRequired,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       );
     } else if (status == 'PICKED_UP') {
       if (isCashOnDelivery) {

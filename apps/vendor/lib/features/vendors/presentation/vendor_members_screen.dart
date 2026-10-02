@@ -188,7 +188,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                                               }
                                             } catch (e) {
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e)), backgroundColor: AppColors.error));
                                               }
                                             }
                                           }
@@ -204,7 +204,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                       );
                     },
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, s) => Center(child: Text(L10nErrorHelper.translate(context, e.toString()))),
+                    error: (e, s) => Center(child: Text(L10nErrorHelper.translate(context, e))),
                   ),
                 ),
               ],

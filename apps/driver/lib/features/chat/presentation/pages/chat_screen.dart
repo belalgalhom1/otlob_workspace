@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -203,7 +204,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      l10n.errorOccurred(error.toString()),
+                      ErrorUtils.translate(context, error),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),

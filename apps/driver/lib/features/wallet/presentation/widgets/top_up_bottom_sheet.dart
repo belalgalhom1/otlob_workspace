@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'dart:io';
 
 class TopUpBottomSheet extends ConsumerStatefulWidget {
@@ -21,6 +22,7 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
   String? _selectedWalletId;
   File? _receiptImage;
   bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -47,38 +49,40 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterAmount)),
-      );
+      setState(() {
+        _error = l10n.pleaseEnterAmount;
+      });
       return;
     }
     
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0 || amount % 1 != 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterValidAmount)),
-      );
+      setState(() {
+        _error = l10n.pleaseEnterValidAmount;
+      });
       return;
     }
 
     if (_selectedWalletId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseSelectPlatformWallet)),
-      );
+      setState(() {
+        _error = l10n.pleaseSelectPlatformWallet;
+      });
       return;
     }
 
     if (_receiptImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseUploadReceipt)),
-      );
+      setState(() {
+        _error = l10n.pleaseUploadReceipt;
+      });
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
     try {
@@ -90,14 +94,14 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.topUpRequestSubmitted)),
+          SnackBar(content: Text(l10n.topUpRequestSubmitted)),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorOccurred(e.toString()))),
-        );
+        setState(() {
+          _error = ErrorUtils.translate(context, e);
+        });
       }
     } finally {
       if (mounted) {
@@ -183,6 +187,19 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
             ),
           ),
           const SizedBox(height: 32),
+          if (_error != null) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(LucideIcons.alertCircle, size: 16, color: Theme.of(context).colorScheme.error),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           FilledButton(
             onPressed: _isLoading ? null : _submit,
             style: FilledButton.styleFrom(

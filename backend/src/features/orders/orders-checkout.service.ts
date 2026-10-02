@@ -259,7 +259,13 @@ export class OrdersCheckoutService {
       vendorId,
       lng,
       lat,
+      zone?.id,
     );
+    // A customer may only order from a vendor that has an open branch in the
+    // SAME zone as the selected delivery location.
+    if (branch && branch.zoneId !== zone.id) {
+      throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
+    }
     const distanceKm = branch
       ? await this.ordersRepository.getDistanceKm(
           branch.lng,

@@ -9,7 +9,9 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  UploadedFile,
 } from '@nestjs/common';
+import { ApiFileUpload } from '../../common/decorators/api-file-upload.decorator';
 import { OrdersService } from './orders.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import {
@@ -206,6 +208,23 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.stateService.driverUpdateStatus(actor, orderId, dto);
+  }
+
+  @ApiStandardResponse()
+  @Post('driver/:orderId/pickup')
+  @Roles(Role.DRIVER)
+  @ApiFileUpload({ type: 'IMAGE' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)',
+  })
+  driverConfirmPickup(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.stateService.driverConfirmPickup(actor, orderId, file);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

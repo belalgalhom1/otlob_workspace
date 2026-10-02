@@ -9,6 +9,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:data/providers.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
 import '../presentation/orders_provider.dart';
 import 'widgets/assign_driver_sheet.dart';
@@ -202,7 +203,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        state.error.toString(),
+                        ErrorUtils.translate(context, state.error),
                         style: const TextStyle(
                           color: AppColors.error,
                           fontSize: 16,
@@ -821,6 +822,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       iconColor: statusColor,
                                     ),
                                   ],
+                                  if (order['pickupImageUrl'] != null &&
+                                      order['pickupImageUrl']
+                                          .toString()
+                                          .isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    _buildPickupPhotoRow(
+                                      context,
+                                      order,
+                                      isArabic,
+                                    ),
+                                  ],
                                   if (_userRole == 'ADMIN' && ['ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'LOOKING_FOR_DRIVER'].contains(order['status'])) ...[
                                     const SizedBox(height: 16),
                                     SizedBox(
@@ -1431,6 +1443,115 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         ),
         ?trailing,
       ],
+    );
+  }
+
+  Widget _buildPickupPhotoRow(
+    BuildContext context,
+    dynamic order,
+    bool isArabic,
+  ) {
+    final url = order['pickupImageUrl'].toString();
+    final baseUrl = ref.read(dioProvider).options.baseUrl;
+    final cleanBaseUrl = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _viewPickupPhoto(context, '$cleanBaseUrl$url'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CachedNetworkImage(
+                  imageUrl: '$cleanBaseUrl$url',
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => Container(
+                    width: 56,
+                    height: 56,
+                    color: Theme.of(context).dividerColor,
+                    child: const Icon(LucideIcons.imageOff, size: 20),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isArabic ? 'صورة الاستلام' : 'Pickup photo',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isArabic ? 'اضغط لعرض الصورة' : 'Tap to view',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(LucideIcons.chevronRight, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewPickupPhoto(BuildContext context, String url) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Center(
+                  child: CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.contain,
+                    errorWidget: (_, _, _) => const Icon(
+                      LucideIcons.imageOff,
+                      color: Colors.white70,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(LucideIcons.x, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -480,6 +480,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get zoneInUseDeleteError =>
+      'This zone is in use. Reassign or remove its branches, orders, and shifts before deleting it.';
+
+  @override
   String get cancel => 'Cancel';
 
   @override
@@ -2029,6 +2033,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Are you sure you want to delete this shift pool? This action cannot be undone.';
 
   @override
+  String get deleteShift => 'Delete Shift';
+
+  @override
+  String get deleteShiftConfirmTitle => 'Delete this shift?';
+
+  @override
+  String get deleteShiftConfirmMessage =>
+      'This shift will be permanently removed. The driver will lose it immediately.';
+
+  @override
+  String get shiftRemovedSuccessfully => 'Shift removed successfully';
+
+  @override
+  String get deleteShiftPoolHasDrivers =>
+      'This shift pool has assigned drivers. Remove the drivers first before deleting it.';
+
+  @override
   String get removeDriver => 'Remove Driver';
 
   @override
@@ -2247,4 +2268,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noActiveOrdersFound => 'No active orders found';
+
+  @override
+  String get pickupPhoto => 'Pickup photo';
+
+  @override
+  String get viewPickupPhoto => 'View pickup photo';
 }

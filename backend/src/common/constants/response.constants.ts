@@ -158,6 +158,7 @@ export const ZoneErrors = {
   INVALID_LOCATION_FOR_ZONE: 'zone.error.invalid_location_for_zone',
   OVERLAPPING_ZONE: 'zone.error.overlapping_zone',
   INVALID_POLYGON: 'zone.error.invalid_polygon_coordinates',
+  ZONE_IN_USE: 'zone.error.zone_in_use',
 };
 
 export const VendorVerticalErrors = {
@@ -243,6 +244,8 @@ export const DriverErrors = {
   INVALID_START_END_DATE: 'driver.error.invalid_start_end_date',
   CANNOT_GO_OFFLINE_ON_DELIVERY: 'driver.error.cannot_go_offline_on_delivery',
   CANNOT_REMOVE_HISTORICAL_SHIFT: 'driver.error.cannot_remove_historical_shift',
+  CANNOT_DELETE_POOL_WITH_ASSIGNED_DRIVERS:
+    'driver.error.cannot_delete_pool_with_assigned_drivers',
 };
 
 export const OrderErrors = {
@@ -258,6 +261,7 @@ export const OrderErrors = {
   NOT_ASSIGNED_TO_ORDER: 'order.error.not_assigned_to_order',
   CANNOT_ASSIGN_SUSPENDED_DRIVER: 'order.error.cannot_assign_suspended_driver',
   OUTSIDE_SERVICE_ZONES: 'order.error.outside_service_zones',
+  PICKUP_PHOTO_REQUIRED: 'order.error.pickup_photo_required',
   RIDES_MUST_USE_CAR: 'order.error.rides_must_use_car',
   VEHICLE_TYPE_DISABLED: 'order.error.vehicle_type_disabled',
   INVALID_TRANSITION: 'order.error.invalid_transition',

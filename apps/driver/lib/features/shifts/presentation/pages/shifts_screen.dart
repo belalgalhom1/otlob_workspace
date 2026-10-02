@@ -4,6 +4,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/shifts/presentation/shifts_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:intl/intl.dart';
 
 import 'package:driver/features/shifts/presentation/widgets/available_shifts_tab.dart';
@@ -75,7 +76,7 @@ class _MyShiftsTab extends ConsumerWidget {
             subtitle: l10n.shiftsDisabledSubtitle,
           );
         }
-        return Center(child: Text(l10n.errorGeneric(error.toString())));
+        return Center(child: Text(ErrorUtils.translate(context, error)));
       },
       data: (shifts) {
         if (shifts.isEmpty) {
@@ -145,11 +146,14 @@ class _MyShiftsTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                zoneName,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+              Expanded(
+                child: Text(
+                  zoneName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -165,6 +169,13 @@ class _MyShiftsTab extends ConsumerWidget {
                     color: isActive ? AppColors.primary : (isUpcoming ? AppColors.warning : Theme.of(context).colorScheme.onSurface),
                   ),
                 ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: () => _confirmDeleteShift(context, ref, shift['id'], l10n),
+                tooltip: l10n.deleteShift,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(LucideIcons.trash2, size: 18, color: AppColors.error),
               ),
             ],
           ),
@@ -208,6 +219,32 @@ class _MyShiftsTab extends ConsumerWidget {
             )
         ],
       ),
+    );
+  }
+
+  void _confirmDeleteShift(BuildContext context, WidgetRef ref, String shiftId, AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DialogScaffold(child: AlertDialog(
+          title: Text(l10n.deleteShiftTitle),
+          content: Text(l10n.deleteShiftMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancelAction),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+              onPressed: () {
+                Navigator.pop(context);
+                ref.read(driverShiftsProvider.notifier).deleteShift(shiftId);
+              },
+              child: Text(l10n.deleteShift),
+            ),
+          ],
+        ));
+      },
     );
   }
 

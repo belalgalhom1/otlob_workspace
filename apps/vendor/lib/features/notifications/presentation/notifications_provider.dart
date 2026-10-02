@@ -99,7 +99,7 @@ class Notifications extends _$Notifications {
         state = state.copyWith(isLoading: false, hasMore: false);
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: ApiErrorMapper.fromError(e));
     }
   }
 

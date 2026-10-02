@@ -1,5 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 
 part 'order_execution_provider.g.dart';
@@ -60,6 +62,28 @@ class OrderExecution extends _$OrderExecution {
       final orderId = prev.value['id'];
       
       await repository.confirmPayment(orderId, received: received);
+      await _fetchActiveOrder();
+    } catch (e, st) {
+      if (prev.hasValue) {
+        state = prev;
+      } else {
+        state = AsyncValue.error(e, st);
+      }
+      rethrow;
+    }
+  }
+
+  // Confirms pickup by uploading the mandatory order photo and marking PICKED_UP.
+  Future<void> confirmPickupWithPhoto(XFile photo) async {
+    final prev = state;
+    try {
+      state = const AsyncValue.loading();
+      final orderId = prev.value['id'];
+      final dio = ref.read(dioProvider);
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
+      });
+      await dio.post('/orders/driver/$orderId/pickup', data: formData);
       await _fetchActiveOrder();
     } catch (e, st) {
       if (prev.hasValue) {

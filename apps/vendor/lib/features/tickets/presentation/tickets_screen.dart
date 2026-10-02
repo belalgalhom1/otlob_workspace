@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'ticket_provider.dart';
 
 class TicketsScreen extends ConsumerStatefulWidget {
@@ -68,7 +69,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                         ),
                       )
                   else if (state.hasError)
-                    Center(child: Text(state.error.toString())),
+                    Center(child: Text(ErrorUtils.translate(context, state.error))),
                 ],
               );
             },

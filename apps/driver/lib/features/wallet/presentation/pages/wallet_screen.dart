@@ -8,6 +8,7 @@ import 'package:driver/features/wallet/presentation/widgets/manage_wallets_botto
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:intl/intl.dart';
 
 class WalletScreen extends ConsumerWidget {
@@ -21,7 +22,7 @@ class WalletScreen extends ConsumerWidget {
 
     return walletState.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-      error: (error, _) => Center(child: Text(AppLocalizations.of(context)!.errorOccurred(error.toString()))),
+      error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
       data: (data) {
         final balance = data['balance'] ?? 0.0;
         final transactions = data['transactions'] as List<dynamic>? ?? [];

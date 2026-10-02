@@ -17,6 +17,7 @@ import 'package:vendor/features/wallet/presentation/vendor_finance_statistics_sc
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'package:vendor/core/providers.dart';
 import '../../../l10n/l10n_error_helper.dart';
 
@@ -45,7 +46,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
       if (state.hasError && !state.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(state.error.toString()),
+            content: Text(ErrorUtils.translate(context, state.error)),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -149,7 +150,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                                 }
                               } catch (e) {
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e)), backgroundColor: AppColors.error));
                                 }
                               }
                             }
@@ -188,7 +189,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                       } else if (state.hasError) {
                         return Center(
                           child: Text(
-                            state.error.toString(),
+                            ErrorUtils.translate(context, state.error),
                             style: const TextStyle(color: AppColors.error),
                           ),
                         );
@@ -740,7 +741,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e)), backgroundColor: AppColors.error));
         }
       }
     }
@@ -882,7 +883,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e)), backgroundColor: AppColors.error));
         }
       }
     }
@@ -926,7 +927,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e)), backgroundColor: AppColors.error));
                 }
               }
             },

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/notifications/presentation/notifications_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -36,7 +37,7 @@ class NotificationsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
           child: Text(
-            AppLocalizations.of(context)!.errorOccurred(error.toString()),
+            ErrorUtils.translate(context, error),
           ),
         ),
         data: (notifications) {

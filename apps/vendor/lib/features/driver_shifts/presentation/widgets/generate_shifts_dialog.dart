@@ -6,6 +6,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
 import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/zones/presentation/zone_provider.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class GenerateShiftsDialog extends ConsumerStatefulWidget {
   final VoidCallback onSuccess;
@@ -145,7 +146,7 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );

@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 
 part 'ticket_provider.g.dart';
 
@@ -46,7 +47,7 @@ class TicketNotifier extends _$TicketNotifier {
       );
     } catch (e, st) {
       if (isInitialLoad) {
-        state = AsyncValue.error(e.toString(), st);
+        state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
   }

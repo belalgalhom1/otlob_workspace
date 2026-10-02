@@ -381,7 +381,7 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text(L10nErrorHelper.translate(context, e.toString()))),
+      error: (e, s) => Center(child: Text(L10nErrorHelper.translate(context, e))),
     );
   }
 

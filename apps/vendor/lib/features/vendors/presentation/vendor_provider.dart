@@ -4,6 +4,7 @@ import 'package:vendor/core/providers.dart';
 import 'package:api/api.dart';
 import 'package:dio/dio.dart';
 import 'package:built_value/json_object.dart';
+import 'package:core/core.dart';
 
 part 'vendor_provider.g.dart';
 
@@ -59,7 +60,7 @@ class VendorNotifier extends _$VendorNotifier {
       }
     } catch (e, st) {
       if (isInitialLoad) {
-        state = AsyncValue.error('Failed to fetch vendors', st);
+        state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
   }

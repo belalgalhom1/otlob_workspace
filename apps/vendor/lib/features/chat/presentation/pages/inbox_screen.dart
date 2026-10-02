@@ -8,6 +8,7 @@ import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/providers.dart';
 import '../inbox_counts_provider.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -69,7 +70,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         }
         
         if (state.error != null && state.conversations.isEmpty) {
-          return Center(child: Text(AppLocalizations.of(context)!.failedWithError(state.error.toString())));
+          return Center(child: Text(ErrorUtils.translate(context, state.error)));
         }
 
         final conversations = state.conversations

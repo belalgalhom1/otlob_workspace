@@ -1,6 +1,7 @@
 ﻿import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 
 part 'promotion_provider.g.dart';
 
@@ -29,7 +30,7 @@ class PromotionNotifier extends _$PromotionNotifier {
       state = AsyncValue.data([...promos, ...offers]);
     } catch (e, st) {
       if (isInitialLoad) {
-        state = AsyncValue.error(e.toString(), st);
+        state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
   }

@@ -798,6 +798,7 @@ model Order {
   preparedAt           DateTime?                 @db.Timestamptz(3)
   driverAssignedAt     DateTime?                 @db.Timestamptz(3)
   pickedUpAt           DateTime?                 @db.Timestamptz(3)
+  pickupImageUrl       String?
   actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
   driverTransactions   DriverWalletTransaction[]
   dispatches           OrderDispatch[]

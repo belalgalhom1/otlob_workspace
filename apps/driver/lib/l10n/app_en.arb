@@ -470,6 +470,9 @@
   "noSystemLogsFound": "No system logs found",
   "errorLoadingLogs": "Error loading logs",
   "cancelAction": "Cancel",
+  "deleteShift": "Delete Shift",
+  "deleteShiftTitle": "Delete this shift?",
+  "deleteShiftMessage": "This shift will be permanently removed.",
   "processAction": "Process",
   "closeAction": "Close",
   "reviewTopUp": "Review Top-Up",
@@ -857,6 +860,10 @@
   "collectCashAndDeliver": "COLLECT CASH & DELIVER",
   "moveCloserToCustomer": "MOVE CLOSER TO CUSTOMER",
   "confirmDelivery": "CONFIRM DELIVERY",
+  "capturePickupPhoto": "Take order photo",
+  "retakePickupPhoto": "Retake order photo",
+  "pickupPhoto": "Pickup photo",
+  "pickupPhotoRequired": "A photo of the order is required before confirming pickup",
   "inboxEmpty": "Inbox Empty",
   "inboxEmptySubtitle": "No messages from customers or support yet.",
   "orderChat": "Order Chat",
@@ -905,5 +912,8 @@
   "deliveryFeeEarned": "Delivery Fee Earned",
   "deliveredAt": "Delivered at",
   "settlementRequiredBanner": "Settlement required — transfer the money you owe to the platform wallet to keep receiving new orders.",
-  "tripDetails": "Trip Details"
+  "tripDetails": "Trip Details",
+  "locationRequiredTitle": "Location required",
+  "locationRequiredMessage": "Enable location services to continue using the app.",
+  "locationRequiredButton": "Enable location"
 }

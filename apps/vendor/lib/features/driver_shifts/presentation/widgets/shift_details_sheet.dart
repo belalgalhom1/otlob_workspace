@@ -8,6 +8,7 @@ import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.d
 import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/drivers/data/driver_providers.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class ShiftDetailsSheet extends ConsumerStatefulWidget {
   final ShiftPool pool;
@@ -239,7 +240,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Text(
-                  e.toString(),
+                  ErrorUtils.translate(context, e),
                   style: const TextStyle(color: AppColors.error),
                 ),
               ),
@@ -546,7 +547,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -590,7 +591,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -622,7 +623,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );

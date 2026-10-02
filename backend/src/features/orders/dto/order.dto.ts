@@ -265,6 +265,15 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @Type(() => Number)
   estimatedPrepTime?: number;
+
+  @ApiProperty({
+    description: 'Pickup proof photo URL (required when status is PICKED_UP)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(600)
+  pickupImageUrl?: string;
 }
 
 export class RespondToDispatchDto {

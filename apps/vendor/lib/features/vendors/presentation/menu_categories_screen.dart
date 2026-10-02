@@ -640,7 +640,7 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                ErrorUtils.translate(context, e.toString()),
+                                ErrorUtils.translate(context, e),
                               ),
                               backgroundColor: AppColors.error,
                               behavior: SnackBarBehavior.floating,
@@ -798,7 +798,7 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  ErrorUtils.translate(context, e.toString()),
+                                  ErrorUtils.translate(context, e),
                                 ),
                                 backgroundColor: AppColors.error,
                                 behavior: SnackBarBehavior.floating,

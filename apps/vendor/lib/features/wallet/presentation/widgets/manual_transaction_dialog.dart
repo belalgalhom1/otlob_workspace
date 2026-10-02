@@ -1,10 +1,12 @@
 import 'package:vendor/core/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class ManualTransactionDialog extends ConsumerStatefulWidget {
   final String entityId;
@@ -26,6 +28,54 @@ class _ManualTransactionDialogState
   final _amountController = TextEditingController();
   final _descController = TextEditingController();
   String _type = 'PAYOUT';
+  bool _submitting = false;
+  String? _error;
+
+  Future<void> _process() async {
+    final l10n = AppLocalizations.of(context)!;
+    final amount = double.tryParse(_amountController.text.trim());
+    if (amount == null || amount % 1 != 0) {
+      setState(() {
+        _submitting = false;
+        _error = l10n.failedWithError(l10n.invalidAmount);
+      });
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final repo = ref.read(adminWalletRepositoryProvider);
+    try {
+      final dto = ProcessManualTransactionDto((b) => b
+        ..type = _type
+        ..amount = amount
+        ..description = _descController.text
+      );
+
+      if (widget.isVendor) {
+        await repo.walletProcessVendorTransaction(vendorId: widget.entityId, processManualTransactionDto: dto);
+      } else {
+        await repo.walletProcessDriverTransaction(driverId: widget.entityId, processManualTransactionDto: dto);
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.transactionProcessed),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = ErrorUtils.translate(context, e);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,60 +129,35 @@ class _ManualTransactionDialogState
               labelText: l10n.descriptionOptional,
             ),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context)!.cancelAction),
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: Text(l10n.cancelAction),
         ),
-        Builder(
-          builder: (btnCtx) => ElevatedButton(
-            onPressed: () async {
-            final amount = double.tryParse(_amountController.text.trim());
-            if (amount == null || amount % 1 != 0) {
-              ScaffoldMessenger.of(btnCtx).showSnackBar(
-                SnackBar(
-                  content: Text(AppLocalizations.of(btnCtx)!.failedWithError(AppLocalizations.of(btnCtx)!.invalidAmount)),
-                  backgroundColor: AppColors.error,
-                ),
-              );
-              return;
-            }
-
-            final repo = ref.read(adminWalletRepositoryProvider);
-            try {
-              final dto = ProcessManualTransactionDto((b) => b
-                ..type = _type
-                ..amount = amount
-                ..description = _descController.text
-              );
-
-              if (widget.isVendor) {
-                await repo.walletProcessVendorTransaction(vendorId: widget.entityId, processManualTransactionDto: dto);
-              } else {
-                await repo.walletProcessDriverTransaction(driverId: widget.entityId, processManualTransactionDto: dto);
-              }
-
-              if (!btnCtx.mounted) return;
-              Navigator.pop(context, true);
-              ScaffoldMessenger.of(btnCtx).showSnackBar(
-                SnackBar(
-                  content: Text(AppLocalizations.of(btnCtx)!.transactionProcessed),
-                ),
-              );
-            } catch (e) {
-              if (!btnCtx.mounted) return;
-              ScaffoldMessenger.of(btnCtx).showSnackBar(
-                SnackBar(
-                  content: Text(AppLocalizations.of(btnCtx)!.failedWithError(e.toString())),
-                  backgroundColor: AppColors.error,
-                ),
-              );
-            }
-          },
-          child: Text(AppLocalizations.of(btnCtx)!.processAction),
-        ),
+        ElevatedButton(
+          onPressed: _submitting ? null : _process,
+          child: _submitting
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : Text(l10n.processAction),
         ),
       ],
     ));

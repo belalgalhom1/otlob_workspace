@@ -6,6 +6,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class AssignOrderDialog extends ConsumerStatefulWidget {
   final DriverProfile driver;
@@ -42,7 +43,7 @@ class _AssignOrderDialogState extends ConsumerState<AssignOrderDialog> {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(ctx)!.failedWithError(e.toString())),
+            content: Text(ErrorUtils.translate(ctx, e)),
             backgroundColor: AppColors.error,
           ),
         );

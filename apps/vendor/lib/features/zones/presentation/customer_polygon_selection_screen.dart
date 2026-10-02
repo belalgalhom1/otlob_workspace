@@ -7,6 +7,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:data/data.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class CustomerPolygonSelectionScreen extends ConsumerStatefulWidget {
   const CustomerPolygonSelectionScreen({super.key});
@@ -99,7 +100,7 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.errorOccurred(e.toString())),
+          content: Text(ErrorUtils.translate(context, e)),
           backgroundColor: AppColors.error,
         ),
       );

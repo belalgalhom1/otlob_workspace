@@ -4,7 +4,7 @@ import 'package:driver/features/dashboard/presentation/driver_profile_provider.d
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
-import '../../../../l10n/l10n_error_helper.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class VehicleScreen extends ConsumerStatefulWidget {
   const VehicleScreen({super.key});
@@ -59,7 +59,7 @@ class _VehicleScreenState extends ConsumerState<VehicleScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(L10nErrorHelper.translate(context, e.toString())),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );

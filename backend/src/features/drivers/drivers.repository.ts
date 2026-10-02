@@ -206,14 +206,43 @@ export class DriversRepository {
   }
 
   async findShiftsByDriver(driverId: string) {
-    return this.prisma.driverShift.findMany({
-      where: { driverId },
-      orderBy: { startTime: 'desc' },
-      take: 20,
-      include: {
-        zone: true,
-      },
+    const [upcoming, past] = await this.prisma.$transaction([
+      this.prisma.driverShift.findMany({
+        where: {
+          driverId,
+          status: {
+            in: [DriverShiftStatus.SCHEDULED, DriverShiftStatus.ACTIVE],
+          },
+        },
+        orderBy: { startTime: 'asc' },
+        include: {
+          zone: true,
+        },
+      }),
+      this.prisma.driverShift.findMany({
+        where: {
+          driverId,
+          status: {
+            notIn: [DriverShiftStatus.SCHEDULED, DriverShiftStatus.ACTIVE],
+          },
+        },
+        orderBy: { startTime: 'desc' },
+        take: 20,
+        include: {
+          zone: true,
+        },
+      }),
+    ]);
+
+    // Live/active shift is always listed first, then upcoming shifts by time,
+    // with history below (stable sort keeps startTime ordering per group).
+    upcoming.sort((a, b) => {
+      const aActive = a.status === DriverShiftStatus.ACTIVE ? 1 : 0;
+      const bActive = b.status === DriverShiftStatus.ACTIVE ? 1 : 0;
+      return bActive - aActive;
     });
+
+    return [...upcoming, ...past];
   }
 
   async findShiftById(shiftId: string, driverId: string) {
@@ -230,6 +259,10 @@ export class DriversRepository {
         OR: [{ startTime: { lte: endTime }, endTime: { gte: startTime } }],
       },
     });
+  }
+
+  async deleteShift(shiftId: string) {
+    return this.prisma.driverShift.delete({ where: { id: shiftId } });
   }
 
   async updateShift(shiftId: string, data: Prisma.DriverShiftUpdateInput) {

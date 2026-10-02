@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class L10nErrorHelper {
-  static String translate(BuildContext context, String key) {
+  static String translate(BuildContext context, dynamic keyOrError) {
     final l10n = AppLocalizations.of(context);
-    if (l10n == null) return key;
-    
+    if (l10n == null) return keyOrError?.toString() ?? '';
+
+    // Non-string values (DioException / Exception) are backend errors;
+    // route them through the shared backend-error mapper.
+    if (keyOrError is! String) {
+      return ErrorUtils.translate(context, keyOrError);
+    }
+
+    final key = keyOrError;
     // Fallback if the key isn't formatted with underscores
     final formattedKey = key.replaceAll('.', '_');
     
@@ -657,7 +665,10 @@ class L10nErrorHelper {
       case 'undoPoint': return l10n.undoPoint;
       case 'findCustomers': return l10n.findCustomers;
       case 'customerResults': return l10n.customerResults;
-      default: return key;
+      default:
+        // Unknown or backend error/success codes get localized from the
+        // shared core catalogs so both apps show identical messages.
+        return ErrorUtils.translate(context, formattedKey);
     }
   }
 }

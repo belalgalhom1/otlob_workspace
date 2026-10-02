@@ -521,7 +521,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                           }
                         } catch (e) {
                           if (btnCtx.mounted) {
-                            ScaffoldMessenger.of(btnCtx).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(btnCtx, e.toString())), backgroundColor: AppColors.error));
+                            ScaffoldMessenger.of(btnCtx).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(btnCtx, e)), backgroundColor: AppColors.error));
                           }
                         }
                       },

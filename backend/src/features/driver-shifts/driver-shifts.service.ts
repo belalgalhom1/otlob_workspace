@@ -137,6 +137,19 @@ export class DriverShiftsService {
       include: { driver: { include: { user: true } } },
     });
 
+    // A pool with live bookings cannot be silently deleted. Require the admin
+    // to remove the assigned drivers first so no shift vanishes underneath them.
+    const assigned = shifts.filter(
+      (s) =>
+        s.status === DriverShiftStatus.SCHEDULED ||
+        s.status === DriverShiftStatus.ACTIVE,
+    );
+    if (assigned.length > 0) {
+      throw new BadRequestException(
+        DriverErrors.CANNOT_DELETE_POOL_WITH_ASSIGNED_DRIVERS,
+      );
+    }
+
     // COMPLETED or MISSED shifts must be preserved for history/earnings.
     const historicalShifts = shifts.filter(
       (s) => s.status === 'COMPLETED' || s.status === 'MISSED',
@@ -252,9 +265,10 @@ export class DriverShiftsService {
     return shift;
   }
 
-  // Remove a single driver from a single shift. SCHEDULED and ACTIVE shifts
-  // may be removed; COMPLETED/MISSED shifts are preserved for history and an
-  // ACTIVE driver mid-delivery cannot be yanked out from under a live order.
+  // Remove a single driver from a single shift. Any shift may be removed
+  // (SCHEDULED, ACTIVE, COMPLETED or MISSED). An ACTIVE driver is taken
+  // offline unless they are mid-delivery, to avoid yanking them out from
+  // under a live order; the shift is removed regardless.
   async removeDriverFromShift(shiftId: string) {
     const shift = await this.prisma.driverShift.findUnique({
       where: { id: shiftId },
@@ -266,37 +280,24 @@ export class DriverShiftsService {
 
     if (!shift) throw new NotFoundException(DriverErrors.SHIFT_NOT_FOUND);
 
-    if (
-      shift.status === DriverShiftStatus.COMPLETED ||
-      shift.status === DriverShiftStatus.MISSED
-    ) {
-      throw new BadRequestException(
-        DriverErrors.CANNOT_REMOVE_HISTORICAL_SHIFT,
-      );
-    }
-
     if (shift.status === DriverShiftStatus.ACTIVE) {
-      if (shift.driver.status === DriverStatus.ON_DELIVERY) {
-        throw new BadRequestException(
-          DriverErrors.CANNOT_END_WHILE_ON_DELIVERY,
+      if (shift.driver.status !== DriverStatus.ON_DELIVERY) {
+        await this.prisma.driver.update({
+          where: { id: shift.driverId },
+          data: { status: DriverStatus.OFFLINE },
+        });
+
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_STATUS_CHANGED,
+          new DriverStatusChangedEvent(
+            shift.driverId,
+            shift.driver.user.id,
+            shift.driver.status,
+            DriverStatus.OFFLINE,
+            'Removed from shift by admin.',
+          ),
         );
       }
-
-      await this.prisma.driver.update({
-        where: { id: shift.driverId },
-        data: { status: DriverStatus.OFFLINE },
-      });
-
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_STATUS_CHANGED,
-        new DriverStatusChangedEvent(
-          shift.driverId,
-          shift.driver.user.id,
-          shift.driver.status,
-          DriverStatus.OFFLINE,
-          'Removed from shift by admin.',
-        ),
-      );
     }
 
     const pendingSwap = shift.swapRequests[0];

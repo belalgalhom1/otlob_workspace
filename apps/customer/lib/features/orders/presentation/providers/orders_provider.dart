@@ -286,7 +286,7 @@ class Orders extends _$Orders {
       return null;
     } catch (e) {
       debugPrint('Estimate order error: $e');
-      return null;
+      rethrow;
     }
   }
 

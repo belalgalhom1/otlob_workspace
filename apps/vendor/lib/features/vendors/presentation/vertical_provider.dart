@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 import 'package:api/api.dart';
 import 'package:dio/dio.dart' as dio;
 
@@ -24,7 +25,7 @@ class VerticalNotifier extends _$VerticalNotifier {
       state = AsyncValue.data(result);
     } catch (e, st) {
       if (isInitialLoad) {
-        state = AsyncValue.error('Failed to fetch verticals', st);
+        state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
   }

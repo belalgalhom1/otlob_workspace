@@ -759,21 +759,27 @@ export class OrdersRepository {
     vendorId: string,
     toLng: number,
     toLat: number,
-  ): Promise<{ id: string; lng: number; lat: number } | null> {
+    zoneId?: string,
+  ): Promise<
+    { id: string; zoneId: string | null; lng: number; lat: number } | null
+  > {
     const rows = await this.prisma.$queryRaw<
-      Array<{ id: string; lng: number; lat: number }>
+      Array<{ id: string; zoneId: string | null; lng: number; lat: number }>
     >`
       SELECT
         id,
+        "zoneId",
         ST_X(location::geometry) AS lng,
         ST_Y(location::geometry) AS lat
       FROM vendor_branches
       WHERE "vendorId"::text = ${vendorId}::text
         AND "isOpen" = true
-      ORDER BY ST_Distance(
-        location::geography,
-        ST_SetSRID(ST_MakePoint(${toLng}, ${toLat}), 4326)::geography
-      ) ASC
+      ORDER BY
+        (CASE WHEN "zoneId" = ${zoneId ?? null} THEN 0 ELSE 1 END) ASC,
+        ST_Distance(
+          location::geography,
+          ST_SetSRID(ST_MakePoint(${toLng}, ${toLat}), 4326)::geography
+        ) ASC
       LIMIT 1
     `;
     return rows[0] ?? null;

@@ -1212,6 +1212,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get cancelAction => 'إلغاء';
 
   @override
+  String get deleteShift => 'حذف الوردية';
+
+  @override
+  String get deleteShiftTitle => 'حذف هذه الوردية؟';
+
+  @override
+  String get deleteShiftMessage => 'سيتم حذف هذه الوردية نهائياً.';
+
+  @override
   String get processAction => 'معالجة';
 
   @override
@@ -2074,6 +2083,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get confirmDelivery => 'تأكيد التسليم';
 
   @override
+  String get capturePickupPhoto => 'التقاط صورة الطلب';
+
+  @override
+  String get retakePickupPhoto => 'إعادة التقاط صورة الطلب';
+
+  @override
+  String get pickupPhoto => 'صورة الاستلام';
+
+  @override
+  String get pickupPhotoRequired =>
+      'مطلوب التقاط صورة للطلب قبل تأكيد الاستلام';
+
+  @override
   String get inboxEmpty => 'صندوق الوارد فارغ';
 
   @override
@@ -2215,4 +2237,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get tripDetails => 'تفاصيل الرحلة';
+
+  @override
+  String get locationRequiredTitle => 'الموقع مطلوب';
+
+  @override
+  String get locationRequiredMessage =>
+      'يرجى تفعيل خدمات الموقع لمواصلة استخدام التطبيق.';
+
+  @override
+  String get locationRequiredButton => 'تفعيل الموقع';
 }

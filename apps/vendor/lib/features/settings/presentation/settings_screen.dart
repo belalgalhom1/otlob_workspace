@@ -8,6 +8,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'bloc/settings_provider.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -53,7 +54,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorSavingSettings(e.toString())), backgroundColor: AppColors.error),
+          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -72,7 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (state.hasError && !state.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(state.error.toString()),
+            content: Text(ErrorUtils.translate(context, state.error)),
             backgroundColor: AppColors.error,
           ),
         );

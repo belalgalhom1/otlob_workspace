@@ -4,6 +4,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 
 class ManageWalletsBottomSheet extends ConsumerStatefulWidget {
   final List<dynamic> driverWallets;
@@ -19,6 +20,7 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
   String _selectedType = 'VODAFONE';
   bool _isLoading = false;
   bool _isAddingNew = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -27,16 +29,18 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     final number = _numberController.text.trim();
     if (number.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.pleaseEnterWalletNumber)),
-      );
+      setState(() {
+        _error = l10n.pleaseEnterWalletNumber;
+      });
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
     try {
@@ -47,14 +51,14 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.walletAddedSuccessfully)),
+          SnackBar(content: Text(l10n.walletAddedSuccessfully)),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorOccurred(e.toString()))),
-        );
+        setState(() {
+          _error = ErrorUtils.translate(context, e);
+        });
       }
     } finally {
       if (mounted) {
@@ -135,6 +139,7 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
               onPressed: () {
                 setState(() {
                   _isAddingNew = true;
+                  _error = null;
                 });
               },
               icon: const Icon(LucideIcons.plus),
@@ -169,6 +174,19 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
               ),
             ),
             const SizedBox(height: 32),
+            if (_error != null) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(LucideIcons.alertCircle, size: 16, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             FilledButton(
               onPressed: _isLoading ? null : _submit,
               style: FilledButton.styleFrom(

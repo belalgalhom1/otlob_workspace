@@ -36,9 +36,9 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              ErrorUtils.translate(context, state.error.toString()),
+              ErrorUtils.translate(context, state.error),
             ),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -391,7 +391,7 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(L10nErrorHelper.translate(context, e.toString())),
+                content: Text(L10nErrorHelper.translate(context, e)),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -421,7 +421,7 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(L10nErrorHelper.translate(context, e.toString())),
+                content: Text(L10nErrorHelper.translate(context, e)),
                 backgroundColor: AppColors.error,
               ),
             );

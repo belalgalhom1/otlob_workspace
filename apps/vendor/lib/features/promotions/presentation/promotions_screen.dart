@@ -67,7 +67,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       if (state.hasError && !state.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(state.error.toString()),
+            content: Text(ErrorUtils.translate(context, state.error)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -576,7 +576,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         }
       } catch (e) {
         if (context.mounted) {
-          final errorMessage = ErrorUtils.translate(context, e.toString());
+          final errorMessage = ErrorUtils.translate(context, e);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMessage),
@@ -640,7 +640,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString()))));
+                  ).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e))));
         }
       }
     }
@@ -698,7 +698,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString()))));
+          ).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e))));
                 }
               }
             },

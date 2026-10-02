@@ -132,16 +132,16 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     final currentQty = currentCartItem?.quantity ?? 0;
     
     final bool productTracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
-    final int productStock = _parseStock(item['stock']);
-    final int variantStock = _parseStock(_selectedVariant?['stock']);
+    final int? productStock = _parseStock(item['stock']);
+    final int? variantStock = _parseStock(_selectedVariant?['stock']);
     final bool variantTracksStock = _selectedVariant == null
         ? true
         : (_selectedVariant!['tracksStock'] == null
             ? productTracksStock
             : (_selectedVariant!['tracksStock'] == true));
     final bool isOutOfStock = _selectedVariant != null
-        ? variantTracksStock && variantStock <= 0
-        : productTracksStock && productStock <= 0;
+        ? variantTracksStock && variantStock != null && variantStock <= 0
+        : productTracksStock && productStock != null && productStock <= 0;
     
     final bool supportsStrips = item['sellByStrip'] == true && item['stripsPerPackage'] != null;
     final int stripsCount = item['stripsPerPackage'] as int? ?? 1;
@@ -813,8 +813,9 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     );
   }
 
-  int _parseStock(Object? value) {
-    return int.tryParse(value?.toString() ?? '0') ?? 0;
+  int? _parseStock(Object? value) {
+    if (value == null) return null;
+    return int.tryParse(value.toString());
   }
 
   Widget _buildUnitOption({

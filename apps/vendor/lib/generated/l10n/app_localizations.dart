@@ -1022,6 +1022,12 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to delete \"{name}\"? This action cannot be undone.'**
   String deleteConfirmContent(String name);
 
+  /// No description provided for @zoneInUseDeleteError.
+  ///
+  /// In en, this message translates to:
+  /// **'This zone is in use. Reassign or remove its branches, orders, and shifts before deleting it.'**
+  String get zoneInUseDeleteError;
+
   /// No description provided for @cancel.
   ///
   /// In en, this message translates to:
@@ -3962,6 +3968,36 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to delete this shift pool? This action cannot be undone.'**
   String get deleteShiftPoolConfirm;
 
+  /// No description provided for @deleteShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Shift'**
+  String get deleteShift;
+
+  /// No description provided for @deleteShiftConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this shift?'**
+  String get deleteShiftConfirmTitle;
+
+  /// No description provided for @deleteShiftConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This shift will be permanently removed. The driver will lose it immediately.'**
+  String get deleteShiftConfirmMessage;
+
+  /// No description provided for @shiftRemovedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift removed successfully'**
+  String get shiftRemovedSuccessfully;
+
+  /// No description provided for @deleteShiftPoolHasDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'This shift pool has assigned drivers. Remove the drivers first before deleting it.'**
+  String get deleteShiftPoolHasDrivers;
+
   /// No description provided for @removeDriver.
   ///
   /// In en, this message translates to:
@@ -4387,6 +4423,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No active orders found'**
   String get noActiveOrdersFound;
+
+  /// No description provided for @pickupPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup photo'**
+  String get pickupPhoto;
+
+  /// No description provided for @viewPickupPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'View pickup photo'**
+  String get viewPickupPhoto;
 }
 
 class _AppLocalizationsDelegate

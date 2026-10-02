@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ui_kit/ui_kit.dart' hide AppTheme;
 
 import 'core/providers/app_settings_provider.dart'; 
 import 'core/providers/global_message_listener.dart';
@@ -32,6 +33,13 @@ class App extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: appSettings.themeMode,
+
+      builder: (context, child) => LocationRequiredGate(
+        title: context.tr('location_required_title'),
+        message: context.tr('location_required_message'),
+        buttonLabel: context.tr('location_required_button'),
+        child: child ?? const SizedBox.shrink(),
+      ),
 
       routerConfig: router,
     );

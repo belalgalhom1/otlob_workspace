@@ -2420,6 +2420,24 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get cancelAction;
 
+  /// No description provided for @deleteShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Shift'**
+  String get deleteShift;
+
+  /// No description provided for @deleteShiftTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this shift?'**
+  String get deleteShiftTitle;
+
+  /// No description provided for @deleteShiftMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This shift will be permanently removed.'**
+  String get deleteShiftMessage;
+
   /// No description provided for @processAction.
   ///
   /// In en, this message translates to:
@@ -4058,6 +4076,30 @@ abstract class AppLocalizations {
   /// **'CONFIRM DELIVERY'**
   String get confirmDelivery;
 
+  /// No description provided for @capturePickupPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take order photo'**
+  String get capturePickupPhoto;
+
+  /// No description provided for @retakePickupPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake order photo'**
+  String get retakePickupPhoto;
+
+  /// No description provided for @pickupPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup photo'**
+  String get pickupPhoto;
+
+  /// No description provided for @pickupPhotoRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'A photo of the order is required before confirming pickup'**
+  String get pickupPhotoRequired;
+
   /// No description provided for @inboxEmpty.
   ///
   /// In en, this message translates to:
@@ -4333,6 +4375,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Trip Details'**
   String get tripDetails;
+
+  /// No description provided for @locationRequiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location required'**
+  String get locationRequiredTitle;
+
+  /// No description provided for @locationRequiredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable location services to continue using the app.'**
+  String get locationRequiredMessage;
+
+  /// No description provided for @locationRequiredButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable location'**
+  String get locationRequiredButton;
 }
 
 class _AppLocalizationsDelegate

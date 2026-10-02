@@ -4,6 +4,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/shifts/presentation/shifts_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:intl/intl.dart';
 
@@ -40,7 +41,7 @@ class AvailableShiftsTab extends ConsumerWidget {
             subtitle: l10n.shiftsDisabledAvailableSubtitle,
           );
         }
-        return Center(child: Text(l10n.errorGeneric(error.toString())));
+        return Center(child: Text(ErrorUtils.translate(context, error)));
       },
       data: (pools) {
         if (pools.isEmpty) {

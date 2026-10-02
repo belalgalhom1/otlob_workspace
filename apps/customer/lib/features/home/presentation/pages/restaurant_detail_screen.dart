@@ -534,16 +534,16 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         .fold<int>(0, (sum, ci) => sum + ci.quantity);
 
     final bool tracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
-    final int itemStock = int.tryParse(item['stock']?.toString() ?? '0') ?? 0;
+    final int? itemStock = item['stock'] == null ? null : int.tryParse(item['stock'].toString());
     final List<dynamic> menuVariants = item['variants'] as List? ?? [];
     final bool hasMenuVariants = item['hasVariants'] == true && menuVariants.isNotEmpty;
     final bool isItemOutOfStock = totalCartQty == 0 && (hasMenuVariants
         ? menuVariants.every((v) {
             final vTracks = v['tracksStock'] == null ? true : (v['tracksStock'] == true);
-            final vStock = int.tryParse(v['stock']?.toString() ?? '0') ?? 0;
-            return vTracks && vStock <= 0;
+            final int? vStock = v['stock'] == null ? null : int.tryParse(v['stock'].toString());
+            return vTracks && vStock != null && vStock <= 0;
           })
-        : (tracksStock && itemStock <= 0));
+        : (tracksStock && itemStock != null && itemStock <= 0));
 
     return GestureDetector(
       onTap: () {

@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 
 part 'shifts_provider.g.dart';
 
@@ -42,6 +43,17 @@ class DriverShifts extends _$DriverShifts {
     try {
       final repository = ref.read(driverShiftsRepositoryProvider);
       await repository.endShift(shiftId);
+      await _fetchMyShifts();
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      if (prev.hasValue) state = prev;
+    }
+  }
+
+  Future<void> deleteShift(String shiftId) async {
+    final prev = state;
+    try {
+      await ref.read(dioProvider).delete('/drivers/me/shifts/$shiftId');
       await _fetchMyShifts();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

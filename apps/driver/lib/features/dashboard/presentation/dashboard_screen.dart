@@ -14,6 +14,7 @@ import 'package:driver/features/profile/presentation/settings_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
+import 'package:core/core.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
 import 'package:data/providers.dart';
 
@@ -162,10 +163,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  Widget _buildProfileError(dynamic error, AppLocalizations l10n) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
+            const SizedBox(height: 16),
+            Text(
+              ErrorUtils.translate(context, error),
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              ApiErrorMapper.fromError(error),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () =>
+                  ref.read(driverProfileProvider.notifier).fetchProfile(),
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: Text(l10n.retry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileTab(AsyncValue<dynamic> profileState, AppLocalizations l10n) {
     return profileState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text(ErrorUtils.translate(context, err))),
+      error: (err, _) => _buildProfileError(err, l10n),
       data: (profileData) {
         if (profileData == null) {
           return Center(child: Text(l10n.pendingApproval));
@@ -464,7 +505,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         const SizedBox(height: 16),
         settingsState.when(
           loading: () => const CircularProgressIndicator(),
-          error: (err, _) => Text(l10n.errorLoadingSettings(err.toString())),
+          error: (err, _) => Text(ErrorUtils.translate(context, err)),
           data: (data) {
             final s = data is Map && data.containsKey('data') ? data['data'] : (data ?? {});
             return Column(
@@ -496,7 +537,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currency = ref.watch(configurationProvider.notifier).currency;
     return profileState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
+      error: (error, _) => _buildProfileError(error, l10n),
       data: (profileData) {
         final data = profileData is Map && profileData.containsKey('data') && profileData['data'] is Map
             ? profileData['data']

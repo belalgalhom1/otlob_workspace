@@ -766,7 +766,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 setState(() {
                                   errorMessage = ErrorUtils.translate(
                                     context,
-                                    e.toString(),
+                                    e,
                                   );
                                 });
                               }
@@ -904,7 +904,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                ErrorUtils.translate(context, e.toString()),
+                                ErrorUtils.translate(context, e),
                               ),
                               backgroundColor: AppColors.error,
                             ),

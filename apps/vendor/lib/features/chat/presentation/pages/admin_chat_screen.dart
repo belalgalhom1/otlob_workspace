@@ -14,6 +14,7 @@ import 'package:dio/dio.dart' as dio;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
+import 'package:vendor/core/utils/error_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:api/api.dart';
@@ -290,7 +291,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              AppLocalizations.of(context)!.errorOccurred(e.toString()),
+              ErrorUtils.translate(context, e),
             ),
           ),
         );
@@ -399,7 +400,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.failedWithError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: Colors.red),
         );
       }
     }
@@ -583,7 +584,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.failedWithError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: Colors.red),
         );
       }
     }
@@ -739,7 +740,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.failedWithError(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: Colors.red),
         );
       }
     }
@@ -1511,7 +1512,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.errorOccurred(e.toString())),
+            content: Text(ErrorUtils.translate(context, e)),
           ),
         );
       }

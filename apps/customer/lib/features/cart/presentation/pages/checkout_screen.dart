@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -27,6 +28,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isEstimating = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
+  String? _estimateError;
   String? _clientOrderKey;
   final TextEditingController _notesController = TextEditingController();
 
@@ -86,12 +88,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (mounted) {
         setState(() {
           _estimate = result;
+          _estimateError = null;
           _isEstimating = false;
         });
       }
     } catch (e) {
+      String? message;
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map && data['message'] != null) {
+          message = data['message'].toString();
+        }
+      }
       if (mounted) {
-        setState(() => _isEstimating = false);
+        setState(() {
+          _estimate = null;
+          _estimateError = message ?? e.toString();
+          _isEstimating = false;
+        });
       }
     }
   }
@@ -553,6 +567,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                     ],
                   ),
+                  if (_estimateError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_off,
+                              color: Colors.red, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              s.translateApiError(_estimateError ?? ''),
+                              style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ]),
                 const SizedBox(height: 16),
                 Container(
@@ -607,17 +650,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (isBelowMinOrder || _isProcessing)
+                    onPressed: (isBelowMinOrder || _isProcessing || _estimateError != null)
                         ? null
                         : () => _placeOrder(s, vendorItems, coinsToUse, selectedAddress),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isBelowMinOrder ? Colors.grey : AppColors.primary,
+                      backgroundColor: (isBelowMinOrder || _estimateError != null) ? Colors.grey : AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
-                        isBelowMinOrder
+                        _estimateError != null
+                            ? (s.isArabic ? 'خارج منطقة التوصيل لهذا المتجر' : 'Outside this store\'s delivery zone')
+                            : isBelowMinOrder
                             ? (s.isArabic ? 'المبلغ أقل من الحد الأدنى للطلب (${minOrder.toStringAsFixed(0)} ${s.egp})' : 'Below Min Order Amount (${minOrder.toStringAsFixed(0)} ${s.egp})')
                             : '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp})',
                         style: const TextStyle(

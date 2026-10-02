@@ -3,6 +3,7 @@ import 'package:vendor/core/providers.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
 import 'package:flutter/foundation.dart';
+import 'package:core/core.dart';
 
 part 'user_provider.g.dart';
 
@@ -56,7 +57,7 @@ class UserNotifier extends _$UserNotifier {
       );
     } catch (e, st) {
       if (isInitialLoad) {
-        state = AsyncValue.error('Failed to fetch users', st);
+        state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
   }

@@ -27,6 +27,16 @@ class App extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: appPreferences.themeMode,
 
+      builder: (context, child) {
+        final l10n = AppLocalizations.of(context)!;
+        return LocationRequiredGate(
+          title: l10n.locationRequiredTitle,
+          message: l10n.locationRequiredMessage,
+          buttonLabel: l10n.locationRequiredButton,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+
       routerConfig: router,
     );
   }

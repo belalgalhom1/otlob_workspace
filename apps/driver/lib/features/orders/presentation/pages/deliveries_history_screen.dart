@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:intl/intl.dart';
 
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/features/orders/presentation/driver_orders_history_provider.dart';
 import 'package:driver/features/order_execution/presentation/widgets/order_details_bottom_sheet.dart';
@@ -60,7 +61,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                         const Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
                         const SizedBox(height: 16),
                         Text(
-                          state.error!,
+                          ErrorUtils.translate(context, state.error),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 16),
                         ),

@@ -1,4 +1,5 @@
 import 'package:data/data.dart';
+import 'package:core/core.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 
@@ -28,7 +29,7 @@ class ZoneNotifier extends _$ZoneNotifier {
       state = AsyncValue.data(ZoneStateData(result, total: result.length));
     } catch (e, st) {
       if (isInitialLoad) {
-        state = AsyncValue.error('Failed to fetch zones', st);
+        state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
   }

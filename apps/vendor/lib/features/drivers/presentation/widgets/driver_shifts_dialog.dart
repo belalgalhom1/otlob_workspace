@@ -7,6 +7,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class DriverShiftsDialog extends ConsumerStatefulWidget {
   final DriverProfile driver;
@@ -53,7 +54,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = ApiErrorMapper.fromError(e);
           _isLoading = false;
         });
       }
@@ -175,7 +176,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 48),
               const SizedBox(height: 16),
               Text(
-                '${AppLocalizations.of(context)!.failedToLoadShifts}:\n$_error',
+                  '${AppLocalizations.of(context)!.failedToLoadShifts}:\n${ErrorUtils.translate(context, _error)}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.error),
               ),
@@ -268,6 +269,13 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   shift.zoneName!,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: () => _confirmDelete(context, shift),
+                tooltip: AppLocalizations.of(context)!.deleteShift,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(LucideIcons.trash2, size: 17, color: AppColors.error),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -331,6 +339,54 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, DriverShift shift) {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(l10n.deleteShiftConfirmTitle),
+        content: Text(l10n.deleteShiftConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref
+                    .read(dioProvider)
+                    .delete('/driver-shifts/admin/shifts/${shift.id}');
+                await _fetchShifts();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.shiftRemovedSuccessfully),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            child: Text(l10n.delete),
+          ),
         ],
       ),
     );

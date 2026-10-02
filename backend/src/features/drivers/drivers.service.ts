@@ -22,6 +22,7 @@ import {
 import {
   DriverLocationUpdatedEvent,
   DriverStatusChangedEvent,
+  ShiftDisabledEvent,
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { SocketService } from '../../infrastructure/socket/socket.service';
@@ -179,6 +180,45 @@ export class DriversService {
   async getMyShifts(userId: string) {
     const driver = await this.assertDriver(userId);
     return this.driversRepository.findShiftsByDriver(driver.id);
+  }
+
+  async deleteMyShift(userId: string, shiftId: string) {
+    const driver = await this.driversRepository.findByUserIdWithUser(userId);
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const shift = await this.driversRepository.findShiftById(
+      shiftId,
+      driver.id,
+    );
+    if (!shift) throw new NotFoundException(DriverErrors.SHIFT_NOT_FOUND);
+
+    if (
+      shift.status === DriverShiftStatus.ACTIVE &&
+      driver.status !== DriverStatus.ON_DELIVERY
+    ) {
+      await this.driversRepository.update(driver.id, {
+        status: DriverStatus.OFFLINE,
+      });
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          driver.id,
+          driver.user.id,
+          driver.status,
+          DriverStatus.OFFLINE,
+          'Shift deleted by driver.',
+        ),
+      );
+    }
+
+    await this.driversRepository.deleteShift(shiftId);
+
+    this.eventEmitter.emit(
+      EVENTS.SHIFT_DISABLED,
+      new ShiftDisabledEvent(driver.user.id, shift.id),
+    );
+
+    return { success: true, removed: 1 };
   }
 
   async startShift(userId: string, shiftId: string) {

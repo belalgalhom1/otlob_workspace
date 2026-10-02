@@ -107,7 +107,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              ErrorUtils.translate(context, state.error.toString()),
+              ErrorUtils.translate(context, state.error),
             ),
             backgroundColor: AppColors.error,
           ),
@@ -829,7 +829,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 }
               } catch (e) {
                 if (dialogContext.mounted) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(dialogContext, e)), backgroundColor: AppColors.error));
                 }
               }
             },
@@ -874,7 +874,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 }
               } catch (e) {
                 if (dialogContext.mounted) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e.toString())), backgroundColor: AppColors.error));
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(dialogContext, e)), backgroundColor: AppColors.error));
                 }
               }
             },

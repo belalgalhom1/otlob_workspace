@@ -3,6 +3,7 @@ import 'package:vendor/core/providers.dart';
 import 'package:api/api.dart';
 import 'package:data/data.dart';
 import 'package:dio/dio.dart' as dio;
+import 'package:core/core.dart';
 
 part 'settings_provider.g.dart';
 
@@ -20,7 +21,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       final data = await repository.platformSettingsGetAll();
       state = AsyncValue.data(data);
     } catch (e, st) {
-      state = AsyncValue.error(e.toString(), st);
+      state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
     }
   }
 

@@ -14,6 +14,8 @@ class AuthInterceptor extends Interceptor {
 
   AuthInterceptor(this._dio, this._storage);
 
+  static const _refreshWaitTimeout = Duration(seconds: 20);
+
   static const _authStorageKeys = [
     'access_token',
     'refresh_token',
@@ -60,12 +62,20 @@ class AuthInterceptor extends Interceptor {
     // If a refresh is actively running, await the new token to avoid doomed 401s
     if (_refreshCompleter != null) {
       try {
-        final newToken = await _refreshCompleter!.future;
+        final newToken =
+            await _refreshCompleter!.future.timeout(_refreshWaitTimeout);
         if (newToken != null) {
           options.headers['Authorization'] = 'Bearer $newToken';
         }
         return handler.next(options);
       } catch (_) {
+        // Refresh is wedged/stale (timed out or errored): attach whatever
+        // token exists so the request goes out authenticated instead of
+        // launching another doomed 401 -> refresh cycle.
+        final token = await _storage.read(key: 'access_token');
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
         return handler.next(options);
       }
     }
@@ -93,7 +103,8 @@ class AuthInterceptor extends Interceptor {
       // If another request is already refreshing, wait on its completer
       if (_refreshCompleter != null) {
         try {
-          final newToken = await _refreshCompleter!.future;
+          final newToken =
+              await _refreshCompleter!.future.timeout(_refreshWaitTimeout);
           if (newToken != null) {
             final requestOptions = err.requestOptions;
             requestOptions.extra['retried'] = true;
@@ -102,6 +113,9 @@ class AuthInterceptor extends Interceptor {
             return handler.resolve(response);
           }
         } catch (_) {
+          // Stale/wedged refresh mutex: drop it so this request can drive a
+          // fresh refresh instead of being queued forever behind the dead one.
+          _refreshCompleter = null;
           return handler.next(err);
         }
       }
@@ -119,7 +133,13 @@ class AuthInterceptor extends Interceptor {
           return handler.next(err);
         }
 
-        final refreshDio = Dio(BaseOptions(baseUrl: _dio.options.baseUrl));
+        final refreshDio = Dio(
+          BaseOptions(
+            baseUrl: _dio.options.baseUrl,
+            connectTimeout: _refreshWaitTimeout,
+            receiveTimeout: _refreshWaitTimeout,
+          ),
+        );
         refreshDio.options.headers['Authorization'] = 'Bearer $refreshToken';
 
         final response = await refreshDio.post('/auth/refresh');

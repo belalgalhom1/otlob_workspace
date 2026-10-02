@@ -6,6 +6,7 @@ import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class VendorSelectionScreen extends ConsumerWidget {
   const VendorSelectionScreen({super.key});
@@ -84,7 +85,7 @@ class VendorSelectionScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text(AppLocalizations.of(context)!.failedWithError(err.toString()))),
+        error: (err, stack) => Center(child: Text(ErrorUtils.translate(context, err))),
       ),
     );
   }

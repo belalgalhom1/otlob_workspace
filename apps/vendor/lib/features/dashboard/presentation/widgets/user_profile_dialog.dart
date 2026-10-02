@@ -11,6 +11,8 @@ import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
+import 'package:core/core.dart';
 
 class UserProfileDialog extends ConsumerStatefulWidget {
   final VoidCallback? onProfileUpdated;
@@ -72,7 +74,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = ApiErrorMapper.fromError(e);
           _isLoading = false;
         });
       }
@@ -121,7 +123,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
       if (mounted) {
         setState(() {
           _isUploadingAvatar = false;
-          _errorMessage = e.toString();
+          _errorMessage = ApiErrorMapper.fromError(e);
         });
       }
     }
@@ -167,7 +169,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
       if (mounted) {
         setState(() {
           _isSaving = false;
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _errorMessage = ApiErrorMapper.fromError(e);
         });
       }
     }
@@ -265,7 +267,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
                               border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                             ),
                             child: Text(
-                              _errorMessage!,
+                              ErrorUtils.translate(context, _errorMessage),
                               style: const TextStyle(color: AppColors.error, fontSize: 13),
                             ),
                           ),

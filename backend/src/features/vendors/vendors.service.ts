@@ -785,6 +785,8 @@ export class VendorsService {
       descriptionAr: string | null;
       basePrice: number | null;
       comparePrice?: number | null;
+      stock: number | null;
+      tracksStock: boolean;
       imageUrl: string | null;
       categoryId: string | null;
       sellByStrip: boolean;
@@ -984,15 +986,17 @@ export class VendorsService {
             effectiveComparePrice = minVariant.comparePrice;
           }
 
-          return {
-            id: p.id,
-            name: p.name,
-            nameAr: p.nameAr || '',
-            description: p.description,
-            descriptionAr: p.descriptionAr || '',
-            price: effectivePrice,
-            basePrice: basePrice,
-            comparePrice:
+return {
+              id: p.id,
+              name: p.name,
+              nameAr: p.nameAr || '',
+              description: p.description,
+              descriptionAr: p.descriptionAr || '',
+              price: effectivePrice,
+              basePrice: basePrice,
+              stock: p.stock,
+              tracksStock: p.tracksStock,
+              comparePrice:
               effectiveComparePrice && effectiveComparePrice > effectivePrice
                 ? effectiveComparePrice
                 : null,

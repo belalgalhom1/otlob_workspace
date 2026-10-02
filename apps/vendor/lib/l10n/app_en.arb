@@ -164,6 +164,7 @@
   "suspended": "Suspended",
   "deleteConfirmTitle": "Delete Vendor",
   "deleteConfirmContent": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+  "zoneInUseDeleteError": "This zone is in use. Reassign or remove its branches, orders, and shifts before deleting it.",
   "@deleteConfirmContent": {
     "placeholders": {
       "name": {
@@ -797,6 +798,11 @@
   "noShiftsFound": "No shifts found",
   "deleteShiftPool": "Delete Shift Pool",
   "deleteShiftPoolConfirm": "Are you sure you want to delete this shift pool? This action cannot be undone.",
+  "deleteShift": "Delete Shift",
+  "deleteShiftConfirmTitle": "Delete this shift?",
+  "deleteShiftConfirmMessage": "This shift will be permanently removed. The driver will lose it immediately.",
+  "shiftRemovedSuccessfully": "Shift removed successfully",
+  "deleteShiftPoolHasDrivers": "This shift pool has assigned drivers. Remove the drivers first before deleting it.",
   "removeDriver": "Remove Driver",
   "removeDriverConfirm": "Are you sure you want to remove this driver from the shift?",
   "removeDriverSuccess": "Driver removed from shift",
@@ -881,5 +887,7 @@
   "analyticsRevenue": "Revenue",
   "analyticsTotalSpent": "Total Spent",
   "analyticsCoins": "Coins",
-  "noActiveOrdersFound": "No active orders found"
+  "noActiveOrdersFound": "No active orders found",
+  "pickupPhoto": "Pickup photo",
+  "viewPickupPhoto": "View pickup photo"
 }

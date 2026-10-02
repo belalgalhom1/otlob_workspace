@@ -8,6 +8,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/zones/presentation/zone_provider.dart';
 import 'package:dio/dio.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class ZoneEditScreen extends ConsumerStatefulWidget {
   final dynamic zone;
@@ -219,7 +220,7 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.errorSavingZone(e.toString())),
+          content: Text(ErrorUtils.translate(context, e)),
           backgroundColor: AppColors.error,
         ),
       );
