@@ -1,1 +1,1 @@
-﻿ALTER TABLE "orders" ADD COLUMN "pickupImageUrl" TEXT;
+ALTER TABLE "orders" ADD COLUMN "pickupImageUrl" TEXT;
