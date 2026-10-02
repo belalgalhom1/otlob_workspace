@@ -763,6 +763,13 @@ export class OrdersRepository {
   ): Promise<
     { id: string; zoneId: string | null; lng: number; lat: number } | null
   > {
+    const zoneFilter = zoneId
+      ? Prisma.sql`
+        AND ST_Contains(
+          (SELECT boundary FROM zones WHERE id = ${zoneId} AND "isActive" = true),
+          "location"
+        )`
+      : Prisma.empty;
     const rows = await this.prisma.$queryRaw<
       Array<{ id: string; zoneId: string | null; lng: number; lat: number }>
     >`
@@ -774,8 +781,8 @@ export class OrdersRepository {
       FROM vendor_branches
       WHERE "vendorId"::text = ${vendorId}::text
         AND "isOpen" = true
+        ${zoneFilter}
       ORDER BY
-        (CASE WHEN "zoneId" = ${zoneId ?? null} THEN 0 ELSE 1 END) ASC,
         ST_Distance(
           location::geography,
           ST_SetSRID(ST_MakePoint(${toLng}, ${toLat}), 4326)::geography

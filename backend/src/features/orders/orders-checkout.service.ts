@@ -92,9 +92,9 @@ export class OrdersCheckoutService {
       variantId: item.variantId ?? null,
       productName: item.product.name ?? 'Unknown Product',
       variantName: item.variant?.name ?? null,
-      unitPrice: item.unitPrice,
+      unitPrice: Math.round(item.unitPrice),
       quantity: item.quantity,
-      totalPrice: item.totalPrice,
+      totalPrice: Math.round(item.totalPrice),
       specialRequest: item.specialRequest ?? null,
       options: item.options.map((opt) => ({
         optionId: opt.id,
@@ -261,11 +261,8 @@ export class OrdersCheckoutService {
       lat,
       zone?.id,
     );
-    // A customer may only order from a vendor that has an open branch in the
-    // SAME zone as the selected delivery location.
-    if (branch && branch.zoneId !== zone.id) {
-      throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
-    }
+    // The branch lookup only considers open branches geometrically inside the
+    // customer's delivery zone, so a returned branch is always in that zone.
     const distanceKm = branch
       ? await this.ordersRepository.getDistanceKm(
           branch.lng,

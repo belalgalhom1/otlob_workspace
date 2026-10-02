@@ -2008,6 +2008,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shiftDeletedSuccessfully => 'Shift pool deleted successfully';
 
   @override
+  String get shiftPoolDisabledDueToHistory =>
+      'This shift pool has past completed shifts, so it can\'t be deleted. It was disabled instead.';
+
+  @override
   String get driverAssignedSuccessfully => 'Driver assigned successfully';
 
   @override

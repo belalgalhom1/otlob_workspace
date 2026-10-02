@@ -47,6 +47,7 @@ type CartItemInclude = {
   productId: string | null;
   variantId: string | null;
   quantity: number;
+  selectedUnit: string;
   specialRequest: string | null;
   customName: string | null;
   customPrice: number | null;
@@ -58,6 +59,8 @@ type CartItemInclude = {
     name: string | null;
     nameAr?: string | null;
     isActive: boolean;
+    sellByStrip: boolean;
+    stripsPerPackage: number | null;
     stock: number | null;
     tracksStock: boolean;
     imageUrl: string | null;
@@ -144,6 +147,8 @@ export class CartService {
     if (!customer.canOrder) {
       throw new ForbiddenException(CustomerErrors.CANNOT_ORDER);
     }
+
+    const selectedUnit = dto.selectedUnit ?? 'package';
 
     let customPrice: number | null = null;
     let customName: string | null = null;
@@ -247,6 +252,7 @@ export class CartService {
             cartId: cart.id,
             productId: finalProductId,
             optionHash: optionHash ?? '',
+            selectedUnit,
             customPrice: customPrice ?? null, // Match custom price exactly to avoid grouping custom offers with regular ones
           },
         });
@@ -281,6 +287,7 @@ export class CartService {
             customPrice,
             customImageUrl,
             quantity: dto.quantity ?? 1,
+            selectedUnit,
             specialRequest: dto.specialRequest ?? null,
             optionHash: optionHash ?? '',
             selectedOptions: {
@@ -328,6 +335,7 @@ export class CartService {
         where: { id: cartItemId },
         data: {
           quantity: dto.quantity,
+          selectedUnit: dto.selectedUnit ?? cartItem.selectedUnit,
           specialRequest: dto.specialRequest ?? cartItem.specialRequest,
           optionHash: newOptionHash ?? '',
           updatedAt: new Date(),
@@ -449,7 +457,14 @@ export class CartService {
       } else {
         const productQty = productQuantities.get(item.productId!) ?? 0;
         if (item.product.tracksStock && item.product.stock != null) {
-          if (item.product.stock < productQty) {
+          const stripsPerPackage =
+            item.selectedUnit === 'strip' &&
+            item.product.sellByStrip === true &&
+            Number(item.product.stripsPerPackage ?? 0) > 0
+              ? Number(item.product.stripsPerPackage)
+              : 1;
+          const effectiveStock = item.product.stock * stripsPerPackage;
+          if (effectiveStock < productQty) {
             throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
           }
         }
@@ -536,6 +551,8 @@ export class CartService {
               imageUrl: true,
               basePrice: true,
               comparePrice: true,
+              sellByStrip: true,
+              stripsPerPackage: true,
               isActive: true,
               hasVariants: true,
               stock: true,
@@ -675,14 +692,27 @@ export class CartService {
         }
       }
 
+      // When the customer selected "strip", the package price (and compare
+      // price) is divided by the strips per package so totals reflect the
+      // actual per-strip rate.
+      const sellByStrip =
+        item.selectedUnit === 'strip' &&
+        item.product?.sellByStrip === true &&
+        Number(item.product?.stripsPerPackage ?? 0) > 0;
+      const stripDivider = sellByStrip
+        ? Number(item.product?.stripsPerPackage)
+        : 1;
+
       const optionsTotal = item.selectedOptions.reduce(
         (sum, so) => sum + Number(so.option.priceAdded),
         0,
       );
 
-      const unitPrice = basePrice + optionsTotal;
+      const unitPrice = basePrice / stripDivider + optionsTotal;
       const compareUnitPrice =
-        originalBasePrice > basePrice ? originalBasePrice + optionsTotal : null;
+        originalBasePrice > basePrice
+          ? originalBasePrice / stripDivider + optionsTotal
+          : null;
       const totalPrice = unitPrice * item.quantity;
 
       subtotal += totalPrice;
@@ -724,6 +754,7 @@ export class CartService {
         variant: resolvedVariant,
         options: item.selectedOptions.map((so) => so.option),
         quantity: item.quantity,
+        selectedUnit: item.selectedUnit,
         specialRequest: item.specialRequest,
         customName: item.customName,
         customPrice: item.customPrice,

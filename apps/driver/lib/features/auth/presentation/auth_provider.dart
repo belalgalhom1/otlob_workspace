@@ -97,6 +97,22 @@ class Auth extends _$Auth {
         debugPrint(
           'Login succeeded; post-login profile fetch failed transiently: $e',
         );
+
+        // A real 401 that survived the refresh cycle means the interceptor
+        // already wiped the freshly saved tokens. That is not a transient
+        // hiccup — the session is genuinely dead, so marking the app
+        // authenticated would strand the user on a dashboard that only 401s.
+        // Bounce back to the login screen instead.
+        try {
+          final stillLoggedIn = await repository.isLoggedIn();
+          if (!stillLoggedIn) {
+            state = const AsyncValue.data(false);
+            return;
+          }
+        } catch (_) {
+          // Storage hiccup mid-check: proceed; the dashboard's retry path
+          // (fetchProfile) and the interceptor re-assert the real state.
+        }
       }
       if (!profileFetchFailed &&
           (profile == null || profile['isApproved'] != true)) {

@@ -3920,6 +3920,12 @@ abstract class AppLocalizations {
   /// **'Shift pool deleted successfully'**
   String get shiftDeletedSuccessfully;
 
+  /// No description provided for @shiftPoolDisabledDueToHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'This shift pool has past completed shifts, so it can\'t be deleted. It was disabled instead.'**
+  String get shiftPoolDisabledDueToHistory;
+
   /// No description provided for @driverAssignedSuccessfully.
   ///
   /// In en, this message translates to:

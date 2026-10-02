@@ -159,14 +159,17 @@ class PendingTopUpsScreen extends ConsumerWidget {
                           color: theme.colorScheme.onSurface,
                         ),
                         const SizedBox(width: 5),
-                        Text(
-                          dateStr,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurface,
+                        Expanded(
+                          child: Text(
+                            dateStr,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         // Reject
                         OutlinedButton.icon(
                           onPressed: () => _reviewTopUp(context, ref, topUp.id, 'REJECTED', l10n),

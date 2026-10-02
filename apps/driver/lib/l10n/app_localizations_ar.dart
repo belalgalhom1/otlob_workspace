@@ -2096,6 +2096,19 @@ class AppLocalizationsAr extends AppLocalizations {
       'مطلوب التقاط صورة للطلب قبل تأكيد الاستلام';
 
   @override
+  String get captureDeliveryPhoto => 'التقاط صورة الطلب بعد التسليم';
+
+  @override
+  String get retakeDeliveryPhoto => 'إعادة التقاط صورة التسليم';
+
+  @override
+  String get deliveryPhoto => 'صورة التسليم';
+
+  @override
+  String get deliveryPhotoRequired =>
+      'مطلوب التقاط صورة للطلب قبل تأكيد التسليم';
+
+  @override
   String get inboxEmpty => 'صندوق الوارد فارغ';
 
   @override

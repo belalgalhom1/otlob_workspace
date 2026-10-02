@@ -203,6 +203,15 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
     }
 
+    // The driver cannot confirm delivery without a photo of the order as proof.
+    if (
+      dto.status === OrderStatus.DELIVERED &&
+      !dto.deliveryImageUrl &&
+      !order.deliveryImageUrl
+    ) {
+      throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
+    }
+
     // Mobile-wallet orders are paid before pickup: the driver must never be able
     // to advance the order while payment is still unpaid. The confirmation flow
     // (driverConfirmPayment) writes paymentStatus=COMPLETED when it advances the
@@ -231,6 +240,27 @@ export class OrdersStateService {
       return await this.driverUpdateStatus(actor, orderId, {
         status: OrderStatus.PICKED_UP,
         pickupImageUrl: imageUrl,
+      } as UpdateOrderStatusDto);
+    } catch (error) {
+      await this.storage.delete(imageUrl);
+      throw error;
+    }
+  }
+
+  // Driver-only delivery confirmation: the order photo is uploaded as part of
+  // the action, then the standard DELIVERED transition runs (which itself
+  // enforces that a photo was provided). If the transition fails the upload is
+  // rolled back.
+  async driverConfirmDelivery(
+    actor: JwtAccessPayload,
+    orderId: string,
+    file: Express.Multer.File,
+  ) {
+    const imageUrl = await this.storage.upload(file, 'deliveries');
+    try {
+      return await this.driverUpdateStatus(actor, orderId, {
+        status: OrderStatus.DELIVERED,
+        deliveryImageUrl: imageUrl,
       } as UpdateOrderStatusDto);
     } catch (error) {
       await this.storage.delete(imageUrl);
@@ -527,8 +557,10 @@ export class OrdersStateService {
       extraData.pickedUpAt = new Date();
       if (dto.pickupImageUrl) extraData.pickupImageUrl = dto.pickupImageUrl;
     }
-    if (newStatus === OrderStatus.DELIVERED)
+    if (newStatus === OrderStatus.DELIVERED) {
       extraData.actualDeliveryTime = new Date();
+      if (dto.deliveryImageUrl) extraData.deliveryImageUrl = dto.deliveryImageUrl;
+    }
 
     const updated = await this.ordersRepository.updateStatus(
       order.id,

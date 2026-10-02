@@ -46,10 +46,13 @@ class ShiftPools extends _$ShiftPools {
     await refresh();
   }
 
-  Future<void> deleteShiftPool(String poolId) async {
+  Future<bool> deleteShiftPool(String poolId) async {
     final dio = ref.read(dioProvider);
-    await dio.delete('/driver-shifts/admin/pools/$poolId');
+    final response = await dio.delete('/driver-shifts/admin/pools/$poolId');
+    final data = response.data is Map ? response.data as Map : null;
+    final deleted = data?['deleted'] as bool? ?? true;
     await refresh();
+    return deleted;
   }
 
   Future<void> removeDriverFromShift(String shiftId) async {

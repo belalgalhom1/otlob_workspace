@@ -227,6 +227,22 @@ export class OrdersController {
     return this.stateService.driverConfirmPickup(actor, orderId, file);
   }
 
+  @ApiStandardResponse()
+  @Post('driver/:orderId/delivery')
+  @Roles(Role.DRIVER)
+  @ApiFileUpload({ type: 'IMAGE' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)',
+  })
+  driverConfirmDelivery(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.stateService.driverConfirmDelivery(actor, orderId, file);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // VENDOR
   // ═══════════════════════════════════════════════════════════════════════════

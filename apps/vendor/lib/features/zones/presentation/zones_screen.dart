@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
@@ -569,20 +568,9 @@ class ZonesScreen extends ConsumerWidget {
                 await ref.read(zoneProvider.notifier).deleteZone(zone['id']);
               } catch (e) {
                 if (context.mounted) {
-                  final l10n = AppLocalizations.of(context)!;
-                  String text;
-                  if (e is DioException) {
-                    final message = e.response?.data?['message'];
-                    text =
-                        message.toString().contains('zone_in_use')
-                            ? l10n.zoneInUseDeleteError
-                            : message.toString();
-                  } else {
-                    text = e.toString();
-                  }
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(text),
+                      content: Text(ErrorUtils.translate(context, e)),
                       backgroundColor: AppColors.error,
                     ),
                   );

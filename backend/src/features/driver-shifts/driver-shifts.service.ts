@@ -219,6 +219,7 @@ export class DriverShiftsService {
       });
       return {
         success: true,
+        deleted: false,
         message:
           'Pool contained past completed shifts. It was disabled, and all active/future shifts were killed.',
       };
@@ -228,6 +229,7 @@ export class DriverShiftsService {
     await this.prisma.shiftPool.delete({ where: { id: poolId } });
     return {
       success: true,
+      deleted: true,
       message:
         'Shift pool completely deleted and all active drivers kicked offline.',
     };

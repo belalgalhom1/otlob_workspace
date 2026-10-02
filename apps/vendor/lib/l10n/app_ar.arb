@@ -744,6 +744,7 @@
   "deleteShiftConfirmMessage": "سيتم حذف هذه الوردية نهائياً. سيفقد السائق الوردية فوراً.",
   "shiftRemovedSuccessfully": "تم حذف الوردية بنجاح",
   "deleteShiftPoolHasDrivers": "هذه مجموعة الورديات بها سائقون معينون. قم بإزالة السائقين أولاً قبل حذفها.",
+  "shiftPoolDisabledDueToHistory": "تحتوي مجموعة الورديات هذه على ورديات مكتملة سابقاً، لذا لا يمكن حذفها. تم تعطيلها بدلاً من ذلك.",
   "removeDriver": "إزالة السائق",
   "removeDriverConfirm": "هل أنت متأكد من إزالة هذا السائق من الوردية؟",
   "removeDriverSuccess": "تم إزالة السائق من الوردية",

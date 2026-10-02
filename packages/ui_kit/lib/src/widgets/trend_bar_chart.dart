@@ -56,7 +56,7 @@ class TrendBarChart extends StatelessWidget {
 
     final maxValue = values.reduce((a, b) => math.max(a, b));
     final labelStep =
-        (labels.length / 8).ceil().clamp(2, labels.length).toInt();
+        ((labels.length / 8).ceil()).clamp(1, labels.length).toInt();
     final barWidth = values.length > 20 ? 6.0 : (values.length > 10 ? 10.0 : 16.0);
 
     return SizedBox(

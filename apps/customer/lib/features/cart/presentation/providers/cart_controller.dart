@@ -158,7 +158,7 @@ class Cart extends _$Cart {
         backendId: itemJson['id'],
         product: itemProduct,
         quantity: itemJson['quantity'] as int? ?? 1,
-        selectedUnit: defaultUnit,
+        selectedUnit: (itemJson['selectedUnit'] as String?) ?? defaultUnit,
         selectedVariant: itemJson['variant'] != null
             ? Map<String, dynamic>.from(itemJson['variant'] as Map)
             : null,
@@ -210,7 +210,8 @@ class Cart extends _$Cart {
       
       final builder = AddCartItemDtoBuilder()
         ..productId = product['id']
-        ..quantity = 1;
+        ..quantity = 1
+        ..selectedUnit = unit;
 
       if (product['offerMessageId'] != null) {
         builder.offerMessageId = product['offerMessageId'];

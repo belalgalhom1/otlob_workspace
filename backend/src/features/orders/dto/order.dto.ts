@@ -274,6 +274,15 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @MaxLength(600)
   pickupImageUrl?: string;
+
+  @ApiProperty({
+    description: 'Delivery proof photo URL (required when status is DELIVERED)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(600)
+  deliveryImageUrl?: string;
 }
 
 export class RespondToDispatchDto {

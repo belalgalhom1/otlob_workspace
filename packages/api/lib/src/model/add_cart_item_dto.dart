@@ -17,6 +17,7 @@ part 'add_cart_item_dto.g.dart';
 /// * [quantity] 
 /// * [optionIds] - Selected option IDs
 /// * [specialRequest] 
+/// * [selectedUnit] 
 /// * [offerMessageId] 
 @BuiltValue()
 abstract class AddCartItemDto implements Built<AddCartItemDto, AddCartItemDtoBuilder> {
@@ -36,6 +37,9 @@ abstract class AddCartItemDto implements Built<AddCartItemDto, AddCartItemDtoBui
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
 
+  @BuiltValueField(wireName: r'selectedUnit')
+  String? get selectedUnit;
+
   @BuiltValueField(wireName: r'offerMessageId')
   String? get offerMessageId;
 
@@ -45,7 +49,8 @@ abstract class AddCartItemDto implements Built<AddCartItemDto, AddCartItemDtoBui
 
   @BuiltValueHook(initializeBuilder: true)
   static void _defaults(AddCartItemDtoBuilder b) => b
-      ..quantity = 1;
+      ..quantity = 1
+      ..selectedUnit = 'package';
 
   @BuiltValueSerializer(custom: true)
   static Serializer<AddCartItemDto> get serializer => _$AddCartItemDtoSerializer();
@@ -93,6 +98,13 @@ class _$AddCartItemDtoSerializer implements PrimitiveSerializer<AddCartItemDto> 
       yield r'specialRequest';
       yield serializers.serialize(
         object.specialRequest,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.selectedUnit != null) {
+      yield r'selectedUnit';
+      yield serializers.serialize(
+        object.selectedUnit,
         specifiedType: const FullType(String),
       );
     }
@@ -160,6 +172,13 @@ class _$AddCartItemDtoSerializer implements PrimitiveSerializer<AddCartItemDto> 
             specifiedType: const FullType(String),
           ) as String;
           result.specialRequest = valueDes;
+          break;
+        case r'selectedUnit':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.selectedUnit = valueDes;
           break;
         case r'offerMessageId':
           final valueDes = serializers.deserialize(

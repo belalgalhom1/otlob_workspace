@@ -415,16 +415,29 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await ref.read(shiftPoolsProvider.notifier).deleteShiftPool(pool.id);
+                final deleted = await ref
+                    .read(shiftPoolsProvider.notifier)
+                    .deleteShiftPool(pool.id);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.shiftDeletedSuccessfully), backgroundColor: AppColors.success),
+                    SnackBar(
+                      content: Text(
+                        deleted
+                            ? l10n.shiftDeletedSuccessfully
+                            : l10n.shiftPoolDisabledDueToHistory,
+                      ),
+                      backgroundColor:
+                          deleted ? AppColors.success : AppColors.error,
+                    ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppColors.error),
+                    SnackBar(
+                      content: Text(ErrorUtils.translate(context, e)),
+                      backgroundColor: AppColors.error,
+                    ),
                   );
                 }
               }

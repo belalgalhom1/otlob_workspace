@@ -94,6 +94,31 @@ class OrderExecution extends _$OrderExecution {
       rethrow;
     }
   }
+
+  // Confirms delivery by uploading the mandatory order photo and marking DELIVERED.
+  Future<void> confirmDeliveryWithPhoto(XFile photo) async {
+    final prev = state;
+    try {
+      state = const AsyncValue.loading();
+      final orderId = prev.value['id'];
+      final dio = ref.read(dioProvider);
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
+      });
+      await dio.post('/orders/driver/$orderId/delivery', data: formData);
+      await _fetchActiveOrder();
+      if (ref.mounted) {
+        ref.read(driverProfileProvider.notifier).fetchProfile();
+      }
+    } catch (e, st) {
+      if (prev.hasValue) {
+        state = prev;
+      } else {
+        state = AsyncValue.error(e, st);
+      }
+      rethrow;
+    }
+  }
   
   void handleSocketUpdate(Map<String, dynamic> data) {
     if (state.hasValue && state.value != null) {

@@ -27,6 +27,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   Position? _currentPosition;
   bool _isMapReady = false;
   XFile? _pickupPhoto;
+  XFile? _deliveryPhoto;
 
   String _resolveMediaUrl(String path) {
     final baseUrl = ref.read(dioProvider).options.baseUrl;
@@ -53,7 +54,24 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     }
   }
 
-  void _viewPickupPhoto({String? remoteUrl, XFile? localFile}) {
+  Future<XFile?> _captureDeliveryPhoto() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 80,
+      );
+      if (file != null && mounted) {
+        setState(() => _deliveryPhoto = file);
+      }
+      return file;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _viewPhoto({String? remoteUrl, XFile? localFile}) {
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog.fullscreen(
@@ -380,6 +398,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 ),
                 const SizedBox(height: 24),
                 _buildPickupPhotoWidget(context, status, l10n, order),
+                _buildDeliveryPhotoWidget(context, status, l10n, order),
                 _buildActionButton(context, status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order),
               ],
             ),
@@ -421,7 +440,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             ),
           ),
         ),
-        onTap: () => _viewPickupPhoto(remoteUrl: remoteUrl),
+        onTap: () => _viewPhoto(remoteUrl: remoteUrl),
       );
     }
 
@@ -462,6 +481,82 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           child: const Icon(LucideIcons.camera, color: AppColors.primary),
         ),
         onTap: () => _capturePickupPhoto(),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildDeliveryPhotoWidget(
+    BuildContext context,
+    String status,
+    AppLocalizations l10n,
+    Map<String, dynamic> order,
+  ) {
+    final showCapture = status == 'PICKED_UP';
+    final remoteUrl = order['deliveryImageUrl']?.toString();
+
+    // After delivery show the proof photo, tappable to view full screen.
+    if (!showCapture && remoteUrl != null && remoteUrl.isNotEmpty) {
+      return _buildPhotoRow(
+        l10n: l10n,
+        label: l10n.deliveryPhoto,
+        thumbnail: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            _resolveMediaUrl(remoteUrl),
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              width: 56,
+              height: 56,
+              color: Theme.of(context).dividerColor,
+              child: const Icon(LucideIcons.imageOff, size: 20),
+            ),
+          ),
+        ),
+        onTap: () => _viewPhoto(remoteUrl: remoteUrl),
+      );
+    }
+
+    // Before delivery require a captured photo as proof.
+    if (showCapture) {
+      final preview = _deliveryPhoto;
+      if (preview != null) {
+        return _buildPhotoRow(
+          l10n: l10n,
+          label: l10n.retakeDeliveryPhoto,
+          thumbnail: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(preview.path),
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
+          ),
+          onTap: () => _captureDeliveryPhoto(),
+          leading: IconButton(
+            onPressed: () => _captureDeliveryPhoto(),
+            icon: const Icon(LucideIcons.refreshCw, size: 18),
+            tooltip: l10n.retakeDeliveryPhoto,
+          ),
+        );
+      }
+      return _buildPhotoRow(
+        l10n: l10n,
+        label: l10n.captureDeliveryPhoto,
+        thumbnail: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(LucideIcons.camera, color: AppColors.primary),
+        ),
+        onTap: () => _captureDeliveryPhoto(),
       );
     }
 
@@ -593,24 +688,45 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         ],
       );
     } else if (status == 'PICKED_UP') {
+      String? label;
       if (isCashOnDelivery) {
         final totalStr = order['total']?.toString() ?? order['grandTotal']?.toString() ?? order['totalFee']?.toString() ?? '0.00';
         final total = double.tryParse(totalStr) ?? 0.0;
         final upfrontStr = order['upfrontAmount']?.toString() ?? '0.00';
         final upfront = double.tryParse(upfrontStr) ?? 0.0;
         final collectAmount = (total - upfront) > 0 ? (total - upfront) : 0.0;
-        final text = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
-            
-        return PrimaryButton(
-          text: text,
-          onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED')),
-        );
+        label = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
       } else {
-        return PrimaryButton(
-          text: l10n.confirmDelivery,
-          onPressed: () => handleAction(() => ref.read(orderExecutionProvider.notifier).updateOrderStatus('DELIVERED')),
-        );
+        label = l10n.confirmDelivery;
       }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PrimaryButton(
+            text: label,
+            onPressed: () => handleAction(() async {
+              var photo = _deliveryPhoto;
+              if (photo == null) {
+                photo = await _captureDeliveryPhoto();
+                if (photo == null) return;
+              }
+              await ref
+                  .read(orderExecutionProvider.notifier)
+                  .confirmDeliveryWithPhoto(photo);
+            }),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.deliveryPhotoRequired,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
     } else if (status == 'PENDING_PAYMENT') {
       return PrimaryButton(
         text: l10n.localeName == 'ar' ? 'تأكيد استلام الدفع' : 'Confirm Payment Received',

@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -163,19 +162,6 @@ export class ZonesService {
 
   async deleteZone(id: string) {
     await this.getZoneById(id);
-
-    // A zone that is still referenced anywhere (vendor branches, live orders,
-    // driver shifts or shift pools) must not be deleted.
-    const [branches, orders, shifts, pools] = await this.prisma.$transaction([
-      this.prisma.vendorBranch.count({ where: { zoneId: id } }),
-      this.prisma.order.count({ where: { zoneId: id, deletedAt: null } }),
-      this.prisma.driverShift.count({ where: { zoneId: id } }),
-      this.prisma.shiftPool.count({ where: { zoneId: id } }),
-    ]);
-
-    if (branches > 0 || orders > 0 || shifts > 0 || pools > 0) {
-      throw new ConflictException(ZoneErrors.ZONE_IN_USE);
-    }
 
     await this.prisma.zone.delete({ where: { id } });
 

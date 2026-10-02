@@ -38,7 +38,7 @@ class DriverWallet extends _$DriverWallet {
       try {
         state = AsyncValue.data({
           'balance': parsedBalance,
-          'transactions': txResponse is List ? txResponse : (txResponse?['data'] ?? []),
+          'transactions': _listFrom(txResponse, 'transactions'),
           'platformWallets': platformWallets is List ? platformWallets : (platformWallets?['data'] ?? []),
           'driverWallets': driverWallets is List ? driverWallets : (driverWallets?['data'] ?? []),
           'topUpRequests': topUpRequests is List ? topUpRequests : (topUpRequests?['data'] ?? []),
@@ -53,6 +53,15 @@ class DriverWallet extends _$DriverWallet {
         // Provider was disposed, ignore
       }
     }
+  }
+
+  static List<dynamic> _listFrom(dynamic value, String key) {
+    if (value is List) return value;
+    if (value is Map) {
+      final inner = value[key];
+      if (inner is List) return inner;
+    }
+    return const [];
   }
 
   Future<void> requestTopUp({required String platformWalletId, required double amount, required String imagePath}) async {

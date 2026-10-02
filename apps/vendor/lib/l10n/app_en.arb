@@ -790,6 +790,7 @@
   "shiftGeneratedSuccessfully": "Shifts generated successfully",
   "shiftGenerationFailed": "Failed to generate shifts",
   "shiftDeletedSuccessfully": "Shift pool deleted successfully",
+  "shiftPoolDisabledDueToHistory": "This shift pool has past completed shifts, so it can't be deleted. It was disabled instead.",
   "driverAssignedSuccessfully": "Driver assigned successfully",
   "zone": "Zone",
   "selectZone": "Select Zone",

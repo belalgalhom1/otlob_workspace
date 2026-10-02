@@ -735,6 +735,7 @@ model CartItem {
   customPrice     Int?
   customImageUrl  String?
   quantity        Int              @default(1)
+  selectedUnit    String           @default("package")
   specialRequest  String?
   optionHash      String?
   createdAt       DateTime         @default(now()) @db.Timestamptz(3)
@@ -799,6 +800,7 @@ model Order {
   driverAssignedAt     DateTime?                 @db.Timestamptz(3)
   pickedUpAt           DateTime?                 @db.Timestamptz(3)
   pickupImageUrl       String?
+  deliveryImageUrl     String?
   actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
   driverTransactions   DriverWalletTransaction[]
   dispatches           OrderDispatch[]

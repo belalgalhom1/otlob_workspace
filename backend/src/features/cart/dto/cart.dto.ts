@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsInt,
+  IsIn,
   Min,
   Max,
   IsArray,
@@ -53,6 +54,16 @@ export class AddCartItemDto {
   @MaxLength(300)
   specialRequest?: string;
 
+  @ApiProperty({
+    example: 'package',
+    enum: ['package', 'strip'],
+    default: 'package',
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['package', 'strip'])
+  selectedUnit?: 'package' | 'strip' = 'package';
+
   @ApiProperty({ example: 'msg-123456789', required: false })
   @IsString()
   @IsOptional()
@@ -78,4 +89,13 @@ export class UpdateCartItemDto {
   @IsOptional()
   @MaxLength(300)
   specialRequest?: string;
+
+  @ApiProperty({
+    example: 'strip',
+    enum: ['package', 'strip'],
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['package', 'strip'])
+  selectedUnit?: 'package' | 'strip';
 }

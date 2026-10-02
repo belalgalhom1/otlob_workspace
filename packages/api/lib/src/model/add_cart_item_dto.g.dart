@@ -18,6 +18,8 @@ class _$AddCartItemDto extends AddCartItemDto {
   @override
   final String? specialRequest;
   @override
+  final String? selectedUnit;
+  @override
   final String? offerMessageId;
 
   factory _$AddCartItemDto([void Function(AddCartItemDtoBuilder)? updates]) =>
@@ -29,6 +31,7 @@ class _$AddCartItemDto extends AddCartItemDto {
     required this.quantity,
     this.optionIds,
     this.specialRequest,
+    this.selectedUnit,
     this.offerMessageId,
   }) : super._();
   @override
@@ -47,6 +50,7 @@ class _$AddCartItemDto extends AddCartItemDto {
         quantity == other.quantity &&
         optionIds == other.optionIds &&
         specialRequest == other.specialRequest &&
+        selectedUnit == other.selectedUnit &&
         offerMessageId == other.offerMessageId;
   }
 
@@ -58,6 +62,7 @@ class _$AddCartItemDto extends AddCartItemDto {
     _$hash = $jc(_$hash, quantity.hashCode);
     _$hash = $jc(_$hash, optionIds.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
+    _$hash = $jc(_$hash, selectedUnit.hashCode);
     _$hash = $jc(_$hash, offerMessageId.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -71,6 +76,7 @@ class _$AddCartItemDto extends AddCartItemDto {
           ..add('quantity', quantity)
           ..add('optionIds', optionIds)
           ..add('specialRequest', specialRequest)
+          ..add('selectedUnit', selectedUnit)
           ..add('offerMessageId', offerMessageId))
         .toString();
   }
@@ -103,6 +109,10 @@ class AddCartItemDtoBuilder
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
+  String? _selectedUnit;
+  String? get selectedUnit => _$this._selectedUnit;
+  set selectedUnit(String? selectedUnit) => _$this._selectedUnit = selectedUnit;
+
   String? _offerMessageId;
   String? get offerMessageId => _$this._offerMessageId;
   set offerMessageId(String? offerMessageId) =>
@@ -120,6 +130,7 @@ class AddCartItemDtoBuilder
       _quantity = $v.quantity;
       _optionIds = $v.optionIds?.toBuilder();
       _specialRequest = $v.specialRequest;
+      _selectedUnit = $v.selectedUnit;
       _offerMessageId = $v.offerMessageId;
       _$v = null;
     }
@@ -154,6 +165,7 @@ class AddCartItemDtoBuilder
             ),
             optionIds: _optionIds?.build(),
             specialRequest: specialRequest,
+            selectedUnit: selectedUnit,
             offerMessageId: offerMessageId,
           );
     } catch (_) {

@@ -158,7 +158,6 @@ export const ZoneErrors = {
   INVALID_LOCATION_FOR_ZONE: 'zone.error.invalid_location_for_zone',
   OVERLAPPING_ZONE: 'zone.error.overlapping_zone',
   INVALID_POLYGON: 'zone.error.invalid_polygon_coordinates',
-  ZONE_IN_USE: 'zone.error.zone_in_use',
 };
 
 export const VendorVerticalErrors = {
@@ -262,6 +261,7 @@ export const OrderErrors = {
   CANNOT_ASSIGN_SUSPENDED_DRIVER: 'order.error.cannot_assign_suspended_driver',
   OUTSIDE_SERVICE_ZONES: 'order.error.outside_service_zones',
   PICKUP_PHOTO_REQUIRED: 'order.error.pickup_photo_required',
+  DELIVERY_PHOTO_REQUIRED: 'order.error.delivery_photo_required',
   RIDES_MUST_USE_CAR: 'order.error.rides_must_use_car',
   VEHICLE_TYPE_DISABLED: 'order.error.vehicle_type_disabled',
   INVALID_TRANSITION: 'order.error.invalid_transition',

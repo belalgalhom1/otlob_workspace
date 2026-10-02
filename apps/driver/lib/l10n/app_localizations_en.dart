@@ -2112,6 +2112,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'A photo of the order is required before confirming pickup';
 
   @override
+  String get captureDeliveryPhoto => 'Take photo of delivered order';
+
+  @override
+  String get retakeDeliveryPhoto => 'Retake delivery photo';
+
+  @override
+  String get deliveryPhoto => 'Delivery photo';
+
+  @override
+  String get deliveryPhotoRequired =>
+      'A photo of the order is required before confirming delivery';
+
+  @override
   String get inboxEmpty => 'Inbox Empty';
 
   @override

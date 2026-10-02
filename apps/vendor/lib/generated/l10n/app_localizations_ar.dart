@@ -1995,6 +1995,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get shiftDeletedSuccessfully => 'تم حذف مجموعة الورديات بنجاح';
 
   @override
+  String get shiftPoolDisabledDueToHistory =>
+      'تحتوي مجموعة الورديات هذه على ورديات مكتملة سابقاً، لذا لا يمكن حذفها. تم تعطيلها بدلاً من ذلك.';
+
+  @override
   String get driverAssignedSuccessfully => 'تم تعيين السائق بنجاح';
 
   @override

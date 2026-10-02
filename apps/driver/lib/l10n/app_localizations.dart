@@ -4100,6 +4100,30 @@ abstract class AppLocalizations {
   /// **'A photo of the order is required before confirming pickup'**
   String get pickupPhotoRequired;
 
+  /// No description provided for @captureDeliveryPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo of delivered order'**
+  String get captureDeliveryPhoto;
+
+  /// No description provided for @retakeDeliveryPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake delivery photo'**
+  String get retakeDeliveryPhoto;
+
+  /// No description provided for @deliveryPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery photo'**
+  String get deliveryPhoto;
+
+  /// No description provided for @deliveryPhotoRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'A photo of the order is required before confirming delivery'**
+  String get deliveryPhotoRequired;
+
   /// No description provided for @inboxEmpty.
   ///
   /// In en, this message translates to:
