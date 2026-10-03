@@ -1015,6 +1015,9 @@ class AppLocalizationsAr extends AppLocalizations {
       'منطقة التوصيل هذه بها متاجر مرتبطة بها. قم بنقلها أو حذفها أولاً.';
 
   @override
+  String get zoneErrorZoneHasBranchesDeletedStore => 'المتجر محذوف';
+
+  @override
   String get autoDetectZone => 'تحديد تلقائي بناءً على الموقع';
 
   @override

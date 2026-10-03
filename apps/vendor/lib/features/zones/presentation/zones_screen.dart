@@ -570,7 +570,7 @@ class ZonesScreen extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(ErrorUtils.translate(context, e)),
+                      content: Text(ErrorUtils.translateZoneDeleteDetails(context, e)),
                       backgroundColor: AppColors.error,
                     ),
                   );

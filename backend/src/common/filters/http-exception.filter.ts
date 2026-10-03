@@ -99,26 +99,32 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const res = response as {
         key?: string;
         message?: string | string[] | Record<string, string[]>;
+        errors?: Record<string, unknown> | null;
       };
 
       if (res.key) {
-        return { messageKey: res.key, errors };
-      }
-
-      if (
+        messageKey = res.key;
+      } else if (
         typeof res.message === 'object' &&
         !Array.isArray(res.message) &&
         res.message !== null
       ) {
         // Our custom ValidationPipe exceptionFactory produces a dictionary
         messageKey = CommonErrors.VALIDATION_ERROR;
-        errors = res.message;
+        errors = res.message as Record<string, string[]>;
       } else if (Array.isArray(res.message)) {
         // Fallback for default array validation errors
         messageKey = CommonErrors.VALIDATION_ERROR;
         errors = this.parseValidationErrors(res.message);
       } else if (res.message) {
-        messageKey = res.message;
+        messageKey = res.message as string;
+      }
+
+      // Custom structured details (e.g. which branches block a zone delete)
+      // declared alongside `key`/`message` are passed through untouched so the
+      // client can render actionable context instead of a bare key.
+      if (res.errors && typeof res.errors === 'object') {
+        errors = res.errors as Record<string, string[]>;
       }
     }
 

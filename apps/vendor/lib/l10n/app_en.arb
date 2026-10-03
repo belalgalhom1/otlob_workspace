@@ -397,6 +397,7 @@
   "zone_error_invalid_boundary_polygon": "Invalid boundary polygon.",
   "zone_error_invalid_location_for_zone": "The selected location is outside delivery zones. Please pick a location inside an active delivery zone.",
   "zone_error_zone_has_branches": "This delivery zone has stores assigned to it. Move or remove them first.",
+  "zoneErrorZoneHasBranchesDeletedStore": "store deleted",
   "autoDetectZone": "Auto-detect from location",
   "outsideDeliveryZones": "Outside delivery zones",
   "insideZone": "Zone: {zoneName}",

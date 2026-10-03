@@ -163,12 +163,42 @@ export class ZonesService {
   async deleteZone(id: string) {
     await this.getZoneById(id);
 
-    const branchCount = await this.prisma.vendorBranch.count({
+    // Branches living under a soft-deleted store are not visible in the admin
+    // UI but still reference the zone and block deletion via the FK. Report
+    // exactly which rows are in the way so the caller can act on them instead
+    // of seeing a bare "zone has branches" key.
+    const blockingBranches = await this.prisma.vendorBranch.findMany({
       where: { zoneId: id },
+      select: {
+        id: true,
+        name: true,
+        nameAr: true,
+        vendor: {
+          select: {
+            id: true,
+            storeName: true,
+            storeNameAr: true,
+            deletedAt: true,
+          },
+        },
+      },
     });
 
-    if (branchCount > 0) {
-      throw new BadRequestException(ZoneErrors.ZONE_HAS_BRANCHES);
+    if (blockingBranches.length > 0) {
+      throw new BadRequestException({
+        key: ZoneErrors.ZONE_HAS_BRANCHES,
+        errors: {
+          branches: blockingBranches.map((b) => ({
+            id: b.id,
+            name: b.name,
+            nameAr: b.nameAr,
+            vendorId: b.vendor.id,
+            vendorName: b.vendor.storeName,
+            vendorNameAr: b.vendor.storeNameAr,
+            vendorDeleted: b.vendor.deletedAt !== null,
+          })),
+        },
+      });
     }
 
     await this.prisma.zone.delete({ where: { id } });

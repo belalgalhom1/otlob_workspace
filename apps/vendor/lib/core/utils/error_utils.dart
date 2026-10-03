@@ -23,4 +23,50 @@ class ErrorUtils {
 
     return ApiErrorMapper.translate(message, locale: locale, context: context);
   }
+
+  /// Renders a zone-deletion failure with the branch details the backend
+  /// attached to the error payload, e.g.:
+  ///
+  ///   This delivery zone has stores assigned to it. Move or remove them first.
+  ///
+  ///   Main Branch — Downtown
+  ///   Branch 2 (store deleted)
+  static String translateZoneDeleteDetails(BuildContext context, dynamic error) {
+    final base = translate(context, error);
+
+    if (error is! DioException) return base;
+
+    final data = error.response?.data;
+    final errors = data is Map ? data['errors'] : null;
+    final branches = errors is Map ? errors['branches'] : null;
+    if (branches is! List || branches.isEmpty) return base;
+
+    final l10n = AppLocalizations.of(context);
+    final isArabic = (l10n?.localeName ?? 'ar').startsWith('ar');
+
+    final lines = branches.map((b) {
+      if (b is! Map) return b.toString();
+      final branchName =
+          (isArabic && (b['nameAr']?.toString().isNotEmpty ?? false))
+              ? b['nameAr']!.toString()
+              : (b['name']?.toString() ?? '');
+      final storeName =
+          (isArabic && (b['vendorNameAr']?.toString().isNotEmpty ?? false))
+              ? b['vendorNameAr']!.toString()
+              : (b['vendorName']?.toString() ?? '');
+
+      final parts = <String>[
+        if (branchName.isNotEmpty) branchName,
+        if (storeName.isNotEmpty) storeName,
+      ];
+
+      final label = parts.isEmpty ? '?' : parts.join(' — ');
+      if (b['vendorDeleted'] == true) {
+        return '$label (${l10n?.zoneErrorZoneHasBranchesDeletedStore ?? 'store deleted'})';
+      }
+      return label;
+    }).join('\n');
+
+    return '$base\n\n$lines';
+  }
 }
