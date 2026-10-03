@@ -3,6 +3,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
 import 'package:driver/core/services/location_service.dart';
+import 'package:driver/core/utils/error_utils.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:core/core.dart';
 
 part 'driver_profile_provider.g.dart';
@@ -48,6 +50,22 @@ class DriverProfile extends _$DriverProfile {
         if (e.toString().contains('404') || e.toString().contains('PROFILE_NOT_FOUND')) {
           // Explicitly set state to null so the UI knows profile is pending creation
           state = const AsyncValue.data(null);
+          return;
+        }
+
+        if (ErrorUtils.isAuthSessionError(e)) {
+          // A guard-level 401/403 that survives the interceptor's refresh cycle
+          // means the session is genuinely dead — retrying can only re-401.
+          // Bounce to login instead of leaving a dead dashboard with an
+          // "Unauthorized" error card.
+          debugPrint('Profile fetch hit a dead session; forcing re-login: $e');
+          if (ref.mounted) {
+            try {
+              await ref.read(authProvider.notifier).logout();
+            } catch (logoutErr) {
+              debugPrint('Logout on dead session failed: $logoutErr');
+            }
+          }
           return;
         }
 

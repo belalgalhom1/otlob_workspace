@@ -193,6 +193,27 @@ class AppStrings {
   String get authRequiredTitle => 'app.authRequiredTitle'.tr(context: _context);
   String get authRequiredMessage => 'app.authRequiredMessage'.tr(context: _context);
 
+  String get verifyOtp => 'app.verifyOtp'.tr(context: _context);
+  String get checkYourEmail => 'app.checkYourEmail'.tr(context: _context);
+  String otpSentToEmail(String email) =>
+      'app.otpSentToEmail'.tr(context: _context, namedArgs: {'email': email});
+  String get verificationCode => 'app.verificationCode'.tr(context: _context);
+  String get enterValidCode => 'app.enterValidCode'.tr(context: _context);
+  String get verifyCode => 'app.verifyCode'.tr(context: _context);
+  String get accountVerifiedSuccess => 'app.accountVerifiedSuccess'.tr(context: _context);
+  String get successLoginNow => 'app.successLoginNow'.tr(context: _context);
+  String get newPasswordTitle => 'app.newPasswordTitle'.tr(context: _context);
+  String get setNewPassword => 'app.setNewPassword'.tr(context: _context);
+  String get newPassword => 'app.newPassword'.tr(context: _context);
+  String get confirmPassword => 'app.confirmPassword'.tr(context: _context);
+  String get passwordsDoNotMatch => 'app.passwordsDoNotMatch'.tr(context: _context);
+  String get resetPassword => 'app.resetPassword'.tr(context: _context);
+  String get forgotPasswordTitle => 'app.forgotPasswordTitle'.tr(context: _context);
+  String get forgotPasswordHint => 'app.forgotPasswordHint'.tr(context: _context);
+  String get sendOtp => 'app.sendOtp'.tr(context: _context);
+  String get otpSentIfAccountExists =>
+      'app.otpSentIfAccountExists'.tr(context: _context);
+
   List<List<String>> get promoBanners => [
     ['🔥 50% Off Your First Order!'.tr(context: _context), 'Code: OTLOB50', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop'],
     ['🍕 Free Delivery This Week'.tr(context: _context), 'On all pizza orders'.tr(context: _context), 'https://loremflickr.com/600/200/pizza,food?lock=902'],

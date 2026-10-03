@@ -31,10 +31,12 @@ class Auth extends _$Auth {
 
   Future<void> _handleUnauthenticated() async {
     if (_logoutInProgress) return;
-    final repository = ref.read(sharedAuthRepositoryProvider);
-    // The event also fires after the interceptor already cleared the session;
-    // re-running logout without a session would only re-enter the 401 loop.
-    if (!await repository.isLoggedIn()) return;
+    // The interceptor fires this event when it has concluded the session is
+    // unusable (refresh token missing, or refresh 401/403). Whether or not it
+    // already cleared the tokens, always return to the login screen: skipping
+    // logout while `state` stays `true` strands the dashboard on an
+    // "Unauthorized" error card that only a force-restart escapes. `logout()`
+    // is safe with no session left (it skips the network call entirely).
     logout();
   }
 

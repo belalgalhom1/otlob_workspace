@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/notifications/presentation/notifications_provider.dart';
+import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
 
@@ -106,11 +107,25 @@ class NotificationsScreen extends ConsumerWidget {
                           child: Text(body),
                         )
                       : null,
-                  onTap: () {
+                  onTap: () async {
                     if (!isRead) {
                       ref
                           .read(driverNotificationsProvider.notifier)
                           .markAsRead(notification['id']);
+                    }
+                    final coordinator =
+                        ref.read(driverDispatchCoordinatorProvider);
+                    final dispatchTap = await coordinator.handleNotificationTap(
+                      context,
+                      notification,
+                    );
+                    if (!context.mounted) return;
+                    if (dispatchTap == DispatchTapResult.pending) {
+                      return;
+                    }
+                    if (dispatchTap == DispatchTapResult.notPending) {
+                      context.push('/order-execution');
+                      return;
                     }
                     final data = notification['data'] as Map<String, dynamic>?;
                     final notifType = notification['type']?.toString();

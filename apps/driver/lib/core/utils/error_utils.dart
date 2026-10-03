@@ -23,4 +23,25 @@ class ErrorUtils {
 
     return ApiErrorMapper.translate(error, locale: locale, context: context);
   }
+
+  /// Errors keyed to a dead/revoked session or an auth guard rejection.
+  ///
+  /// A 401/403 of this class means the token (or the account) can no longer
+  /// authenticate. Surfacing it to the UI is never useful — the app must
+  /// bounce back to the login screen instead of stranding the dashboard on an
+  /// "Unauthorized" error card.
+  static bool isAuthSessionError(dynamic error) {
+    if (error == null) return false;
+    switch (ApiErrorMapper.fromError(error)) {
+      case 'common_error_unauthorized':
+      case 'common_error_forbidden':
+      case 'auth_error_session_expired':
+      case 'auth_error_session_compromised':
+      case 'auth_error_user_not_found':
+      case 'auth_error_missing_header':
+      case 'auth_error_banned':
+        return true;
+    }
+    return false;
+  }
 }

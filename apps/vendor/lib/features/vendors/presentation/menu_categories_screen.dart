@@ -780,10 +780,7 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                               messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    ErrorUtils.translate(
-                                      context,
-                                      'common.success.resource_deleted',
-                                    ),
+                                    AppLocalizations.of(context)!.common_success_resource_deleted,
                                   ),
                                   backgroundColor: AppColors.success,
                                   behavior: SnackBarBehavior.floating,

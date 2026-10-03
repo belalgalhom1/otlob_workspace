@@ -1017,6 +1017,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The selected location is outside delivery zones. Please pick a location inside an active delivery zone.';
 
   @override
+  String get zone_error_zone_has_branches =>
+      'This delivery zone has stores assigned to it. Move or remove them first.';
+
+  @override
   String get autoDetectZone => 'Auto-detect from location';
 
   @override

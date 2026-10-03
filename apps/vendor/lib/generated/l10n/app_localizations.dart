@@ -2018,6 +2018,12 @@ abstract class AppLocalizations {
   /// **'The selected location is outside delivery zones. Please pick a location inside an active delivery zone.'**
   String get zone_error_invalid_location_for_zone;
 
+  /// No description provided for @zone_error_zone_has_branches.
+  ///
+  /// In en, this message translates to:
+  /// **'This delivery zone has stores assigned to it. Move or remove them first.'**
+  String get zone_error_zone_has_branches;
+
   /// No description provided for @autoDetectZone.
   ///
   /// In en, this message translates to:

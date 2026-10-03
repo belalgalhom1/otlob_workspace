@@ -1011,6 +1011,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'الموقع المحدد خارج نطاق مناطق التوصيل المتاحة. يرجى اختيار موقع داخل منطقة توصيل نشطة.';
 
   @override
+  String get zone_error_zone_has_branches =>
+      'منطقة التوصيل هذه بها متاجر مرتبطة بها. قم بنقلها أو حذفها أولاً.';
+
+  @override
   String get autoDetectZone => 'تحديد تلقائي بناءً على الموقع';
 
   @override

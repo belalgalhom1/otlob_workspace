@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../providers/reset_password_controller.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -33,8 +34,8 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Success! Log in now.'),
+          SnackBar(
+            content: Text(AppStrings.of(context).successLoginNow),
             backgroundColor: Colors.green,
           ),
         );
@@ -46,6 +47,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(resetPasswordControllerProvider);
+    final s = AppStrings.of(context);
 
     ref.listen<AsyncValue<void>>(resetPasswordControllerProvider, (_, next) {
       if (next.hasError) {
@@ -59,7 +61,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New Password')),
+      appBar: AppBar(title: Text(s.newPasswordTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -70,7 +72,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
               children: [
                 const SizedBox(height: 20),
                 Text(
-                  'Set New Password',
+                  s.setNewPassword,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -79,24 +81,24 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'New Password',
-                    prefixIcon: Icon(Icons.lock_outline),
+                  decoration: InputDecoration(
+                    labelText: s.newPassword,
+                    prefixIcon: const Icon(Icons.lock_outline),
                   ),
                   validator: (v) =>
-                      (v == null || v.length < 6) ? 'Min 6 characters' : null,
+                      (v == null || v.length < 6) ? s.passwordMinLen : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm Password',
-                    prefixIcon: Icon(Icons.lock_outline),
+                  decoration: InputDecoration(
+                    labelText: s.confirmPassword,
+                    prefixIcon: const Icon(Icons.lock_outline),
                   ),
                   validator: (v) {
                     if (v != _passwordController.text) {
-                      return 'Passwords do not match';
+                      return s.passwordsDoNotMatch;
                     }
                     return null;
                   },
@@ -113,7 +115,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text('Reset Password'),
+                      : Text(s.resetPassword),
                 ),
               ],
             ),

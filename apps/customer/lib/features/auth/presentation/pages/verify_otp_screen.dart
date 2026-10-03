@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/services/token_service.dart';
 import '../providers/verify_otp_controller.dart';
 import '../providers/auth_controller.dart';
@@ -90,6 +91,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(verifyOtpControllerProvider);
+    final s = AppStrings.of(context);
 
     ref.listen<AsyncValue<void>>(verifyOtpControllerProvider, (_, next) {
       if (next.hasError) {
@@ -101,8 +103,8 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
         );
       } else if (next is AsyncData && !next.isLoading && !widget.isPasswordReset) {
          ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account verified successfully!'),
+          SnackBar(
+            content: Text(s.accountVerifiedSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -110,7 +112,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify OTP')),
+      appBar: AppBar(title: Text(s.verifyOtp)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -121,7 +123,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
               children: [
                 const SizedBox(height: 20),
                 Text(
-                  'Check your email',
+                  s.checkYourEmail,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -129,7 +131,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                 const SizedBox(height: 8),
                 if (_emailController.text.isNotEmpty)
                   Text(
-                    'We sent a verification code to ${_emailController.text}',
+                    s.otpSentToEmail(_emailController.text),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 const SizedBox(height: 32),
@@ -139,12 +141,12 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email Address',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: s.emailAddress,
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
                     validator: (v) =>
-                        (v == null || !v.contains('@')) ? 'Valid email required' : null,
+                        (v == null || !v.contains('@')) ? s.emailRequired : null,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -158,12 +160,12 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                     letterSpacing: 8.0,
                     fontWeight: FontWeight.bold,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Verification Code',
+                  decoration: InputDecoration(
+                    labelText: s.verificationCode,
                     counterText: "",
                   ),
                   validator: (v) =>
-                      (v == null || v.length < 4) ? 'Enter a valid code' : null,
+                      (v == null || v.length < 4) ? s.enterValidCode : null,
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
@@ -177,7 +179,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text('Verify Code'),
+                      : Text(s.verifyCode),
                 ),
               ],
             ),

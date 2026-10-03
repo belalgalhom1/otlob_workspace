@@ -751,12 +751,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      ErrorUtils.translate(
-                                        context,
-                                        isEdit
-                                            ? 'common.success.resource_updated'
-                                            : 'common.success.resource_created',
-                                      ),
+                                      isEdit
+                                          ? AppLocalizations.of(context)!.common_success_resource_updated
+                                          : AppLocalizations.of(context)!.common_success_resource_created,
                                     ),
                                     backgroundColor: AppColors.success,
                                   ),
@@ -890,10 +887,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  ErrorUtils.translate(
-                                    context,
-                                    'common.success.resource_deleted',
-                                  ),
+                                  AppLocalizations.of(context)!.common_success_resource_deleted,
                                 ),
                                 backgroundColor: AppColors.success,
                               ),

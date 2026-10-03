@@ -311,6 +311,7 @@ class L10nErrorHelper {
       case 'zone_error_not_found': return l10n.zone_error_not_found;
       case 'zone_error_invalid_boundary_polygon': return l10n.zone_error_invalid_boundary_polygon;
       case 'zone_error_invalid_location_for_zone': return l10n.zone_error_invalid_location_for_zone;
+      case 'zone_error_zone_has_branches': return l10n.zone_error_zone_has_branches;
       case 'showMore': return l10n.showMore;
       case 'showLess': return l10n.showLess;
       case 'invalidUrl': return l10n.invalidUrl;

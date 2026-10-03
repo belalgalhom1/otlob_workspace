@@ -163,6 +163,14 @@ export class ZonesService {
   async deleteZone(id: string) {
     await this.getZoneById(id);
 
+    const branchCount = await this.prisma.vendorBranch.count({
+      where: { zoneId: id },
+    });
+
+    if (branchCount > 0) {
+      throw new BadRequestException(ZoneErrors.ZONE_HAS_BRANCHES);
+    }
+
     await this.prisma.zone.delete({ where: { id } });
 
     return { message: CommonSuccess.RESOURCE_DELETED };

@@ -393,6 +393,7 @@
   "zone_error_not_found": "المنطقة غير موجودة.",
   "zone_error_invalid_boundary_polygon": "مضلع حدود المنطقة غير صالح.",
   "zone_error_invalid_location_for_zone": "الموقع المحدد خارج نطاق مناطق التوصيل المتاحة. يرجى اختيار موقع داخل منطقة توصيل نشطة.",
+  "zone_error_zone_has_branches": "منطقة التوصيل هذه بها متاجر مرتبطة بها. قم بنقلها أو حذفها أولاً.",
   "autoDetectZone": "تحديد تلقائي بناءً على الموقع",
   "outsideDeliveryZones": "خارج مناطق التوصيل",
   "insideZone": "المنطقة: {zoneName}",

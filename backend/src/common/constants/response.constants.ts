@@ -158,6 +158,7 @@ export const ZoneErrors = {
   INVALID_LOCATION_FOR_ZONE: 'zone.error.invalid_location_for_zone',
   OVERLAPPING_ZONE: 'zone.error.overlapping_zone',
   INVALID_POLYGON: 'zone.error.invalid_polygon_coordinates',
+  ZONE_HAS_BRANCHES: 'zone.error.zone_has_branches',
 };
 
 export const VendorVerticalErrors = {

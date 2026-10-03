@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
+import 'package:driver/core/utils/error_utils.dart';
 import 'package:core/core.dart';
 
 part 'splash_provider.g.dart';
@@ -78,7 +79,16 @@ class Splash extends _$Splash {
         await authRepository.logout();
         return AppStartupState.unauthenticated;
       }
-      
+
+      // A dead session (guard-level 401/403, revoked/expired session) must
+      // never fall through to the dashboard — the profile validation just
+      // failed, so force a clean logout back to the login screen.
+      if (ErrorUtils.isAuthSessionError(e)) {
+        final authRepository = ref.read(sharedAuthRepositoryProvider);
+        await authRepository.logout();
+        return AppStartupState.unauthenticated;
+      }
+
       // If network fails, but we have token, we might want to just go to dashboard and let it show offline
       // For now, if we can't fetch profile, fallback to unauth or dashboard depending on token
       final authRepository = ref.read(sharedAuthRepositoryProvider);
