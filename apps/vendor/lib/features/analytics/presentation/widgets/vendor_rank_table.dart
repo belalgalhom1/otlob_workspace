@@ -253,7 +253,7 @@ class _VendorCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '${vendor.totalRevenue} EGP',
+                          '${vendor.totalRevenue.toStringAsFixed(2)} EGP',
                           style: const TextStyle(
                               color: Colors.green,
                               fontWeight: FontWeight.bold,
@@ -269,7 +269,7 @@ class _VendorCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            '${vendor.walletBalance} EGP',
+                            '${vendor.walletBalance.toStringAsFixed(2)} EGP',
                             style: const TextStyle(
                                 color: Colors.orange,
                                 fontWeight: FontWeight.bold,

@@ -330,6 +330,10 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               _buildTotalRow(context, l10n.localeName == 'ar' ? 'المجموع الفرعي' : 'Subtotal', order['subtotal'], currency),
               const SizedBox(height: 8),
               _buildTotalRow(context, l10n.localeName == 'ar' ? 'رسوم التوصيل' : 'Delivery Fee', order['deliveryFee'], currency),
+              if (order['serviceFee'] != null && (double.tryParse(order['serviceFee'].toString()) ?? 0.0) > 0) ...[
+                const SizedBox(height: 8),
+                _buildTotalRow(context, l10n.localeName == 'ar' ? 'رسوم الخدمة' : 'Service Fee', order['serviceFee'], currency),
+              ],
               if (order['tax'] != null && order['tax'] > 0) ...[
                 const SizedBox(height: 8),
                 _buildTotalRow(context, l10n.localeName == 'ar' ? 'الضريبة' : 'Tax', order['tax'], currency),

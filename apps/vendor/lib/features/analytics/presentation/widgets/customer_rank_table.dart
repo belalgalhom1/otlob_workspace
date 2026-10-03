@@ -232,7 +232,7 @@ class _CustomerCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${customer.totalSpent} EGP',
+                  '${customer.totalSpent.toStringAsFixed(2)} EGP',
                   style: const TextStyle(
                       color: Colors.green,
                       fontWeight: FontWeight.bold,

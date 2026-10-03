@@ -302,7 +302,7 @@ class _DriverCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              '${driver.walletBalance} EGP',
+                              '${driver.walletBalance.toStringAsFixed(2)} EGP',
                               style: const TextStyle(
                                   color: Colors.green,
                                   fontWeight: FontWeight.w600,

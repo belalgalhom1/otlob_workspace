@@ -1070,11 +1070,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     itemBuilder: (context, index) {
                       final order = data.orders[index];
                       final status = order['status']?.toString() ?? 'PENDING';
-                      final driver = order['driver'];
-                      final driverName = (driver is Map) ? (driver['name']?.toString() ?? '') : '';
-                      final hasDriver = driverName.isNotEmpty || order['driverId'] != null;
                       final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
-                      final areFeesFinalized = hasDriver && !isCancelled;
+                      final areFeesFinalized = !isCancelled;
 
                       final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
                       final grandTotal = double.tryParse(order['grandTotal']?.toString() ?? '0') ?? 0.0;
