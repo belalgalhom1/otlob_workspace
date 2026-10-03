@@ -1021,9 +1021,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'This delivery zone has stores assigned to it. Move or remove them first.';
 
   @override
-  String get zoneErrorZoneHasBranchesDeletedStore => 'store deleted';
-
-  @override
   String get autoDetectZone => 'Auto-detect from location';
 
   @override

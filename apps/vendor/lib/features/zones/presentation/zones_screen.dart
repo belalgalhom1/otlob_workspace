@@ -566,6 +566,14 @@ class ZonesScreen extends ConsumerWidget {
               Navigator.pop(ctx);
               try {
                 await ref.read(zoneProvider.notifier).deleteZone(zone['id']);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(AppLocalizations.of(context)!.common_success_resource_deleted),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

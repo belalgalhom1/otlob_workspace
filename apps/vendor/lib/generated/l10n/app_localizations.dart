@@ -2024,12 +2024,6 @@ abstract class AppLocalizations {
   /// **'This delivery zone has stores assigned to it. Move or remove them first.'**
   String get zone_error_zone_has_branches;
 
-  /// No description provided for @zoneErrorZoneHasBranchesDeletedStore.
-  ///
-  /// In en, this message translates to:
-  /// **'store deleted'**
-  String get zoneErrorZoneHasBranchesDeletedStore;
-
   /// No description provided for @autoDetectZone.
   ///
   /// In en, this message translates to:

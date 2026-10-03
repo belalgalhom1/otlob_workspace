@@ -30,7 +30,6 @@ class ErrorUtils {
   ///   This delivery zone has stores assigned to it. Move or remove them first.
   ///
   ///   Main Branch — Downtown
-  ///   Branch 2 (store deleted)
   static String translateZoneDeleteDetails(BuildContext context, dynamic error) {
     final base = translate(context, error);
 
@@ -60,11 +59,7 @@ class ErrorUtils {
         if (storeName.isNotEmpty) storeName,
       ];
 
-      final label = parts.isEmpty ? '?' : parts.join(' — ');
-      if (b['vendorDeleted'] == true) {
-        return '$label (${l10n?.zoneErrorZoneHasBranchesDeletedStore ?? 'store deleted'})';
-      }
-      return label;
+      return parts.isEmpty ? '?' : parts.join(' — ');
     }).join('\n');
 
     return '$base\n\n$lines';

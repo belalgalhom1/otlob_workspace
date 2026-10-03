@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -23,6 +25,7 @@ class OrdersScreen extends ConsumerStatefulWidget {
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   String _userRole = '';
+  bool _canManageDrivers = false;
   final Map<String, bool> _expandedOrders = {};
 
   @override
@@ -32,9 +35,25 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       ref.read(ordersProvider.notifier).fetchOrders();
     });
     _loadUserRole();
+    _checkDriversPermission();
     // Real-time updates (order.new / order.status / order.cancelled),
     // foreground FCM fallback and app-resume refreshes are handled by the
     // global listener at the app root so they work from any tab.
+  }
+
+  Future<void> _checkDriversPermission() async {
+    final repo = ref.read(sharedAuthRepositoryProvider);
+    final role = await repo.getUserRole();
+    if (role == 'SUPER_ADMIN') {
+      if (mounted) setState(() => _canManageDrivers = true);
+      return;
+    }
+    final permissions = await repo.getUserPermissions();
+    if (mounted) {
+      setState(() {
+        _canManageDrivers = permissions.contains('MANAGE_DRIVERS');
+      });
+    }
   }
 
   Future<void> _loadUserRole() async {
@@ -820,6 +839,39 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       value:
                                           '$driverName (${vehicleType.toUpperCase()} - $vehiclePlate)',
                                       iconColor: statusColor,
+                                      trailing: _canManageDrivers &&
+                                              driver['id'] != null &&
+                                              driver['id'].toString().isNotEmpty
+                                          ? Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                onTap: () => _locateDriverFromOrder(
+                                                  context,
+                                                  order,
+                                                  isArabic,
+                                                ),
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primary
+                                                        .withValues(alpha: 0.08),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                  ),
+                                                  child: const Icon(
+                                                    LucideIcons.navigation,
+                                                    color: AppColors.primary,
+                                                    size: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          : null,
                                     ),
                                   ],
                                   if (order['pickupImageUrl'] != null &&
@@ -827,10 +879,27 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           .toString()
                                           .isNotEmpty) ...[
                                     const SizedBox(height: 12),
-                                    _buildPickupPhotoRow(
+                                    _buildProofPhotoRow(
                                       context,
                                       order,
                                       isArabic,
+                                      field: 'pickupImageUrl',
+                                      title: 'Pickup photo',
+                                      titleAr: 'صورة الاستلام',
+                                    ),
+                                  ],
+                                  if (order['deliveryImageUrl'] != null &&
+                                      order['deliveryImageUrl']
+                                          .toString()
+                                          .isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    _buildProofPhotoRow(
+                                      context,
+                                      order,
+                                      isArabic,
+                                      field: 'deliveryImageUrl',
+                                      title: 'Delivery photo',
+                                      titleAr: 'صورة التوصيل',
                                     ),
                                   ],
                                   if (_userRole == 'ADMIN' && ['ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'LOOKING_FOR_DRIVER'].contains(order['status'])) ...[
@@ -1446,12 +1515,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  Widget _buildPickupPhotoRow(
+  Widget _buildProofPhotoRow(
     BuildContext context,
     dynamic order,
-    bool isArabic,
-  ) {
-    final url = order['pickupImageUrl'].toString();
+    bool isArabic, {
+    required String field,
+    required String title,
+    required String titleAr,
+  }) {
+    final url = order[field]?.toString() ?? '';
     final baseUrl = ref.read(dioProvider).options.baseUrl;
     final cleanBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -1460,7 +1532,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _viewPickupPhoto(context, '$cleanBaseUrl$url'),
+        onTap: () => _viewFullPhoto(context, '$cleanBaseUrl$url'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           width: double.infinity,
@@ -1493,7 +1565,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isArabic ? 'صورة الاستلام' : 'Pickup photo',
+                      isArabic ? titleAr : title,
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -1518,7 +1590,159 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  void _viewPickupPhoto(BuildContext context, String url) {
+  Future<void> _locateDriverFromOrder(
+    BuildContext context,
+    dynamic order,
+    bool isArabic,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final driverId = order['driver']?['id']?.toString() ?? '';
+    if (driverId.isEmpty) return;
+    try {
+      final result = await ref
+          .read(adminDriversRepositoryProvider)
+          .getDriverLocation(driverId: driverId);
+      final data = (result is Map) ? result : null;
+      final lat = (data?['latitude'] as num?)?.toDouble();
+      final lng = (data?['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null || !mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.driverNoLocation)),
+        );
+        return;
+      }
+      final isLive = data?['isLive'] == true;
+
+      final deliveryLoc = order['deliveryLocation'];
+      double? deliveryLat;
+      double? deliveryLng;
+      if (deliveryLoc is List && deliveryLoc.length >= 2) {
+        final possibleLng = (deliveryLoc[0] as num?)?.toDouble();
+        final possibleLat = (deliveryLoc[1] as num?)?.toDouble();
+        if (possibleLat != null && possibleLng != null) {
+          deliveryLat = possibleLat;
+          deliveryLng = possibleLng;
+        }
+      }
+
+      if (!context.mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) {
+          final markers = <Marker>[
+            Marker(
+              point: LatLng(lat, lng),
+              width: 44,
+              height: 44,
+              child: const Icon(
+                LucideIcons.navigation,
+                size: 32,
+                color: AppColors.primary,
+              ),
+            ),
+            if (deliveryLat != null && deliveryLng != null)
+              Marker(
+                point: LatLng(deliveryLat, deliveryLng),
+                width: 32,
+                height: 32,
+                child: const Icon(
+                  LucideIcons.mapPin,
+                  size: 28,
+                  color: AppColors.error,
+                ),
+              ),
+          ];
+
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(ctx).size.height * 0.6,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Text(
+                          isArabic ? 'موقع السائق' : 'Driver location',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(LucideIcons.x),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCenter: LatLng(lat, lng),
+                          initialZoom: 15,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.otlob.admin',
+                          ),
+                          MarkerLayer(markers: markers),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isLive
+                              ? LucideIcons.radio
+                              : LucideIcons.clock,
+                          size: 16,
+                          color: isLive
+                              ? AppColors.success
+                              : AppColors.warning,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isLive
+                                ? l10n.driverLiveLocation
+                                : l10n.driverLastKnownLocation,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (err) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error: $err'), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  void _viewFullPhoto(BuildContext context, String url) {
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog.fullscreen(

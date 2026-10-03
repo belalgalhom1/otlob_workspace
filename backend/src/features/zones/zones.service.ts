@@ -163,10 +163,11 @@ export class ZonesService {
   async deleteZone(id: string) {
     await this.getZoneById(id);
 
-    // Branches living under a soft-deleted store are not visible in the admin
-    // UI but still reference the zone and block deletion via the FK. Report
-    // exactly which rows are in the way so the caller can act on them instead
-    // of seeing a bare "zone has branches" key.
+    // Branches living under a soft-deleted store are invisible in the admin UI.
+    // They cannot hold the zone hostage — they are cleaned up with the zone
+    // below. Only branches owned by ACTIVE stores are real blockers: report
+    // exactly which ones so the caller can act on them instead of seeing a
+    // bare "zone has branches" key.
     const blockingBranches = await this.prisma.vendorBranch.findMany({
       where: { zoneId: id },
       select: {
@@ -184,24 +185,46 @@ export class ZonesService {
       },
     });
 
-    if (blockingBranches.length > 0) {
+    const activeStoreBranches = blockingBranches.filter(
+      (b) => b.vendor.deletedAt === null,
+    );
+
+    if (activeStoreBranches.length > 0) {
       throw new BadRequestException({
         key: ZoneErrors.ZONE_HAS_BRANCHES,
         errors: {
-          branches: blockingBranches.map((b) => ({
+          branches: activeStoreBranches.map((b) => ({
             id: b.id,
             name: b.name,
             nameAr: b.nameAr,
             vendorId: b.vendor.id,
             vendorName: b.vendor.storeName,
             vendorNameAr: b.vendor.storeNameAr,
-            vendorDeleted: b.vendor.deletedAt !== null,
           })),
         },
       });
     }
 
-    await this.prisma.zone.delete({ where: { id } });
+    // Only orphaned branches (soft-deleted stores) reference this zone. Their
+    // order/member history is detached before they are dropped alongside the
+    // zone so the FK never blocks the delete.
+    await this.prisma.$transaction(async (tx) => {
+      const orphanBranchIds = blockingBranches.map((b) => b.id);
+      if (orphanBranchIds.length > 0) {
+        await tx.order.updateMany({
+          where: { vendorBranchId: { in: orphanBranchIds } },
+          data: { vendorBranchId: null },
+        });
+        await tx.vendorMember.updateMany({
+          where: { branchId: { in: orphanBranchIds } },
+          data: { branchId: null },
+        });
+        await tx.vendorBranch.deleteMany({
+          where: { id: { in: orphanBranchIds } },
+        });
+      }
+      await tx.zone.delete({ where: { id } });
+    });
 
     return { message: CommonSuccess.RESOURCE_DELETED };
   }

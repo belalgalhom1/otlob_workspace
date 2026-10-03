@@ -211,14 +211,18 @@ export class EventsProcessor extends WorkerHost {
       });
     }
 
-    // Trigger dispatch and chat when vendor accepts order
-    if (event.newStatus === OrderStatus.ACCEPTED) {
+    // Trigger dispatch and chat when vendor accepts order (looking-for-driver
+    // transitions also re-kick dispatch for flows that skip ACCEPTED).
+    if (
+      event.newStatus === OrderStatus.ACCEPTED ||
+      event.newStatus === OrderStatus.LOOKING_FOR_DRIVER
+    ) {
       const order = await this.prisma.order.findUnique({
         where: { id: event.orderId },
         select: { type: true },
       });
 
-      if (order?.type === 'STANDARD') {
+      if (event.newStatus === OrderStatus.ACCEPTED && order?.type === 'STANDARD') {
         await this.conversationsService.createSystemOrderConversation(
           event.orderId,
         );

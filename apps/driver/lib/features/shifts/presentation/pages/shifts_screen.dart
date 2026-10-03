@@ -171,12 +171,6 @@ class _MyShiftsTab extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              IconButton(
-                onPressed: () => _confirmDeleteShift(context, ref, shift['id'], l10n),
-                tooltip: l10n.deleteShift,
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(LucideIcons.trash2, size: 18, color: AppColors.error),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -219,32 +213,6 @@ class _MyShiftsTab extends ConsumerWidget {
             )
         ],
       ),
-    );
-  }
-
-  void _confirmDeleteShift(BuildContext context, WidgetRef ref, String shiftId, AppLocalizations l10n) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return DialogScaffold(child: AlertDialog(
-          title: Text(l10n.deleteShiftTitle),
-          content: Text(l10n.deleteShiftMessage),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancelAction),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-              onPressed: () {
-                Navigator.pop(context);
-                ref.read(driverShiftsProvider.notifier).deleteShift(shiftId);
-              },
-              child: Text(l10n.deleteShift),
-            ),
-          ],
-        ));
-      },
     );
   }
 
