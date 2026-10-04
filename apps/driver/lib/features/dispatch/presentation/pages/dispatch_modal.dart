@@ -36,19 +36,22 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
   @override
   void initState() {
     super.initState();
+    // The expiry is enforced by the server; the client clock may lag or lead
+    // the server, so never start at 0 (that would auto-pop the dialog before
+    // the driver can react). If the absolute expiresAt already passed on this
+    // device, fall back to the configured accept window.
+    int? computedSeconds;
     if (widget.dispatchData['expiresAt'] != null) {
       try {
         final expiresAt = DateTime.parse(widget.dispatchData['expiresAt'].toString());
         final diff = expiresAt.difference(DateTime.now()).inSeconds;
-        _secondsLeft = diff > 0 ? diff : 0;
+        if (diff > 0) computedSeconds = diff;
       } catch (_) {}
-    } else {
-      final config = ref.read(configurationProvider).value;
-      final timeout = config?['driverAcceptTimeoutSecs'] ?? config?['driverDispatchTimeout'];
-      if (timeout is num && timeout > 0) {
-        _secondsLeft = timeout.toInt();
-      }
     }
+    final config = ref.read(configurationProvider).value;
+    final timeout = config?['driverAcceptTimeoutSecs'] ?? config?['driverDispatchTimeout'];
+    final fallback = timeout is num && timeout > 0 ? timeout.toInt() : 30;
+    _secondsLeft = computedSeconds ?? fallback;
     _startTimer();
   }
 

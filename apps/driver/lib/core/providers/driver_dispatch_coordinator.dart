@@ -34,31 +34,29 @@ class DriverDispatchCoordinator {
   void showDispatchModal(Map<String, dynamic> dispatchData) {
     final dispatchId =
         dispatchData['dispatchId']?.toString() ?? dispatchData['id']?.toString();
+    debugPrint('DriverDispatchCoordinator: showDispatchModal id=$dispatchId');
     if (dispatchId == null) return;
 
-    if (dispatchData['expiresAt'] != null) {
-      try {
-        final expiresAt = DateTime.parse(dispatchData['expiresAt'].toString());
-        if (DateTime.now().isAfter(expiresAt)) return;
-      } catch (_) {}
-    }
-
     if (currentShowingDispatchId == dispatchId) {
+      debugPrint('DriverDispatchCoordinator: SKIP dispatch $dispatchId (already showing)');
       return;
     }
 
     final context = rootNavigatorKey.currentContext;
-    if (context != null && context.mounted) {
-      currentShowingDispatchId = dispatchId;
-      SystemSound.play(SystemSoundType.alert);
-      HapticFeedback.heavyImpact();
-
-      DispatchModal.show(context, dispatchData).whenComplete(() {
-        if (currentShowingDispatchId == dispatchId) {
-          currentShowingDispatchId = null;
-        }
-      });
+    if (context == null || !context.mounted) {
+      debugPrint('DriverDispatchCoordinator: SKIP dispatch $dispatchId (navigator context unavailable)');
+      return;
     }
+    currentShowingDispatchId = dispatchId;
+    SystemSound.play(SystemSoundType.alert);
+    HapticFeedback.heavyImpact();
+    debugPrint('DriverDispatchCoordinator: SHOWING dispatch $dispatchId');
+
+    DispatchModal.show(context, dispatchData).whenComplete(() {
+      if (currentShowingDispatchId == dispatchId) {
+        currentShowingDispatchId = null;
+      }
+    });
   }
 
   void dismissDispatchModal(String? dispatchId) {
@@ -80,6 +78,7 @@ class DriverDispatchCoordinator {
   }
 
   Future<void> checkPendingDispatches({bool checkOnline = true}) async {
+    if (!_ref.mounted) return;
     try {
       if (checkOnline) {
         final profile = _ref.read(driverProfileProvider).value;
@@ -90,6 +89,7 @@ class DriverDispatchCoordinator {
 
       final repo = _ref.read(driverDispatchRepositoryProvider);
       final dispatches = await repo.getMyDispatches();
+      debugPrint('DriverDispatchCoordinator: checkPendingDispatches -> ${dispatches is List ? dispatches.length : 'non-list'} item(s)');
       if (dispatches is List && dispatches.isNotEmpty) {
         for (final item in dispatches) {
           if (item is Map) {
@@ -107,6 +107,9 @@ class DriverDispatchCoordinator {
     BuildContext context,
     Map<String, dynamic> notification,
   ) async {
+    if (!_ref.mounted) {
+      return DispatchTapResult.notDispatch;
+    }
     Map<String, dynamic>? payload;
     final data = notification['data'];
     if (data is Map) {

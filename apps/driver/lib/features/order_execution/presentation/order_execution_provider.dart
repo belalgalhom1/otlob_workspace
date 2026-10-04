@@ -18,7 +18,10 @@ class OrderExecution extends _$OrderExecution {
     try {
       final repository = ref.read(driverOrdersRepositoryProvider);
       final response = await repository.getActiveDriverOrder();
-      
+      // The provider can be auto-disposed while this network call is in
+      // flight (e.g. a transient ref.read with no active listener). Guard so
+      // we never write state after the Ref is gone.
+      if (!ref.mounted) return;
       if (response['data'] == null) {
         // No active order found, perhaps completed?
         state = const AsyncValue.data(null);
@@ -26,6 +29,7 @@ class OrderExecution extends _$OrderExecution {
         state = AsyncValue.data(response['data']);
       }
     } catch (e, st) {
+      if (!ref.mounted) return;
       state = AsyncValue.error(e, st);
     }
   }

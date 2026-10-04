@@ -29,6 +29,7 @@ class _DispatchLifecycleObserver with WidgetsBindingObserver {
 }
 
 final globalMessageListenerProvider = Provider<void>((ref) {
+  debugPrint('📦 [DRIVER-DISPATCH-3] globalMessageListenerProvider up');
   final socketService = ref.watch(coreSocketServiceProvider);
   final pushService = ref.watch(pushNotificationServiceProvider);
 
@@ -37,38 +38,48 @@ final globalMessageListenerProvider = Provider<void>((ref) {
 
   final coordinator = ref.read(driverDispatchCoordinatorProvider);
 
+  // Every subscription hangs off the socket/push services (which are keepAlive),
+  // so a disposed provider must cancel them — otherwise events fire against a
+  // dead Ref and throw "Cannot use the Ref ... after it has been disposed".
+  final subscriptions = <StreamSubscription<dynamic>>[];
+
   // 1. WebSocket Dispatch Events
-  socketService.onEvent(SocketEvent.dispatchIncoming).listen((eventData) {
+  subscriptions.add(socketService.onEvent(SocketEvent.dispatchIncoming).listen((eventData) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: Received dispatchIncoming -> $eventData');
     if (eventData is Map) {
       coordinator.showDispatchModal(Map<String, dynamic>.from(eventData));
     }
-  });
+  }));
 
-  socketService.onEvent(SocketEvent.dispatchCancelled).listen((eventData) {
+  subscriptions.add(socketService.onEvent(SocketEvent.dispatchCancelled).listen((eventData) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: Received dispatchCancelled -> $eventData');
     final dispatchId = eventData is Map ? (eventData['dispatchId'] ?? eventData['id'])?.toString() : null;
     coordinator.dismissDispatchModal(dispatchId);
-  });
+  }));
 
   // 1b. Platform settings live updates (vendor saved settings -> refresh config)
-  final settingsSub = socketService
+  subscriptions.add(socketService
       .onEvent(SocketEvent.platformSettingsUpdated)
       .listen((eventData) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: platformSettingsUpdated -> refreshing configuration');
     ref.invalidate(configurationProvider);
-  });
+  }));
 
   // 2. WebSocket Reconnection Fallback
-  socketService.onConnect.listen((_) {
+  subscriptions.add(socketService.onConnect.listen((_) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches');
     ref.invalidate(configurationProvider);
     coordinator.checkPendingDispatches(checkOnline: false);
-  });
+  }));
 
   // 3. App Lifecycle Resume Fallback
   final lifecycleObserver = _DispatchLifecycleObserver(
     onResume: () async {
+      if (!ref.mounted) return;
       debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches');
       ref.invalidate(configurationProvider);
       // Make sure the socket and GPS stream are up again so live dispatch
@@ -89,47 +100,65 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   );
 
   // 4. Background Push Notification Clicks & Cold Start Check
-  pushService.onMessage.listen((message) {
+  subscriptions.add(pushService.onMessage.listen((message) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: FCM foreground message -> ${message.data}');
     if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
       coordinator.checkPendingDispatches(checkOnline: false);
     }
-  });
+  }));
 
-  pushService.onMessageOpenedApp.listen((message) {
+  subscriptions.add(pushService.onMessageOpenedApp.listen((message) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: FCM opened app -> ${message.data}');
     if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
       coordinator.checkPendingDispatches(checkOnline: false);
     }
-  });
+  }));
 
   pushService.getInitialMessage().then((message) {
+    if (!ref.mounted) return;
     if (message != null && (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId'))) {
       debugPrint('Global listener: FCM cold start message -> ${message.data}');
       coordinator.checkPendingDispatches(checkOnline: false);
     }
   });
 
-  // 5. Conditional Safety Heartbeat Polling (Every 30s, ONLY while ONLINE and socket is disconnected)
-  Timer? pollTimer;
-  final profileState = ref.watch(driverProfileProvider);
-  final profileData = profileState.value;
-  final profileStatus = profileData is Map
-      ? ((profileData['data'] is Map ? profileData['data'] : profileData)['status']?.toString())
-      : null;
-  final isOnline = profileStatus == 'ONLINE' || profileStatus == 'ON_DELIVERY';
+  // 5. Online dispatch sweep: while ONLINE (or idle ON_DELIVERY), poll pending
+  // dispatches every 10s. This catches dispatches that arrive while the app is
+  // backgrounded or whose socket event was missed — it runs independently of
+  // socket/lifecycle state, so switching back to the app surfaces the dispatch
+  // within seconds even if every other path failed.
+  Timer? dispatchSweepTimer;
 
-  if (isOnline) {
-    pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!socketService.isConnected) {
-        debugPrint('⚠️ Driver socket disconnected while ONLINE. Polling dispatches via HTTP fallback (30s)...');
-        coordinator.checkPendingDispatches(checkOnline: false);
-      }
-    });
+  String? profileStatusOf(Object? profileData) {
+    if (profileData is! Map) return null;
+    final data = profileData['data'];
+    return ((data is Map ? data : profileData)['status']?.toString());
   }
 
+  void syncDispatchSweep(Object? profileData) {
+    final status = profileStatusOf(profileData);
+    final shouldRun = status == 'ONLINE' || status == 'ON_DELIVERY';
+    if (shouldRun && dispatchSweepTimer == null) {
+      debugPrint('📍 Dispatch sweep started (driver $status)');
+      dispatchSweepTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (!ref.mounted) return;
+        coordinator.checkPendingDispatches(checkOnline: false);
+      });
+    } else if (!shouldRun && dispatchSweepTimer != null) {
+      debugPrint('📍 Dispatch sweep stopped (driver $status)');
+      dispatchSweepTimer!.cancel();
+      dispatchSweepTimer = null;
+    }
+  }
+
+  syncDispatchSweep(ref.watch(driverProfileProvider).value);
+  final profileSub = ref.listen(driverProfileProvider, (prev, next) => syncDispatchSweep(next.value));
+
   // 6. Order Status Events
-  socketService.onEvent(SocketEvent.orderStatus).listen((eventData) {
+  subscriptions.add(socketService.onEvent(SocketEvent.orderStatus).listen((eventData) {
+    if (!ref.mounted) return;
     debugPrint('Global listener: Received orderStatus -> $eventData');
     if (eventData == null) return;
 
@@ -167,11 +196,14 @@ final globalMessageListenerProvider = Provider<void>((ref) {
         }
       }
     }
-  });
+  }));
 
   ref.onDispose(() {
-    settingsSub.cancel();
+    for (final sub in subscriptions) {
+      sub.cancel();
+    }
+    profileSub.close();
     lifecycleObserver.dispose();
-    pollTimer?.cancel();
+    dispatchSweepTimer?.cancel();
   });
 });
