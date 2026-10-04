@@ -474,14 +474,14 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
                 ),
                 const SizedBox(height: 24),
                 CustomTextField(
-                  label: AppLocalizations.of(context)!.baseFeeOverride,
-                  controller: _baseDeliveryFeeController,
+                  label: AppLocalizations.of(context)!.minOrderOverride,
+                  controller: _minOrderAmountController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
-                  label: AppLocalizations.of(context)!.minOrderOverride,
-                  controller: _minOrderAmountController,
+                  label: AppLocalizations.of(context)!.baseFeeOverride,
+                  controller: _baseDeliveryFeeController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
                 const SizedBox(height: 32),

@@ -13,6 +13,17 @@ enum DispatchTapResult {
   notPending,
 }
 
+bool _mapToOnline(Object? profile) {
+  if (profile is! Map) return false;
+  final data = profile['data'];
+  if (data is Map && data['status'] != null) {
+    final s = data['status']?.toString();
+    return s == 'ONLINE' || s == 'ON_DELIVERY';
+  }
+  final s = profile['status']?.toString();
+  return s == 'ONLINE' || s == 'ON_DELIVERY';
+}
+
 class DriverDispatchCoordinator {
   DriverDispatchCoordinator(this._ref);
 
@@ -72,8 +83,7 @@ class DriverDispatchCoordinator {
     try {
       if (checkOnline) {
         final profile = _ref.read(driverProfileProvider).value;
-        final status = profile is Map ? profile['status'] : null;
-        if (status != 'ONLINE' && status != 'ON_DELIVERY') {
+        if (!_mapToOnline(profile)) {
           return;
         }
       }

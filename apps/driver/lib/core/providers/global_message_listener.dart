@@ -63,14 +63,28 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   socketService.onConnect.listen((_) {
     debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches');
     ref.invalidate(configurationProvider);
-    coordinator.checkPendingDispatches();
+    coordinator.checkPendingDispatches(checkOnline: false);
   });
 
   // 3. App Lifecycle Resume Fallback
   final lifecycleObserver = _DispatchLifecycleObserver(
     onResume: () async {
+      debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches');
       ref.invalidate(configurationProvider);
-      await coordinator.checkPendingDispatches();
+      // Make sure the socket and GPS stream are up again so live dispatch
+      // events keep flowing instead of relying only on the HTTP fallback.
+      final profileValue = ref.read(driverProfileProvider).value;
+      if (profileValue is Map) {
+        final data = profileValue['data'] is Map
+            ? profileValue['data']
+            : profileValue;
+        final status = data['status']?.toString();
+        if (status == 'ONLINE' || status == 'ON_DELIVERY') {
+          ref.read(coreSocketServiceProvider).connect();
+          ref.read(locationServiceProvider).startTracking();
+        }
+      }
+      await coordinator.checkPendingDispatches(checkOnline: false);
     },
   );
 
@@ -78,21 +92,21 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   pushService.onMessage.listen((message) {
     debugPrint('Global listener: FCM foreground message -> ${message.data}');
     if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
-      coordinator.checkPendingDispatches();
+      coordinator.checkPendingDispatches(checkOnline: false);
     }
   });
 
   pushService.onMessageOpenedApp.listen((message) {
     debugPrint('Global listener: FCM opened app -> ${message.data}');
     if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
-      coordinator.checkPendingDispatches();
+      coordinator.checkPendingDispatches(checkOnline: false);
     }
   });
 
   pushService.getInitialMessage().then((message) {
     if (message != null && (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId'))) {
       debugPrint('Global listener: FCM cold start message -> ${message.data}');
-      coordinator.checkPendingDispatches();
+      coordinator.checkPendingDispatches(checkOnline: false);
     }
   });
 
@@ -100,14 +114,16 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   Timer? pollTimer;
   final profileState = ref.watch(driverProfileProvider);
   final profileData = profileState.value;
-  final currentStatus = profileData is Map ? profileData['status'] : null;
-  final isOnline = currentStatus == 'ONLINE' || currentStatus == 'ON_DELIVERY';
+  final profileStatus = profileData is Map
+      ? ((profileData['data'] is Map ? profileData['data'] : profileData)['status']?.toString())
+      : null;
+  final isOnline = profileStatus == 'ONLINE' || profileStatus == 'ON_DELIVERY';
 
   if (isOnline) {
     pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!socketService.isConnected) {
         debugPrint('⚠️ Driver socket disconnected while ONLINE. Polling dispatches via HTTP fallback (30s)...');
-        coordinator.checkPendingDispatches();
+        coordinator.checkPendingDispatches(checkOnline: false);
       }
     });
   }

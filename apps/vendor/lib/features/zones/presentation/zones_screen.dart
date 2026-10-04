@@ -445,29 +445,6 @@ class ZonesScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (baseFee != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(LucideIcons.truck, size: 13, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${l10n.baseFeeOverride}: $baseFee ${l10n.egp}',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (minOrder != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -484,6 +461,29 @@ class ZonesScreen extends ConsumerWidget {
                             '${l10n.minOrderOverride}: $minOrder ${l10n.egp}',
                             style: TextStyle(
                               color: Colors.amber.shade900,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (baseFee != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(LucideIcons.truck, size: 13, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${l10n.baseFeeOverride}: $baseFee ${l10n.egp}',
+                            style: const TextStyle(
+                              color: AppColors.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
