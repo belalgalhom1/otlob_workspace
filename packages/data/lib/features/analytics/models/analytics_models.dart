@@ -113,7 +113,7 @@ class AnalyticsVendor {
 
   factory AnalyticsVendor.fromJson(Map<String, dynamic> json) {
     return AnalyticsVendor(
-      id: json['id'] as String,
+      id: (json['id'] ?? '').toString(),
       storeName: json['storeName'] as String? ?? 'Unknown',
       storeNameAr: json['storeNameAr'] as String?,
       logo: json['logo'] as String?,

@@ -11,18 +11,31 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
   @override
   void initState() {
     super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeApp();
     });
   }
 
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeApp() async {
     await Future.delayed(const Duration(milliseconds: 1500));
-    
+
     if (mounted) {
       ref.read(authControllerProvider.notifier).checkAuthStatus();
     }
@@ -31,15 +44,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary, 
+      backgroundColor: AppColors.primary,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/logo_without_background.png', width: 200, fit: BoxFit.contain),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(color: Colors.white),
-          ],
+        child: RotationTransition(
+          turns: _rotationController,
+          child: Image.asset(
+            'assets/logo_without_background.png',
+            width: 140,
+            fit: BoxFit.contain,
+          ),
         ),
       ),
     );

@@ -12,6 +12,7 @@ import 'dart:async';
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
 import 'package:data/providers.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 
 class _TrackingLifecycleObserver with WidgetsBindingObserver {
@@ -57,6 +58,31 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   bool _followDriver = true;
   Timer? _driverRenderTimer;
   LatLng? _pendingDriverLocation;
+
+  String get _driverPhone {
+    final driver = _orderDetails?['driver'];
+    if (driver is! Map) return '';
+    final direct = driver['phone']?.toString().trim() ?? '';
+    if (direct.isNotEmpty) return direct;
+    final user = driver['user'];
+    if (user is Map) return user['phone']?.toString().trim() ?? '';
+    return '';
+  }
+
+  Future<void> _callDriver(BuildContext context, String phone, AppStrings s) async {
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (digits.isEmpty) return;
+    final uri = Uri(scheme: 'tel', path: digits);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call'),
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -475,6 +501,21 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                               ],
                             ),
                           ),
+                          if (_driverPhone.isNotEmpty)
+                            IconButton(
+                              onPressed: () =>
+                                  _callDriver(context, _driverPhone, s),
+                              icon: const Icon(Icons.phone_rounded),
+                              color: AppColors.primary,
+                              tooltip: s.isArabic ? 'اتصال' : 'Call',
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.primary.withValues(
+                                  alpha: 0.12,
+                                ),
+                                shape: const CircleBorder(),
+                              ),
+                            ),
+                          const SizedBox(width: 8),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [

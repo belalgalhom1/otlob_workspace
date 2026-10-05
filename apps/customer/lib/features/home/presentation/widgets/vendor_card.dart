@@ -26,6 +26,21 @@ class VendorCard extends ConsumerWidget {
     return AppColors.primary;
   }
 
+  String? _deliveryLabel(Map<String, dynamic> vendor, bool isAr) {
+    final raw = isAr
+        ? vendor['deliveryTime']
+        : (vendor['deliveryTimeEn'] ?? vendor['deliveryTime']);
+    if (raw != null && raw.toString().isNotEmpty) return raw.toString();
+
+    final dist = num.tryParse(vendor['distanceKm']?.toString() ?? '');
+    if (dist != null && dist > 0) {
+      final baseMin = (15 + dist * 2.5).round();
+      final maxMin = baseMin + 10;
+      return isAr ? '$baseMin-$maxMin دقيقة' : '$baseMin-$maxMin mins';
+    }
+    return null;
+  }
+
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -63,7 +78,7 @@ class VendorCard extends ConsumerWidget {
                     ? Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: Icon(Icons.storefront, size: 40, color: Colors.grey)))
                     : CachedNetworkImage(
                         imageUrl: ImageUtils.formatImageUrl(vendor['image'] as String?),
-                        height: 160, width: double.infinity, fit: BoxFit.cover,
+                        height: 160, width: double.infinity, fit: BoxFit.contain,
                         placeholder: (c, u) => Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: CircularProgressIndicator())),
                         errorWidget: (c, u, e) => Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: Icon(Icons.storefront, size: 40, color: Colors.grey))),
                       ),
@@ -93,6 +108,7 @@ class VendorCard extends ConsumerWidget {
               padding: const EdgeInsets.all(14),
               child: Builder(builder: (context) {
                 final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                final timeLabel = _deliveryLabel(vendor, isAr);
                 final name = isAr && vendor['nameAr'] != null && vendor['nameAr'].toString().isNotEmpty
                     ? vendor['nameAr'] as String
                     : vendor['name'] as String;
@@ -152,7 +168,7 @@ class VendorCard extends ConsumerWidget {
                       maxLines: 2, 
                       overflow: TextOverflow.ellipsis
                     ),
-                    if (vendor['distanceKm'] != null || vendor['deliveryTime'] != null) ...[
+                    if (vendor['distanceKm'] != null || timeLabel != null) ...[
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -161,8 +177,8 @@ class VendorCard extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               isAr
-                                  ? '${(vendor['distanceKm'] as num).toStringAsFixed(1)} كم'
-                                  : '${(vendor['distanceKm'] as num).toStringAsFixed(1)} km',
+                                  ? '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} كم'
+                                  : '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} km',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -171,13 +187,11 @@ class VendorCard extends ConsumerWidget {
                             ),
                             const SizedBox(width: 12),
                           ],
-                          if (vendor['deliveryTime'] != null) ...[
+                          if (timeLabel != null) ...[
                             Icon(Icons.access_time_rounded, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                             const SizedBox(width: 4),
                             Text(
-                              isAr
-                                  ? (vendor['deliveryTime'] ?? '')
-                                  : (vendor['deliveryTimeEn'] ?? vendor['deliveryTime'] ?? ''),
+                              timeLabel,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,

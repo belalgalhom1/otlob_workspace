@@ -5,6 +5,7 @@ import 'package:core/core.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OrderDetailsBottomSheet extends ConsumerWidget {
   final Map<String, dynamic> order;
@@ -108,7 +109,12 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               _buildInfoRow(context, LucideIcons.user, customer['name'] ?? customer['user']?['name'] ?? l10n.customerFallback),
               if (customer['phone'] != null || customer['user']?['phone'] != null) ...[
                 const SizedBox(height: 12),
-                _buildInfoRow(context, LucideIcons.phone, customer['phone'] ?? customer['user']?['phone'] ?? ''),
+                _buildInfoRow(
+                  context,
+                  LucideIcons.phone,
+                  customer['phone'] ?? customer['user']?['phone'] ?? '',
+                  onTap: () => _callPhone(context, (customer['phone'] ?? customer['user']?['phone'])?.toString()),
+                ),
               ],
               
               const SizedBox(height: 12),
@@ -421,23 +427,62 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(BuildContext context, IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: AppColors.primary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 16,
+  Widget _buildInfoRow(BuildContext context, IconData icon, String text, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: onTap != null ? const EdgeInsets.symmetric(vertical: 4) : EdgeInsets.zero,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: onTap != null ? AppColors.primary : Theme.of(context).colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: onTap != null ? FontWeight.w600 : null,
+                  decoration: onTap != null ? TextDecoration.underline : null,
+                  decorationColor: AppColors.primary,
+                ),
+              ),
             ),
-          ),
+            if (onTap != null) ...[
+              const SizedBox(width: 8),
+              const Icon(LucideIcons.phoneCall, size: 20, color: AppColors.primary),
+            ],
+          ],
         ),
-      ],
+      ),
     );
+  }
+
+  Future<void> _callPhone(BuildContext context, String? phone) async {
+    final digits = (phone ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    if (digits.isEmpty) {
+      _showSnack(
+        context,
+        isArabic ? 'رقم الهاتف غير متاح' : 'Phone number not available',
+      );
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: digits);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (context.mounted) {
+      _showSnack(
+        context,
+        isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call',
+      );
+    }
+  }
+
+  void _showSnack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildTotalRow(BuildContext context, String label, dynamic value, String currency, {bool isTotal = false}) {

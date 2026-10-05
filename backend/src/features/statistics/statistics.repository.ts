@@ -332,21 +332,23 @@ export class StatisticsRepository {
     });
     const productById = new Map(productNames.map((p) => [p.id, p]));
 
-    return topVendorStats.map((v) => {
-      const top = topProductByVendor.get(v.vendorId);
-      const topProduct = top
-        ? (() => {
-            const p = productById.get(top.productId);
-            return p ? { ...p, totalOrders: top.totalOrders } : null;
-          })()
-        : null;
-      return {
-        ...vendorById.get(v.vendorId),
-        totalOrders: v.totalOrders,
-        totalRevenue: v.totalRevenue,
-        topProduct,
-      };
-    });
+    return topVendorStats
+      .filter((v) => vendorById.has(v.vendorId))
+      .map((v) => {
+        const top = topProductByVendor.get(v.vendorId);
+        const topProduct = top
+          ? (() => {
+              const p = productById.get(top.productId);
+              return p ? { ...p, totalOrders: top.totalOrders } : null;
+            })()
+          : null;
+        return {
+          ...vendorById.get(v.vendorId),
+          totalOrders: v.totalOrders,
+          totalRevenue: v.totalRevenue,
+          topProduct,
+        };
+      });
   }
 
   async getTopProducts(limit = 20) {

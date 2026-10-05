@@ -100,6 +100,7 @@ const ORDER_INCLUDE = {
       rating: true,
       ratingCount: true,
       userId: true,
+      user: { select: { phone: true } },
       mobileWallets: {
         where: { isActive: true },
       },
