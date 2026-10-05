@@ -113,13 +113,19 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                         children: [
                           (() {
                             final coverUrl = fullVendor['coverImage'] ?? fullVendor['image'];
+                            final fallbackFill = isDark ? const Color(0xFF252525) : Colors.grey.shade200;
                             return (coverUrl == null || coverUrl.toString().isEmpty)
-                                ? Container(color: isDark ? const Color(0xFF252525) : Colors.grey.shade200, child: const Icon(Icons.restaurant, size: 48, color: Colors.grey))
-                                : CachedNetworkImage(
-                                    imageUrl: ImageUtils.formatImageUrl(coverUrl as String?),
-                                    fit: BoxFit.cover,
-                                    placeholder: (c, u) => Container(color: isDark ? const Color(0xFF252525) : Colors.grey.shade200),
-                                    errorWidget: (c, u, e) => Container(color: isDark ? const Color(0xFF252525) : Colors.grey.shade200, child: const Icon(Icons.restaurant, size: 48, color: Colors.grey)),
+                                ? Container(color: fallbackFill, child: const Icon(Icons.restaurant, size: 48, color: Colors.grey))
+                                : Container(
+                                    color: fallbackFill,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    child: CachedNetworkImage(
+                                      imageUrl: ImageUtils.formatImageUrl(coverUrl as String?),
+                                      fit: BoxFit.contain,
+                                      placeholder: (c, u) => Container(color: fallbackFill),
+                                      errorWidget: (c, u, e) => Container(color: fallbackFill, child: const Icon(Icons.restaurant, size: 48, color: Colors.grey)),
+                                    ),
                                   );
                           }()),
                           // Dynamic gradient for better text/icon visibility
