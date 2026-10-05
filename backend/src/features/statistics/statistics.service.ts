@@ -273,7 +273,12 @@ export class StatisticsService {
         data: {
           totalOrders: { increment: 1 },
           ordersSinceSettlement: { increment: 1 },
-          hasUnpaidCommission: shouldLock || settlementDue ? true : undefined,
+          // Self-healing: a driver whose balance recovered through earnings
+          // (e.g. a manually assigned order) must not stay blocked forever
+          // waiting for a top-up approval. Only the flag is cleared here —
+          // SUSPENDED status still requires the top-up flow to lift.
+          hasUnpaidCommission:
+            shouldLock || settlementDue || currentBalance < 0 ? true : false,
           status: shouldLock ? DriverStatus.SUSPENDED : undefined,
         },
         select: { id: true, userId: true, status: true },
