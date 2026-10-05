@@ -89,7 +89,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               RotationTransition(
                 turns: _rotationController,
                 child: Image.asset(
-                  'assets/launcher_icon.png',
+                  'assets/logo_without_background.png',
                   width: 140,
                   fit: BoxFit.contain,
                 ),
