@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class SuspendedScreen extends StatelessWidget {
+class SuspendedScreen extends ConsumerWidget {
   const SuspendedScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.accountSuspended),
@@ -50,6 +52,12 @@ class SuspendedScreen extends StatelessWidget {
                   await launchUrl(url);
                 }
               },
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => ref.read(authProvider.notifier).logout(),
+              icon: const Icon(LucideIcons.logOut, size: 18),
+              label: Text(AppLocalizations.of(context)!.logout),
             ),
           ],
         ),
