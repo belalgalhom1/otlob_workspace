@@ -82,8 +82,6 @@ export class DriversService {
       ...(dto.licenseNumber !== undefined && {
         licenseNumber: dto.licenseNumber,
       }),
-      ...(dto.vehicleType !== undefined && { vehicleType: dto.vehicleType }),
-      ...(dto.vehiclePlate !== undefined && { vehiclePlate: dto.vehiclePlate }),
     });
   }
 

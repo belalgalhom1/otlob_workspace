@@ -62,16 +62,6 @@ export class UpdateDriverProfileDto {
   @IsString()
   @IsOptional()
   licenseNumber?: string;
-
-  @ApiProperty({ enum: VehicleType, required: false })
-  @IsEnum(VehicleType)
-  @IsOptional()
-  vehicleType?: VehicleType;
-
-  @ApiProperty({ example: 'XYZ-789', required: false })
-  @IsString()
-  @IsOptional()
-  vehiclePlate?: string;
 }
 
 export class UpdateDriverStatusDto {

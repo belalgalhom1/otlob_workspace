@@ -143,8 +143,6 @@ class DriverProfile extends _$DriverProfile {
     String? name,
     String? nationalId,
     String? licenseNumber,
-    String? vehicleType,
-    String? vehiclePlate,
   }) async {
     final prev = state;
     state = const AsyncValue.loading();
@@ -154,10 +152,6 @@ class DriverProfile extends _$DriverProfile {
         if (name != null) b.name = name;
         if (nationalId != null) b.nationalId = nationalId;
         if (licenseNumber != null) b.licenseNumber = licenseNumber;
-        if (vehicleType != null) {
-          b.vehicleType = UpdateDriverProfileDtoVehicleTypeEnum.valueOf(vehicleType);
-        }
-        if (vehiclePlate != null) b.vehiclePlate = vehiclePlate;
       });
       await driverRepo.updateProfile(dto);
       await fetchProfile();
