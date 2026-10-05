@@ -30,6 +30,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get carIcon => 'أيقونة السيارة';
 
   @override
+  String get bicycleIcon => 'أيقونة الدراجة الهوائية';
+
+  @override
+  String get motorTricycleIcon => 'أيقونة التروسيكل';
+
+  @override
+  String get vanIcon => 'أيقونة الفان';
+
+  @override
+  String get truckIcon => 'أيقونة الشاحنة';
+
+  @override
   String get deliveryBannerIcon => 'أيقونة بنر التوصيل';
 
   @override

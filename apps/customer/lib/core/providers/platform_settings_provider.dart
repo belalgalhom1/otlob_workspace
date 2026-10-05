@@ -7,6 +7,10 @@ class PlatformSettingsData {
   final String? homeCoverUrl;
   final String? motorcycleIconUrl;
   final String? carIconUrl;
+  final String? bicycleIconUrl;
+  final String? motorTricycleIconUrl;
+  final String? vanIconUrl;
+  final String? truckIconUrl;
   final String? deliveryBannerIconUrl;
   final String currency;
   final double minOrderAmount;
@@ -56,6 +60,10 @@ class PlatformSettingsData {
     this.homeCoverUrl,
     this.motorcycleIconUrl,
     this.carIconUrl,
+    this.bicycleIconUrl,
+    this.motorTricycleIconUrl,
+    this.vanIconUrl,
+    this.truckIconUrl,
     this.deliveryBannerIconUrl,
     this.currency = 'EGP',
     this.minOrderAmount = 0,
@@ -112,6 +120,10 @@ class PlatformSettingsData {
       homeCoverUrl: json['homeCoverUrl'],
       motorcycleIconUrl: json['motorcycleIconUrl'],
       carIconUrl: json['carIconUrl'],
+      bicycleIconUrl: json['bicycleIconUrl'],
+      motorTricycleIconUrl: json['motorTricycleIconUrl'],
+      vanIconUrl: json['vanIconUrl'],
+      truckIconUrl: json['truckIconUrl'],
       deliveryBannerIconUrl: json['deliveryBannerIconUrl'],
       currency: json['currency'] ?? 'EGP',
       minOrderAmount: double.tryParse(json['minOrderAmount']?.toString() ?? '0') ?? 0,

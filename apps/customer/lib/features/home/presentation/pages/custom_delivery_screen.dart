@@ -602,22 +602,22 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     }
 
     if (platformSettings?.allowBicycle ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'دراجة' : 'Bicycle', Icons.pedal_bike_rounded, 'bicycle', isDark, null));
+      addOption(_vehicleOption(s.isArabic ? 'دراجة' : 'Bicycle', Icons.pedal_bike_rounded, 'bicycle', isDark, platformSettings?.bicycleIconUrl));
     }
     if (platformSettings?.allowMotorcycle ?? true) {
       addOption(_vehicleOption(s.motorcycle, Icons.moped_rounded, 'motorcycle', isDark, platformSettings?.motorcycleIconUrl));
     }
     if (platformSettings?.allowMotorTricycle ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'تروسيكل' : 'Tricycle', Icons.electric_rickshaw_rounded, 'motor_tricycle', isDark, null));
+      addOption(_vehicleOption(s.isArabic ? 'تروسيكل' : 'Tricycle', Icons.electric_rickshaw_rounded, 'motor_tricycle', isDark, platformSettings?.motorTricycleIconUrl));
     }
     if (platformSettings?.allowCar ?? true) {
       addOption(_vehicleOption(s.car, Icons.directions_car_filled_rounded, 'car', isDark, platformSettings?.carIconUrl));
     }
     if (platformSettings?.allowVan ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'فان' : 'Van', Icons.airport_shuttle_rounded, 'van', isDark, null));
+      addOption(_vehicleOption(s.isArabic ? 'فان' : 'Van', Icons.airport_shuttle_rounded, 'van', isDark, platformSettings?.vanIconUrl));
     }
     if (platformSettings?.allowTruck ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'نقل' : 'Truck', Icons.local_shipping_rounded, 'truck', isDark, null));
+      addOption(_vehicleOption(s.isArabic ? 'نقل' : 'Truck', Icons.local_shipping_rounded, 'truck', isDark, platformSettings?.truckIconUrl));
     }
 
     return SingleChildScrollView(

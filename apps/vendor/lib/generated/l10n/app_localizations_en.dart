@@ -30,6 +30,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get carIcon => 'Car Icon';
 
   @override
+  String get bicycleIcon => 'Bicycle Icon';
+
+  @override
+  String get motorTricycleIcon => 'Motor Tricycle Icon';
+
+  @override
+  String get vanIcon => 'Van Icon';
+
+  @override
+  String get truckIcon => 'Truck Icon';
+
+  @override
   String get deliveryBannerIcon => 'Delivery Banner Icon';
 
   @override

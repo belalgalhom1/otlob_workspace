@@ -70,6 +70,10 @@ model PlatformSetting {
   homeCoverUrl                          String?
   motorcycleIconUrl                     String?
   carIconUrl                            String?
+  bicycleIconUrl                        String?
+  motorTricycleIconUrl                  String?
+  vanIconUrl                            String?
+  truckIconUrl                          String?
   deliveryBannerIconUrl                 String?
   retentionOrdersDays                   Int       @default(90)
   retentionArchivedChatsDays            Int       @default(60)

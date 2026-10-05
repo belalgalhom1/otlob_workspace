@@ -148,6 +148,10 @@ export class PlatformSettingsService {
       homeCoverUrl: s.homeCoverUrl,
       motorcycleIconUrl: s.motorcycleIconUrl,
       carIconUrl: s.carIconUrl,
+      bicycleIconUrl: s.bicycleIconUrl,
+      motorTricycleIconUrl: s.motorTricycleIconUrl,
+      vanIconUrl: s.vanIconUrl,
+      truckIconUrl: s.truckIconUrl,
       deliveryBannerIconUrl: s.deliveryBannerIconUrl,
       driverBonusActive: s.driverBonusActive,
       driverBonusAmount: s.driverBonusAmount,
@@ -417,29 +421,34 @@ export class PlatformSettingsService {
   }
 
   async uploadMotorcycleIcon(file: Express.Multer.File) {
-    const s = await this.getSettings();
-    if (s.motorcycleIconUrl) {
-      await this.storage.delete(s.motorcycleIconUrl);
-    }
-    const url = await this.storage.upload(file, 'app/customization');
-    await this.prisma.platformSetting.update({
-      where: { id: 'default' },
-      data: { motorcycleIconUrl: url },
-    });
-    await this.cacheManager.del('platform_settings');
-    this.emitSettingsUpdated();
-    return { url };
+    return this.uploadVehicleIcon('motorcycle', file);
   }
 
   async uploadCarIcon(file: Express.Multer.File) {
+    return this.uploadVehicleIcon('car', file);
+  }
+
+  async uploadVehicleIcon(vehicleType: string, file: Express.Multer.File) {
+    const column = {
+      bicycle: 'bicycleIconUrl',
+      motorcycle: 'motorcycleIconUrl',
+      motor_tricycle: 'motorTricycleIconUrl',
+      car: 'carIconUrl',
+      van: 'vanIconUrl',
+      truck: 'truckIconUrl',
+    }[vehicleType];
+    if (!column) {
+      throw new Error(`Unknown vehicle type: ${vehicleType}`);
+    }
     const s = await this.getSettings();
-    if (s.carIconUrl) {
-      await this.storage.delete(s.carIconUrl);
+    const oldUrl = (s as unknown as Record<string, string | null>)[column];
+    if (oldUrl) {
+      await this.storage.delete(oldUrl);
     }
     const url = await this.storage.upload(file, 'app/customization');
     await this.prisma.platformSetting.update({
       where: { id: 'default' },
-      data: { carIconUrl: url },
+      data: { [column]: url },
     });
     await this.cacheManager.del('platform_settings');
     this.emitSettingsUpdated();

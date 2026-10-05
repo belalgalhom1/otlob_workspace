@@ -816,6 +816,18 @@ export class PublicPlatformSettingsDto {
   carIconUrl?: string;
 
   @ApiProperty({ required: false })
+  bicycleIconUrl?: string;
+
+  @ApiProperty({ required: false })
+  motorTricycleIconUrl?: string;
+
+  @ApiProperty({ required: false })
+  vanIconUrl?: string;
+
+  @ApiProperty({ required: false })
+  truckIconUrl?: string;
+
+  @ApiProperty({ required: false })
   deliveryBannerIconUrl?: string;
 
   @ApiProperty({

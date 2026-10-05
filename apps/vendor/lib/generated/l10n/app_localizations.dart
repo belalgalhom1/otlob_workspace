@@ -140,6 +140,30 @@ abstract class AppLocalizations {
   /// **'Car Icon'**
   String get carIcon;
 
+  /// No description provided for @bicycleIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Bicycle Icon'**
+  String get bicycleIcon;
+
+  /// No description provided for @motorTricycleIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Motor Tricycle Icon'**
+  String get motorTricycleIcon;
+
+  /// No description provided for @vanIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Van Icon'**
+  String get vanIcon;
+
+  /// No description provided for @truckIcon.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck Icon'**
+  String get truckIcon;
+
   /// No description provided for @deliveryBannerIcon.
   ///
   /// In en, this message translates to:

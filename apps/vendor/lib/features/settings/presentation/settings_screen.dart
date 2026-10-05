@@ -387,9 +387,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Expanded(
                 child: _buildImageUploadItem(
                   context: context,
+                  label: l10n.bicycleIcon,
+                  imageUrl: settings['bicycleIconUrl'],
+                  type: 'bicycle',
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: _buildImageUploadItem(
+                  context: context,
                   label: l10n.motorcycleIcon,
                   imageUrl: settings['motorcycleIconUrl'],
                   type: 'motorcycle',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _buildImageUploadItem(
+                  context: context,
+                  label: l10n.motorTricycleIcon,
+                  imageUrl: settings['motorTricycleIconUrl'],
+                  type: 'motor_tricycle',
                 ),
               ),
               const SizedBox(width: 24),
@@ -399,6 +421,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   label: l10n.carIcon,
                   imageUrl: settings['carIconUrl'],
                   type: 'car',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _buildImageUploadItem(
+                  context: context,
+                  label: l10n.vanIcon,
+                  imageUrl: settings['vanIconUrl'],
+                  type: 'van',
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: _buildImageUploadItem(
+                  context: context,
+                  label: l10n.truckIcon,
+                  imageUrl: settings['truckIconUrl'],
+                  type: 'truck',
                 ),
               ),
             ],

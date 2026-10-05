@@ -12,7 +12,7 @@ final adminDriverShiftsRepositoryProvider = Provider<AdminDriverShiftsRepository
 final adminDriversRepositoryProvider = Provider<AdminDriversRepository>((ref) => AdminDriversRepository(ref.watch(apiClientProvider).getDriversApi(), ref.watch(apiClientProvider).getOrdersApi(), ref.watch(apiClientProvider).getDriverShiftsApi(), dio: ref.watch(dioProvider)));
 final adminOffersRepositoryProvider = Provider<AdminOffersRepository>((ref) => AdminOffersRepository(ref.watch(apiClientProvider).getOffersApi()));
 final adminOrdersRepositoryProvider = Provider<AdminOrdersRepository>((ref) => AdminOrdersRepository(ref.watch(apiClientProvider).getOrdersApi()));
-final adminPlatformSettingsRepositoryProvider = Provider<AdminPlatformSettingsRepository>((ref) => AdminPlatformSettingsRepository(ref.watch(apiClientProvider).getPlatformSettingsVersioningApi()));
+final adminPlatformSettingsRepositoryProvider = Provider<AdminPlatformSettingsRepository>((ref) => AdminPlatformSettingsRepository(ref.watch(apiClientProvider).getPlatformSettingsVersioningApi(), dio: ref.watch(dioProvider)));
 final adminStatisticsRepositoryProvider = Provider<AdminStatisticsRepository>((ref) => AdminStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final adminUsersRepositoryProvider = Provider<AdminUsersRepository>((ref) => AdminUsersRepository(ref.watch(apiClientProvider).getUsersApi()));
 final adminVendorBranchesRepositoryProvider = Provider<AdminVendorBranchesRepository>((ref) => AdminVendorBranchesRepository(ref.watch(apiClientProvider).getVendorsBranchesApi()));

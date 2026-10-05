@@ -153,6 +153,14 @@ class SettingsNotifier extends _$SettingsNotifier {
       await repository.platformSettingsUploadCarIcon(file: file);
     } else if (type == 'delivery-banner') {
       await repository.platformSettingsUploadDeliveryBannerIcon(file: file);
+    } else if (type == 'bicycle' ||
+        type == 'motor_tricycle' ||
+        type == 'van' ||
+        type == 'truck') {
+      await repository.platformSettingsUploadVehicleIcon(
+        vehicleType: type,
+        file: file,
+      );
     }
     await fetchSettings();
   }

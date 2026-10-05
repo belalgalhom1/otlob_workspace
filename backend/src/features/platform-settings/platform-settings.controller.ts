@@ -6,6 +6,7 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Param,
   UploadedFile,
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
@@ -99,6 +100,19 @@ export class PlatformSettingsController {
   @ApiOperation({ summary: 'Upload car icon' })
   uploadCarIcon(@UploadedFile() file: Express.Multer.File) {
     return this.service.uploadCarIcon(file);
+  }
+
+  @ApiStandardResponse()
+  @Post('vehicle-icon/:vehicleType')
+  @ApiBearerAuth()
+  @RequirePermissions(Permission.MANAGE_SETTINGS)
+  @ApiFileUpload({ type: 'IMAGE', required: true })
+  @ApiOperation({ summary: 'Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)' })
+  uploadVehicleIcon(
+    @Param('vehicleType') vehicleType: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadVehicleIcon(vehicleType, file);
   }
 
   @ApiStandardResponse()
