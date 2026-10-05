@@ -232,7 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(width: 4),
                       Text(s.deliverTo,
                           style: TextStyle(
-                              color: Colors.grey.shade500,
+                              color: isDark ? Colors.white70 : Colors.grey.shade800,
                               fontSize: 12,
                               fontWeight: FontWeight.w500)),
                     ]),
@@ -1109,7 +1109,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildNavItem(int index, dynamic activeIcon, dynamic inactiveIcon, String label, bool isSelected) {
-    final color = isSelected ? AppColors.primary : Colors.grey;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isSelected
+        ? AppColors.primary
+        : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight);
     return InkWell(
       onTap: () {
         final authStatus = ref.read(authControllerProvider);
