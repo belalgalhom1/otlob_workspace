@@ -633,66 +633,58 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     );
                   }),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Builder(builder: (context) {
-                          final price = (item['price'] as num?)?.toDouble() ?? 0.0;
-                          final comparePrice = (item['comparePrice'] as num?)?.toDouble();
-                          final hasDiscount = comparePrice != null && comparePrice > price;
-                          final discountPct = hasDiscount ? (((comparePrice - price) / comparePrice) * 100).round() : 0;
-                          final hasVariants = item['hasVariants'] == true && (item['variants'] as List?)?.isNotEmpty == true;
-                          final prefix = hasVariants ? (s.isArabic ? 'يبدأ من ' : 'From ') : '';
+                  Builder(builder: (context) {
+                    final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+                    final comparePrice = (item['comparePrice'] as num?)?.toDouble();
+                    final hasDiscount = comparePrice != null && comparePrice > price;
+                    final hasVariants = item['hasVariants'] == true && (item['variants'] as List?)?.isNotEmpty == true;
+                    final prefix = hasVariants ? (s.isArabic ? 'يبدأ من ' : 'From ') : '';
+                    final priceStr = price.toStringAsFixed(price % 1 == 0 ? 0 : 2);
+                    final compareStr = hasDiscount
+                        ? comparePrice.toStringAsFixed(comparePrice % 1 == 0 ? 0 : 2)
+                        : '';
 
-                          return Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                '$prefix${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)} ${s.egp}', 
-                                style: const TextStyle(
-                                  color: AppColors.primary, 
-                                  fontWeight: FontWeight.w900, 
-                                  fontSize: 15,
-                                ),
+                    return Text.rich(
+                      TextSpan(
+                        children: [
+                          if (prefix.isNotEmpty)
+                            TextSpan(
+                              text: prefix,
+                              style: TextStyle(
+                                color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
                               ),
-                              if (hasDiscount) ...[
-                                Text(
-                                  '${comparePrice.toStringAsFixed(comparePrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? Colors.white54 : Colors.grey.shade500,
-                                    decoration: TextDecoration.lineThrough,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.red.shade200, width: 0.5),
-                                  ),
-                                  child: Text(
-                                    '-$discountPct%',
-                                    style: TextStyle(
-                                      color: Colors.red.shade700,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          );
-                        }),
+                            ),
+                          TextSpan(
+                            text: '$priceStr ${s.egp}',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (hasDiscount)
+                            TextSpan(
+                              text: '  $compareStr ${s.egp}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                decoration: TextDecoration.lineThrough,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
                       ),
-                      if (isOpen) ...[
-                        const SizedBox(width: 8),
-                        GestureDetector(
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  }),
+                  if (isOpen) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: GestureDetector(
                           onTap: () async {
                             if (isItemOutOfStock) return;
 
@@ -771,9 +763,8 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             ),
                           ),
                         ),
+                      ),
                       ],
-                    ],
-                  ),
                 ],
               ),
             ),

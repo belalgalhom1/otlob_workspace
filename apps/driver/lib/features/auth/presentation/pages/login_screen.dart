@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
+import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
@@ -33,6 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!state.isLoading && state.hasValue && state.value == true) {
         if (context.mounted) {
           ref.invalidate(splashProvider);
+          ref.invalidate(driverProfileProvider);
           context.go('/');
         }
       } else if (state.hasError && state.error != null) {

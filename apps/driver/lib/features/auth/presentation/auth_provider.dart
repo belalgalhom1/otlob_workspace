@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/core/router/app_router.dart';
+import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/core/services/location_service.dart';
 import 'package:core/core.dart';
@@ -166,6 +167,7 @@ class Auth extends _$Auth {
       if (!await repository.isLoggedIn()) {
         state = const AsyncValue.data(false);
         ref.invalidate(splashProvider);
+        ref.invalidate(driverProfileProvider);
         _goToLogin();
         return;
       }
@@ -181,6 +183,7 @@ class Auth extends _$Auth {
       await repository.logout(fcmToken: fcmToken);
       state = const AsyncValue.data(false);
       ref.invalidate(splashProvider);
+      ref.invalidate(driverProfileProvider);
       _goToLogin();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

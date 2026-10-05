@@ -18,6 +18,14 @@ class DriverProfile extends _$DriverProfile {
   }
 
   Future<void> fetchProfile() async {
+    // No session means no profile call. This provider is instantiated at app
+    // start by the global dispatch listener, i.e. while the login screen is
+    // still showing — an unauthenticated GET would just 401.
+    if (!await ref.read(sharedAuthRepositoryProvider).isLoggedIn()) {
+      if (ref.mounted) state = const AsyncValue.data(null);
+      return;
+    }
+
     if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
