@@ -68,20 +68,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             role: 'CUSTOMER',
           );
         }
-        
+
         if (!mounted) return;
-        // Explicitly navigate on success
-        final uri = GoRouterState.of(context).uri;
-        final redirectUrl = uri.queryParameters['redirect'];
-        
-        if (redirectUrl != null && redirectUrl.isNotEmpty) {
-          context.go(redirectUrl);
-        } else if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go(RoutePaths.home);
-        }
+        _goAfterLogin();
       }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    final result = await ref
+        .read(loginControllerProvider.notifier)
+        .signInWithGoogle();
+
+    if (result && context.mounted) {
+      if (!mounted) return;
+      _goAfterLogin();
+    }
+  }
+
+  void _goAfterLogin() {
+    // Explicitly navigate on success
+    final uri = GoRouterState.of(context).uri;
+    final redirectUrl = uri.queryParameters['redirect'];
+
+    if (redirectUrl != null && redirectUrl.isNotEmpty) {
+      context.go(redirectUrl);
+    } else if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(RoutePaths.home);
     }
   }
 
@@ -227,6 +242,75 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: loginState.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(s.login, style: const TextStyle(fontSize: 18)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        s.or,
+                        style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed:
+                        loginState.isLoading ? null : _signInWithGoogle,
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: loginState.isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'G',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF4285F4),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                s.continueWithGoogle,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
                 const SizedBox(height: 24),

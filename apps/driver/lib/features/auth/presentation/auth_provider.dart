@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:api/api.dart';
 import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/core/router/app_router.dart';
@@ -72,7 +73,50 @@ class Auth extends _$Auth {
     try {
       final repository = ref.read(sharedAuthRepositoryProvider);
       await repository.login(email, password, appType: 'driver');
-      
+      await _finishDriverLogin(repository);
+    } catch (e, st) {
+      final errorString = e.toString();
+      if (errorString.contains('404') || errorString.contains('PROFILE_NOT_FOUND')) {
+        try {
+          await ref.read(sharedAuthRepositoryProvider).logout();
+        } catch (_) {}
+        state = AsyncValue.error(Exception('auth.error.pending_approval'), st);
+      } else {
+        state = AsyncValue.error(e, st);
+      }
+    }
+  }
+
+  Future<void> loginWithGoogle() async {
+    state = const AsyncValue.loading();
+    try {
+      final idToken = await GoogleSignInService.getIdToken();
+      final repository = ref.read(sharedAuthRepositoryProvider);
+      await repository.socialLogin(
+        SocialLoginDto((b) => b
+          ..provider = 'GOOGLE'
+          ..idToken = idToken
+          ..app = 'driver'),
+      );
+      await _finishDriverLogin(repository);
+    } catch (e, st) {
+      if (e.toString().contains('google.sign_in.no_token')) {
+        state = const AsyncValue.data(false);
+        return;
+      }
+      final errorString = e.toString();
+      if (errorString.contains('404') || errorString.contains('PROFILE_NOT_FOUND')) {
+        try {
+          await ref.read(sharedAuthRepositoryProvider).logout();
+        } catch (_) {}
+        state = AsyncValue.error(Exception('auth.error.pending_approval'), st);
+      } else {
+        state = AsyncValue.error(e, st);
+      }
+    }
+  }
+
+  Future<void> _finishDriverLogin(SharedAuthRepository repository) async {
       final role = await repository.getUserRole();
       if (role != 'DRIVER') {
         await repository.logout();
@@ -129,19 +173,8 @@ class Auth extends _$Auth {
         await pushService.initialize();
         await pushService.subscribeToRoleTopics('DRIVER');
       } catch (_) {}
-      
+
       state = const AsyncValue.data(true);
-    } catch (e, st) {
-      final errorString = e.toString();
-      if (errorString.contains('404') || errorString.contains('PROFILE_NOT_FOUND')) {
-        try {
-          await ref.read(sharedAuthRepositoryProvider).logout();
-        } catch (_) {}
-        state = AsyncValue.error(Exception('auth.error.pending_approval'), st);
-      } else {
-        state = AsyncValue.error(e, st);
-      }
-    }
   }
 
   Future<void> logout() async {
@@ -158,6 +191,7 @@ class Auth extends _$Auth {
         debugPrint('Failed to stop location tracking on logout: $e');
       }
       ref.read(coreSocketServiceProvider).disconnect();
+      await GoogleSignInService.signOut();
 
       final repository = ref.read(sharedAuthRepositoryProvider);
 

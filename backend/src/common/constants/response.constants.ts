@@ -25,6 +25,7 @@ export const ValidationErrors = {
   PASSWORD_WEAK: 'validation.error.password_weak',
   NAME_REQUIRED: 'validation.error.name_required',
   PHONE_INVALID: 'validation.error.phone_invalid',
+  PHONE_REQUIRED: 'validation.error.phone_required',
   CONTACT_REQUIRED: 'validation.error.contact_required',
   CODE_REQUIRED: 'validation.error.code_required',
   METHOD_INVALID: 'validation.error.method_invalid',

@@ -21,6 +21,7 @@ dependencies:
   built_collection: ^5.1.1
 
   dio: any
+  google_sign_in: any
   package_info_plus: any
   flutter_secure_storage: any
   riverpod_annotation: ^4.0.3

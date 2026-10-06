@@ -11,4 +11,5 @@ class RoutePaths {
   static const String home = '/home';
   static const String maintenance = '/maintenance';
   static const String updateRequired = '/update-required';
+  static const String completePhone = '/complete-phone';
 }

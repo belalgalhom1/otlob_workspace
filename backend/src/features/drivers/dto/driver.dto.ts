@@ -157,10 +157,10 @@ export class AdminCreateDriverDto {
   @IsNotEmpty()
   email!: string;
 
-  @ApiProperty({ example: '+201000000000', required: false })
+  @ApiProperty({ example: '+201000000000' })
   @IsString()
-  @IsOptional()
-  phone?: string;
+  @IsNotEmpty()
+  phone!: string;
 
   @ApiProperty({ example: 'Password123!' })
   @IsString()

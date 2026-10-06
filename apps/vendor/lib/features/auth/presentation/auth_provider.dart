@@ -1,3 +1,4 @@
+import 'package:api/api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
@@ -51,28 +52,7 @@ class AuthNotifier extends _$AuthNotifier {
       final response = await repository.login(email, password, appType: 'vendor');
       debugPrint('DEBUG: repository.login returned: $response');
       if (response != null && response['access_token'] != null) {
-        final role = await repository.getUserRole();
-        if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
-          await logout();
-          state = AsyncValue.error(
-            'auth.error.unauthorized_role',
-            StackTrace.current,
-          );
-          return;
-        }
-
-        // Seed the active vendor for single-membership accounts so they land
-        // on the dashboard instead of the vendor-selection screen.
-        await _seedActiveVendor(repository, onlySingle: true);
-
-        try {
-          final pushService = ref.read(pushNotificationServiceProvider);
-          await pushService.initialize();
-          await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
-        } catch (_) {}
-
-        debugPrint('DEBUG: Setting state to data(true)');
-        state = const AsyncValue.data(true);
+        await _finishVendorLogin(repository);
       } else {
         debugPrint('DEBUG: Invalid credentials error');
         state = AsyncValue.error(
@@ -88,6 +68,60 @@ class AuthNotifier extends _$AuthNotifier {
         state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
       }
     }
+  }
+
+  Future<void> loginWithGoogle() async {
+    state = const AsyncValue.loading();
+    try {
+      final idToken = await GoogleSignInService.getIdToken();
+      final repository = ref.read(sharedAuthRepositoryProvider);
+      final response = await repository.socialLogin(
+        SocialLoginDto((b) => b
+          ..provider = 'GOOGLE'
+          ..idToken = idToken
+          ..app = 'vendor'),
+      );
+      if (response != null && response['access_token'] != null) {
+        await _finishVendorLogin(repository);
+      } else {
+        state = AsyncValue.error(
+          'auth.error.invalid_credentials',
+          StackTrace.current,
+        );
+      }
+    } catch (e, st) {
+      if (e.toString().contains('google.sign_in.no_token')) {
+        state = const AsyncValue.data(false);
+        return;
+      }
+      debugPrint('DEBUG: Exception in loginWithGoogle: $e\n$st');
+      state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
+    }
+  }
+
+  Future<void> _finishVendorLogin(SharedAuthRepository repository) async {
+    final role = await repository.getUserRole();
+    if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+      await logout();
+      state = AsyncValue.error(
+        'auth.error.unauthorized_role',
+        StackTrace.current,
+      );
+      return;
+    }
+
+    // Seed the active vendor for single-membership accounts so they land
+    // on the dashboard instead of the vendor-selection screen.
+    await _seedActiveVendor(repository, onlySingle: true);
+
+    try {
+      final pushService = ref.read(pushNotificationServiceProvider);
+      await pushService.initialize();
+      await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
+    } catch (_) {}
+
+    debugPrint('DEBUG: Setting state to data(true)');
+    state = const AsyncValue.data(true);
   }
 
   Future<void> _seedActiveVendor(
@@ -161,6 +195,7 @@ class AuthNotifier extends _$AuthNotifier {
     if (_logoutInProgress) return;
     _logoutInProgress = true;
     try {
+      await GoogleSignInService.signOut();
       await ref.read(activeVendorProvider.notifier).clearActiveVendor();
 
       final repository = ref.read(sharedAuthRepositoryProvider);

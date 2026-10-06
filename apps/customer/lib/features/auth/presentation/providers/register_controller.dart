@@ -5,6 +5,17 @@ import 'package:core/core.dart';
 
 part 'register_controller.g.dart';
 
+String formatEgyptPhone(String phone) {
+  String formattedPhone = phone.trim();
+  if (formattedPhone.startsWith('0')) {
+    formattedPhone = formattedPhone.substring(1);
+  }
+  if (!formattedPhone.startsWith('+')) {
+    return '+20$formattedPhone';
+  }
+  return formattedPhone;
+}
+
 @riverpod
 class RegisterController extends _$RegisterController {
   @override
@@ -16,7 +27,7 @@ class RegisterController extends _$RegisterController {
     required String name,
     required String email,
     required String password,
-    String? phone,
+    required String phone,
   }) async {
     state = const AsyncLoading();
 
@@ -26,20 +37,9 @@ class RegisterController extends _$RegisterController {
         ..name = name
         ..email = email
         ..password = password
-        ..role = RegisterDtoRoleEnum.CUSTOMER;
-      
-      if (phone != null && phone.isNotEmpty) {
-        String formattedPhone = phone;
-        if (formattedPhone.startsWith('0')) {
-          formattedPhone = formattedPhone.substring(1);
-        }
-        if (!formattedPhone.startsWith('+')) {
-          builder.phone = '+20$formattedPhone';
-        } else {
-          builder.phone = formattedPhone;
-        }
-      }
-      
+        ..role = RegisterDtoRoleEnum.CUSTOMER
+        ..phone = formatEgyptPhone(phone);
+
       await authRepo.register(builder.build());
       state = const AsyncData(null);
       return true;

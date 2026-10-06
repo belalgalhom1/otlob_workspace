@@ -24,4 +24,22 @@ class LoginController extends _$LoginController {
       return false;
     }
   }
+
+  Future<bool> signInWithGoogle() async {
+    state = const AsyncLoading();
+
+    try {
+      await ref.read(authControllerProvider.notifier).signInWithGoogle();
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      if (e.toString().contains('google.sign_in.no_token')) {
+        state = const AsyncData(null);
+        return false;
+      }
+      final errorMessage = ApiErrorMapper.fromError(e);
+      state = AsyncError(ApiErrorMapper.fromError(errorMessage), st);
+      return false;
+    }
+  }
 }

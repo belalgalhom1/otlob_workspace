@@ -45,10 +45,10 @@ export class RegisterDto {
   @IsNotEmpty({ message: ValidationErrors.NAME_REQUIRED })
   name!: string;
 
-  @ApiProperty({ example: '+201234567890', required: false })
+  @ApiProperty({ example: '+201234567890' })
   @IsPhoneNumber(undefined, { message: ValidationErrors.PHONE_INVALID })
-  @IsOptional()
-  phone?: string;
+  @IsNotEmpty({ message: ValidationErrors.PHONE_REQUIRED })
+  phone!: string;
 
   @ApiProperty({ enum: Role, required: false })
   @IsEnum(Role)

@@ -102,6 +102,9 @@ class AppStrings {
   String get fullName => 'app.fullName'.tr(context: _context);
   String get emailAddress => 'app.emailAddress'.tr(context: _context);
   String get phoneNumber => 'app.phoneNumber'.tr(context: _context);
+  String get phoneRequired => 'app.phoneRequired'.tr(context: _context);
+  String get completePhoneTitle => 'app.completePhoneTitle'.tr(context: _context);
+  String get completePhoneMessage => 'app.completePhoneMessage'.tr(context: _context);
   String get noAddresses => 'app.noAddresses'.tr(context: _context);
   String get addAddressSub => 'app.addAddressSub'.tr(context: _context);
   String get addNewAddress => 'app.addNewAddress'.tr(context: _context);
@@ -120,6 +123,8 @@ class AppStrings {
   String get passwordMinLen => 'app.passwordMinLen'.tr(context: _context);
   String get forgotPassword => 'app.forgotPassword'.tr(context: _context);
   String get login => 'app.login'.tr(context: _context);
+  String get or => 'app.or'.tr(context: _context);
+  String get continueWithGoogle => 'app.continueWithGoogle'.tr(context: _context);
   String get signUp => 'app.signUp'.tr(context: _context);
   String get createAccount => 'app.createAccount'.tr(context: _context);
   String get joinApp => 'app.joinApp'.tr(context: _context);

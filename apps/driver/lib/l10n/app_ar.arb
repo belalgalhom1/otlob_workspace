@@ -5,6 +5,8 @@
   "emailHint": "driver@otlob.com",
   "password": "كلمة المرور",
   "signIn": "تسجيل الدخول",
+  "or": "أو",
+  "continueWithGoogle": "المتابعة عبر Google",
   "rememberMe": "تذكرني",
   "orLoginWithAnother": "أو تسجيل الدخول بحساب آخر",
   "dashboard": "لوحة التحكم",

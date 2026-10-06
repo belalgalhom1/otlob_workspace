@@ -25,6 +25,8 @@
   "emailHint": "admin@otlob.com",
   "password": "Password",
   "signIn": "Sign In",
+  "or": "OR",
+  "continueWithGoogle": "Continue with Google",
   "rememberMe": "Remember Me",
   "orLoginWithAnother": "Or login with another account",
   "dashboard": "Dashboard",

@@ -60,6 +60,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signIn => 'Sign In';
 
   @override
+  String get or => 'OR';
+
+  @override
+  String get continueWithGoogle => 'Continue with Google';
+
+  @override
   String get rememberMe => 'Remember Me';
 
   @override

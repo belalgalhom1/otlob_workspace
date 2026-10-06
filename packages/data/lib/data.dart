@@ -4,6 +4,7 @@ library;
 export 'src/models/paginated_result.dart';
 export 'src/shared/response_parser.dart';
 export 'src/shared/app_status_checker.dart';
+export 'src/shared/google_sign_in_service.dart';
 
 // Export all providers
 export 'providers.dart';

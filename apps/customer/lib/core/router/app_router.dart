@@ -29,6 +29,7 @@ import '../../features/chat/presentation/pages/support_menu_screen.dart';
 import '../../features/chat/presentation/pages/inbox_screen.dart';
 import '../../features/splash/presentation/pages/maintenance_screen.dart';
 import '../../features/splash/presentation/pages/update_required_screen.dart';
+import '../../features/auth/presentation/pages/complete_phone_screen.dart';
 import '../providers/app_settings_provider.dart';
 import 'route_paths.dart';
 import 'route_names.dart';
@@ -47,6 +48,10 @@ class RouterNotifier extends ChangeNotifier {
       appSettingsProvider,
       (_, _) => notifyListeners(),
     );
+    _ref.listen<bool>(
+      needsPhoneProvider,
+      (_, _) => notifyListeners(),
+    );
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -58,6 +63,11 @@ class RouterNotifier extends ChangeNotifier {
     // App-status gates manage themselves; never redirect away from them.
     if (path == RoutePaths.maintenance || path == RoutePaths.updateRequired) {
       return null;
+    }
+
+    // Phone gate: authenticated users without a phone number must complete it.
+    if (path != RoutePaths.completePhone && _ref.read(needsPhoneProvider)) {
+      return RoutePaths.completePhone;
     }
 
     final isGoingToSplash = path == RoutePaths.splash;
@@ -136,6 +146,11 @@ GoRouter appRouter(Ref ref) {
           final extra = state.extra as Map<String, dynamic>?;
           return UpdateRequiredPage(storeUrl: extra?['storeUrl']?.toString());
         },
+      ),
+      GoRoute(
+        path: RoutePaths.completePhone,
+        name: RouteNames.completePhone,
+        builder: (context, state) => const CompletePhoneScreen(),
       ),
       GoRoute(
         path: RoutePaths.onboarding,

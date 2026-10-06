@@ -60,6 +60,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get signIn => 'تسجيل الدخول';
 
   @override
+  String get or => 'أو';
+
+  @override
+  String get continueWithGoogle => 'المتابعة عبر Google';
+
+  @override
   String get rememberMe => 'تذكرني';
 
   @override
