@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:driver/core/utils/error_utils.dart';
@@ -11,7 +12,29 @@ enum AppStartupState {
   suspended,
   dashboard,
   activeOrder,
+  maintenance,
+  forceUpdate,
 }
+
+class UpdateStoreUrl extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+}
+
+final updateStoreUrlProvider =
+    NotifierProvider<UpdateStoreUrl, String?>(UpdateStoreUrl.new);
+
+class AppUpdateAvailable extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final appUpdateAvailableProvider =
+    NotifierProvider<AppUpdateAvailable, bool>(AppUpdateAvailable.new);
 
 @Riverpod(keepAlive: true)
 class Splash extends _$Splash {
@@ -22,6 +45,20 @@ class Splash extends _$Splash {
 
   Future<AppStartupState> _initialize() async {
     try {
+      final appStatus = await checkAppStatus(
+        ref.read(sharedPlatformSettingsRepositoryProvider),
+      );
+      if (appStatus != null) {
+        if (appStatus.maintenance) return AppStartupState.maintenance;
+        if (appStatus.mustUpdate) {
+          ref.read(updateStoreUrlProvider.notifier).set(appStatus.storeUrl);
+          return AppStartupState.forceUpdate;
+        }
+        ref.read(appUpdateAvailableProvider.notifier).set(
+              appStatus.shouldUpdate,
+            );
+      }
+
       final authRepository = ref.read(sharedAuthRepositoryProvider);
       final isLoggedIn = await authRepository.isLoggedIn();
       

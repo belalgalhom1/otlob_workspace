@@ -1924,6 +1924,41 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get maintenanceTitle => 'التطبيق تحت الصيانة';
+
+  @override
+  String get maintenanceMessage =>
+      'نقوم حالياً بتحسين التطبيق. يرجى المحاولة مرة أخرى بعد قليل.';
+
+  @override
+  String get updateRequiredTitle => 'التحديث مطلوب';
+
+  @override
+  String get updateRequiredMessage =>
+      'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.';
+
+  @override
+  String get updateNow => 'حدّث الآن';
+
+  @override
+  String get updateAvailableTitle => 'يتوفر إصدار جديد';
+
+  @override
+  String get updateAvailableMessage => 'يتوفر إصدار أحدث من التطبيق.';
+
+  @override
+  String get updateLater => 'لاحقاً';
+
+  @override
+  String get adminLogin => 'دخول الإدارة';
+
+  @override
+  String get terms => 'الشروط والأحكام';
+
+  @override
+  String get privacy => 'سياسة الخصوصية';
+
+  @override
   String get noNotificationsYet => 'لا توجد إشعارات حتى الآن';
 
   @override

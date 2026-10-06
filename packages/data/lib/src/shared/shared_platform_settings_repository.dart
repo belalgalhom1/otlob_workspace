@@ -11,10 +11,11 @@ class SharedPlatformSettingsRepository {
     return response.data!;
   }
 
-  Future<void> checkAppVersion(AppVersionCheckDto dto) async {
-    await _settingsApi.platformSettingsControllerCheckVersion(
+  Future<dynamic> checkAppVersion(AppVersionCheckDto dto) async {
+    final response = await _settingsApi.platformSettingsControllerCheckVersion(
       appVersionCheckDto: dto,
     );
+    return ResponseParser.parse(response);
   }
 
   Future<dynamic> getPublicSettings() async {

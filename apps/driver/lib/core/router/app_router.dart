@@ -13,6 +13,8 @@ import 'package:driver/features/chat/presentation/pages/chat_screen.dart';
 import 'package:driver/features/notifications/presentation/pages/notifications_screen.dart';
 import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:driver/features/profile/presentation/pages/identity_screen.dart';
+import 'package:driver/features/splash/presentation/pages/maintenance_screen.dart';
+import 'package:driver/features/splash/presentation/pages/update_required_screen.dart';
 import 'package:driver/features/profile/presentation/pages/vehicle_screen.dart';
 import 'package:driver/features/orders/presentation/pages/deliveries_history_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
@@ -28,6 +30,12 @@ GoRouter appRouter(Ref ref) {
     initialLocation: '/',
     debugLogDiagnostics: true,
     redirect: (context, state) {
+      // App-status gates manage themselves; never redirect away from them.
+      if (state.matchedLocation == '/maintenance' ||
+          state.matchedLocation == '/update-required') {
+        return null;
+      }
+
       final splashState = ref.read(splashProvider);
       
       // If splash is still loading, don't redirect, let splash handle it
@@ -49,6 +57,14 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const MaintenancePage(),
+      ),
+      GoRoute(
+        path: '/update-required',
+        builder: (context, state) => const UpdateRequiredPage(),
       ),
       GoRoute(
         path: '/dashboard',

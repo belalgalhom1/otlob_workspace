@@ -9,4 +9,6 @@ class RoutePaths {
   static const String verifyOtp = '/verify-otp';
   static const String newPassword = '/new-password';
   static const String home = '/home';
+  static const String maintenance = '/maintenance';
+  static const String updateRequired = '/update-required';
 }

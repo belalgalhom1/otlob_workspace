@@ -27,6 +27,8 @@ import '../../features/home/presentation/pages/custom_delivery_screen.dart';
 import '../../features/chat/presentation/pages/chat_screen.dart';
 import '../../features/chat/presentation/pages/support_menu_screen.dart';
 import '../../features/chat/presentation/pages/inbox_screen.dart';
+import '../../features/splash/presentation/pages/maintenance_screen.dart';
+import '../../features/splash/presentation/pages/update_required_screen.dart';
 import '../providers/app_settings_provider.dart';
 import 'route_paths.dart';
 import 'route_names.dart';
@@ -52,6 +54,12 @@ class RouterNotifier extends ChangeNotifier {
     final hasSeenOnboarding = _ref.read(appSettingsProvider).hasSeenOnboarding;
 
     final path = state.uri.path;
+
+    // App-status gates manage themselves; never redirect away from them.
+    if (path == RoutePaths.maintenance || path == RoutePaths.updateRequired) {
+      return null;
+    }
+
     final isGoingToSplash = path == RoutePaths.splash;
     final isGoingToOnboarding = path == RoutePaths.onboarding;
 
@@ -115,6 +123,19 @@ GoRouter appRouter(Ref ref) {
         path: RoutePaths.splash,
         name: RouteNames.splash,
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.maintenance,
+        name: RouteNames.maintenance,
+        builder: (context, state) => const MaintenancePage(),
+      ),
+      GoRoute(
+        path: RoutePaths.updateRequired,
+        name: RouteNames.updateRequired,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return UpdateRequiredPage(storeUrl: extra?['storeUrl']?.toString());
+        },
       ),
       GoRoute(
         path: RoutePaths.onboarding,

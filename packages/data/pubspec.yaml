@@ -21,6 +21,7 @@ dependencies:
   built_collection: ^5.1.1
 
   dio: any
+  package_info_plus: any
   flutter_secure_storage: any
   riverpod_annotation: ^4.0.3
   built_value: ^8.12.7

@@ -1,10 +1,20 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
-import 'package:data/data.dart';
 import 'package:core/core.dart';
 import 'package:flutter/foundation.dart';
 
 part 'auth_provider.g.dart';
+
+class UpdateStoreUrl extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+}
+
+final updateStoreUrlProvider =
+    NotifierProvider<UpdateStoreUrl, String?>(UpdateStoreUrl.new);
 
 @Riverpod(keepAlive: true)
 class AuthNotifier extends _$AuthNotifier {

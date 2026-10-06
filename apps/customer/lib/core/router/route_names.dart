@@ -9,4 +9,6 @@ class RouteNames {
   static const String verifyOtp = 'verify_otp';
   static const String newPassword = 'new_password';
   static const String home = 'home';
+  static const String maintenance = 'maintenance';
+  static const String updateRequired = 'update-required';
 }

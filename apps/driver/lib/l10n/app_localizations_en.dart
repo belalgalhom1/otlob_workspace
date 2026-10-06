@@ -1802,6 +1802,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get maintenanceTitle => 'Under Maintenance';
+
+  @override
+  String get maintenanceMessage =>
+      'We\'re improving the app right now. Please try again in a bit.';
+
+  @override
+  String get updateRequiredTitle => 'Update Required';
+
+  @override
+  String get updateRequiredMessage =>
+      'Please update the app to the latest version to continue.';
+
+  @override
+  String get updateNow => 'Update Now';
+
+  @override
+  String get updateAvailableTitle => 'New Version Available';
+
+  @override
+  String get updateAvailableMessage =>
+      'A newer version of the app is available.';
+
+  @override
+  String get updateLater => 'Later';
+
+  @override
+  String get terms => 'Terms & Conditions';
+
+  @override
+  String get privacy => 'Privacy Policy';
+
+  @override
   String get noNotificationsYet => 'No notifications yet';
 
   @override

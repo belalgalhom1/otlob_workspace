@@ -44,6 +44,16 @@ class AppStrings {
   String get cartButton => 'app.cartButton'.tr(context: _context);
   String get egp => 'app.egp'.tr(context: _context);
   String get retry => 'app.retry'.tr(context: _context);
+  String get maintenanceTitle => 'app.maintenanceTitle'.tr(context: _context);
+  String get maintenanceMessage => 'app.maintenanceMessage'.tr(context: _context);
+  String get updateRequiredTitle => 'app.updateRequiredTitle'.tr(context: _context);
+  String get updateRequiredMessage => 'app.updateRequiredMessage'.tr(context: _context);
+  String get updateNow => 'app.updateNow'.tr(context: _context);
+  String get updateAvailableTitle => 'app.updateAvailableTitle'.tr(context: _context);
+  String get updateAvailableMessage => 'app.updateAvailableMessage'.tr(context: _context);
+  String get updateLater => 'app.updateLater'.tr(context: _context);
+  String get terms => 'app.terms'.tr(context: _context);
+  String get privacy => 'app.privacy'.tr(context: _context);
   String get noResults => 'app.noResults'.tr(context: _context);
   String get orderNow => 'app.orderNow'.tr(context: _context);
   String get chatWithVendor => 'app.chatWithVendor'.tr(context: _context);

@@ -11,6 +11,12 @@ class PlatformSettingsData {
   final String? motorTricycleIconUrl;
   final String? vanIconUrl;
   final String? truckIconUrl;
+  final bool isMaintenanceMode;
+  final String? supportEmail;
+  final String? supportPhone;
+  final String? supportWhatsapp;
+  final String? termsUrl;
+  final String? privacyUrl;
   final String? deliveryBannerIconUrl;
   final String currency;
   final double minOrderAmount;
@@ -64,6 +70,12 @@ class PlatformSettingsData {
     this.motorTricycleIconUrl,
     this.vanIconUrl,
     this.truckIconUrl,
+    this.isMaintenanceMode = false,
+    this.supportEmail,
+    this.supportPhone,
+    this.supportWhatsapp,
+    this.termsUrl,
+    this.privacyUrl,
     this.deliveryBannerIconUrl,
     this.currency = 'EGP',
     this.minOrderAmount = 0,
@@ -124,6 +136,12 @@ class PlatformSettingsData {
       motorTricycleIconUrl: json['motorTricycleIconUrl'],
       vanIconUrl: json['vanIconUrl'],
       truckIconUrl: json['truckIconUrl'],
+      isMaintenanceMode: json['isMaintenanceMode'] ?? false,
+      supportEmail: json['support']?['email'] ?? json['supportEmail'],
+      supportPhone: json['support']?['phone'] ?? json['supportPhone'],
+      supportWhatsapp: json['support']?['whatsapp'] ?? json['supportWhatsapp'],
+      termsUrl: json['legal']?['termsUrl'] ?? json['termsUrl'],
+      privacyUrl: json['legal']?['privacyUrl'] ?? json['privacyUrl'],
       deliveryBannerIconUrl: json['deliveryBannerIconUrl'],
       currency: json['currency'] ?? 'EGP',
       minOrderAmount: double.tryParse(json['minOrderAmount']?.toString() ?? '0') ?? 0,

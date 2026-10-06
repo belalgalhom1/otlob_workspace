@@ -14,6 +14,7 @@ import 'package:driver/features/profile/presentation/settings_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:core/core.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
 import 'package:data/providers.dart';
@@ -328,6 +329,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 title: l10n.deliveryHistory,
                 onTap: () => context.push('/deliveries'),
               ),
+              const SizedBox(height: 12),
+              _buildProfileNavigationTile(
+                icon: LucideIcons.fileText,
+                title: l10n.terms,
+                onTap: () => _openLegalUrl('termsUrl'),
+              ),
+              const SizedBox(height: 12),
+              _buildProfileNavigationTile(
+                icon: LucideIcons.shieldCheck,
+                title: l10n.privacy,
+                onTap: () => _openLegalUrl('privacyUrl'),
+              ),
               
               const SizedBox(height: 32),
               Text(l10n.performance, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
@@ -438,6 +451,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openLegalUrl(String key) async {
+    final config = ref.read(configurationProvider).value;
+    final legal = config?['legal'];
+    final url = (legal is Map ? legal[key]?.toString() : null)?.trim() ?? '';
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildProfileNavigationTile({required IconData icon, required String title, required VoidCallback onTap}) {

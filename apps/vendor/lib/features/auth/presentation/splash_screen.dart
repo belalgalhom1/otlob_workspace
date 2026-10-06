@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/generated/l10n/app_localizations.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -32,8 +34,71 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _controller.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authProvider.notifier).checkAuth();
+      _runAppGate();
     });
+  }
+
+  Future<void> _runAppGate() async {
+    final status = await checkAppStatus(
+      ref.read(sharedPlatformSettingsRepositoryProvider),
+    );
+    if (!mounted) return;
+
+    if (status != null) {
+      if (status.maintenance && !await _isPlatformStaff()) {
+        context.go('/maintenance');
+        return;
+      }
+      if (status.mustUpdate) {
+        ref.read(updateStoreUrlProvider.notifier).set(status.storeUrl);
+        context.go('/update-required');
+        return;
+      }
+      if (status.shouldUpdate) {
+        final l10n = AppLocalizations.of(context)!;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l10n.updateAvailableTitle),
+            content: Text(l10n.updateAvailableMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.updateLater),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final url = (status.storeUrl ?? '').trim();
+                  final uri = Uri.tryParse(url);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri,
+                        mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Text(l10n.updateNow),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+      }
+    }
+
+    ref.read(authProvider.notifier).checkAuth();
+  }
+
+  /// Platform staff (super admins and admins) keep full access during
+  /// maintenance. Vendors and logged-out users are held on the gate.
+  Future<bool> _isPlatformStaff() async {
+    try {
+      final repo = ref.read(sharedAuthRepositoryProvider);
+      if (!await repo.isLoggedIn()) return false;
+      final role = await repo.getUserRole();
+      return role == 'SUPER_ADMIN' || role == 'ADMIN';
+    } catch (_) {
+      return false;
+    }
   }
 
   void _onAuthStateChanged(BuildContext context, AsyncValue<bool> state) async {

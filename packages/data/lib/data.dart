@@ -3,6 +3,7 @@ library;
 // Export all models
 export 'src/models/paginated_result.dart';
 export 'src/shared/response_parser.dart';
+export 'src/shared/app_status_checker.dart';
 
 // Export all providers
 export 'providers.dart';

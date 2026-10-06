@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:data/providers.dart';
 import 'package:ui_kit/ui_kit.dart' hide AppColors;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/providers/app_settings_provider.dart';
+import '../../../../core/providers/platform_settings_provider.dart';
 import '../../../../core/services/token_service.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../providers/profile_controller.dart';
@@ -151,6 +153,26 @@ class ProfileScreen extends ConsumerWidget {
                           icon: Icons.help_outline_rounded,
                           title: s.helpCenter,
                           onTap: () => context.push('/support-menu'),
+                        ),
+                        _buildNavTile(
+                          context: context,
+                          icon: Icons.description_outlined,
+                          title: s.terms,
+                          onTap: () => _openLegalUrl(
+                            context,
+                            ref,
+                            (settings) => settings.termsUrl,
+                          ),
+                        ),
+                        _buildNavTile(
+                          context: context,
+                          icon: Icons.privacy_tip_outlined,
+                          title: s.privacy,
+                          onTap: () => _openLegalUrl(
+                            context,
+                            ref,
+                            (settings) => settings.privacyUrl,
+                          ),
                         ),
                       ],
                     ),
@@ -535,6 +557,21 @@ class ProfileScreen extends ConsumerWidget {
       ),
       onTap: onTap,
     );
+  }
+
+  Future<void> _openLegalUrl(
+    BuildContext context,
+    WidgetRef ref,
+    String? Function(PlatformSettingsData settings) pick,
+  ) async {
+    final settings = ref.read(platformSettingsProvider).value;
+    final url = (settings != null ? pick(settings) : null)?.trim() ?? '';
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   void _showEditProfile(

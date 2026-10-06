@@ -25,6 +25,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
   }
 
+  Future<bool> _isMaintenanceBlocked(WidgetRef ref) async {
+    try {
+      final status = await checkAppStatus(
+        ref.read(sharedPlatformSettingsRepositoryProvider),
+      );
+      return status?.maintenance == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -38,6 +49,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           final role = await repo.getUserRole();
           debugPrint('DEBUG: Role is $role');
           if (role == 'VENDOR_MEMBER') {
+            // Vendors stay frozen during maintenance even right after login.
+            final blocked = await _isMaintenanceBlocked(ref);
+            if (!context.mounted) return;
+            if (blocked) {
+              context.go('/maintenance');
+              return;
+            }
             final vendorId = ref.read(activeVendorProvider);
             if (vendorId == null || vendorId.isEmpty) {
               debugPrint('DEBUG: No vendorId, going to /select-vendor');

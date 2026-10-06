@@ -13,6 +13,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:core/core.dart';
 
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
+import 'package:vendor/features/auth/presentation/maintenance_screen.dart';
+import 'package:vendor/features/auth/presentation/update_required_screen.dart';
 import 'package:vendor/core/providers/global_order_listener.dart';
 
 void main() async {
@@ -45,6 +47,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
+      if (state.matchedLocation == '/maintenance' ||
+          state.matchedLocation == '/update-required') {
+        return null;
+      }
+
       final authState = ref.read(authProvider);
       final isAuth = authState.value ?? false;
       final isGoingToLogin = state.matchedLocation == '/login';
@@ -65,6 +72,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const MaintenancePage(),
+      ),
+      GoRoute(
+        path: '/update-required',
+        builder: (context, state) => const UpdateRequiredPage(),
+      ),
       GoRoute(
         path: '/select-vendor',
         builder: (context, state) =>
