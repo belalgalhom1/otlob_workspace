@@ -296,7 +296,7 @@ export class AuthService {
         emailVerified:
           payload.email_verified !== false &&
           payload.email_verified !== 'false',
-        exp: payload.exp,
+        exp: payload.exp != null ? Number(payload.exp) : undefined,
       };
     } catch (error: any) {
       this.logger.error(`Apple token verification failed: ${error.message}`);
