@@ -19,6 +19,7 @@ import {
   UpdateUserDto,
   UpdateNotificationSettingsDto,
   ChangePasswordDto,
+  SetPasswordDto,
   QueryUsersDto,
   AdminUpdateUserDto,
   BanUserDto,
@@ -80,6 +81,17 @@ export class UsersController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.userService.changePassword(actor.sub, actor.sid, dto);
+  }
+
+  @ApiStandardResponse()
+  @Post('me/set-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set a password for social-only accounts (no password yet)' })
+  setPassword(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: SetPasswordDto,
+  ) {
+    return this.userService.setPassword(actor.sub, dto);
   }
 
   @ApiStandardResponse()

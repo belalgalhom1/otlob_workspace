@@ -73,6 +73,13 @@ export const AuthErrors = {
   ONLY_VENDOR_APP_ALLOWED: 'auth.error.only_vendor_app_allowed',
   CANNOT_LOGOUT_ON_DELIVERY: 'auth.error.cannot_logout_on_delivery',
   NO_PAYLOAD_FOUND: 'auth.error.no_payload_found',
+  SOCIAL_EMAIL_NOT_VERIFIED: 'auth.error.social_email_not_verified',
+  SOCIAL_ACCOUNT_TAKEN: 'auth.error.social_account_taken',
+  SOCIAL_PROVIDER_ALREADY_LINKED: 'auth.error.social_provider_already_linked',
+  SOCIAL_PROVIDER_NOT_LINKED: 'auth.error.social_provider_not_linked',
+  CANNOT_UNLINK_LAST_METHOD: 'auth.error.cannot_unlink_last_method',
+  APP_REQUIRED: 'auth.error.app_required',
+  APP_INVALID: 'auth.error.app_invalid',
 };
 
 export const UserErrors = {
@@ -83,6 +90,9 @@ export const UserErrors = {
   AVATAR_UPLOAD_FAILED: 'user.error.avatar_upload_failed',
   INVALID_PASSWORD: 'user.error.invalid_password',
   PASSWORD_SAME_AS_OLD: 'user.error.password_same_as_old',
+  PASSWORD_NOT_SET: 'user.error.password_not_set',
+  PASSWORD_ALREADY_SET: 'user.error.password_already_set',
+  EMAIL_REQUIRED_FIRST: 'user.error.email_required_first',
   NOTIFICATION_SETTINGS_NOT_FOUND: 'user.error.notification_settings_not_found',
   ACCOUNT_DELETION_FAILED: 'user.error.account_deletion_failed',
   ONLY_DRIVERS_ALLOWED: 'user.error.only_drivers_allowed',

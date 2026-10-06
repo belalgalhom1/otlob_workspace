@@ -253,7 +253,7 @@ export class AuthService {
 
   private async verifyGoogleToken(
     idToken: string,
-  ): Promise<{ sub: string; email?: string; name?: string }> {
+  ): Promise<{ sub: string; email?: string; name?: string; emailVerified?: boolean; exp?: number }> {
     try {
       const googleClientIds =
         this.config.get<string>('GOOGLE_CLIENT_IDS')?.split(',') || [];
@@ -268,6 +268,8 @@ export class AuthService {
         sub: payload.sub,
         email: payload.email,
         name: payload.name,
+        emailVerified: payload.email_verified === true,
+        exp: payload.exp,
       };
     } catch (error: any) {
       this.logger.error(`Google token verification failed: ${error.message}`);
@@ -277,7 +279,7 @@ export class AuthService {
 
   private async verifyAppleToken(
     idToken: string,
-  ): Promise<{ sub: string; email?: string }> {
+  ): Promise<{ sub: string; email?: string; emailVerified?: boolean; exp?: number }> {
     try {
       const appleClientIds =
         this.config.get<string>('APPLE_CLIENT_IDS')?.split(',') || [];
@@ -288,6 +290,13 @@ export class AuthService {
       return {
         sub: payload.sub,
         email: payload.email,
+        // Apple only includes `email` for addresses it has verified at
+        // authorization time, and it may omit `email_verified` entirely.
+        // Reject only an explicit false; treat true/"true"/absent as verified.
+        emailVerified:
+          payload.email_verified !== false &&
+          payload.email_verified !== 'false',
+        exp: payload.exp,
       };
     } catch (error: any) {
       this.logger.error(`Apple token verification failed: ${error.message}`);
@@ -304,16 +313,19 @@ export class AuthService {
     let providerAccountId = dto.providerAccountId;
     let verifiedEmail: string | undefined;
     let name = dto.name;
+    let emailVerified = false;
 
     if (dto.provider === 'GOOGLE') {
       const payload = await this.verifyGoogleToken(dto.idToken);
       providerAccountId = payload.sub;
       verifiedEmail = payload.email;
       name = payload.name || name;
+      emailVerified = payload.emailVerified === true;
     } else if (dto.provider === 'APPLE') {
       const payload = await this.verifyAppleToken(dto.idToken);
       providerAccountId = payload.sub;
       verifiedEmail = payload.email;
+      emailVerified = payload.emailVerified === true;
     } else {
       throw new BadRequestException(AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER);
     }
@@ -322,6 +334,13 @@ export class AuthService {
       throw new BadRequestException(
         AuthErrors.SOCIAL_ACCOUNT_VERIFICATION_FAILED,
       );
+    }
+
+    if (verifiedEmail && !emailVerified) {
+      this.logger.warn(
+        `Social login rejected: provider email not verified (${dto.provider})`,
+      );
+      throw new UnauthorizedException(AuthErrors.SOCIAL_EMAIL_NOT_VERIFIED);
     }
 
     // 1. Check if Account exists
@@ -395,6 +414,10 @@ export class AuthService {
           });
         }
 
+        if (dto.app === 'customer') {
+          await tx.customer.create({ data: { userId: u.id } });
+        }
+
         return tx.user.findUniqueOrThrow({
           where: { id: u.id },
           include: { driver: { select: { isApproved: true } } },
@@ -445,6 +468,91 @@ export class AuthService {
     const tokens = await this.createSession(user.id, user.role, true, meta);
     const { password: _, ...userWithoutPassword } = user;
     return { ...tokens, user: userWithoutPassword };
+  }
+
+  async linkSocialAccount(userId: string, dto: SocialLoginDto) {
+    let providerAccountId: string | undefined;
+
+    if (dto.provider === 'GOOGLE') {
+      const payload = await this.verifyGoogleToken(dto.idToken);
+      providerAccountId = payload.sub;
+    } else if (dto.provider === 'APPLE') {
+      const payload = await this.verifyAppleToken(dto.idToken);
+      providerAccountId = payload.sub;
+    } else {
+      throw new BadRequestException(AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER);
+    }
+
+    if (!providerAccountId) {
+      throw new BadRequestException(
+        AuthErrors.SOCIAL_ACCOUNT_VERIFICATION_FAILED,
+      );
+    }
+
+    const existing = await this.prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: dto.provider,
+          providerAccountId,
+        },
+      },
+      select: { userId: true },
+    });
+
+    if (existing) {
+      if (existing.userId === userId) {
+        return { message: CommonSuccess.OPERATION_SUCCESS };
+      }
+      throw new ConflictException(AuthErrors.SOCIAL_ACCOUNT_TAKEN);
+    }
+
+    const sameProvider = await this.prisma.account.findFirst({
+      where: { userId, provider: dto.provider },
+      select: { id: true },
+    });
+    if (sameProvider) {
+      throw new ConflictException(AuthErrors.SOCIAL_PROVIDER_ALREADY_LINKED);
+    }
+
+    await this.prisma.account.create({
+      data: { userId, provider: dto.provider, providerAccountId },
+    });
+
+    this.logger.log(`Linked ${dto.provider} account to user ${userId}`);
+    return { message: CommonSuccess.OPERATION_SUCCESS };
+  }
+
+  async unlinkSocialAccount(userId: string, provider: string) {
+    if (provider !== 'GOOGLE' && provider !== 'APPLE') {
+      throw new BadRequestException(AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER);
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true, email: true },
+    });
+    if (!user) throw new UnauthorizedException(AuthErrors.USER_NOT_FOUND);
+
+    const account = await this.prisma.account.findFirst({
+      where: { userId, provider },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new NotFoundException(AuthErrors.SOCIAL_PROVIDER_NOT_LINKED);
+    }
+
+    const remaining = await this.prisma.account.count({ where: { userId } });
+
+    // Invariant: never strip the user's last sign-in method unless they
+    // have a usable fallback — password + email.
+    if (remaining <= 1 && !(user.password && user.email)) {
+      throw new BadRequestException(AuthErrors.CANNOT_UNLINK_LAST_METHOD);
+    }
+
+    await this.prisma.account.delete({ where: { id: account.id } });
+
+    this.logger.log(`Unlinked ${provider} from user ${userId}`);
+    return { message: CommonSuccess.OPERATION_SUCCESS };
   }
 
   async requestVerification(dto: SendOtpDto) {

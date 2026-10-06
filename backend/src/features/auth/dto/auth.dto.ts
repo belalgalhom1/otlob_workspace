@@ -5,11 +5,12 @@ import {
   IsOptional,
   IsEnum,
   IsNotEmpty,
+  IsIn,
   MinLength,
 } from 'class-validator';
 import { Language, Role } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
-import { ValidationErrors } from '../../../common/constants/response.constants';
+import { ValidationErrors, AuthErrors } from '../../../common/constants/response.constants';
 
 export class LoginDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -132,8 +133,8 @@ export class LogoutDto {
 }
 
 export class SocialLoginDto {
-  @ApiProperty({ example: 'GOOGLE' })
-  @IsString()
+  @ApiProperty({ example: 'GOOGLE', enum: ['GOOGLE', 'APPLE'] })
+  @IsIn(['GOOGLE', 'APPLE'], { message: AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER })
   @IsNotEmpty()
   provider!: string;
 
@@ -157,8 +158,8 @@ export class SocialLoginDto {
   @IsOptional()
   name?: string;
 
-  @ApiProperty({ example: 'customer', required: false })
-  @IsString()
-  @IsOptional()
-  app?: string;
+  @ApiProperty({ example: 'customer', enum: ['customer', 'driver', 'vendor'] })
+  @IsIn(['customer', 'driver', 'vendor'], { message: AuthErrors.APP_INVALID })
+  @IsNotEmpty({ message: AuthErrors.APP_REQUIRED })
+  app!: string;
 }

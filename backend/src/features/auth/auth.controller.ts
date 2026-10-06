@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Post,
+  Delete,
+  Param,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -169,6 +171,36 @@ export class AuthController {
       ipAddress: req?.ip,
       userAgent: req?.headers?.['user-agent'],
     });
+  }
+
+  @Throttle({
+    short: { limit: 5, ttl: 60000 },
+  })
+  @Delete('social/unlink/:provider')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Unlink a Google/Apple account from the current user' })
+  @ApiStandardResponse()
+  unlinkSocialAccount(
+    @CurrentUser('sub') userId: string,
+    @Param('provider') provider: string,
+  ) {
+    return this.authService.unlinkSocialAccount(userId, provider);
+  }
+
+  @Throttle({
+    short: { limit: 5, ttl: 60000 },
+  })
+  @Post('social/link')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link a Google/Apple account to the current user' })
+  @ApiStandardResponse()
+  linkSocialAccount(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: SocialLoginDto,
+  ) {
+    return this.authService.linkSocialAccount(userId, dto);
   }
 
   @Throttle({

@@ -8,6 +8,7 @@ import {
   IsInt,
   Min,
   Max,
+  MinLength,
   MaxLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer'; // Added Transform here
@@ -84,6 +85,15 @@ export class ChangePasswordDto {
   @ApiProperty({ example: 'newpassword123' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
+  newPassword!: string;
+}
+
+export class SetPasswordDto {
+  @ApiProperty({ example: 'newpassword123' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
   @MaxLength(100)
   newPassword!: string;
 }

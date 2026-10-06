@@ -15,6 +15,7 @@ import { SocketService } from '../../infrastructure/socket/socket.service';
 import {
   UpdateNotificationSettingsDto,
   ChangePasswordDto,
+  SetPasswordDto,
   UpdateUserDto,
   QueryUsersDto,
   AdminUpdateUserDto,
@@ -173,6 +174,10 @@ export class UsersService {
     });
     if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
 
+    if (!user.password) {
+      throw new BadRequestException(UserErrors.PASSWORD_NOT_SET);
+    }
+
     const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
     if (!isMatch) throw new UnauthorizedException(UserErrors.INVALID_PASSWORD);
 
@@ -201,6 +206,33 @@ export class UsersService {
       await this.redis.set(`revoked:session:${s.id}`, '1', 300);
       await this.socketService.disconnectSession(s.id);
     }
+
+    return { message: CommonSuccess.OPERATION_SUCCESS };
+  }
+
+  async setPassword(userId: string, dto: SetPasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true, email: true },
+    });
+    if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
+
+    if (user.password) {
+      throw new BadRequestException(UserErrors.PASSWORD_ALREADY_SET);
+    }
+
+    // A password is useless without a login identity — email is required
+    // first because both login and OTP-based recovery are email-driven.
+    if (!user.email) {
+      throw new BadRequestException(UserErrors.EMAIL_REQUIRED_FIRST);
+    }
+
+    const hashed = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
 
     return { message: CommonSuccess.OPERATION_SUCCESS };
   }
