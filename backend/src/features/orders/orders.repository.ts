@@ -193,7 +193,12 @@ export class OrdersRepository {
               user: { select: { id: true, phone: true } },
             },
           },
-          items: { include: { product: { select: { imageUrl: true } } } },
+          items: {
+            include: {
+              product: { select: { imageUrl: true } },
+              selectedOptions: true,
+            },
+          },
           review: true,
         },
       }),

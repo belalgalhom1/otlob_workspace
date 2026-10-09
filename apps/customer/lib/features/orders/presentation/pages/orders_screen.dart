@@ -514,13 +514,30 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        '${i['quantity']}x $productName',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : Colors.black87,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${i['quantity']}x $productName',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          for (final opt in ((i['selectedOptions'] as List?) ?? []))
+                            if ((opt is Map) && (opt['optionName']?.toString().isNotEmpty ?? false))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} ${s.egp})' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                        ],
                       ),
                     ),
                     Text(

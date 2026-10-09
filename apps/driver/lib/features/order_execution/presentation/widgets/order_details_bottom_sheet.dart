@@ -321,6 +321,15 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                 item['customizations'].toString(),
                                 style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                               ),
+                            for (final opt in ((item['selectedOptions'] as List?) ?? []))
+                              if ((opt['optionName']?.toString().isNotEmpty ?? false))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} $currency)' : ''}',
+                                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                                  ),
+                                ),
                           ],
                         ),
                       ),

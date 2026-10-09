@@ -1036,12 +1036,40 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
-                                          child: Text(
-                                            productName,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                productName,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              for (final opt in ((item['selectedOptions']
+                                                      as List?) ??
+                                                  []))
+                                                if (opt is Map &&
+                                                    (opt['optionName']
+                                                            ?.toString()
+                                                            .isNotEmpty ??
+                                                        false))
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 2,
+                                                        ),
+                                                    child: Text(
+                                                      '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.grey
+                                                            .shade600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                            ],
                                           ),
                                         ),
                                         Text(
