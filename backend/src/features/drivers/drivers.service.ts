@@ -14,6 +14,7 @@ import {
   RegisterDriverDto,
   UpdateDriverProfileDto,
   UpdateDriverStatusDto,
+  StartBreakDto,
   UpdateDriverLocationDto,
   CreateDriverShiftDto,
   QueryDriversDto,
@@ -22,6 +23,7 @@ import {
 import {
   DriverLocationUpdatedEvent,
   DriverStatusChangedEvent,
+  DriverBreakDecidedEvent,
   ShiftDisabledEvent,
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
@@ -30,7 +32,13 @@ import {
   CommonSuccess,
   DriverErrors,
 } from 'src/common/constants/response.constants';
-import { DriverStatus, DriverShiftStatus, Role } from '@prisma/client';
+import {
+  DriverStatus,
+  DriverShiftStatus,
+  DriverBreakReason,
+  Role,
+} from '@prisma/client';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
 @Injectable()
 export class DriversService {
@@ -42,6 +50,7 @@ export class DriversService {
     private readonly eventEmitter: EventEmitter2,
     private readonly locationRepository: LocationRepository,
     private readonly socketService: SocketService,
+    private readonly platformSettings: PlatformSettingsService,
   ) {}
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -121,8 +130,25 @@ export class DriversService {
       throw new BadRequestException(DriverErrors.CANNOT_GO_OFFLINE_ON_DELIVERY);
     }
 
+    // Breaks are tracked sessions, not plain status flips — force the
+    // dedicated endpoints so every break is recorded with limits enforced.
+    if (dto.status === DriverStatus.ON_BREAK) {
+      throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
+    }
+    if (driver.status === DriverStatus.ON_BREAK) {
+      throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
+    }
+
     const oldStatus = driver.status;
     await this.driversRepository.updateStatus(driver.id, dto.status);
+
+    // Going offline drops any unapproved break request.
+    if (dto.status === DriverStatus.OFFLINE) {
+      const pending = await this.driversRepository.findPendingBreak(driver.id);
+      if (pending) {
+        await this.driversRepository.cancelBreak(pending.id);
+      }
+    }
 
     if (
       dto.status === DriverStatus.OFFLINE ||
@@ -146,6 +172,455 @@ export class DriversService {
 
     this.logger.log(`Driver ${driver.id} status: ${oldStatus} → ${dto.status}`);
     return { status: dto.status };
+  }
+
+  // ─── Breaks ───────────────────────────────────────────────────────────────
+  // Strict approval: driver requests (PENDING) → admin with MANAGE_DRIVERS
+  // approves (APPROVED, driver ON_BREAK) or rejects. Driver ends (ENDED);
+  // watchdog auto-ends over-limit breaks and rejects stale requests.
+
+  async startBreak(userId: string, dto?: StartBreakDto) {
+    const driver = await this.assertDriver(userId);
+    // Fresh re-read: guards must see current status, and everything below
+    // uses the fresh row so no stale snapshot leaks downstream.
+    const fresh = await this.assertCanBreak(driver.id);
+
+    const pendingBreak =
+      await this.driversRepository.findPendingBreak(fresh.id);
+    if (pendingBreak) {
+      throw new ConflictException(DriverErrors.ALREADY_ON_BREAK);
+    }
+
+    // Single cached settings read serves the kill-switch and the quota below.
+    const settings = await this.platformSettings.getSettings();
+    if (!settings.breaksEnabled) {
+      throw new BadRequestException(DriverErrors.BREAKS_DISABLED);
+    }
+
+    const activeShift =
+      await this.driversRepository.findActiveShiftForDriver(fresh.id);
+
+    if (activeShift) {
+      const [breakCount, usedMinutes] = await Promise.all([
+        this.driversRepository.countShiftBreaks(activeShift.id),
+        this.driversRepository.sumShiftBreakMinutes(activeShift.id),
+      ]);
+      if (breakCount >= settings.maxBreaksPerShift) {
+        throw new BadRequestException(DriverErrors.BREAK_LIMIT_REACHED);
+      }
+      if (usedMinutes >= settings.maxBreakMinutesPerShift) {
+        throw new BadRequestException(DriverErrors.BREAK_MINUTES_EXHAUSTED);
+      }
+    }
+
+    const reason = dto?.reason ?? DriverBreakReason.REST;
+    let brk;
+    try {
+      brk = await this.driversRepository.createBreak({
+        driverId: fresh.id,
+        shiftId: activeShift ? activeShift.id : null,
+        reason,
+        note: dto?.note,
+        requestedMinutes: dto?.requestedMinutes,
+      });
+    } catch (e: any) {
+      // Lost a concurrent request race against the partial unique index.
+      if (e?.code === 'P2002') {
+        throw new ConflictException(DriverErrors.ALREADY_ON_BREAK);
+      }
+      throw e;
+    }
+
+    this.logger.log(
+      `Driver ${fresh.id} requested break ${brk.id} (${reason}) — pending approval`,
+    );
+    return brk;
+  }
+
+  async cancelBreakRequest(userId: string) {
+    const driver = await this.assertDriver(userId);
+    const pending = await this.driversRepository.findPendingBreak(driver.id);
+    if (!pending) {
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+    return this.driversRepository.cancelBreak(pending.id);
+  }
+
+  async approveBreak(breakId: string, reviewerId: string) {
+    const brk = await this.driversRepository.findBreakById(breakId);
+    if (!brk) throw new NotFoundException(DriverErrors.BREAK_NOT_FOUND);
+    if (brk.status !== 'PENDING') {
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+
+    const driver = await this.driversRepository.findById(brk.driverId);
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    // Kill-switch: a disabled system drains (ends/cancels allowed) but no
+    // new breaks start — not even via approval. Grant stays an override.
+    const settings = await this.platformSettings.getSettings();
+    if (!settings.breaksEnabled) {
+      throw new BadRequestException(DriverErrors.BREAKS_DISABLED);
+    }
+
+    // State may have changed since the request — re-validate before flipping.
+    const fresh = await this.assertCanBreak(driver.id);
+
+    const approved = await this.driversRepository.approveBreak(
+      breakId,
+      reviewerId,
+      fresh.status,
+    );
+    if (!approved) {
+      // Lost a concurrent approval race.
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+
+    const oldStatus = fresh.status;
+    // Conditional flip: if the driver accepted a dispatch (or got suspended)
+    // after validation, abort and put the request back to PENDING.
+    const flipped = await this.driversRepository.flipDriverToBreak(driver.id);
+    if (!flipped) {
+      await this.driversRepository.revertBreakToPending(breakId);
+      throw new BadRequestException(DriverErrors.CANNOT_BREAK_ON_DELIVERY);
+    }
+
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_STATUS_CHANGED,
+      new DriverStatusChangedEvent(
+        driver.id,
+        driver.userId,
+        oldStatus,
+        DriverStatus.ON_BREAK,
+        'Break approved.',
+      ),
+    );
+
+    this.logger.log(`Break ${breakId} approved by ${reviewerId}`);
+    // Fire-and-forget: the driver listener notifies async via the events
+    // queue, so the decision response never waits on insert/socket/push.
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_BREAK_DECIDED,
+      new DriverBreakDecidedEvent(
+        approved.driverId,
+        driver.userId,
+        approved.id,
+        'approved',
+      ),
+    );
+    return approved;
+  }
+
+  async rejectBreak(breakId: string, reviewerId: string) {
+    const brk = await this.driversRepository.findBreakById(breakId);
+    if (!brk) throw new NotFoundException(DriverErrors.BREAK_NOT_FOUND);
+    if (brk.status !== 'PENDING') {
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+    const rejected = await this.driversRepository.rejectBreak(
+      breakId,
+      reviewerId,
+    );
+    if (!rejected) {
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+    this.logger.log(`Break ${breakId} rejected by ${reviewerId}`);
+    const rejectedDriver = await this.driversRepository.findById(
+      rejected.driverId,
+    );
+    if (rejectedDriver) {
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_BREAK_DECIDED,
+        new DriverBreakDecidedEvent(
+          rejected.driverId,
+          rejectedDriver.userId,
+          rejected.id,
+          'rejected',
+        ),
+      );
+    }
+    return rejected;
+  }
+
+  async getPendingBreaks() {
+    return this.driversRepository.findPendingBreaks();
+  }
+
+  // ─── Admin break controls ─────────────────────────────────────────────────
+  // MANAGE_DRIVERS (SUPER_ADMIN bypasses via PermissionsGuard).
+
+  /** Force-end an ACTIVE break early (driver back ONLINE, minutes kept). */
+  async adminEndBreak(breakId: string, reviewerId: string) {
+    const brk = await this.driversRepository.findBreakById(breakId);
+    if (!brk) throw new NotFoundException(DriverErrors.BREAK_NOT_FOUND);
+    if (brk.status !== 'APPROVED' || brk.endedAt) {
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+    const ended = await this.finishBreak(breakId, false, 'ended_by_admin');
+    if (!ended) {
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+    this.logger.log(`Break ${breakId} force-ended by admin ${reviewerId}`);
+    return ended;
+  }
+
+  /**
+   * Grant a break manually without a driver request (admin override).
+   * Safety guards still enforced; per-shift quota caps bypassed by design.
+   * Any PENDING request is superseded (cancelled).
+   */
+  async adminGrantBreak(
+    driverId: string,
+    reviewerId: string,
+    dto?: StartBreakDto,
+  ) {
+    const driver = await this.driversRepository.findById(driverId);
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+    const fresh = await this.assertCanBreak(driver.id);
+
+    const pending = await this.driversRepository.findPendingBreak(driver.id);
+    if (pending) {
+      await this.driversRepository.cancelBreak(pending.id);
+    }
+
+    const activeShift =
+      await this.driversRepository.findActiveShiftForDriver(driver.id);
+    const reason = dto?.reason ?? DriverBreakReason.REST;
+
+    let created;
+    try {
+      created = await this.driversRepository.createBreak({
+        driverId: fresh.id,
+        shiftId: activeShift ? activeShift.id : null,
+        reason,
+        note: dto?.note,
+        requestedMinutes: dto?.requestedMinutes,
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        throw new ConflictException(DriverErrors.ALREADY_ON_BREAK);
+      }
+      throw e;
+    }
+    const approved = await this.driversRepository.approveBreak(
+      created.id,
+      reviewerId,
+      fresh.status,
+    );
+    if (!approved) {
+      // Driver cancelled in the split second between create and approve.
+      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+    }
+
+    const oldStatus = fresh.status;
+    const flipped = await this.driversRepository.flipDriverToBreak(driver.id);
+    if (!flipped) {
+      await this.driversRepository.revertBreakToPending(created.id);
+      throw new BadRequestException(DriverErrors.CANNOT_BREAK_ON_DELIVERY);
+    }
+
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_STATUS_CHANGED,
+      new DriverStatusChangedEvent(
+        driver.id,
+        driver.userId,
+        oldStatus,
+        DriverStatus.ON_BREAK,
+        'Break granted by admin.',
+      ),
+    );
+
+    this.logger.log(
+      `Break ${created.id} granted to driver ${driver.id} by admin ${reviewerId}`,
+    );
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_BREAK_DECIDED,
+      new DriverBreakDecidedEvent(
+        approved.driverId,
+        driver.userId,
+        approved.id,
+        'granted',
+      ),
+    );
+    return approved;
+  }
+
+  async endBreak(userId: string) {
+    const driver = await this.assertDriver(userId);
+    const activeBreak =
+      await this.driversRepository.findActiveBreak(driver.id);
+    if (!activeBreak || driver.status !== DriverStatus.ON_BREAK) {
+      throw new BadRequestException(DriverErrors.NOT_ON_BREAK);
+    }
+    const ended = await this.finishBreak(activeBreak.id, false);
+    if (!ended) {
+      // Watchdog or admin closed it concurrently.
+      throw new BadRequestException(DriverErrors.NOT_ON_BREAK);
+    }
+    return ended;
+  }
+
+  async getMyBreaks(userId: string) {
+    const driver = await this.assertDriver(userId);
+    return this.driversRepository.findBreaksByDriver(driver.id);
+  }
+
+  async getActiveBreak(userId: string) {
+    const driver = await this.assertDriver(userId);
+    return this.driversRepository.findActiveBreak(driver.id);
+  }
+
+  /** Shared finish path for driver-initiated end, shift end, and the watchdog. */
+  async finishBreak(
+    breakId: string,
+    autoEnded: boolean,
+    notifyAction: 'ended_by_admin' | 'auto_ended' | null = null,
+  ) {
+    const brk = await this.driversRepository.findBreakById(breakId);
+    if (!brk || brk.status !== 'APPROVED' || brk.endedAt) return null;
+
+    const endedAt = new Date();
+    const durationMinutes = Math.max(
+      1,
+      Math.ceil((endedAt.getTime() - brk.startedAt.getTime()) / 60000),
+    );
+
+    const updated = await this.driversRepository.endBreak(
+      breakId,
+      endedAt,
+      durationMinutes,
+      autoEnded,
+    );
+    if (!updated) return null;
+
+    const driver = await this.driversRepository.findById(brk.driverId);
+    // Pause/resume: restore the pre-break status (ONLINE, or OFFLINE for
+    // breaks granted while clocked out). OFFLINE restore also evicts geo,
+    // mirroring PATCH me/status.
+    const restoreTo =
+      brk.prevStatus === DriverStatus.OFFLINE
+        ? DriverStatus.OFFLINE
+        : DriverStatus.ONLINE;
+    if (driver && driver.status === DriverStatus.ON_BREAK) {
+      await this.driversRepository.updateStatus(brk.driverId, restoreTo);
+      if (restoreTo === DriverStatus.OFFLINE) {
+        const pos = await this.locationRepository.getDriverLocation(
+          brk.driverId,
+        );
+        if (pos) {
+          await this.driversRepository.updateLastLocation(
+            brk.driverId,
+            pos.lng,
+            pos.lat,
+          );
+        }
+        await this.locationRepository.removeDriverLocation(brk.driverId);
+      }
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          brk.driverId,
+          driver.userId,
+          DriverStatus.ON_BREAK,
+          restoreTo,
+          autoEnded ? 'Break auto-ended (limit reached).' : 'Break ended.',
+        ),
+      );
+      if (notifyAction) {
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_BREAK_DECIDED,
+          new DriverBreakDecidedEvent(
+            brk.driverId,
+            driver.userId,
+            breakId,
+            notifyAction,
+          ),
+        );
+      }
+    }
+
+    if (brk.shiftId) {
+      // Shift may have been deleted meanwhile (SetNull skips this when the
+      // relation is already gone, but the id can be stale) — minutes must
+      // never fail the break close.
+      try {
+        await this.driversRepository.incrementShiftBreakMinutes(
+          brk.shiftId,
+          durationMinutes,
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Break ${breakId}: skipped shift minute accrual (${(e as Error).message})`,
+        );
+      }
+    }
+
+    return updated;
+  }
+
+  /** Cron entrypoint: auto-end over-limit breaks, reject stale requests. */
+  async autoEndExpiredBreaks() {
+    const settings = await this.platformSettings.getSettings();
+    // Per-break effective cap: requested minutes tightened by the system cap.
+    // Null request = up to the cap.
+    const open = await this.driversRepository.findOpenBreaks();
+    const now = Date.now();
+    const expired = open.filter((b) => {
+      const cap = Math.min(
+        b.requestedMinutes ?? settings.maxSingleBreakMinutes,
+        settings.maxSingleBreakMinutes,
+      );
+      return b.startedAt.getTime() + cap * 60000 <= now;
+    });
+    for (const b of expired) {
+      try {
+        // finishBreak emits the auto_ended notice itself (driver row in hand,
+        // zero extra queries on this hot path).
+        const ended = await this.finishBreak(b.id, true, 'auto_ended');
+        if (ended) {
+          this.logger.log(`Auto-ended break ${b.id} (limit reached)`);
+        }
+      } catch (e) {
+        this.logger.error(
+          `Failed to auto-end break ${b.id}`,
+          (e as Error).stack,
+        );
+      }
+    }
+
+    const staleCutoff = new Date(
+      Date.now() - settings.pendingBreakExpiryMins * 60000,
+    );
+    const stale =
+      await this.driversRepository.findStalePendingBreaks(staleCutoff);
+    for (const b of stale) {
+      try {
+        const rejected = await this.driversRepository.rejectBreak(b.id, 'system');
+        if (rejected) {
+          this.logger.log(`Auto-rejected stale break request ${b.id}`);
+          const staleDriver = await this.driversRepository.findById(
+            rejected.driverId,
+          );
+          if (staleDriver) {
+            this.eventEmitter.emit(
+              EVENTS.DRIVER_BREAK_DECIDED,
+              new DriverBreakDecidedEvent(
+                rejected.driverId,
+                staleDriver.userId,
+                rejected.id,
+                'request_expired',
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        this.logger.error(
+          `Failed to auto-reject break ${b.id}`,
+          (e as Error).stack,
+        );
+      }
+    }
+    return { ended: expired.length, rejected: stale.length };
   }
 
   // ─── Shifts ───────────────────────────────────────────────────────────────
@@ -209,6 +684,18 @@ export class DriversService {
       );
     }
 
+    // Deleting a shift must not orphan break rows: settle the active break
+    // (minutes kept) and drop any pending request for this driver.
+    const openBreak = await this.driversRepository.findActiveBreak(driver.id);
+    if (openBreak) {
+      await this.finishBreak(openBreak.id, false);
+    }
+    const pendingBreak =
+      await this.driversRepository.findPendingBreak(driver.id);
+    if (pendingBreak) {
+      await this.driversRepository.cancelBreak(pendingBreak.id);
+    }
+
     await this.driversRepository.deleteShift(shiftId);
 
     this.eventEmitter.emit(
@@ -265,6 +752,18 @@ export class DriversService {
       throw new BadRequestException(DriverErrors.CANNOT_END_WHILE_ON_DELIVERY);
     }
 
+    // Closing the shift closes any open break so minutes are accounted,
+    // and drops any unapproved request tied to this driver.
+    const openBreak = await this.driversRepository.findActiveBreak(driver.id);
+    if (openBreak) {
+      await this.finishBreak(openBreak.id, false);
+    }
+    const pendingBreak =
+      await this.driversRepository.findPendingBreak(driver.id);
+    if (pendingBreak) {
+      await this.driversRepository.cancelBreak(pendingBreak.id);
+    }
+
     const [totalDeliveries, totalEarnings] = await Promise.all([
       this.driversRepository.countDeliveredOrdersInShift(shiftId),
       this.driversRepository.sumShiftEarnings(shiftId),
@@ -319,6 +818,16 @@ export class DriversService {
     const shift = await this.driversRepository.findShiftById(shiftId, driverId);
     if (!shift || shift.status !== DriverShiftStatus.ACTIVE) {
       return;
+    }
+
+    const openBreak = await this.driversRepository.findActiveBreak(driverId);
+    if (openBreak) {
+      await this.finishBreak(openBreak.id, false);
+    }
+    const pendingBreak =
+      await this.driversRepository.findPendingBreak(driverId);
+    if (pendingBreak) {
+      await this.driversRepository.cancelBreak(pendingBreak.id);
     }
 
     const [totalDeliveries, totalEarnings] = await Promise.all([
@@ -434,6 +943,25 @@ export class DriversService {
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
     const oldValues = { ...driver };
+
+    // Break machine guard: admins cannot flip ON_BREAK directly (use the
+    // approve/grant endpoints), and moving a driver off ON_BREAK must close
+    // the active break so no orphan APPROVED row survives.
+    if (dto.status !== undefined) {
+      if (dto.status === DriverStatus.ON_BREAK) {
+        throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
+      }
+      if (
+        driver.status === DriverStatus.ON_BREAK &&
+        dto.status !== DriverStatus.ON_BREAK
+      ) {
+        const openBreak =
+          await this.driversRepository.findActiveBreak(driverId);
+        if (openBreak) {
+          await this.finishBreak(openBreak.id, false);
+        }
+      }
+    }
 
     const updateData: any = {};
     if (dto.name !== undefined) updateData.name = dto.name;
@@ -557,6 +1085,16 @@ export class DriversService {
     this.socketService.disconnectUser(driver.userId);
     await this.locationRepository.removeDriverLocation(driver.id);
 
+    const openBreak = await this.driversRepository.findActiveBreak(driverId);
+    if (openBreak) {
+      await this.finishBreak(openBreak.id, false);
+    }
+    const pendingBreak =
+      await this.driversRepository.findPendingBreak(driverId);
+    if (pendingBreak) {
+      await this.driversRepository.cancelBreak(pendingBreak.id);
+    }
+
     const result = await this.driversRepository.updateStatus(
       driverId,
       DriverStatus.SUSPENDED,
@@ -628,6 +1166,12 @@ export class DriversService {
     return this.driversRepository.findShiftsByDriver(driver.id);
   }
 
+  async adminGetBreaks(driverId: string) {
+    const driver = await this.driversRepository.findById(driverId);
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+    return this.driversRepository.findBreaksByDriver(driver.id, 50);
+  }
+
   // ─── Internal helper used by dispatch ────────────────────────────────────
 
   async getDriverByUserId(userId: string) {
@@ -641,6 +1185,46 @@ export class DriversService {
   private async assertDriver(userId: string) {
     const driver = await this.driversRepository.findByUserId(userId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+    return driver;
+  }
+
+  /**
+   * Shared safety gate for request / approve / grant: the driver must be
+   * breakable right now (approved, not suspended, not busy/delivering/on
+   * break, no live order, no pending dispatch, no other active break).
+   */
+  private async assertCanBreak(driverId: string) {
+    const driver = await this.driversRepository.findById(driverId);
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    if (driver.status === DriverStatus.SUSPENDED) {
+      throw new ForbiddenException(DriverErrors.ACCOUNT_SUSPENDED);
+    }
+    if (!driver.isApproved) {
+      throw new ForbiddenException(DriverErrors.NOT_APPROVED);
+    }
+    if (
+      driver.status === DriverStatus.ON_DELIVERY ||
+      driver.status === DriverStatus.BUSY ||
+      driver.status === DriverStatus.ON_BREAK
+    ) {
+      throw new BadRequestException(DriverErrors.CANNOT_BREAK_ON_DELIVERY);
+    }
+
+    const [activeBreak, activeOrder, pendingDispatch] = await Promise.all([
+      this.driversRepository.findActiveBreak(driver.id),
+      this.driversRepository.findActiveOrderForDriver(driver.id),
+      this.driversRepository.findPendingDispatchForDriver(driver.id),
+    ]);
+    if (activeBreak) throw new ConflictException(DriverErrors.ALREADY_ON_BREAK);
+    if (activeOrder) {
+      throw new BadRequestException(DriverErrors.CANNOT_BREAK_ON_DELIVERY);
+    }
+    if (pendingDispatch) {
+      throw new BadRequestException(
+        DriverErrors.CANNOT_BREAK_WITH_PENDING_DISPATCH,
+      );
+    }
     return driver;
   }
 }

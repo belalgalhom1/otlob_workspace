@@ -681,6 +681,16 @@ export class UpdatePlatformSettingsDto {
   driverShiftsEnabled?: boolean;
 
   @ApiProperty({
+    example: true,
+    required: false,
+    description:
+      'Master switch for the driver break system. When off, drivers cannot request breaks and pending requests cannot be approved (admin grant still works as an override). Active breaks can always be ended.',
+  })
+  @IsBoolean()
+  @IsOptional()
+  breaksEnabled?: boolean;
+
+  @ApiProperty({
     example: 1,
     required: false,
     description: 'Per-km bonus for Bronze tier drivers',
@@ -725,6 +735,53 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   driverSettlementOrderThreshold?: number;
+
+  // ─── Driver Breaks ────────────────────────────────────────────────────
+  @ApiProperty({
+    example: 60,
+    required: false,
+    description: 'Max total break minutes allowed per shift',
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  maxBreakMinutesPerShift?: number;
+
+  @ApiProperty({
+    example: 2,
+    required: false,
+    description: 'Max number of breaks allowed per shift',
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  maxBreaksPerShift?: number;
+
+  @ApiProperty({
+    example: 30,
+    required: false,
+    description:
+      'Max minutes for a single break before it is auto-ended by the system',
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  maxSingleBreakMinutes?: number;
+
+  @ApiProperty({
+    example: 15,
+    required: false,
+    description:
+      'Minutes a break request stays PENDING before the system auto-rejects it',
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  pendingBreakExpiryMins?: number;
 }
 
 // Used by mobile clients to check app version requirements

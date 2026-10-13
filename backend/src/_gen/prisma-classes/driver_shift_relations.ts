@@ -1,4 +1,5 @@
 import { Driver } from './driver';
+import { DriverBreak } from './driver_break';
 import { ShiftPool } from './shift_pool';
 import { Zone } from './zone';
 import { DriverWalletTransaction } from './driver_wallet_transaction';
@@ -28,4 +29,7 @@ export class DriverShiftRelations {
 
   @ApiProperty({ isArray: true, type: () => ShiftSwapRequest })
   swapRequests: ShiftSwapRequest[];
+
+  @ApiProperty({ isArray: true, type: () => DriverBreak })
+  breaks: DriverBreak[];
 }

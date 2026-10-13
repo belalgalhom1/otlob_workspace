@@ -7,6 +7,8 @@ import { NotificationType, DriverStatus } from '@prisma/client';
 import {
   DriverLocationUpdatedEvent,
   DriverStatusChangedEvent,
+  DriverBreakDecidedEvent,
+  DriverBreakDecision,
 } from '../events';
 import { EVENTS } from '../events/event-names';
 import {
@@ -110,6 +112,79 @@ export class DriverListener {
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue driver status notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @OnEvent(EVENTS.DRIVER_BREAK_DECIDED, { async: true })
+  async handleBreakDecided(event: DriverBreakDecidedEvent) {
+    const copy: Record<
+      DriverBreakDecision,
+      { title: string; titleAr: string; body: string; bodyAr: string }
+    > = {
+      approved: {
+        title: 'Break approved',
+        titleAr: 'تمت الموافقة على الاستراحة',
+        body: 'Your break was approved. You are now on break and will not receive orders.',
+        bodyAr:
+          'تمت الموافقة على استراحتك. أنت الآن في استراحة ولن تصلك طلبات.',
+      },
+      rejected: {
+        title: 'Break request rejected',
+        titleAr: 'تم رفض طلب الاستراحة',
+        body: 'An admin rejected your break request. You are still online.',
+        bodyAr: 'رفض المشرف طلب الاستراحة. ما زلت متاحًا.',
+      },
+      granted: {
+        title: 'Break granted',
+        titleAr: 'تم منح استراحة',
+        body: 'An admin gave you a break. You are now on break.',
+        bodyAr: 'منحك المشرف استراحة. أنت الآن في استراحة.',
+      },
+      ended_by_admin: {
+        title: 'Break ended by admin',
+        titleAr: 'أنهى المشرف الاستراحة',
+        body: 'An admin ended your break early. Your break is over.',
+        bodyAr: 'أنهى المشرف استراحتك مبكرًا. انتهت الاستراحة.',
+      },
+      auto_ended: {
+        title: 'Break auto-ended',
+        titleAr: 'انتهت الاستراحة تلقائيًا',
+        body: 'Your break reached the maximum length and was ended.',
+        bodyAr: 'بلغت استراحتك الحد الأقصى وتم إنهاؤها.',
+      },
+      request_expired: {
+        title: 'Break request expired',
+        titleAr: 'انتهت صلاحية طلب الاستراحة',
+        body: 'Your break request expired without admin approval. You can request again.',
+        bodyAr:
+          'انتهت صلاحية طلب الاستراحة دون موافقة. يمكنك الطلب مرة أخرى.',
+      },
+    };
+
+    const text = copy[event.action];
+    if (!text) return;
+
+    const dto = {
+      userId: event.driverUserId,
+      title: text.title,
+      titleAr: text.titleAr,
+      body: text.body,
+      bodyAr: text.bodyAr,
+      type: NotificationType.SYSTEM,
+      data: {
+        kind: 'break',
+        action: event.action,
+        breakId: event.breakId,
+        driverId: event.driverId,
+      },
+    };
+
+    try {
+      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto }, { attempts: 1 });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue break notification: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

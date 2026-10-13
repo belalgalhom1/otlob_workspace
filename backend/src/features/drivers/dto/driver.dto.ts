@@ -15,7 +15,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { DriverStatus, VehicleType } from '@prisma/client';
+import { DriverStatus, DriverBreakReason, VehicleType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDriverDto {
@@ -66,13 +66,45 @@ export class UpdateDriverProfileDto {
 
 export class UpdateDriverStatusDto {
   @ApiProperty({
-    enum: [DriverStatus.ONLINE, DriverStatus.OFFLINE, DriverStatus.ON_BREAK],
+    enum: [DriverStatus.ONLINE, DriverStatus.OFFLINE],
+    description:
+      'ONLINE / OFFLINE only. Use POST /drivers/me/break/start|end for breaks.',
   })
-  @IsIn([DriverStatus.ONLINE, DriverStatus.OFFLINE, DriverStatus.ON_BREAK], {
-    message: 'Status must be ONLINE, OFFLINE, or ON_BREAK',
+  @IsIn([DriverStatus.ONLINE, DriverStatus.OFFLINE], {
+    message: 'Status must be ONLINE or OFFLINE',
   })
   @IsNotEmpty()
   status!: DriverStatus;
+}
+
+export class StartBreakDto {
+  @ApiProperty({ enum: DriverBreakReason, required: false })
+  @IsEnum(DriverBreakReason)
+  @IsOptional()
+  reason?: DriverBreakReason;
+
+  @ApiProperty({
+    example: 'Need 15 minutes for prayer',
+    required: false,
+    description: 'Free-text note shown to the reviewing admin',
+  })
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  note?: string;
+
+  @ApiProperty({
+    example: 15,
+    required: false,
+    description:
+      'Requested break length in minutes. Capped by maxSingleBreakMinutes; omit for up to the cap',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(480)
+  @IsOptional()
+  @Type(() => Number)
+  requestedMinutes?: number;
 }
 
 export class UpdateDriverLocationDto {

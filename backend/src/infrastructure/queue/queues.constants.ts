@@ -41,6 +41,7 @@ export const CRON_JOBS = {
   UNSETTLED_ORDER_MONITOR: 'cron.unsettled_order_monitor',
   SHIFT_WARNING: 'cron.shift_warning',
   LATE_CHECK: 'cron.late_check',
+  BREAK_WATCHDOG: 'cron.break_watchdog',
   GEO_FRESHNESS_SWEEP: 'cron.geo_freshness_sweep',
 } as const;
 

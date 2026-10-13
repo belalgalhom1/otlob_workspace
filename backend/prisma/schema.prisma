@@ -97,11 +97,16 @@ model PlatformSetting {
   driverBonusEndDate                    DateTime? @db.Timestamptz(3)
   driverBonusPaidByCustomer             Boolean   @default(false)
   driverShiftsEnabled                   Boolean   @default(false)
+  breaksEnabled                         Boolean   @default(true)
   maxActiveOrdersPerCustomer            Int       @default(2)
   requirePriorDeliveryForMultipleOrders Boolean   @default(true)
   maxOtpAttempts                        Int       @default(5)
   maxNegativeDriverBalance              Int       @default(500)
   driverSettlementOrderThreshold        Int       @default(10)
+  maxBreakMinutesPerShift               Int       @default(60)
+  maxBreaksPerShift                     Int       @default(2)
+  maxSingleBreakMinutes                 Int       @default(30)
+  pendingBreakExpiryMins                Int       @default(15)
   otpExpirySeconds                      Int       @default(900)
   bronzeTierBonusPerKm                  Int       @default(0)
   silverTierBonusPerKm                  Int       @default(0)
@@ -920,6 +925,7 @@ model Driver {
   dispatches          OrderDispatch[]
   orders              Order[]
   orderReviews        OrderReview[]
+  breaks              DriverBreak[]
 
   @@index([status])
   @@index([createdAt])
@@ -954,6 +960,7 @@ model DriverShift {
   dispatches         OrderDispatch[]
   orders             Order[]
   swapRequests       ShiftSwapRequest[]
+  breaks             DriverBreak[]
 
   @@index([shiftPoolId])
   @@index([zoneId])
@@ -1200,6 +1207,51 @@ enum DriverStatus {
   ON_DELIVERY
   ON_BREAK
   SUSPENDED
+}
+
+enum DriverBreakReason {
+  PRAYER
+  MEAL
+  REST
+  PERSONAL
+  OTHER
+}
+
+enum DriverBreakStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  ENDED
+}
+
+model DriverBreak {
+  id              String            @id @default(uuid())
+  driverId        String
+  shiftId         String?
+  reason          DriverBreakReason @default(REST)
+  // Free-text note from the driver (or admin on grant) — shown in the queue.
+  note            String?
+  // Driver-requested length in minutes. Watchdog caps it at
+  // maxSingleBreakMinutes; null = up to the cap.
+  requestedMinutes Int?
+  status          DriverBreakStatus @default(PENDING)
+  // Status before the break started — restored on end (pause/resume).
+  prevStatus      DriverStatus?
+  startedAt       DateTime          @default(now()) @db.Timestamptz(3)
+  endedAt         DateTime?         @db.Timestamptz(3)
+  durationMinutes Int?
+  autoEnded       Boolean           @default(false)
+  reviewedById    String?
+  reviewedAt      DateTime?         @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  driver          Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  shift           DriverShift?      @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+
+  @@index([driverId, createdAt])
+  @@index([shiftId])
+  @@index([status])
+  @@map("driver_breaks")
 }
 
 enum DriverTier {

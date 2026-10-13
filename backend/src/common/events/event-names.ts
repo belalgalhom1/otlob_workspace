@@ -26,6 +26,7 @@ export const EVENTS = {
   // Driver
   DRIVER_LOCATION_UPDATED: 'driver.location.updated',
   DRIVER_STATUS_CHANGED: 'driver.status.changed',
+  DRIVER_BREAK_DECIDED: 'driver.break.decided',
   SHIFT_REMINDER: 'shift.reminder',
   SHIFT_MISSED: 'shift.missed',
   SHIFT_SWAP_CANCELLED: 'shift.swap.cancelled',

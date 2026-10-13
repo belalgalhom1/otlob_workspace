@@ -1,4 +1,5 @@
 import { DriverShift } from './driver_shift';
+import { DriverBreak } from './driver_break';
 import { DriverStatistic } from './driver_statistic';
 import { DriverWalletTransaction } from './driver_wallet_transaction';
 import { MobileWallet } from './mobile_wallet';
@@ -11,6 +12,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class DriverRelations {
   @ApiProperty({ isArray: true, type: () => DriverShift })
   shifts: DriverShift[];
+
+  @ApiProperty({ isArray: true, type: () => DriverBreak })
+  breaks: DriverBreak[];
 
   @ApiProperty({ isArray: true, type: () => DriverStatistic })
   statistics: DriverStatistic[];

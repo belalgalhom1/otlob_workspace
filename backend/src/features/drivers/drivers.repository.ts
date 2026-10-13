@@ -399,4 +399,205 @@ export class DriversRepository {
       },
     });
   }
+
+  // ─── Breaks ───────────────────────────────────────────────────────────────
+  // State machine: PENDING (driver requested) → APPROVED (active break,
+  // driver ON_BREAK) → ENDED. REJECTED (admin) / CANCELLED (driver/offline).
+
+  async findActiveBreak(driverId: string) {
+    return this.prisma.driverBreak.findFirst({
+      where: { driverId, status: 'APPROVED', endedAt: null },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
+  async findPendingBreak(driverId: string) {
+    return this.prisma.driverBreak.findFirst({
+      where: { driverId, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findBreakById(breakId: string) {
+    return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
+  }
+
+  async findPendingBreaks(take = 50) {
+    return this.prisma.driverBreak.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+      take,
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            vehicleType: true,
+            status: true,
+            user: { select: { name: true, phone: true } },
+          },
+        },
+      },
+    });
+  }
+
+  async findPendingDispatchForDriver(driverId: string) {
+    return this.prisma.orderDispatch.findFirst({
+      where: { driverId, status: 'PENDING' },
+      select: { id: true },
+    });
+  }
+
+  async findActiveShiftForDriver(driverId: string) {
+    return this.prisma.driverShift.findFirst({
+      where: { driverId, status: DriverShiftStatus.ACTIVE },
+    });
+  }
+
+  async countShiftBreaks(shiftId: string) {
+    return this.prisma.driverBreak.count({
+      where: { shiftId, status: { in: ['APPROVED', 'ENDED'] } },
+    });
+  }
+
+  async sumShiftBreakMinutes(shiftId: string) {
+    const result = await this.prisma.driverBreak.aggregate({
+      where: {
+        shiftId,
+        status: 'ENDED',
+        durationMinutes: { not: null },
+      },
+      _sum: { durationMinutes: true },
+    });
+    return Number(result._sum.durationMinutes ?? 0);
+  }
+
+  async createBreak(data: {
+    driverId: string;
+    shiftId: string | null;
+    reason: string;
+    note?: string | null;
+    requestedMinutes?: number | null;
+  }) {
+    return this.prisma.driverBreak.create({
+      data: {
+        driverId: data.driverId,
+        shiftId: data.shiftId,
+        reason: data.reason as any,
+        note: data.note?.trim() ? data.note.trim() : null,
+        requestedMinutes: data.requestedMinutes ?? null,
+        status: 'PENDING',
+      },
+    });
+  }
+
+  async approveBreak(breakId: string, reviewerId: string, prevStatus: string) {
+    const now = new Date();
+    // Atomic: only a PENDING row flips. A concurrent reviewer gets count 0.
+    const result = await this.prisma.driverBreak.updateMany({
+      where: { id: breakId, status: 'PENDING' },
+      data: {
+        status: 'APPROVED',
+        startedAt: now,
+        prevStatus: prevStatus as any,
+        reviewedById: reviewerId,
+        reviewedAt: now,
+      },
+    });
+    if (result.count === 0) return null;
+    return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
+  }
+
+  /**
+   * Conditional ON_BREAK flip: succeeds only if the driver hasn't moved to
+   * ON_DELIVERY/BUSY/SUSPENDED since validation (closes the approve race
+   * where a driver accepts a dispatch mid-approval).
+   */
+  async flipDriverToBreak(driverId: string) {
+    const result = await this.prisma.driver.updateMany({
+      where: {
+        id: driverId,
+        status: { notIn: ['ON_DELIVERY', 'BUSY', 'SUSPENDED', 'ON_BREAK'] },
+      },
+      data: { status: 'ON_BREAK' },
+    });
+    return result.count > 0;
+  }
+
+  /** Reverts an APPROVED row back to PENDING (lost status-flip race). */
+  async revertBreakToPending(breakId: string) {
+    await this.prisma.driverBreak.updateMany({
+      where: { id: breakId, status: 'APPROVED', endedAt: null },
+      data: { status: 'PENDING', reviewedById: null, reviewedAt: null },
+    });
+  }
+
+  async rejectBreak(breakId: string, reviewerId: string) {
+    const now = new Date();
+    const result = await this.prisma.driverBreak.updateMany({
+      where: { id: breakId, status: 'PENDING' },
+      data: {
+        status: 'REJECTED',
+        endedAt: now,
+        reviewedById: reviewerId,
+        reviewedAt: now,
+      },
+    });
+    if (result.count === 0) return null;
+    return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
+  }
+
+  async cancelBreak(breakId: string) {
+    const result = await this.prisma.driverBreak.updateMany({
+      where: { id: breakId, status: 'PENDING' },
+      data: { status: 'CANCELLED', endedAt: new Date() },
+    });
+    if (result.count === 0) return null;
+    return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
+  }
+
+  async endBreak(breakId: string, endedAt: Date, durationMinutes: number, autoEnded: boolean) {
+    const result = await this.prisma.driverBreak.updateMany({
+      where: { id: breakId, status: 'APPROVED', endedAt: null },
+      data: { status: 'ENDED', endedAt, durationMinutes, autoEnded },
+    });
+    if (result.count === 0) return null;
+    return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
+  }
+
+  /** All open breaks for per-break limit evaluation (tiny set by design). */
+  async findOpenBreaks() {
+    return this.prisma.driverBreak.findMany({
+      where: { status: 'APPROVED', endedAt: null },
+      select: {
+        id: true,
+        driverId: true,
+        shiftId: true,
+        startedAt: true,
+        requestedMinutes: true,
+      },
+    });
+  }
+
+  async findStalePendingBreaks(cutoff: Date) {
+    return this.prisma.driverBreak.findMany({
+      where: { status: 'PENDING', createdAt: { lte: cutoff } },
+      select: { id: true },
+    });
+  }
+
+  async findBreaksByDriver(driverId: string, take = 20) {
+    return this.prisma.driverBreak.findMany({
+      where: { driverId },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+  }
+
+  async incrementShiftBreakMinutes(shiftId: string, minutes: number) {
+    return this.prisma.driverShift.update({
+      where: { id: shiftId },
+      data: { breakMinutes: { increment: minutes } },
+    });
+  }
 }

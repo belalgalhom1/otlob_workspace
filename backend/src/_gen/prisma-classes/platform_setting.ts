@@ -247,6 +247,9 @@ export class PlatformSetting {
   @ApiProperty({ type: Boolean })
   driverShiftsEnabled: boolean;
 
+  @ApiProperty({ type: Boolean })
+  breaksEnabled: boolean = true;
+
   @ApiProperty({ type: Number })
   maxActiveOrdersPerCustomer: number = 2;
 
@@ -261,6 +264,18 @@ export class PlatformSetting {
 
   @ApiProperty({ type: Number })
   driverSettlementOrderThreshold: number = 10;
+
+  @ApiProperty({ type: Number })
+  maxBreakMinutesPerShift: number = 60;
+
+  @ApiProperty({ type: Number })
+  maxBreaksPerShift: number = 2;
+
+  @ApiProperty({ type: Number })
+  maxSingleBreakMinutes: number = 30;
+
+  @ApiProperty({ type: Number })
+  pendingBreakExpiryMins: number = 15;
 
   @ApiProperty({ type: Number })
   otpExpirySeconds: number = 900;

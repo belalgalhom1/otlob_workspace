@@ -59,6 +59,12 @@ CREATE TYPE "SwapRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'CANCELLED');
 CREATE TYPE "DriverShiftStatus" AS ENUM ('SCHEDULED', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'MISSED');
 
 -- CreateEnum
+CREATE TYPE "DriverBreakReason" AS ENUM ('PRAYER', 'MEAL', 'REST', 'PERSONAL', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "DriverBreakStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'ENDED');
+
+-- CreateEnum
 CREATE TYPE "WalletTransactionType" AS ENUM ('DELIVERY_FEE', 'CASH_COLLECTED', 'CASH_HANDED_TO_VENDOR', 'PAYOUT', 'PENALTY', 'BONUS', 'ADJUSTMENT');
 
 -- CreateEnum
@@ -187,11 +193,16 @@ CREATE TABLE "platform_settings" (
     "driverBonusEndDate" TIMESTAMPTZ(3),
     "driverBonusPaidByCustomer" BOOLEAN NOT NULL DEFAULT false,
     "driverShiftsEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "breaksEnabled" BOOLEAN NOT NULL DEFAULT true,
     "maxActiveOrdersPerCustomer" INTEGER NOT NULL DEFAULT 2,
     "requirePriorDeliveryForMultipleOrders" BOOLEAN NOT NULL DEFAULT true,
     "maxOtpAttempts" INTEGER NOT NULL DEFAULT 5,
     "maxNegativeDriverBalance" INTEGER NOT NULL DEFAULT 500,
     "driverSettlementOrderThreshold" INTEGER NOT NULL DEFAULT 10,
+    "maxBreakMinutesPerShift" INTEGER NOT NULL DEFAULT 60,
+    "maxBreaksPerShift" INTEGER NOT NULL DEFAULT 2,
+    "maxSingleBreakMinutes" INTEGER NOT NULL DEFAULT 30,
+    "pendingBreakExpiryMins" INTEGER NOT NULL DEFAULT 15,
     "otpExpirySeconds" INTEGER NOT NULL DEFAULT 900,
     "bronzeTierBonusPerKm" INTEGER NOT NULL DEFAULT 0,
     "silverTierBonusPerKm" INTEGER NOT NULL DEFAULT 0,
@@ -830,6 +841,27 @@ CREATE TABLE "driver_shifts" (
 );
 
 -- CreateTable
+CREATE TABLE "driver_breaks" (
+    "id" TEXT NOT NULL,
+    "driverId" TEXT NOT NULL,
+    "shiftId" TEXT,
+    "reason" "DriverBreakReason" NOT NULL DEFAULT 'REST',
+    "note" TEXT,
+    "requestedMinutes" INTEGER,
+    "status" "DriverBreakStatus" NOT NULL DEFAULT 'PENDING',
+    "prevStatus" "DriverStatus",
+    "startedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMPTZ(3),
+    "durationMinutes" INTEGER,
+    "autoEnded" BOOLEAN NOT NULL DEFAULT false,
+    "reviewedById" TEXT,
+    "reviewedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "driver_breaks_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "shift_pools" (
     "id" TEXT NOT NULL,
     "zoneId" TEXT,
@@ -1328,6 +1360,21 @@ CREATE INDEX "driver_shifts_startingLocation_idx" ON "driver_shifts" USING GIST 
 CREATE INDEX "driver_shifts_endingLocation_idx" ON "driver_shifts" USING GIST ("endingLocation");
 
 -- CreateIndex
+CREATE INDEX "driver_breaks_driverId_createdAt_idx" ON "driver_breaks"("driverId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "driver_breaks_shiftId_idx" ON "driver_breaks"("shiftId");
+
+-- CreateIndex
+CREATE INDEX "driver_breaks_status_idx" ON "driver_breaks"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "driver_breaks_driver_pending_uidx" ON "driver_breaks"("driverId") WHERE "status" = 'PENDING';
+
+-- CreateIndex
+CREATE UNIQUE INDEX "driver_breaks_driver_active_uidx" ON "driver_breaks"("driverId") WHERE "status" = 'APPROVED' AND "endedAt" IS NULL;
+
+-- CreateIndex
 CREATE INDEX "shift_pools_shiftDate_idx" ON "shift_pools"("shiftDate");
 
 -- CreateIndex
@@ -1614,6 +1661,12 @@ ALTER TABLE "driver_shifts" ADD CONSTRAINT "driver_shifts_shiftPoolId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "driver_shifts" ADD CONSTRAINT "driver_shifts_zoneId_fkey" FOREIGN KEY ("zoneId") REFERENCES "zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "driver_breaks" ADD CONSTRAINT "driver_breaks_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "driver_breaks" ADD CONSTRAINT "driver_breaks_shiftId_fkey" FOREIGN KEY ("shiftId") REFERENCES "driver_shifts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_pools" ADD CONSTRAINT "shift_pools_zoneId_fkey" FOREIGN KEY ("zoneId") REFERENCES "zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;

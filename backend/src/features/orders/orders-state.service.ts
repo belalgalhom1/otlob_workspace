@@ -275,9 +275,16 @@ export class OrdersStateService {
   ) {
     const driver = await this.prisma.driver.findUnique({
       where: { userId: actor.sub },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    // A driver on break holds only stale pre-break dispatches — fail fast
+    // with a clear error instead of the generic already-on-order message
+    // from the guarded acceptance update.
+    if (dto.response === 'ACCEPTED' && driver.status === 'ON_BREAK') {
+      throw new BadRequestException(DriverErrors.CANNOT_ACCEPT_ON_BREAK);
+    }
 
     const orderId = await this.dispatchService.verifyPendingDispatch(
       dispatchId,
@@ -366,6 +373,12 @@ export class OrdersStateService {
 
     if (driver.status === 'SUSPENDED') {
       throw new BadRequestException(OrderErrors.CANNOT_ASSIGN_SUSPENDED_DRIVER);
+    }
+
+    // On-break drivers are invisible to dispatch; force-assign must not
+    // silently yank them back (admin force-ends the break first instead).
+    if (driver.status === 'ON_BREAK') {
+      throw new BadRequestException(DriverErrors.CANNOT_ASSIGN_ON_BREAK);
     }
 
     // Never put a driver on a second live order.

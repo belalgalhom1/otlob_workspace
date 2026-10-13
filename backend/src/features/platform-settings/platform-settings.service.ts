@@ -249,6 +249,7 @@ export class PlatformSettingsService {
       'highValueOrderThreshold',
       'highValueUpfrontRate',
       'driverShiftsEnabled',
+      'breaksEnabled',
       'maxActiveOrdersPerCustomer',
       'requirePriorDeliveryForMultipleOrders',
       'maxOtpAttempts',
@@ -257,6 +258,10 @@ export class PlatformSettingsService {
       'silverTierBonusPerKm',
       'goldTierBonusPerKm',
       'driverSettlementOrderThreshold',
+      'maxBreakMinutesPerShift',
+      'maxBreaksPerShift',
+      'maxSingleBreakMinutes',
+      'pendingBreakExpiryMins',
     ];
 
     for (const field of fields) {

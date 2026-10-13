@@ -201,6 +201,23 @@ export class DriverStatusChangedEvent {
   ) {}
 }
 
+export type DriverBreakDecision =
+  | 'approved'
+  | 'rejected'
+  | 'granted'
+  | 'ended_by_admin'
+  | 'auto_ended'
+  | 'request_expired';
+
+export class DriverBreakDecidedEvent {
+  constructor(
+    public readonly driverId: string,
+    public readonly driverUserId: string,
+    public readonly breakId: string,
+    public readonly action: DriverBreakDecision,
+  ) {}
+}
+
 // ─── Audit ────────────────────────────────────────────────────────────────────
 
 export class AuditLogCreatedEvent {

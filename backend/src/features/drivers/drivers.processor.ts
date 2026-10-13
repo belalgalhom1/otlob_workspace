@@ -38,6 +38,11 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
       {},
       { repeat: { pattern: '* * * * *' }, jobId: CRON_JOBS.LATE_CHECK },
     );
+    await this.queue.add(
+      CRON_JOBS.BREAK_WATCHDOG,
+      {},
+      { repeat: { pattern: '* * * * *' }, jobId: CRON_JOBS.BREAK_WATCHDOG },
+    );
   }
 
   async process(job: Job): Promise<any> {
@@ -48,6 +53,8 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
         return this.driverShiftsService.handle30MinShiftWarning();
       case CRON_JOBS.LATE_CHECK:
         return this.driverShiftsService.handle5MinLateCheck();
+      case CRON_JOBS.BREAK_WATCHDOG:
+        return this.driversService.autoEndExpiredBreaks();
       default:
         this.logger.warn(`Unknown driver job: ${job.name}`);
     }

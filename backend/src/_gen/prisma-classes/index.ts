@@ -35,6 +35,7 @@ import { OrderStatusEventRelations as _OrderStatusEventRelations } from './order
 import { OrderItemRelations as _OrderItemRelations } from './order_item_relations';
 import { OrderItemOptionRelations as _OrderItemOptionRelations } from './order_item_option_relations';
 import { DriverRelations as _DriverRelations } from './driver_relations';
+import { DriverBreakRelations as _DriverBreakRelations } from './driver_break_relations';
 import { DriverShiftRelations as _DriverShiftRelations } from './driver_shift_relations';
 import { ShiftPoolRelations as _ShiftPoolRelations } from './shift_pool_relations';
 import { ShiftSwapRequestRelations as _ShiftSwapRequestRelations } from './shift_swap_request_relations';
@@ -83,6 +84,7 @@ import { OrderStatusEvent as _OrderStatusEvent } from './order_status_event';
 import { OrderItem as _OrderItem } from './order_item';
 import { OrderItemOption as _OrderItemOption } from './order_item_option';
 import { Driver as _Driver } from './driver';
+import { DriverBreak as _DriverBreak } from './driver_break';
 import { DriverShift as _DriverShift } from './driver_shift';
 import { ShiftPool as _ShiftPool } from './shift_pool';
 import { ShiftSwapRequest as _ShiftSwapRequest } from './shift_swap_request';
@@ -135,6 +137,7 @@ export namespace PrismaModel {
   export class OrderItemRelations extends _OrderItemRelations {}
   export class OrderItemOptionRelations extends _OrderItemOptionRelations {}
   export class DriverRelations extends _DriverRelations {}
+  export class DriverBreakRelations extends _DriverBreakRelations {}
   export class DriverShiftRelations extends _DriverShiftRelations {}
   export class ShiftPoolRelations extends _ShiftPoolRelations {}
   export class ShiftSwapRequestRelations extends _ShiftSwapRequestRelations {}
@@ -184,6 +187,7 @@ export namespace PrismaModel {
   export class OrderItem extends _OrderItem {}
   export class OrderItemOption extends _OrderItemOption {}
   export class Driver extends _Driver {}
+  export class DriverBreak extends _DriverBreak {}
   export class DriverShift extends _DriverShift {}
   export class ShiftPool extends _ShiftPool {}
   export class ShiftSwapRequest extends _ShiftSwapRequest {}
@@ -234,6 +238,7 @@ export namespace PrismaModel {
     OrderItemRelations,
     OrderItemOptionRelations,
     DriverRelations,
+    DriverBreakRelations,
     DriverShiftRelations,
     ShiftPoolRelations,
     ShiftSwapRequestRelations,
@@ -282,6 +287,7 @@ export namespace PrismaModel {
     OrderItem,
     OrderItemOption,
     Driver,
+    DriverBreak,
     DriverShift,
     ShiftPool,
     ShiftSwapRequest,
