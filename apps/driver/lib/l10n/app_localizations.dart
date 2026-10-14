@@ -3632,6 +3632,150 @@ abstract class AppLocalizations {
   /// **'Go Online'**
   String get goOnline;
 
+  /// No description provided for @youAreOnBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'You are On Break'**
+  String get youAreOnBreak;
+
+  /// No description provided for @onBreakSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You will not receive new requests until your break ends.'**
+  String get onBreakSubtitle;
+
+  /// No description provided for @takeBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a Break'**
+  String get takeBreak;
+
+  /// No description provided for @requestBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Break'**
+  String get requestBreak;
+
+  /// No description provided for @breakReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get breakReason;
+
+  /// No description provided for @breakReasonPrayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Prayer'**
+  String get breakReasonPrayer;
+
+  /// No description provided for @breakReasonMeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Meal'**
+  String get breakReasonMeal;
+
+  /// No description provided for @breakReasonRest.
+  ///
+  /// In en, this message translates to:
+  /// **'Rest'**
+  String get breakReasonRest;
+
+  /// No description provided for @breakReasonPersonal.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal'**
+  String get breakReasonPersonal;
+
+  /// No description provided for @breakReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get breakReasonOther;
+
+  /// No description provided for @breakMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Minutes (optional)'**
+  String get breakMinutes;
+
+  /// No description provided for @breakNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (optional)'**
+  String get breakNote;
+
+  /// No description provided for @breakRequestPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Break Request Pending'**
+  String get breakRequestPending;
+
+  /// No description provided for @breakRequestPendingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for admin approval. You can cancel the request.'**
+  String get breakRequestPendingSubtitle;
+
+  /// No description provided for @cancelBreakRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Request'**
+  String get cancelBreakRequest;
+
+  /// No description provided for @endBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'End Break'**
+  String get endBreak;
+
+  /// No description provided for @activeBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Break'**
+  String get activeBreak;
+
+  /// No description provided for @breakHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Breaks'**
+  String get breakHistory;
+
+  /// No description provided for @noBreaksYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No breaks yet.'**
+  String get noBreaksYet;
+
+  /// No description provided for @breakStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get breakStatusPending;
+
+  /// No description provided for @breakStatusApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get breakStatusApproved;
+
+  /// No description provided for @breakStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get breakStatusRejected;
+
+  /// No description provided for @breakStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get breakStatusCancelled;
+
+  /// No description provided for @breakStatusEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get breakStatusEnded;
+
   /// No description provided for @todaysEarnings.
   ///
   /// In en, this message translates to:

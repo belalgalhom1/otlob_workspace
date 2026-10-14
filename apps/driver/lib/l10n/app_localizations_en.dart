@@ -1862,6 +1862,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goOnline => 'Go Online';
 
   @override
+  String get youAreOnBreak => 'You are On Break';
+
+  @override
+  String get onBreakSubtitle =>
+      'You will not receive new requests until your break ends.';
+
+  @override
+  String get takeBreak => 'Take a Break';
+
+  @override
+  String get requestBreak => 'Request Break';
+
+  @override
+  String get breakReason => 'Reason';
+
+  @override
+  String get breakReasonPrayer => 'Prayer';
+
+  @override
+  String get breakReasonMeal => 'Meal';
+
+  @override
+  String get breakReasonRest => 'Rest';
+
+  @override
+  String get breakReasonPersonal => 'Personal';
+
+  @override
+  String get breakReasonOther => 'Other';
+
+  @override
+  String get breakMinutes => 'Minutes (optional)';
+
+  @override
+  String get breakNote => 'Note (optional)';
+
+  @override
+  String get breakRequestPending => 'Break Request Pending';
+
+  @override
+  String get breakRequestPendingSubtitle =>
+      'Waiting for admin approval. You can cancel the request.';
+
+  @override
+  String get cancelBreakRequest => 'Cancel Request';
+
+  @override
+  String get endBreak => 'End Break';
+
+  @override
+  String get activeBreak => 'Active Break';
+
+  @override
+  String get breakHistory => 'Recent Breaks';
+
+  @override
+  String get noBreaksYet => 'No breaks yet.';
+
+  @override
+  String get breakStatusPending => 'Pending';
+
+  @override
+  String get breakStatusApproved => 'Active';
+
+  @override
+  String get breakStatusRejected => 'Rejected';
+
+  @override
+  String get breakStatusCancelled => 'Cancelled';
+
+  @override
+  String get breakStatusEnded => 'Ended';
+
+  @override
   String get todaysEarnings => 'Today\'s Earnings';
 
   @override

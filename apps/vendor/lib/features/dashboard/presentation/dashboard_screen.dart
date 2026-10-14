@@ -35,6 +35,7 @@ import 'package:vendor/features/chat/presentation/pages/inbox_screen.dart';
 import '../../notifications/presentation/announcements_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import 'package:vendor/features/driver_shifts/presentation/driver_shifts_screen.dart';
+import 'package:vendor/features/driver_breaks/presentation/driver_breaks_screen.dart';
 import 'package:vendor/features/analytics/presentation/pages/analytics_screen.dart';
 import 'package:vendor/features/dashboard/presentation/widgets/user_profile_dialog.dart';
 
@@ -476,6 +477,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         AppLocalizations.of(context)!.driverShifts,
                         isMobile,
                       ),
+                      _buildMenuItem(
+                        18,
+                        LucideIcons.coffee,
+                        AppLocalizations.of(context)!.breaks,
+                        isMobile,
+                      ),
                     ],
                     if (_hasPermission('MANAGE_USERS')) ...[
                       _buildMenuItem(
@@ -776,6 +783,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         );
       case 17:
         return const NotificationsScreen();
+      case 18:
+        return const DriverBreaksScreen();
       default:
         return _buildComingSoon();
     }

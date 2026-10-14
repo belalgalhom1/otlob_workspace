@@ -51,6 +51,25 @@ class AdminPlatformSettingsRepository {
     return ResponseParser.parse(response);
   }
 
+  /// Raw PATCH for settings keys the generated UpdatePlatformSettingsDto
+  /// predates (driver break quotas). Only whitelisted break keys are sent.
+  Future<dynamic> platformSettingsUpdateBreaks(Map<String, dynamic> data) async {
+    if (_dio == null) throw Exception('Dio is required');
+    const allowed = {
+      'breaksEnabled',
+      'maxBreakMinutesPerShift',
+      'maxBreaksPerShift',
+      'maxSingleBreakMinutes',
+      'pendingBreakExpiryMins',
+    };
+    final payload = Map<String, dynamic>.fromEntries(
+      data.entries.where((e) => allowed.contains(e.key)),
+    );
+    if (payload.isEmpty) return null;
+    final response = await _dio.patch('/platform-settings', data: payload);
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> platformSettingsUploadHomeCover({MultipartFile? file}) async {
     final response = await _api.platformSettingsControllerUploadHomeCover(file: file);
     return ResponseParser.parse(response);

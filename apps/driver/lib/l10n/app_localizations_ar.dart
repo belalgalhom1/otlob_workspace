@@ -1847,6 +1847,79 @@ class AppLocalizationsAr extends AppLocalizations {
   String get goOnline => 'الاتصال بالإنترنت';
 
   @override
+  String get youAreOnBreak => 'أنت في استراحة';
+
+  @override
+  String get onBreakSubtitle => 'لن تصلك طلبات جديدة حتى تنتهي الاستراحة.';
+
+  @override
+  String get takeBreak => 'خذ استراحة';
+
+  @override
+  String get requestBreak => 'طلب استراحة';
+
+  @override
+  String get breakReason => 'السبب';
+
+  @override
+  String get breakReasonPrayer => 'صلاة';
+
+  @override
+  String get breakReasonMeal => 'وجبة';
+
+  @override
+  String get breakReasonRest => 'راحة';
+
+  @override
+  String get breakReasonPersonal => 'شخصي';
+
+  @override
+  String get breakReasonOther => 'أخرى';
+
+  @override
+  String get breakMinutes => 'المدة بالدقائق (اختياري)';
+
+  @override
+  String get breakNote => 'ملاحظة (اختياري)';
+
+  @override
+  String get breakRequestPending => 'طلب الاستراحة معلق';
+
+  @override
+  String get breakRequestPendingSubtitle =>
+      'بانتظار موافقة المشرف. يمكنك إلغاء الطلب.';
+
+  @override
+  String get cancelBreakRequest => 'إلغاء الطلب';
+
+  @override
+  String get endBreak => 'إنهاء الاستراحة';
+
+  @override
+  String get activeBreak => 'استراحة نشطة';
+
+  @override
+  String get breakHistory => 'الاستراحات الأخيرة';
+
+  @override
+  String get noBreaksYet => 'لا توجد استراحات بعد.';
+
+  @override
+  String get breakStatusPending => 'معلق';
+
+  @override
+  String get breakStatusApproved => 'نشطة';
+
+  @override
+  String get breakStatusRejected => 'مرفوض';
+
+  @override
+  String get breakStatusCancelled => 'ملغي';
+
+  @override
+  String get breakStatusEnded => 'منتهية';
+
+  @override
   String get todaysEarnings => 'أرباح اليوم';
 
   @override

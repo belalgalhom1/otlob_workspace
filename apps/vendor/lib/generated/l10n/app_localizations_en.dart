@@ -1943,6 +1943,99 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get breaks => 'Breaks';
+
+  @override
+  String get breaksPending => 'Pending Requests';
+
+  @override
+  String get breaksHistory => 'Driver History';
+
+  @override
+  String get breakApprove => 'Approve';
+
+  @override
+  String get breakReject => 'Reject';
+
+  @override
+  String get breakForceEnd => 'Force End';
+
+  @override
+  String get breakGrant => 'Grant Break';
+
+  @override
+  String get noPendingBreaks => 'No pending break requests.';
+
+  @override
+  String get searchDriverHint => 'Search driver by name or phone...';
+
+  @override
+  String get selectDriver => 'Select a driver to view break history.';
+
+  @override
+  String get noDriverBreaks => 'No breaks recorded for this driver.';
+
+  @override
+  String get breakReason => 'Reason';
+
+  @override
+  String get breakReasonPrayer => 'Prayer';
+
+  @override
+  String get breakReasonMeal => 'Meal';
+
+  @override
+  String get breakReasonRest => 'Rest';
+
+  @override
+  String get breakReasonPersonal => 'Personal';
+
+  @override
+  String get breakReasonOther => 'Other';
+
+  @override
+  String get breakMinutes => 'Minutes (optional)';
+
+  @override
+  String get breakMinutesShort => 'min';
+
+  @override
+  String get breakNote => 'Note (optional)';
+
+  @override
+  String get breakElapsed => 'Elapsed';
+
+  @override
+  String get breakStatusPending => 'Pending';
+
+  @override
+  String get breakStatusApproved => 'Active';
+
+  @override
+  String get breakStatusRejected => 'Rejected';
+
+  @override
+  String get breakStatusCancelled => 'Cancelled';
+
+  @override
+  String get breakStatusEnded => 'Ended';
+
+  @override
+  String get breaksEnabled => 'Enable Driver Breaks';
+
+  @override
+  String get maxBreakMinutesPerShift => 'Max Break Minutes / Shift';
+
+  @override
+  String get maxBreaksPerShift => 'Max Breaks / Shift';
+
+  @override
+  String get maxSingleBreakMinutes => 'Max Single Break (min)';
+
+  @override
+  String get pendingBreakExpiryMins => 'Request Expiry (min)';
+
+  @override
   String get maintenanceTitle => 'Under Maintenance';
 
   @override

@@ -25,8 +25,56 @@ class SettingsNotifier extends _$SettingsNotifier {
     }
   }
 
+  static const _breakKeys = {
+    'breaksEnabled',
+    'maxBreakMinutesPerShift',
+    'maxBreaksPerShift',
+    'maxSingleBreakMinutes',
+    'pendingBreakExpiryMins',
+  };
+
   Future<void> updateSettings(Map<String, dynamic> settings) async {
     final repository = ref.read(adminPlatformSettingsRepositoryProvider);
+
+    // Break quota keys bypass the generated DTO (it predates them) via a
+    // raw PATCH. Everything else flows through the typed client as before.
+    bool? toBool(dynamic value) {
+      if (value == null) return null;
+      if (value is bool) return value;
+      if (value.toString().toLowerCase() == 'true') return true;
+      if (value.toString().toLowerCase() == 'false') return false;
+      return null;
+    }
+
+    num? toNum(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value;
+      return num.tryParse(value.toString());
+    }
+
+    final breakData = <String, dynamic>{};
+    for (final key in _breakKeys) {
+      if (!settings.containsKey(key)) continue;
+      final value = settings[key];
+      if (key == 'breaksEnabled') {
+        final parsed = toBool(value);
+        if (parsed != null) breakData[key] = parsed;
+      } else {
+        final numValue = toNum(value);
+        if (numValue != null) breakData[key] = numValue.toInt();
+      }
+    }
+    final rest = Map<String, dynamic>.of(settings)
+      ..removeWhere((key, _) => _breakKeys.contains(key));
+
+    if (breakData.isNotEmpty) {
+      await repository.platformSettingsUpdateBreaks(breakData);
+    }
+    if (rest.isEmpty) {
+      await fetchSettings();
+      return;
+    }
+
     final updatedData = await repository.platformSettingsUpdate(updatePlatformSettingsDto: UpdatePlatformSettingsDto((b) {
       num? parseNum(dynamic value) {
         if (value == null) return null;

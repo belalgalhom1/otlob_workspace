@@ -37,6 +37,18 @@ class DriverDispatchCoordinator {
     debugPrint('DriverDispatchCoordinator: showDispatchModal id=$dispatchId');
     if (dispatchId == null) return;
 
+    // Never surface order modals to a driver on break — the backend rejects
+    // acceptance anyway; the modal would only be a dead end.
+    if (_ref.mounted) {
+      final profile = _ref.read(driverProfileProvider).value;
+      final data = profile is Map ? profile['data'] : null;
+      final status = (data is Map ? data['status'] : (profile is Map ? profile['status'] : null))?.toString();
+      if (status == 'ON_BREAK') {
+        debugPrint('DriverDispatchCoordinator: SKIP dispatch $dispatchId (driver ON_BREAK)');
+        return;
+      }
+    }
+
     if (currentShowingDispatchId == dispatchId) {
       debugPrint('DriverDispatchCoordinator: SKIP dispatch $dispatchId (already showing)');
       return;

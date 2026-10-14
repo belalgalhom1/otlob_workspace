@@ -59,7 +59,9 @@ class AdminDriversRepository {
   Future<dynamic> getDriverLocation({required String driverId}) async {
     if (_dio == null) throw Exception("Dio is required");
     final response = await _dio.get('/drivers/$driverId/location');
-    return ResponseParser.parse(response);
+    final parsed = ResponseParser.parse(response);
+    if (parsed is Map) return parsed['data'] ?? parsed;
+    return parsed;
   }
 
 

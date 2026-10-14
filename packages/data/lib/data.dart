@@ -38,6 +38,7 @@ export 'src/customer/customer_vendors_repository.dart';
 export 'src/customer/customer_zones_repository.dart';
 
 // Export Driver Repositories
+export 'src/driver/driver_breaks_repository.dart';
 export 'src/driver/driver_dispatch_repository.dart';
 export 'src/driver/driver_orders_repository.dart';
 export 'src/driver/driver_profile_repository.dart';

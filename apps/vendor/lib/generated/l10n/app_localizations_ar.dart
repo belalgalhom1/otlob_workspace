@@ -1930,6 +1930,99 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get breaks => 'الاستراحات';
+
+  @override
+  String get breaksPending => 'الطلبات المعلقة';
+
+  @override
+  String get breaksHistory => 'سجل السائق';
+
+  @override
+  String get breakApprove => 'موافقة';
+
+  @override
+  String get breakReject => 'رفض';
+
+  @override
+  String get breakForceEnd => 'إنهاء إجباري';
+
+  @override
+  String get breakGrant => 'منح استراحة';
+
+  @override
+  String get noPendingBreaks => 'لا توجد طلبات استراحة معلقة.';
+
+  @override
+  String get searchDriverHint => 'ابحث عن سائق بالاسم أو الهاتف...';
+
+  @override
+  String get selectDriver => 'اختر سائقًا لعرض سجل الاستراحات.';
+
+  @override
+  String get noDriverBreaks => 'لا توجد استراحات مسجلة لهذا السائق.';
+
+  @override
+  String get breakReason => 'السبب';
+
+  @override
+  String get breakReasonPrayer => 'صلاة';
+
+  @override
+  String get breakReasonMeal => 'وجبة';
+
+  @override
+  String get breakReasonRest => 'راحة';
+
+  @override
+  String get breakReasonPersonal => 'شخصي';
+
+  @override
+  String get breakReasonOther => 'أخرى';
+
+  @override
+  String get breakMinutes => 'المدة بالدقائق (اختياري)';
+
+  @override
+  String get breakMinutesShort => 'د';
+
+  @override
+  String get breakNote => 'ملاحظة (اختياري)';
+
+  @override
+  String get breakElapsed => 'المنقضي';
+
+  @override
+  String get breakStatusPending => 'معلق';
+
+  @override
+  String get breakStatusApproved => 'نشطة';
+
+  @override
+  String get breakStatusRejected => 'مرفوض';
+
+  @override
+  String get breakStatusCancelled => 'ملغي';
+
+  @override
+  String get breakStatusEnded => 'منتهية';
+
+  @override
+  String get breaksEnabled => 'تفعيل استراحات السائقين';
+
+  @override
+  String get maxBreakMinutesPerShift => 'أقصى دقائق الاستراحة / الوردية';
+
+  @override
+  String get maxBreaksPerShift => 'أقصى عدد استراحات / الوردية';
+
+  @override
+  String get maxSingleBreakMinutes => 'أقصى استراحة واحدة (دقيقة)';
+
+  @override
+  String get pendingBreakExpiryMins => 'انتهاء الطلب (دقيقة)';
+
+  @override
   String get maintenanceTitle => 'التطبيق تحت الصيانة';
 
   @override

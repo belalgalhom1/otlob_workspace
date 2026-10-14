@@ -3788,6 +3788,192 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
+  /// No description provided for @breaks.
+  ///
+  /// In en, this message translates to:
+  /// **'Breaks'**
+  String get breaks;
+
+  /// No description provided for @breaksPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Requests'**
+  String get breaksPending;
+
+  /// No description provided for @breaksHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver History'**
+  String get breaksHistory;
+
+  /// No description provided for @breakApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get breakApprove;
+
+  /// No description provided for @breakReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get breakReject;
+
+  /// No description provided for @breakForceEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Force End'**
+  String get breakForceEnd;
+
+  /// No description provided for @breakGrant.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant Break'**
+  String get breakGrant;
+
+  /// No description provided for @noPendingBreaks.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending break requests.'**
+  String get noPendingBreaks;
+
+  /// No description provided for @searchDriverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search driver by name or phone...'**
+  String get searchDriverHint;
+
+  /// No description provided for @selectDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a driver to view break history.'**
+  String get selectDriver;
+
+  /// No description provided for @noDriverBreaks.
+  ///
+  /// In en, this message translates to:
+  /// **'No breaks recorded for this driver.'**
+  String get noDriverBreaks;
+
+  /// No description provided for @breakReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get breakReason;
+
+  /// No description provided for @breakReasonPrayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Prayer'**
+  String get breakReasonPrayer;
+
+  /// No description provided for @breakReasonMeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Meal'**
+  String get breakReasonMeal;
+
+  /// No description provided for @breakReasonRest.
+  ///
+  /// In en, this message translates to:
+  /// **'Rest'**
+  String get breakReasonRest;
+
+  /// No description provided for @breakReasonPersonal.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal'**
+  String get breakReasonPersonal;
+
+  /// No description provided for @breakReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get breakReasonOther;
+
+  /// No description provided for @breakMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Minutes (optional)'**
+  String get breakMinutes;
+
+  /// No description provided for @breakMinutesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'min'**
+  String get breakMinutesShort;
+
+  /// No description provided for @breakNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (optional)'**
+  String get breakNote;
+
+  /// No description provided for @breakElapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Elapsed'**
+  String get breakElapsed;
+
+  /// No description provided for @breakStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get breakStatusPending;
+
+  /// No description provided for @breakStatusApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get breakStatusApproved;
+
+  /// No description provided for @breakStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get breakStatusRejected;
+
+  /// No description provided for @breakStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get breakStatusCancelled;
+
+  /// No description provided for @breakStatusEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get breakStatusEnded;
+
+  /// No description provided for @breaksEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Driver Breaks'**
+  String get breaksEnabled;
+
+  /// No description provided for @maxBreakMinutesPerShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Break Minutes / Shift'**
+  String get maxBreakMinutesPerShift;
+
+  /// No description provided for @maxBreaksPerShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Breaks / Shift'**
+  String get maxBreaksPerShift;
+
+  /// No description provided for @maxSingleBreakMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Single Break (min)'**
+  String get maxSingleBreakMinutes;
+
+  /// No description provided for @pendingBreakExpiryMins.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Expiry (min)'**
+  String get pendingBreakExpiryMins;
+
   /// No description provided for @maintenanceTitle.
   ///
   /// In en, this message translates to:
