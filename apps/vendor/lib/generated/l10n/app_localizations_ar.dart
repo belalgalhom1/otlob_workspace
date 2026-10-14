@@ -1294,6 +1294,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get statusOnDelivery => 'في الطريق';
 
   @override
+  String get statusSuspended => 'موقوف';
+
+  @override
   String get locationPermissionsDenied => 'تم رفض أذونات الموقع.';
 
   @override

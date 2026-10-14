@@ -502,6 +502,7 @@
   "statusOffline": "Offline",
   "statusOnBreak": "On Break",
   "statusOnDelivery": "On Delivery",
+  "statusSuspended": "Suspended",
   "locationPermissionsDenied": "Location permissions are denied.",
   "pickLocation": "Pick Location",
   "auditLogs": "Audit Logs",

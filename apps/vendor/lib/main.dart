@@ -16,6 +16,7 @@ import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/features/auth/presentation/maintenance_screen.dart';
 import 'package:vendor/features/auth/presentation/update_required_screen.dart';
 import 'package:vendor/core/providers/global_order_listener.dart';
+import 'package:vendor/core/providers/notification_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -105,16 +106,60 @@ class OtlobAdminApp extends ConsumerWidget {
     // Instant order updates regardless of the visible tab / app focus
     ref.watch(globalOrderListenerProvider);
 
-    return MaterialApp.router(
-      title: 'Otlob Admin',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
-      routerConfig: router,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: locale,
+    return _NotificationTapListener(
+      child: MaterialApp.router(
+        title: 'Otlob Admin',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeMode,
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: locale,
+      ),
     );
   }
+}
+
+/// Catches notification taps from background AND terminated states and banks
+/// them in [notificationRouterProvider]. The dashboard consumes the pending
+/// route (switching tabs / pushing screens) once it is visible — which also
+/// covers cold starts where the tap arrives before login.
+class _NotificationTapListener extends ConsumerStatefulWidget {
+  final Widget child;
+
+  const _NotificationTapListener({required this.child});
+
+  @override
+  ConsumerState<_NotificationTapListener> createState() =>
+      _NotificationTapListenerState();
+}
+
+class _NotificationTapListenerState
+    extends ConsumerState<_NotificationTapListener> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      try {
+        final push = ref.read(pushNotificationServiceProvider);
+        push.onMessageOpenedApp.listen((message) {
+          ref
+              .read(notificationRouterProvider.notifier)
+              .handleTap(Map<String, String>.from(message.data));
+        });
+        push.getInitialMessage().then((message) {
+          if (message != null) {
+            ref
+                .read(notificationRouterProvider.notifier)
+                .handleTap(Map<String, String>.from(message.data));
+          }
+        });
+      } catch (_) {}
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

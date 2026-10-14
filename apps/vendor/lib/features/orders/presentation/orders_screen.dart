@@ -12,12 +12,15 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:data/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
 import '../presentation/orders_provider.dart';
 import 'widgets/assign_driver_sheet.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
-  const OrdersScreen({super.key});
+  final String? initialOrderId;
+
+  const OrdersScreen({super.key, this.initialOrderId});
 
   @override
   ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
@@ -27,6 +30,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   String _userRole = '';
   bool _canManageDrivers = false;
   final Map<String, bool> _expandedOrders = {};
+  Map<String, dynamic>? _pinnedOrder;
+  bool _pinnedLoading = false;
 
   @override
   void initState() {
@@ -34,6 +39,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     Future.microtask(() {
       ref.read(ordersProvider.notifier).fetchOrders();
     });
+    final targetId = widget.initialOrderId;
+    if (targetId != null && targetId.isNotEmpty) {
+      _expandedOrders[targetId] = true;
+      _fetchPinnedOrder(targetId);
+    }
     _loadUserRole();
     _checkDriversPermission();
     // Real-time updates (order.new / order.status / order.cancelled),
@@ -68,6 +78,32 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   void _loadOrders() {
     ref.read(ordersProvider.notifier).fetchOrders();
+  }
+
+  /// Fetches a single order opened from a notification deep link so it is
+  /// visible (expanded) even when it is not on the currently loaded page.
+  Future<void> _fetchPinnedOrder(String orderId) async {
+    setState(() => _pinnedLoading = true);
+    try {
+      final result = await ref
+          .read(adminOrdersRepositoryProvider)
+          .getOrderById(orderId);
+      Map<String, dynamic>? order;
+      if (result is Map) {
+        final map = Map<String, dynamic>.from(result);
+        final inner = map['data'];
+        order = inner is Map ? Map<String, dynamic>.from(inner) : map;
+      }
+      if (mounted && order != null && order.isNotEmpty) {
+        setState(() {
+          _pinnedOrder = order;
+          _expandedOrders[orderId] = true;
+        });
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _pinnedLoading = false);
+    }
   }
 
   @override
@@ -310,14 +346,31 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 );
               }
 
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: orders.length,
-                itemBuilder: (context, index) {
-                  final order = orders[index];
-                  return _buildSleekOrderCard(context, order, isArabic);
-                },
+              final pinned = _pinnedOrder;
+              final showPinned = pinned != null &&
+                  !orders.any(
+                    (o) => o is Map && o['id']?.toString() == pinned['id']?.toString(),
+                  );
+              return Column(
+                children: [
+                  if (_pinnedLoading && !showPinned) ...[
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 8),
+                  ],
+                  if (showPinned) ...[
+                    _buildSleekOrderCard(context, pinned, isArabic),
+                    const SizedBox(height: 4),
+                  ],
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      final order = orders[index];
+                      return _buildSleekOrderCard(context, order, isArabic);
+                    },
+                  ),
+                ],
               );
             }
 
@@ -764,9 +817,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           borderRadius: BorderRadius.circular(
                                             8,
                                           ),
-                                          onTap: () {
-                                            // Call actions
-                                          },
+                                          onTap: () =>
+                                              _callCustomer(context, customerPhone, isArabic),
                                           child: Container(
                                             padding: const EdgeInsets.all(6),
                                             decoration: BoxDecoration(
@@ -1616,6 +1668,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _callCustomer(
+    BuildContext context,
+    String phone,
+    bool isArabic,
+  ) async {
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (!context.mounted) return;
+    if (digits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic ? 'رقم الهاتف غير متاح' : 'Phone number not available',
+          ),
+        ),
+      );
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: digits);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _locateDriverFromOrder(

@@ -2570,6 +2570,12 @@ abstract class AppLocalizations {
   /// **'On Delivery'**
   String get statusOnDelivery;
 
+  /// No description provided for @statusSuspended.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspended'**
+  String get statusSuspended;
+
   /// No description provided for @locationPermissionsDenied.
   ///
   /// In en, this message translates to:

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:vendor/features/access_control/presentation/access_control_screen.dart';
 import 'package:vendor/features/vendors/presentation/vendors_screen.dart';
 import 'package:vendor/features/orders/presentation/orders_screen.dart';
+import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:vendor/features/orders/presentation/orders_provider.dart';
 import 'package:vendor/features/drivers/presentation/drivers_screen.dart';
 import 'package:vendor/features/drivers/data/driver_providers.dart';
@@ -59,6 +60,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
+  String? _highlightOrderId;
   bool _isStatsExpanded = false;
   String? _userRole;
   String? _userName;
@@ -77,6 +79,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     Future.microtask(() => _initData());
+    Future.microtask(() => _consumePendingNotificationRoute());
+  }
+
+  /// Routes banked notification taps (background + terminated cold starts):
+  /// orders open the orders tab with the order expanded, chats open the
+  /// conversation directly.
+  void _consumePendingNotificationRoute() {
+    final pending = ref.read(notificationRouterProvider);
+    if (pending == null || !mounted) return;
+    ref.read(notificationRouterProvider.notifier).clear();
+    if (pending.kind == 'order') {
+      setState(() {
+        _selectedIndex = 1;
+        _highlightOrderId = pending.id;
+      });
+    } else if (pending.kind == 'chat') {
+      setState(() => _selectedIndex = 6);
+      final l10n = AppLocalizations.of(context)!;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AdminChatScreen(
+            conversationId: pending.id,
+            title: l10n.inbox,
+            type: 'SUPPORT',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _initData() async {
@@ -184,6 +214,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _vendorId = next;
         });
         _initData(); // Refetch data
+      }
+    });
+    ref.listen<PendingNotificationRoute?>(notificationRouterProvider,
+        (previous, next) {
+      if (next != null && next != previous) {
+        _consumePendingNotificationRoute();
       }
     });
 
@@ -744,7 +780,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 0:
         return _buildDashboardContent(isMobile);
       case 1:
-        return const OrdersScreen();
+        return OrdersScreen(initialOrderId: _highlightOrderId);
       case 2:
         return VendorsScreen(userRole: _userRole, vendorRole: _vendorRole);
       case 3:

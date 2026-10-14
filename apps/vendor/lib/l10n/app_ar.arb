@@ -499,6 +499,7 @@
   "statusOffline": "غير متصل",
   "statusOnBreak": "في استراحة",
   "statusOnDelivery": "في الطريق",
+  "statusSuspended": "موقوف",
   "locationPermissionsDenied": "تم رفض أذونات الموقع.",
   "pickLocation": "اختر الموقع",
   "auditLogs": "سجلات التدقيق",

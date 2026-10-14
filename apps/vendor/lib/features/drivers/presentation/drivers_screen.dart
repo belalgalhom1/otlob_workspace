@@ -187,6 +187,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                   DropdownMenuItem(value: 'ON_DELIVERY', child: Text(AppLocalizations.of(context)!.statusOnDelivery)),
                   DropdownMenuItem(value: 'OFFLINE', child: Text(AppLocalizations.of(context)!.statusOffline)),
                   DropdownMenuItem(value: 'ON_BREAK', child: Text(AppLocalizations.of(context)!.statusOnBreak)),
+                  DropdownMenuItem(value: 'SUSPENDED', child: Text(AppLocalizations.of(context)!.statusSuspended)),
                 ],
                 onChanged: (val) {
                   setState(() => _selectedStatus = val);

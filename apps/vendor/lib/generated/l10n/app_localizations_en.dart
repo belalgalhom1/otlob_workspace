@@ -1304,6 +1304,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusOnDelivery => 'On Delivery';
 
   @override
+  String get statusSuspended => 'Suspended';
+
+  @override
   String get locationPermissionsDenied => 'Location permissions are denied.';
 
   @override
