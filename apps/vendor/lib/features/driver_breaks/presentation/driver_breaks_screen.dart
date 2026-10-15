@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -20,9 +21,40 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   DriverProfile? _selectedDriver;
+  TabController? _tabController;
+  Timer? _pendingPollTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = DefaultTabController.of(context);
+    if (_tabController != controller) {
+      _tabController?.removeListener(_onTabChanged);
+      _tabController = controller;
+      _tabController?.addListener(_onTabChanged);
+      _onTabChanged();
+    }
+  }
+
+  void _onTabChanged() {
+    // Poll the pending queue only while its tab is visible: new driver
+    // requests have no push/socket path to admins, so the list would
+    // otherwise go stale. History is pull-to-refresh only (static data).
+    if ((_tabController?.index ?? 0) == 0) {
+      _pendingPollTimer ??= Timer.periodic(
+        const Duration(seconds: 20),
+        (_) => ref.invalidate(pendingBreaksProvider),
+      );
+    } else {
+      _pendingPollTimer?.cancel();
+      _pendingPollTimer = null;
+    }
+  }
 
   @override
   void dispose() {
+    _tabController?.removeListener(_onTabChanged);
+    _pendingPollTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
