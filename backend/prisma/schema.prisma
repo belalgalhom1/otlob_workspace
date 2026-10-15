@@ -810,6 +810,7 @@ model Order {
   pickedUpAt           DateTime?                 @db.Timestamptz(3)
   pickupImageUrl       String?
   deliveryImageUrl     String?
+  paymentReceiptUrl    String?
   actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
   driverTransactions   DriverWalletTransaction[]
   dispatches           OrderDispatch[]

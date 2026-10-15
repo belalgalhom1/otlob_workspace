@@ -1606,6 +1606,7 @@
   "validation_error_name_required": "الاسم مطلوب.",
   "validation_error_phone_invalid": "يرجى إدخال رقم هاتف صالح.",
   "validation_error_phone_required": "رقم الهاتف مطلوب.",
+  "order_error_payment_receipt_required": "يرجى إرفاق لقطة شاشة من التحويل.",
   "validation_error_contact_required": "البريد الإلكتروني أو رقم الهاتف مطلوب.",
   "validation_error_code_required": "رمز التحقق مطلوب.",
   "validation_error_method_invalid": "طريقة التحقق المحددة غير صالحة.",

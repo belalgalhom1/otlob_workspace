@@ -297,6 +297,7 @@ export const OrderErrors = {
   INSERT_FAILED: 'order.error.insert_failed',
   NOT_MOBILE_WALLET: 'order.error.not_mobile_wallet',
   NOT_AWAITING_PAYMENT: 'order.error.not_awaiting_payment',
+  PAYMENT_RECEIPT_REQUIRED: 'order.error.payment_receipt_required',
   NOT_ASSIGNED_TO_BRANCH: 'order.error.not_assigned_to_branch',
   INVALID_OFFER_MESSAGE: 'order.error.invalid_offer_message',
   PRODUCT_ID_REQUIRED: 'order.error.product_id_required',

@@ -167,13 +167,17 @@ export class OrdersController {
   @ApiStandardResponse(OrderResponseDto)
   @Post('customer/:orderId/payment/mark-paid')
   @Roles(Role.CUSTOMER)
+  @ApiFileUpload({ type: 'IMAGE' })
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Customer marks mobile wallet payment as paid' })
+  @ApiOperation({
+    summary: 'Customer marks mobile wallet payment as paid with receipt',
+  })
   customerMarkPaid(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.paymentService.customerMarkPaid(actor, orderId);
+    return this.paymentService.customerMarkPaid(actor, orderId, file);
   }
 
   @ApiStandardResponse(OrderResponseDto)

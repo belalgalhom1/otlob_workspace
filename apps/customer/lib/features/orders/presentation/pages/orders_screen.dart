@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -53,6 +55,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   late final void Function(dynamic) _socketHandler;
   StreamSubscription<dynamic>? _statusSub;
   StreamSubscription<dynamic>? _updatedSub;
+  final Map<String, XFile?> _receiptFiles = {};
 
   @override
   void initState() {
@@ -308,13 +311,26 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     );
   }
 
+  Future<void> _pickUpfrontReceipt(String orderId) async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      imageQuality: 80,
+    );
+    if (file != null && mounted) {
+      setState(() => _receiptFiles[orderId] = file);
+    }
+  }
+
   List<Widget> _buildUpfrontSection(
     Map<String, dynamic> order,
     AppStrings s,
   ) {
+    final orderId = order['id']?.toString() ?? '';
     final upfront =
         double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
     final paidClaimed = (order['paymentStatus']?.toString() ?? '') == 'PAID';
+    final receiptFile = _receiptFiles[orderId];
     return [
       Container(
         padding: const EdgeInsets.all(12),
@@ -413,9 +429,43 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           ],
         ),
       ),
-      if (!paidClaimed)
+      if (!paidClaimed) ...[
+        OutlinedButton.icon(
+          onPressed: () => _pickUpfrontReceipt(orderId),
+          icon: const Icon(Icons.receipt_long_rounded),
+          label: Text(
+            receiptFile != null
+                ? (receiptFile.name.isNotEmpty
+                    ? receiptFile.name
+                    : (s.isArabic ? 'تم إرفاق الإيصال' : 'Receipt attached'))
+                : (s.isArabic
+                    ? 'إرفاق لقطة شاشة من التحويل (إجباري)'
+                    : 'Attach transfer screenshot (required)'),
+          ),
+        ),
+        if (receiptFile != null) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(receiptFile.path),
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
         ElevatedButton(
           onPressed: () async {
+            if (receiptFile == null) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(s.isArabic
+                      ? 'يرجى إرفاق لقطة الشاشة أولاً'
+                      : 'Please attach the screenshot first')));
+              return;
+            }
             // Show confirmation dialog before marking as paid
             final confirm = await showDialog<bool>(
               context: context,
@@ -441,17 +491,29 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               ),
             );
 
-            if (confirm == true) {
-              final res = await ref
-                  .read(ordersProvider.notifier)
-                  .markPaymentPaid(order['id']);
-              if (res && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(s.isArabic
-                        ? 'تم تأكيد الدفع وجاري مراجعة المندوب'
-                        : 'Payment confirmed, waiting for driver to verify')));
-              }
-            }
+                    if (confirm == true) {
+                      final res = await ref
+                          .read(ordersProvider.notifier)
+                          .markPaymentPaid(
+                            order['id'],
+                            receiptPath: receiptFile.path,
+                          );
+                      if (res) {
+                        setState(() => _receiptFiles.remove(orderId));
+                      }
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(res
+                                ? (s.isArabic
+                                    ? 'تم تأكيد الدفع وجاري مراجعة المندوب'
+                                    : 'Payment confirmed, waiting for driver to verify')
+                                : (s.isArabic
+                                    ? 'فشل التأكيد. حاول مرة أخرى.'
+                                    : 'Confirmation failed. Try again.')),
+                            backgroundColor:
+                                res ? null : Colors.red));
+                      }
+                    }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
@@ -462,6 +524,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               ? 'لقد قمت بتحويل المبلغ'
               : 'I transferred the amount'),
         ),
+      ],
     ];
   }
 

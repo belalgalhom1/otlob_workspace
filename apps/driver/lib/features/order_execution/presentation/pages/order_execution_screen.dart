@@ -787,7 +787,58 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          if ((order['paymentReceiptUrl']?.toString().isNotEmpty ??
+              false)) ...[
+            GestureDetector(
+              onTap: () => _viewPhoto(
+                remoteUrl: order['paymentReceiptUrl'].toString(),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        _resolveMediaUrl(
+                          order['paymentReceiptUrl'].toString(),
+                        ),
+                        height: 64,
+                        width: 64,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          LucideIcons.imageOff,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        isAr
+                            ? 'إيصال التحويل من العميل — اضغط للتكبير'
+                            : 'Customer transfer receipt — tap to enlarge',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      LucideIcons.zoomIn,
+                      size: 18,
+                      color: Colors.orange,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           PrimaryButton(
             text: isAr ? 'تأكيد: استلمت المبلغ' : 'Confirm: I Have Received It',
             onPressed: !paidClaimed

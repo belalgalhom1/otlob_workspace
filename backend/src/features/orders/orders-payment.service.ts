@@ -42,6 +42,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { StorageService } from '../../infrastructure/storage/storage.service';
 import {
   CartErrors,
   ProductErrors,
@@ -58,9 +59,14 @@ export class OrdersPaymentService {
     private readonly ordersRepository: OrdersRepository,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
   ) {}
 
-  async customerMarkPaid(actor: JwtAccessPayload, orderId: string) {
+  async customerMarkPaid(
+    actor: JwtAccessPayload,
+    orderId: string,
+    file?: Express.Multer.File,
+  ) {
     const order = await this.ordersRepository.findById(orderId);
 
     if (order.customer.user.id !== actor.sub) {
@@ -72,16 +78,32 @@ export class OrdersPaymentService {
     if (order.status !== OrderStatus.PENDING_PAYMENT) {
       throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
     }
+    if (!file) {
+      throw new BadRequestException(OrderErrors.PAYMENT_RECEIPT_REQUIRED);
+    }
 
-    // Customer clicks "I paid". We don't change the main OrderStatus (it remains PENDING_PAYMENT)
-    // but we can update paymentStatus to indicate they claim it's paid.
-    const updated = await this.prisma.order.updateMany({
-      where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
-      data: { paymentStatus: 'PAID' },
-    });
+    // Customer clicks "I paid" with a transfer screenshot. We don't change
+    // the main OrderStatus (it remains PENDING_PAYMENT) but we store the
+    // receipt and flip paymentStatus so the driver can verify visually.
+    const receiptUrl = await this.storage.upload(file, 'payment-receipts');
+    try {
+      const updated = await this.prisma.order.updateMany({
+        where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
+        data: { paymentStatus: 'PAID', paymentReceiptUrl: receiptUrl },
+      });
 
-    if (updated.count === 0) {
-      throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
+      if (updated.count === 0) {
+        throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
+      }
+    } catch (error) {
+      await this.storage.delete(receiptUrl);
+      throw error;
+    }
+
+    // Replacing an older receipt (repaid after a deny): drop the orphan file.
+    const oldUrl = (order as any).paymentReceiptUrl as string | null;
+    if (oldUrl && oldUrl !== receiptUrl) {
+      await this.storage.delete(oldUrl);
     }
 
     this.logger.log(

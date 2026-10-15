@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -58,6 +61,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   bool _followDriver = true;
   Timer? _driverRenderTimer;
   LatLng? _pendingDriverLocation;
+  XFile? _receiptFile;
 
   String get _driverPhone {
     final driver = _orderDetails?['driver'];
@@ -690,42 +694,120 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                     ],
                                   )
                                 else
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      onPressed: () async {
-                                        final success = await ref
-                                            .read(ordersProvider.notifier)
-                                            .markPaymentPaid(widget.orderId);
-                                        if (success) {
-                                          await _fetchOrderDetails();
-                                        }
-                                        if (success && context.mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                s.isArabic
-                                                    ? 'تم التأكيد!'
-                                                    : 'Confirmed!',
-                                              ),
-                                            ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: () async {
+                                          final file =
+                                              await ImagePicker().pickImage(
+                                            source: ImageSource.gallery,
+                                            maxWidth: 1920,
+                                            imageQuality: 80,
                                           );
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                      child: Text(
-                                        s.isArabic
-                                            ? 'لقد دفعت المبلغ المقدم'
-                                            : 'I Have Paid the Upfront',
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                          if (file != null) {
+                                            setState(
+                                              () =>
+                                                  _receiptFile = file,
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(
+                                            Icons.receipt_long_rounded),
+                                        label: Text(
+                                          _receiptFile != null
+                                              ? (_receiptFile!.name.isNotEmpty
+                                                  ? _receiptFile!.name
+                                                  : (s.isArabic
+                                                      ? 'تم إرفاق الإيصال'
+                                                      : 'Receipt attached'))
+                                              : (s.isArabic
+                                                  ? 'إرفاق لقطة شاشة من التحويل (إجباري)'
+                                                  : 'Attach transfer screenshot (required)'),
                                         ),
                                       ),
-                                    ),
+                                      if (_receiptFile != null) ...[
+                                        const SizedBox(height: 8),
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: Image.file(
+                                            File(_receiptFile!.path),
+                                            height: 120,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const SizedBox.shrink(),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton(
+                                          onPressed: () async {
+                                            if (_receiptFile == null) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    s.isArabic
+                                                        ? 'يرجى إرفاق لقطة الشاشة أولاً'
+                                                        : 'Please attach the screenshot first',
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            final success = await ref
+                                                .read(ordersProvider.notifier)
+                                                .markPaymentPaid(
+                                                  widget.orderId,
+                                                  receiptPath:
+                                                      _receiptFile!.path,
+                                                );
+                                            if (success) {
+                                              setState(
+                                                () => _receiptFile = null,
+                                              );
+                                              await _fetchOrderDetails();
+                                            }
+                                            if (!context.mounted) return;
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  success
+                                                      ? (s.isArabic
+                                                          ? 'تم التأكيد!'
+                                                          : 'Confirmed!')
+                                                      : (s.isArabic
+                                                          ? 'فشل التأكيد. حاول مرة أخرى.'
+                                                          : 'Confirmation failed. Try again.'),
+                                                ),
+                                                backgroundColor: success
+                                                    ? null
+                                                    : Colors.red,
+                                              ),
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.orange,
+                                          ),
+                                          child: Text(
+                                            s.isArabic
+                                                ? 'لقد دفعت المبلغ المقدم'
+                                                : 'I Have Paid the Upfront',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                               ],
                             ),

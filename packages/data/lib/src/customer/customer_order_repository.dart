@@ -18,7 +18,15 @@ class CustomerOrderRepository {
     return ResponseParser.parseList(response);
   }
 
-  Future<dynamic> markPaid(String orderId) async {
+  Future<dynamic> markPaid(String orderId, {MultipartFile? receipt}) async {
+    if (dio != null && receipt != null) {
+      final formData = FormData.fromMap({'file': receipt});
+      final response = await dio.post(
+        '/orders/customer/$orderId/payment/mark-paid',
+        data: formData,
+      );
+      return ResponseParser.parse(response);
+    }
     final response = await _api.ordersControllerCustomerMarkPaid(orderId: orderId);
     return ResponseParser.parse(response);
   }

@@ -496,10 +496,17 @@ class Orders extends _$Orders {
     }
   }
 
-  Future<bool> markPaymentPaid(String orderId) async {
+  Future<bool> markPaymentPaid(
+    String orderId, {
+    String? receiptPath,
+  }) async {
     final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      await repo.markPaid(orderId);
+      MultipartFile? receipt;
+      if (receiptPath != null && receiptPath.isNotEmpty) {
+        receipt = await MultipartFile.fromFile(receiptPath);
+      }
+      await repo.markPaid(orderId, receipt: receipt);
       ref.invalidateSelf();
       return true;
     } catch (e) {
