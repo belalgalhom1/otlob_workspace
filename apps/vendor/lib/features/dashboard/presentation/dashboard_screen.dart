@@ -1243,7 +1243,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       String dateStr = rawDate;
                       try {
                         final date = DateTime.parse(rawDate).toLocal();
-                        dateStr = DateFormat('MMM dd, HH:mm').format(date);
+                        dateStr = DateFormat('MMM dd, hh:mm a').format(date);
                       } catch (_) {}
 
                       Color iconColor;

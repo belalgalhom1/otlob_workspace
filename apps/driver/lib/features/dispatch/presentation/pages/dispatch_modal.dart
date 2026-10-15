@@ -77,6 +77,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
   }
 
   Future<void> _onAccept() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(driverDispatchRepositoryProvider);
@@ -168,7 +169,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
             PrimaryButton(
               text: AppLocalizations.of(context)!.acceptDelivery,
               isLoading: _isLoading,
-              onPressed: _onAccept,
+              onPressed: _isLoading ? null : _onAccept,
             ),
             const SizedBox(height: 12),
             TextButton(

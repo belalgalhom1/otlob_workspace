@@ -10,6 +10,7 @@ import 'package:driver/features/order_execution/presentation/order_execution_pro
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
   final Future<void> Function() onResume;
+  bool isResumed = true;
 
   _DispatchLifecycleObserver({required this.onResume}) {
     WidgetsBinding.instance.addObserver(this);
@@ -17,7 +18,8 @@ class _DispatchLifecycleObserver with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    isResumed = state == AppLifecycleState.resumed;
+    if (isResumed) {
       debugPrint('📱 Driver App Resumed: Checking pending dispatches via HTTP fallback');
       onResume();
     }
@@ -144,6 +146,9 @@ final globalMessageListenerProvider = Provider<void>((ref) {
       debugPrint('📍 Dispatch sweep started (driver $status)');
       dispatchSweepTimer = Timer.periodic(const Duration(seconds: 10), (_) {
         if (!ref.mounted) return;
+        // No polling while backgrounded: socket push + resume check cover it,
+        // and background HTTP polling just burns radio/battery.
+        if (!lifecycleObserver.isResumed) return;
         coordinator.checkPendingDispatches(checkOnline: false);
       });
     } else if (!shouldRun && dispatchSweepTimer != null) {

@@ -18,7 +18,15 @@ class DriverBreaksRepository {
 
   dynamic _parse(dynamic response) {
     final parsed = ResponseParser.parse(response);
-    if (parsed is Map) return parsed['data'] ?? parsed;
+    if (parsed is Map) {
+      // Envelope ({success, message, data}) -> inner payload, which may
+      // legitimately be null (e.g. no active break). A real break object
+      // never carries envelope keys, so it passes through untouched.
+      if (parsed.containsKey('success') || parsed.containsKey('data')) {
+        return parsed['data'];
+      }
+      return parsed;
+    }
     if (parsed is List) return parsed;
     return parsed;
   }
@@ -33,9 +41,9 @@ class DriverBreaksRepository {
     final response = await _client.post(
       '/drivers/me/break/start',
       data: {
-        if (reason != null) 'reason': reason,
-        if (note != null && note.isNotEmpty) 'note': note,
-        if (requestedMinutes != null) 'requestedMinutes': requestedMinutes,
+        if (reason case final r?) 'reason': r,
+        if (note case final n?) 'note': n,
+        if (requestedMinutes case final m?) 'requestedMinutes': m,
       },
     );
     return _parse(response);
@@ -92,9 +100,9 @@ class DriverBreaksRepository {
     final response = await _client.post(
       '/drivers/$driverId/breaks/grant',
       data: {
-        if (reason != null) 'reason': reason,
-        if (note != null && note.isNotEmpty) 'note': note,
-        if (requestedMinutes != null) 'requestedMinutes': requestedMinutes,
+        if (reason case final r?) 'reason': r,
+        if (note case final n?) 'note': n,
+        if (requestedMinutes case final m?) 'requestedMinutes': m,
       },
     );
     return _parse(response);

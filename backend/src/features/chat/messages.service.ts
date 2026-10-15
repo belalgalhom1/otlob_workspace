@@ -571,33 +571,22 @@ export class MessagesService {
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    const participants = await this.prisma.conversationParticipant.findMany({
-      where: {
-        userId,
-        conversation: {
-          status: { not: 'ARCHIVED' },
-        },
-      },
-      select: { conversationId: true, lastReadAt: true },
-    });
-
-    if (participants.length === 0) return 0;
-
-    const counts = await Promise.all(
-      participants.map((p) =>
-        this.prisma.message.count({
-          where: {
-            conversationId: p.conversationId,
-            senderId: { not: userId },
-            deletedAt: null,
-            type: { not: MessageType.SYSTEM },
-            createdAt: { gt: p.lastReadAt ?? new Date(0) },
-          },
-        }),
-      ),
-    );
-
-    return counts.reduce((sum, count) => sum + count, 0);
+    // Single round-trip: per-participant lastReadAt joined inline instead of
+    // one COUNT query per conversation.
+    const rows = await this.prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM messages m
+      JOIN conversation_participants cp
+        ON cp."conversationId" = m."conversationId"
+        AND cp."userId" = ${userId}
+      JOIN conversations c ON c.id = m."conversationId"
+      WHERE m."senderId" <> ${userId}
+        AND m."deletedAt" IS NULL
+        AND m."type" <> 'SYSTEM'
+        AND c."status" <> 'ARCHIVED'
+        AND m."createdAt" > COALESCE(cp."lastReadAt", TIMESTAMP '1970-01-01 00:00:00+00')
+    `;
+    return rows[0]?.count ?? 0;
   }
 
   private async validateMessageContent(

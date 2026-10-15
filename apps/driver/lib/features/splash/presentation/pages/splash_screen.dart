@@ -23,6 +23,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat();
+    ref.listen<AsyncValue<AppStartupState>>(splashProvider, (previous, state) {
+      if (!mounted) return;
+      if (state.hasValue && !state.isLoading) {
+        switch (state.value!) {
+          case AppStartupState.unauthenticated:
+            context.go('/login');
+            break;
+
+          case AppStartupState.suspended:
+            context.go('/suspended');
+            break;
+          case AppStartupState.dashboard:
+            _maybeShowOptionalUpdate('/dashboard');
+            break;
+          case AppStartupState.activeOrder:
+            _maybeShowOptionalUpdate('/order-execution');
+            break;
+          case AppStartupState.maintenance:
+            context.go('/maintenance');
+            break;
+          case AppStartupState.forceUpdate:
+            context.go('/update-required');
+            break;
+          case AppStartupState.loading:
+            break;
+        }
+      }
+    });
   }
 
   @override
@@ -74,34 +102,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<AppStartupState>>(splashProvider, (previous, state) {
-      if (state.hasValue && !state.isLoading) {
-        switch (state.value!) {
-          case AppStartupState.unauthenticated:
-            context.go('/login');
-            break;
-
-          case AppStartupState.suspended:
-            context.go('/suspended');
-            break;
-          case AppStartupState.dashboard:
-            _maybeShowOptionalUpdate('/dashboard');
-            break;
-          case AppStartupState.activeOrder:
-            _maybeShowOptionalUpdate('/order-execution');
-            break;
-          case AppStartupState.maintenance:
-            context.go('/maintenance');
-            break;
-          case AppStartupState.forceUpdate:
-            context.go('/update-required');
-            break;
-          case AppStartupState.loading:
-            break;
-        }
-      }
-    });
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(

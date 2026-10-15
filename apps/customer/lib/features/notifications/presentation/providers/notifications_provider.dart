@@ -42,12 +42,16 @@ class Notifications extends _$Notifications {
   @override
   NotificationsState build() {
     Future.microtask(() => _fetchNotifications(1));
-    
-    final socket = ref.read(socketServiceProvider);
-    socket.on('notification.new', _onRealtimeEvent);
-    
+
+    // Typed broadcast stream: survives socket re-auth (legacy socket.on
+    // bindings die with the old socket instance).
+    final sub = ref
+        .read(socketServiceProvider)
+        .onEvent('notification.new')
+        .listen(_onRealtimeEvent);
+
     ref.onDispose(() {
-      socket.off('notification.new', _onRealtimeEvent);
+      sub.cancel();
     });
 
     return NotificationsState(isLoading: true);

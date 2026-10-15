@@ -39,6 +39,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     Future.microtask(() {
       ref.read(ordersProvider.notifier).fetchOrders();
     });
+    ref.listen<String?>(ordersRefreshErrorProvider, (previous, next) {
+      if (next != null && next != previous && mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isArabic
+                ? 'تعذر تحديث الطلبات. يتم عرض آخر بيانات محملة.'
+                : 'Could not refresh orders. Showing latest loaded data.'),
+            action: SnackBarAction(
+              label: isArabic ? 'إعادة المحاولة' : 'Retry',
+              onPressed: () =>
+                  ref.read(ordersProvider.notifier).fetchOrders(),
+            ),
+          ),
+        );
+      }
+    });
     final targetId = widget.initialOrderId;
     if (targetId != null && targetId.isNotEmpty) {
       _expandedOrders[targetId] = true;
@@ -544,7 +561,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     // Formatting date
     String dateStr = '';
     try {
-      final createdAt = DateTime.tryParse(order['createdAt']?.toString() ?? '');
+      final createdAt =
+          DateTime.tryParse(order['createdAt']?.toString() ?? '')?.toLocal();
       if (createdAt != null) {
         dateStr = DateFormat('yyyy-MM-dd hh:mm a').format(createdAt);
       }

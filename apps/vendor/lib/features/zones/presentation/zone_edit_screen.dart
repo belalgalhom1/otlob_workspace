@@ -88,6 +88,7 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _mapController.dispose();
     _searchController.dispose();
     _nameController.dispose();
     _nameArController.dispose();

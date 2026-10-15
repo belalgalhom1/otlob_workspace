@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/order_execution/presentation/widgets/order_details_bottom_sheet.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -117,13 +118,39 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation();
+    ref.listen<AsyncValue<dynamic>>(
+      orderExecutionProvider,
+      (previous, state) {
+        if (state.hasValue && state.value == null) {
+          // Order completed or no active order
+          if (mounted) {
+            final ctx = rootNavigatorKey.currentContext;
+            if (ctx != null &&
+                GoRouterState.of(ctx).uri.path == '/order-execution') {
+              ctx.go('/dashboard');
+            }
+          }
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
     try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+      ).timeout(const Duration(seconds: 10));
       if (mounted) {
         setState(() {
           _currentPosition = pos;
@@ -141,15 +168,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   Widget build(BuildContext context) {
     final orderState = ref.watch(orderExecutionProvider);
     final l10n = AppLocalizations.of(context)!;
-
-    ref.listen<AsyncValue<dynamic>>(orderExecutionProvider, (previous, state) {
-      if (state.hasValue && state.value == null) {
-        // Order completed or no active order
-        if (context.mounted && GoRouterState.of(context).uri.path == '/order-execution') {
-          context.go('/dashboard');
-        }
-      }
-    });
 
     return Scaffold(
       appBar: AppBar(
@@ -728,15 +746,81 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         ],
       );
     } else if (status == 'PENDING_PAYMENT') {
-      return PrimaryButton(
-        text: l10n.localeName == 'ar' ? 'تأكيد استلام الدفع' : 'Confirm Payment Received',
-        onPressed: () async {
-          try {
-            await ref.read(orderExecutionProvider.notifier).confirmPayment(received: true);
-          } catch (e) {
-            showErr(e);
-          }
-        },
+      final isAr = l10n.localeName == 'ar';
+      final upfront =
+          double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+      final paidClaimed =
+          (order['paymentStatus']?.toString() ?? '') == 'PAID';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAr
+                      ? 'المبلغ المطلوب مقدماً: ${upfront.toStringAsFixed(0)} ج.م'
+                      : 'Upfront amount due: ${upfront.toStringAsFixed(0)} EGP',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  paidClaimed
+                      ? (isAr
+                          ? 'العميل يقول إنه دفع. تحقق من محفظتك ثم أكد.'
+                          : 'The customer says they paid. Check your wallet, then confirm.')
+                      : (isAr
+                          ? 'في انتظار أن يدفع العميل المبلغ المقدم.'
+                          : 'Waiting for the customer to pay the upfront amount.'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          PrimaryButton(
+            text: isAr ? 'تأكيد: استلمت المبلغ' : 'Confirm: I Have Received It',
+            onPressed: !paidClaimed
+                ? null
+                : () async {
+                    try {
+                      await ref
+                          .read(orderExecutionProvider.notifier)
+                          .confirmPayment(received: true);
+                    } catch (e) {
+                      showErr(e);
+                    }
+                  },
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: !paidClaimed
+                ? null
+                : () async {
+                    try {
+                      await ref
+                          .read(orderExecutionProvider.notifier)
+                          .confirmPayment(received: false);
+                    } catch (e) {
+                      showErr(e);
+                    }
+                  },
+            child: Text(
+              isAr ? 'لم أستلم المبلغ' : 'I Did Not Receive It',
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
       );
     }
     return const SizedBox.shrink();

@@ -36,59 +36,7 @@ import {
   getDay,
   parseISO,
 } from 'date-fns';
-
-// Business timezone: shift wall-clock times entered by admins always mean
-// Africa/Cairo local time. The server runs on UTC, so interpreting them in
-// server-local time silently shifts every shift by the UTC offset.
-const BUSINESS_TIME_ZONE = 'Africa/Cairo';
-
-/** Minutes east of UTC for the business timezone at the given instant. */
-function businessOffsetMinutes(instant: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone: BUSINESS_TIME_ZONE,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  const parts = Object.fromEntries(
-    dtf.formatToParts(instant).map((p) => [p.type, p.value]),
-  );
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  return Math.round((asUtc - instant.getTime()) / 60000);
-}
-
-/**
- * Interprets a calendar day + "HH:mm" wall-clock pair as business-local time
- * and returns the corresponding UTC instant. Iterated twice so dates sitting
- * exactly on a DST transition converge to the correct offset.
- */
-function businessWallToUtc(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-): Date {
-  let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  for (let i = 0; i < 2; i++) {
-    guess = new Date(
-      Date.UTC(year, month - 1, day, hour, minute) -
-        businessOffsetMinutes(guess) * 60000,
-    );
-  }
-  return guess;
-}
+import { wallToUtc } from 'src/common/utils/timezone';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -121,16 +69,16 @@ export class DriverShiftsService {
     const end = startOfDay(endDate);
 
     while (current <= end) {
-      // Compose wall-clock times in the business timezone (NOT server-local),
-      // otherwise every shift drifts by the UTC offset on display.
-      const shiftStart = businessWallToUtc(
+      // Compose wall-clock times in the app timezone from .env (NOT
+      // server-local), otherwise every shift drifts by the UTC offset.
+      const shiftStart = wallToUtc(
         current.getUTCFullYear(),
         current.getUTCMonth() + 1,
         current.getUTCDate(),
         startHour,
         startMin,
       );
-      let shiftEnd = businessWallToUtc(
+      let shiftEnd = wallToUtc(
         current.getUTCFullYear(),
         current.getUTCMonth() + 1,
         current.getUTCDate(),
@@ -784,7 +732,9 @@ export class DriverShiftsService {
       const now = new Date();
       const in30Mins = new Date(now.getTime() + 30 * 60 * 1000);
 
-      // Find shifts starting in <= 30 mins that haven't been warned
+      // Find shifts starting in <= 30 mins that haven't been warned.
+        // Bounded per tick so backlogs drain over successive runs instead of
+        // overlapping the next tick.
       const upcomingShifts = await this.prisma.driverShift.findMany({
         where: {
           status: DriverShiftStatus.SCHEDULED,
@@ -792,9 +742,19 @@ export class DriverShiftsService {
           startTime: { lte: in30Mins },
         },
         include: { driver: { include: { user: true } }, swapRequests: true },
+        take: 100,
+        orderBy: { startTime: 'asc' },
       });
 
       for (const shift of upcomingShifts) {
+        // CAS first: only the tick that flips warningSent notifies, so
+        // overlapping runs never double-warn the same shift.
+        const claimed = await this.prisma.driverShift.updateMany({
+          where: { id: shift.id, warningSent: false },
+          data: { warningSent: true },
+        });
+        if (claimed.count === 0) continue;
+
         // Cancel any pending swap request
         const pendingSwap = shift.swapRequests.find(
           (s) => s.status === SwapRequestStatus.PENDING,
@@ -819,11 +779,6 @@ export class DriverShiftsService {
             ),
           );
         }
-
-        await this.prisma.driverShift.update({
-          where: { id: shift.id },
-          data: { warningSent: true },
-        });
       }
     } catch (e) {
       this.logger.error('Failed in handle30MinShiftWarning', e);
@@ -838,7 +793,8 @@ export class DriverShiftsService {
       const now = new Date();
       const fiveMinsAgo = new Date(now.getTime() - 5 * 60 * 1000);
 
-      // Find shifts that started > 5 mins ago and haven't been started
+      // Find shifts that started > 5 mins ago and haven't been started.
+      // Bounded per tick so backlogs drain over successive runs.
       const lateShifts = await this.prisma.driverShift.findMany({
         where: {
           status: DriverShiftStatus.SCHEDULED,
@@ -846,14 +802,18 @@ export class DriverShiftsService {
           actualStart: null,
         },
         include: { driver: { include: { user: true } } },
+        take: 100,
+        orderBy: { startTime: 'asc' },
       });
 
       for (const shift of lateShifts) {
-        // Mark as MISSED
-        await this.prisma.driverShift.update({
-          where: { id: shift.id },
+        // CAS: only the tick that flips SCHEDULED -> MISSED demotes and
+        // notifies, so overlapping runs never double-demote.
+        const claimed = await this.prisma.driverShift.updateMany({
+          where: { id: shift.id, status: DriverShiftStatus.SCHEDULED },
           data: { status: DriverShiftStatus.MISSED },
         });
+        if (claimed.count === 0) continue;
 
         // Demote tier
         let newTier = shift.driver.tier;

@@ -225,7 +225,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
   Widget _buildTicketCard(dynamic ticket, AppLocalizations l10n) {
     final status = ticket['status'] as String;
     final isEscalated = status == 'ESCALATED';
-    final createdAt = DateTime.parse(ticket['createdAt']);
+    final createdAt = DateTime.parse(ticket['createdAt']).toLocal();
     final ticketNumber = ticket['ticketNumber'] ?? '---';
     final category = ticket['category'] as String? ?? 'OTHER';
 

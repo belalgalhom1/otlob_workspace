@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -68,7 +70,17 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     }
 
     try {
-      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () async {
+          final lastKnown = await Geolocator.getLastKnownPosition();
+          if (lastKnown == null) throw TimeoutException('location');
+          return lastKnown;
+        },
+      );
       final latLng = LatLng(position.latitude, position.longitude);
       if (mounted) {
         setState(() {
@@ -89,6 +101,12 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     setState(() {
       _selectedLocation = point;
     });
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   @override

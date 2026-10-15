@@ -15,8 +15,9 @@ export class OffersService {
 
   constructor(private prisma: PrismaService) {}
 
-  async findAllActive() {
+  async findAllActive(limit = 100) {
     const now = new Date();
+    const take = Math.min(Math.max(limit, 1), 200);
     return this.prisma.offer.findMany({
       where: {
         isActive: true,
@@ -41,6 +42,7 @@ export class OffersService {
         },
       },
       orderBy: { sortOrder: 'asc' },
+      take,
       include: {
         vendor: {
           select: { id: true, storeName: true, storeNameAr: true, logo: true },
@@ -69,10 +71,12 @@ export class OffersService {
     });
   }
 
-  async findAll(vendorId?: string) {
+  async findAll(vendorId?: string, limit = 100) {
+    const take = Math.min(Math.max(limit, 1), 200);
     return this.prisma.offer.findMany({
       where: vendorId ? { vendorId } : undefined,
       orderBy: { createdAt: 'desc' },
+      take,
       include: {
         vendor: { select: { id: true, storeName: true, storeNameAr: true } },
         product: {

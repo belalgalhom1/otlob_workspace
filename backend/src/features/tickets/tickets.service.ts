@@ -477,10 +477,21 @@ export class TicketsService implements OnModuleInit {
         dto.status === TicketStatus.CLOSED
       ) {
         if (result.conversationId) {
-          await tx.conversation.update({
-            where: { id: result.conversationId },
-            data: { status: ConversationStatus.CLOSED },
+          // Resolving/closing deletes the chat outright (messages and
+          // participants cascade) so the customer can open a fresh ticket
+          // instead of being routed back into the dead thread. The ticket
+          // link is nulled first (no ON DELETE action on it).
+          await tx.supportTicket.update({
+            where: { id: result.id },
+            data: { conversationId: null },
           });
+          // deleteMany: a concurrent resolve already deleting the thread
+          // must not fail this request.
+          await tx.conversation.deleteMany({
+            where: { id: result.conversationId },
+          });
+          result.conversationId = null;
+          result.conversation = null;
         }
       }
 

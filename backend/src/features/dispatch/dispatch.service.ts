@@ -837,9 +837,10 @@ export class DispatchService {
     );
 
     if (!candidate) return null;
-    const isRejected = (
-      await this.redis.smembers(`otlobegy:dispatch:${dispatchId}:rejected`)
-    ).includes(driverId);
+    const isRejected = await this.redis.sismember(
+      `otlobegy:dispatch:${dispatchId}:rejected`,
+      driverId,
+    );
     if (isRejected) return null;
 
     return dispatchData.orderId;
@@ -880,10 +881,11 @@ export class DispatchService {
           return null;
         }
 
-        const rejectedBy = await this.redis.smembers(
+        const rejectedBy = await this.redis.sismember(
           `otlobegy:dispatch:${dispatchId}:rejected`,
+          driver.id,
         );
-        if (rejectedBy.includes(driver.id)) {
+        if (rejectedBy) {
           await this.redis.srem(
             `otlobegy:driver-pending-dispatches:${driver.id}`,
             dispatchId,

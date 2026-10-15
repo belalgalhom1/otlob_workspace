@@ -78,7 +78,7 @@ class StatisticsDateUtils {
 
   static DateTime? parseDay(dynamic raw) {
     if (raw == null) return null;
-    final parsed = DateTime.tryParse(raw.toString());
+    final parsed = DateTime.tryParse(raw.toString())?.toLocal();
     if (parsed == null) return null;
     return DateTime(parsed.year, parsed.month, parsed.day);
   }

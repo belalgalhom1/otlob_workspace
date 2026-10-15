@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/date_utils.dart';
 import 'package:data/data.dart';
 
 class AddOfferDialog extends ConsumerStatefulWidget {
@@ -531,7 +532,7 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
             Expanded(
               child: Text(
                 date != null
-                    ? DateFormat('MMM dd, yyyy HH:mm').format(date)
+                    ? DateFormat('MMM dd, yyyy hh:mm a').format(date)
                     : l10n.noExpiry,
                 style: const TextStyle(fontSize: 14),
               ),
@@ -592,8 +593,12 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
         'offerPrice': double.tryParse(_offerPriceController.text) ?? 0,
         'isActive': _isActive,
         'sortOrder': int.tryParse(_sortOrderController.text) ?? 0,
-        'startDate': _startDate?.toIso8601String(),
-        'endDate': _endDate?.toIso8601String(),
+        'startDate': _startDate == null
+            ? null
+            : toOffsetIso8601String(_startDate!),
+        'endDate': _endDate == null
+            ? null
+            : toOffsetIso8601String(_endDate!),
       });
     }
   }

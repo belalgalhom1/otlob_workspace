@@ -3,6 +3,10 @@ import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { QueryVendorWalletDto } from './dto/vendor-wallet.dto';
 import { VendorErrors } from 'src/common/constants/response.constants';
 import { Prisma } from '@prisma/client';
+import {
+  parseDateEnd,
+  parseDateStart,
+} from 'src/common/utils/timezone';
 
 @Injectable()
 export class VendorWalletService {
@@ -48,14 +52,11 @@ export class VendorWalletService {
     if (dto.type) where.type = dto.type;
 
     if (dto.from || dto.to) {
+      // Date-only filters mean whole app-timezone days; full ISO instants
+      // pass through untouched.
       where.createdAt = {};
-      if (dto.from) where.createdAt.gte = new Date(dto.from);
-      if (dto.to) {
-        // "to" is inclusive — advance to end of that day.
-        const to = new Date(dto.to);
-        to.setHours(23, 59, 59, 999);
-        where.createdAt.lte = to;
-      }
+      if (dto.from) where.createdAt.gte = parseDateStart(dto.from);
+      if (dto.to) where.createdAt.lte = parseDateEnd(dto.to);
     }
 
     const [transactions, total] = await Promise.all([

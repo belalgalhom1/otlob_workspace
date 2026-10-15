@@ -111,9 +111,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   void _placeOrder(AppStrings s, List<CartItem> vendorItems, int? coinsToUse, Map<String, dynamic>? selectedAddress) async {
+    if (_isProcessing) return;
     if (selectedAddress == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(s.isArabic ? 'الرجاء اختيار عنوان' : 'Please select an address')));
+      return;
+    }
+    if (_estimate == null || _isEstimating) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(s.isArabic
+              ? 'يرجى الانتظار حتى يتم حساب الرسوم'
+              : 'Please wait until fees are calculated')));
       return;
     }
 
@@ -650,7 +658,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (isBelowMinOrder || _isProcessing || _estimateError != null)
+                    onPressed: (isBelowMinOrder ||
+                            _isProcessing ||
+                            _isEstimating ||
+                            _estimate == null ||
+                            _estimateError != null)
                         ? null
                         : () => _placeOrder(s, vendorItems, coinsToUse, selectedAddress),
                     style: ElevatedButton.styleFrom(

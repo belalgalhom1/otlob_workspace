@@ -84,13 +84,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   DateTime? _startDate(dynamic row) {
     final raw = row['startDate'];
     if (raw == null) return null;
-    return DateTime.tryParse(raw.toString());
+    return DateTime.tryParse(raw.toString())?.toLocal();
   }
 
   DateTime? _endDate(dynamic row) {
     final raw = row['endDate'];
     if (raw == null) return null;
-    return DateTime.tryParse(raw.toString());
+    return DateTime.tryParse(raw.toString())?.toLocal();
   }
 
   @override
@@ -252,7 +252,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 ];
                 final chartLabels = [
                   for (final r in chartRows)
-                    dateFormat.format(DateTime.parse(r['startDate'].toString()))
+                    dateFormat.format(
+                      DateTime.parse(r['startDate'].toString()).toLocal(),
+                    )
                 ];
 
                 return ListView(
@@ -590,7 +592,7 @@ class _StatRow extends StatelessWidget {
 
   DateTime? _parse(dynamic raw) {
     if (raw == null) return null;
-    return DateTime.tryParse(raw.toString());
+    return DateTime.tryParse(raw.toString())?.toLocal();
   }
 
   String _fmt(DateTime? dt, DateFormat format) {

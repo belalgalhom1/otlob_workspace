@@ -30,6 +30,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       ref.read(auditLogsProvider.notifier).loadMore();
@@ -238,7 +239,7 @@ class _AuditLogCardState extends State<_AuditLogCard> {
     String createdAt = createdAtRaw;
     try {
       final date = DateTime.parse(createdAtRaw).toLocal();
-      createdAt = DateFormat('dd MMM yyyy – HH:mm').format(date);
+      createdAt = DateFormat('dd MMM yyyy – hh:mm a').format(date);
     } catch (_) {}
 
     Map<String, dynamic> oldMap = {};

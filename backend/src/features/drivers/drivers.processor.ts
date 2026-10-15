@@ -64,13 +64,17 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
     try {
       const now = new Date();
 
-      // 1. Auto-complete ended shifts
+      // 1. Auto-complete ended shifts. Bounded per tick so a backlog (e.g.
+      // after a deploy pause) drains over successive ticks instead of
+      // overlapping the next run.
       const shiftsToComplete = await this.prisma.driverShift.findMany({
         where: {
           status: DriverShiftStatus.ACTIVE,
           endTime: { lt: now },
         },
         select: { id: true, driverId: true },
+        take: 100,
+        orderBy: { endTime: 'asc' },
       });
 
       if (shiftsToComplete.length > 0) {

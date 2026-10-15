@@ -156,7 +156,20 @@ export class LocationRepository {
     scanned: number;
     removed: number;
   }> {
-    const members = await this.redis.zrange('otlobegy:driver-locations');
+    // Page through the geo set instead of pulling every member at once —
+    // the fleet can be large and this sweep runs every few minutes.
+    const members: string[] = [];
+    const PAGE = 1000;
+    for (let offset = 0; ; offset += PAGE) {
+      const chunk = await this.redis.zrange(
+        'otlobegy:driver-locations',
+        offset,
+        offset + PAGE - 1,
+      );
+      if (chunk.length === 0) break;
+      members.push(...chunk);
+      if (chunk.length < PAGE) break;
+    }
     if (members.length === 0) return { scanned: 0, removed: 0 };
 
     // Batch the availability check to keep the SQL IN list reasonable.
@@ -204,12 +217,20 @@ export class LocationRepository {
     driverIds: string[],
   ): Promise<Map<string, { lng: number; lat: number }>> {
     const map = new Map<string, { lng: number; lat: number }>();
-    for (const id of driverIds) {
-      const live = await this.getDriverLocation(id);
-      if (live && (await this.isDriverLocationFresh(id))) {
-        map.set(id, live);
-      }
-    }
+    if (driverIds.length === 0) return map;
+    // One GEOPOS round-trip for all drivers, then freshness checks only for
+    // drivers that actually have a position.
+    const positions = await this.redis.geoposMany(
+      'otlobegy:driver-locations',
+      driverIds,
+    );
+    await Promise.all(
+      [...positions.keys()].map(async (id) => {
+        if (await this.isDriverLocationFresh(id)) {
+          map.set(id, positions.get(id)!);
+        }
+      }),
+    );
     return map;
   }
 

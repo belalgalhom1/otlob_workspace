@@ -278,25 +278,67 @@ export class CartService {
           },
         });
       } else {
-        await tx.cartItem.create({
-          data: {
-            cartId: cart.id,
-            productId: finalProductId,
-            variantId: dto.variantId ?? null,
-            customName,
-            customPrice,
-            customImageUrl,
-            quantity: dto.quantity ?? 1,
-            selectedUnit,
-            specialRequest: dto.specialRequest ?? null,
-            optionHash: optionHash ?? '',
-            selectedOptions: {
-              create: (dto.optionIds ?? []).map((optionId) => ({
-                optionId,
-              })),
+        try {
+          await tx.cartItem.create({
+            data: {
+              cartId: cart.id,
+              productId: finalProductId,
+              variantId: dto.variantId ?? null,
+              customName,
+              customPrice,
+              customImageUrl,
+              quantity: dto.quantity ?? 1,
+              selectedUnit,
+              specialRequest: dto.specialRequest ?? null,
+              optionHash: optionHash ?? '',
+              selectedOptions: {
+                create: (dto.optionIds ?? []).map((optionId) => ({
+                  optionId,
+                })),
+              },
             },
-          },
-        });
+          });
+        } catch (e: any) {
+          // Lost a concurrent insert race against the merge unique index:
+          // the other request created the line, so merge into it instead.
+          if (
+            e instanceof Prisma.PrismaClientKnownRequestError &&
+            e.code === 'P2002'
+          ) {
+            const winner = finalProductId
+              ? await tx.cartItem.findFirst({
+                  where: {
+                    cartId: cart.id,
+                    productId: finalProductId,
+                    optionHash: optionHash ?? '',
+                    selectedUnit,
+                    customPrice: customPrice ?? null,
+                  },
+                })
+              : await tx.cartItem.findFirst({
+                  where: {
+                    cartId: cart.id,
+                    productId: null,
+                    customName,
+                    customPrice: customPrice ?? null,
+                  },
+                });
+            if (winner) {
+              await tx.cartItem.update({
+                where: { id: winner.id },
+                data: {
+                  quantity: { increment: dto.quantity ?? 1 },
+                  specialRequest: dto.specialRequest ?? undefined,
+                  updatedAt: new Date(),
+                },
+              });
+            } else {
+              throw e;
+            }
+          } else {
+            throw e;
+          }
+        }
       }
     });
 

@@ -313,21 +313,17 @@ export class EventsProcessor extends WorkerHost {
       await this.redis.del(`otlobegy:driver-active-order:${event.driverId}`);
     }
 
-    const socketPayload = {
-      orderId: event.orderId,
-      orderNumber: event.orderNumber,
-      reason: event.reason,
-    };
-
     const notifyUserIds = new Set<string>([
       event.customerUserId,
       ...event.vendorUserIds,
     ]);
     if (event.driverUserId) notifyUserIds.add(event.driverUserId);
 
+    // Single canonical event: every client already handles order.status with
+    // CANCELLED (fast flip + refetch). The legacy order.cancelled emit only
+    // doubled Redis publishes and client re-renders.
     await Promise.all(
-      [...notifyUserIds].flatMap((uid) => [
-        this.socketService.emitToUser(uid, WS.ORDER_CANCELLED, socketPayload),
+      [...notifyUserIds].map((uid) =>
         this.socketService.emitToUser(uid, WS.ORDER_STATUS, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
@@ -335,7 +331,7 @@ export class EventsProcessor extends WorkerHost {
           newStatus: 'CANCELLED',
           reason: event.reason,
         }),
-      ]),
+      ),
     );
 
     // Notify customer via push

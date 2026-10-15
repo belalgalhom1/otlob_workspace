@@ -221,7 +221,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             
         final user = data['user'] ?? {};
         final avatarPath = data['avatar'] ?? user['avatar'];
-        final avatarUrl = avatarPath != null ? 'https://api.otlob-egy.online$avatarPath' : null;
+        final avatarUrl = avatarPath != null
+            ? '${ref.read(dioProvider).options.baseUrl}$avatarPath'
+            : null;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),

@@ -12,14 +12,31 @@ class DriverWallet extends _$DriverWallet {
     return const AsyncValue.loading();
   }
 
+  Future<dynamic> _safe(Future<dynamic> Function() call) async {
+    try {
+      return await call();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _fetchWalletData() async {
     try {
       final repository = ref.read(driverWalletRepositoryProvider);
-      final balanceResponse = await repository.getWalletBalance();
-      final txResponse = await repository.getWalletTransactions();
-      final platformWallets = await repository.getPlatformWallets();
-      final driverWallets = await repository.getMyDriverWallets();
-      final topUpRequests = await repository.getMyTopUpRequests();
+      // Parallel with per-call fallback: one slow/failing endpoint no longer
+      // blocks or blanks the whole wallet screen.
+      final results = await Future.wait([
+        _safe(() => repository.getWalletBalance()),
+        _safe(() => repository.getWalletTransactions()),
+        _safe(() => repository.getPlatformWallets()),
+        _safe(() => repository.getMyDriverWallets()),
+        _safe(() => repository.getMyTopUpRequests()),
+      ]);
+      final balanceResponse = results[0];
+      final txResponse = results[1];
+      final platformWallets = results[2];
+      final driverWallets = results[3];
+      final topUpRequests = results[4];
 
       num parsedBalance = 0.0;
       if (balanceResponse is num) {

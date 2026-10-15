@@ -128,6 +128,8 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     ref.read(navigationServiceProvider).go('/order-tracking/${data['orderId']}');
   }
 
+  DateTime? _lastRefreshAt;
+
   void _handleOrderStatusUpdate(dynamic rawData) {
     if (rawData == null) return;
 
@@ -148,6 +150,13 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     if (status != null) {
       orders.updateOrderStatusFast(orderId, status);
     }
+    // Coalesce event bursts into at most one refresh per second.
+    final now = DateTime.now();
+    if (_lastRefreshAt != null &&
+        now.difference(_lastRefreshAt!).inMilliseconds < 1000) {
+      return;
+    }
+    _lastRefreshAt = now;
     orders.refresh();
   }
 }

@@ -8,9 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:data/data.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/l10n/app_localizations.dart';
+import 'package:core/core.dart';
 import 'package:driver/core/utils/error_utils.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,12 +37,15 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   StreamSubscription? _recordingSubscription;
   Duration _recordingDuration = Duration.zero;
 
+  final ValueNotifier<bool> _hasText = ValueNotifier(false);
+
   @override
   void initState() {
     super.initState();
     _initRecorder();
     _textController.addListener(() {
-      if (mounted) setState(() {});
+      final hasText = _textController.text.trim().isNotEmpty;
+      if (_hasText.value != hasText) _hasText.value = hasText;
     });
   }
 
@@ -123,6 +126,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     _recorder = null;
     _textController.dispose();
     _scrollController.dispose();
+    _hasText.dispose();
     super.dispose();
   }
 
@@ -158,7 +162,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   String _formatImageUrl(String url) {
     if (url.startsWith('http')) return url;
-    var baseUrl = dotenv.env['API_URL'] ?? 'http://10.0.2.2:3000';
+    var baseUrl = ref.read(dioProvider).options.baseUrl;
     if (baseUrl.endsWith('/')) {
       baseUrl = baseUrl.substring(0, baseUrl.length - 1);
     }
@@ -248,7 +252,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                         mediaUrl: msg.mediaUrl,
                         content: msg.content,
                         type: msg.type.name,
-                        time: DateFormat.Hm().format(msg.timestamp.toLocal()),
+                        time: DateFormat.jm().format(msg.timestamp.toLocal()),
                         isRead: msg.isRead,
                         metadata: msg.metadata,
                         uploadingText: 'Uploading...',
@@ -324,8 +328,6 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       );
     }
 
-    final hasText = _textController.text.trim().isNotEmpty;
-
     return Container(
       padding: EdgeInsets.only(
         left: 8,
@@ -376,33 +378,38 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          if (hasText)
-            CircleAvatar(
-              backgroundColor: AppColors.primary,
-              radius: 24,
-              child: IconButton(
-                icon: Icon(
-                  LucideIcons.send,
-                  color: Theme.of(context).colorScheme.onPrimary,
-                  size: 20,
+          ValueListenableBuilder<bool>(
+            valueListenable: _hasText,
+            builder: (context, hasText, _) {
+              if (hasText) {
+                return CircleAvatar(
+                  backgroundColor: AppColors.primary,
+                  radius: 24,
+                  child: IconButton(
+                    icon: Icon(
+                      LucideIcons.send,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      size: 20,
+                    ),
+                    onPressed: _sendMessage,
+                  ),
+                );
+              }
+              return CircleAvatar(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                radius: 24,
+                child: IconButton(
+                  icon: const Icon(
+                    LucideIcons.mic,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  onPressed: _startRecording,
+                  tooltip: 'Record Voice Note',
                 ),
-                onPressed: _sendMessage,
-              ),
-            )
-          else
-            CircleAvatar(
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              radius: 24,
-              child: IconButton(
-                icon: const Icon(
-                  LucideIcons.mic,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-                onPressed: _startRecording,
-                tooltip: 'Record Voice Note',
-              ),
-            ),
+              );
+            },
+          ),
         ],
       ),
     );

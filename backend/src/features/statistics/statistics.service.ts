@@ -223,18 +223,12 @@ export class StatisticsService {
         );
       }
 
-      if (payload.upfrontAmount > 0) {
-        await this.creditDriverWallet(
-          client,
-          driverId,
-          payload.upfrontAmount,
-          orderId,
-          driverShiftId,
-          `Reimbursement for online upfront payment`,
-          'ADJUSTMENT',
-          { skipLock: true },
-        );
-      }
+      // NOTE: no upfront reimbursement here. The upfront slice is part of
+      // grandTotal, which the driver already collected in cash/mobile-wallet
+      // (see the CASH_COLLECTED debit above) — crediting it again would pay
+      // the driver the upfront twice. A reimbursement would only apply if the
+      // platform itself ever collected the upfront online, which no current
+      // payment method does.
 
       // Fetch updated wallet balance after transactions
       const driverSnapshot = await client.driver.findUnique({

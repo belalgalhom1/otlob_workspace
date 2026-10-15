@@ -53,7 +53,16 @@ class Notifications extends _$Notifications {
     return NotificationsState(isLoading: true);
   }
 
+  DateTime? _lastRealtimeFetch;
+
   void _onRealtimeEvent(dynamic data) {
+    // Coalesce event bursts: one refresh per 2s window at most.
+    final now = DateTime.now();
+    if (_lastRealtimeFetch != null &&
+        now.difference(_lastRealtimeFetch!).inMilliseconds < 2000) {
+      return;
+    }
+    _lastRealtimeFetch = now;
     _fetchNotifications(1); // Refresh from top
   }
 
@@ -146,15 +155,26 @@ class Notifications extends _$Notifications {
   }
 
   Future<void> deleteNotification(String id) async {
-    // Optimistic delete
-    final updated = state.notifications.where((n) => n['id'] != id).toList();
-    state = state.copyWith(notifications: updated);
-    
+    // Optimistic delete with rollback on failure.
+    final previous = state.notifications;
+    final index = previous.indexWhere((n) => n['id'] == id);
+    state = state.copyWith(
+      notifications: previous.where((n) => n['id'] != id).toList(),
+    );
+
     try {
       final dio = ref.read(dioProvider);
       await dio.delete('/notifications/$id');
     } catch (e) {
       debugPrint('Failed to delete notification: $e');
+      final restored = List<Map<String, dynamic>>.from(state.notifications);
+      if (index >= 0 && index <= restored.length) {
+        restored.insert(index, previous[index]);
+      } else if (index >= 0) {
+        restored.add(previous[index]);
+      }
+      state = state.copyWith(notifications: restored);
+      rethrow;
     }
   }
 }

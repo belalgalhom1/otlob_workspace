@@ -75,9 +75,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _loadMessages();
     _initRecorder();
     _loadTicketAndOrderDetails();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
   }
 
   Future<void> _initRecorder() async {
@@ -827,6 +824,11 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     final customer = _orderDetails!['customer']?['user'] ?? {};
     final customerName = customer['name'] ?? '';
     final customerPhone = customer['phone'] ?? '';
+    final driver = _orderDetails!['driver'] ?? {};
+    final driverUser = driver['user'] ?? {};
+    final driverName =
+        driver['name']?.toString() ?? driverUser['name']?.toString() ?? '';
+    final driverPhone = driverUser['phone']?.toString() ?? '';
     final vendor = _orderDetails!['vendor'] ?? {};
     final vendorName = vendor['storeName'] ?? '';
     final items = _orderDetails!['items'] as List? ?? [];
@@ -988,6 +990,53 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Delivery Details
+                    if (driverName.isNotEmpty ||
+                        driverPhone.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.bike,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              driverName.isNotEmpty
+                                  ? driverName
+                                  : (isAr ? 'السائق' : 'Driver'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          if (driverPhone.isNotEmpty)
+                            InkWell(
+                              onTap: () async {
+                                final Uri launchUri = Uri(
+                                  scheme: 'tel',
+                                  path: driverPhone,
+                                );
+                                await launchUrl(launchUri);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  LucideIcons.phone,
+                                  size: 14,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     if (customerName.isNotEmpty ||
                         customerPhone.isNotEmpty) ...[
                       Row(
@@ -1972,7 +2021,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   void _editMessage(dynamic message) {
     final l10n = AppLocalizations.of(context)!;
-    final editController = TextEditingController(text: message['text']);
+    final editController =
+        TextEditingController(text: message['text']?.toString() ?? '');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2029,13 +2079,14 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => editController.dispose());
   }
 
   Widget _buildMessageBubble(dynamic message, bool isMe) {
     final senderName = message['sender']['name'] ?? 'Unknown';
     final senderRole = message['sender']['role'];
-    final time = _formatTime(DateTime.parse(message['createdAt']));
+    final time =
+        _formatTime(DateTime.parse(message['createdAt']).toLocal());
 
     String displaySenderName = senderName;
     if (senderRole != null) {
@@ -2450,7 +2501,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   }
 
   String _formatTime(DateTime time) {
-    return DateFormat.Hm().format(time);
+    return DateFormat.jm().format(time);
   }
 }
 

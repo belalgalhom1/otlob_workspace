@@ -15,7 +15,7 @@ import {
   ProcessManualTransactionDto,
 } from './dto/wallet.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { VendorTransactionType, WalletTransactionType } from '@prisma/client';
+import { VendorTransactionType, WalletTransactionType, Prisma } from '@prisma/client';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { CommonSuccess } from 'src/common/constants/response.constants';
 import { DriverStatusChangedEvent } from 'src/common/events';
@@ -111,17 +111,29 @@ export class WalletService {
       throw new BadRequestException(WalletErrors.DUPLICATE_PENDING_REQUEST);
     }
 
-    const request = await this.prisma.walletTopUpRequest.create({
-      data: {
-        driverId: driver.id,
-        platformWalletId: platformWallet.id,
-        amount: dto.amount,
-        receiptUrl: dto.receiptUrl,
-        status: 'PENDING',
-      },
-    });
+    try {
+      const request = await this.prisma.walletTopUpRequest.create({
+        data: {
+          driverId: driver.id,
+          platformWalletId: platformWallet.id,
+          amount: dto.amount,
+          receiptUrl: dto.receiptUrl,
+          status: 'PENDING',
+        },
+      });
 
-    return request;
+      return request;
+    } catch (e: any) {
+      // Lost a concurrent submit race against the partial unique index:
+      // a PENDING request already exists.
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new BadRequestException(WalletErrors.DUPLICATE_PENDING_REQUEST);
+      }
+      throw e;
+    }
   }
 
   async getMyTopUpRequests(driverUserId: string) {

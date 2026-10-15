@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -138,19 +140,21 @@ class _NotificationTapListener extends ConsumerStatefulWidget {
 
 class _NotificationTapListenerState
     extends ConsumerState<_NotificationTapListener> {
+  StreamSubscription<dynamic>? _openedAppSub;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
       try {
         final push = ref.read(pushNotificationServiceProvider);
-        push.onMessageOpenedApp.listen((message) {
+        _openedAppSub = push.onMessageOpenedApp.listen((message) {
           ref
               .read(notificationRouterProvider.notifier)
               .handleTap(Map<String, String>.from(message.data));
         });
         push.getInitialMessage().then((message) {
-          if (message != null) {
+          if (message != null && mounted) {
             ref
                 .read(notificationRouterProvider.notifier)
                 .handleTap(Map<String, String>.from(message.data));
@@ -158,6 +162,12 @@ class _NotificationTapListenerState
         });
       } catch (_) {}
     });
+  }
+
+  @override
+  void dispose() {
+    _openedAppSub?.cancel();
+    super.dispose();
   }
 
   @override

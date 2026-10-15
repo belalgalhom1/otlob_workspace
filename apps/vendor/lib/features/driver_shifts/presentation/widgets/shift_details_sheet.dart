@@ -150,7 +150,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         children: [
           _buildInfoChip(
             LucideIcons.timer,
-            '${DateFormat('HH:mm').format(pool.startTime)} – ${DateFormat('HH:mm').format(pool.endTime)}',
+            '${DateFormat('hh:mm a').format(pool.startTime)} – ${DateFormat('hh:mm a').format(pool.endTime)}',
             AppColors.info,
           ),
           _buildInfoChip(
@@ -468,7 +468,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                   ),
                 ),
                 Text(
-                  '${DateFormat('HH:mm').format(shift.startTime)} – ${DateFormat('HH:mm').format(shift.endTime)}',
+                  '${DateFormat('hh:mm a').format(shift.startTime)} – ${DateFormat('hh:mm a').format(shift.endTime)}',
                   style: TextStyle(
                     fontSize: 11,
                     color: Theme.of(context).colorScheme.onSurface,

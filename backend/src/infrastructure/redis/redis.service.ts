@@ -310,6 +310,36 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Positions for many members in ONE round-trip (same key = cluster-safe).
+   * Returns a map of member -> position; missing members are absent.
+   */
+  async geoposMany(
+    key: string,
+    members: string[],
+  ): Promise<Map<string, { lng: number; lat: number }>> {
+    const map = new Map<string, { lng: number; lat: number }>();
+    if (members.length === 0) return map;
+    try {
+      const positions = await this.client.geopos(key, ...members);
+      members.forEach((member, i) => {
+        const pos = positions?.[i];
+        if (pos) {
+          map.set(member, {
+            lng: parseFloat(pos[0]),
+            lat: parseFloat(pos[1]),
+          });
+        }
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to GEOPOS many for key "${key}"`,
+        (error as Error).stack,
+      );
+    }
+    return map;
+  }
+
   async sadd(key: string, ...members: string[]): Promise<number> {
     try {
       return await this.client.sadd(key, ...members);

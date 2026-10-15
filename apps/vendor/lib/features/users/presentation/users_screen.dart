@@ -9,6 +9,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:data/data.dart';
 import 'user_form_dialog.dart';
 import '../../../l10n/l10n_error_helper.dart';
@@ -94,6 +95,33 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
             vendorId: conversation['vendorId'],
             vendorName: conversation['vendor']?['storeName'],
             type: conversation['type']?.toString() ?? 'DIRECT',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _callUser(BuildContext context, String phone) async {
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    if (digits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic ? 'رقم الهاتف غير متاح' : 'Phone number not available',
+          ),
+        ),
+      );
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: digits);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call',
           ),
         ),
       );
@@ -540,6 +568,23 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                             : AppLocalizations.of(context)!.ban,
                         onPressed: () => _handleBanToggle(context, u),
                       ),
+                      if ((u['phone']?.toString().isNotEmpty ?? false)) ...[
+                        const SizedBox(width: 8),
+                        _buildActionItem(
+                          context: context,
+                          icon: LucideIcons.phoneCall,
+                          color: AppColors.success,
+                          label: Localizations.localeOf(context)
+                                      .languageCode ==
+                                  'ar'
+                              ? 'اتصال'
+                              : 'Call',
+                          onPressed: () => _callUser(
+                            context,
+                            u['phone'].toString(),
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 8),
                       _buildActionItem(
                         context: context,
@@ -670,6 +715,23 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                               : AppLocalizations.of(context)!.ban,
                           onPressed: () => _handleBanToggle(context, u),
                         ),
+                        if ((u['phone']?.toString().isNotEmpty ?? false)) ...[
+                          const SizedBox(width: 8),
+                          _buildActionItem(
+                            context: context,
+                            icon: LucideIcons.phoneCall,
+                            color: AppColors.success,
+                            label: Localizations.localeOf(context)
+                                        .languageCode ==
+                                    'ar'
+                                ? 'اتصال'
+                                : 'Call',
+                            onPressed: () => _callUser(
+                              context,
+                              u['phone'].toString(),
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         _buildActionItem(
                           context: context,

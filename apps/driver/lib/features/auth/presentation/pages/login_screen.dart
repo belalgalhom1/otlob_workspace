@@ -24,19 +24,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
     ref.listen<AsyncValue<bool>>(authProvider, (previous, state) async {
+      if (!mounted) return;
       if (!state.isLoading && state.hasValue && state.value == true) {
-        if (context.mounted) {
-          ref.invalidate(splashProvider);
-          ref.invalidate(driverProfileProvider);
-          context.go('/');
-        }
+        ref.invalidate(splashProvider);
+        ref.invalidate(driverProfileProvider);
+        context.go('/');
       } else if (state.hasError && state.error != null) {
         final displayMessage = ErrorUtils.translate(context, state.error);
 
@@ -48,6 +41,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: Stack(

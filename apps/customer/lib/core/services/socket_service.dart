@@ -29,6 +29,12 @@ class SocketService with WidgetsBindingObserver {
   final Map<String, StreamController<dynamic>> _controllers =
       <String, StreamController<dynamic>>{};
 
+  final StreamController<void> _connectController =
+      StreamController<void>.broadcast();
+
+  /// Fires on every (re)connect, including after token-rotation re-auth.
+  Stream<void> get onConnect => _connectController.stream;
+
   StreamController<dynamic> _controllerFor(String event) =>
       _controllers.putIfAbsent(event, () => StreamController<dynamic>.broadcast());
 
@@ -87,6 +93,7 @@ class SocketService with WidgetsBindingObserver {
     _socket?.connect();
     _socket?.onConnect((_) {
       _logger.i('✅ Socket connected');
+      if (!_connectController.isClosed) _connectController.add(null);
       final preview = userToken.length > 20
           ? userToken.substring(0, 20)
           : userToken;

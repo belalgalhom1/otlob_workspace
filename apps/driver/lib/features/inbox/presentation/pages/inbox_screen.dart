@@ -147,8 +147,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     Map<String, dynamic> convo,
     AppLocalizations l10n,
   ) {
-    final id = convo['id'] as String;
-    final type = convo['type'] as String? ?? 'UNKNOWN';
+    final id = convo['id']?.toString() ?? '';
+    final type = convo['type']?.toString() ?? 'UNKNOWN';
     final unreadCount = convo['unreadCount'] as int? ?? 0;
     final lastMessage = convo['lastMessage'] as Map<String, dynamic>?;
 
@@ -161,10 +161,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       icon = Icons.support_agent_rounded;
       iconColor = Colors.blue;
     } else if (type == 'ORDER') {
+      final orderIdStr = convo['orderId']?.toString() ?? '';
       final orderNumStr =
-          convo['order']?['orderNumber'] ??
-          convo['orderId']?.toString().substring(0, 8) ??
-          '';
+          convo['order']?['orderNumber']?.toString() ??
+          (orderIdStr.length > 8 ? orderIdStr.substring(0, 8) : orderIdStr);
       title = 'Order #$orderNumStr';
       icon = Icons.receipt_long_rounded;
       iconColor = Colors.orange;

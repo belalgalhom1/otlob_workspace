@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -6,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/notifications/presentation/notifications_provider.dart';
 import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
+import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
 
@@ -123,20 +126,33 @@ class NotificationsScreen extends ConsumerWidget {
                     if (dispatchTap == DispatchTapResult.pending) {
                       return;
                     }
-                    if (dispatchTap == DispatchTapResult.notPending) {
-                      context.push('/order-execution');
-                      return;
+                    // Never push order-execution blindly: only when there is
+                    // actually an active order, otherwise the screen bounces
+                    // straight back to the dashboard.
+                    final rawData = notification['data'];
+                    Map<String, dynamic>? data;
+                    if (rawData is Map) {
+                      data = Map<String, dynamic>.from(rawData);
+                    } else if (rawData is String && rawData.isNotEmpty) {
+                      try {
+                        final decoded = jsonDecode(rawData);
+                        if (decoded is Map) {
+                          data = Map<String, dynamic>.from(decoded);
+                        }
+                      } catch (_) {}
                     }
-                    final data = notification['data'] as Map<String, dynamic>?;
                     final notifType = notification['type']?.toString();
                     if (data != null && data['orderId'] != null) {
                       if (notifType == 'CHAT_MESSAGE') {
                         context.push('/chat/${data['orderId']}');
-                      } else {
+                      } else if (ref.read(orderExecutionProvider).value !=
+                          null) {
                         context.push('/order-execution');
                       }
                     } else if (notifType?.contains('SHIFT') == true) {
                       context.push('/shifts');
+                    } else if (data != null && data['kind'] == 'break') {
+                      context.go('/dashboard');
                     }
                   },
                 );

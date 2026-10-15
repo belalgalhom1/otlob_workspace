@@ -333,7 +333,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
                 Icon(LucideIcons.timer, size: 13, color: Theme.of(context).colorScheme.onSurface),
                 const SizedBox(width: 4),
                 Text(
-                  '${DateFormat('HH:mm').format(pool.startTime)} – ${DateFormat('HH:mm').format(pool.endTime)}',
+                  '${DateFormat('hh:mm a').format(pool.startTime)} – ${DateFormat('hh:mm a').format(pool.endTime)}',
                   style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface),
                 ),
               ],

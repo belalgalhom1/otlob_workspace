@@ -34,13 +34,21 @@ class OrderExecution extends _$OrderExecution {
     }
   }
 
+  String? _activeOrderId(AsyncValue<dynamic> prev) {
+    final value = prev.value;
+    if (value is! Map) return null;
+    final id = value['id']?.toString();
+    return (id == null || id.isEmpty) ? null : id;
+  }
+
   Future<void> updateOrderStatus(String newStatus) async {
     final prev = state;
+    final orderId = _activeOrderId(prev);
+    if (orderId == null) return;
     try {
       state = const AsyncValue.loading();
       final repository = ref.read(driverOrdersRepositoryProvider);
-      final orderId = prev.value['id'];
-      
+
       await repository.updateOrderStatus(orderId, newStatus);
       await _fetchActiveOrder();
       
@@ -60,11 +68,12 @@ class OrderExecution extends _$OrderExecution {
 
   Future<void> confirmPayment({required bool received}) async {
     final prev = state;
+    final orderId = _activeOrderId(prev);
+    if (orderId == null) return;
     try {
       state = const AsyncValue.loading();
       final repository = ref.read(driverOrdersRepositoryProvider);
-      final orderId = prev.value['id'];
-      
+
       await repository.confirmPayment(orderId, received: received);
       await _fetchActiveOrder();
     } catch (e, st) {
@@ -80,9 +89,10 @@ class OrderExecution extends _$OrderExecution {
   // Confirms pickup by uploading the mandatory order photo and marking PICKED_UP.
   Future<void> confirmPickupWithPhoto(XFile photo) async {
     final prev = state;
+    final orderId = _activeOrderId(prev);
+    if (orderId == null) return;
     try {
       state = const AsyncValue.loading();
-      final orderId = prev.value['id'];
       final dio = ref.read(dioProvider);
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
@@ -102,9 +112,10 @@ class OrderExecution extends _$OrderExecution {
   // Confirms delivery by uploading the mandatory order photo and marking DELIVERED.
   Future<void> confirmDeliveryWithPhoto(XFile photo) async {
     final prev = state;
+    final orderId = _activeOrderId(prev);
+    if (orderId == null) return;
     try {
       state = const AsyncValue.loading();
-      final orderId = prev.value['id'];
       final dio = ref.read(dioProvider);
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(photo.path, filename: photo.name),

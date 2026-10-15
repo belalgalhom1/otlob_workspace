@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/date_utils.dart';
 import 'package:data/data.dart';
 
 class AddPromotionDialog extends ConsumerStatefulWidget {
@@ -613,8 +614,12 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
         'isActive': _isActive,
         'sortOrder': int.tryParse(_sortOrderController.text) ?? 0,
         'imageFile': _imageFile,
-        'startDate': _startDate?.toIso8601String(),
-        'endDate': _endDate?.toIso8601String(),
+        'startDate': _startDate == null
+            ? null
+            : toOffsetIso8601String(_startDate!),
+        'endDate': _endDate == null
+            ? null
+            : toOffsetIso8601String(_endDate!),
       });
     }
   }

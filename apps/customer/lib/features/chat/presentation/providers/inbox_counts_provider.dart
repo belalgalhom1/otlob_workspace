@@ -22,15 +22,18 @@ class InboxCounts extends _$InboxCounts {
   @override
   InboxCountsState build() {
     Future.microtask(() => _fetchCounts());
-    
-    // Listen to real-time events to refresh counts
+
+    // Typed broadcast streams: survive socket re-auth (legacy socket.on
+    // bindings die with the old socket instance).
     final socket = ref.read(socketServiceProvider);
-    socket.on('chat.message', _onRealtimeEvent);
-    socket.on('notification.new', _onRealtimeEvent);
-    
+    final chatSub =
+        socket.onEvent('chat.message').listen(_onRealtimeEvent);
+    final notifSub =
+        socket.onEvent('notification.new').listen(_onRealtimeEvent);
+
     ref.onDispose(() {
-      socket.off('chat.message', _onRealtimeEvent);
-      socket.off('notification.new', _onRealtimeEvent);
+      chatSub.cancel();
+      notifSub.cancel();
     });
 
     return InboxCountsState();

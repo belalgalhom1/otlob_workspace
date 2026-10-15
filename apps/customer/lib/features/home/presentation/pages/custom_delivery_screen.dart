@@ -33,6 +33,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   bool _isExpanded = false;
   bool _useCoins = false;
   bool _isEstimating = false;
+  bool _isSubmitting = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
   String? _clientOrderKey;
@@ -174,20 +175,28 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   void _submitOrder() async {
+    if (_isSubmitting) return;
     if (_formKey.currentState!.validate()) {
       if (_pickupLocation == null || _dropoffLocation == null) {
         final s = AppStrings.of(context);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'يرجى تحديد موقع الاستلام والتسليم' : 'Please select pickup and dropoff locations')));
         return;
       }
-      
-      final pickup = _pickupController.text.trim();
-      final dropoff = _dropoffController.text.trim();
-      final details = _detailsController.text.trim();
-
-      if (_serviceType == 'ride') {
-        setState(() => _rideState = RideState.findingDriver);
+      if (_estimate == null || _isEstimating) {
+        final s = AppStrings.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'يرجى الانتظار حتى يتم حساب الأجرة' : 'Please wait until the fare is calculated')));
+        return;
       }
+
+      setState(() => _isSubmitting = true);
+      try {
+        final pickup = _pickupController.text.trim();
+        final dropoff = _dropoffController.text.trim();
+        final details = _detailsController.text.trim();
+
+        if (_serviceType == 'ride') {
+          setState(() => _rideState = RideState.findingDriver);
+        }
 
       final coinState = ref.read(coinHistoryProvider);
       final settings = ref.read(platformSettingsProvider).value;
@@ -237,18 +246,21 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
       if (!mounted) return;
 
-      if (resultId != null) {
-        _clientOrderKey = null;
-        if (_serviceType == 'ride' && resultId != 'SUCCESS') {
-          context.push('/order-tracking/$resultId');
+        if (resultId != null) {
+          _clientOrderKey = null;
+          if (_serviceType == 'ride' && resultId != 'SUCCESS') {
+            context.push('/order-tracking/$resultId');
+          } else {
+            context.go('/home');
+            context.push('/orders');
+          }
         } else {
-          context.go('/home');
-          context.push('/orders');
+          final s = AppStrings.of(context);
+          setState(() => _rideState = RideState.form);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'فشل إتمام الطلب' : 'Failed to place order')));
         }
-      } else {
-        final s = AppStrings.of(context);
-        setState(() => _rideState = RideState.form);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'فشل إتمام الطلب' : 'Failed to place order')));
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
       }
     }
   }
@@ -513,18 +525,34 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
             
             const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: _submitOrder,
+              onPressed: (_isSubmitting ||
+                      _isEstimating ||
+                      _estimate == null ||
+                      _pickupLocation == null ||
+                      _dropoffLocation == null)
+                  ? null
+                  : _submitOrder,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 backgroundColor: AppColors.primary,
+                disabledBackgroundColor: Colors.grey.shade400,
                 elevation: 8,
                 shadowColor: AppColors.primary.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
-              child: Text(
-                _serviceType == 'ride' ? (isAr ? 'اطلب الآن' : 'Request Now') : s.requestCourier,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black),
-              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.black,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : Text(
+                      _serviceType == 'ride' ? (isAr ? 'اطلب الآن' : 'Request Now') : s.requestCourier,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black),
+                    ),
             ),
             const SizedBox(height: 40),
           ],

@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { Prisma, StatisticPeriod, VendorTransactionType } from '@prisma/client';
+import {
+  tzDateKey,
+  tzDayEnd,
+  tzDayStart,
+  tzParts,
+  parseDateStart,
+} from 'src/common/utils/timezone';
 
 export interface StatPeriodRange {
   period: StatisticPeriod;
@@ -48,20 +55,16 @@ export class StatisticsRepository {
   // whole-day DAILY rows on demand. This keeps a single source of truth and
   // cuts per-event writes from 5 statements to 2 (one marker + one DAILY upsert).
   getPeriodsForDate(date: Date): StatPeriodRange[] {
-    const d = new Date(date);
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const dayEnd = new Date(
-      d.getFullYear(),
-      d.getMonth(),
-      d.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
+    // Buckets follow the app-timezone calendar day, not the server (UTC)
+    // day, so the small hours of each local morning land in the right bucket.
+    const p = tzParts(new Date(date));
 
     return [
-      { period: StatisticPeriod.DAILY, startDate: dayStart, endDate: dayEnd },
+      {
+        period: StatisticPeriod.DAILY,
+        startDate: tzDayStart(p.year, p.month, p.day),
+        endDate: tzDayEnd(p.year, p.month, p.day),
+      },
     ];
   }
 
@@ -364,18 +367,18 @@ export class StatisticsRepository {
       LIMIT ${limit}
     `;
 
-    return Promise.all(
-      rawProducts.map(async (rp) => {
-        const product = await this.prisma.product.findUnique({
-          where: { id: rp.productId },
-          select: { name: true, nameAr: true, imageUrl: true },
-        });
-        return {
-          ...product,
-          totalOrders: rp.totalOrders,
-        };
-      }),
-    );
+    if (rawProducts.length === 0) return [];
+
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: rawProducts.map((rp) => rp.productId) } },
+      select: { id: true, name: true, nameAr: true, imageUrl: true },
+    });
+    const productById = new Map(products.map((p) => [p.id, p]));
+
+    return rawProducts.map((rp) => ({
+      ...productById.get(rp.productId),
+      totalOrders: rp.totalOrders,
+    }));
   }
 
   // ─── App stats — atomic upsert ────────────────────────────────────────────
@@ -446,11 +449,30 @@ export class StatisticsRepository {
 
   private buildRange(from: string, to: string): { from: Date; to: Date } {
     // Days are stored as @db.Date and Prisma returns them at UTC midnight.
-    // Use an exclusive upper bound (start of the day after `to`) so the window
-    // is exactly the whole days [from, to] regardless of the server timezone.
-    const fromDate = new Date(`${from}T00:00:00.000Z`);
-    const toDate = new Date(`${to}T00:00:00.000Z`);
-    toDate.setUTCDate(toDate.getUTCDate() + 1);
+    // The [from, to] window covers whole app-timezone days: inclusive start
+    // of the `from` day through the exclusive start of the day after `to`.
+    // (The day after is computed on the calendar, not +24h, so DST
+    // transitions with 23/25-hour days stay exact.)
+    const fromDate = parseDateStart(from);
+    const anchor = new Date(`${to}T00:00:00.000Z`);
+    let toDate: Date;
+    if (Number.isNaN(anchor.getTime())) {
+      toDate = new Date(to);
+    } else {
+      const next = new Date(
+        Date.UTC(
+          anchor.getUTCFullYear(),
+          anchor.getUTCMonth(),
+          anchor.getUTCDate() + 1,
+        ),
+      );
+      const y = next.getUTCFullYear();
+      const m = next.getUTCMonth() + 1;
+      const d = next.getUTCDate();
+      toDate = parseDateStart(
+        `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+      );
+    }
     return { from: fromDate, to: toDate };
   }
 
@@ -460,48 +482,40 @@ export class StatisticsRepository {
     limit: number,
   ): { from: string; to: string } {
     const buckets = Math.max(1, limit);
-    const to = new Date();
-    // Approx span per requested bucket; the aggregation re-buckets to the
-    // exact requested granularity regardless, so an over-cover window is fine.
+    // "Last N days" counts back in app-timezone calendar days from zoned today.
+    const todayKey = tzDateKey(new Date());
+    const [ty, tm, td] = todayKey.split('-').map(Number);
     const daysPerBucket =
       period === StatisticPeriod.DAILY
         ? 1
         : period === StatisticPeriod.WEEKLY
           ? 7
           : 31;
-    const from = new Date(to);
-    from.setUTCDate(to.getUTCDate() - buckets * daysPerBucket);
-    const fmt = (d: Date) =>
-      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
-        d.getUTCDate(),
-      ).padStart(2, '0')}`;
-    return { from: fmt(from), to: fmt(to) };
+    const fromBase = new Date(
+      Date.UTC(ty, tm - 1, td - buckets * daysPerBucket),
+    );
+    return { from: tzDateKey(fromBase), to: todayKey };
   }
 
   private groupKey(date: Date, period: StatisticPeriod): string {
-    const d = date;
+    // All buckets follow the app-timezone calendar so rows aggregate under
+    // the date the business actually experienced.
+    const d = tzParts(new Date(date));
+    const pad2 = (n: number) => String(n).padStart(2, '0');
     switch (period) {
       case StatisticPeriod.DAILY:
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
-          d.getUTCDate(),
-        ).padStart(2, '0')}`;
+        return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
       case StatisticPeriod.WEEKLY: {
-        const dow = d.getUTCDay();
-        const diffToMonday = dow === 0 ? -6 : 1 - dow;
-        const monday = new Date(d);
-        monday.setUTCDate(d.getUTCDate() + diffToMonday);
-        return `${monday.getUTCFullYear()}-${String(
-          monday.getUTCMonth() + 1,
-        ).padStart(2, '0')}-${String(monday.getUTCDate()).padStart(2, '0')}`;
+        const diffToMonday = d.weekday === 0 ? -6 : 1 - d.weekday;
+        const monday = new Date(Date.UTC(d.year, d.month - 1, d.day + diffToMonday));
+        return tzDateKey(monday);
       }
       case StatisticPeriod.MONTHLY:
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        return `${d.year}-${pad2(d.month)}`;
       case StatisticPeriod.YEARLY:
-        return `${d.getUTCFullYear()}`;
+        return `${d.year}`;
       default:
-        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
-          d.getUTCDate(),
-        ).padStart(2, '0')}`;
+        return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
     }
   }
 
@@ -509,32 +523,39 @@ export class StatisticsRepository {
     key: string,
     period: StatisticPeriod,
   ): { startDate: Date; endDate: Date } {
+    // Bounds are app-timezone calendar windows expressed as UTC instants.
     if (period === StatisticPeriod.MONTHLY) {
       const [y, m] = key.split('-').map(Number);
+      const next = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
       return {
-        startDate: new Date(Date.UTC(y, m - 1, 1)),
-        endDate: new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)),
+        startDate: tzDayStart(y, m, 1),
+        endDate: new Date(
+          tzDayStart(next.y, next.m, 1).getTime() - 1,
+        ),
       };
     }
     if (period === StatisticPeriod.YEARLY) {
       const y = Number(key.split('-')[0]);
       return {
-        startDate: new Date(Date.UTC(y, 0, 1)),
-        endDate: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)),
+        startDate: tzDayStart(y, 1, 1),
+        endDate: new Date(tzDayStart(y + 1, 1, 1).getTime() - 1),
       };
     }
     if (period === StatisticPeriod.WEEKLY) {
       const [y, m, day] = key.split('-').map(Number);
-      const start = new Date(Date.UTC(y, m - 1, day));
-      const end = new Date(start);
-      end.setUTCDate(start.getUTCDate() + 6);
-      end.setUTCHours(23, 59, 59, 999);
+      const start = tzDayStart(y, m, day);
+      const endBase = new Date(Date.UTC(y, m - 1, day + 6));
+      const end = tzDayEnd(
+        endBase.getUTCFullYear(),
+        endBase.getUTCMonth() + 1,
+        endBase.getUTCDate(),
+      );
       return { startDate: start, endDate: end };
     }
     const [y, m, day] = key.split('-').map(Number);
     return {
-      startDate: new Date(Date.UTC(y, m - 1, day)),
-      endDate: new Date(Date.UTC(y, m - 1, day, 23, 59, 59, 999)),
+      startDate: tzDayStart(y, m, day),
+      endDate: tzDayEnd(y, m, day),
     };
   }
 

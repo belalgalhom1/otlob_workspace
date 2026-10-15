@@ -60,7 +60,12 @@ class AdminDriversRepository {
     if (_dio == null) throw Exception("Dio is required");
     final response = await _dio.get('/drivers/$driverId/location');
     final parsed = ResponseParser.parse(response);
-    if (parsed is Map) return parsed['data'] ?? parsed;
+    if (parsed is Map) {
+      if (parsed.containsKey('success') || parsed.containsKey('data')) {
+        return parsed['data'];
+      }
+      return parsed;
+    }
     return parsed;
   }
 

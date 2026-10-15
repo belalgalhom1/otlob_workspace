@@ -49,7 +49,12 @@ class AuditLogs extends _$AuditLogs {
 
   Future<AuditLogsState> _fetchLogs({required int page}) async {
     final repo = ref.watch(adminAuditLogsRepositoryProvider);
-    final resultMap = await repo.getAuditLogs(page: page);
+    final resultMap = await repo.getAuditLogs(
+      page: page,
+      actionType: _actionType,
+      entityType: _entityType,
+      userId: _userId,
+    );
     final resultList = resultMap['data'] as List<dynamic>? ?? [];
     final meta = resultMap['meta'] as Map<dynamic, dynamic>? ?? {};
 

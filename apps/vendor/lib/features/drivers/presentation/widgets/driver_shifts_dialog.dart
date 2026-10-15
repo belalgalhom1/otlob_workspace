@@ -301,7 +301,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                     Text(AppLocalizations.of(context)!.time, style: const TextStyle(fontSize: 12)),
                     const SizedBox(height: 4),
                     Text(
-                      '${DateFormat('HH:mm').format(shift.startTime)} - ${DateFormat('HH:mm').format(shift.endTime)}',
+                      '${DateFormat('hh:mm a').format(shift.startTime)} - ${DateFormat('hh:mm a').format(shift.endTime)}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],

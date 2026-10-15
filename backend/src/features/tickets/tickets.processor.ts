@@ -41,8 +41,43 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
     }
   }
 
+  /**
+   * Closes one ticket and deletes its chat (messages/participants cascade),
+   * mirroring the manual resolve/close path so auto-closed tickets don't
+   * leave dead threads behind either.
+   */
+  private async closeTicketAndDeleteChat(
+    ticketId: string,
+    conversationId: string | null,
+  ): Promise<void> {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.supportTicket.update({
+          where: { id: ticketId },
+          data: { status: TicketStatus.CLOSED, lastStatusUpdateAt: new Date() },
+        });
+        if (conversationId) {
+          await tx.supportTicket.update({
+            where: { id: ticketId },
+            data: { conversationId: null },
+          });
+          // deleteMany: no-throw when the row is already gone, so a
+          // half-finished previous attempt can never wedge the retry loop.
+          await tx.conversation.deleteMany({
+            where: { id: conversationId },
+          });
+        }
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to auto-close ticket ${ticketId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   private async handleSlaWatchdog() {
     this.logger.debug('Running Ticket SLA Watchdog');
+    const tickStart = new Date();
 
     // 1. OPEN -> IN_PROGRESS after 2 minutes
     const twoMinsAgo = new Date(Date.now() - 2 * 60 * 1000);
@@ -51,20 +86,32 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
         status: TicketStatus.OPEN,
         lastStatusUpdateAt: { lt: twoMinsAgo },
       },
-      select: { id: true, conversationId: true, ticketNumber: true },
+      select: { id: true },
+      take: 100,
+      orderBy: { lastStatusUpdateAt: 'asc' },
     });
 
     if (staleOpen.length > 0) {
       const ids = staleOpen.map((t) => t.id);
+      // CAS on status: overlapping ticks flip disjoint sets. Messages go
+      // only to rows this tick actually claimed (re-read below).
       await this.prisma.supportTicket.updateMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, status: TicketStatus.OPEN },
         data: {
           status: TicketStatus.IN_PROGRESS,
           lastStatusUpdateAt: new Date(),
         },
       });
+      const claimed = await this.prisma.supportTicket.findMany({
+        where: {
+          id: { in: ids },
+          status: TicketStatus.IN_PROGRESS,
+          lastStatusUpdateAt: { gte: tickStart },
+        },
+        select: { id: true, conversationId: true, ticketNumber: true },
+      });
 
-      for (const ticket of staleOpen) {
+      for (const ticket of claimed) {
         if (ticket.conversationId) {
           await this.messagesService.sendSystemMessage(
             ticket.conversationId,
@@ -84,21 +131,31 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
         status: TicketStatus.IN_PROGRESS,
         lastStatusUpdateAt: { lt: fifteenMinsAgo },
       },
-      select: { id: true, conversationId: true, ticketNumber: true },
+      select: { id: true },
+      take: 100,
+      orderBy: { lastStatusUpdateAt: 'asc' },
     });
 
     if (staleInProgress.length > 0) {
       const ids = staleInProgress.map((t) => t.id);
       await this.prisma.supportTicket.updateMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, status: TicketStatus.IN_PROGRESS },
         data: {
           status: TicketStatus.ESCALATED,
           lastStatusUpdateAt: new Date(),
           escalatedAt: new Date(),
         },
       });
+      const claimed = await this.prisma.supportTicket.findMany({
+        where: {
+          id: { in: ids },
+          status: TicketStatus.ESCALATED,
+          lastStatusUpdateAt: { gte: tickStart },
+        },
+        select: { id: true, conversationId: true, ticketNumber: true },
+      });
 
-      for (const ticket of staleInProgress) {
+      for (const ticket of claimed) {
         if (ticket.conversationId) {
           await this.messagesService.sendSystemMessage(
             ticket.conversationId,
@@ -118,35 +175,39 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
 
     // 3. WAITING_ON_USER -> CLOSED after 48 hours
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    const staleWaiting = await this.prisma.supportTicket.updateMany({
+    const staleWaiting = await this.prisma.supportTicket.findMany({
       where: {
         status: TicketStatus.WAITING_ON_USER,
         lastStatusUpdateAt: { lt: fortyEightHoursAgo },
       },
-      data: {
-        status: TicketStatus.CLOSED,
-        lastStatusUpdateAt: new Date(),
-      },
+      select: { id: true, conversationId: true },
+      take: 100,
+      orderBy: { lastStatusUpdateAt: 'asc' },
     });
+    for (const ticket of staleWaiting) {
+      await this.closeTicketAndDeleteChat(ticket.id, ticket.conversationId);
+    }
 
     // 4. RESOLVED -> CLOSED after 24 hours
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const staleResolved = await this.prisma.supportTicket.updateMany({
+    const staleResolved = await this.prisma.supportTicket.findMany({
       where: {
         status: TicketStatus.RESOLVED,
         lastStatusUpdateAt: { lt: twentyFourHoursAgo },
       },
-      data: {
-        status: TicketStatus.CLOSED,
-        lastStatusUpdateAt: new Date(),
-      },
+      select: { id: true, conversationId: true },
+      take: 100,
+      orderBy: { lastStatusUpdateAt: 'asc' },
     });
+    for (const ticket of staleResolved) {
+      await this.closeTicketAndDeleteChat(ticket.id, ticket.conversationId);
+    }
 
     return {
       movedToInProgress: staleOpen.length,
       escalated: staleInProgress.length,
-      closedFromWaiting: staleWaiting.count,
-      closedFromResolved: staleResolved.count,
+      closedFromWaiting: staleWaiting.length,
+      closedFromResolved: staleResolved.length,
     };
   }
 }

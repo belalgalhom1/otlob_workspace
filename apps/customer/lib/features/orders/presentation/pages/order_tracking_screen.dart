@@ -54,7 +54,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   StreamSubscription<dynamic>? _statusSub;
   StreamSubscription<dynamic>? _driverLocSub;
   _TrackingLifecycleObserver? _lifecycleObserver;
-  void Function(dynamic)? _onConnectHandler;
+
   bool _followDriver = true;
   Timer? _driverRenderTimer;
   LatLng? _pendingDriverLocation;
@@ -90,26 +90,34 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     _initTracking();
   }
 
+  StreamSubscription<void>? _connectSub;
+
   Future<void> _initTracking() async {
     final socket = ref.read(socketServiceProvider);
     final tokenService = ref.read(tokenServiceProvider);
     final locationSvc = ref.read(locationServiceProvider);
 
-    try {
-      final pos = await locationSvc.getCurrentLocation();
-      if (mounted) {
-        setState(() {
-          _initialMapCenter = LatLng(pos.latitude, pos.longitude);
-        });
-        // We do not move the map here if driverLocation is already set
-        if (_driverLocation == null) {
+    // GPS must never gate order/socket setup: center the map
+    // opportunistically with a short timeout, falling back to the order's
+    // delivery location below when it fails or is slow.
+    locationSvc
+        .getCurrentLocation()
+        .timeout(const Duration(seconds: 4))
+        .then((pos) {
+      if (!mounted) return;
+      setState(() {
+        _initialMapCenter = LatLng(pos.latitude, pos.longitude);
+      });
+      // We do not move the map here if driverLocation is already set
+      if (_driverLocation == null && _initialMapCenter != null) {
+        try {
           _mapController.move(_initialMapCenter!, 14.0);
-        }
+        } catch (_) {}
       }
-    } catch (e) {
+    }).catchError((e) {
       debugPrint('Failed to get location: $e');
-      // Silently ignore and fallback to order's delivery location later if needed
-    }
+      return null;
+    });
 
     final order = await ref
         .read(ordersProvider.notifier)
@@ -150,8 +158,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       // (live Redis, or last persisted) for drivers that are stationary and
       // therefore not emitting position updates.
       _requestDriverLocation(socket);
-      _onConnectHandler = (_) => _requestDriverLocation(socket);
-      socket.on('connect', _onConnectHandler!);
+      _connectSub?.cancel();
+      _connectSub = socket.onConnect.listen((_) {
+        _requestDriverLocation(socket);
+      });
 
       // onEvent uses broadcast streams that survive socket reconnects/re-auth.
       _statusSub?.cancel();
@@ -196,10 +206,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   void dispose() {
     _statusSub?.cancel();
     _driverLocSub?.cancel();
+    _connectSub?.cancel();
     _driverRenderTimer?.cancel();
-    if (_onConnectHandler != null) {
-      ref.read(socketServiceProvider).off('connect', _onConnectHandler!);
-    }
     _lifecycleObserver?.dispose();
     super.dispose();
   }
@@ -602,73 +610,129 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       ),
                     ),
                   ),
-                  if (_orderStatus == 'PENDING_PAYMENT') ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  if (_orderStatus == 'PENDING_PAYMENT')
+                    Builder(builder: (context) {
+                      final upfront = double.tryParse(
+                            _orderDetails?['upfrontAmount']?.toString() ?? '0',
+                          ) ??
+                          0.0;
+                      final paidClaimed =
+                          (_orderDetails?['paymentStatus']?.toString() ?? '') ==
+                              'PAID';
+                      return Column(
                         children: [
-                          Text(
-                            s.isArabic
-                                ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
-                                : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_orderDetails != null &&
-                              _orderDetails!['driver'] != null &&
-                              _orderDetails!['driver']['mobileWallets'] !=
-                                  null &&
-                              (_orderDetails!['driver']['mobileWallets']
-                                      as List)
-                                  .isNotEmpty)
-                            Text(
-                              '${s.isArabic ? 'رقم المحفظة' : 'Wallet Number'}: ${(_orderDetails!['driver']['mobileWallets'] as List).first['number'] ?? ''}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                           const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final success = await ref
-                                    .read(ordersProvider.notifier)
-                                    .markPaymentPaid(widget.orderId);
-                                if (success && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        s.isArabic
-                                            ? 'تم التأكيد!'
-                                            : 'Confirmed!',
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (upfront > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      s.isArabic
+                                          ? 'المبلغ المقدم المطلوب دفعه أولاً: ${upfront.toStringAsFixed(0)} ${s.egp}'
+                                          : 'Upfront amount to pay first: ${upfront.toStringAsFixed(0)} ${s.egp}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
                                       ),
                                     ),
-                                  );
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                              ),
-                              child: Text(
-                                s.isArabic
-                                    ? 'لقد قمت بالتحويل'
-                                    : 'I have transferred the amount',
-                                style: const TextStyle(color: Colors.white),
-                              ),
+                                  ),
+                                Text(
+                                  s.isArabic
+                                      ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
+                                      : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 8),
+                                if (_orderDetails != null &&
+                                    _orderDetails!['driver'] != null &&
+                                    _orderDetails!['driver']
+                                            ['mobileWallets'] !=
+                                        null &&
+                                    (_orderDetails!['driver']
+                                            ['mobileWallets'] as List)
+                                        .isNotEmpty)
+                                  Text(
+                                    '${s.isArabic ? 'رقم المحفظة' : 'Wallet Number'}: ${(_orderDetails!['driver']['mobileWallets'] as List).first['number'] ?? ''}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                const SizedBox(height: 12),
+                                if (paidClaimed)
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.hourglass_top_rounded,
+                                        color: Colors.orange,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          s.isArabic
+                                              ? 'تم إرسال تأكيدك. بانتظار أن يؤكد الكابتن استلام المبلغ.'
+                                              : 'Your confirmation was sent. Waiting for the driver to confirm receipt.',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: () async {
+                                        final success = await ref
+                                            .read(ordersProvider.notifier)
+                                            .markPaymentPaid(widget.orderId);
+                                        if (success) {
+                                          await _fetchOrderDetails();
+                                        }
+                                        if (success && context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                s.isArabic
+                                                    ? 'تم التأكيد!'
+                                                    : 'Confirmed!',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                      child: Text(
+                                        s.isArabic
+                                            ? 'لقد دفعت المبلغ المقدم'
+                                            : 'I Have Paid the Upfront',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
+                      );
+                    }),
                   if (_orderStatus == 'DELIVERED' &&
                       _orderDetails?['review'] == null) ...[
                     const SizedBox(height: 12),

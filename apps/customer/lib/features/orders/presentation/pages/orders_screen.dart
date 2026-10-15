@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +51,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   final ScrollController _activeScrollController = ScrollController();
   final ScrollController _pastScrollController = ScrollController();
   late final void Function(dynamic) _socketHandler;
+  StreamSubscription<dynamic>? _statusSub;
+  StreamSubscription<dynamic>? _updatedSub;
 
   @override
   void initState() {
@@ -56,13 +60,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     _tabController = TabController(length: 2, vsync: this);
 
     _socketHandler = (data) {
+      // Fast local flip only — the global order listener owns the throttled
+      // list refresh, so one socket event no longer triggers duplicate GETs.
       if (data != null && data['orderId'] != null) {
         final newStatus = data['newStatus'] ?? data['status'];
         if (newStatus != null) {
           ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
         }
       }
-      ref.read(ordersProvider.notifier).refresh();
     };
 
     _activeScrollController.addListener(() {
@@ -84,16 +89,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
   void _setupSockets() {
     final socket = ref.read(socketServiceProvider);
-    socket.on('order.status', _socketHandler);
-    socket.on('order.updated', _socketHandler);
+    _statusSub?.cancel();
+    _updatedSub?.cancel();
+    _statusSub = socket.onEvent('order.status').listen(_socketHandler);
+    _updatedSub = socket.onEvent('order.updated').listen(_socketHandler);
   }
 
   @override
   void dispose() {
-    final socket = ref.read(socketServiceProvider);
-    socket.off('order.status', _socketHandler);
-    socket.off('order.updated', _socketHandler);
-    
+    _statusSub?.cancel();
+    _updatedSub?.cancel();
+
     _tabController.dispose();
     _activeScrollController.dispose();
     _pastScrollController.dispose();
@@ -300,6 +306,163 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         }),
       ),
     );
+  }
+
+  List<Widget> _buildUpfrontSection(
+    Map<String, dynamic> order,
+    AppStrings s,
+  ) {
+    final upfront =
+        double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+    final paidClaimed = (order['paymentStatus']?.toString() ?? '') == 'PAID';
+    return [
+      Container(
+        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border:
+              Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (upfront > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  s.isArabic
+                      ? 'المبلغ المقدم المطلوب دفعه أولاً: ${upfront.toStringAsFixed(0)} ${s.egp}'
+                      : 'Upfront amount to pay first: ${upfront.toStringAsFixed(0)} ${s.egp}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            Row(
+              children: [
+                const Icon(Icons.info_outline,
+                    color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    paidClaimed
+                        ? (s.isArabic
+                            ? 'تم إرسال تأكيدك. بانتظار أن يؤكد الكابتن استلام المبلغ.'
+                            : 'Your confirmation was sent. Waiting for the driver to confirm receipt.')
+                        : (s.isArabic
+                            ? 'يرجى تحويل مبلغ الطلب إلى إحدى محافظ المندوب التالية، ثم اضغط تأكيد'
+                            : 'Please transfer the total amount to one of the driver\'s wallets below, then confirm.'),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...(order['driver']['mobileWallets'] as List).map((wallet) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (wallet['type'] ?? wallet['provider'] ?? '')
+                              .toString(),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          (wallet['number'] ?? wallet['walletNumber'] ?? '')
+                              .toString(),
+                          style: const TextStyle(
+                              fontSize: 15, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        final walletNum =
+                            (wallet['number'] ?? wallet['walletNumber'] ?? '')
+                                .toString();
+                        Clipboard.setData(ClipboardData(text: walletNum));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(s.isArabic
+                              ? 'تم نسخ الرقم: $walletNum'
+                              : 'Number copied: $walletNum'),
+                          duration: const Duration(seconds: 2),
+                        ));
+                      },
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: Text(s.isArabic ? 'نسخ' : 'Copy'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        minimumSize: Size.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+      if (!paidClaimed)
+        ElevatedButton(
+          onPressed: () async {
+            // Show confirmation dialog before marking as paid
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title:
+                    Text(s.isArabic ? 'تأكيد الدفع' : 'Confirm Payment'),
+                content: Text(s.isArabic
+                    ? 'هل أنت متأكد من تحويل المبلغ المطلوب إلى المندوب؟'
+                    : 'Are you sure you transferred the required amount to the driver?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text(s.cancel),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary),
+                    child: Text(s.isArabic ? 'نعم، حولت' : 'Yes, I paid',
+                        style: const TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true) {
+              final res = await ref
+                  .read(ordersProvider.notifier)
+                  .markPaymentPaid(order['id']);
+              if (res && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(s.isArabic
+                        ? 'تم تأكيد الدفع وجاري مراجعة المندوب'
+                        : 'Payment confirmed, waiting for driver to verify')));
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 45),
+          ),
+          child: Text(s.isArabic
+              ? 'لقد قمت بتحويل المبلغ'
+              : 'I transferred the amount'),
+        ),
+    ];
   }
 
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Map<String, dynamic> order, AppStrings s) {
@@ -747,114 +910,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 ],
               ),
             ] else if (status == 'PENDING_PAYMENT') ...[
-              if (order['driver'] != null && order['driver']['mobileWallets'] != null && (order['driver']['mobileWallets'] as List).isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              s.isArabic
-                                  ? 'يرجى تحويل مبلغ الطلب إلى إحدى محافظ المندوب التالية، ثم اضغط تأكيد'
-                                  : 'Please transfer the total amount to one of the driver\'s wallets below, then confirm.',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      ...(order['driver']['mobileWallets'] as List).map((wallet) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    (wallet['type'] ?? wallet['provider'] ?? '').toString(),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                  Text(
-                                    (wallet['number'] ?? wallet['walletNumber'] ?? '').toString(),
-                                    style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                  ),
-                                ],
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  final walletNum = (wallet['number'] ?? wallet['walletNumber'] ?? '').toString();
-                                  Clipboard.setData(ClipboardData(text: walletNum));
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    content: Text(s.isArabic ? 'تم نسخ الرقم: $walletNum' : 'Number copied: $walletNum'),
-                                    duration: const Duration(seconds: 2),
-                                  ));
-                                },
-                                icon: const Icon(Icons.copy, size: 16),
-                                label: Text(s.isArabic ? 'نسخ' : 'Copy'),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  minimumSize: Size.zero,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-              ElevatedButton(
-                onPressed: () async {
-                  // Show confirmation dialog before marking as paid
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(s.isArabic ? 'تأكيد الدفع' : 'Confirm Payment'),
-                      content: Text(s.isArabic
-                          ? 'هل أنت متأكد من تحويل المبلغ المطلوب إلى المندوب؟'
-                          : 'Are you sure you transferred the required amount to the driver?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: Text(s.cancel),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                          child: Text(s.isArabic ? 'نعم، حولت' : 'Yes, I paid', style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirm == true) {
-                    final res = await ref.read(ordersProvider.notifier).markPaymentPaid(order['id']);
-                    if (res && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'تم تأكيد الدفع وجاري مراجعة المندوب' : 'Payment confirmed, waiting for driver to verify')));
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
-                ),
-                child: Text(s.isArabic ? 'لقد قمت بتحويل المبلغ' : 'I transferred the amount'),
-              ),
+              if (order['driver'] != null && order['driver']['mobileWallets'] != null && (order['driver']['mobileWallets'] as List).isNotEmpty)
+                ..._buildUpfrontSection(order, s),
             ],
           ] else if (status == 'DELIVERED' && order['review'] == null) ...[
             SizedBox(

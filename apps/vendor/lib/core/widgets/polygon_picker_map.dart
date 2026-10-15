@@ -108,6 +108,12 @@ class _PolygonPickerMapState extends State<PolygonPickerMap> {
   }
 
   @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

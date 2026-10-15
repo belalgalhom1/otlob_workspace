@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:api/api.dart';
@@ -11,6 +12,16 @@ class OrdersStateData {
 
   OrdersStateData(this.orders, this.total, this.params);
 }
+
+class OrdersRefreshError extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+}
+
+final ordersRefreshErrorProvider =
+    NotifierProvider<OrdersRefreshError, String?>(OrdersRefreshError.new);
 
 @Riverpod(keepAlive: true)
 class OrdersNotifier extends _$OrdersNotifier {
@@ -51,8 +62,13 @@ class OrdersNotifier extends _$OrdersNotifier {
       state = AsyncValue.data(
         OrdersStateData(result['orders'] ?? result['items'] ?? [], result['total'] ?? 0, params),
       );
+      ref.read(ordersRefreshErrorProvider.notifier).set(null);
     } catch (e, st) {
-      if (isInitialLoad) {
+      if (state.hasValue) {
+        // Refresh/pagination failure: keep the stale list visible and flag
+        // the error on a side channel so the screen can offer a retry.
+        ref.read(ordersRefreshErrorProvider.notifier).set(e.toString());
+      } else {
         state = AsyncValue.error(e, st);
       }
     }

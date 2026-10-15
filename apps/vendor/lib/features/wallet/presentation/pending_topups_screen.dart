@@ -65,7 +65,7 @@ class PendingTopUpsScreen extends ConsumerWidget {
             final topUp = topUps[index] as WalletTopUpRequest;
             String dateStr = '';
             try {
-              dateStr = DateFormat('dd MMM yyyy – HH:mm').format(topUp.createdAt.toLocal());
+              dateStr = DateFormat('dd MMM yyyy – hh:mm a').format(topUp.createdAt.toLocal());
             } catch (_) {
               dateStr = topUp.createdAt.toString().split('.')[0];
             }

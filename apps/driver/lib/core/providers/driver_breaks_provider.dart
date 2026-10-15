@@ -35,11 +35,19 @@ List<Map<String, dynamic>> _asBreakList(dynamic raw) {
   return [];
 }
 
+Future<dynamic> _safeBreakCall(Future<dynamic> Function() call) async {
+  try {
+    return await call();
+  } catch (_) {
+    return null;
+  }
+}
+
 final breaksOverviewProvider = FutureProvider<BreaksOverview>((ref) async {
   final repo = ref.read(driverBreaksRepositoryProvider);
   final results = await Future.wait([
-    repo.getActiveBreak(),
-    repo.getMyBreaks(),
+    _safeBreakCall(() => repo.getActiveBreak()),
+    _safeBreakCall(() => repo.getMyBreaks()),
   ]);
 
   final activeRaw = results[0];

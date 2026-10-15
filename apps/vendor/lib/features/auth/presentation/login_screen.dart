@@ -25,6 +25,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<bool> _isMaintenanceBlocked(WidgetRef ref) async {
     try {
       final status = await checkAppStatus(

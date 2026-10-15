@@ -226,7 +226,9 @@ class VendorWalletScreen extends ConsumerWidget {
   Widget _buildTransactionCard(BuildContext context, dynamic tx, ThemeData theme) {
     final type = tx['type'] ?? 'UNKNOWN';
     final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
-    final date = tx['createdAt'] != null ? DateTime.parse(tx['createdAt'].toString()) : DateTime.now();
+    final date = tx['createdAt'] != null
+        ? DateTime.parse(tx['createdAt'].toString()).toLocal()
+        : DateTime.now();
     final description = tx['description'] as String? ?? '';
     
     final isCredit = amount >= 0;

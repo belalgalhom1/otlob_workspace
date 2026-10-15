@@ -112,7 +112,9 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
     String currency,
     AppLocalizations l10n,
   ) {
-    final orderNumber = order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}';
+    final rawId = (order['id'] ?? '').toString();
+    final orderNumber = order['orderNumber']?.toString() ??
+        (rawId.isEmpty ? '#' : '#${rawId.length > 8 ? rawId.substring(0, 8) : rawId}');
     final rawEarnings = order['driverEarnings'] ?? order['estimatedEarnings'];
     final rawFee = order['deliveryFee'] ?? order['fee'] ?? 0;
     final double deliveryFee = rawEarnings != null

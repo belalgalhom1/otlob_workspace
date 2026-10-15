@@ -373,7 +373,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       mediaUrl: msg.mediaUrl,
       content: msg.content,
       type: msg.type.name,
-      time: DateFormat.Hm().format(msg.timestamp.toLocal()),
+      time: DateFormat.jm().format(msg.timestamp.toLocal()),
       isRead: msg.isRead,
       metadata: msg.metadata,
       uploadingText: AppStrings.of(context).uploading,

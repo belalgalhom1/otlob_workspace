@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,11 +23,20 @@ class AllVendorsScreen extends ConsumerStatefulWidget {
 class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) setState(() => _searchQuery = value);
+    });
   }
 
   @override
@@ -362,7 +373,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
       ),
       child: TextField(
         controller: _searchController,
-        onChanged: (v) => setState(() => _searchQuery = v),
+        onChanged: _onSearchChanged,
         decoration: InputDecoration(
           hintText: s.searchInStores,
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
