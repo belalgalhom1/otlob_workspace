@@ -7,6 +7,7 @@ import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:driver/core/providers/driver_breaks_provider.dart';
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
   final Future<void> Function() onResume;
@@ -68,6 +69,26 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.invalidate(configurationProvider);
   }));
 
+  // 1c. Break decisions (approved/rejected/granted/ended/expired). The
+  // backend emits notification.new with data.kind == 'break' — refresh the
+  // break overview so the driver sees the decision without manual refresh.
+  // Status flips also need a profile refetch (ON_BREAK <-> ONLINE).
+  subscriptions.add(socketService.onEvent(SocketEvent.notificationNew).listen((eventData) {
+    if (!ref.mounted) return;
+    final data = eventData is Map ? eventData['data'] : null;
+    final kind = data is Map ? data['kind']?.toString() : null;
+    if (kind != 'break') return;
+    debugPrint('Global listener: break notification -> refreshing breaks overview');
+    ref.invalidate(breaksOverviewProvider);
+    final action = data['action']?.toString();
+    if (action == 'approved' ||
+        action == 'granted' ||
+        action == 'auto_ended' ||
+        action == 'ended_by_admin') {
+      ref.invalidate(driverProfileProvider);
+    }
+  }));
+
   // 2. WebSocket Reconnection Fallback
   subscriptions.add(socketService.onConnect.listen((_) {
     if (!ref.mounted) return;
@@ -82,6 +103,8 @@ final globalMessageListenerProvider = Provider<void>((ref) {
       if (!ref.mounted) return;
       debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches');
       ref.invalidate(configurationProvider);
+      // Break decisions may have landed while backgrounded (missed socket).
+      ref.invalidate(breaksOverviewProvider);
       // Make sure the socket and GPS stream are up again so live dispatch
       // events keep flowing instead of relying only on the HTTP fallback.
       final profileValue = ref.read(driverProfileProvider).value;
