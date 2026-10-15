@@ -35,9 +35,60 @@ import {
   startOfDay,
   getDay,
   parseISO,
-  setHours,
-  setMinutes,
 } from 'date-fns';
+
+// Business timezone: shift wall-clock times entered by admins always mean
+// Africa/Cairo local time. The server runs on UTC, so interpreting them in
+// server-local time silently shifts every shift by the UTC offset.
+const BUSINESS_TIME_ZONE = 'Africa/Cairo';
+
+/** Minutes east of UTC for the business timezone at the given instant. */
+function businessOffsetMinutes(instant: Date): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIME_ZONE,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const parts = Object.fromEntries(
+    dtf.formatToParts(instant).map((p) => [p.type, p.value]),
+  );
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return Math.round((asUtc - instant.getTime()) / 60000);
+}
+
+/**
+ * Interprets a calendar day + "HH:mm" wall-clock pair as business-local time
+ * and returns the corresponding UTC instant. Iterated twice so dates sitting
+ * exactly on a DST transition converge to the correct offset.
+ */
+function businessWallToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+): Date {
+  let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  for (let i = 0; i < 2; i++) {
+    guess = new Date(
+      Date.UTC(year, month - 1, day, hour, minute) -
+        businessOffsetMinutes(guess) * 60000,
+    );
+  }
+  return guess;
+}
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -70,8 +121,22 @@ export class DriverShiftsService {
     const end = startOfDay(endDate);
 
     while (current <= end) {
-      const shiftStart = setMinutes(setHours(current, startHour), startMin);
-      let shiftEnd = setMinutes(setHours(current, endHour), endMin);
+      // Compose wall-clock times in the business timezone (NOT server-local),
+      // otherwise every shift drifts by the UTC offset on display.
+      const shiftStart = businessWallToUtc(
+        current.getUTCFullYear(),
+        current.getUTCMonth() + 1,
+        current.getUTCDate(),
+        startHour,
+        startMin,
+      );
+      let shiftEnd = businessWallToUtc(
+        current.getUTCFullYear(),
+        current.getUTCMonth() + 1,
+        current.getUTCDate(),
+        endHour,
+        endMin,
+      );
 
       // Handle cross-midnight shifts
       if (shiftEnd <= shiftStart) {

@@ -24,9 +24,9 @@ class ShiftPool {
     return ShiftPool(
       id: json['id'] as String,
       zoneId: json['zoneId'] as String?,
-      shiftDate: DateTime.parse(json['shiftDate'] as String),
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
+      shiftDate: DateTime.parse(json['shiftDate'] as String).toLocal(),
+      startTime: DateTime.parse(json['startTime'] as String).toLocal(),
+      endTime: DateTime.parse(json['endTime'] as String).toLocal(),
       maxDrivers: json['maxDrivers'] as int,
       driverShifts: (json['driverShifts'] as List<dynamic>?)
               ?.map((e) => DriverShift.fromJson(e as Map<String, dynamic>))
@@ -68,9 +68,9 @@ class DriverShift {
       id: json['id'] as String,
       driverId: json['driverId'] as String,
       shiftPoolId: json['shiftPoolId'] as String?,
-      shiftDate: DateTime.parse(json['shiftDate'] as String),
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
+      shiftDate: DateTime.parse(json['shiftDate'] as String).toLocal(),
+      startTime: DateTime.parse(json['startTime'] as String).toLocal(),
+      endTime: DateTime.parse(json['endTime'] as String).toLocal(),
       status: json['status'] as String? ?? 'SCHEDULED',
       totalEarnings: json['totalEarnings'] as num?,
       totalDeliveries: json['totalDeliveries'] as num?,
