@@ -19,9 +19,10 @@ class CustomerOrderRepository {
   }
 
   Future<dynamic> markPaid(String orderId, {MultipartFile? receipt}) async {
-    if (dio != null && receipt != null) {
+    final client = dio;
+    if (client != null && receipt != null) {
       final formData = FormData.fromMap({'file': receipt});
-      final response = await dio.post(
+      final response = await client.post(
         '/orders/customer/$orderId/payment/mark-paid',
         data: formData,
       );
