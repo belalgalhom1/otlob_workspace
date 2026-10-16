@@ -167,11 +167,16 @@ class Auth extends _$Auth {
         throw Exception('auth.error.pending_approval');
       }
 
-      // Initialize Push Notifications and register FCM token
+      // Initialize Push Notifications and register FCM token. Time-boxed:
+      // on devices with broken Play Services/FCM this step can hang
+      // forever, which would strand the login button in loading state with
+      // zero feedback. Push must never gate authentication.
       try {
-        final pushService = ref.read(pushNotificationServiceProvider);
-        await pushService.initialize();
-        await pushService.subscribeToRoleTopics('DRIVER');
+        await (() async {
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          await pushService.subscribeToRoleTopics('DRIVER');
+        })().timeout(const Duration(seconds: 10));
       } catch (_) {}
 
       state = const AsyncValue.data(true);

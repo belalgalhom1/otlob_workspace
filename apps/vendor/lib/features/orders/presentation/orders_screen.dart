@@ -39,23 +39,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     Future.microtask(() {
       ref.read(ordersProvider.notifier).fetchOrders();
     });
-    ref.listen<String?>(ordersRefreshErrorProvider, (previous, next) {
-      if (next != null && next != previous && mounted) {
-        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isArabic
-                ? 'تعذر تحديث الطلبات. يتم عرض آخر بيانات محملة.'
-                : 'Could not refresh orders. Showing latest loaded data.'),
-            action: SnackBarAction(
-              label: isArabic ? 'إعادة المحاولة' : 'Retry',
-              onPressed: () =>
-                  ref.read(ordersProvider.notifier).fetchOrders(),
-            ),
-          ),
-        );
-      }
-    });
     final targetId = widget.initialOrderId;
     if (targetId != null && targetId.isNotEmpty) {
       _expandedOrders[targetId] = true;
@@ -131,6 +114,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String?>(ordersRefreshErrorProvider, (previous, next) {
+      if (next != null && next != previous && mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isArabic
+                ? 'تعذر تحديث الطلبات. يتم عرض آخر بيانات محملة.'
+                : 'Could not refresh orders. Showing latest loaded data.'),
+            action: SnackBarAction(
+              label: isArabic ? 'إعادة المحاولة' : 'Retry',
+              onPressed: () =>
+                  ref.read(ordersProvider.notifier).fetchOrders(),
+            ),
+          ),
+        );
+      }
+    });
+
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Column(
@@ -944,6 +945,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           : null,
                                     ),
                                   ],
+                                  if (order['paymentReceiptUrl'] != null &&
+                                      order['paymentReceiptUrl']
+                                          .toString()
+                                          .isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    _buildProofPhotoRow(
+                                      context,
+                                      order,
+                                      isArabic,
+                                      field: 'paymentReceiptUrl',
+                                      title: 'Payment receipt',
+                                      titleAr: 'إيصال التحويل (العميل)',
+                                    ),
+                                  ],
                                   if (order['pickupImageUrl'] != null &&
                                       order['pickupImageUrl']
                                           .toString()
@@ -1621,16 +1636,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     required String title,
     required String titleAr,
   }) {
-    final url = order[field]?.toString() ?? '';
+    final rawUrl = order[field]?.toString() ?? '';
+    if (rawUrl.isEmpty) return const SizedBox.shrink();
     final baseUrl = ref.read(dioProvider).options.baseUrl;
     final cleanBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
+    final fullUrl = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))
+        ? rawUrl
+        : '$cleanBaseUrl${rawUrl.startsWith('/') ? rawUrl : '/$rawUrl'}';
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _viewFullPhoto(context, '$cleanBaseUrl$url'),
+        onTap: () => _viewFullPhoto(context, fullUrl),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           width: double.infinity,
@@ -1645,7 +1664,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: CachedNetworkImage(
-                  imageUrl: '$cleanBaseUrl$url',
+                  imageUrl: fullUrl,
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,

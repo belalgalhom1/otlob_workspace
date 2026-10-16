@@ -48,6 +48,17 @@ String _translateStatus(String status, bool isArabic) {
   }
 }
 
+/// Maps backend `WalletType` (VODAFONE/ORANGE/WE/ETISALAT/INSTAPAY) to the
+/// customer-facing label. Driver wallets of type VODAFONE/ORANGE/etc are all
+/// "Mobile Wallet" while INSTAPAY stays "InstaPay" — never show the raw enum.
+String _walletDisplayName(Map<dynamic, dynamic> wallet, AppStrings s) {
+  final rawType =
+      (wallet['type'] ?? wallet['provider'] ?? '').toString().toUpperCase();
+  if (rawType.contains('INSTAPAY')) return s.instapay;
+  // VODAFONE, ORANGE, WE, ETISALAT and any mobile-wallet variant.
+  return s.mobileWallet;
+}
+
 class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _activeScrollController = ScrollController();
@@ -329,6 +340,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final orderId = order['id']?.toString() ?? '';
     final upfront =
         double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+    final total =
+        double.tryParse((order['grandTotal'] ?? order['total'])?.toString() ?? '0') ?? 0.0;
+    final isUpfront = upfront > 0;
+    final amountDue = isUpfront ? upfront : total;
     final paidClaimed = (order['paymentStatus']?.toString() ?? '') == 'PAID';
     final receiptFile = _receiptFiles[orderId];
     return [
@@ -344,19 +359,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (upfront > 0)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  s.isArabic
-                      ? 'المبلغ المقدم المطلوب دفعه أولاً: ${upfront.toStringAsFixed(0)} ${s.egp}'
-                      : 'Upfront amount to pay first: ${upfront.toStringAsFixed(0)} ${s.egp}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                isUpfront
+                    ? (s.isArabic
+                        ? 'المبلغ المقدم المطلوب دفعه أولاً: ${amountDue.toStringAsFixed(0)} ${s.egp}'
+                        : 'Upfront amount to pay first: ${amountDue.toStringAsFixed(0)} ${s.egp}')
+                    : (s.isArabic
+                        ? 'المبلغ المطلوب تحويله: ${amountDue.toStringAsFixed(0)} ${s.egp}'
+                        : 'Amount to transfer: ${amountDue.toStringAsFixed(0)} ${s.egp}'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
             Row(
               children: [
                 const Icon(Icons.info_outline,
@@ -379,6 +397,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             ),
             const SizedBox(height: 12),
             ...(order['driver']['mobileWallets'] as List).map((wallet) {
+              final walletMap = wallet is Map
+                  ? Map<dynamic, dynamic>.from(wallet as Map)
+                  : <dynamic, dynamic>{};
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Row(
@@ -388,8 +409,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          (wallet['type'] ?? wallet['provider'] ?? '')
-                              .toString(),
+                          _walletDisplayName(walletMap, s),
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 13),
                         ),
@@ -452,7 +472,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               height: 120,
               width: double.infinity,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
             ),
           ),
         ],

@@ -1649,19 +1649,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get transactionType => 'Transaction Type';
 
   @override
-  String get payout => 'PAYOUT';
+  String get payout => 'Payout';
 
   @override
-  String get refund => 'REFUND';
+  String get refund => 'Refund';
 
   @override
   String get topUp => 'Top Up';
 
   @override
-  String get penalty => 'PENALTY';
+  String get penalty => 'Penalty';
 
   @override
-  String get cashCollection => 'CASH_COLLECTION';
+  String get cashCollection => 'Cash collection';
 
   @override
   String get descriptionOptional => 'Description (Optional)';

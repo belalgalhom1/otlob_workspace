@@ -37,6 +37,15 @@ class _TrackingLifecycleObserver with WidgetsBindingObserver {
   }
 }
 
+/// Maps backend `WalletType` to customer-facing label.
+/// VODAFONE/ORANGE/WE/ETISALAT -> "Mobile Wallet", INSTAPAY -> "InstaPay".
+String _trackingWalletDisplayName(Map<dynamic, dynamic> wallet, AppStrings s) {
+  final rawType =
+      (wallet['type'] ?? wallet['provider'] ?? '').toString().toUpperCase();
+  if (rawType.contains('INSTAPAY')) return s.instapay;
+  return s.mobileWallet;
+}
+
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
 
@@ -620,6 +629,15 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                             _orderDetails?['upfrontAmount']?.toString() ?? '0',
                           ) ??
                           0.0;
+                      final total = double.tryParse(
+                            (_orderDetails?['grandTotal'] ??
+                                    _orderDetails?['total'])
+                                ?.toString() ??
+                                '0',
+                          ) ??
+                          0.0;
+                      final isUpfront = upfront > 0;
+                      final amountDue = isUpfront ? upfront : total;
                       final paidClaimed =
                           (_orderDetails?['paymentStatus']?.toString() ?? '') ==
                               'PAID';
@@ -636,19 +654,22 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (upfront > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Text(
-                                      s.isArabic
-                                          ? 'المبلغ المقدم المطلوب دفعه أولاً: ${upfront.toStringAsFixed(0)} ${s.egp}'
-                                          : 'Upfront amount to pay first: ${upfront.toStringAsFixed(0)} ${s.egp}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    isUpfront
+                                        ? (s.isArabic
+                                            ? 'المبلغ المقدم المطلوب دفعه أولاً: ${amountDue.toStringAsFixed(0)} ${s.egp}'
+                                            : 'Upfront amount to pay first: ${amountDue.toStringAsFixed(0)} ${s.egp}')
+                                        : (s.isArabic
+                                            ? 'المبلغ المطلوب تحويله: ${amountDue.toStringAsFixed(0)} ${s.egp}'
+                                            : 'Amount to transfer: ${amountDue.toStringAsFixed(0)} ${s.egp}'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
                                     ),
                                   ),
+                                ),
                                 Text(
                                   s.isArabic
                                       ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
@@ -664,12 +685,28 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                     (_orderDetails!['driver']
                                             ['mobileWallets'] as List)
                                         .isNotEmpty)
-                                  Text(
-                                    '${s.isArabic ? 'رقم المحفظة' : 'Wallet Number'}: ${(_orderDetails!['driver']['mobileWallets'] as List).first['number'] ?? ''}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  ...(_orderDetails!['driver']
+                                          ['mobileWallets'] as List)
+                                      .map((wallet) {
+                                    final walletMap = wallet is Map
+                                        ? Map<dynamic, dynamic>.from(
+                                            wallet as Map)
+                                        : <dynamic, dynamic>{};
+                                    final number = (walletMap['number'] ??
+                                            walletMap['walletNumber'] ??
+                                            '')
+                                        .toString();
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        '${_trackingWalletDisplayName(walletMap, s)}: $number',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    );
+                                  }),
                                 const SizedBox(height: 12),
                                 if (paidClaimed)
                                   Row(
@@ -737,8 +774,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                             height: 120,
                                             width: double.infinity,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const SizedBox.shrink(),
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    const SizedBox.shrink(),
                                           ),
                                         ),
                                       ],
@@ -798,9 +836,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                             backgroundColor: Colors.orange,
                                           ),
                                           child: Text(
-                                            s.isArabic
-                                                ? 'لقد دفعت المبلغ المقدم'
-                                                : 'I Have Paid the Upfront',
+                                            isUpfront
+                                                ? (s.isArabic
+                                                    ? 'لقد دفعت المبلغ المقدم'
+                                                    : 'I Have Paid the Upfront')
+                                                : (s.isArabic
+                                                    ? 'لقد قمت بالتحويل'
+                                                    : 'I Have Transferred the Payment'),
                                             style: const TextStyle(
                                               color: Colors.white,
                                             ),

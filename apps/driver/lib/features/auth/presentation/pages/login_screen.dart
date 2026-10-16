@@ -24,7 +24,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    ref.listen<AsyncValue<bool>>(authProvider, (previous, state) async {
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    ref.listen<AsyncValue<bool>>(authProvider, (previous, state) {
       if (!mounted) return;
       if (!state.isLoading && state.hasValue && state.value == true) {
         ref.invalidate(splashProvider);
@@ -41,18 +54,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: Stack(

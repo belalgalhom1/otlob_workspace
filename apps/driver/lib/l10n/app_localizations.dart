@@ -3257,13 +3257,13 @@ abstract class AppLocalizations {
   /// No description provided for @payout.
   ///
   /// In en, this message translates to:
-  /// **'PAYOUT'**
+  /// **'Payout'**
   String get payout;
 
   /// No description provided for @refund.
   ///
   /// In en, this message translates to:
-  /// **'REFUND'**
+  /// **'Refund'**
   String get refund;
 
   /// No description provided for @topUp.
@@ -3275,13 +3275,13 @@ abstract class AppLocalizations {
   /// No description provided for @penalty.
   ///
   /// In en, this message translates to:
-  /// **'PENALTY'**
+  /// **'Penalty'**
   String get penalty;
 
   /// No description provided for @cashCollection.
   ///
   /// In en, this message translates to:
-  /// **'CASH_COLLECTION'**
+  /// **'Cash collection'**
   String get cashCollection;
 
   /// No description provided for @descriptionOptional.

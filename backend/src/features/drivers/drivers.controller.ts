@@ -285,6 +285,53 @@ export class DriversController {
     return this.driversService.adminFindAll(dto);
   }
 
+  // NOTE: static `breaks/*` routes must stay BEFORE `:driverId` param routes.
+  // Otherwise Express would capture `breaks` as a driverId and the pending
+  // queue / history endpoints would 404 (vendor break page stays empty).
+  @ApiArrayResponse(DriverBreak)
+  @Get('breaks/pending')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({ summary: '[Admin] List pending break requests' })
+  adminGetPendingBreaks() {
+    return this.driversService.getPendingBreaks();
+  }
+
+  @ApiStandardResponse(DriverBreak)
+  @Post('breaks/:breakId/approve')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Approve a break request (driver ON_BREAK)' })
+  adminApproveBreak(
+    @CurrentUser('sub') reviewerId: string,
+    @Param('breakId') breakId: string,
+  ) {
+    return this.driversService.approveBreak(breakId, reviewerId);
+  }
+
+  @ApiStandardResponse(DriverBreak)
+  @Post('breaks/:breakId/reject')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Reject a break request' })
+  adminRejectBreak(
+    @CurrentUser('sub') reviewerId: string,
+    @Param('breakId') breakId: string,
+  ) {
+    return this.driversService.rejectBreak(breakId, reviewerId);
+  }
+
+  @ApiStandardResponse(DriverBreak)
+  @Post('breaks/:breakId/end')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Force-end an active break early' })
+  adminEndBreak(
+    @CurrentUser('sub') reviewerId: string,
+    @Param('breakId') breakId: string,
+  ) {
+    return this.driversService.adminEndBreak(breakId, reviewerId);
+  }
+
   @ApiStandardResponse()
   @Get(':driverId')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
@@ -336,50 +383,6 @@ export class DriversController {
   @ApiOperation({ summary: '[Admin] Get shifts for a driver' })
   adminGetShifts(@Param('driverId') driverId: string) {
     return this.driversService.adminGetShifts(driverId);
-  }
-
-  @ApiArrayResponse(DriverBreak)
-  @Get('breaks/pending')
-  @RequirePermissions(Permission.MANAGE_DRIVERS)
-  @ApiOperation({ summary: '[Admin] List pending break requests' })
-  adminGetPendingBreaks() {
-    return this.driversService.getPendingBreaks();
-  }
-
-  @ApiStandardResponse(DriverBreak)
-  @Post('breaks/:breakId/approve')
-  @RequirePermissions(Permission.MANAGE_DRIVERS)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Approve a break request (driver ON_BREAK)' })
-  adminApproveBreak(
-    @CurrentUser('sub') reviewerId: string,
-    @Param('breakId') breakId: string,
-  ) {
-    return this.driversService.approveBreak(breakId, reviewerId);
-  }
-
-  @ApiStandardResponse(DriverBreak)
-  @Post('breaks/:breakId/reject')
-  @RequirePermissions(Permission.MANAGE_DRIVERS)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Reject a break request' })
-  adminRejectBreak(
-    @CurrentUser('sub') reviewerId: string,
-    @Param('breakId') breakId: string,
-  ) {
-    return this.driversService.rejectBreak(breakId, reviewerId);
-  }
-
-  @ApiStandardResponse(DriverBreak)
-  @Post('breaks/:breakId/end')
-  @RequirePermissions(Permission.MANAGE_DRIVERS)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Force-end an active break early' })
-  adminEndBreak(
-    @CurrentUser('sub') reviewerId: string,
-    @Param('breakId') breakId: string,
-  ) {
-    return this.driversService.adminEndBreak(breakId, reviewerId);
   }
 
   @ApiStandardResponse(DriverBreak)

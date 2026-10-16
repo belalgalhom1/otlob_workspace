@@ -10,13 +10,20 @@ List<Map<String, dynamic>> _asList(dynamic raw) {
         .toList();
   }
   if (raw is Map) {
-    for (final key in ['breaks', 'items', 'data']) {
+    // Backend envelope can be `{data: [...]}` or paginated
+    // `{drivers: [...], items: [...], breaks: [...]}`. Unwrap one level
+    // (and a second level for double-wrapped `{data: {data: [...]}}`).
+    for (final key in ['breaks', 'items', 'drivers', 'data', 'result']) {
       final value = raw[key];
       if (value is List) {
         return value
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+      }
+      if (value is Map) {
+        final nested = _asList(value);
+        if (nested.isNotEmpty) return nested;
       }
     }
   }
@@ -39,14 +46,25 @@ final driverBreaksHistoryProvider =
 
 final driverBreakSearchProvider =
     FutureProvider.family<List<DriverProfile>, String>((ref, query) async {
-  if (query.trim().isEmpty) return [];
   final repo = ref.read(adminDriversRepositoryProvider);
-  final result = await repo.getDrivers(search: query.trim());
+  final trimmed = query.trim();
+  final result = await repo.getDrivers(
+    search: trimmed.isEmpty ? null : trimmed,
+    limit: 30,
+  );
   if (result is Map) {
     final rawList = result['drivers'] as List<dynamic>? ?? [];
     return rawList
         .whereType<Map>()
         .map((e) => DriverProfile.fromJson(Map<String, dynamic>.from(e)))
+        .where((d) => d.id.isNotEmpty)
+        .toList();
+  }
+  if (result is List) {
+    return (result as List)
+        .whereType<Map>()
+        .map((e) => DriverProfile.fromJson(Map<String, dynamic>.from(e)))
+        .where((d) => d.id.isNotEmpty)
         .toList();
   }
   return [];

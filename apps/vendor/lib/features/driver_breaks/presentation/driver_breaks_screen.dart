@@ -17,30 +17,27 @@ class DriverBreaksScreen extends ConsumerStatefulWidget {
       _DriverBreaksScreenState();
 }
 
-class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
+class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
+    with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   DriverProfile? _selectedDriver;
-  TabController? _tabController;
+  late final TabController _tabController;
   Timer? _pendingPollTimer;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final controller = DefaultTabController.of(context);
-    if (_tabController != controller) {
-      _tabController?.removeListener(_onTabChanged);
-      _tabController = controller;
-      _tabController?.addListener(_onTabChanged);
-      _onTabChanged();
-    }
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _onTabChanged();
   }
 
   void _onTabChanged() {
     // Poll the pending queue only while its tab is visible: new driver
     // requests have no push/socket path to admins, so the list would
     // otherwise go stale. History is pull-to-refresh only (static data).
-    if ((_tabController?.index ?? 0) == 0) {
+    if (_tabController.index == 0) {
       _pendingPollTimer ??= Timer.periodic(
         const Duration(seconds: 20),
         (_) => ref.invalidate(pendingBreaksProvider),
@@ -53,7 +50,8 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
 
   @override
   void dispose() {
-    _tabController?.removeListener(_onTabChanged);
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     _pendingPollTimer?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -148,30 +146,29 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TabBar(
-            labelColor: AppColors.primary,
-            indicatorColor: AppColors.primary,
-            tabs: [
-              Tab(text: l10n.breaksPending, icon: const Icon(LucideIcons.hourglass, size: 18)),
-              Tab(text: l10n.breaksHistory, icon: const Icon(LucideIcons.history, size: 18)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TabBar(
+          controller: _tabController,
+          labelColor: AppColors.primary,
+          indicatorColor: AppColors.primary,
+          tabs: [
+            Tab(text: l10n.breaksPending, icon: const Icon(LucideIcons.hourglass, size: 18)),
+            Tab(text: l10n.breaksHistory, icon: const Icon(LucideIcons.history, size: 18)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildPendingTab(l10n),
+              _buildHistoryTab(l10n),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildPendingTab(l10n),
-                _buildHistoryTab(l10n),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -328,6 +325,8 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
                   ),
                   isDense: true,
                 ),
+                textInputAction: TextInputAction.search,
+                onChanged: (v) => setState(() => _searchQuery = v),
                 onSubmitted: (_) => setState(
                   () => _searchQuery = _searchController.text,
                 ),
@@ -350,27 +349,34 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
 
   Widget _buildHistoryBody(AppLocalizations l10n) {
     if (_selectedDriver == null) {
-      if (_searchQuery.trim().isEmpty) {
-        return Center(child: Text(l10n.selectDriver));
-      }
+      // Show all drivers by default so history is discoverable; search
+      // narrows the list. Previously an empty query showed only a hint
+      // text which looked like a broken/empty history tab.
       final searchAsync = ref.watch(driverBreakSearchProvider(_searchQuery));
       return searchAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(ErrorUtils.translate(context, e))),
         data: (drivers) {
           if (drivers.isEmpty) return Center(child: Text(l10n.noDriversFound));
-          return ListView.builder(
-            itemCount: drivers.length,
-            itemBuilder: (context, i) {
-              final d = drivers[i];
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(LucideIcons.user, size: 16)),
-                title: Text(d.name),
-                subtitle: Text(d.status),
-                trailing: const Icon(LucideIcons.chevronRight, size: 18),
-                onTap: () => setState(() => _selectedDriver = d),
-              );
-            },
+          return RefreshIndicator(
+            onRefresh: () async =>
+                ref.invalidate(driverBreakSearchProvider(_searchQuery)),
+            child: ListView.builder(
+              itemCount: drivers.length,
+              itemBuilder: (context, i) {
+                final d = drivers[i];
+                final displayName =
+                    d.name.trim().isEmpty ? d.id : d.name;
+                return ListTile(
+                  leading: const CircleAvatar(
+                      child: Icon(LucideIcons.user, size: 16)),
+                  title: Text(displayName),
+                  subtitle: Text(d.status),
+                  trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                  onTap: () => setState(() => _selectedDriver = d),
+                );
+              },
+            ),
           );
         },
       );

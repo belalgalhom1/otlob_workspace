@@ -136,7 +136,8 @@ class CoreSocketService with WidgetsBindingObserver {
         debugPrint('🔐 Core Socket: Auth error detected, refreshing token...');
         try {
           await refreshToken();
-          init(); // Retry initialization with new token
+          await init(); // Retry initialization with new token (awaited: a
+          // dropped future here would surface as an unhandled async error)
         } catch (e) {
           debugPrint('❌ Core Socket: Re-auth failed: $e');
         }

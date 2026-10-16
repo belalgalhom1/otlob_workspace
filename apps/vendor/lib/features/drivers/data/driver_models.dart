@@ -32,23 +32,49 @@ class DriverProfile {
   });
 
   factory DriverProfile.fromJson(Map<String, dynamic> json) {
+    double _toDouble(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString()) ?? 0;
+    }
+
+    List<double>? _toLocation(dynamic v) {
+      try {
+        if (v == null) return null;
+        if (v is List) {
+          return v.map((x) {
+            if (x is num) return x.toDouble();
+            return double.tryParse(x.toString()) ?? 0.0;
+          }).toList();
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    final rawUser = json['user'];
+    String resolvedName = (json['name']?.toString() ?? '').trim();
+    if (resolvedName.isEmpty && rawUser is Map) {
+      resolvedName = (rawUser['name']?.toString() ?? '').trim();
+    }
     return DriverProfile(
-      id: json['id'],
-      userId: json['userId'],
-      name: json['name'] ?? '',
-      avatar: json['avatar'],
-      nationalId: json['nationalId'],
-      licenseNumber: json['licenseNumber'],
-      vehicleType: json['vehicleType'],
-      vehiclePlate: json['vehiclePlate'],
-      status: json['status'] ?? 'OFFLINE',
-      isSuspended: json['isSuspended'] ?? json['status'] == 'SUSPENDED',
-      isApproved: json['isApproved'] ?? false,
-      walletBalance: (json['walletBalance'] ?? 0).toDouble(),
-      location: json['location'] != null
-          ? List<double>.from(json['location'].map((x) => x.toDouble()))
-          : null,
-      user: json['user'],
+      id: (json['id']?.toString() ?? '').trim(),
+      userId: (json['userId']?.toString() ?? json['user_id']?.toString() ?? '').trim(),
+      name: resolvedName,
+      avatar: json['avatar']?.toString(),
+      nationalId: json['nationalId']?.toString(),
+      licenseNumber: json['licenseNumber']?.toString(),
+      vehicleType: json['vehicleType']?.toString(),
+      vehiclePlate: json['vehiclePlate']?.toString(),
+      status: (json['status']?.toString() ?? 'OFFLINE').toUpperCase(),
+      isSuspended: json['isSuspended'] is bool
+          ? json['isSuspended'] as bool
+          : (json['status']?.toString().toUpperCase() == 'SUSPENDED'),
+      isApproved: json['isApproved'] is bool
+          ? json['isApproved'] as bool
+          : (json['isApproved']?.toString().toLowerCase() == 'true'),
+      walletBalance: _toDouble(json['walletBalance']),
+      location: _toLocation(json['location']),
+      user: rawUser,
     );
   }
 }

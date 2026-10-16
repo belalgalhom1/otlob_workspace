@@ -20,7 +20,7 @@ class WalletScreen extends ConsumerWidget {
     final walletState = ref.watch(driverWalletProvider);
     final currency = ref.watch(configurationProvider.notifier).currency;
 
-    return walletState.when(
+    final body = walletState.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
       error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
       data: (data) {
@@ -123,6 +123,16 @@ class WalletScreen extends ConsumerWidget {
         );
       },
     );
+
+    if (Navigator.canPop(context)) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.wallet),
+        ),
+        body: body,
+      );
+    }
+    return body;
   }
 
   Widget _buildSettlementBanner(BuildContext context, AppLocalizations l10n) {
@@ -254,13 +264,56 @@ class WalletScreen extends ConsumerWidget {
     );
   }
 
+  String _transactionTypeLabel(String rawType, AppLocalizations l10n) {
+    final isAr = l10n.localeName == 'ar';
+    switch (rawType.toUpperCase().trim()) {
+      case 'DELIVERY_FEE':
+        return isAr ? 'رسوم التوصيل' : 'Delivery fee';
+      case 'CASH_COLLECTED':
+        return isAr ? 'نقدية محصلة' : 'Cash collected';
+      case 'CASH_HANDED_TO_VENDOR':
+        return isAr ? 'نقدية مسلمة للمتجر' : 'Cash handed to vendor';
+      case 'PAYOUT':
+        return isAr ? 'مدفوعات' : 'Payout';
+      case 'PENALTY':
+        return isAr ? 'غرامة' : 'Penalty';
+      case 'BONUS':
+        return isAr ? 'مكافأة' : 'Bonus';
+      case 'ADJUSTMENT':
+        return isAr ? 'تسوية' : 'Adjustment';
+      case 'TOP_UP':
+      case 'TOPUP':
+      case 'TOPUP_REQUEST':
+        return isAr ? 'شحن' : 'Top up';
+      case 'REFUND':
+        return isAr ? 'استرداد' : 'Refund';
+      case 'COMMISSION':
+      case 'COMMISSION_DEDUCTION':
+        return isAr ? 'عمولة' : 'Commission';
+      default:
+        final pretty = rawType.replaceAll('_', ' ').trim().toLowerCase();
+        if (pretty.isEmpty) return isAr ? 'معاملة' : 'Transaction';
+        return pretty[0].toUpperCase() + pretty.substring(1);
+    }
+  }
+
+  String _formatTxDate(DateTime date, AppLocalizations l10n) {
+    // `ar` date symbols need initializeDateFormatting (not called in main),
+    // so fall back to the default locale pattern instead of crashing.
+    try {
+      return DateFormat('dd MMM yyyy - hh:mm a', l10n.localeName).format(date);
+    } catch (_) {
+      return DateFormat('dd MMM yyyy - hh:mm a').format(date);
+    }
+  }
+
   Widget _buildTransactionItem(BuildContext context, Map<String, dynamic> tx, AppLocalizations l10n) {
-    final type = tx['type'] ?? 'UNKNOWN';
+    final type = (tx['type'] ?? 'UNKNOWN').toString();
     final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
     final isCredit = amount >= 0;
     final dateStr = tx['createdAt']?.toString();
     final date = dateStr != null ? DateTime.tryParse(dateStr) ?? DateTime.now() : DateTime.now();
-    
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       leading: Container(
@@ -275,11 +328,11 @@ class WalletScreen extends ConsumerWidget {
         ),
       ),
       title: Text(
-        type.toString().replaceAll('_', ' '),
+        _transactionTypeLabel(type, l10n),
         style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
       ),
       subtitle: Text(
-        DateFormat('MMM dd, yyyy - hh:mm a').format(date),
+        _formatTxDate(date, l10n),
         style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       ),
       trailing: Text(

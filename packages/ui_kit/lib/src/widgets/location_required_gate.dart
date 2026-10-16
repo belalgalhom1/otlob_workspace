@@ -54,7 +54,19 @@ class _LocationRequiredGateState extends State<LocationRequiredGate>
   }
 
   Future<void> _check() async {
-    final enabled = await Geolocator.isLocationServiceEnabled();
+    // The platform call can hang indefinitely on some devices (observed on
+    // MIUI with location in a bad state). Bound it and fail OPEN: an
+    // unresolved check must never brick the app behind a bare spinner —
+    // location is only actually required once the driver goes online.
+    bool? enabled;
+    try {
+      enabled = await Geolocator.isLocationServiceEnabled().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => true,
+      );
+    } catch (_) {
+      enabled = true;
+    }
     if (mounted && enabled != _serviceEnabled) {
       setState(() => _serviceEnabled = enabled);
     }

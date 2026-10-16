@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
@@ -40,14 +43,31 @@ final appUpdateAvailableProvider =
 class Splash extends _$Splash {
   @override
   Future<AppStartupState> build() async {
-    return _initialize();
+    // Hard ceiling on startup: on a stalled network each step below can
+    // otherwise burn its own 15s timeout sequentially and leave the splash
+    // spinning for a minute with no feedback. On timeout, fall through to
+    // the same session check the generic error path uses.
+    try {
+      return await _initialize().timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      final authRepository = ref.read(sharedAuthRepositoryProvider);
+      final isLoggedIn = await authRepository.isLoggedIn().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => false,
+          );
+      return isLoggedIn
+          ? AppStartupState.dashboard
+          : AppStartupState.unauthenticated;
+    }
   }
 
   Future<AppStartupState> _initialize() async {
     try {
+      debugPrint('🚀 Splash: gate check start');
       final appStatus = await checkAppStatus(
         ref.read(sharedPlatformSettingsRepositoryProvider),
       );
+      debugPrint('🚀 Splash: gate check done: ${appStatus == null ? 'offline-skip' : 'maintenance=${appStatus.maintenance} mustUpdate=${appStatus.mustUpdate}'}');
       if (appStatus != null) {
         if (appStatus.maintenance) return AppStartupState.maintenance;
         if (appStatus.mustUpdate) {
@@ -61,7 +81,8 @@ class Splash extends _$Splash {
 
       final authRepository = ref.read(sharedAuthRepositoryProvider);
       final isLoggedIn = await authRepository.isLoggedIn();
-      
+      debugPrint('🚀 Splash: session check done: loggedIn=$isLoggedIn');
+
       if (!isLoggedIn) {
         return AppStartupState.unauthenticated;
       }
@@ -73,7 +94,9 @@ class Splash extends _$Splash {
       }
 
       final driverRepo = ref.read(driverProfileRepositoryProvider);
+      debugPrint('🚀 Splash: profile fetch start');
       final profile = await driverRepo.getMyProfile();
+      debugPrint('🚀 Splash: profile fetch done');
       if (profile == null || profile['isApproved'] != true) {
         await authRepository.logout();
         return AppStartupState.unauthenticated;
@@ -99,8 +122,10 @@ class Splash extends _$Splash {
       });
 
       // Query for an active order
+      debugPrint('🚀 Splash: active-order fetch start');
       final ordersRepo = ref.read(driverOrdersRepositoryProvider);
       final activeOrderResult = await ordersRepo.getActiveDriverOrder();
+      debugPrint('🚀 Splash: active-order fetch done');
       
       // The repository resolves to {'data': null} when no order is active,
       // so an empty map must not be treated as an active order.

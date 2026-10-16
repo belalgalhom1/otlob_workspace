@@ -114,24 +114,37 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     );
   }
 
+  /// When the active order finishes (backend no longer returns it, or its
+  /// status flips to DELIVERED/CANCELLED via socket), leave this page for
+  /// the dashboard instead of stranding the driver on a dead order screen.
+  void _maybeLeaveForDashboard(AsyncValue<dynamic> state) {
+    if (!mounted || !state.hasValue) return;
+    final value = state.value;
+    var finished = value == null;
+    if (!finished && value is Map) {
+      final status = (value['status'] ?? '').toString().toUpperCase();
+      finished = status == 'DELIVERED' || status == 'CANCELLED';
+    }
+    if (!finished) return;
+    try {
+      final router = ref.read(appRouterProvider);
+      if (router.state.uri.path == '/order-execution') {
+        router.go('/dashboard');
+      }
+    } catch (_) {
+      // Navigation best-effort only; the empty state below is the fallback.
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    // NOTE: ref.listen must stay here (not in build) — listening during
+    // build re-subscribes on every rebuild and throws in debug builds.
     ref.listen<AsyncValue<dynamic>>(
       orderExecutionProvider,
-      (previous, state) {
-        if (state.hasValue && state.value == null) {
-          // Order completed or no active order
-          if (mounted) {
-            final ctx = rootNavigatorKey.currentContext;
-            if (ctx != null &&
-                GoRouterState.of(ctx).uri.path == '/order-execution') {
-              ctx.go('/dashboard');
-            }
-          }
-        }
-      },
+      (previous, state) => _maybeLeaveForDashboard(state),
     );
   }
 
@@ -589,6 +602,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     Widget? leading,
   }) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.06),
@@ -602,16 +616,23 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           Expanded(
             child: InkWell(
               onTap: onTap,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ),
           ),
-          ?leading,
+          if (leading != null) ...[
+            const SizedBox(width: 4),
+            leading,
+          ],
           IconButton(
             onPressed: onTap,
             icon: const Icon(LucideIcons.chevronRight, size: 18),
@@ -749,13 +770,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       final isAr = l10n.localeName == 'ar';
       final upfront =
           double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+      final total =
+          double.tryParse((order['grandTotal'] ?? order['total'])?.toString() ?? '0') ?? 0.0;
+      final isUpfront = upfront > 0;
+      final amountDue = isUpfront ? upfront : total;
       final paidClaimed =
           (order['paymentStatus']?.toString() ?? '') == 'PAID';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
@@ -765,28 +790,41 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isAr
-                      ? 'المبلغ المطلوب مقدماً: ${upfront.toStringAsFixed(0)} ج.م'
-                      : 'Upfront amount due: ${upfront.toStringAsFixed(0)} EGP',
+                  isUpfront
+                      ? (isAr
+                          ? 'المبلغ المطلوب مقدماً: ${amountDue.toStringAsFixed(0)} ج.م'
+                          : 'Upfront amount due: ${amountDue.toStringAsFixed(0)} EGP')
+                      : (isAr
+                          ? 'المبلغ المطلوب تحويله: ${amountDue.toStringAsFixed(0)} ج.م'
+                          : 'Amount to transfer: ${amountDue.toStringAsFixed(0)} EGP'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   paidClaimed
                       ? (isAr
-                          ? 'العميل يقول إنه دفع. تحقق من محفظتك ثم أكد.'
-                          : 'The customer says they paid. Check your wallet, then confirm.')
+                          ? (isUpfront
+                              ? 'العميل يقول إنه دفع المبلغ المقدم. تحقق من محفظتك ثم أكد.'
+                              : 'العميل يقول إنه حوّل المبلغ إلى محفظتك. تحقق من محفظتك ثم أكد.')
+                          : (isUpfront
+                              ? 'The customer says they paid the upfront amount. Check your wallet, then confirm.'
+                              : 'The customer says they transferred the payment. Check your wallet, then confirm.'))
                       : (isAr
-                          ? 'في انتظار أن يدفع العميل المبلغ المقدم.'
-                          : 'Waiting for the customer to pay the upfront amount.'),
-                  style: const TextStyle(fontSize: 13),
+                          ? (isUpfront
+                              ? 'في انتظار أن يدفع العميل المبلغ المقدم.'
+                              : 'في انتظار أن يحول العميل المبلغ إلى محفظتك الإلكترونية.')
+                          : (isUpfront
+                              ? 'Waiting for the customer to pay the upfront amount.'
+                              : 'Waiting for the customer to transfer the payment to your mobile wallet.')),
+                  style: const TextStyle(fontSize: 13, height: 1.4),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
           if ((order['paymentReceiptUrl']?.toString().isNotEmpty ??
               false)) ...[
             GestureDetector(
@@ -794,7 +832,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 remoteUrl: order['paymentReceiptUrl'].toString(),
               ),
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.orange),
@@ -810,7 +848,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                         height: 64,
                         width: 64,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (context, error, stackTrace) => const Icon(
                           LucideIcons.imageOff,
                           size: 32,
                         ),
