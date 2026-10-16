@@ -48,15 +48,31 @@ String _translateStatus(String status, bool isArabic) {
   }
 }
 
-/// Maps backend `WalletType` (VODAFONE/ORANGE/WE/ETISALAT/INSTAPAY) to the
-/// customer-facing label. Driver wallets of type VODAFONE/ORANGE/etc are all
-/// "Mobile Wallet" while INSTAPAY stays "InstaPay" — never show the raw enum.
-String _walletDisplayName(Map<dynamic, dynamic> wallet, AppStrings s) {
-  final rawType =
-      (wallet['type'] ?? wallet['provider'] ?? '').toString().toUpperCase();
-  if (rawType.contains('INSTAPAY')) return s.instapay;
-  // VODAFONE, ORANGE, WE, ETISALAT and any mobile-wallet variant.
+/// Wallet label using existing translations only: InstaPay wallets show
+/// InstaPay, everything else shows Mobile Wallet. No custom names added.
+String _walletProviderName(Map<dynamic, dynamic> wallet, AppStrings s) {
+  if (_isInstaPayWallet(wallet)) return s.instapay;
   return s.mobileWallet;
+}
+
+bool _isInstaPayWallet(Map<dynamic, dynamic> wallet) {
+  return (wallet['type'] ?? wallet['provider'] ?? '')
+      .toString()
+      .toUpperCase()
+      .contains('INSTAPAY');
+}
+
+/// For a mobile-wallet payment the customer must see the mobile-money
+/// wallets (Vodafone etc.) — not InstaPay. InstaPay entries are only shown
+/// when the driver has no mobile-money wallet at all (fallback).
+List<dynamic> _visibleDriverWallets(List<dynamic> wallets) {
+  final mobile = wallets.where((w) {
+    final m = w is Map
+        ? Map<dynamic, dynamic>.from(w as Map)
+        : <dynamic, dynamic>{};
+    return !_isInstaPayWallet(m);
+  }).toList();
+  return mobile.isNotEmpty ? mobile : wallets;
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerProviderStateMixin {
@@ -396,7 +412,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               ],
             ),
             const SizedBox(height: 12),
-            ...(order['driver']['mobileWallets'] as List).map((wallet) {
+            ..._visibleDriverWallets(
+                    order['driver']['mobileWallets'] as List)
+                .map((wallet) {
               final walletMap = wallet is Map
                   ? Map<dynamic, dynamic>.from(wallet as Map)
                   : <dynamic, dynamic>{};
@@ -409,7 +427,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _walletDisplayName(walletMap, s),
+                          _walletProviderName(walletMap, s),
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 13),
                         ),

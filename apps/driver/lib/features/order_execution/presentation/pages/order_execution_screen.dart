@@ -345,7 +345,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, -5)),
               ],
             ),
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.fromLTRB(
+              24.0,
+              24.0,
+              24.0,
+              24.0 + MediaQuery.of(context).padding.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -602,8 +607,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     Widget? leading,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
@@ -753,6 +758,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               await ref
                   .read(orderExecutionProvider.notifier)
                   .confirmDeliveryWithPhoto(photo);
+              // Order is finished — leave this page at once instead of
+              // waiting on the provider refetch (which shows "No active
+              // order" if we stay).
+              if (context.mounted) context.go('/dashboard');
             }),
           ),
           const SizedBox(height: 8),
@@ -886,6 +895,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       await ref
                           .read(orderExecutionProvider.notifier)
                           .confirmPayment(received: true);
+                      // Payment confirmed — order is finished, go dashboard.
+                      if (context.mounted) context.go('/dashboard');
                     } catch (e) {
                       showErr(e);
                     }

@@ -355,11 +355,20 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               ],
               const SizedBox(height: 16),
               _buildTotalRow(
-                context, 
-                l10n.localeName == 'ar' ? 'الإجمالي' : 'Total', 
+                context,
+                l10n.localeName == 'ar' ? 'الإجمالي' : 'Total',
                 order['total'] ?? order['grandTotal'],
                 currency,
                 isTotal: true
+              ),
+              const SizedBox(height: 12),
+              _buildInfoRow(
+                context,
+                LucideIcons.wallet,
+                _paymentMethodLabel(
+                  order['paymentMethod']?.toString() ?? '',
+                  l10n.localeName == 'ar',
+                ),
               ),
               if (order['upfrontAmount'] != null && (double.tryParse(order['upfrontAmount'].toString()) ?? 0.0) > 0) ...[
                 const SizedBox(height: 8),
@@ -389,6 +398,22 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _paymentMethodLabel(String rawMethod, bool isArabic) {
+    switch (rawMethod.toUpperCase().trim()) {
+      case 'CASH_ON_DELIVERY':
+      case 'CASH':
+        return isArabic ? 'الدفع عند الاستلام' : 'Cash on Delivery';
+      case 'MOBILE_WALLET':
+      case 'MOBILE_WALLET_VODAFONE':
+        return isArabic ? 'المحفظة الإلكترونية' : 'Mobile Wallet';
+      case 'MOBILE_WALLET_INSTAPAY':
+      case 'INSTAPAY':
+        return isArabic ? 'إنستا باي' : 'InstaPay';
+      default:
+        return isArabic ? 'طريقة الدفع: $rawMethod' : 'Payment: $rawMethod';
+    }
   }
 
   String _resolveMediaUrl(WidgetRef ref, String path) {

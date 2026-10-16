@@ -37,13 +37,30 @@ class _TrackingLifecycleObserver with WidgetsBindingObserver {
   }
 }
 
-/// Maps backend `WalletType` to customer-facing label.
-/// VODAFONE/ORANGE/WE/ETISALAT -> "Mobile Wallet", INSTAPAY -> "InstaPay".
-String _trackingWalletDisplayName(Map<dynamic, dynamic> wallet, AppStrings s) {
-  final rawType =
-      (wallet['type'] ?? wallet['provider'] ?? '').toString().toUpperCase();
-  if (rawType.contains('INSTAPAY')) return s.instapay;
+/// Wallet label using existing translations only: InstaPay wallets show
+/// InstaPay, everything else shows Mobile Wallet. No custom names added.
+String _trackingWalletProviderName(Map<dynamic, dynamic> wallet, AppStrings s) {
+  if (_trackingIsInstaPay(wallet)) return s.instapay;
   return s.mobileWallet;
+}
+
+bool _trackingIsInstaPay(Map<dynamic, dynamic> wallet) {
+  return (wallet['type'] ?? wallet['provider'] ?? '')
+      .toString()
+      .toUpperCase()
+      .contains('INSTAPAY');
+}
+
+/// Mobile-wallet payments show the mobile-money wallets (Vodafone etc.),
+/// not InstaPay — unless InstaPay is all the driver has (fallback).
+List<dynamic> _trackingVisibleWallets(List<dynamic> wallets) {
+  final mobile = wallets.where((w) {
+    final m = w is Map
+        ? Map<dynamic, dynamic>.from(w as Map)
+        : <dynamic, dynamic>{};
+    return !_trackingIsInstaPay(m);
+  }).toList();
+  return mobile.isNotEmpty ? mobile : wallets;
 }
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
@@ -685,8 +702,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                     (_orderDetails!['driver']
                                             ['mobileWallets'] as List)
                                         .isNotEmpty)
-                                  ...(_orderDetails!['driver']
-                                          ['mobileWallets'] as List)
+                                  ..._trackingVisibleWallets(
+                                          _orderDetails!['driver']
+                                              ['mobileWallets'] as List)
                                       .map((wallet) {
                                     final walletMap = wallet is Map
                                         ? Map<dynamic, dynamic>.from(
@@ -700,7 +718,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                       padding:
                                           const EdgeInsets.only(bottom: 4),
                                       child: Text(
-                                        '${_trackingWalletDisplayName(walletMap, s)}: $number',
+                                        '${_trackingWalletProviderName(walletMap, s)}: $number',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                         ),
