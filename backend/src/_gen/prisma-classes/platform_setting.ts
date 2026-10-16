@@ -179,6 +179,18 @@ export class PlatformSetting {
   carIconUrl?: string;
 
   @ApiPropertyOptional({ type: String })
+  bicycleIconUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
+  motorTricycleIconUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
+  vanIconUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
+  truckIconUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
   deliveryBannerIconUrl?: string;
 
   @ApiProperty({ type: Number })
@@ -198,6 +210,9 @@ export class PlatformSetting {
 
   @ApiProperty({ type: Number })
   retentionAbandonedCartsDays: number = 7;
+
+  @ApiProperty({ type: Number })
+  retentionPaymentReceiptsDays: number = 90;
 
   @ApiProperty({ type: Number })
   retentionWalletTransactionsDays: number = 365;

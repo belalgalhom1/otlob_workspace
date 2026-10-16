@@ -5,6 +5,7 @@ import { StatisticPeriod } from '@prisma/client';
 import { StatisticsRepository } from './statistics.repository';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { StorageService } from '../../infrastructure/storage/storage.service';
 import {
   QUEUES,
   STATS_JOBS,
@@ -25,6 +26,7 @@ export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
     private readonly statsRepository: StatisticsRepository,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
     @InjectQueue(QUEUES.STATS) private readonly queue: Queue,
   ) {
     super();
@@ -53,6 +55,14 @@ export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
       { type: 'stats' },
       { repeat: { pattern: '10 2 * * *' }, jobId: 'cron.data_retention.stats' },
     );
+    await this.queue.add(
+      CRON_JOBS.DATA_RETENTION,
+      { type: 'payment-receipts' },
+      {
+        repeat: { pattern: '20 2 * * *' },
+        jobId: 'cron.data_retention.payment_receipts',
+      },
+    );
   }
 
   async process(job: Job): Promise<any> {
@@ -73,6 +83,8 @@ export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
             return this.handleWalletTransactionsCleanup();
           case 'stats':
             return this.handleStatisticsCleanup();
+          case 'payment-receipts':
+            return this.handlePaymentReceiptsCleanup();
           default:
             return { skipped: true };
         }
@@ -283,6 +295,61 @@ export class StatisticsProcessor extends WorkerHost implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         'Failed to run statistics cleanup',
+        (error as Error).stack,
+      );
+    }
+  }
+
+  private async handlePaymentReceiptsCleanup(): Promise<void> {
+    try {
+      const settings = await this.platformSettings.getSettings();
+      const cutoff = new Date(
+        Date.now() -
+          settings.retentionPaymentReceiptsDays * 24 * 60 * 60 * 1000,
+      );
+
+      // Privacy-first file hygiene, not row deletion: the order row (and its
+      // wallet/coin ledger) survives for accounting — only the sensitive
+      // transfer screenshot leaves disk. Only settled orders qualify, so a
+      // live PENDING_PAYMENT dispute never loses its evidence. updatedAt
+      // (not createdAt) gates it: an order still moving keeps its receipt.
+      let cleared = 0;
+      for (;;) {
+        const batch = await this.prisma.order.findMany({
+          where: {
+            paymentReceiptUrl: { not: null },
+            status: { in: ['DELIVERED', 'CANCELLED'] },
+            updatedAt: { lt: cutoff },
+          },
+          select: { id: true, paymentReceiptUrl: true },
+          take: 200,
+        });
+        if (batch.length === 0) break;
+
+        for (const order of batch) {
+          const url = order.paymentReceiptUrl as string | null;
+          if (!url) continue;
+          // Conditional clear: a concurrent re-pay swaps the URL, and we
+          // must never wipe the fresh receipt.
+          const clearedRow = await this.prisma.order.updateMany({
+            where: { id: order.id, paymentReceiptUrl: url },
+            data: { paymentReceiptUrl: null },
+          });
+          if (clearedRow.count === 0) continue;
+          // Idempotent + traversal-guarded; never throws.
+          await this.storage.delete(url);
+          cleared += 1;
+        }
+
+        if (batch.length < 200) break;
+      }
+
+      if (cleared > 0) {
+        this.logger.log(`🗑️  Cleared ${cleared} old payment receipts`);
+      }
+    } catch (error) {
+      this.logger.error(
+        'Failed to run payment receipts cleanup',
         (error as Error).stack,
       );
     }

@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [postgis, pgcrypto]
+  extensions = [postgis, pgcrypto, pg_trgm]
 }
 
 model PlatformSetting {

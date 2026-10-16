@@ -119,6 +119,15 @@ export class Order {
   @ApiPropertyOptional({ type: Date })
   pickedUpAt?: Date;
 
+  @ApiPropertyOptional({ type: String })
+  pickupImageUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
+  deliveryImageUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
+  paymentReceiptUrl?: string;
+
   @ApiPropertyOptional({ type: Date })
   actualDeliveryTime?: Date;
 }
