@@ -358,7 +358,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
     final total =
         double.tryParse((order['grandTotal'] ?? order['total'])?.toString() ?? '0') ?? 0.0;
-    final isUpfront = upfront > 0;
+    // Cash on delivery with an upfront requirement: the customer pays the
+    // upfront first. Mobile wallet / InstaPay: always the whole amount.
+    final isUpfront =
+        (order['paymentMethod']?.toString() ?? '') == 'CASH_ON_DELIVERY' &&
+            upfront > 0;
     final amountDue = isUpfront ? upfront : total;
     final paidClaimed = (order['paymentStatus']?.toString() ?? '') == 'PAID';
     final receiptFile = _receiptFiles[orderId];

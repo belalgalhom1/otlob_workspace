@@ -429,10 +429,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   style: const TextStyle(
                                       fontSize: 12, color: Colors.grey)),
                               const SizedBox(width: 8),
-                              Text(
-                                  '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
+                              Flexible(
+                                child: Text(
+                                    '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: false),
+                              ),
                             ]),
                             if (item.selectedVariant != null)
                               Text(

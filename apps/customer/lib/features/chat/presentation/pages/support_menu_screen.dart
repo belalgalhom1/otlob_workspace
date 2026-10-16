@@ -95,22 +95,35 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     _checkActiveTicket();
   }
 
+  /// A ticket counts as "active" (chat should open) only when it is neither
+  /// CLOSED nor RESOLVED **and** it still has a conversation attached.
+  /// The backend deletes the chat thread on resolve/close and nulls
+  /// `conversationId`, so without these guards the user gets auto-routed
+  /// into a dead chat and can never open a new issue.
+  bool _isTicketChatActive(dynamic t) {
+    if (t is! Map) return false;
+    final status = (t['status']?.toString() ?? '').toUpperCase();
+    if (status.isEmpty || status == 'CLOSED' || status == 'RESOLVED') {
+      return false;
+    }
+    final convoId = t['conversationId']?.toString() ?? '';
+    if (convoId.isEmpty || convoId == 'null') return false;
+    return true;
+  }
+
   Future<void> _checkActiveTicket() async {
     try {
       final result = await ref.read(supportTicketProvider.notifier).getTickets();
       final List<dynamic> tickets = result;
       for (var t in tickets) {
-        if (t is Map<String, dynamic>) {
-          final status = t['status']?.toString().toUpperCase();
-          if (status != 'CLOSED' && status != null) {
-            if (mounted) {
-              context.pushReplacement(
-                '/chat/direct/${t['conversationId']}',
-                extra: {'title': t['subject']},
-              );
-            }
-            return;
+        if (_isTicketChatActive(t)) {
+          if (mounted) {
+            context.pushReplacement(
+              '/chat/direct/${(t as Map)['conversationId']}',
+              extra: {'title': (t)['subject']},
+            );
           }
+          return;
         }
       }
     } catch (_) {}
@@ -226,10 +239,12 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
     try {
       final tickets = await ref.read(supportTicketProvider.notifier).getTickets();
-      final activeTicket = tickets.firstWhere(
-        (t) => t['status'] != 'CLOSED' && t['status'] != 'RESOLVED',
-        orElse: () => null,
-      );
+      dynamic activeTicket;
+      try {
+        activeTicket = tickets.firstWhere((t) => _isTicketChatActive(t));
+      } catch (_) {
+        activeTicket = null;
+      }
 
       if (activeTicket != null) {
         if (mounted) {

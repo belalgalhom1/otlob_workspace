@@ -2119,9 +2119,14 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
+                  // Theme-aware: white name in dark mode, dark name in
+                  // light mode. (AppColors.textSecondary is fixed black
+                  // and was invisible on dark backgrounds.)
                   color: senderRole.toString().startsWith('VENDOR_')
                       ? AppColors.primary
-                      : AppColors.textSecondary,
+                      : (Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : AppColors.textPrimary),
                   letterSpacing: 0.5,
                 ),
               ),

@@ -653,7 +653,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                 '0',
                           ) ??
                           0.0;
-                      final isUpfront = upfront > 0;
+                      // Cash on delivery with an upfront requirement: the
+                      // customer pays the upfront first. Mobile wallet /
+                      // InstaPay: always the whole amount.
+                      final isUpfront =
+                          (_orderDetails?['paymentMethod']?.toString() ?? '') ==
+                                  'CASH_ON_DELIVERY' &&
+                              upfront > 0;
                       final amountDue = isUpfront ? upfront : total;
                       final paidClaimed =
                           (_orderDetails?['paymentStatus']?.toString() ?? '') ==

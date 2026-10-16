@@ -465,19 +465,29 @@ class CartScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text(
-                      '${item.totalPrice.toStringAsFixed(0)} ${s.egp}', 
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16)
+                    Flexible(
+                      child: Text(
+                        '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
                     ),
                     if (hasDiscount) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        '${(comparePrice * item.quantity).toStringAsFixed(0)} ${s.egp}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white38 : Colors.grey,
-                          decoration: TextDecoration.lineThrough,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          '${(comparePrice * item.quantity).toStringAsFixed(0)} ${s.egp}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey,
+                            decoration: TextDecoration.lineThrough,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                         ),
                       ),
                     ],

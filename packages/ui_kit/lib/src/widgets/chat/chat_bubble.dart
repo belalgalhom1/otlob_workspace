@@ -109,8 +109,10 @@ class ChatBubbleWidget extends StatelessWidget {
                 child: Text(
                   senderRole != null 
                     ? '$senderName (${senderRole!.replaceAll('_', ' ').toLowerCase().split(' ').map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}').join(' ')})'
-                    : senderName!, 
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colorScheme.onSurface.withValues(alpha: 0.5))
+                    : senderName!,
+                  // Theme-aware: white in dark mode, dark in light mode,
+                  // kept near-solid so the name stays readable on bubbles.
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.onSurface.withValues(alpha: 0.85))
                 ),
               ),
             if (type == 'image')

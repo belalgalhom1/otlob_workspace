@@ -781,7 +781,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
       final total =
           double.tryParse((order['grandTotal'] ?? order['total'])?.toString() ?? '0') ?? 0.0;
-      final isUpfront = upfront > 0;
+      // Cash on delivery with an upfront requirement: the customer pays the
+      // upfront first. Mobile wallet / InstaPay: always the whole amount.
+      final isUpfront = isCashOnDelivery && upfront > 0;
       final amountDue = isUpfront ? upfront : total;
       final paidClaimed =
           (order['paymentStatus']?.toString() ?? '') == 'PAID';
@@ -895,8 +897,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       await ref
                           .read(orderExecutionProvider.notifier)
                           .confirmPayment(received: true);
-                      // Payment confirmed — order is finished, go dashboard.
-                      if (context.mounted) context.go('/dashboard');
+                      // NOTE: do NOT leave this page here — confirming
+                      // payment sends the order back to PICKED_UP so the
+                      // driver can deliver it. Dashboard redirect happens
+                      // only after actual delivery (see confirmDelivery
+                      // handler + _maybeLeaveForDashboard listener).
                     } catch (e) {
                       showErr(e);
                     }
