@@ -4,9 +4,6 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
--- CreateExtension
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-
 -- CreateSequence
 CREATE SEQUENCE IF NOT EXISTS "order_number_seq" START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
 
@@ -173,10 +170,6 @@ CREATE TABLE "platform_settings" (
     "homeCoverUrl" TEXT,
     "motorcycleIconUrl" TEXT,
     "carIconUrl" TEXT,
-    "bicycleIconUrl" TEXT,
-    "motorTricycleIconUrl" TEXT,
-    "vanIconUrl" TEXT,
-    "truckIconUrl" TEXT,
     "deliveryBannerIconUrl" TEXT,
     "retentionOrdersDays" INTEGER NOT NULL DEFAULT 90,
     "retentionArchivedChatsDays" INTEGER NOT NULL DEFAULT 60,
@@ -184,7 +177,6 @@ CREATE TABLE "platform_settings" (
     "retentionExpiredSessionsDays" INTEGER NOT NULL DEFAULT 7,
     "retentionAuditLogsDays" INTEGER NOT NULL DEFAULT 180,
     "retentionAbandonedCartsDays" INTEGER NOT NULL DEFAULT 7,
-    "retentionPaymentReceiptsDays" INTEGER NOT NULL DEFAULT 90,
     "retentionWalletTransactionsDays" INTEGER NOT NULL DEFAULT 365,
     "retentionStatisticsDays" INTEGER NOT NULL DEFAULT 365,
     "maxKmForBicycle" DOUBLE PRECISION NOT NULL DEFAULT 5.0,
@@ -690,7 +682,6 @@ CREATE TABLE "cart_items" (
     "customPrice" INTEGER,
     "customImageUrl" TEXT,
     "quantity" INTEGER NOT NULL DEFAULT 1,
-    "selectedUnit" TEXT NOT NULL DEFAULT 'package',
     "specialRequest" TEXT,
     "optionHash" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -749,9 +740,6 @@ CREATE TABLE "orders" (
     "preparedAt" TIMESTAMPTZ(3),
     "driverAssignedAt" TIMESTAMPTZ(3),
     "pickedUpAt" TIMESTAMPTZ(3),
-    "pickupImageUrl" TEXT,
-    "deliveryImageUrl" TEXT,
-    "paymentReceiptUrl" TEXT,
     "actualDeliveryTime" TIMESTAMPTZ(3),
 
     CONSTRAINT "orders_pkey" PRIMARY KEY ("id")
@@ -1144,9 +1132,6 @@ CREATE INDEX "support_tickets_vendorId_idx" ON "support_tickets"("vendorId");
 CREATE INDEX "support_tickets_status_idx" ON "support_tickets"("status");
 
 -- CreateIndex
-CREATE INDEX "support_tickets_status_lastStatusUpdateAt_idx" ON "support_tickets"("status", "lastStatusUpdateAt");
-
--- CreateIndex
 CREATE INDEX "support_tickets_orderId_idx" ON "support_tickets"("orderId");
 
 -- CreateIndex
@@ -1199,12 +1184,6 @@ CREATE INDEX "vendors_verticalId_idx" ON "vendors"("verticalId");
 
 -- CreateIndex
 CREATE INDEX "vendors_deletedAt_idx" ON "vendors"("deletedAt");
-
--- CreateIndex: case-insensitive substring search (ILIKE '%…%') on store names.
-CREATE INDEX "vendors_storeName_trgm_idx" ON "vendors" USING gin ("storeName" gin_trgm_ops);
-
--- CreateIndex
-CREATE INDEX "vendors_storeNameAr_trgm_idx" ON "vendors" USING gin ("storeNameAr" gin_trgm_ops);
 
 -- CreateIndex
 CREATE INDEX "vendor_members_userId_idx" ON "vendor_members"("userId");
@@ -1290,16 +1269,6 @@ CREATE UNIQUE INDEX "carts_customerId_vendorId_key" ON "carts"("customerId", "ve
 -- CreateIndex
 CREATE INDEX "cart_item_options_cartItemId_idx" ON "cart_item_options"("cartItemId");
 
--- CreateIndex: atomic cart-line merge guards (concurrent addItem P2002-merge).
-CREATE UNIQUE INDEX "cart_items_product_merge_uidx"
-  ON "cart_items"("cartId", "productId", COALESCE("optionHash", ''), "selectedUnit", COALESCE("customPrice", -1))
-  WHERE "productId" IS NOT NULL;
-
--- CreateIndex
-CREATE UNIQUE INDEX "cart_items_custom_merge_uidx"
-  ON "cart_items"("cartId", "customName", COALESCE("customPrice", -1))
-  WHERE "productId" IS NULL;
-
 -- CreateIndex
 CREATE UNIQUE INDEX "orders_orderNumber_key" ON "orders"("orderNumber");
 
@@ -1369,9 +1338,6 @@ CREATE INDEX "drivers_createdAt_idx" ON "drivers"("createdAt");
 -- CreateIndex
 CREATE INDEX "drivers_deletedAt_idx" ON "drivers"("deletedAt");
 
--- CreateIndex: case-insensitive substring search (ILIKE '%…%') on names.
-CREATE INDEX "drivers_name_trgm_idx" ON "drivers" USING gin ("name" gin_trgm_ops);
-
 -- CreateIndex
 CREATE INDEX "driver_shifts_shiftPoolId_idx" ON "driver_shifts"("shiftPoolId");
 
@@ -1386,15 +1352,6 @@ CREATE INDEX "driver_shifts_shiftDate_idx" ON "driver_shifts"("shiftDate");
 
 -- CreateIndex
 CREATE INDEX "driver_shifts_status_idx" ON "driver_shifts"("status");
-
--- CreateIndex: hot-path range scans (watchdogs, pool sweeps).
-CREATE INDEX "driver_shifts_status_endTime_idx" ON "driver_shifts"("status", "endTime");
-
--- CreateIndex
-CREATE INDEX "driver_shifts_status_warningSent_startTime_idx" ON "driver_shifts"("status", "warningSent", "startTime");
-
--- CreateIndex
-CREATE INDEX "driver_shifts_status_startTime_idx" ON "driver_shifts"("status", "startTime");
 
 -- CreateIndex
 CREATE INDEX "driver_shifts_startingLocation_idx" ON "driver_shifts" USING GIST ("startingLocation");
@@ -1419,9 +1376,6 @@ CREATE UNIQUE INDEX "driver_breaks_driver_active_uidx" ON "driver_breaks"("drive
 
 -- CreateIndex
 CREATE INDEX "shift_pools_shiftDate_idx" ON "shift_pools"("shiftDate");
-
--- CreateIndex
-CREATE INDEX "shift_pools_startTime_idx" ON "shift_pools"("startTime");
 
 -- CreateIndex
 CREATE INDEX "shift_pools_zoneId_idx" ON "shift_pools"("zoneId");
@@ -1509,14 +1463,6 @@ CREATE INDEX "mobile_wallets_driverId_idx" ON "mobile_wallets"("driverId");
 
 -- CreateIndex
 CREATE INDEX "wallet_top_up_requests_driverId_idx" ON "wallet_top_up_requests"("driverId");
-
--- CreateIndex
-CREATE INDEX "wallet_top_up_requests_status_idx" ON "wallet_top_up_requests"("status");
-
--- CreateIndex: single-PENDING-request guard (concurrent submits P2002-merge).
-CREATE UNIQUE INDEX "wallet_top_up_requests_pending_uidx"
-  ON "wallet_top_up_requests"("driverId")
-  WHERE "status" = 'PENDING';
 
 -- CreateIndex
 CREATE INDEX "wallet_top_up_requests_platformWalletId_idx" ON "wallet_top_up_requests"("platformWalletId");

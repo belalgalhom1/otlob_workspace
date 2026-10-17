@@ -529,18 +529,6 @@ export class UpdatePlatformSettingsDto {
   retentionAbandonedCartsDays?: number;
 
   @ApiProperty({
-    example: 90,
-    required: false,
-    description:
-      'Days after an order settles before its mobile-wallet payment receipt screenshot is deleted from disk and cleared from the order (order row itself is kept)',
-  })
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  @Type(() => Number)
-  retentionPaymentReceiptsDays?: number;
-
-  @ApiProperty({
     example: 365,
     required: false,
     description: 'Days before wallet transactions are hard-deleted',

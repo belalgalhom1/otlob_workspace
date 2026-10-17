@@ -234,7 +234,6 @@ export class PlatformSettingsService {
       'retentionExpiredSessionsDays',
       'retentionAuditLogsDays',
       'retentionAbandonedCartsDays',
-      'retentionPaymentReceiptsDays',
       'retentionWalletTransactionsDays',
       'retentionStatisticsDays',
       'maxKmForBicycle',
