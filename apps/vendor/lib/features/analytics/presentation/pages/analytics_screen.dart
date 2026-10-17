@@ -290,6 +290,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     var allTabs = false;
     var arabic = isUiArabic;
     var format = 'excel'; // excel | pdf
+    var rangeMode = 'all'; // all | today | 7 | 30 | month | custom
+    DateTimeRange? customRange;
 
     final choice = await showDialog<String>(
       context: context,
@@ -408,6 +410,65 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                   ),
                   const SizedBox(height: 16),
                   Text(
+                    isUiArabic ? 'المدة' : 'Date range',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      chip(
+                        isUiArabic ? 'كل الوقت' : 'All time',
+                        rangeMode == 'all',
+                        () => setDialogState(() => rangeMode = 'all'),
+                      ),
+                      chip(
+                        isUiArabic ? 'اليوم' : 'Today',
+                        rangeMode == 'today',
+                        () => setDialogState(() => rangeMode = 'today'),
+                      ),
+                      chip(
+                        isUiArabic ? 'آخر ٧ أيام' : 'Last 7 days',
+                        rangeMode == '7',
+                        () => setDialogState(() => rangeMode = '7'),
+                      ),
+                      chip(
+                        isUiArabic ? 'آخر ٣٠ يوم' : 'Last 30 days',
+                        rangeMode == '30',
+                        () => setDialogState(() => rangeMode = '30'),
+                      ),
+                      chip(
+                        isUiArabic ? 'هذا الشهر' : 'This month',
+                        rangeMode == 'month',
+                        () => setDialogState(() => rangeMode = 'month'),
+                      ),
+                      chip(
+                        rangeMode == 'custom' && customRange != null
+                            ? '${_fmtDate(customRange!.start)} – ${_fmtDate(customRange!.end)}'
+                            : (isUiArabic ? 'مخصص' : 'Custom'),
+                        rangeMode == 'custom',
+                        () async {
+                          final picked = await showDateRangePicker(
+                            context: ctx,
+                            firstDate: DateTime(DateTime.now().year - 2),
+                            lastDate: DateTime.now(),
+                            initialDateRange: customRange,
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              rangeMode = 'custom';
+                              customRange = picked;
+                            });
+                          }
+                        },
+                        icon: LucideIcons.calendarRange,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
                     isUiArabic ? 'الصيغة' : 'Format',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 13),
@@ -450,8 +511,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                   size: 16,
                 ),
                 label: Text(isUiArabic ? 'تصدير' : 'Export'),
-                onPressed: () =>
-                    Navigator.pop(ctx, '$format:$allTabs:$arabic'),
+                onPressed: () => Navigator.pop(
+                      ctx,
+                      '$format:$allTabs:$arabic:$rangeMode:'
+                      '${customRange?.start.millisecondsSinceEpoch ?? ''}:'
+                      '${customRange?.end.millisecondsSinceEpoch ?? ''}',
+                    ),
               ),
             ],
           );
@@ -463,44 +528,104 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     final parts = choice.split(':');
     final wantAll = parts[1] == 'true';
     final ar = parts[2] == 'true';
+    final mode = parts.length > 3 ? parts[3] : 'all';
+    final fromMs = parts.length > 4 && parts[4].isNotEmpty
+        ? int.tryParse(parts[4])
+        : null;
+    final toMs = parts.length > 5 && parts[5].isNotEmpty
+        ? int.tryParse(parts[5])
+        : null;
+
+    // Resolve the chosen period into concrete from/to instants. "All time"
+    // leaves them null so the report matches the on-screen data.
+    final now = DateTime.now();
+    DateTime? from;
+    DateTime? to;
+    switch (mode) {
+      case 'today':
+        from = DateTime(now.year, now.month, now.day);
+        to = now;
+        break;
+      case '7':
+        from = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 6));
+        to = now;
+        break;
+      case '30':
+        from = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 29));
+        to = now;
+        break;
+      case 'month':
+        from = DateTime(now.year, now.month, 1);
+        to = now;
+        break;
+      case 'custom':
+        if (fromMs != null && toMs != null) {
+          final s = DateTime.fromMillisecondsSinceEpoch(fromMs);
+          final e = DateTime.fromMillisecondsSinceEpoch(toMs);
+          from = DateTime(s.year, s.month, s.day);
+          to = DateTime(e.year, e.month, e.day, 23, 59, 59);
+        }
+        break;
+      default:
+        from = null;
+        to = null;
+    }
+
     final query = _searchQuery.trim().toLowerCase();
     // Single-tab mode keeps the on-screen sort; all-tabs uses each
     // section's default (orders) sort.
     final sortBy = _sortBy;
     final tab = _tabController.index;
 
+    final rangeSuffix = (from != null && to != null)
+        ? '_${_fmtFileDate(from)}_${_fmtFileDate(to)}'
+        : '';
+
     List<ExportSection> sections;
     String filename;
     if (wantAll) {
-      sections = [
-        _driversSection(ref, query, null, ar),
-        _customersSection(ref, query, null, ar),
-        _vendorsSection(ref, query, null, ar),
-        _productsSection(ref, query, ar),
-      ];
-      filename = 'analytics_report';
+      sections = await Future.wait([
+        _driversSection(ref, query, null, ar, from, to),
+        _customersSection(ref, query, null, ar, from, to),
+        _vendorsSection(ref, query, null, ar, from, to),
+        _productsSection(ref, query, ar, from, to),
+      ]);
+      filename = 'analytics_report$rangeSuffix';
     } else {
       switch (tab) {
         case 0:
-          sections = [_driversSection(ref, query, sortBy, ar)];
-          filename = 'top_drivers';
+          sections = [
+            await _driversSection(ref, query, sortBy, ar, from, to)
+          ];
+          filename = 'top_drivers$rangeSuffix';
           break;
         case 1:
-          sections = [_customersSection(ref, query, sortBy, ar)];
-          filename = 'top_customers';
+          sections = [
+            await _customersSection(ref, query, sortBy, ar, from, to)
+          ];
+          filename = 'top_customers$rangeSuffix';
           break;
         case 2:
-          sections = [_vendorsSection(ref, query, sortBy, ar)];
-          filename = 'top_vendors';
+          sections = [
+            await _vendorsSection(ref, query, sortBy, ar, from, to)
+          ];
+          filename = 'top_vendors$rangeSuffix';
           break;
         default:
-          sections = [_productsSection(ref, query, ar)];
-          filename = 'top_products';
+          sections = [await _productsSection(ref, query, ar, from, to)];
+          filename = 'top_products$rangeSuffix';
           break;
       }
     }
 
-    final reportTitle = ar ? 'تقرير التحليلات' : 'Analytics Report';
+    final rangeText = (from != null && to != null)
+        ? ' (${_fmtDate(from)} – ${_fmtDate(to)})'
+        : '';
+    final reportTitle =
+        (ar ? 'تقرير التحليلات' : 'Analytics Report') + rangeText;
+    if (!context.mounted) return;
     try {
       if (parts[0] == 'excel') {
         await DataExportService.exportSectionsCsv(
@@ -562,14 +687,24 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     }
   }
 
-  ExportSection _driversSection(
+  String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
+  String _fmtFileDate(DateTime d) =>
+      '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+
+  Future<ExportSection> _driversSection(
     WidgetRef ref,
     String query,
     String? sortBy,
     bool ar,
-  ) {
-    final all =
-        ref.read(topDriversProvider).value ?? const <AnalyticsDriver>[];
+    DateTime? from,
+    DateTime? to,
+  ) async {
+    final all = (from == null && to == null)
+        ? (ref.read(topDriversProvider).value ?? const <AnalyticsDriver>[])
+        : await ref
+            .read(analyticsRepositoryProvider)
+            .getTopDrivers(limit: 20, from: from, to: to);
     var drivers = all.where((d) {
       if (query.isEmpty) return true;
       return d.name.toLowerCase().contains(query) ||
@@ -600,14 +735,19 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     );
   }
 
-  ExportSection _customersSection(
+  Future<ExportSection> _customersSection(
     WidgetRef ref,
     String query,
     String? sortBy,
     bool ar,
-  ) {
-    final all = ref.read(topCustomersProvider).value ??
-        const <AnalyticsCustomer>[];
+    DateTime? from,
+    DateTime? to,
+  ) async {
+    final all = (from == null && to == null)
+        ? (ref.read(topCustomersProvider).value ?? const <AnalyticsCustomer>[])
+        : await ref
+            .read(analyticsRepositoryProvider)
+            .getTopCustomers(limit: 20, from: from, to: to);
     var customers = all.where((c) {
       if (query.isEmpty) return true;
       return c.name.toLowerCase().contains(query) ||
@@ -642,14 +782,19 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     );
   }
 
-  ExportSection _vendorsSection(
+  Future<ExportSection> _vendorsSection(
     WidgetRef ref,
     String query,
     String? sortBy,
     bool ar,
-  ) {
-    final all =
-        ref.read(topVendorsProvider).value ?? const <AnalyticsVendor>[];
+    DateTime? from,
+    DateTime? to,
+  ) async {
+    final all = (from == null && to == null)
+        ? (ref.read(topVendorsProvider).value ?? const <AnalyticsVendor>[])
+        : await ref
+            .read(analyticsRepositoryProvider)
+            .getTopVendors(limit: 20, from: from, to: to);
     var vendors = all.where((v) {
       if (query.isEmpty) return true;
       final name = ar ? (v.storeNameAr ?? v.storeName) : v.storeName;
@@ -694,13 +839,19 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     );
   }
 
-  ExportSection _productsSection(
+  Future<ExportSection> _productsSection(
     WidgetRef ref,
     String query,
     bool ar,
-  ) {
-    final all = ref.read(topProductsProvider).value ??
-        const <AnalyticsTopProduct>[];
+    DateTime? from,
+    DateTime? to,
+  ) async {
+    final all = (from == null && to == null)
+        ? (ref.read(topProductsProvider).value ??
+            const <AnalyticsTopProduct>[])
+        : await ref
+            .read(analyticsRepositoryProvider)
+            .getTopProducts(limit: 20, from: from, to: to);
     var products = all.where((p) {
       if (query.isEmpty) return true;
       final name = ar ? (p.nameAr ?? p.name) : p.name;

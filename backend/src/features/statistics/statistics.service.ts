@@ -784,20 +784,20 @@ export class StatisticsService {
 
   // ─── Analytics Leaderboards ───────────────────────────────────────────────
 
-  async getTopDrivers(limit: number) {
-    return this.statsRepository.getTopDrivers(limit);
+  async getTopDrivers(limit: number, from?: string, to?: string) {
+    return this.statsRepository.getTopDrivers(limit, from, to);
   }
 
-  async getTopCustomers(limit: number) {
-    return this.statsRepository.getTopCustomers(limit);
+  async getTopCustomers(limit: number, from?: string, to?: string) {
+    return this.statsRepository.getTopCustomers(limit, from, to);
   }
 
-  async getTopVendors(limit: number) {
-    return this.statsRepository.getTopVendors(limit);
+  async getTopVendors(limit: number, from?: string, to?: string) {
+    return this.statsRepository.getTopVendors(limit, from, to);
   }
 
-  async getTopProducts(limit: number) {
-    return this.statsRepository.getTopProducts(limit);
+  async getTopProducts(limit: number, from?: string, to?: string) {
+    return this.statsRepository.getTopProducts(limit, from, to);
   }
 
   // ─── Private ──────────────────────────────────────────────────────────────

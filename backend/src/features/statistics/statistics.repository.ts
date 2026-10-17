@@ -215,36 +215,85 @@ export class StatisticsRepository {
 
   // ─── Analytics leaderboards ───────────────────────────────────────────────
 
-  async getTopDrivers(limit = 20) {
+  private buildOrderRange(
+    from?: string,
+    to?: string,
+  ): { gte: Date; lte: Date } | null {
+    if (!from || !to) return null;
+    const gte = new Date(from);
+    const lte = new Date(to);
+    if (isNaN(gte.getTime()) || isNaN(lte.getTime())) return null;
+    return { gte, lte };
+  }
+
+  async getTopDrivers(limit = 20, from?: string, to?: string) {
+    const range = this.buildOrderRange(from, to);
+
+    const select = {
+      id: true,
+      totalOrders: true,
+      walletBalance: true,
+      tier: true,
+      status: true,
+      user: {
+        select: { name: true, phone: true, avatar: true },
+      },
+      shifts: {
+        select: { actualStart: true, actualEnd: true },
+        where: { actualEnd: { not: null } },
+        orderBy: { actualStart: 'desc' as const },
+        take: 50,
+      },
+    };
+
+    if (range) {
+      const raw = await this.prisma.$queryRaw<
+        Array<{ driverId: string; totalOrders: number }>
+      >`
+        SELECT "driverId", COUNT(id)::int AS "totalOrders"
+        FROM orders
+        WHERE status = 'DELIVERED'
+          AND "driverId" IS NOT NULL
+          AND "createdAt" >= ${range.gte}
+          AND "createdAt" <= ${range.lte}
+        GROUP BY "driverId"
+        ORDER BY "totalOrders" DESC
+        LIMIT ${limit}
+      `;
+      if (raw.length === 0) return [];
+
+      const drivers = await this.prisma.driver.findMany({
+        where: { id: { in: raw.map((r) => r.driverId) } },
+        select,
+      });
+      const byId = new Map(drivers.map((d) => [d.id, d]));
+      return raw
+        .filter((r) => byId.has(r.driverId))
+        .map((r) => ({
+          ...byId.get(r.driverId),
+          totalOrders: r.totalOrders,
+        }));
+    }
+
     return this.prisma.driver.findMany({
       orderBy: { totalOrders: 'desc' },
       take: limit,
-      select: {
-        id: true,
-        totalOrders: true,
-        walletBalance: true,
-        tier: true,
-        status: true,
-        user: {
-          select: { name: true, phone: true, avatar: true },
-        },
-        shifts: {
-          select: { actualStart: true, actualEnd: true },
-          where: { actualEnd: { not: null } },
-          orderBy: { actualStart: 'desc' },
-          take: 50,
-        },
-      },
+      select,
     });
   }
 
-  async getTopCustomers(limit = 20) {
+  async getTopCustomers(limit = 20, from?: string, to?: string) {
+    const range = this.buildOrderRange(from, to);
+    const rangeSql = range
+      ? Prisma.sql`AND "createdAt" >= ${range.gte} AND "createdAt" <= ${range.lte}`
+      : Prisma.empty;
+
     const rawCustomers = await this.prisma.$queryRaw<
       Array<{ customerId: string; totalOrders: number; totalSpent: number }>
     >`
       SELECT "customerId", COUNT(id)::int as "totalOrders", SUM("grandTotal")::int as "totalSpent"
       FROM orders
-      WHERE status = 'DELIVERED'
+      WHERE status = 'DELIVERED' ${rangeSql}
       GROUP BY "customerId"
       ORDER BY "totalSpent" DESC, "totalOrders" DESC
       LIMIT ${limit}
@@ -264,26 +313,56 @@ export class StatisticsRepository {
     });
     const byId = new Map(customers.map((c) => [c.id, c]));
 
-    return rawCustomers.map((c) => ({
-      ...byId.get(c.customerId),
-      totalOrders: c.totalOrders,
-      totalSpent: c.totalSpent,
-    }));
+    return rawCustomers
+      .filter((c) => byId.has(c.customerId))
+      .map((c) => ({
+        ...byId.get(c.customerId),
+        totalOrders: c.totalOrders,
+        totalSpent: c.totalSpent,
+      }));
   }
 
-  async getTopVendors(limit = 20) {
-    const topVendorStats = await this.prisma.$queryRaw<
-      Array<{ vendorId: string; totalOrders: number; totalRevenue: number }>
-    >`
-      SELECT "vendorId", SUM("totalOrders")::int as "totalOrders", SUM("totalRevenue")::int as "totalRevenue"
-      FROM vendor_statistics
-      WHERE period = 'DAILY'
-      GROUP BY "vendorId"
-      ORDER BY "totalOrders" DESC
-      LIMIT ${limit}
-    `;
+  async getTopVendors(limit = 20, from?: string, to?: string) {
+    const range = this.buildOrderRange(from, to);
+
+    const topVendorStats = range
+      ? await this.prisma.$queryRaw<
+          Array<{
+            vendorId: string;
+            totalOrders: number;
+            totalRevenue: number;
+          }>
+        >`
+          SELECT "vendorId", COUNT(id)::int AS "totalOrders", COALESCE(SUM("grandTotal"), 0)::int AS "totalRevenue"
+          FROM orders
+          WHERE status = 'DELIVERED'
+            AND "vendorId" IS NOT NULL
+            AND "createdAt" >= ${range.gte}
+            AND "createdAt" <= ${range.lte}
+          GROUP BY "vendorId"
+          ORDER BY "totalOrders" DESC
+          LIMIT ${limit}
+        `
+      : await this.prisma.$queryRaw<
+          Array<{
+            vendorId: string;
+            totalOrders: number;
+            totalRevenue: number;
+          }>
+        >`
+          SELECT "vendorId", SUM("totalOrders")::int as "totalOrders", SUM("totalRevenue")::int as "totalRevenue"
+          FROM vendor_statistics
+          WHERE period = 'DAILY'
+          GROUP BY "vendorId"
+          ORDER BY "totalOrders" DESC
+          LIMIT ${limit}
+        `;
 
     if (topVendorStats.length === 0) return [];
+
+    const rangeSql = range
+      ? Prisma.sql`AND o."createdAt" >= ${range.gte} AND o."createdAt" <= ${range.lte}`
+      : Prisma.empty;
 
     const vendorIds = topVendorStats.map((v) => v.vendorId);
 
@@ -316,6 +395,7 @@ export class StatisticsRepository {
           WHERE o."vendorId" IN (${Prisma.join(vendorIds)})
             AND o.status = 'DELIVERED'
             AND oi."productId" IS NOT NULL
+            ${rangeSql}
           GROUP BY oi."productId", o."vendorId"
         ) ranked
         WHERE rn = 1
@@ -354,14 +434,19 @@ export class StatisticsRepository {
       });
   }
 
-  async getTopProducts(limit = 20) {
+  async getTopProducts(limit = 20, from?: string, to?: string) {
+    const range = this.buildOrderRange(from, to);
+    const rangeSql = range
+      ? Prisma.sql`AND o."createdAt" >= ${range.gte} AND o."createdAt" <= ${range.lte}`
+      : Prisma.empty;
+
     const rawProducts = await this.prisma.$queryRaw<
       Array<{ productId: string; totalOrders: number }>
     >`
       SELECT oi."productId", SUM(oi.quantity)::int as "totalOrders"
       FROM order_items oi
       JOIN orders o ON o.id = oi."orderId"
-      WHERE o.status = 'DELIVERED' AND oi."productId" IS NOT NULL
+      WHERE o.status = 'DELIVERED' AND oi."productId" IS NOT NULL ${rangeSql}
       GROUP BY oi."productId"
       ORDER BY "totalOrders" DESC
       LIMIT ${limit}
