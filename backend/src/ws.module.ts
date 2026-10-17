@@ -9,7 +9,6 @@ import { SocketGatewayModule } from './infrastructure/socket/socket-gateway.modu
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { EventsModule } from './infrastructure/events/events.module';
 import { SocketModule } from './infrastructure/socket/socket.module';
-import { DriversModule } from './features/drivers/drivers.module';
 import { SocketListener } from './common/listeners/socket.listener';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { AppCacheModule } from './infrastructure/cache/cache.module';
@@ -30,7 +29,6 @@ import { LocationModule } from './infrastructure/location/location.module';
     EventsModule,
     SocketModule,
     SocketGatewayModule,
-    DriversModule,
     StorageModule,
     AppCacheModule,
     LocationModule,
