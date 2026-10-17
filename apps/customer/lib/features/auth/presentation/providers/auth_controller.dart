@@ -76,10 +76,11 @@ class AuthController extends _$AuthController {
 
   Future<void> _handleUnauthenticated() async {
     if (_logoutInProgress) return;
-    final authRepo = ref.read(sharedAuthRepositoryProvider);
-    // The event fires after the interceptor already cleared the session; do
-    // not re-run logout without a session or we re-enter the 401 loop.
-    if (!await authRepo.isLoggedIn()) return;
+    // The interceptor fires this once it has concluded the session is unusable
+    // (refresh token missing, or refresh 401/403), and may have already cleared
+    // the tokens. Always run logout: with no session left it skips the network
+    // calls and flips state to unauthenticated so the router bounces to login,
+    // instead of stranding the UI on error cards.
     logout();
   }
 

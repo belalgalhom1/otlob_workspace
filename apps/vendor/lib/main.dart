@@ -47,8 +47,15 @@ void main() async {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
+  // Re-run redirects whenever auth changes so a mid-session expiry (the
+  // unauthenticated event) actually routes the user to login.
+  final authRefresh = ValueNotifier<int>(0);
+  ref.listen(authProvider, (_, _) => authRefresh.value++);
+  ref.onDispose(authRefresh.dispose);
+
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: authRefresh,
     redirect: (context, state) {
       if (state.matchedLocation == '/maintenance' ||
           state.matchedLocation == '/update-required') {

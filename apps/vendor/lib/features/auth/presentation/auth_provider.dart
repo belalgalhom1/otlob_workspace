@@ -37,10 +37,11 @@ class AuthNotifier extends _$AuthNotifier {
   Future<void> _handleUnauthenticated() async {
     if (_logoutInProgress) return;
     if (state.value == false) return;
-    final repository = ref.read(sharedAuthRepositoryProvider);
-    // The event fires after the interceptor already cleared the session; do
-    // not re-run logout without one or we re-enter the 401 loop.
-    if (!await repository.isLoggedIn()) return;
+    // The interceptor fires this once it has concluded the session is unusable
+    // (refresh token missing, or refresh 401/403), and may have already cleared
+    // the tokens. Always run logout: with no session left it skips the network
+    // calls and simply flips state to false so the router bounces to login,
+    // instead of stranding the dashboard on an error card.
     logout();
   }
 
