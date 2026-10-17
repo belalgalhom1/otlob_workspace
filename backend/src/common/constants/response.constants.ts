@@ -328,6 +328,8 @@ export const CartErrors = {
   INVALID_OPTION: 'cart.error.invalid_option',
   PRODUCT_UNAVAILABLE: 'cart.error.product_unavailable',
   VARIANT_UNAVAILABLE: 'cart.error.variant_unavailable',
+  REQUIRED_OPTION_MISSING: 'cart.error.required_option_missing',
+  TOO_MANY_OPTIONS: 'cart.error.too_many_options',
 };
 
 export const PromotionErrors = {

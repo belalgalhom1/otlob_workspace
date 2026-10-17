@@ -293,6 +293,12 @@ export class StatisticsService {
       }
 
       if (coinsEarned > 0) {
+        // Serialize coin credits for the same customer. The order row lock
+        // above already serializes retries of THIS order; the customer lock
+        // additionally orders credits from different orders of the same
+        // customer. The findFirst guard + unique ledger key make retries
+        // idempotent (mirrors the REFUNDED path in cancelOrder).
+        await client.$executeRaw`SELECT id FROM customers WHERE id = ${customerId} FOR UPDATE`;
         const existing = await client.customerCoinTransaction.findFirst({
           where: { orderId, type: 'EARNED' },
         });
@@ -303,16 +309,20 @@ export class StatisticsService {
             select: { coinBalance: true },
           });
 
-          await client.customerCoinTransaction.create({
-            data: {
-              customerId,
-              orderId,
-              type: 'EARNED',
-              amount: coinsEarned,
-              balanceAfter: customer.coinBalance,
-              description: `Earned coins from order ${orderNumber}`,
-            },
-          });
+          try {
+            await client.customerCoinTransaction.create({
+              data: {
+                customerId,
+                orderId,
+                type: 'EARNED',
+                amount: coinsEarned,
+                balanceAfter: customer.coinBalance,
+                description: `Earned coins from order ${orderNumber}`,
+              },
+            });
+          } catch (e: any) {
+            if (e?.code !== 'P2002') throw e;
+          }
         }
       }
 

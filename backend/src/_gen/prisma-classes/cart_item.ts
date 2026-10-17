@@ -25,6 +25,9 @@ export class CartItem {
   @ApiProperty({ type: Number })
   quantity: number = 1;
 
+  @ApiProperty({ type: String })
+  selectedUnit: string = 'package';
+
   @ApiPropertyOptional({ type: String })
   specialRequest?: string;
 

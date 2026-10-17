@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [postgis, pgcrypto]
+  extensions = [postgis, pgcrypto, pg_trgm]
 }
 
 model PlatformSetting {
@@ -81,6 +81,10 @@ model PlatformSetting {
   retentionExpiredSessionsDays          Int       @default(7)
   retentionAuditLogsDays                Int       @default(180)
   retentionAbandonedCartsDays           Int       @default(7)
+  retentionPaymentReceiptsDays          Int       @default(90)
+  retentionShiftStartPhotosDays         Int       @default(30)
+  retentionPickupPhotosDays             Int       @default(90)
+  retentionDeliveryPhotosDays           Int       @default(90)
   retentionWalletTransactionsDays       Int       @default(365)
   retentionStatisticsDays               Int       @default(365)
   maxKmForBicycle                       Float     @default(5.0)
@@ -189,6 +193,7 @@ model Device {
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, platform])
+  @@index([lastActive])
   @@map("devices")
 }
 
@@ -225,6 +230,7 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@index([userId, type])
+  @@index([createdAt])
   @@map("notifications")
 }
 
@@ -754,6 +760,10 @@ model CartItem {
   product         Product?         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variant         ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
+  // NOTE: concurrent-addItem merge is guarded by two partial unique indexes
+  // ("cart_items_product_merge_uidx" / "cart_items_custom_merge_uidx") defined
+  // in raw migration SQL. PSL cannot express filtered / COALESCE indexes, so
+  // they intentionally do not appear here and `prisma migrate dev` flags drift.
   @@map("cart_items")
 }
 
@@ -868,6 +878,8 @@ model OrderItem {
   quantity        Int
   totalPrice      Int
   specialRequest  String?
+  selectedUnit    String?
+  baseUnitPrice   Int?
   selectedOptions OrderItemOption[]
   order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product         Product?          @relation(fields: [productId], references: [id])
@@ -882,6 +894,7 @@ model OrderItemOption {
   orderItemId String
   optionId    String?
   optionName  String
+  groupName   String?
   priceAdded  Int
   option      ProductOption? @relation(fields: [optionId], references: [id])
   orderItem   OrderItem      @relation(fields: [orderItemId], references: [id], onDelete: Cascade)

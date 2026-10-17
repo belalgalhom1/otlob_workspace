@@ -22,6 +22,7 @@ import { CartModule } from './features/cart/cart.module';
 import { DispatchModule } from './features/dispatch/dispatch.module';
 import { StatisticsModule } from './features/statistics/statistics.module';
 import { StatisticsProcessor } from './features/statistics/statistics.processor';
+import { RetentionProcessor } from './features/retention/retention.processor';
 import { OrdersModule } from './features/orders/orders.module';
 import { OrdersProcessor } from './features/orders/orders.processor';
 import { TicketsModule } from './features/tickets/tickets.module';
@@ -78,6 +79,7 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     // Processors live only in the worker process
     OrdersProcessor,
     StatisticsProcessor,
+    RetentionProcessor,
     TicketsProcessor,
     VendorsProcessor,
     DriversProcessor,

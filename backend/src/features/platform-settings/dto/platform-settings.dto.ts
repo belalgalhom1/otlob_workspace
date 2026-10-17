@@ -529,6 +529,54 @@ export class UpdatePlatformSettingsDto {
   retentionAbandonedCartsDays?: number;
 
   @ApiProperty({
+    example: 90,
+    required: false,
+    description:
+      'Days after an order settles before its mobile-wallet payment receipt screenshot is deleted from disk and cleared from the order (order row itself is kept)',
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  retentionPaymentReceiptsDays?: number;
+
+  @ApiProperty({
+    example: 30,
+    required: false,
+    description:
+      'Days after a shift ends before its driver start-photo (selfie) is deleted from disk and cleared from the shift (shift row itself is kept)',
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  retentionShiftStartPhotosDays?: number;
+
+  @ApiProperty({
+    example: 90,
+    required: false,
+    description:
+      'Days after an order settles before its pickup proof photo is deleted from disk and cleared from the order (order row itself is kept)',
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  retentionPickupPhotosDays?: number;
+
+  @ApiProperty({
+    example: 90,
+    required: false,
+    description:
+      'Days after an order settles before its delivery proof photo is deleted from disk and cleared from the order (order row itself is kept)',
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  retentionDeliveryPhotosDays?: number;
+
+  @ApiProperty({
     example: 365,
     required: false,
     description: 'Days before wallet transactions are hard-deleted',

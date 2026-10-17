@@ -3,6 +3,7 @@ export const QUEUES = {
   PUSH: 'push_queue',
   ORDERS: 'orders_queue',
   STATS: 'stats_queue',
+  RETENTION: 'retention_queue',
   TICKETS: 'tickets_queue',
   VENDORS: 'vendors_queue',
   DRIVERS: 'drivers_queue',

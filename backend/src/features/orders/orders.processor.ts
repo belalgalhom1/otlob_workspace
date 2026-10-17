@@ -4,7 +4,6 @@ import { Logger, OnModuleInit } from '@nestjs/common';
 import { OrdersStateService } from './orders-state.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import { OrdersRepository } from './orders.repository';
 import {
   QUEUES,
   ORDER_JOBS,
@@ -23,7 +22,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
   constructor(
     private readonly stateService: OrdersStateService,
-    private readonly ordersRepository: OrdersRepository,
     private readonly statisticsService: StatisticsService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
@@ -43,29 +41,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         repeat: { pattern: '* * * * *' },
         jobId: CRON_JOBS.AUTO_CANCEL_PENDING,
       },
-    );
-    await this.queue.add(
-      CRON_JOBS.DATA_RETENTION,
-      { type: 'orders' },
-      { repeat: { pattern: '0 1 * * *' }, jobId: 'cron.data_retention.orders' },
-    );
-    await this.queue.add(
-      CRON_JOBS.DATA_RETENTION,
-      { type: 'chats' },
-      { repeat: { pattern: '10 1 * * *' }, jobId: 'cron.data_retention.chats' },
-    );
-    await this.queue.add(
-      CRON_JOBS.DATA_RETENTION,
-      { type: 'sessions' },
-      {
-        repeat: { pattern: '30 1 * * *' },
-        jobId: 'cron.data_retention.sessions',
-      },
-    );
-    await this.queue.add(
-      CRON_JOBS.DATA_RETENTION,
-      { type: 'carts' },
-      { repeat: { pattern: '40 1 * * *' }, jobId: 'cron.data_retention.carts' },
     );
     await this.queue.add(
       CRON_JOBS.STUCK_ORDER_MONITOR,
@@ -95,19 +70,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         return this.handleDeliveryWatchdog(job);
       case CRON_JOBS.AUTO_CANCEL_PENDING:
         return this.handleAutoCancelPendingOrders();
-      case CRON_JOBS.DATA_RETENTION:
-        switch (job.data.type) {
-          case 'orders':
-            return this.handleOrdersCleanup();
-          case 'chats':
-            return this.handleArchivedConversationsCleanup();
-          case 'sessions':
-            return this.handleExpiredSessionsCleanup();
-          case 'carts':
-            return this.handleAbandonedCartsCleanup();
-          default:
-            return { skipped: true };
-        }
       case CRON_JOBS.STUCK_ORDER_MONITOR:
         return this.handleStuckOrderMonitor();
       case CRON_JOBS.UNSETTLED_ORDER_MONITOR:
@@ -274,127 +236,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         'Failed to auto-cancel pending orders',
-        (error as Error).stack,
-      );
-    }
-  }
-
-  private async handleOrdersCleanup(): Promise<void> {
-    try {
-      const settings = await this.platformSettings.getSettings();
-      const cutoff = new Date(
-        Date.now() - settings.retentionOrdersDays * 24 * 60 * 60 * 1000,
-      );
-
-      // Soft-delete: order rows (and their wallet/coin ledger, items and
-      // conversations) must survive for accounting. Prisma reads already
-      // exclude deletedAt != null.
-      const result = await this.prisma.order.updateMany({
-        where: {
-          status: { in: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
-          updatedAt: { lt: cutoff },
-          deletedAt: null,
-        },
-        data: { deletedAt: new Date() },
-      });
-
-      if (result.count > 0) {
-        this.logger.log(`🗑️  Soft-deleted ${result.count} old orders`);
-      }
-    } catch (error) {
-      this.logger.error('Failed to run orders cleanup', (error as Error).stack);
-    }
-  }
-
-  private async handleArchivedConversationsCleanup(): Promise<void> {
-    try {
-      const settings = await this.platformSettings.getSettings();
-      const cutoff = new Date(
-        Date.now() - settings.retentionArchivedChatsDays * 24 * 60 * 60 * 1000,
-      );
-
-      // Soft-delete: keep chat/wallet ledger rows for audit; Prisma reads
-      // already exclude deletedAt != null.
-      const result = await this.prisma.conversation.updateMany({
-        where: {
-          status: 'ARCHIVED',
-          updatedAt: { lt: cutoff },
-          deletedAt: null,
-        },
-        data: { deletedAt: new Date() },
-      });
-
-      if (result.count > 0) {
-        this.logger.log(
-          `🗑️  Soft-deleted ${result.count} archived conversations`,
-        );
-      }
-    } catch (error) {
-      this.logger.error(
-        'Failed to run archived conversations cleanup',
-        (error as Error).stack,
-      );
-    }
-  }
-
-  private async handleExpiredSessionsCleanup(): Promise<void> {
-    try {
-      const settings = await this.platformSettings.getSettings();
-      const cutoff = new Date(
-        Date.now() -
-          settings.retentionExpiredSessionsDays * 24 * 60 * 60 * 1000,
-      );
-
-      const result = await this.prisma.session.deleteMany({
-        where: {
-          expiresAt: { lt: cutoff },
-        },
-      });
-
-      if (result.count > 0) {
-        this.logger.log(`🗑️  Hard-deleted ${result.count} expired sessions`);
-      }
-
-      // Clean up dead/inactive devices older than 90 days
-      const deviceCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      const deadDevices = await this.prisma.device.deleteMany({
-        where: {
-          lastActive: { lt: deviceCutoff },
-        },
-      });
-
-      if (deadDevices.count > 0) {
-        this.logger.log(
-          `🗑️  Cleaned up ${deadDevices.count} inactive device tokens`,
-        );
-      }
-    } catch (error) {
-      this.logger.error(
-        'Failed to run expired sessions and devices cleanup',
-        (error as Error).stack,
-      );
-    }
-  }
-
-  private async handleAbandonedCartsCleanup(): Promise<void> {
-    try {
-      const settings = await this.platformSettings.getSettings();
-      const cutoff = new Date(
-        Date.now() - settings.retentionAbandonedCartsDays * 24 * 60 * 60 * 1000,
-      );
-
-      const result = await this.prisma.cart.deleteMany({
-        where: {
-          updatedAt: { lt: cutoff },
-        },
-      });
-
-      if (result.count > 0) {
-        this.logger.log(`🗑️  Hard-deleted ${result.count} abandoned carts`);
-      }
-    } catch (error) {
-      this.logger.error(
-        'Failed to run abandoned carts cleanup',
         (error as Error).stack,
       );
     }
