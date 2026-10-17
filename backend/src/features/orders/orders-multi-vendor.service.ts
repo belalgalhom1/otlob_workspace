@@ -38,8 +38,10 @@ export interface MultiVendorFeeBreakdown {
   vendorIds: string[];
   vendorNames: string[];
   deliveryFee: number;
+  /** Straight-line distance of the group's farthest pickup to the customer. */
   distanceKm: number;
-  routeKm: number;
+  /** Vendors beyond the first (each adds half the minimum delivery fee). */
+  extraVendors: number;
   splitReason: string;
 }
 
@@ -93,13 +95,9 @@ export class OrdersMultiVendorService {
       groups: plan.grouping.groups.map((g) => ({
         sequence: g.sequence,
         vendorIds: g.stops.map((s) => s.vendorId),
-        deliveryFee: this.feeFor(
-          plan,
-          g.firstPickupToCustomerKm,
-          g.sequence - 1,
-        ),
-        distanceKm: this.round2(g.firstPickupToCustomerKm),
-        routeKm: this.round2(g.routeKm),
+        deliveryFee: this.feeFor(plan, g.farthestToCustomerKm, g.sequence - 1),
+        distanceKm: this.round2(g.farthestToCustomerKm),
+        extraVendors: g.extraVendorCount,
         splitReason: g.splitReason,
       })),
     };
@@ -275,10 +273,10 @@ export class OrdersMultiVendorService {
             orderId,
             sequence: group.sequence,
             status: 'PENDING',
-            distanceKm: this.round2(group.routeKm),
+            distanceKm: this.round2(group.farthestToCustomerKm),
             deliveryFee: this.feeFor(
               plan,
-              group.firstPickupToCustomerKm,
+              group.farthestToCustomerKm,
               group.sequence - 1,
             ),
           },
@@ -568,17 +566,20 @@ export class OrdersMultiVendorService {
       throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
 
-    // Per-group fee, each floored by the platform minimum, then summed.
+    // Per-group fee: the group's farthest pickup to the customer (the long leg,
+    // which the customer pays for), plus half the minimum delivery fee for every
+    // extra vendor sharing that same trip. Groups are then summed.
+    const halfMinFee = Number(settings.minDeliveryFee ?? 0) / 2;
     const groupFees: number[] = [];
     for (const g of grouping.groups) {
-      const fee = await this.platformSettings.calculateDeliveryFee(
-        g.firstPickupToCustomerKm,
+      const base = await this.platformSettings.calculateDeliveryFee(
+        g.farthestToCustomerKm,
         zone.baseDeliveryFeeOverride ?? null,
         null,
         true,
         settings,
       );
-      groupFees.push(Math.round(fee));
+      groupFees.push(Math.round(base + g.extraVendorCount * halfMinFee));
     }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 
