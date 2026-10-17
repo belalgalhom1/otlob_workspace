@@ -30,4 +30,10 @@ export class OrderItem {
 
   @ApiPropertyOptional({ type: String })
   specialRequest?: string;
+
+  @ApiPropertyOptional({ type: String })
+  selectedUnit?: string;
+
+  @ApiPropertyOptional({ type: Number })
+  baseUnitPrice?: number;
 }

@@ -543,13 +543,19 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     final int? itemStock = item['stock'] == null ? null : int.tryParse(item['stock'].toString());
     final List<dynamic> menuVariants = item['variants'] as List? ?? [];
     final bool hasMenuVariants = item['hasVariants'] == true && menuVariants.isNotEmpty;
-    final bool isItemOutOfStock = totalCartQty == 0 && (hasMenuVariants
+    // Subtract what's already in the cart: the menu snapshot goes stale the
+    // moment the first unit is added, and the backend rejects over-stock at
+    // checkout. Per-variant lines are gated inside the bottom sheet.
+    final int remainingSimpleStock = (tracksStock && itemStock != null)
+        ? itemStock - totalCartQty
+        : 1;
+    final bool isItemOutOfStock = (hasMenuVariants
         ? menuVariants.every((v) {
             final vTracks = v['tracksStock'] == null ? true : (v['tracksStock'] == true);
             final int? vStock = v['stock'] == null ? null : int.tryParse(v['stock'].toString());
             return vTracks && vStock != null && vStock <= 0;
           })
-        : (tracksStock && itemStock != null && itemStock <= 0));
+        : (tracksStock && itemStock != null && remainingSimpleStock <= 0));
 
     return GestureDetector(
       onTap: () {

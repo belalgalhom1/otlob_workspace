@@ -139,9 +139,42 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
         : (_selectedVariant!['tracksStock'] == null
             ? productTracksStock
             : (_selectedVariant!['tracksStock'] == true));
-    final bool isOutOfStock = _selectedVariant != null
-        ? variantTracksStock && variantStock != null && variantStock <= 0
-        : productTracksStock && productStock != null && productStock <= 0;
+    // Stock-aware cap: the menu snapshot is stale the moment the cart holds
+    // units, so subtract what's already in the cart. Variant stock is shared
+    // across option combinations; product stock across units (converted to
+    // strips when a strip unit is selected, mirroring the backend).
+    final cartAllItems = ref.watch(cartProvider).allItems;
+    int stockPoolQty = 0;
+    int? stockLimit;
+    if (_selectedVariant != null) {
+      if (variantTracksStock && variantStock != null) {
+        stockLimit = variantStock;
+        stockPoolQty = cartAllItems
+            .where((ci) =>
+                ci.selectedVariant?['id'] == _selectedVariant!['id'])
+            .fold<int>(0, (sum, ci) => sum + ci.quantity);
+      }
+    } else if (productTracksStock && productStock != null) {
+      final divider = (_selectedUnit == 'strip' &&
+              item['sellByStrip'] == true &&
+              (int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 0) >
+                  0)
+          ? int.parse(item['stripsPerPackage'].toString())
+          : 1;
+      stockLimit = productStock * divider;
+      stockPoolQty = cartAllItems
+          .where((ci) =>
+              ci.product['id'] == item['id'] && ci.selectedVariant == null)
+          .fold<int>(0, (sum, ci) => sum + ci.quantity);
+    }
+    final bool isOutOfStock = stockLimit != null
+        ? stockPoolQty >= stockLimit
+        : (_selectedVariant != null
+            ? variantTracksStock && variantStock != null && variantStock <= 0
+            : productTracksStock &&
+                productStock != null &&
+                productStock <= 0);
+    final bool atStockLimit = stockLimit != null && stockPoolQty >= stockLimit;
     
     final bool supportsStrips = item['sellByStrip'] == true && item['stripsPerPackage'] != null;
     final int stripsCount = item['stripsPerPackage'] as int? ?? 1;
@@ -771,6 +804,17 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                   final authStatus = ref.read(authControllerProvider);
                                   if (authStatus == AuthStatus.unauthenticated) {
                                     AuthPromptDialog.show(context);
+                                    return;
+                                  }
+                                  if (atStockLimit) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(s.outOfStock),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
                                     return;
                                   }
                                   try {

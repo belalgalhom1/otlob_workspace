@@ -256,7 +256,7 @@ class Orders extends _$Orders {
     final repository = ref.read(customerOrderRepositoryProvider);
     try {
       PlaceOrderDtoPaymentMethodEnum method;
-      if (paymentMethod == 'MOBILE_WALLET') {
+      if (paymentMethod.startsWith('MOBILE_WALLET')) {
         method = PlaceOrderDtoPaymentMethodEnum.MOBILE_WALLET;
       } else {
         method = PlaceOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY;
@@ -367,7 +367,7 @@ class Orders extends _$Orders {
     
     try {
       PlaceOrderDtoPaymentMethodEnum method;
-      if (paymentMethod == 'MOBILE_WALLET') {
+      if (paymentMethod.startsWith('MOBILE_WALLET')) {
         method = PlaceOrderDtoPaymentMethodEnum.MOBILE_WALLET;
       } else {
         method = PlaceOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY;

@@ -76,7 +76,8 @@ export class OrdersCheckoutService {
     const { customerId, coinBalance, cart } =
       await this.cartService.validateForCheckout(actor.sub, dto.vendorId);
 
-    await this.validateActiveOrderLimit(customerId);
+    const activeOrderPolicy =
+      await this.validateActiveOrderLimit(customerId);
 
     const money = await this.computeStandardOrderMoney(
       dto.vendorId,
@@ -87,21 +88,30 @@ export class OrdersCheckoutService {
       coinBalance,
     );
 
-    const items: OrderItemData[] = cart.items.map((item: any) => ({
-      productId: item.productId,
-      variantId: item.variantId ?? null,
-      productName: item.product.name ?? 'Unknown Product',
-      variantName: item.variant?.name ?? null,
-      unitPrice: Math.round(item.unitPrice),
-      quantity: item.quantity,
-      totalPrice: Math.round(item.totalPrice),
-      specialRequest: item.specialRequest ?? null,
-      options: item.options.map((opt) => ({
+    const items: OrderItemData[] = cart.items.map((item: any) => {
+      const itemOptions = item.options.map((opt) => ({
         optionId: opt.id,
         optionName: opt.name,
-        priceAdded: Number(opt.priceAdded),
-      })),
-    }));
+        groupName: opt.groupName ?? null,
+        priceAdded: Math.round(Number(opt.priceAdded)),
+      }));
+      const optionsTotal = itemOptions.reduce((s, o) => s + o.priceAdded, 0);
+      return {
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        productName: item.product.name ?? 'Unknown Product',
+        variantName: item.variant?.name ?? null,
+        unitPrice: Math.round(item.unitPrice),
+        quantity: item.quantity,
+        selectedUnit: item.selectedUnit ?? null,
+        // Pre-options unit price (post-offer, post-strip): totalPrice must
+        // always equal (baseUnitPrice + Σoptions) × quantity. Auditable forever.
+        baseUnitPrice: Math.round(item.unitPrice) - optionsTotal,
+        totalPrice: Math.round(item.totalPrice),
+        specialRequest: item.specialRequest ?? null,
+        options: itemOptions,
+      };
+    });
 
     const orderNumber = await this.ordersRepository.generateOrderNumber();
     const created = await this.ordersRepository.createOrder(
@@ -134,6 +144,7 @@ export class OrdersCheckoutService {
         pickupLat: money.branch?.lat ?? null,
         itemDetails: null,
         requestedVehicleType: null,
+        activeOrderPolicy,
       },
       items,
       actor.sub,
@@ -532,7 +543,8 @@ export class OrdersCheckoutService {
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
     const customerId = customer.id;
 
-    await this.validateActiveOrderLimit(customerId);
+    const activeOrderPolicy =
+      await this.validateActiveOrderLimit(customerId);
 
     const money = await this.computeCustomOrderMoney(dto, customer.coinBalance);
     const {
@@ -583,6 +595,7 @@ export class OrdersCheckoutService {
         pickupLat,
         itemDetails: dto.itemDetails ?? null,
         requestedVehicleType: dto.vehicleType,
+        activeOrderPolicy,
       },
       [], // No items
       actor.sub,
@@ -670,7 +683,8 @@ export class OrdersCheckoutService {
     if (!customer)
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
 
-    await this.validateActiveOrderLimit(customer.id);
+    const activeOrderPolicy =
+      await this.validateActiveOrderLimit(customer.id);
 
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
@@ -724,6 +738,7 @@ export class OrdersCheckoutService {
       pickupLat: null,
       itemDetails: null,
       requestedVehicleType: null,
+      activeOrderPolicy,
     };
 
     const itemsData: OrderItemData[] = [
@@ -734,6 +749,8 @@ export class OrdersCheckoutService {
         variantName: null,
         unitPrice: dto.price,
         quantity: dto.quantity ?? 1,
+        selectedUnit: null,
+        baseUnitPrice: dto.price,
         totalPrice: subtotal,
         specialRequest: null,
         options: [],
@@ -807,6 +824,11 @@ export class OrdersCheckoutService {
   private async validateActiveOrderLimit(customerId: string) {
     const settings = await this.platformSettings.getSettings();
 
+    const policy = {
+      maxActive: settings.maxActiveOrdersPerCustomer,
+      requirePriorDelivery: settings.requirePriorDeliveryForMultipleOrders,
+    };
+
     // 1. Get the current active order count
     const activeCount = await this.prisma.order.count({
       where: {
@@ -815,14 +837,15 @@ export class OrdersCheckoutService {
       },
     });
 
-    // Fast path: if 0 active orders, they are always allowed to place a new one
-    if (activeCount === 0) return;
+    // Fast path: if 0 active orders, they are always allowed to place a new one.
+    // The in-tx re-check in createOrder remains authoritative for races.
+    if (activeCount === 0) return policy;
 
-    if (activeCount >= settings.maxActiveOrdersPerCustomer) {
+    if (activeCount >= policy.maxActive) {
       throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
     }
 
-    if (settings.requirePriorDeliveryForMultipleOrders) {
+    if (policy.requirePriorDelivery) {
       const hasCompletedOrder = await this.prisma.order.findFirst({
         where: {
           customerId,
@@ -835,6 +858,8 @@ export class OrdersCheckoutService {
         throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
       }
     }
+
+    return policy;
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {

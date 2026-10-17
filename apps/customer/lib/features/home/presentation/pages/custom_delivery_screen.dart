@@ -51,7 +51,27 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       return;
     }
 
-    final estimateKey = '$_serviceType|$_selectedVehicle|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${_useCoins ? 1 : 0}';
+    final detailsText = _detailsController.text.trim();
+
+    // Coins change the quoted grandTotal server-side, so the computed value
+    // (not just the toggle) is part of the key — same capping math as submit.
+    int? coinsToUse;
+    if (_useCoins) {
+      final coinState = ref.read(coinHistoryProvider);
+      final settings = ref.read(platformSettingsProvider).value;
+      if (settings != null &&
+          coinState.currentBalance >= settings.minCoinsToUse) {
+        final totalFee = _calculateTotalFee();
+        final maxDiscount = coinState.currentBalance * settings.coinValue;
+        if (maxDiscount > totalFee) {
+          coinsToUse = (totalFee / settings.coinValue).ceil();
+        } else {
+          coinsToUse = coinState.currentBalance;
+        }
+      }
+    }
+
+    final estimateKey = '$_serviceType|$_selectedVehicle|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${coinsToUse ?? 0}';
     if (estimateKey == _lastEstimateKey) return;
     _lastEstimateKey = estimateKey;
 
@@ -63,8 +83,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       dropoff: _dropoffController.text.trim().isEmpty ? 'Dropoff' : _dropoffController.text.trim(),
       deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
       vehicleType: _selectedVehicle,
-      details: _detailsController.text.trim().isEmpty ? null : _detailsController.text.trim(),
-      coinsToUse: null,
+      details: detailsText.isEmpty ? null : detailsText,
+      coinsToUse: coinsToUse,
     );
     if (mounted) {
       setState(() {

@@ -1,86 +1,21 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
-import 'package:api/api.dart';
 import 'package:flutter/foundation.dart';
+
+import 'cart_models.dart';
+export 'cart_models.dart' show CartItem, CartProductRef, CartVariantRef, CartOptionRef;
 
 part 'cart_controller.g.dart';
 
-class CartItem {
-  final String? backendId;
-  final Map<String, dynamic> product;
-  final int quantity;
-  final String selectedUnit; // 'package' or 'strip'
-  final Map<String, dynamic>? selectedVariant;
-  final List<Map<String, dynamic>> selectedOptions;
-  final double? unitPrice;
-  final double? backendTotalPrice;
-
-  CartItem({
-    this.backendId,
-    required this.product,
-    required this.quantity,
-    this.selectedUnit = 'package',
-    this.selectedVariant,
-    this.selectedOptions = const [],
-    this.unitPrice,
-    this.backendTotalPrice,
-  });
-
-  double get totalPrice {
-    if (backendTotalPrice != null && backendTotalPrice! > 0) {
-      return backendTotalPrice!;
-    }
-    if (unitPrice != null && unitPrice! > 0) {
-      return unitPrice! * quantity;
-    }
-
-    double price = 0.0;
-    
-    if (selectedVariant != null) {
-      final vPrice = selectedVariant!['price'] ?? selectedVariant!['basePrice'];
-      price = vPrice is num ? vPrice.toDouble() : (double.tryParse(vPrice?.toString() ?? '0') ?? 0.0);
-    } else {
-      final p = product['price'] ?? product['basePrice'];
-      price = p is num ? p.toDouble() : (double.tryParse(p?.toString() ?? '0') ?? 0.0);
-    }
-    
-    if (selectedUnit == 'strip' && product['sellByStrip'] == true) {
-      final stripsCount = product['stripsPerPackage'] as int? ?? 1;
-      if (stripsCount > 0) {
-        price = price / stripsCount;
-      }
-    }
-    
-    for (final opt in selectedOptions) {
-      final optPrice = opt['priceAdded'];
-      final p = optPrice is num ? optPrice.toDouble() : (double.tryParse(optPrice?.toString() ?? '0') ?? 0.0);
-      price += p;
-    }
-    
-    return price * quantity;
-  }
-
-  CartItem copyWith({
-    String? backendId,
-    Map<String, dynamic>? product,
-    int? quantity,
-    String? selectedUnit,
-    Map<String, dynamic>? selectedVariant,
-    List<Map<String, dynamic>>? selectedOptions,
-    double? unitPrice,
-    double? backendTotalPrice,
-  }) {
-    return CartItem(
-      backendId: backendId ?? this.backendId,
-      product: product ?? this.product,
-      quantity: quantity ?? this.quantity,
-      selectedUnit: selectedUnit ?? this.selectedUnit,
-      selectedVariant: selectedVariant ?? this.selectedVariant,
-      selectedOptions: selectedOptions ?? this.selectedOptions,
-      unitPrice: unitPrice ?? this.unitPrice,
-      backendTotalPrice: backendTotalPrice ?? this.backendTotalPrice,
-    );
-  }
+/// Canonical key for a raw option selection (order-independent). Used only
+/// for vendor-menu maps that never enter the cart domain as models.
+String _optionsKey(List<Map<String, dynamic>> options) {
+  final ids = options
+      .map((o) => o['id']?.toString() ?? '')
+      .where((s) => s.isNotEmpty)
+      .toList()
+    ..sort();
+  return ids.join(',');
 }
 
 class CartState {
@@ -144,7 +79,9 @@ class Cart extends _$Cart {
 
       final itemProduct = Map<String, dynamic>.from(productJson);
       if (unitPrice != null) itemProduct['price'] = unitPrice;
-      if (productJson['comparePrice'] != null) itemProduct['comparePrice'] = productJson['comparePrice'];
+      if (productJson['comparePrice'] != null) {
+        itemProduct['comparePrice'] = productJson['comparePrice'];
+      }
       itemProduct['vendorId'] = vendorId;
       itemProduct['vendorName'] = vendorName;
       itemProduct['vendorNameAr'] = vendorNameAr;
@@ -155,16 +92,18 @@ class Cart extends _$Cart {
       itemProduct['vendorStatus'] = vendorStatus;
 
       items.add(CartItem(
-        backendId: itemJson['id'],
-        product: itemProduct,
-        quantity: itemJson['quantity'] as int? ?? 1,
+        backendId: itemJson['id']?.toString(),
+        product: CartProductRef.fromJson(itemProduct),
+        quantity: (itemJson['quantity'] as num?)?.toInt() ?? 1,
         selectedUnit: (itemJson['selectedUnit'] as String?) ?? defaultUnit,
         selectedVariant: itemJson['variant'] != null
-            ? Map<String, dynamic>.from(itemJson['variant'] as Map)
+            ? CartVariantRef.fromJson(
+                Map<String, dynamic>.from(itemJson['variant'] as Map))
             : null,
         selectedOptions: itemJson['options'] != null
             ? (itemJson['options'] as List)
-                .map((o) => Map<String, dynamic>.from(o as Map))
+                .map((o) =>
+                    CartOptionRef.fromJson(Map<String, dynamic>.from(o as Map)))
                 .toList()
             : [],
         unitPrice: unitPrice,
@@ -207,29 +146,20 @@ class Cart extends _$Cart {
     
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
-      
-      final builder = AddCartItemDtoBuilder()
-        ..productId = product['id']
-        ..quantity = 1
-        ..selectedUnit = unit;
 
-      if (product['offerMessageId'] != null) {
-        builder.offerMessageId = product['offerMessageId'];
-        debugPrint('DEBUG: Setting offerMessageId = ${product['offerMessageId']}');
-      } else {
-        debugPrint('DEBUG: offerMessageId is NULL in product map!');
-      }
-        
-      if (variant != null) {
-        builder.variantId = variant['id']?.toString();
-      }
-      
-      if (options.isNotEmpty) {
-        builder.optionIds.replace(options.map((o) => o['id']?.toString() ?? '').where((id) => id.isNotEmpty).toList());
-      }
-      
-      final response = await cartRepo.addItem(vendorId, builder.build());
-      
+      final response = await cartRepo.addItem(
+        vendorId,
+        productId: product['id']?.toString(),
+        quantity: 1,
+        selectedUnit: unit,
+        variantId: variant?['id']?.toString(),
+        optionIds: options
+            .map((o) => o['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList(),
+        offerMessageId: product['offerMessageId']?.toString(),
+      );
+
       if (response != null && response is Map) {
         final updatedCart = Map<String, dynamic>.from(response);
         final vendorJson = updatedCart['vendor'] as Map<String, dynamic>?;
@@ -251,10 +181,10 @@ class Cart extends _$Cart {
       return;
     }
 
-    String? vendorId = cartItem.product['vendorId'] as String?;
+    String? vendorId = cartItem.product.vendorId;
     if (vendorId == null) {
       for (final entry in state.vendorBaskets.entries) {
-        if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product['id'] == cartItem.product['id'])) {
+        if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product.id == cartItem.product.id)) {
           vendorId = entry.key;
           break;
         }
@@ -265,10 +195,11 @@ class Cart extends _$Cart {
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
       
-      final builder = UpdateCartItemDtoBuilder()
-        ..quantity = newQuantity;
-        
-      final response = await cartRepo.updateItem(vendorId, cartItem.backendId!, builder.build());
+      final response = await cartRepo.updateItem(
+        vendorId,
+        cartItem.backendId!,
+        quantity: newQuantity,
+      );
 
       if (response != null && response is Map) {
         final updatedCart = Map<String, dynamic>.from(response);
@@ -286,10 +217,10 @@ class Cart extends _$Cart {
   }
 
   Future<void> _removeItemExact(CartItem cartItem) async {
-    String? vendorId = cartItem.product['vendorId'] as String?;
+    String? vendorId = cartItem.product.vendorId;
     if (vendorId == null) {
       for (final entry in state.vendorBaskets.entries) {
-        if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product['id'] == cartItem.product['id'])) {
+        if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product.id == cartItem.product.id)) {
           vendorId = entry.key;
           break;
         }
@@ -304,10 +235,12 @@ class Cart extends _$Cart {
       final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
       final vendorItems = List<CartItem>.from(currentBaskets[vendorId]!);
       
-      vendorItems.removeWhere((item) => 
-        (item.backendId != null && item.backendId == cartItem.backendId) || 
-        (item.product['id'] == cartItem.product['id'] && 
-         item.selectedVariant?['id'] == cartItem.selectedVariant?['id']));
+      vendorItems.removeWhere((item) =>
+        (item.backendId != null && item.backendId == cartItem.backendId) ||
+        (item.product.id == cartItem.product.id &&
+            item.variantId == cartItem.variantId &&
+            item.selectedUnit == cartItem.selectedUnit &&
+            item.optionsKey == cartItem.optionsKey));
       
       if (vendorItems.isEmpty) {
         currentBaskets.remove(vendorId);

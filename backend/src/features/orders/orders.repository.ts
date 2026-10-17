@@ -49,6 +49,15 @@ export interface CreateOrderData {
   pickupLat: number | null;
   itemDetails: string | null;
   requestedVehicleType: string | null;
+  /**
+   * Authoritative per-customer concurrency gate, enforced inside the create
+   * transaction (the pre-tx check in checkout-service is only a fast path).
+   * Omitted = no in-tx re-check (legacy callers).
+   */
+  activeOrderPolicy?: {
+    maxActive: number;
+    requirePriorDelivery: boolean;
+  } | null;
 }
 
 export interface OrderItemData {
@@ -58,9 +67,16 @@ export interface OrderItemData {
   variantName: string | null;
   unitPrice: number;
   quantity: number;
+  selectedUnit: string | null;
+  baseUnitPrice: number;
   totalPrice: number;
   specialRequest: string | null;
-  options: Array<{ optionId: string; optionName: string; priceAdded: number }>;
+  options: Array<{
+    optionId: string;
+    optionName: string;
+    groupName: string | null;
+    priceAdded: number;
+  }>;
 }
 
 export interface OrderFilters {
@@ -259,6 +275,46 @@ export class OrdersRepository {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Serialize concurrent checkouts for the same customer: the pre-tx
+      // limit check can pass twice for two racing requests. The advisory
+      // xact lock (auto-released at commit) forces them sequential, and the
+      // recount below then sees the first tx's committed row.
+      if (data.activeOrderPolicy) {
+        const { maxActive, requirePriorDelivery } = data.activeOrderPolicy;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${data.customerId}::text))`;
+        const liveActiveCount = await tx.order.count({
+          where: {
+            customerId: data.customerId,
+            status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+          },
+        });
+        if (liveActiveCount > 0 && liveActiveCount >= maxActive) {
+          throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
+        }
+        if (requirePriorDelivery && liveActiveCount > 0) {
+          const hasCompletedOrder = await tx.order.findFirst({
+            where: { customerId: data.customerId, status: OrderStatus.DELIVERED },
+            select: { id: true },
+          });
+          if (!hasCompletedOrder) {
+            throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
+          }
+        }
+      }
+
+      // Re-validate the vendor inside the same tx: status/contract/commission
+      // can flip between estimate and create (vendor closes, contract
+      // toggles). Failing closed forces the client to re-estimate.
+      if (data.vendorId) {
+        const liveVendor = await tx.vendor.findUnique({
+          where: { id: data.vendorId },
+          select: { status: true },
+        });
+        if (!liveVendor || liveVendor.status !== 'OPEN') {
+          throw new BadRequestException(OrderErrors.VENDOR_NOT_ACCEPTING);
+        }
+      }
+
       // Generate the UUID in-process so the INSERT can return it to the caller
       // without a second round-trip (the old flow re-read the row via
       // findFirst just to learn the id the database had generated).
@@ -386,6 +442,8 @@ export class OrdersRepository {
           variantName: item.variantName,
           unitPrice: item.unitPrice,
           quantity: item.quantity,
+          selectedUnit: item.selectedUnit,
+          baseUnitPrice: item.baseUnitPrice,
           totalPrice: item.totalPrice,
           specialRequest: item.specialRequest,
         });
@@ -396,6 +454,7 @@ export class OrdersRepository {
               orderItemId: orderItemId,
               optionId: opt.optionId,
               optionName: opt.optionName,
+              groupName: opt.groupName,
               priceAdded: opt.priceAdded,
             });
           }
@@ -413,6 +472,8 @@ export class OrdersRepository {
       // issued 2 round-trips (pre-check read + guarded UPDATE) per line item;
       // with N cart lines that is O(2N) in the hot create-path. Following the
       // aggregation we only hit the database once per distinct tracked id.
+      // Quantities are normalized to stock units first: strip lines consume
+      // whole packages (ceil), because stock is tracked in packages.
       const aggregatedVariantQty = new Map<string, number>();
       const aggregatedProductQty = new Map<string, number>();
 
@@ -426,15 +487,12 @@ export class OrdersRepository {
             (aggregatedVariantQty.get(item.variantId) ?? 0) + item.quantity,
           );
         } else if (item.productId) {
-          aggregatedProductQty.set(
-            item.productId,
-            (aggregatedProductQty.get(item.productId) ?? 0) + item.quantity,
-          );
+          aggregatedProductQty.set(item.productId, 0);
         }
       }
 
       // One batched read to learn which of the referenced variants track stock.
-      const variantIds = [...aggregatedVariantQty.keys()];
+      const variantIds = [...aggregatedVariantQty.keys()].sort();
       const trackedVariants = variantIds.length
         ? await tx.productVariant.findMany({
             where: { id: { in: variantIds } },
@@ -460,20 +518,46 @@ export class OrdersRepository {
         }
       }
 
-      // Same treatment for product-level tracked stock.
-      const productIds = [...aggregatedProductQty.keys()];
+      // Same treatment for product-level tracked stock, normalized to
+      // packages: strip lines open whole packs (ceil), package lines 1:1.
+      const productIds = [...aggregatedProductQty.keys()].sort();
       const trackedProducts = productIds.length
         ? await tx.product.findMany({
             where: { id: { in: productIds } },
-            select: { id: true, tracksStock: true },
+            select: {
+              id: true,
+              tracksStock: true,
+              sellByStrip: true,
+              stripsPerPackage: true,
+            },
           })
         : [];
-      const trackedProductIds = new Set(
-        trackedProducts.filter((p) => p.tracksStock).map((p) => p.id),
+      const stripDividerById = new Map(
+        trackedProducts
+          .filter((p) => p.tracksStock)
+          .map((p) => [
+            p.id,
+            p.sellByStrip === true && Number(p.stripsPerPackage ?? 0) > 0
+              ? Number(p.stripsPerPackage)
+              : 1,
+          ]),
       );
 
+      for (const item of items) {
+        if (!item.productId || item.variantId) continue;
+        const divider =
+          item.selectedUnit === 'strip'
+            ? (stripDividerById.get(item.productId) ?? 1)
+            : 1;
+        const packages = Math.ceil(item.quantity / divider);
+        aggregatedProductQty.set(
+          item.productId,
+          (aggregatedProductQty.get(item.productId) ?? 0) + packages,
+        );
+      }
+
       for (const [productId, qty] of aggregatedProductQty) {
-        if (!trackedProductIds.has(productId)) continue;
+        if (qty <= 0 || !stripDividerById.has(productId)) continue;
         const rows = await tx.$executeRaw`
           UPDATE products
           SET stock = stock - ${qty}
@@ -539,7 +623,11 @@ export class OrdersRepository {
 
       // Refund coins atomically with the status change so a crash or a retry
       // cannot leave the order cancelled without a refund, or refund it twice.
+      // The customer row lock serializes concurrent cancels of different
+      // orders for the same customer; the findFirst guard + unique ledger
+      // key make retries idempotent.
       if (coinsUsed > 0) {
+        await tx.$executeRaw`SELECT id FROM customers WHERE id = ${customerId} FOR UPDATE`;
         const alreadyRefunded = await tx.customerCoinTransaction.findFirst({
           where: { orderId, type: 'REFUNDED' },
         });
@@ -549,16 +637,20 @@ export class OrdersRepository {
             data: { coinBalance: { increment: coinsUsed } },
             select: { coinBalance: true },
           });
-          await tx.customerCoinTransaction.create({
-            data: {
-              customerId,
-              orderId,
-              type: 'REFUNDED',
-              amount: coinsUsed,
-              balanceAfter: customer.coinBalance,
-              description: `Refund for cancelled order ${orderNumber}`,
-            },
-          });
+          try {
+            await tx.customerCoinTransaction.create({
+              data: {
+                customerId,
+                orderId,
+                type: 'REFUNDED',
+                amount: coinsUsed,
+                balanceAfter: customer.coinBalance,
+                description: `Refund for cancelled order ${orderNumber}`,
+              },
+            });
+          } catch (e: any) {
+            if (e?.code !== 'P2002') throw e;
+          }
         }
       }
 
@@ -567,6 +659,96 @@ export class OrdersRepository {
           where: { id: driverId },
           data: { status: DriverStatus.ONLINE },
         });
+      }
+
+      // Restore stock consumed at checkout. Increments cannot fail (no guard
+      // predicate), so this is safe inside the same transaction: a crash or
+      // retry that re-runs cancel either restores once (first run) or no-ops
+      // (idempotent early return above on already-CANCELLED).
+      const cancelledItems = await tx.orderItem.findMany({
+        where: { orderId },
+        select: {
+          productId: true,
+          variantId: true,
+          quantity: true,
+          selectedUnit: true,
+        },
+      });
+      const restoreVariantQty = new Map<string, number>();
+      const restoreProductIds = new Set<string>();
+      for (const item of cancelledItems) {
+        if (item.quantity <= 0) continue;
+        if (item.variantId) {
+          restoreVariantQty.set(
+            item.variantId,
+            (restoreVariantQty.get(item.variantId) ?? 0) + item.quantity,
+          );
+        } else if (item.productId) {
+          restoreProductIds.add(item.productId);
+        }
+      }
+
+      const restoreVariantIds = [...restoreVariantQty.keys()].sort();
+      if (restoreVariantIds.length > 0) {
+        const variants = await tx.productVariant.findMany({
+          where: { id: { in: restoreVariantIds } },
+          select: { id: true, tracksStock: true },
+        });
+        const tracked = new Set(
+          variants.filter((v) => v.tracksStock).map((v) => v.id),
+        );
+        for (const [variantId, qty] of restoreVariantQty) {
+          if (!tracked.has(variantId)) continue;
+          await tx.$executeRaw`
+            UPDATE product_variants
+            SET stock = stock + ${qty}
+            WHERE id = ${variantId} AND stock IS NOT NULL
+          `;
+        }
+      }
+
+      const restoreProductIdList = [...restoreProductIds].sort();
+      if (restoreProductIdList.length > 0) {
+        const products = await tx.product.findMany({
+          where: { id: { in: restoreProductIdList } },
+          select: {
+            id: true,
+            tracksStock: true,
+            sellByStrip: true,
+            stripsPerPackage: true,
+          },
+        });
+        const dividerById = new Map(
+          products
+            .filter((p) => p.tracksStock)
+            .map((p) => [
+              p.id,
+              p.sellByStrip === true && Number(p.stripsPerPackage ?? 0) > 0
+                ? Number(p.stripsPerPackage)
+                : 1,
+            ]),
+        );
+        const restoreProductQty = new Map<string, number>();
+        for (const item of cancelledItems) {
+          if (!item.productId || item.variantId || item.quantity <= 0) continue;
+          const divider =
+            item.selectedUnit === 'strip'
+              ? (dividerById.get(item.productId) ?? 1)
+              : 1;
+          const packages = Math.ceil(item.quantity / divider);
+          restoreProductQty.set(
+            item.productId,
+            (restoreProductQty.get(item.productId) ?? 0) + packages,
+          );
+        }
+        for (const [productId, qty] of restoreProductQty) {
+          if (qty <= 0 || !dividerById.has(productId)) continue;
+          await tx.$executeRaw`
+            UPDATE products
+            SET stock = stock + ${qty}
+            WHERE id = ${productId} AND stock IS NOT NULL
+          `;
+        }
       }
 
       // Always abort any active dispatch attempts

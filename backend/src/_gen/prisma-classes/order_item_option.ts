@@ -13,6 +13,9 @@ export class OrderItemOption {
   @ApiProperty({ type: String })
   optionName: string;
 
+  @ApiPropertyOptional({ type: String })
+  groupName?: string;
+
   @ApiProperty({ type: Number })
   priceAdded: number;
 }

@@ -15,19 +15,48 @@ class CustomerCartRepository {
     return ResponseParser.parseList(response);
   }
 
-  Future<dynamic> addItem(String vendorId, AddCartItemDto addCartItemDto) async {
+  Future<dynamic> addItem(
+    String vendorId, {
+    String? productId,
+    int quantity = 1,
+    String? selectedUnit,
+    String? variantId,
+    List<String>? optionIds,
+    String? specialRequest,
+    String? offerMessageId,
+  }) async {
+    final builder = AddCartItemDtoBuilder()..quantity = quantity;
+    if (productId != null) builder.productId = productId;
+    if (selectedUnit != null) builder.selectedUnit = selectedUnit;
+    if (variantId != null) builder.variantId = variantId;
+    if (optionIds != null && optionIds.isNotEmpty) {
+      builder.optionIds.replace(optionIds);
+    }
+    if (specialRequest != null) builder.specialRequest = specialRequest;
+    if (offerMessageId != null) builder.offerMessageId = offerMessageId;
     final response = await _api.cartControllerAddItem(
       vendorId: vendorId,
-      addCartItemDto: addCartItemDto
+      addCartItemDto: builder.build(),
     );
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> updateItem(String vendorId, String itemId, UpdateCartItemDto updateCartItemDto) async {
+  Future<dynamic> updateItem(
+    String vendorId,
+    String itemId, {
+    required int quantity,
+    List<String>? optionIds,
+    String? specialRequest,
+  }) async {
+    final builder = UpdateCartItemDtoBuilder()..quantity = quantity;
+    if (optionIds != null) builder.optionIds.replace(optionIds);
+    // NOTE: generated UpdateCartItemDto predates backend `selectedUnit`;
+    // unit changes ride with the next packages/api regen.
+    if (specialRequest != null) builder.specialRequest = specialRequest;
     final response = await _api.cartControllerUpdateItem(
       vendorId: vendorId,
       itemId: itemId,
-      updateCartItemDto: updateCartItemDto
+      updateCartItemDto: builder.build(),
     );
     return ResponseParser.parse(response);
   }

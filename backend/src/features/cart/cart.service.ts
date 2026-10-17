@@ -91,6 +91,7 @@ type CartItemInclude = {
       name: string;
       nameAr: string | null;
       priceAdded: number;
+      group?: { id: string; name: string } | null;
     };
   }[];
 };
@@ -176,17 +177,48 @@ export class CartService {
         throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
       }
 
+      // Chat metadata is untrusted input: validate shape and ranges before
+      // anything touches the cart. Prices are minor units (Int, >= 0).
       const meta = message.metadata as Record<string, any>;
-      customPrice = meta.product.price;
-      customName = meta.product.name;
-      customImageUrl = meta.product.imageUrl ?? null;
-      if (meta.product.productId) {
-        finalProductId = meta.product.productId;
+      const metaProduct = meta?.product as Record<string, any> | undefined;
+      const metaPrice = Number(metaProduct?.price);
+      const metaName = metaProduct?.name;
+      if (
+        !metaProduct ||
+        typeof metaName !== 'string' ||
+        metaName.trim().length === 0 ||
+        metaName.length > 200 ||
+        !Number.isInteger(metaPrice) ||
+        metaPrice < 0 ||
+        metaPrice > 10_000_000
+      ) {
+        throw new BadRequestException(OrderErrors.INVALID_OFFER_MESSAGE);
+      }
+      customPrice = metaPrice;
+      customName = metaName.trim();
+      customImageUrl =
+        typeof metaProduct.imageUrl === 'string'
+          ? metaProduct.imageUrl.slice(0, 500)
+          : null;
+      if (typeof metaProduct.productId === 'string' && metaProduct.productId) {
+        finalProductId = metaProduct.productId;
       }
     }
 
     if (!finalProductId && !dto.offerMessageId) {
       throw new BadRequestException(OrderErrors.PRODUCT_ID_REQUIRED);
+    }
+
+    // Pure-custom lines (no catalog product) accept no variant/options:
+    // option rows would otherwise attach orphan charges and variant stock
+    // would be checked against the wrong line at checkout.
+    if (!finalProductId) {
+      if (dto.variantId) {
+        throw new BadRequestException(CartErrors.INVALID_OPTION);
+      }
+      if (dto.optionIds?.length) {
+        throw new BadRequestException(CartErrors.INVALID_OPTION);
+      }
     }
 
     let product: CartProduct | null = null;
@@ -225,8 +257,10 @@ export class CartService {
         throw new BadRequestException(OrderErrors.VARIANT_SELECTION_REQUIRED);
       }
 
-      if (dto.optionIds?.length) {
-        this.validateOptions(product, dto.optionIds, dto.variantId);
+      // Always validate (even with no options): required groups must fail
+      // closed instead of silently passing.
+      if (finalProductId && product) {
+        this.validateOptions(product, dto.optionIds ?? [], dto.variantId);
       }
     }
 
@@ -244,13 +278,15 @@ export class CartService {
         update: { updatedAt: new Date() },
       });
 
-      // Find existing item manually since we dropped the unique constraint
+      // Find existing item manually: merge key must include the variant,
+      // otherwise two variants with colliding hashes would merge.
       let existingItem: any = null;
       if (finalProductId) {
         existingItem = await tx.cartItem.findFirst({
           where: {
             cartId: cart.id,
             productId: finalProductId,
+            variantId: dto.variantId ?? null,
             optionHash: optionHash ?? '',
             selectedUnit,
             customPrice: customPrice ?? null, // Match custom price exactly to avoid grouping custom offers with regular ones
@@ -310,6 +346,7 @@ export class CartService {
                   where: {
                     cartId: cart.id,
                     productId: finalProductId,
+                    variantId: dto.variantId ?? null,
                     optionHash: optionHash ?? '',
                     selectedUnit,
                     customPrice: customPrice ?? null,
@@ -359,6 +396,51 @@ export class CartService {
       vendorId,
       cartItemId,
     );
+
+    // updateItem previously wrote quantity/options/unit with zero validation.
+    // Re-resolve the catalog row (vendor-scoped, active-only) and validate
+    // the resulting option set exactly like addItem does.
+    if (cartItem.productId) {
+      const product = await this.prisma.product.findFirst({
+        where: {
+          id: cartItem.productId,
+          vendorId,
+          isActive: true,
+          deletedAt: null,
+        },
+        include: {
+          variants: {
+            where: { isActive: true },
+            include: {
+              optionGroups: {
+                include: { options: { where: { isActive: true } } },
+              },
+            },
+          },
+          optionGroups: {
+            include: { options: { where: { isActive: true } } },
+          },
+        },
+      });
+      if (!product)
+        throw new BadRequestException(CartErrors.PRODUCT_UNAVAILABLE);
+
+      const mergedOptionIds =
+        dto.optionIds !== undefined
+          ? dto.optionIds
+          : (
+              await this.prisma.cartItemOption.findMany({
+                where: { cartItemId },
+                select: { optionId: true },
+              })
+            ).map((o) => o.optionId);
+
+      this.validateOptions(
+        product as CartProduct,
+        mergedOptionIds,
+        cartItem.variantId ?? undefined,
+      );
+    }
 
     await this.prisma.$transaction(async (tx) => {
       const newOptionHash =
@@ -480,13 +562,63 @@ export class CartService {
       }
     }
 
-    // Second pass: Validate existence, active status, and aggregated stock
+    // Second pass: Validate existence, active status, and aggregated stock.
+    // Option groups are re-resolved fresh (batched) so deactivated options,
+    // changed group rules, or a product that gained variants after add all
+    // fail closed here — the single point where correctness is mandatory.
+    const checkoutProductIds = [
+      ...new Set(
+        formatted.items
+          .map((item) => item.productId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const checkoutProducts =
+      checkoutProductIds.length > 0
+        ? await this.prisma.product.findMany({
+            where: { id: { in: checkoutProductIds } },
+            include: {
+              variants: {
+                where: { isActive: true },
+                include: {
+                  optionGroups: {
+                    include: { options: { where: { isActive: true } } },
+                  },
+                },
+              },
+              optionGroups: {
+                include: { options: { where: { isActive: true } } },
+              },
+            },
+          })
+        : [];
+    const checkoutProductById = new Map(
+      checkoutProducts.map((p) => [p.id, p as CartProduct]),
+    );
+
     for (const item of formatted.items) {
       if (!item.product || !item.product.isActive) {
         throw new BadRequestException(CartErrors.PRODUCT_UNAVAILABLE);
       }
       if (item.variantId && !item.variant?.isActive) {
         throw new BadRequestException(CartErrors.VARIANT_UNAVAILABLE);
+      }
+
+      if (item.productId) {
+        const catalogProduct = checkoutProductById.get(item.productId);
+        if (!catalogProduct) {
+          throw new BadRequestException(CartErrors.PRODUCT_UNAVAILABLE);
+        }
+        if (!item.variantId && catalogProduct.hasVariants) {
+          throw new BadRequestException(
+            OrderErrors.VARIANT_SELECTION_REQUIRED,
+          );
+        }
+        this.validateOptions(
+          catalogProduct,
+          item.options.map((o) => o.id),
+          item.variantId ?? undefined,
+        );
       }
 
       if (item.variantId) {
@@ -578,6 +710,48 @@ export class CartService {
         throw new BadRequestException(CartErrors.INVALID_OPTION);
       }
     }
+
+    this.validateOptionGroups(groups, optionIds);
+  }
+
+  /**
+   * Per-group cardinality gate: required groups must have at least
+   * max(1 when required, minSelect) picks, no group may exceed maxSelect.
+   * Runs on raw option IDs so add/update/checkout share one rule.
+   */
+  private validateOptionGroups(
+    groups: Array<{
+      id: string;
+      isRequired: boolean;
+      minSelect: number;
+      maxSelect: number;
+      options: Array<{ id: string }>;
+    }>,
+    optionIds: string[],
+  ) {
+    const picked = new Set(optionIds);
+    // Duplicate IDs in one request count once (checkbox semantics).
+    const picksByGroup = new Map<string, number>();
+    const groupByOptionId = new Map<string, string>();
+    for (const g of groups) {
+      picksByGroup.set(g.id, 0);
+      for (const o of g.options) groupByOptionId.set(o.id, g.id);
+    }
+    for (const id of picked) {
+      const groupId = groupByOptionId.get(id);
+      if (groupId) picksByGroup.set(groupId, picksByGroup.get(groupId)! + 1);
+    }
+
+    for (const g of groups) {
+      const count = picksByGroup.get(g.id) ?? 0;
+      const minimum = g.isRequired ? Math.max(1, g.minSelect) : g.minSelect;
+      if (count < minimum) {
+        throw new BadRequestException(CartErrors.REQUIRED_OPTION_MISSING);
+      }
+      if (count > g.maxSelect) {
+        throw new BadRequestException(CartErrors.TOO_MANY_OPTIONS);
+      }
+    }
   }
 
   private cartIncludes() {
@@ -633,6 +807,7 @@ export class CartService {
                   name: true,
                   nameAr: true,
                   priceAdded: true,
+                  group: { select: { id: true, name: true } },
                 },
               },
             },
@@ -794,7 +969,10 @@ export class CartService {
         variantId: item.variantId,
         product: resolvedProduct,
         variant: resolvedVariant,
-        options: item.selectedOptions.map((so) => so.option),
+        options: item.selectedOptions.map((so) => ({
+        ...so.option,
+        groupName: so.option.group?.name ?? null,
+      })),
         quantity: item.quantity,
         selectedUnit: item.selectedUnit,
         specialRequest: item.specialRequest,

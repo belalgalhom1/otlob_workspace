@@ -72,7 +72,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
     }
 
-    final estimateKey = '$vendorId|${coords[0]},${coords[1]}|$_selectedPayment|${coinsToUse ?? 0}';
+    // Cart fingerprint: quantity/option/unit/vendor changes must invalidate
+    // the fee quote, since placeOrder charges the live server cart, not the
+    // snapshot the old quote was computed from. The screen already
+    // re-invokes _fetchEstimate every build, so a key change refetches.
+    final vendorCartItems =
+        ref.read(cartProvider).vendorBaskets[widget.vendorId ?? ''] ?? [];
+    final cartFingerprint = vendorCartItems.map((i) {
+      final pid = i.backendId ??
+          i.product['id']?.toString() ??
+          i.product['productId']?.toString() ??
+          '';
+      final vid = i.selectedVariant?['id']?.toString() ?? '';
+      final opts = i.selectedOptions
+          .map((o) => o['id']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList()
+        ..sort();
+      return '$pid|$vid|${i.quantity}|${i.selectedUnit}|${opts.join(',')}';
+    }).join(';');
+
+    final estimateKey = '$vendorId|${coords[0]},${coords[1]}|$_selectedPayment|${coinsToUse ?? 0}|$cartFingerprint';
     if (estimateKey == _lastEstimateKey) return;
     _lastEstimateKey = estimateKey;
 
