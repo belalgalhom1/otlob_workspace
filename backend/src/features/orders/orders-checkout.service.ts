@@ -4,8 +4,6 @@ import {
   ForbiddenException,
   NotFoundException,
   Logger,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -13,44 +11,24 @@ import {
   CreateOrderData,
   OrderItemData,
 } from './orders.repository';
-import { OrdersStateService } from './orders-state.service';
 import { CartService } from '../cart/cart.service';
-import { DispatchService } from '../dispatch/dispatch.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
   PlaceOrderDto,
-  UpdateOrderStatusDto,
-  QueryOrdersDto,
-  RespondToDispatchDto,
-  AdminAssignDriverDto,
   PlaceCustomOrderDto,
   PlaceDirectOrderDto,
 } from './dto/order.dto';
 import {
   OrderCreatedEvent,
   OrderStatusChangedEvent,
-  OrderCancelledEvent,
-  OrderDispatchRespondedEvent,
-  OrderPaymentStatusChangedEvent,
 } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import {
-  Prisma,
-  OrderStatus,
-  Role,
-  PaymentMethod,
-  DispatchStatus,
-  Permission,
-} from '@prisma/client';
-import { randomUUID } from 'crypto';
+import { OrderStatus, Role, PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
-  CartErrors,
-  ProductErrors,
   OrderErrors,
   CustomerErrors,
-  DriverErrors,
 } from '../../common/constants/response.constants';
 
 @Injectable()
@@ -63,8 +41,6 @@ export class OrdersCheckoutService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => OrdersStateService))
-    private readonly stateService: OrdersStateService,
   ) {}
 
   async placeOrder(
@@ -706,8 +682,6 @@ export class OrdersCheckoutService {
     const tax = Math.round((subtotal + serviceFee) * taxRate);
     const grandTotal = subtotal + serviceFee + tax;
 
-    const orderId = randomUUID();
-
     const orderNumber = await this.ordersRepository.generateOrderNumber();
     const orderData: CreateOrderData = {
       orderNumber,
@@ -860,14 +834,5 @@ export class OrdersCheckoutService {
     }
 
     return policy;
-  }
-
-  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.SUPER_ADMIN) return true;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { permissions: true },
-    });
-    return !!user?.permissions.includes(Permission.MANAGE_ORDERS);
   }
 }

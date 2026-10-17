@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
 import 'package:intl/intl.dart';
@@ -1518,7 +1519,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      '${AppLocalizations.of(context)!.errorLoadingLogs}\n$e',
+                      '${AppLocalizations.of(context)!.errorLoadingLogs}\n${ErrorUtils.translate(context, e)}',
                       style: const TextStyle(color: AppColors.error, fontSize: 10),
                       textAlign: TextAlign.center,
                     ),
@@ -1664,7 +1665,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildThemeToggle({bool isMobile = false}) {
     return Consumer(
       builder: (context, ref, child) {
-        final themeMode = ref.watch(themeProvider);
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return InkWell(
           onTap: () => ref.read(themeProvider.notifier).toggleTheme(),

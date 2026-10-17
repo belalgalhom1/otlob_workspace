@@ -7,17 +7,6 @@ export 'cart_models.dart' show CartItem, CartProductRef, CartVariantRef, CartOpt
 
 part 'cart_controller.g.dart';
 
-/// Canonical key for a raw option selection (order-independent). Used only
-/// for vendor-menu maps that never enter the cart domain as models.
-String _optionsKey(List<Map<String, dynamic>> options) {
-  final ids = options
-      .map((o) => o['id']?.toString() ?? '')
-      .where((s) => s.isNotEmpty)
-      .toList()
-    ..sort();
-  return ids.join(',');
-}
-
 class CartState {
   final Map<String, List<CartItem>> vendorBaskets;
 

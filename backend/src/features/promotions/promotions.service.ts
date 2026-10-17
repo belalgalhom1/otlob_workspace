@@ -1,14 +1,11 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { Prisma } from '@prisma/client';
 import { PromotionErrors } from 'src/common/constants/response.constants';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotions.dto';
 
 @Injectable()
 export class PromotionsService {
-  private readonly logger = new Logger(PromotionsService.name);
-
   constructor(private prisma: PrismaService) {}
 
   async findAll() {

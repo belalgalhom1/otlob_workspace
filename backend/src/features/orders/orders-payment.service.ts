@@ -2,54 +2,20 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
-  NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { OrdersRepository } from './orders.repository';
 import {
-  OrdersRepository,
-  CreateOrderData,
-  OrderItemData,
-} from './orders.repository';
-import { CartService } from '../cart/cart.service';
-import { DispatchService } from '../dispatch/dispatch.service';
-import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import {
-  PlaceOrderDto,
-  UpdateOrderStatusDto,
-  QueryOrdersDto,
-  RespondToDispatchDto,
-  AdminAssignDriverDto,
-  PlaceCustomOrderDto,
-  PlaceDirectOrderDto,
-} from './dto/order.dto';
-import {
-  OrderCreatedEvent,
   OrderStatusChangedEvent,
-  OrderCancelledEvent,
-  OrderDispatchRespondedEvent,
   OrderPaymentStatusChangedEvent,
 } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import {
-  Prisma,
-  OrderStatus,
-  Role,
-  PaymentMethod,
-  DispatchStatus,
-  Permission,
-} from '@prisma/client';
-import { randomUUID } from 'crypto';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
-import {
-  CartErrors,
-  ProductErrors,
-  OrderErrors,
-  CustomerErrors,
-  DriverErrors,
-} from '../../common/constants/response.constants';
+import { OrderErrors } from '../../common/constants/response.constants';
 
 @Injectable()
 export class OrdersPaymentService {
@@ -157,7 +123,7 @@ export class OrdersPaymentService {
         ? OrderStatus.PICKED_UP
         : OrderStatus.DRIVER_ASSIGNED;
 
-      const updatedOrder = await this.ordersRepository.updateStatus(
+      await this.ordersRepository.updateStatus(
         orderId,
         nextStatus,
         actor.sub,

@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { AuthErrors } from 'src/common/constants/response.constants';
 import * as crypto from 'crypto';
@@ -9,8 +9,6 @@ export type OtpPurpose = 'VERIFICATION' | 'PASSWORD_RESET';
 
 @Injectable()
 export class OtpService {
-  private readonly logger = new Logger(OtpService.name);
-
   constructor(
     private redis: RedisService,
     private platformSettings: PlatformSettingsService,

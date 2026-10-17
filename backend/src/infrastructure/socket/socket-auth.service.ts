@@ -1,12 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  DriverStatus,
-  OrderStatus,
-  ConversationStatus,
-  TicketStatus,
-  Role,
-} from '@prisma/client';
+import { DriverStatus, Role } from '@prisma/client';
 
 @Injectable()
 export class SocketAuthService {
@@ -32,7 +26,7 @@ export class SocketAuthService {
       }
 
       if (role === Role.CUSTOMER) {
-        return this.authorizeCustomer(userId);
+        return this.authorizeCustomer();
       }
 
       // VENDORS, ADMINS, SUPER_ADMIN are allowed by default for operational monitoring
@@ -64,7 +58,7 @@ export class SocketAuthService {
     return true;
   }
 
-  private async authorizeCustomer(userId: string): Promise<boolean> {
+  private authorizeCustomer(): boolean {
     // We allow all JWT-authenticated customers to connect to the socket.
     // Idle sockets are extremely cheap, and rejecting them costs DB queries + client retries.
     return true;

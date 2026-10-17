@@ -18,7 +18,6 @@ class PromotionNotifier extends _$PromotionNotifier {
       state = const AsyncValue.loading();
     }
     try {
-      final repository = ref.read(adminVendorsRepositoryProvider);
       final results = await Future.wait([
         ref.read(vendorPromotionsRepositoryProvider).promotionsFindAll(),
         ref.read(adminOffersRepositoryProvider).offersFindAll(),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'package:intl/intl.dart';
 import 'vendor_wallet_provider.dart';
 import 'vendor_finance_statistics_screen.dart';
@@ -24,7 +25,7 @@ class VendorWalletScreen extends ConsumerWidget {
           children: [
             const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
             const SizedBox(height: 12),
-            Text('$err', style: const TextStyle(color: AppColors.error)),
+            Text(ErrorUtils.translate(context, err), style: const TextStyle(color: AppColors.error)),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => ref.invalidate(vendorWalletDataProvider),

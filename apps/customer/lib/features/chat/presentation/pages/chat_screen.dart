@@ -15,6 +15,7 @@ import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/l10n/app_strings.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../widgets/order_offer_bottom_sheet.dart';
@@ -79,27 +80,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      allowMultiple: false,
-    );
-
-    if (!mounted) return;
-    if (result != null && result.files.single.path != null) {
-      final path = result.files.single.path!;
-      final ext = path.split('.').last.toLowerCase();
-      if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.of(context).onlyImagesAllowed), backgroundColor: Colors.red),
-        );
-        return;
-      }
-      ref.read(sharedChatProvider(_args).notifier).sendMedia(path, MessageType.image);
-    }
   }
 
   Future<void> _pickDocument() async {
@@ -243,7 +223,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                   ),
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) => Center(child: Text(ErrorUtils.translate(context, err))),
                 ),
               ),
               _buildInput(),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -372,7 +372,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text('${s.errorPrefix}${err.toString()}'),
+              Text('${s.errorPrefix}${ErrorUtils.translate(context, err)}'),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.refresh(vendorDetailControllerProvider(vendorId)),
@@ -536,7 +536,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
 
   Widget _buildMenuItem(BuildContext context, WidgetRef ref, Map<String, dynamic> item, CartState cartState, AppStrings s, bool isDark, bool isOpen, bool isPharmacy) {
     final totalCartQty = cartState.allItems
-        .where((ci) => ci.product['id']?.toString() == item['id']?.toString())
+        .where((ci) => ci.product.id == item['id']?.toString())
         .fold<int>(0, (sum, ci) => sum + ci.quantity);
 
     final bool tracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
@@ -739,7 +739,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(ApiErrorMapper.fromError(e).tr()),
+                                    content: Text(ErrorUtils.translate(context, e)),
                                     backgroundColor: Colors.red,
                                   ),
                                 );

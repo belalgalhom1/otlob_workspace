@@ -378,7 +378,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      content: Text(ErrorUtils.translate(context, e)),
                       backgroundColor: AppColors.error,
                     ),
                   );

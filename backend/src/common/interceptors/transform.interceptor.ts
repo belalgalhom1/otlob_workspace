@@ -3,7 +3,6 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -17,8 +16,6 @@ export class TransformInterceptor<T> implements NestInterceptor<
   T,
   ApiResponse<T>
 > {
-  private readonly logger = new Logger(TransformInterceptor.name);
-
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,

@@ -7,7 +7,7 @@ import {
   TICKET_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import { TicketStatus, MessageType } from '@prisma/client';
+import { TicketStatus } from '@prisma/client';
 import { MessagesService } from '../chat/messages.service';
 
 @Processor(QUEUES.TICKETS, { concurrency: 5 })

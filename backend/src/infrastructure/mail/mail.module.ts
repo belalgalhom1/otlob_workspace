@@ -1,7 +1,6 @@
 import { Global, Module, DynamicModule, Provider } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { MailProcessor } from './mail.processor';
-import { QUEUES } from '../queue/queues.constants';
 
 @Global()
 @Module({})

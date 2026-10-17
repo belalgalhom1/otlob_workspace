@@ -41,7 +41,6 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
 
   List<dynamic> _vendors = [];
   List<dynamic> _products = [];
-  bool _isLoadingVendors = true;
   bool _isLoadingProducts = false;
 
   @override
@@ -82,7 +81,6 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
       if (mounted) {
         setState(() {
           _vendors = (result is List) ? result : (result['items'] ?? result['vendors'] ?? result['data']?['vendors'] ?? []);
-          _isLoadingVendors = false;
         });
 
         if (_selectedVendorId != null && _type == 'PRODUCT') {
@@ -90,7 +88,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoadingVendors = false);
+      debugPrint('AddPromotionDialog fetchVendors Error: $e');
     }
   }
 

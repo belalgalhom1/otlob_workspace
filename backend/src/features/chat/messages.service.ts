@@ -16,7 +16,6 @@ import {
   ChatErrors,
   OrderErrors,
 } from 'src/common/constants/response.constants';
-import { StorageService } from '../../infrastructure/storage/storage.service';
 import { ChatMediaService } from './media/media.service';
 
 const MEDIA_TYPES = new Set<MessageType>([
@@ -46,7 +45,6 @@ export class MessagesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly storage: StorageService,
     private readonly chatMedia: ChatMediaService,
   ) {}
 

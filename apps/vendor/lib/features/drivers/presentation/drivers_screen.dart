@@ -11,6 +11,7 @@ import 'widgets/assign_order_dialog.dart';
 import 'widgets/driver_shifts_dialog.dart';
 import '../../wallet/presentation/widgets/manual_transaction_dialog.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
 import 'widgets/driver_form_dialog.dart';
@@ -148,7 +149,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     } catch (err) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        SnackBar(content: Text('Error: $err'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
       );
     }
   }
@@ -225,7 +226,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(
         child: Text(
-          'Error: $err',
+          ErrorUtils.translate(context, err),
           style: const TextStyle(color: AppColors.error),
         ),
       ),
@@ -435,7 +436,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                         }).catchError((err) {
                                           if (!mounted) return;
                                           messenger.showSnackBar(
-                                            SnackBar(content: Text('Error: $err'), backgroundColor: AppColors.error),
+                                            SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
                                           );
                                         });
                                       },
@@ -461,7 +462,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                         }).catchError((err) {
                                           if (!mounted) return;
                                           messenger.showSnackBar(
-                                            SnackBar(content: Text('Error: $err'), backgroundColor: AppColors.error),
+                                            SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
                                           );
                                         });
                                       },

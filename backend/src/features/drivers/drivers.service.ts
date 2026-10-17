@@ -15,23 +15,18 @@ import {
   UpdateDriverProfileDto,
   UpdateDriverStatusDto,
   StartBreakDto,
-  UpdateDriverLocationDto,
   CreateDriverShiftDto,
   QueryDriversDto,
   QueryDriverWalletDto,
 } from './dto/driver.dto';
 import {
-  DriverLocationUpdatedEvent,
   DriverStatusChangedEvent,
   DriverBreakDecidedEvent,
   ShiftDisabledEvent,
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-import {
-  CommonSuccess,
-  DriverErrors,
-} from 'src/common/constants/response.constants';
+import { DriverErrors } from 'src/common/constants/response.constants';
 import {
   DriverStatus,
   DriverShiftStatus,
@@ -732,11 +727,12 @@ export class DriversService {
       if (latitude == null || longitude == null) {
         throw new BadRequestException(DriverErrors.NOT_IN_SHIFT_ZONE);
       }
-      const zone = await this.locationRepository.findZoneByLocation(
+      const insideZone = await this.locationRepository.isPointInZone(
+        shift.zoneId,
         longitude,
         latitude,
       );
-      if (!zone || zone.id !== shift.zoneId) {
+      if (!insideZone) {
         throw new BadRequestException(DriverErrors.NOT_IN_SHIFT_ZONE);
       }
     }

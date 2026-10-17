@@ -21,7 +21,7 @@ class ErrorUtils {
       return l10n?.common_error_forbidden ?? '';
     }
 
-    return ApiErrorMapper.translate(message, locale: locale, context: context);
+    return ApiErrorMapper.translate(error, locale: locale, context: context);
   }
 
   /// Renders a zone-deletion failure with the branch details the backend

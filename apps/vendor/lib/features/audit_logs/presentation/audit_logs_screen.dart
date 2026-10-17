@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'dart:convert';
 import '../data/audit_logs_provider.dart';
 
@@ -304,7 +305,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   children: [
                     const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
                     const SizedBox(height: 12),
-                    Text('$e', style: const TextStyle(color: AppColors.error)),
+                    Text(ErrorUtils.translate(context, e), style: const TextStyle(color: AppColors.error)),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: () => ref.read(auditLogsProvider.notifier).refresh(),

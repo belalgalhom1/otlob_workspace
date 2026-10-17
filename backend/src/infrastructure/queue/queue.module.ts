@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
-import Redis, { Cluster } from 'ioredis';
+import Redis from 'ioredis';
 import { parseRedisConfig } from '../redis/redis.parser';
 import { QUEUES } from './queues.constants';
 

@@ -7,7 +7,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
 import 'package:vendor/features/vendors/presentation/vendor_provider.dart';
 import 'package:vendor/features/vendors/presentation/widgets/add_vendor_dialog.dart';
-import 'package:vendor/features/vendors/presentation/widgets/add_product_dialog.dart';
 import 'package:vendor/features/vendors/presentation/menu_categories_screen.dart';
 import 'package:vendor/features/vendors/presentation/branches_screen.dart';
 import 'package:vendor/features/vendors/presentation/products_screen.dart';
@@ -426,7 +425,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
           icon: LucideIcons.chartNoAxesCombined,
           color: AppColors.info,
           label: Localizations.localeOf(context).languageCode == 'ar'
-              ? 'إحصائيات المبيعات'
+              ? 'إحصائيات'
               : 'Statistics',
           onPressed: () {
             Navigator.of(context).push(
@@ -649,7 +648,6 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
 
   Widget _buildStatusChip(BuildContext context, dynamic v) {
     Color color;
-    final l10n = AppLocalizations.of(context)!;
     
     final effectiveStatus = _getEffectiveStatus(v);
 
@@ -722,29 +720,6 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         ),
       ),
     );
-  }
-
-  void _showAddProductDialog(BuildContext context, dynamic v) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AddProductDialog(
-        vendorId: v['id'] ?? '',
-        vendorName: v['storeName'] ?? 'Vendor',
-        vendorType: (v['vertical']?['slug'] ?? v['type'])?.toString(),
-      ),
-    );
-    if (result != null && context.mounted) {
-      try {
-        await ref.read(vendorProvider.notifier).createProduct(result);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.common_success_resource_created), backgroundColor: AppColors.success));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e)), backgroundColor: AppColors.error));
-        }
-      }
-    }
   }
 
   void _showMostOrderedProduct(BuildContext context, dynamic v) async {

@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { AuditLogErrors } from 'src/common/constants/response.constants';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
@@ -7,8 +7,6 @@ import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuditLogsService {
-  private readonly logger = new Logger(AuditLogsService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(dto: QueryAuditLogsDto, user: JwtAccessPayload) {

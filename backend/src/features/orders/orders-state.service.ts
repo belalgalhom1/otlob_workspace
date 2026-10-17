@@ -6,30 +6,18 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  OrdersRepository,
-  CreateOrderData,
-  OrderItemData,
-} from './orders.repository';
-import { CartService } from '../cart/cart.service';
+import { OrdersRepository } from './orders.repository';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
-import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
-  PlaceOrderDto,
   UpdateOrderStatusDto,
-  QueryOrdersDto,
   RespondToDispatchDto,
   AdminAssignDriverDto,
-  PlaceCustomOrderDto,
-  PlaceDirectOrderDto,
 } from './dto/order.dto';
 import {
-  OrderCreatedEvent,
   OrderStatusChangedEvent,
   OrderCancelledEvent,
   OrderDispatchRespondedEvent,
-  OrderPaymentStatusChangedEvent,
 } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
@@ -42,14 +30,10 @@ import {
   DeliveryGroupStatus,
   Permission,
 } from '@prisma/client';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import {
-  CartErrors,
-  ProductErrors,
   OrderErrors,
-  CustomerErrors,
   DriverErrors,
 } from '../../common/constants/response.constants';
 

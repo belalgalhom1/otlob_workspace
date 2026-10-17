@@ -2,7 +2,6 @@ import {
   DispatchStatus,
   OrderStatus,
   TicketStatus,
-  DriverAssistRequestStatus,
   OrderVendorFulfillmentStatus,
 } from '@prisma/client';
 

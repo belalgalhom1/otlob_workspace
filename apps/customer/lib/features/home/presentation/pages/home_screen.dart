@@ -14,13 +14,13 @@ import '../../../../core/utils/image_utils.dart';
 import '../../../../core/providers/platform_settings_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../providers/home_controller.dart';
 import '../providers/home_state.dart';
 import '../providers/customer_location_provider.dart';
 import '../../../chat/presentation/providers/inbox_counts_provider.dart';
 import '../widgets/vendor_card.dart';
 import '../widgets/offers_auto_scroller.dart';
-import 'package:otlob_customer/features/cart/presentation/providers/cart_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/widgets/auth_prompt_dialog.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
@@ -36,7 +36,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   final String _selectedType = 'all';
-  final bool _isCourierExpanded = false;
   bool _isFirstPromoSlide = true;
 
   late PageController _promoPageController;
@@ -75,8 +74,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final homeState = ref.watch(homeControllerProvider);
-    final cartState = ref.watch(cartProvider);
-    final inboxCounts = ref.watch(inboxCountsProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -87,13 +84,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               data: (data) => RefreshIndicator(
                 color: AppColors.primary,
                 onRefresh: () async {
-                  await ref.refresh(homeControllerProvider.future);
-                  await ref.refresh(platformSettingsProvider.future);
+                  await Future.wait([
+                    ref.refresh(homeControllerProvider.future),
+                    ref.refresh(platformSettingsProvider.future),
+                  ]);
                 },
                 child: _buildBody(context, data),
               ),
               loading: () => _buildShimmer(),
-              error: (error, _) => _buildError(error.toString()),
+              error: (error, _) => _buildError(ErrorUtils.translate(context, error)),
             ),
             const FloatingCartOverlay(),
           ],
@@ -1017,90 +1016,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildNavItem(2, LucideIcons.shoppingCart, LucideIcons.shoppingCart, s.cart, false),
               _buildNavItem(3, LucideIcons.shoppingBag, LucideIcons.shoppingBag, s.navOrders, false),
               _buildNavItem(4, LucideIcons.user, LucideIcons.user, s.navProfile, false),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCartOverlay(BuildContext context, CartState cartState) {
-    if (cartState.totalItems == 0) return const SizedBox.shrink();
-
-    final s = AppStrings.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    double totalCartPrice = 0;
-    for (final vendorItems in cartState.vendorBaskets.values) {
-      for (final item in vendorItems) {
-        totalCartPrice += item.totalPrice;
-      }
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? Colors.white10 : Colors.grey.shade200,
-            width: 1,
-          ),
-        ),
-      ),
-      child: SizedBox(
-        height: 54,
-        child: ElevatedButton(
-          onPressed: () => context.push('/cart'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${cartState.totalItems}',
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(LucideIcons.shoppingBag, color: Colors.black, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      s.viewCart,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${totalCartPrice.toStringAsFixed(0)} ${s.egp}',
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                ),
-              ),
             ],
           ),
         ),

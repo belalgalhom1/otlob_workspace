@@ -1,59 +1,20 @@
 import {
   Injectable,
-  BadRequestException,
   ForbiddenException,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  OrdersRepository,
-  CreateOrderData,
-  OrderItemData,
-} from './orders.repository';
-import { CartService } from '../cart/cart.service';
-import { DispatchService } from '../dispatch/dispatch.service';
-import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import {
-  PlaceOrderDto,
-  UpdateOrderStatusDto,
-  QueryOrdersDto,
-  RespondToDispatchDto,
-  AdminAssignDriverDto,
-  PlaceCustomOrderDto,
-  PlaceDirectOrderDto,
-} from './dto/order.dto';
-import {
-  OrderCreatedEvent,
-  OrderStatusChangedEvent,
-  OrderCancelledEvent,
-  OrderDispatchRespondedEvent,
-  OrderPaymentStatusChangedEvent,
-} from '../../common/events';
-import { EVENTS } from '../../common/events/event-names';
+import { OrdersRepository } from './orders.repository';
+import { QueryOrdersDto } from './dto/order.dto';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import {
-  Prisma,
-  OrderStatus,
-  Role,
-  PaymentMethod,
-  DispatchStatus,
-  Permission,
-} from '@prisma/client';
-import { randomUUID } from 'crypto';
+import { Role, Permission } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
-  CartErrors,
-  ProductErrors,
   OrderErrors,
-  CustomerErrors,
   DriverErrors,
 } from '../../common/constants/response.constants';
 
 @Injectable()
 export class OrdersService {
-  private readonly logger = new Logger(OrdersService.name);
-
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly prisma: PrismaService,

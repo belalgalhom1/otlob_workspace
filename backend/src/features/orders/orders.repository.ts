@@ -8,7 +8,6 @@ import {
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
-  CartErrors,
   OrderErrors,
   CustomerErrors,
 } from 'src/common/constants/response.constants';

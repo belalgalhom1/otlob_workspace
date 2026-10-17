@@ -2,7 +2,6 @@ import {
   Injectable,
   OnModuleInit,
   OnModuleDestroy,
-  Logger,
 } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
@@ -15,8 +14,6 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  private readonly logger = new Logger(PrismaService.name);
-
   constructor(config: ConfigService) {
     const connectionString = config.getOrThrow<string>('DATABASE_URL');
     // Overallocated pools multiply across cluster instances (api + ws + worker),

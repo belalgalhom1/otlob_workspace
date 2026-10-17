@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../providers/forgot_password_controller.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -44,7 +44,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString().tr()),
+            content: Text(ErrorUtils.translate(context, next.error)),
             backgroundColor: Colors.red,
           ),
         );

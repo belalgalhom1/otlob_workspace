@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { Prisma, StatisticPeriod, VendorTransactionType } from '@prisma/client';
 import {
@@ -17,8 +17,6 @@ export interface StatPeriodRange {
 
 @Injectable()
 export class StatisticsRepository {
-  private readonly logger = new Logger(StatisticsRepository.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   // ─── Idempotency markers (DB-anchored exactly-once) ──────────────────────

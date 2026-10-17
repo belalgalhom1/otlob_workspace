@@ -14,29 +14,55 @@ class FloatingCartOverlay extends ConsumerStatefulWidget {
   ConsumerState<FloatingCartOverlay> createState() => _FloatingCartOverlayState();
 }
 
-class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay> {
+class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
+    with WidgetsBindingObserver {
+  static const double _cartWidth = 200;
+  static const double _cartHeight = 60;
+  static const double _margin = 16;
+  static const double _trashSize = 80;
+  static const double _dropRadius = 110;
+
   Offset _offset = const Offset(0, 0);
   bool _isInitialized = false;
   bool _isDragging = false;
   bool _isOverTrash = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
-  void _checkTrashProximity(Size size) {
-    // Trash center is at (size.width / 2, size.height - 40)
-    final cartCenterX = _offset.dx + 100;
-    final cartCenterY = _offset.dy + 30;
-    
-    final trashCenterX = size.width / 2;
-    final trashCenterY = size.height - 40;
-
-    final distance = sqrt(pow(cartCenterX - trashCenterX, 2) + pow(cartCenterY - trashCenterY, 2));
-
-    if (distance < 100) {
-      if (!_isOverTrash) setState(() => _isOverTrash = true);
-    } else {
-      if (_isOverTrash) setState(() => _isOverTrash = false);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning to the app can change the viewport (system bars, split screen,
+    // rotation, keyboard). Force a rebuild so the build-time clamp below snaps
+    // the cart back inside the visible area instead of leaving it stranded
+    // off-screen where it can no longer be dragged.
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
     }
+  }
+
+  void _resetDragState() {
+    if (!_isDragging && !_isOverTrash) return;
+    setState(() {
+      _isDragging = false;
+      _isOverTrash = false;
+    });
+  }
+
+  bool _isOverTrashZone(double cartCenterX, double cartCenterY,
+      Offset trashCenter) {
+    final distance = sqrt(pow(cartCenterX - trashCenter.dx, 2) +
+        pow(cartCenterY - trashCenter.dy, 2));
+    return distance < _dropRadius;
   }
 
   @override
@@ -45,7 +71,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay> {
     if (cartState.totalItems == 0) return const SizedBox.shrink();
 
     final s = AppStrings.of(context);
-    final size = MediaQuery.of(context).size;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     double totalCartPrice = 0;
     for (final vendorItems in cartState.vendorBaskets.values) {
@@ -60,17 +86,31 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay> {
           final maxWidth = constraints.maxWidth;
           final maxHeight = constraints.maxHeight;
 
-          // Initialize offset safely within constraints if not already set
+          final maxX = (maxWidth - _cartWidth - _margin)
+              .clamp(_margin, double.infinity);
+          final maxY = (maxHeight - _cartHeight - _margin - bottomInset)
+              .clamp(_margin, double.infinity);
+
           if (!_isInitialized) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              setState(() {
-                _offset = Offset(maxWidth - 216.0, maxHeight - 120.0);
-                _isInitialized = true;
-              });
-            });
-            // Provide a temporary default before initialization
-            _offset = Offset(maxWidth - 216.0, maxHeight - 120.0);
+            _offset = Offset(maxX, maxY);
+            _isInitialized = true;
           }
+
+          // Self-heal: always keep the cart inside the current viewport, even
+          // if the layout changed while it was parked at a previous position.
+          _offset = Offset(
+            _offset.dx.clamp(_margin, maxX),
+            _offset.dy.clamp(_margin, maxY),
+          );
+          final effectiveOffset = _offset;
+
+          // The trash sits inside the same reachable area as the cart, so the
+          // cart can always be dropped onto it instead of getting stuck above
+          // it (e.g. behind the system navigation bar).
+          final trashCenter = Offset(
+            maxWidth / 2,
+            maxHeight - _margin - bottomInset - _trashSize / 2,
+          );
 
           return Stack(
             children: [
@@ -79,128 +119,154 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay> {
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: 30,
-                  child: AnimatedScale(
-                    scale: _isOverTrash ? 1.5 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Container(
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _isOverTrash ? AppColors.error : AppColors.error.withValues(alpha: 0.5),
-                        boxShadow: _isOverTrash
-                            ? [BoxShadow(color: AppColors.error.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5)]
-                            : [],
+                  bottom: _margin + bottomInset,
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: _isOverTrash ? 1.3 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Container(
+                        width: _trashSize,
+                        height: _trashSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _isOverTrash
+                              ? AppColors.error
+                              : AppColors.error.withValues(alpha: 0.5),
+                          boxShadow: _isOverTrash
+                              ? [
+                                  BoxShadow(
+                                    color:
+                                        AppColors.error.withValues(alpha: 0.5),
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  )
+                                ]
+                              : [],
+                        ),
+                        child: const Icon(LucideIcons.trash2,
+                            color: Colors.white, size: 32),
                       ),
-                      child: const Icon(LucideIcons.trash2, color: Colors.white, size: 32),
                     ),
                   ),
                 ),
 
               // DRAGGABLE CART
               Positioned(
-                left: _offset.dx,
-                top: _offset.dy,
+                left: effectiveOffset.dx,
+                top: effectiveOffset.dy,
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onPanStart: (_) {
                     setState(() => _isDragging = true);
                   },
                   onPanUpdate: (details) {
                     setState(() {
-                      _offset += details.delta;
-                      // Constrain to parent bounds (LayoutBuilder constraints)
                       _offset = Offset(
-                        _offset.dx.clamp(16.0, maxWidth - 216.0),
-                        _offset.dy.clamp(16.0, maxHeight - 120.0),
+                        (_offset.dx + details.delta.dx).clamp(_margin, maxX),
+                        (_offset.dy + details.delta.dy).clamp(_margin, maxY),
+                      );
+                      _isOverTrash = _isOverTrashZone(
+                        _offset.dx + _cartWidth / 2,
+                        _offset.dy + _cartHeight / 2,
+                        trashCenter,
                       );
                     });
-                    _checkTrashProximity(Size(maxWidth, maxHeight));
                   },
                   onPanEnd: (_) {
                     if (_isOverTrash) {
                       ref.read(cartProvider.notifier).clearCart();
+                      // Reset so a re-added cart starts fresh at the default
+                      // corner instead of being stuck where it was dropped.
+                      _isInitialized = false;
+                      _offset = const Offset(0, 0);
                     } else {
                       // Snap to nearest edge (left or right)
                       final middle = maxWidth / 2;
-                      final isRightSide = (_offset.dx + 100) > middle;
-                      _offset = Offset(
-                        isRightSide ? (maxWidth - 216.0) : 16.0,
-                        _offset.dy,
-                      );
+                      final isRightSide = (_offset.dx + _cartWidth / 2) > middle;
+                      _offset = Offset(isRightSide ? maxX : _margin, _offset.dy);
                     }
                     setState(() {
                       _isDragging = false;
                       _isOverTrash = false;
                     });
                   },
-              child: AnimatedOpacity(
-                opacity: _isOverTrash ? 0.5 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: AnimatedScale(
-                  scale: _isOverTrash ? 0.8 : (_isDragging ? 1.05 : 1.0),
-                  duration: const Duration(milliseconds: 200),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => context.push('/cart'),
-                      borderRadius: BorderRadius.circular(30),
-                      child: Container(
-                        width: 200,
-                        height: 60,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
+                  // A cancelled pan must not leave the drag/trash visuals stuck
+                  // on screen with the cart frozen in the dragging state.
+                  onPanCancel: _resetDragState,
+                  child: AnimatedOpacity(
+                    opacity: _isOverTrash ? 0.5 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: AnimatedScale(
+                      scale: _isOverTrash ? 0.8 : (_isDragging ? 1.05 : 1.0),
+                      duration: const Duration(milliseconds: 200),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => context.push('/cart'),
                           borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${cartState.totalItems}',
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 16,
-                                    ),
-                                  ),
+                          child: Container(
+                            width: _cartWidth,
+                            height: _cartHeight,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.4),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
                                 ),
-                                const SizedBox(width: 8),
-                                const Icon(LucideIcons.shoppingCart, color: Colors.black, size: 20),
                               ],
                             ),
-                            Text(
-                              '${totalCartPrice.toStringAsFixed(2)} ${s.egp}',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Colors.black.withValues(alpha: 0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${cartState.totalItems}',
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(LucideIcons.shoppingCart,
+                                        color: Colors.black, size: 20),
+                                  ],
+                                ),
+                                Text(
+                                  '${totalCartPrice.toStringAsFixed(2)} ${s.egp}',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
           );
         },
       ),

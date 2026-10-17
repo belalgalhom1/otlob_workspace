@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { DispatchStatus } from '@prisma/client';
 
@@ -13,8 +13,6 @@ export interface CreateDispatchData {
 
 @Injectable()
 export class DispatchRepository {
-  private readonly logger = new Logger(DispatchRepository.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateDispatchData) {

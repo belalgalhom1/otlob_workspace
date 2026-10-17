@@ -19,10 +19,7 @@ import { VendorMember } from '../../../common/decorators/vendor-member.decorator
 import { RequirePermissions } from '../../../common/decorators/permissions.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
 import { CurrentVendorBranch } from '../../../common/decorators/current-vendor-branch.decorator';
-import {
-  VendorErrors,
-  VendorBranchErrors,
-} from '../../../common/constants/response.constants';
+import { VendorBranchErrors } from '../../../common/constants/response.constants';
 import { Permission, VendorMemberRole } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';

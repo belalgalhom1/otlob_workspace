@@ -633,7 +633,6 @@ export class AuthService {
     );
     if (!isValid) throw new BadRequestException(AuthErrors.OTP_INVALID);
 
-    const isEmail = dto.contact.includes('@');
     const existingUser = await this.prisma.user.findFirst({
       where: { OR: [{ email: dto.contact }, { phone: dto.contact }] },
     });

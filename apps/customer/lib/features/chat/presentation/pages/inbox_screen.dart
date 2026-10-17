@@ -145,7 +145,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     BuildContext context,
     Map<String, dynamic> convo,
   ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
     final id = convo['id'] as String;

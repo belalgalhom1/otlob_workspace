@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 import 'package:data/data.dart';
 import '../../providers/analytics_provider.dart';
@@ -647,7 +648,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${isUiArabic ? 'فشل التصدير' : 'Export failed'}: $e'),
+            content: Text('${isUiArabic ? 'فشل التصدير' : 'Export failed'}: ${ErrorUtils.translate(context, e)}'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -700,11 +701,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     DateTime? from,
     DateTime? to,
   ) async {
-    final all = (from == null && to == null)
-        ? (ref.read(topDriversProvider).value ?? const <AnalyticsDriver>[])
-        : await ref
-            .read(analyticsRepositoryProvider)
-            .getTopDrivers(limit: 20, from: from, to: to);
+    final List<AnalyticsDriver> all = await ref
+        .read(analyticsRepositoryProvider)
+        .getTopDrivers(limit: 20, from: from, to: to);
     var drivers = all.where((d) {
       if (query.isEmpty) return true;
       return d.name.toLowerCase().contains(query) ||
@@ -743,11 +742,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     DateTime? from,
     DateTime? to,
   ) async {
-    final all = (from == null && to == null)
-        ? (ref.read(topCustomersProvider).value ?? const <AnalyticsCustomer>[])
-        : await ref
-            .read(analyticsRepositoryProvider)
-            .getTopCustomers(limit: 20, from: from, to: to);
+    final List<AnalyticsCustomer> all = await ref
+        .read(analyticsRepositoryProvider)
+        .getTopCustomers(limit: 20, from: from, to: to);
     var customers = all.where((c) {
       if (query.isEmpty) return true;
       return c.name.toLowerCase().contains(query) ||
@@ -790,11 +787,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     DateTime? from,
     DateTime? to,
   ) async {
-    final all = (from == null && to == null)
-        ? (ref.read(topVendorsProvider).value ?? const <AnalyticsVendor>[])
-        : await ref
-            .read(analyticsRepositoryProvider)
-            .getTopVendors(limit: 20, from: from, to: to);
+    final List<AnalyticsVendor> all = await ref
+        .read(analyticsRepositoryProvider)
+        .getTopVendors(limit: 20, from: from, to: to);
     var vendors = all.where((v) {
       if (query.isEmpty) return true;
       final name = ar ? (v.storeNameAr ?? v.storeName) : v.storeName;
@@ -846,12 +841,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     DateTime? from,
     DateTime? to,
   ) async {
-    final all = (from == null && to == null)
-        ? (ref.read(topProductsProvider).value ??
-            const <AnalyticsTopProduct>[])
-        : await ref
-            .read(analyticsRepositoryProvider)
-            .getTopProducts(limit: 20, from: from, to: to);
+    final List<AnalyticsTopProduct> all = await ref
+        .read(analyticsRepositoryProvider)
+        .getTopProducts(limit: 20, from: from, to: to);
     var products = all.where((p) {
       if (query.isEmpty) return true;
       final name = ar ? (p.nameAr ?? p.name) : p.name;

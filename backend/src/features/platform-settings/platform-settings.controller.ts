@@ -14,13 +14,11 @@ import { PlatformSettingsService } from './platform-settings.service';
 import {
   UpdatePlatformSettingsDto,
   AppVersionCheckDto,
-  PublicPlatformSettingsDto,
 } from './dto/platform-settings.dto';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Public } from 'src/common/decorators/public.decorator';
 import { Permission } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
-import { PlatformSetting } from '../../_gen/prisma-classes/platform_setting';
 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 

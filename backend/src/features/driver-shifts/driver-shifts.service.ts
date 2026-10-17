@@ -37,7 +37,6 @@ import {
   parseISO,
 } from 'date-fns';
 import { wallToUtc } from 'src/common/utils/timezone';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class DriverShiftsService {
@@ -134,7 +133,7 @@ export class DriverShiftsService {
           select: { driverShifts: true },
         },
       },
-      orderBy: { startTime: 'asc' },
+      orderBy: [{ createdAt: 'desc' }, { shiftDate: 'asc' }, { startTime: 'asc' }],
     });
 
     return pools.map((pool) => ({

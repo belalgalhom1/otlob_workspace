@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/register_controller.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/l10n/app_strings.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -68,7 +68,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString().tr()),
+            content: Text(ErrorUtils.translate(context, next.error)),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

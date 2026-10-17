@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../../../../core/providers/app_settings_provider.dart';
 import '../../../../core/providers/platform_settings_provider.dart';
 import '../../../../core/services/token_service.dart';
@@ -675,7 +676,7 @@ class ProfileScreen extends ConsumerWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(s.translateApiError(e.toString())),
+                              content: Text(ErrorUtils.translate(context, e)),
                               backgroundColor: Colors.red,
                             ),
                           );

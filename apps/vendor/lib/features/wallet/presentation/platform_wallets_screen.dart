@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import '../data/wallet_providers.dart';
 
 class PlatformWalletsScreen extends ConsumerWidget {
@@ -30,7 +31,7 @@ class PlatformWalletsScreen extends ConsumerWidget {
             children: [
               const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
               const SizedBox(height: 12),
-              Text('$err', style: const TextStyle(color: AppColors.error)),
+              Text(ErrorUtils.translate(context, err), style: const TextStyle(color: AppColors.error)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => ref.invalidate(platformWalletsProvider),
@@ -187,7 +188,7 @@ class PlatformWalletsScreen extends ConsumerWidget {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('${l10n.walletFailed}: $e'),
+                                content: Text('${l10n.walletFailed}: ${ErrorUtils.translate(context, e)}'),
                                 backgroundColor: AppColors.error,
                               ),
                             );
@@ -237,7 +238,7 @@ class PlatformWalletsScreen extends ConsumerWidget {
                 if (!c.mounted) return;
                 setState(() {
                   submitting = false;
-                  error = '${l10n.walletFailed}: $e';
+                  error = '${l10n.walletFailed}: ${ErrorUtils.translate(context, e)}';
                 });
               }
             }

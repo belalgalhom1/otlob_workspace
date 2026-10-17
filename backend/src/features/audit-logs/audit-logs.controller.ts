@@ -1,5 +1,4 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { AuditLog } from '../../_gen/prisma-classes/audit_log';
 import { AuditLogsService } from './audit-logs.service';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';

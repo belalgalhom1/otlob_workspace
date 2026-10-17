@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/network/network_providers.dart';
 import '../providers/support_ticket_provider.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class SupportMenuScreen extends ConsumerStatefulWidget {
   const SupportMenuScreen({super.key});
@@ -19,7 +20,6 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
   _SupportStep _step = _SupportStep.category;
 
   String? _selectedCategory;       // Arabic category key
-  String? _selectedSubCategory;    // Arabic sub-category key
   Map<String, dynamic>? _selectedOrder; // Full order map selected by user
 
   List<Map<String, dynamic>> _orders = [];
@@ -277,7 +277,7 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: Colors.red),
         );
       }
     }

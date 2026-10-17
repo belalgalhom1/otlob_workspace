@@ -544,7 +544,7 @@ export class ProductsService implements OnModuleInit {
   ) {
     await this.assertGroupBelongsToProduct(groupId, productId, vendorId);
 
-    const option = await this.prisma.productOption.create({
+    await this.prisma.productOption.create({
       data: {
         groupId,
         name: dto.name,

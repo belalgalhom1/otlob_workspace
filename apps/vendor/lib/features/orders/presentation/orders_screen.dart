@@ -179,8 +179,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     'DRIVER_ASSIGNED',
     'PENDING_PAYMENT',
     'PICKED_UP',
-    'IN_TRANSIT',
-    'ARRIVING',
     'DELIVERED',
     'CANCELLED',
   ];
@@ -235,7 +233,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       }
       if (q.isNotEmpty) {
         final customer = order['customer'];
+        final customerUser = customer is Map ? customer['user'] : null;
         final vendor = order['vendor'];
+        final driver = order['driver'];
+        final driverUser = driver is Map ? driver['user'] : null;
         final haystack = [
           order['orderNumber'],
           order['id'],
@@ -243,9 +244,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           order['paymentMethod'],
           order['total'],
           order['grandTotal'],
+          order['deliveryAddress'],
           customer is Map ? customer['name'] : null,
           customer is Map ? customer['phone'] : null,
-          vendor is Map ? (vendor['storeName'] ?? vendor['name']) : null,
+          customerUser is Map ? customerUser['name'] : null,
+          customerUser is Map ? customerUser['phone'] : null,
+          vendor is Map ? vendor['storeName'] : null,
+          vendor is Map ? vendor['storeNameAr'] : null,
+          vendor is Map ? vendor['name'] : null,
+          driver is Map ? driver['name'] : null,
+          driverUser is Map ? driverUser['phone'] : null,
         ]
             .where((e) => e != null)
             .map((e) => e.toString().toLowerCase())
@@ -901,6 +909,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final status = order['status']?.toString() ?? 'PENDING';
     final driver = order['driver'] ?? {};
     final driverName = driver['name']?.toString() ?? '';
+    final driverPhone = driver['user']?['phone']?.toString() ?? '';
     final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
     final areFeesFinalized = !isCancelled;
     final orderNumber = order['orderNumber']?.toString() ?? 'N/A';
@@ -1261,8 +1270,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       title: isArabic
                                           ? 'السائق المسؤول'
                                           : 'Assigned Driver',
-                                      value:
-                                          '$driverName (${vehicleType.toUpperCase()} - $vehiclePlate)',
+                                      value: [
+                                        driverName,
+                                        if (vehicleType.isNotEmpty ||
+                                            vehiclePlate.isNotEmpty)
+                                          '(${vehicleType.toUpperCase()}${vehiclePlate.isNotEmpty ? ' - $vehiclePlate' : ''})',
+                                        if (driverPhone.isNotEmpty) driverPhone,
+                                      ].join(' '),
                                       iconColor: statusColor,
                                       trailing: _canManageDrivers &&
                                               driver['id'] != null &&
@@ -2239,7 +2253,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     } catch (err) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        SnackBar(content: Text('Error: $err'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
       );
     }
   }

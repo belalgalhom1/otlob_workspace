@@ -21,19 +21,9 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Permission, Role } from '@prisma/client';
-import {
-  ApiStandardResponse,
-  ApiPaginatedResponse,
-  ApiArrayResponse,
-} from 'src/common/decorators/api-response.decorator';
-import { CustomerResponseDto } from 'src/common/dto/response-models.dto';
+import { ApiStandardResponse } from 'src/common/decorators/api-response.decorator';
 
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Customers')
 @ApiBearerAuth()

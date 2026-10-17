@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -74,7 +75,7 @@ class NotificationSettingsDialog extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Failed to load settings: $e', style: TextStyle(color: Theme.of(context).colorScheme.error))),
+              error: (e, _) => Center(child: Text(ErrorUtils.translate(context, e), style: TextStyle(color: Theme.of(context).colorScheme.error))),
             ),
             const SizedBox(height: 24),
             Align(

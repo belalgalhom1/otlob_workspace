@@ -10,10 +10,8 @@ import {
   HttpCode,
   HttpStatus,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
-import { ChatMediaErrors } from 'src/common/constants/response.constants';
 import { MessagesService } from './messages.service';
 import { SendMessageDto, QueryMessagesDto, MarkReadDto } from './dto/chat.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
@@ -85,11 +83,8 @@ export class MessagesController {
   })
   delete(
     @CurrentUser() actor: JwtAccessPayload,
-    @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
   ) {
-    // We include conversationId in the params so Swagger sees it,
-    // even if the service only requires the messageId for deletion.
     return this.messagesService.deleteMessage(actor, messageId);
   }
 
@@ -103,7 +98,6 @@ export class MessagesController {
   })
   update(
     @CurrentUser() actor: JwtAccessPayload,
-    @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
     @Body() dto: { text: string },
   ) {

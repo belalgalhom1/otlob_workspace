@@ -3,7 +3,6 @@ import { Job, Queue } from 'bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QUEUES, CRON_JOBS } from '../../infrastructure/queue/queues.constants';
-import { Prisma } from '@prisma/client';
 
 @Processor(QUEUES.PROMOTIONS, { concurrency: 5 })
 export class PromotionsProcessor extends WorkerHost implements OnModuleInit {

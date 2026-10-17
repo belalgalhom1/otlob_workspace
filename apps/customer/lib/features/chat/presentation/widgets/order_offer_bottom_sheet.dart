@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
@@ -153,7 +153,7 @@ class OrderOfferBottomSheet extends ConsumerWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(ApiErrorMapper.fromError(e).tr()),
+                              content: Text(ErrorUtils.translate(context, e)),
                               backgroundColor: Colors.red,
                             ),
                           );

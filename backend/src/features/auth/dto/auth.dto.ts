@@ -8,7 +8,7 @@ import {
   IsIn,
   MinLength,
 } from 'class-validator';
-import { Language, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 import { ValidationErrors, AuthErrors } from '../../../common/constants/response.constants';
 

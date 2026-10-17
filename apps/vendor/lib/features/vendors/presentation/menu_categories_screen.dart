@@ -388,7 +388,6 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
       text: category?['nameAr'] ?? '',
     );
     PlatformFile? selectedIcon;
-    bool isUploading = false;
 
     final result = await showDialog<bool>(
       context: context,
@@ -526,10 +525,6 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                             icon: LucideIcons.languages,
                             textAlign: TextAlign.right,
                           ),
-                          if (isUploading) ...[
-                            const SizedBox(height: 20),
-                            const LinearProgressIndicator(),
-                          ],
                         ],
                       ),
                     );

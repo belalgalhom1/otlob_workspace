@@ -24,7 +24,6 @@ import {
 import {
   CommonSuccess,
   UserErrors,
-  AuthErrors,
 } from 'src/common/constants/response.constants';
 import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';

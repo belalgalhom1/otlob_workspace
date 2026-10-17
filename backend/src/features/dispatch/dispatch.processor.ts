@@ -192,15 +192,6 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         `Order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
       );
 
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          customer: true,
-          vendor: { include: { members: true } },
-          driver: true,
-        },
-      });
-
       await this.stateService.cancelOrder(
         null, // system actor
         orderId,

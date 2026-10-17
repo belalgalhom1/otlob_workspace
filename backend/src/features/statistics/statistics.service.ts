@@ -85,8 +85,6 @@ export class StatisticsService {
       paymentMethod,
       customerId,
       coinsEarned,
-      coinsUsed,
-      discount,
       distanceKm,
       driverTier,
     } = payload;
@@ -231,22 +229,6 @@ export class StatisticsService {
         driverShiftId,
         amount: earnings,
       });
-
-      const assist = await this.resolveAssistShare({
-        orderId,
-        primaryTier: driverTier,
-        totalDriverEarnings: earnings,
-        deliveryFee: primaryFee,
-        distanceKm,
-        driverShare,
-      });
-      if (assist.assistEarnings > 0 && assist.assistDriverId) {
-        assistPayouts.push({
-          driverId: assist.assistDriverId,
-          driverShiftId: assist.assistDriverShiftId ?? null,
-          amount: assist.assistEarnings,
-        });
-      }
     }
 
     const totalPrimaryEarnings = primaryPayouts.reduce(
@@ -1152,87 +1134,5 @@ export class StatisticsService {
         description,
       },
     });
-  }
-  /**
-   * Work out the assisting driver's earnings for one delivery.
-   *
-   * Product rule: a two-person delivery pays EACH driver their own FULL fee
-   * (100%) — the assistant is not paid a percentage of the primary's pot and the
-   * primary is not reduced. The assistant's fee mirrors the primary's tier
-   * adjustment (so a lower-tier assistant earns their own tier-correct amount),
-   * and cash collection stays with the primary driver only.
-   *
-   * Returns a zero share when the order has no assisting driver.
-   */
-  private async resolveAssistShare(params: {
-    orderId: string;
-    primaryTier: string;
-    totalDriverEarnings: number;
-    deliveryFee: number;
-    distanceKm: number;
-    driverShare: number;
-  }): Promise<{
-    assistEarnings: number;
-    assistDriverId: string | null;
-    assistDriverShiftId: string | null;
-  }> {
-    const {
-      orderId,
-      primaryTier,
-      totalDriverEarnings,
-      deliveryFee,
-      distanceKm,
-      driverShare,
-    } = params;
-
-    const group = await this.prisma.orderDeliveryGroup.findFirst({
-      where: { orderId, assistDriverId: { not: null } },
-      select: {
-        assistDriverId: true,
-        assistDriverShiftId: true,
-        distanceKm: true,
-      },
-      orderBy: { sequence: 'asc' },
-    });
-
-    if (!group?.assistDriverId || totalDriverEarnings <= 0) {
-      return {
-        assistEarnings: 0,
-        assistDriverId: null,
-        assistDriverShiftId: null,
-      };
-    }
-
-    const settings = await this.platformSettings.getSettings();
-
-    const assistDriver = group.assistDriverId;
-    const assist = await this.prisma.driver.findUnique({
-      where: { id: assistDriver },
-      select: { tier: true },
-    });
-
-    const tierBonusPerKm = (tier: string): number => {
-      if (tier === 'SILVER') return Number(settings.silverTierBonusPerKm ?? 0);
-      if (tier === 'BRONZE') return Number(settings.bronzeTierBonusPerKm ?? 0);
-      return Number(settings.goldTierBonusPerKm ?? 0);
-    };
-
-    // Same tier-difference rule the primary uses, evaluated for the assistant.
-    const tierDiffPerKm =
-      tierBonusPerKm(primaryTier) - tierBonusPerKm(assist?.tier ?? 'GOLD');
-    const routeKm = group.distanceKm ?? distanceKm;
-    const assistBaseFee = settings.driverShiftsEnabled
-      ? Math.max(0, deliveryFee - Math.max(0, tierDiffPerKm) * routeKm)
-      : deliveryFee;
-
-    // 100%: the assistant keeps their own FULL fee — never a percentage of the
-    // pot. (The primary also keeps 100% of their own fee; see the caller.)
-    const assistEarnings = Math.max(0, Math.round(assistBaseFee * driverShare));
-
-    return {
-      assistEarnings,
-      assistDriverId: assistDriver,
-      assistDriverShiftId: group.assistDriverShiftId,
-    };
   }
 }

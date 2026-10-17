@@ -58,9 +58,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   StreamSubscription? _recordingSubscription;
   Duration _recordingDuration = Duration.zero;
 
-  Map<String, dynamic>? _activeTicket;
   Map<String, dynamic>? _orderDetails;
-  bool _isLoadingOrder = false;
   bool _isOrderExpanded = false;
 
   bool _hasMore = true;
@@ -770,10 +768,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   Future<void> _loadTicketAndOrderDetails() async {
     if (widget.type != 'SUPPORT') return;
 
-    setState(() {
-      _isLoadingOrder = true;
-    });
-
     try {
       final ticketRepo = ref.read(sharedSupportTicketsRepositoryProvider);
       final result = await ticketRepo.getTickets(limit: 50);
@@ -784,10 +778,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       );
 
       if (active != null) {
-        setState(() {
-          _activeTicket = active;
-        });
-
         final orderId = active['order']?['id'] ?? active['orderId'];
         if (orderId != null) {
           final ordersRepo = ref.read(adminOrdersRepositoryProvider);
@@ -801,12 +791,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       }
     } catch (e) {
       debugPrint('Error loading ticket/order details: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingOrder = false;
-        });
-      }
     }
   }
 
@@ -1226,77 +1210,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
       return false;
     }
     return true;
-  }
-
-  Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      final path = result.files.single.path!;
-      final ext = path.split('.').last.toLowerCase();
-      if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.onlyImagesAllowed),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      
-      if (!await _validateMediaSize(path)) return;
-      
-      final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
-      setState(() {
-        _messages.insert(0, {
-          'id': tempId,
-          'text': '',
-          'type': 'IMAGE',
-          'mediaUrl': null,
-          'isUploading': true,
-          'sender': {
-            'id': _currentUserId,
-            'role': 'VENDOR_MEMBER',
-            'name': 'Me',
-          },
-          'createdAt': DateTime.now().toIso8601String(),
-        });
-      });
-      _scrollToBottom();
-
-      final repository = ref.read(sharedChatRepositoryProvider);
-      final uploadRes = await repository.uploadMedia(
-        widget.conversationId,
-        path,
-      );
-      final mediaUrl = _extractMediaUrl(uploadRes);
-
-      if (mediaUrl != null) {
-        setState(() {
-          final idx = _messages.indexWhere((m) => m['id'] == tempId);
-          if (idx != -1) {
-            _messages[idx]['mediaUrl'] = mediaUrl;
-            _messages[idx]['isUploading'] = false;
-          }
-        });
-
-        await repository.sendMessage(
-          widget.conversationId,
-          '',
-          type: 'IMAGE',
-          mediaUrl: mediaUrl,
-        );
-        _loadMessages();
-      } else {
-        setState(() {
-          _messages.removeWhere((m) => m['id'] == tempId);
-        });
-      }
-    }
   }
 
   Future<void> _pickDocument() async {

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../providers/cart_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../profile/presentation/providers/profile_controller.dart';
@@ -79,13 +80,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final vendorCartItems =
         ref.read(cartProvider).vendorBaskets[widget.vendorId ?? ''] ?? [];
     final cartFingerprint = vendorCartItems.map((i) {
-      final pid = i.backendId ??
-          i.product['id']?.toString() ??
-          i.product['productId']?.toString() ??
-          '';
-      final vid = i.selectedVariant?['id']?.toString() ?? '';
+      final pid = i.backendId ?? i.product.id;
+      final vid = i.selectedVariant?.id ?? '';
       final opts = i.selectedOptions
-          .map((o) => o['id']?.toString() ?? '')
+          .map((o) => o.id)
           .where((s) => s.isNotEmpty)
           .toList()
         ..sort();
@@ -193,7 +191,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _showSuccess(s, orderId);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(s.translateApiError(errorMsg ?? 'Failed to place order')),
+            content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
             backgroundColor: Colors.red,
         ));
       }
@@ -271,7 +269,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final vendorItems = cartState.vendorBaskets[widget.vendorId ?? ''] ?? [];
     final vendorName = vendorItems.isNotEmpty
-        ? (vendorItems.first.product['vendorName'] as String? ?? s.vendor)
+        ? (vendorItems.first.product.vendorName ?? s.vendor)
         : s.vendor;
     final subtotal = cartState.getVendorSubtotal(widget.vendorId ?? '');
     final settings = ref.watch(platformSettingsProvider).value;
@@ -441,7 +439,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           children: [
                             Row(children: [
                               Expanded(
-                                  child: Text(item.product['name'] as String,
+                                  child: Text(item.product.name,
                                       style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold))),
@@ -461,18 +459,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             ]),
                             if (item.selectedVariant != null)
                               Text(
-                                  s.isArabic
-                                      ? (item.selectedVariant!['nameAr'] ??
-                                          item.selectedVariant!['name'])
-                                      : item.selectedVariant!['name'],
+                                  item.selectedVariant!.localizedName(s.isArabic),
                                   style: const TextStyle(
                                       fontSize: 11, color: Colors.grey)),
                             if (item.selectedOptions.isNotEmpty)
                               Text(
                                   item.selectedOptions
-                                      .map((o) => s.isArabic
-                                          ? (o['nameAr'] ?? o['name'])
-                                          : o['name'])
+                                      .map((o) => o.localizedName(s.isArabic))
                                       .join(', '),
                                   style: const TextStyle(
                                       fontSize: 11, color: Colors.blueGrey)),
@@ -618,7 +611,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              s.translateApiError(_estimateError ?? ''),
+                              ErrorUtils.translate(context, _estimateError ?? ''),
                               style: const TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.bold,

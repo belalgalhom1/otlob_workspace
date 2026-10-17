@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:data/data.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 import '../../providers/analytics_provider.dart';
 
@@ -70,7 +71,7 @@ class VendorRankTable extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(
-        child: Text(e.toString(),
+        child: Text(ErrorUtils.translate(context, e),
             style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ),
     );

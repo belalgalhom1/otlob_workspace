@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   DriverStatus,
@@ -12,8 +12,6 @@ import { DriverErrors } from 'src/common/constants/response.constants';
 
 @Injectable()
 export class DriversRepository {
-  private readonly logger = new Logger(DriversRepository.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(driverId: string) {

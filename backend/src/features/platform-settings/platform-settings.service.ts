@@ -213,8 +213,6 @@ export class PlatformSettingsService {
       'fallbackOrderDistanceKm',
       'groupingMaxBranchDistanceKm',
       'groupingMaxVendorCustomerDistanceKm',
-      'groupingMaxCombinedRouteKm',
-      'assistDriverEarningsPercent',
       'customOrderPlatformFee',
       'autoCancelPendingMins',
       'mobileWalletTimeoutMins',

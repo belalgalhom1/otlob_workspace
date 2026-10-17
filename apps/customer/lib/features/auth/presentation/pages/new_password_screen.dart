@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../providers/reset_password_controller.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class NewPasswordScreen extends ConsumerStatefulWidget {
   final String email;
@@ -53,7 +53,7 @@ class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString().tr()),
+            content: Text(ErrorUtils.translate(context, next.error)),
             backgroundColor: Colors.red,
           ),
         );

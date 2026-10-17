@@ -163,12 +163,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     if (items.isEmpty) return const SizedBox.shrink();
 
     final firstProduct = items.first.product;
-    final vendorName = s.isArabic 
-        ? (firstProduct['vendorNameAr'] ?? firstProduct['vendorName'] ?? s.vendor) 
-        : (firstProduct['vendorName'] ?? s.vendor);
-    final vendorStatus = firstProduct['vendorStatus']?.toString() ?? 'OPEN';
+    final vendorName = s.isArabic
+        ? (firstProduct.vendorNameAr ?? firstProduct.vendorName ?? s.vendor)
+        : (firstProduct.vendorName ?? s.vendor);
+    final vendorStatus = firstProduct.vendorStatus ?? 'OPEN';
     final isVendorOpen = vendorStatus == 'OPEN';
-    final hasInactiveItems = items.any((it) => it.product['isActive'] == false || (it.selectedVariant != null && it.selectedVariant!['isActive'] == false));
+    final hasInactiveItems = items.any((it) => !it.product.isActive || (it.selectedVariant != null && !it.selectedVariant!.isActive));
     final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
     final canCheckout = isVendorOpen && !hasInactiveItems;
 
@@ -223,11 +223,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           InkWell(
             onTap: () => context.push('/vendor', extra: {
               'id': vendorId,
-              'storeName': firstProduct['vendorName'],
-              'storeNameAr': firstProduct['vendorNameAr'],
-              'logo': firstProduct['vendorLogo'],
-              'coverImage': firstProduct['vendorCoverImage'],
-              'image': firstProduct['vendorCoverImage'],
+              'storeName': firstProduct.vendorName,
+              'storeNameAr': firstProduct.vendorNameAr,
+              'logo': firstProduct.vendorLogo,
+              'coverImage': firstProduct.vendorCoverImage,
+              'image': firstProduct.vendorCoverImage,
             }),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             child: Padding(
@@ -236,7 +236,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: (firstProduct['vendorLogo']?.toString().isEmpty ?? true)
+                    child: (firstProduct.vendorLogo?.isEmpty ?? true)
                         ? Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -246,7 +246,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             child: const Icon(Icons.storefront_rounded, color: AppColors.primary, size: 20),
                           )
                         : CachedNetworkImage(
-                            imageUrl: ImageUtils.formatImageUrl(firstProduct['vendorLogo'] as String?),
+                            imageUrl: ImageUtils.formatImageUrl(firstProduct.vendorLogo),
                             height: 40,
                             width: 40,
                             fit: BoxFit.cover,
@@ -453,11 +453,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Widget _buildCartItem(BuildContext context, WidgetRef ref, CartItem item, AppStrings s, bool isDark) {
-    final isInactive = item.product['isActive'] == false || (item.selectedVariant != null && item.selectedVariant!['isActive'] == false);
-    final rawCompare = item.selectedVariant?['comparePrice'] ?? item.product['comparePrice'];
-    final comparePrice = rawCompare is num
-        ? rawCompare.toDouble()
-        : double.tryParse(rawCompare?.toString() ?? '');
+    final isInactive = !item.product.isActive || (item.selectedVariant != null && !item.selectedVariant!.isActive);
+    final comparePrice =
+        item.selectedVariant?.comparePrice ?? item.product.comparePrice;
     final itemUnitPrice = item.totalPrice / (item.quantity > 0 ? item.quantity : 1);
     final hasDiscount = comparePrice != null && comparePrice > itemUnitPrice;
 
@@ -471,9 +469,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: ((item.product['imageUrl'] ?? item.product['image'])?.toString().isEmpty ?? true)
+                child: (item.product.imageUrl?.isEmpty ?? true)
                     ? Container(height: 80, width: 80, color: isDark ? Colors.white12 : Colors.grey.shade100, child: const Icon(Icons.fastfood, color: Colors.grey))
-                    : CachedNetworkImage(imageUrl: ImageUtils.formatImageUrl((item.product['imageUrl'] ?? item.product['image']) as String?), height: 80, width: 80, fit: BoxFit.cover),
+                    : CachedNetworkImage(imageUrl: ImageUtils.formatImageUrl(item.product.imageUrl), height: 80, width: 80, fit: BoxFit.cover),
               ),
               Positioned(
                 top: 0, right: 0,
@@ -496,7 +494,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               crossAxisAlignment: CrossAxisAlignment.start, 
               children: [
                 Text(
-                  s.isArabic ? (item.product['nameAr'] ?? item.product['name'] ?? '') : (item.product['name'] ?? ''), 
+                  item.product.localizedName(s.isArabic), 
                   style: TextStyle(
                     fontWeight: FontWeight.w800, 
                     fontSize: 15, 
@@ -527,7 +525,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      s.isArabic ? (item.selectedVariant!['nameAr'] ?? item.selectedVariant!['name'] ?? '') : (item.selectedVariant!['name'] ?? ''),
+                      item.selectedVariant!.localizedName(s.isArabic),
                       style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -535,7 +533,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      item.selectedOptions.map((o) => s.isArabic ? (o['nameAr'] ?? o['name'] ?? '') : (o['name'] ?? '')).join(', '),
+                      item.selectedOptions.map((o) => o.localizedName(s.isArabic)).join(', '),
                       style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

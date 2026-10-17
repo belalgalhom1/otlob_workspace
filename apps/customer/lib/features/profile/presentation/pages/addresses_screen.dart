@@ -8,7 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/widgets/location_picker_map.dart';
 import '../providers/profile_controller.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class AddressesScreen extends ConsumerWidget {
   const AddressesScreen({super.key});
@@ -143,7 +143,7 @@ class AddressesScreen extends ConsumerWidget {
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().tr())));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorUtils.translate(context, e))));
                 }
               }
             },
@@ -237,7 +237,7 @@ class AddressesScreen extends ConsumerWidget {
                           }
                         } catch (e) {
                           if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(e.toString().tr())));
+                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(ErrorUtils.translate(ctx, e))));
                           }
                         }
                       }
@@ -393,7 +393,7 @@ class AddressesScreen extends ConsumerWidget {
                           }
                         } catch (e) {
                           if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(e.toString().tr())));
+                            ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(ErrorUtils.translate(ctx, e))));
                           }
                         }
                       }

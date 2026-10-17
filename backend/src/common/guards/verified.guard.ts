@@ -4,7 +4,6 @@ import {
   Injectable,
   ForbiddenException,
   UnauthorizedException,
-  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UNVERIFIED_ALLOWED_KEY } from '../decorators/unverified-allowed.decorator';
@@ -14,7 +13,6 @@ import { AuthErrors } from '../constants/response.constants';
 
 @Injectable()
 export class VerifiedGuard implements CanActivate {
-  private readonly logger = new Logger(VerifiedGuard.name);
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {

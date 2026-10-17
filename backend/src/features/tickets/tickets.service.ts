@@ -6,8 +6,6 @@ import {
   Logger,
   OnModuleInit,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
@@ -27,10 +25,6 @@ import {
 import { TicketErrors } from 'src/common/constants/response.constants';
 import { TicketStatusUpdatedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
-import {
-  QUEUES,
-  TICKET_JOBS,
-} from '../../infrastructure/queue/queues.constants';
 import { MessagesService } from '../chat/messages.service';
 
 const CREATOR_ROLES = new Set<Role>([
@@ -46,7 +40,6 @@ export class TicketsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-    @InjectQueue(QUEUES.TICKETS) private readonly ticketsQueue: Queue,
     private readonly messagesService: MessagesService,
   ) {}
 

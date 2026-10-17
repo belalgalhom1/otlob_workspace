@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  Logger,
 } from '@nestjs/common';
 import { StorageService } from 'src/infrastructure/storage/storage.service';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
@@ -17,8 +16,6 @@ import {
 
 @Injectable()
 export class VendorVerticalsService {
-  private readonly logger = new Logger(VendorVerticalsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,

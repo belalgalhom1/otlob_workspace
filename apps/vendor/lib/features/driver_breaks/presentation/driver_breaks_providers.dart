@@ -61,7 +61,7 @@ final driverBreakSearchProvider =
         .toList();
   }
   if (result is List) {
-    return (result as List)
+    return result
         .whereType<Map>()
         .map((e) => DriverProfile.fromJson(Map<String, dynamic>.from(e)))
         .where((d) => d.id.isNotEmpty)

@@ -12,7 +12,7 @@ export class RedisIoAdapter extends IoAdapter {
   private readonly logger = new Logger(RedisIoAdapter.name);
 
   constructor(
-    private appContext: INestApplicationContext,
+    appContext: INestApplicationContext,
     private config: ConfigService,
   ) {
     super(appContext);

@@ -4,7 +4,6 @@ import {
   Injectable,
   ForbiddenException,
   UnauthorizedException,
-  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission } from '@prisma/client';
@@ -16,7 +15,6 @@ import { CommonErrors } from '../constants/response.constants';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  private readonly logger = new Logger(PermissionsGuard.name);
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,

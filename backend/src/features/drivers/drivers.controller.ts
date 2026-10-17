@@ -38,14 +38,9 @@ import { Permission, Role } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import {
   ApiStandardResponse,
-  ApiPaginatedResponse,
   ApiArrayResponse,
 } from 'src/common/decorators/api-response.decorator';
-import { DriverResponseDto } from 'src/common/dto/response-models.dto';
-import { Driver } from '../../_gen/prisma-classes/driver';
-import { DriverShift } from '../../_gen/prisma-classes/driver_shift';
 import { DriverBreak } from '../../_gen/prisma-classes/driver_break';
-import { DriverWalletTransaction } from '../../_gen/prisma-classes/driver_wallet_transaction';
 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 

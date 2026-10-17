@@ -317,7 +317,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildThemeToggle(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) {
-        final themeMode = ref.watch(themeProvider);
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return InkWell(
           onTap: () => ref.read(themeProvider.notifier).toggleTheme(),

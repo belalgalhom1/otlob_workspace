@@ -632,7 +632,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                   child: CircularProgressIndicator(),
                                 ),
                                 error: (err, stack) =>
-                                    Text('Error loading zones: $err'),
+                                    Text(ErrorUtils.translate(context, err)),
                               );
                             },
                           ),

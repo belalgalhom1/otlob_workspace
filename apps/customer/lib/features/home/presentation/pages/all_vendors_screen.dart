@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../../../../core/widgets/floating_cart_overlay.dart';
 import '../providers/home_controller.dart';
 import '../providers/discovery_search_controller.dart';
@@ -135,7 +136,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                         child: Center(child: Padding(padding: EdgeInsets.all(64), child: CircularProgressIndicator())),
                       ),
                       error: (e, st) => SliverToBoxAdapter(
-                        child: Center(child: Text('${s.searchErrorPrefix}$e', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+                        child: Center(child: Text('${s.searchErrorPrefix}${ErrorUtils.translate(context, e)}', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
                       ),
                     )
                   else if (filtered.isEmpty)
@@ -159,7 +160,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, st) => Center(child: Text('${s.errorPrefix}$e', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+            error: (e, st) => Center(child: Text('${s.errorPrefix}${ErrorUtils.translate(context, e)}', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
           ),
           const FloatingCartOverlay(),
         ],

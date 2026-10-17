@@ -1,9 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
-  private readonly logger = new Logger(CustomThrottlerGuard.name);
   protected getTracker(req: Record<string, unknown>): Promise<string> {
     const request = req as unknown as {
       user?: { sub: string };

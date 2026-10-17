@@ -6,7 +6,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/services/token_service.dart';
 import '../providers/verify_otp_controller.dart';
 import '../providers/auth_controller.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
   final String email;
@@ -97,7 +97,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString().tr()),
+            content: Text(ErrorUtils.translate(context, next.error)),
             backgroundColor: Colors.red,
           ),
         );

@@ -32,10 +32,6 @@ import {
   VendorWalletTransactionResponseDto,
   DriverWalletTransactionResponseDto,
 } from 'src/common/dto/response-models.dto';
-import { MobileWallet } from '../../_gen/prisma-classes/mobile_wallet';
-import { WalletTopUpRequest } from '../../_gen/prisma-classes/wallet_top_up_request';
-import { VendorWalletTransaction } from '../../_gen/prisma-classes/vendor_wallet_transaction';
-import { DriverWalletTransaction } from '../../_gen/prisma-classes/driver_wallet_transaction';
 
 @ApiTags('Wallet & Financials')
 @ApiBearerAuth()

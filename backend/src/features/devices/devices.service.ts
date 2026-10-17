@@ -1,11 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RegisterDeviceDto } from './dto/device.dto';
 
 @Injectable()
 export class DevicesService {
-  private readonly logger = new Logger(DevicesService.name);
-
   constructor(private prisma: PrismaService) {}
 
   async register(userId: string, dto: RegisterDeviceDto) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'notifications_provider.dart';
 import '../../chat/presentation/inbox_counts_provider.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
@@ -75,7 +76,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         const Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
                         const SizedBox(height: 16),
                         Text(
-                          state.error!,
+                          ErrorUtils.translate(context, state.error),
                           textAlign: TextAlign.center,
                           style: const TextStyle(),
                         ),

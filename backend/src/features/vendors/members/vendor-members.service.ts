@@ -187,14 +187,6 @@ export class VendorMembersService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private async findMember(vendorId: string, memberId: string) {
-    const member = await this.prisma.vendorMember.findFirst({
-      where: { id: memberId, vendorId },
-    });
-    if (!member) throw new NotFoundException(VendorMemberErrors.NOT_FOUND);
-    return member;
-  }
-
   private async assertVendorExists(vendorId: string) {
     const vendor = await this.prisma.vendor.findFirst({
       where: { id: vendorId, deletedAt: null },

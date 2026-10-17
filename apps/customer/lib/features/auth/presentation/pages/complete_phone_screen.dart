@@ -8,6 +8,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/router/route_paths.dart';
 import '../providers/auth_controller.dart';
 import '../providers/register_controller.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class CompletePhoneScreen extends ConsumerStatefulWidget {
   const CompletePhoneScreen({super.key});
@@ -43,7 +44,7 @@ class _CompletePhoneScreenState extends ConsumerState<CompletePhoneScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: Colors.red,
           ),
         );

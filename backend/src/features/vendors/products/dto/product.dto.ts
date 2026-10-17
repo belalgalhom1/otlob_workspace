@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
-  IsNumber,
   IsPositive,
   Min,
   MaxLength,

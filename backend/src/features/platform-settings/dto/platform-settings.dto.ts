@@ -338,31 +338,6 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   groupingMaxVendorCustomerDistanceKm?: number;
 
-  @ApiProperty({
-    example: 35,
-    required: false,
-    description:
-      'Smart grouping (km): max total pickup + drop-off route for one delivery group (sum of consecutive stop hops plus the final hop to the customer, best ordering).',
-  })
-  @IsNumber()
-  @IsPositive()
-  @IsOptional()
-  @Type(() => Number)
-  groupingMaxCombinedRouteKm?: number;
-
-  @ApiProperty({
-    example: 50,
-    required: false,
-    description:
-      'Assisting driver: percentage of the delivery group driver earnings that goes to the second driver (0-100). The primary driver receives the remainder. 0 assigns and tracks the assisting driver without paying them.',
-  })
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  @IsOptional()
-  @Type(() => Number)
-  assistDriverEarningsPercent?: number;
-
   // ─── Order behaviour ───────────────────────────────────────────────────────
 
   @ApiProperty({ example: 1500, required: false })

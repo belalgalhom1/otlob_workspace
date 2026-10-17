@@ -7,12 +7,9 @@ import {
   IsOptional,
   IsInt,
   Min,
-  Max,
   IsDateString,
-  IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 
 export class GenerateShiftPoolsDto {
   @ApiProperty({ example: '2026-05-10' })

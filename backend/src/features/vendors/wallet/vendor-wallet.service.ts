@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { QueryVendorWalletDto } from './dto/vendor-wallet.dto';
 import { VendorErrors } from 'src/common/constants/response.constants';
@@ -10,8 +10,6 @@ import {
 
 @Injectable()
 export class VendorWalletService {
-  private readonly logger = new Logger(VendorWalletService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   /**

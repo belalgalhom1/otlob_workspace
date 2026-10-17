@@ -30,28 +30,6 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
   final TextEditingController _searchController = TextEditingController();
   String? _selectedRole;
 
-  String _getPermissionName(BuildContext context, String perm) {
-    final l10n = AppLocalizations.of(context)!;
-    switch (perm) {
-      case 'MANAGE_ORDERS': return l10n.perm_manage_orders;
-      case 'MANAGE_PRODUCTS': return l10n.perm_manage_products;
-      case 'MANAGE_VENDORS': return l10n.perm_manage_vendors;
-      case 'MANAGE_DRIVERS': return l10n.perm_manage_drivers;
-      case 'MANAGE_CUSTOMERS': return l10n.perm_manage_customers;
-      case 'MANAGE_TICKETS': return l10n.perm_manage_tickets;
-      case 'MANAGE_CONVERSATIONS': return l10n.perm_manage_conversations;
-      case 'VIEW_STATISTICS': return l10n.perm_view_statistics;
-      case 'MANAGE_SETTINGS': return l10n.perm_manage_settings;
-      case 'MANAGE_USERS': return l10n.perm_manage_users;
-      case 'VIEW_FINANCIALS': return l10n.perm_view_financials;
-      case 'MANAGE_FINANCE': return l10n.perm_manage_finance;
-      case 'MANAGE_PROMOTIONS': return l10n.perm_manage_promotions;
-      case 'MANAGE_ANNOUNCEMENTS': return l10n.perm_manage_announcements;
-      case 'VIEW_AUDIT_LOGS': return l10n.perm_view_audit_logs;
-      default: return perm;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -954,43 +932,6 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildField(
-    String label,
-    IconData icon,
-    TextEditingController controller,
-    String hint, {
-    bool obscure = false,
-    Widget? suffixIcon,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          obscureText: obscure,
-          style: TextStyle(
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, size: 18),
-            suffixIcon: suffixIcon,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-          ),
-        ),
-      ],
     );
   }
 

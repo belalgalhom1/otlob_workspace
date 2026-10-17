@@ -58,11 +58,6 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   XFile? _imageFile;
   bool _isPickingImage = false;
 
-  // Vendor state
-  bool _isLoadingVendor = true;
-  dynamic _vendor;
-  bool _isRestaurant = false;
-
   // Variants and Options state
   List<dynamic> _variants = [];
   List<dynamic> _optionGroups = [];
@@ -108,52 +103,13 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     _stripPriceController = TextEditingController();
     _selectedCategoryId = p?['categoryId']?.toString();
 
-    // Synchronously set _isRestaurant if vendorType is provided
-    final type = widget.vendorType?.toLowerCase() ?? '';
-    _isRestaurant =
-        type == 'restaurant' ||
-        type == 'restaurants' ||
-        type.startsWith('restaurant');
-
     _updateStripPrice();
     _priceController.addListener(_updateStripPrice);
     _stripsCountController.addListener(_updateStripPrice);
 
     _fetchCategories();
-    if (widget.vendorType == null) {
-      _fetchVendor();
-    } else {
-      _isLoadingVendor = false;
-    }
     if (isEdit) {
       _fetchProductDetails();
-    }
-  }
-
-  Future<void> _fetchVendor() async {
-    setState(() => _isLoadingVendor = true);
-    try {
-      final vendor = await ref
-          .read(adminVendorsRepositoryProvider)
-          .getVendor(widget.vendorId);
-      if (mounted && vendor != null) {
-        setState(() {
-          _vendor = vendor;
-          final slug = (vendor['vertical']?['slug'] ?? vendor['type'])
-              ?.toString()
-              .toLowerCase();
-          _isRestaurant =
-              slug == 'restaurant' ||
-              slug == 'restaurants' ||
-              slug?.startsWith('restaurant') == true;
-          _isLoadingVendor = false;
-        });
-      } else {
-        if (mounted) setState(() => _isLoadingVendor = false);
-      }
-    } catch (e) {
-      debugPrint('AddProductDialog fetchVendor Error: $e');
-      if (mounted) setState(() => _isLoadingVendor = false);
     }
   }
 

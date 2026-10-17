@@ -6,7 +6,7 @@ import '../providers/login_controller.dart';
 import '../../../../core/services/token_service.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/l10n/app_strings.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -108,7 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString().tr()),
+            content: Text(ErrorUtils.translate(context, next.error)),
             backgroundColor: Colors.red,
           ),
         );

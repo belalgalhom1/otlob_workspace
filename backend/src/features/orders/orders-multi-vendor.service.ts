@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -58,8 +57,6 @@ export interface MultiVendorFeeBreakdown {
  */
 @Injectable()
 export class OrdersMultiVendorService {
-  private readonly logger = new Logger(OrdersMultiVendorService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,

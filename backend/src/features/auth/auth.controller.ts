@@ -26,12 +26,7 @@ import {
 import { Guest } from 'src/common/decorators/guest.decorator';
 import { Public } from 'src/common/decorators/public.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import {
-  ApiStandardResponse,
-  ApiPaginatedResponse,
-  ApiArrayResponse,
-} from 'src/common/decorators/api-response.decorator';
-import { UserResponseDto } from 'src/common/dto/response-models.dto';
+import { ApiStandardResponse } from 'src/common/decorators/api-response.decorator';
 import { AuthErrors } from 'src/common/constants/response.constants';
 import type {
   JwtAccessPayload,

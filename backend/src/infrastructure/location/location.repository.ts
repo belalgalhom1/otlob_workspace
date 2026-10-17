@@ -473,20 +473,28 @@ export class LocationRepository {
   }
 
   /**
-   * Find a zone that contains the given point
+   * Whether the given point lies inside ONE specific zone.
+   *
+   * Deliberately checks the requested zone instead of resolving "which zone
+   * contains this point": zones may overlap/nest, so picking an arbitrary
+   * containing zone (unordered LIMIT 1) can return a different zone than the
+   * one we care about and wrongly report the point as outside it.
    */
-  async findZoneByLocation(
+  async isPointInZone(
+    zoneId: string,
     longitude: number,
     latitude: number,
-  ): Promise<{ id: string; name: string } | null> {
-    const rows = await this.prisma.$queryRaw<any[]>`
-      SELECT id, name
+  ): Promise<boolean> {
+    const rows = await this.prisma.$queryRaw<{ inside: boolean }[]>`
+      SELECT ST_Contains(
+        "boundary",
+        ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+      ) AS inside
       FROM zones
-      WHERE "isActive" = true
-        AND ST_Contains("boundary", ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326))
+      WHERE id = ${zoneId}
       LIMIT 1
     `;
-    return rows[0] || null;
+    return rows[0]?.inside === true;
   }
 
   /**

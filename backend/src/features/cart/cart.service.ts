@@ -3,20 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
-import {
-  OrderStatus,
-  PlatformSetting,
-  Prisma,
-  MessageType,
-} from '@prisma/client';
-import {
-  CommonSuccess,
-  CartErrors,
-} from 'src/common/constants/response.constants';
+import { Prisma, MessageType } from '@prisma/client';
+import { CartErrors } from 'src/common/constants/response.constants';
 import {
   CustomerErrors,
   ProductErrors,
@@ -105,8 +96,6 @@ type CartInclude = {
 
 @Injectable()
 export class CartService {
-  private readonly logger = new Logger(CartService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   // ─── Get or create cart for vendor ────────────────────────────────────────
@@ -120,7 +109,7 @@ export class CartService {
     });
 
     if (!cart) {
-      return this.buildEmptyCart(customer.id, vendorId);
+      return this.buildEmptyCart(vendorId);
     }
 
     return this.formatCart(cart);
@@ -1001,7 +990,7 @@ export class CartService {
     };
   }
 
-  private buildEmptyCart(customerId: string, vendorId: string) {
+  private buildEmptyCart(vendorId: string) {
     return {
       id: null,
       vendorId,

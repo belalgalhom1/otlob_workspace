@@ -18,7 +18,6 @@ import {
   CreateDirectConversationDto,
   CreateOrderConversationDto,
   CreateSupportConversationDto,
-  CreateVendorConversationDto,
   QueryConversationsDto,
 } from './dto/chat.dto';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
@@ -28,7 +27,6 @@ import {
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import {
-  TicketErrors,
   UserErrors,
   ChatErrors,
 } from 'src/common/constants/response.constants';

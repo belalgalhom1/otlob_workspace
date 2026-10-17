@@ -8,7 +8,7 @@ import '../../../../core/widgets/auth_prompt_dialog.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 
 import 'package:core/core.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
 
 class ProductBottomSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> item;
@@ -62,9 +62,9 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     }
   }
 
-  bool _areOptionsEqual(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
+  bool _areOptionsEqual(List<CartOptionRef> a, List<Map<String, dynamic>> b) {
     if (a.length != b.length) return false;
-    final aIds = a.map((o) => o['id']?.toString() ?? '').toSet();
+    final aIds = a.map((o) => o.id).toSet();
     final bIds = b.map((o) => o['id']?.toString() ?? '').toSet();
     return aIds.containsAll(bIds);
   }
@@ -123,9 +123,9 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     final flatOptions = _selectedOptions.values.expand((list) => list).toList();
 
     final currentCartItem = ref.watch(cartProvider).allItems.where((ci) {
-      return ci.product['id'] == item['id'] && 
+      return ci.product.id == item['id'] && 
              ci.selectedUnit == _selectedUnit &&
-             ci.selectedVariant?['id'] == _selectedVariant?['id'] &&
+             ci.selectedVariant?.id == _selectedVariant?['id'] &&
              _areOptionsEqual(ci.selectedOptions, flatOptions);
     }).firstOrNull;
     
@@ -151,7 +151,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
         stockLimit = variantStock;
         stockPoolQty = cartAllItems
             .where((ci) =>
-                ci.selectedVariant?['id'] == _selectedVariant!['id'])
+                ci.selectedVariant?.id == _selectedVariant!['id'])
             .fold<int>(0, (sum, ci) => sum + ci.quantity);
       }
     } else if (productTracksStock && productStock != null) {
@@ -164,7 +164,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
       stockLimit = productStock * divider;
       stockPoolQty = cartAllItems
           .where((ci) =>
-              ci.product['id'] == item['id'] && ci.selectedVariant == null)
+              ci.product.id == item['id'] && ci.selectedVariant == null)
           .fold<int>(0, (sum, ci) => sum + ci.quantity);
     }
     final bool isOutOfStock = stockLimit != null
@@ -750,7 +750,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(ApiErrorMapper.fromError(e).tr()),
+                              content: Text(ErrorUtils.translate(context, e)),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -823,7 +823,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(ApiErrorMapper.fromError(e).tr()),
+                              content: Text(ErrorUtils.translate(context, e)),
                               backgroundColor: Colors.red,
                             ),
                           );

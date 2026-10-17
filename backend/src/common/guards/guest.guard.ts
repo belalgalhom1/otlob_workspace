@@ -5,7 +5,6 @@ import {
   ForbiddenException,
   UnauthorizedException,
   Inject,
-  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
@@ -15,7 +14,6 @@ import { CommonErrors } from 'src/common/constants/response.constants';
 
 @Injectable()
 export class GuestGuard implements CanActivate {
-  private readonly logger = new Logger(GuestGuard.name);
   constructor(
     @Inject(JWT_ACCESS_SERVICE) private accessTokenService: JwtService,
   ) {}
