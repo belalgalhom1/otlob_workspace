@@ -1255,6 +1255,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noDriversFound => 'لم يتم العثور على سائقين.';
 
   @override
+  String get noPagesFound => 'لا توجد صفحات مطابقة';
+
+  @override
   String get confirmBroadcast => 'تأكيد البث';
 
   @override
@@ -1301,6 +1304,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get pickLocation => 'اختر الموقع';
+
+  @override
+  String get locationSelected => 'تم تحديد الموقع';
 
   @override
   String get auditLogs => 'سجلات التدقيق';

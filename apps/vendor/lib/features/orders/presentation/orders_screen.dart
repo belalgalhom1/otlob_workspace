@@ -33,6 +33,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Map<String, dynamic>? _pinnedOrder;
   bool _pinnedLoading = false;
 
+  /// Server-side status filter (null = all). Text / payment / date filters
+  /// below are client-side over the loaded orders.
+  String? _statusFilter;
+  String? _paymentFilter;
+  String _query = '';
+  int? _dateDays;
+  DateTimeRange? _customRange;
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +89,55 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     ref.read(ordersProvider.notifier).fetchOrders();
   }
 
+  Future<void> _pickCustomRange(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year, now.month, now.day, 23, 59),
+      initialDateRange: _customRange,
+    );
+    if (picked != null && mounted) {
+      // Custom range replaces the preset window and vice versa.
+      setState(() {
+        _customRange = picked;
+        _dateDays = null;
+      });
+    }
+  }
+
+  String _customRangeLabel(bool isArabic) {
+    if (_customRange == null) return isArabic ? 'مخصص' : 'Custom';
+    String fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+    return '${fmt(_customRange!.start)} – ${fmt(_customRange!.end)}';
+  }
+
+  Widget _buildDateChip(BuildContext context, int? days, String label) {
+    final selected = _dateDays == days && _customRange == null;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() {
+        _dateDays = days;
+        _customRange = null;
+      }),
+      selectedColor: AppColors.primary.withValues(alpha: 0.2),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: selected
+            ? AppColors.primary
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      side: BorderSide(
+        color: selected
+            ? AppColors.primary
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+      ),
+    );
+  }
+
   /// Fetches a single order opened from a notification deep link so it is
   /// visible (expanded) even when it is not on the currently loaded page.
   Future<void> _fetchPinnedOrder(String orderId) async {
@@ -108,7 +166,123 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     super.dispose();
+  }
+
+  static const _filterStatuses = [
+    'PENDING',
+    'ACCEPTED',
+    'PREPARING',
+    'READY_FOR_PICKUP',
+    'LOOKING_FOR_DRIVER',
+    'DRIVER_ASSIGNED',
+    'PENDING_PAYMENT',
+    'PICKED_UP',
+    'IN_TRANSIT',
+    'ARRIVING',
+    'DELIVERED',
+    'CANCELLED',
+  ];
+
+  String _statusFilterLabel(String status, bool isArabic) {
+    switch (status) {
+      case 'PENDING':
+        return isArabic ? 'جديد' : 'New';
+      case 'ACCEPTED':
+        return isArabic ? 'مقبول' : 'Accepted';
+      case 'PREPARING':
+        return isArabic ? 'قيد التحضير' : 'Preparing';
+      case 'READY_FOR_PICKUP':
+        return isArabic ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'LOOKING_FOR_DRIVER':
+        return isArabic ? 'جاري البحث عن سائق' : 'Looking for Driver';
+      case 'DRIVER_ASSIGNED':
+        return isArabic ? 'تم تعيين السائق' : 'Driver Assigned';
+      case 'PENDING_PAYMENT':
+        return isArabic ? 'في انتظار الدفع' : 'Pending Payment';
+      case 'PICKED_UP':
+        return isArabic ? 'تم الاستلام' : 'Picked Up';
+      case 'IN_TRANSIT':
+      case 'ARRIVING':
+        return isArabic ? 'في الطريق' : 'On the Way';
+      case 'DELIVERED':
+        return isArabic ? 'تم التوصيل' : 'Delivered';
+      case 'CANCELLED':
+        return isArabic ? 'ملغي' : 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  void _onStatusFilterChanged(String? value) {
+    setState(() => _statusFilter = value);
+    ref.read(ordersProvider.notifier).fetchOrders(
+      params: value == null ? const {} : {'status': value},
+    );
+  }
+
+  /// Client-side text + payment + date filtering over loaded orders.
+  List<dynamic> _applyLocalFilters(List<dynamic> orders) {
+    final q = _query.trim().toLowerCase();
+    final now = DateTime.now();
+    return orders.where((o) {
+      if (o is! Map) return false;
+      final order = Map<String, dynamic>.from(o);
+      if (_paymentFilter != null &&
+          (order['paymentMethod']?.toString() ?? '') != _paymentFilter) {
+        return false;
+      }
+      if (q.isNotEmpty) {
+        final customer = order['customer'];
+        final vendor = order['vendor'];
+        final haystack = [
+          order['orderNumber'],
+          order['id'],
+          order['status'],
+          order['paymentMethod'],
+          order['total'],
+          order['grandTotal'],
+          customer is Map ? customer['name'] : null,
+          customer is Map ? customer['phone'] : null,
+          vendor is Map ? (vendor['storeName'] ?? vendor['name']) : null,
+        ]
+            .where((e) => e != null)
+            .map((e) => e.toString().toLowerCase())
+            .join(' ');
+        if (!haystack.contains(q)) return false;
+      }
+      if (_customRange != null || _dateDays != null) {
+        try {
+          final raw = order['createdAt']?.toString() ?? '';
+          if (raw.isEmpty) return false;
+          final d = DateTime.parse(raw).toLocal();
+          if (_customRange != null) {
+            final dayStart =
+                DateTime(d.year, d.month, d.day);
+            final rangeStart = DateTime(
+              _customRange!.start.year,
+              _customRange!.start.month,
+              _customRange!.start.day,
+            );
+            final rangeEnd = DateTime(
+              _customRange!.end.year,
+              _customRange!.end.month,
+              _customRange!.end.day,
+            );
+            if (dayStart.isBefore(rangeStart) ||
+                dayStart.isAfter(rangeEnd)) {
+              return false;
+            }
+          } else if (now.difference(d).inDays > _dateDays!) {
+            return false;
+          }
+        } catch (_) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
   }
 
 
@@ -249,6 +423,185 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         ),
         const SizedBox(height: 24),
 
+        // Filters: status is server-side, text / payment / date are
+        // client-side over the loaded orders.
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: isArabic
+                        ? 'بحث برقم الطلب أو الاسم...'
+                        : 'Search order no. or name...',
+                    prefixIcon:
+                        const Icon(LucideIcons.search, size: 18),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(LucideIcons.x, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                            },
+                          ),
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        initialValue: _statusFilter,
+                        decoration: InputDecoration(
+                          labelText:
+                              isArabic ? 'الحالة' : 'Status',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(
+                                AppLocalizations.of(context)!.filterAll),
+                          ),
+                          ..._filterStatuses.map(
+                            (s) => DropdownMenuItem<String?>(
+                              value: s,
+                              child: Text(
+                                _statusFilterLabel(s, isArabic),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: _onStatusFilterChanged,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        initialValue: _paymentFilter,
+                        decoration: InputDecoration(
+                          labelText: isArabic ? 'الدفع' : 'Payment',
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(
+                                AppLocalizations.of(context)!.filterAll),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'CASH_ON_DELIVERY',
+                            child: Text(isArabic ? 'كاش' : 'Cash',
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'MOBILE_WALLET',
+                            child: Text(
+                                isArabic ? 'محفظة' : 'Wallet',
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _paymentFilter = v),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                          children: [
+                            _buildDateChip(context, null,
+                                isArabic ? 'الكل' : 'All'),
+                            const SizedBox(width: 8),
+                            _buildDateChip(context, 0,
+                                isArabic ? 'اليوم' : 'Today'),
+                            const SizedBox(width: 8),
+                            _buildDateChip(context, 7,
+                                isArabic ? '٧ أيام' : '7 days'),
+                            const SizedBox(width: 8),
+                            _buildDateChip(context, 30,
+                                isArabic ? '٣٠ يوم' : '30 days'),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(LucideIcons.calendarDays,
+                                      size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(_customRangeLabel(isArabic)),
+                                  if (_customRange != null) ...[
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      onTap: () => setState(() =>
+                                          _customRange = null),
+                                      child: const Icon(
+                                          LucideIcons.x,
+                                          size: 14),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              selected: _customRange != null,
+                              onSelected: (_) =>
+                                  _pickCustomRange(context),
+                              selectedColor: AppColors.primary
+                                  .withValues(alpha: 0.2),
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _customRange != null
+                                    ? AppColors.primary
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.7),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(20)),
+                              side: BorderSide(
+                                color: _customRange != null
+                                    ? AppColors.primary
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.15),
+                              ),
+                            ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // Orders List View
         Consumer(
           builder: (context, ref, child) {
@@ -299,7 +652,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             }
 
             if (state.hasValue) {
-              final orders = state.value!.orders;
+              final allOrders = state.value!.orders;
+              final orders = _applyLocalFilters(allOrders);
 
               if (orders.isEmpty) {
                 return Container(
@@ -366,7 +720,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
               final pinned = _pinnedOrder;
               final showPinned = pinned != null &&
-                  !orders.any(
+                  !allOrders.any(
                     (o) => o is Map && o['id']?.toString() == pinned['id']?.toString(),
                   );
               return Column(
@@ -2043,11 +2397,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       nextStatus = 'ACCEPTED';
       icon = LucideIcons.checkCheck;
     } else if (status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
-      // Driver accepted (and, when required, customer approved the fee) —
-      // vendor can now start preparing.
-      mainButtonText = isArabic ? 'بدء التحضير' : 'Start Preparing';
-      nextStatus = 'PREPARING';
-      icon = LucideIcons.chefHat;
+      // Mobile-wallet orders must be paid first: the button stays disabled
+      // until the customer pays AND the driver confirms receipt
+      // (paymentStatus == COMPLETED). Cash orders can prepare right away.
+      final isMobileWallet =
+          (order['paymentMethod']?.toString() ?? '') == 'MOBILE_WALLET';
+      final isPaymentCompleted =
+          (order['paymentStatus']?.toString() ?? '') == 'COMPLETED';
+      if (isMobileWallet && !isPaymentCompleted) {
+        mainButtonText = isArabic ? 'بانتظار الدفع' : 'Waiting for Payment';
+        icon = LucideIcons.clock;
+      } else {
+        // Driver accepted (and, when required, customer approved the fee) —
+        // vendor can now start preparing.
+        mainButtonText = isArabic ? 'بدء التحضير' : 'Start Preparing';
+        nextStatus = 'PREPARING';
+        icon = LucideIcons.chefHat;
+      }
     } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER') {
       // Disabled: must wait until a driver accepts the order.
       mainButtonText = isArabic ? 'بانتظار السائق' : 'Waiting for Driver';

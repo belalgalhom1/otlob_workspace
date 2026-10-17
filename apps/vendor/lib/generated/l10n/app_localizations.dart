@@ -2492,6 +2492,12 @@ abstract class AppLocalizations {
   /// **'No drivers found.'**
   String get noDriversFound;
 
+  /// No description provided for @noPagesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching pages'**
+  String get noPagesFound;
+
   /// No description provided for @confirmBroadcast.
   ///
   /// In en, this message translates to:
@@ -2587,6 +2593,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pick Location'**
   String get pickLocation;
+
+  /// No description provided for @locationSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Location Selected'**
+  String get locationSelected;
 
   /// No description provided for @auditLogs.
   ///

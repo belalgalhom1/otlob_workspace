@@ -85,6 +85,14 @@ class SocketService with WidgetsBindingObserver {
       io.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': userToken})
+          // Keep the connection alive across drops/backgrounding: endless
+          // retries with backoff, same as the driver app. Resume handler
+          // reconnects immediately when the app returns to foreground.
+          .enableReconnection()
+          .setReconnectionAttempts(999999)
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
+          .setTimeout(20000)
           .build(),
     );
 

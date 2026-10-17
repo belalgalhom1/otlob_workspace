@@ -278,170 +278,451 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     );
   }
 
+  /// Export dialog: scope (this tab / all tabs) × language (Arabic /
+  /// English) × format (Excel CSV / PDF). "All tabs" lands every section in
+  /// one file (one PDF page per tab).
   Future<void> _exportCurrentTab(
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final query = _searchQuery.trim().toLowerCase();
-    final sortBy = _sortBy;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final tab = _tabController.index;
-    final l10n = AppLocalizations.of(context)!;
+    final isUiArabic =
+        Localizations.localeOf(context).languageCode == 'ar';
+    var allTabs = false;
+    var arabic = isUiArabic;
+    var format = 'excel'; // excel | pdf
 
-    switch (tab) {
-      case 0: // Drivers
-        final all =
-            ref.read(topDriversProvider).value ?? const <AnalyticsDriver>[];
-        var drivers = all.where((d) {
-          if (query.isEmpty) return true;
-          return d.name.toLowerCase().contains(query) ||
-              (d.phone ?? '').contains(query);
-        }).toList();
-        if (sortBy == 'wallet') {
-          drivers.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
-        } else {
-          drivers.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
-        }
-        const headers = ['Rank', 'Name', 'Phone', 'Tier', 'Status', 'Orders', 'Wallet Balance'];
-        final rows = [
-          for (var i = 0; i < drivers.length; i++)
-            [
-              '${i + 1}',
-              drivers[i].name,
-              drivers[i].phone ?? '',
-              drivers[i].tier,
-              drivers[i].status,
-              '${drivers[i].totalOrders}',
-              drivers[i].walletBalance.toStringAsFixed(2),
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final selectedColor = AppColors.primary;
+          final unselectedColor =
+              Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.7);
+
+          Widget chip(
+            String label,
+            bool selected,
+            VoidCallback onTap, {
+            IconData? icon,
+          }) {
+            return ChoiceChip(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 14,
+                      color: selected ? selectedColor : unselectedColor,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(label),
+                ],
+              ),
+              selected: selected,
+              onSelected: (_) => onTap(),
+              selectedColor: selectedColor.withValues(alpha: 0.15),
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: selected ? selectedColor : unselectedColor,
+              ),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              side: BorderSide(
+                color: selected
+                    ? selectedColor
+                    : Theme.of(ctx)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.15),
+              ),
+            );
+          }
+
+          final loc = (String en, String ar) => arabic ? ar : en;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            title: Text(isUiArabic ? 'تصدير التحليلات' : 'Export Analytics'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isUiArabic ? 'النطاق' : 'Scope',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      chip(
+                        isUiArabic ? 'هذا التبويب' : 'This tab',
+                        !allTabs,
+                        () => setDialogState(() => allTabs = false),
+                      ),
+                      chip(
+                        isUiArabic ? 'كل التبويبات' : 'All tabs',
+                        allTabs,
+                        () => setDialogState(() => allTabs = true),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isUiArabic ? 'اللغة' : 'Language',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      chip(
+                        'العربية',
+                        arabic,
+                        () => setDialogState(() => arabic = true),
+                      ),
+                      chip(
+                        'English',
+                        !arabic,
+                        () => setDialogState(() => arabic = false),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    loc('Excel and PDF will use the selected language.',
+                        'سيتم استخدام اللغة المحددة في Excel و PDF.'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isUiArabic ? 'الصيغة' : 'Format',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      chip(
+                        'Excel',
+                        format == 'excel',
+                        () => setDialogState(() => format = 'excel'),
+                        icon: LucideIcons.fileSpreadsheet,
+                      ),
+                      chip(
+                        'PDF',
+                        format == 'pdf',
+                        () => setDialogState(() => format = 'pdf'),
+                        icon: LucideIcons.fileText,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(isUiArabic ? 'إلغاء' : 'Cancel'),
+              ),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                icon: Icon(
+                  format == 'excel'
+                      ? LucideIcons.fileSpreadsheet
+                      : LucideIcons.fileText,
+                  size: 16,
+                ),
+                label: Text(isUiArabic ? 'تصدير' : 'Export'),
+                onPressed: () =>
+                    Navigator.pop(ctx, '$format:$allTabs:$arabic'),
+              ),
             ],
-        ];
-        await DataExportService.showExportOptions(
-          context,
-          title: l10n.topDrivers,
-          headers: headers,
-          rows: rows,
-          filename: 'top_drivers',
-        );
-      case 1: // Customers
-        final all = ref.read(topCustomersProvider).value ??
-            const <AnalyticsCustomer>[];
-        var customers = all.where((c) {
-          if (query.isEmpty) return true;
-          return c.name.toLowerCase().contains(query) ||
-              (c.phone ?? '').contains(query);
-        }).toList();
-        switch (sortBy) {
-          case 'spent':
-            customers.sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
-            break;
-          case 'coins':
-            customers.sort((a, b) => b.coinBalance.compareTo(a.coinBalance));
-            break;
-          default:
-            customers.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
-        }
-        const headers = ['Rank', 'Name', 'Phone', 'Orders', 'Total Spent', 'Coins'];
-        final rows = [
-          for (var i = 0; i < customers.length; i++)
-            [
-              '${i + 1}',
-              customers[i].name,
-              customers[i].phone ?? '',
-              '${customers[i].totalOrders}',
-              customers[i].totalSpent.toStringAsFixed(2),
-              customers[i].coinBalance.toStringAsFixed(2),
-            ],
-        ];
-        await DataExportService.showExportOptions(
-          context,
-          title: l10n.topCustomers,
-          headers: headers,
-          rows: rows,
-          filename: 'top_customers',
-        );
-      case 2: // Vendors
-        final all =
-            ref.read(topVendorsProvider).value ?? const <AnalyticsVendor>[];
-        var vendors = all.where((v) {
-          if (query.isEmpty) return true;
-          final name = isArabic ? (v.storeNameAr ?? v.storeName) : v.storeName;
-          return name.toLowerCase().contains(query);
-        }).toList();
-        switch (sortBy) {
-          case 'revenue':
-            vendors.sort((a, b) => b.totalRevenue.compareTo(a.totalRevenue));
-            break;
-          case 'wallet':
-            vendors.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
-            break;
-          default:
-            vendors.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
-        }
-        const headers = [
-          'Rank',
-          'Store',
-          'Orders',
-          'Revenue',
-          'Wallet Balance',
-          'Top Product',
-          'Top Product Orders',
-        ];
-        final rows = [
-          for (var i = 0; i < vendors.length; i++)
-            [
-              '${i + 1}',
-              isArabic
-                  ? (vendors[i].storeNameAr ?? vendors[i].storeName)
-                  : vendors[i].storeName,
-              '${vendors[i].totalOrders}',
-              vendors[i].totalRevenue.toStringAsFixed(2),
-              vendors[i].walletBalance.toStringAsFixed(2),
-              vendors[i].topProduct != null
-                  ? (isArabic
-                      ? (vendors[i].topProduct!.nameAr ??
-                          vendors[i].topProduct!.name)
-                      : vendors[i].topProduct!.name)
-                  : '',
-              vendors[i].topProduct != null
-                  ? '${vendors[i].topProduct!.totalOrders}'
-                  : '',
-            ],
-        ];
-        await DataExportService.showExportOptions(
-          context,
-          title: l10n.topVendors,
-          headers: headers,
-          rows: rows,
-          filename: 'top_vendors',
-        );
-      case 3: // Products
-        final all = ref.read(topProductsProvider).value ??
-            const <AnalyticsTopProduct>[];
-        var products = all.where((p) {
-          if (query.isEmpty) return true;
-          final name = isArabic ? (p.nameAr ?? p.name) : p.name;
-          return name.toLowerCase().contains(query);
-        }).toList();
-        products.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
-        const headers = ['Rank', 'Product', 'Orders'];
-        final rows = [
-          for (var i = 0; i < products.length; i++)
-            [
-              '${i + 1}',
-              isArabic
-                  ? (products[i].nameAr ?? products[i].name)
-                  : products[i].name,
-              '${products[i].totalOrders}',
-            ],
-        ];
-        await DataExportService.showExportOptions(
-          context,
-          title: l10n.topProduct,
-          headers: headers,
-          rows: rows,
-          filename: 'top_products',
-        );
+          );
+        },
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+
+    final parts = choice.split(':');
+    final wantAll = parts[1] == 'true';
+    final ar = parts[2] == 'true';
+    final query = _searchQuery.trim().toLowerCase();
+    // Single-tab mode keeps the on-screen sort; all-tabs uses each
+    // section's default (orders) sort.
+    final sortBy = _sortBy;
+    final tab = _tabController.index;
+
+    List<ExportSection> sections;
+    String filename;
+    if (wantAll) {
+      sections = [
+        _driversSection(ref, query, null, ar),
+        _customersSection(ref, query, null, ar),
+        _vendorsSection(ref, query, null, ar),
+        _productsSection(ref, query, ar),
+      ];
+      filename = 'analytics_report';
+    } else {
+      switch (tab) {
+        case 0:
+          sections = [_driversSection(ref, query, sortBy, ar)];
+          filename = 'top_drivers';
+          break;
+        case 1:
+          sections = [_customersSection(ref, query, sortBy, ar)];
+          filename = 'top_customers';
+          break;
+        case 2:
+          sections = [_vendorsSection(ref, query, sortBy, ar)];
+          filename = 'top_vendors';
+          break;
+        default:
+          sections = [_productsSection(ref, query, ar)];
+          filename = 'top_products';
+          break;
+      }
     }
+
+    final reportTitle = ar ? 'تقرير التحليلات' : 'Analytics Report';
+    try {
+      if (parts[0] == 'excel') {
+        await DataExportService.exportSectionsCsv(
+          context: context,
+          title: reportTitle,
+          sections: sections,
+          filename: filename,
+        );
+      } else {
+        await DataExportService.exportSectionsPdf(
+          context: context,
+          title: reportTitle,
+          sections: sections,
+          filename: filename,
+          isRtl: ar,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${isUiArabic ? 'فشل التصدير' : 'Export failed'}: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  String _tierLabel(String tier, bool ar) {
+    switch (tier.toUpperCase()) {
+      case 'GOLD':
+        return ar ? 'ذهبي' : 'Gold';
+      case 'SILVER':
+        return ar ? 'فضي' : 'Silver';
+      case 'BRONZE':
+        return ar ? 'برونزي' : 'Bronze';
+      default:
+        return tier;
+    }
+  }
+
+  String _driverStatusLabel(String status, bool ar) {
+    switch (status.toUpperCase()) {
+      case 'ONLINE':
+        return ar ? 'متصل' : 'Online';
+      case 'OFFLINE':
+        return ar ? 'غير متصل' : 'Offline';
+      case 'ON_DELIVERY':
+        return ar ? 'في توصيلة' : 'On delivery';
+      case 'ON_BREAK':
+        return ar ? 'في استراحة' : 'On break';
+      case 'SUSPENDED':
+        return ar ? 'موقوف' : 'Suspended';
+      case 'BUSY':
+        return ar ? 'مشغول' : 'Busy';
+      default:
+        return status;
+    }
+  }
+
+  ExportSection _driversSection(
+    WidgetRef ref,
+    String query,
+    String? sortBy,
+    bool ar,
+  ) {
+    final all =
+        ref.read(topDriversProvider).value ?? const <AnalyticsDriver>[];
+    var drivers = all.where((d) {
+      if (query.isEmpty) return true;
+      return d.name.toLowerCase().contains(query) ||
+          (d.phone ?? '').contains(query);
+    }).toList();
+    if (sortBy == 'wallet') {
+      drivers.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
+    } else {
+      drivers.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
+    }
+    return ExportSection(
+      title: ar ? 'أفضل السائقين' : 'Top Drivers',
+      headers: ar
+          ? const ['الترتيب', 'الاسم', 'الهاتف', 'المستوى', 'الحالة', 'الطلبات', 'رصيد المحفظة']
+          : const ['Rank', 'Name', 'Phone', 'Tier', 'Status', 'Orders', 'Wallet Balance'],
+      rows: [
+        for (var i = 0; i < drivers.length; i++)
+          [
+            '${i + 1}',
+            drivers[i].name,
+            drivers[i].phone ?? '',
+            _tierLabel(drivers[i].tier, ar),
+            _driverStatusLabel(drivers[i].status, ar),
+            '${drivers[i].totalOrders}',
+            drivers[i].walletBalance.toStringAsFixed(2),
+          ],
+      ],
+    );
+  }
+
+  ExportSection _customersSection(
+    WidgetRef ref,
+    String query,
+    String? sortBy,
+    bool ar,
+  ) {
+    final all = ref.read(topCustomersProvider).value ??
+        const <AnalyticsCustomer>[];
+    var customers = all.where((c) {
+      if (query.isEmpty) return true;
+      return c.name.toLowerCase().contains(query) ||
+          (c.phone ?? '').contains(query);
+    }).toList();
+    switch (sortBy) {
+      case 'spent':
+        customers.sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
+        break;
+      case 'coins':
+        customers.sort((a, b) => b.coinBalance.compareTo(a.coinBalance));
+        break;
+      default:
+        customers.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
+    }
+    return ExportSection(
+      title: ar ? 'أفضل العملاء' : 'Top Customers',
+      headers: ar
+          ? const ['الترتيب', 'الاسم', 'الهاتف', 'الطلبات', 'إجمالي الإنفاق', 'العملات']
+          : const ['Rank', 'Name', 'Phone', 'Orders', 'Total Spent', 'Coins'],
+      rows: [
+        for (var i = 0; i < customers.length; i++)
+          [
+            '${i + 1}',
+            customers[i].name,
+            customers[i].phone ?? '',
+            '${customers[i].totalOrders}',
+            customers[i].totalSpent.toStringAsFixed(2),
+            customers[i].coinBalance.toStringAsFixed(2),
+          ],
+      ],
+    );
+  }
+
+  ExportSection _vendorsSection(
+    WidgetRef ref,
+    String query,
+    String? sortBy,
+    bool ar,
+  ) {
+    final all =
+        ref.read(topVendorsProvider).value ?? const <AnalyticsVendor>[];
+    var vendors = all.where((v) {
+      if (query.isEmpty) return true;
+      final name = ar ? (v.storeNameAr ?? v.storeName) : v.storeName;
+      return name.toLowerCase().contains(query);
+    }).toList();
+    switch (sortBy) {
+      case 'revenue':
+        vendors.sort((a, b) => b.totalRevenue.compareTo(a.totalRevenue));
+        break;
+      case 'wallet':
+        vendors.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
+        break;
+      default:
+        vendors.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
+    }
+    return ExportSection(
+      title: ar ? 'أفضل المتاجر' : 'Top Vendors',
+      headers: ar
+          ? const ['الترتيب', 'المتجر', 'الطلبات', 'الإيرادات', 'رصيد المحفظة', 'أفضل منتج', 'طلبات أفضل منتج']
+          : const ['Rank', 'Store', 'Orders', 'Revenue', 'Wallet Balance', 'Top Product', 'Top Product Orders'],
+      rows: [
+        for (var i = 0; i < vendors.length; i++)
+          [
+            '${i + 1}',
+            ar
+                ? (vendors[i].storeNameAr ?? vendors[i].storeName)
+                : vendors[i].storeName,
+            '${vendors[i].totalOrders}',
+            vendors[i].totalRevenue.toStringAsFixed(2),
+            vendors[i].walletBalance.toStringAsFixed(2),
+            vendors[i].topProduct != null
+                ? (ar
+                    ? (vendors[i].topProduct!.nameAr ??
+                        vendors[i].topProduct!.name)
+                    : vendors[i].topProduct!.name)
+                : '',
+            vendors[i].topProduct != null
+                ? '${vendors[i].topProduct!.totalOrders}'
+                : '',
+          ],
+      ],
+    );
+  }
+
+  ExportSection _productsSection(
+    WidgetRef ref,
+    String query,
+    bool ar,
+  ) {
+    final all = ref.read(topProductsProvider).value ??
+        const <AnalyticsTopProduct>[];
+    var products = all.where((p) {
+      if (query.isEmpty) return true;
+      final name = ar ? (p.nameAr ?? p.name) : p.name;
+      return name.toLowerCase().contains(query);
+    }).toList();
+    products.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
+    return ExportSection(
+      title: ar ? 'أفضل المنتجات' : 'Top Products',
+      headers: ar
+          ? const ['الترتيب', 'المنتج', 'الطلبات']
+          : const ['Rank', 'Product', 'Orders'],
+      rows: [
+        for (var i = 0; i < products.length; i++)
+          [
+            '${i + 1}',
+            ar
+                ? (products[i].nameAr ?? products[i].name)
+                : products[i].name,
+            '${products[i].totalOrders}',
+          ],
+      ],
+    );
   }
 }
 

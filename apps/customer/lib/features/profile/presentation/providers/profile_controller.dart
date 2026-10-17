@@ -195,8 +195,10 @@ class Profile extends _$Profile {
       }
       
       final address = await addressRepo.createAddress(builder.build());
-      
+
       state = state.copyWith(addresses: [...state.addresses, Map<String, dynamic>.from(address)]);
+      // First address saved — release the post-login address gate.
+      ref.read(needsAddressProvider.notifier).set(false);
     } catch (e) {
       debugPrint('Add Address Error: $e');
       throw ApiErrorMapper.fromError(e);

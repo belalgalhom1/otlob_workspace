@@ -68,7 +68,7 @@ export class UpdateDriverStatusDto {
   @ApiProperty({
     enum: [DriverStatus.ONLINE, DriverStatus.OFFLINE],
     description:
-      'ONLINE / OFFLINE only. Use POST /drivers/me/break/start|end for breaks.',
+      'Deprecated: online status is fully shift-driven (shift start flips ONLINE, shift end flips OFFLINE). Manual flips are rejected.',
   })
   @IsIn([DriverStatus.ONLINE, DriverStatus.OFFLINE], {
     message: 'Status must be ONLINE or OFFLINE',

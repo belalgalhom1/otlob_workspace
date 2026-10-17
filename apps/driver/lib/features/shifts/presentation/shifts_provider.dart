@@ -26,15 +26,34 @@ class DriverShifts extends _$DriverShifts {
     }
   }
 
-  Future<void> startShift(String shiftId) async {
+  /// Starts a shift with the mandatory selfie + current coordinates.
+  /// On success the backend flips the driver ONLINE and the profile is
+  /// refreshed so tracking starts; errors restore the previous list state
+  /// and are rethrown for the UI to display.
+  Future<void> startShift(
+    String shiftId, {
+    String? photoPath,
+    double? latitude,
+    double? longitude,
+  }) async {
     final prev = state;
     try {
       final repository = ref.read(driverShiftsRepositoryProvider);
-      await repository.startShift(shiftId);
+      if (photoPath != null) {
+        await repository.startShiftWithPhoto(
+          shiftId: shiftId,
+          photoPath: photoPath,
+          latitude: latitude,
+          longitude: longitude,
+        );
+      } else {
+        await repository.startShift(shiftId);
+      }
       await _fetchMyShifts();
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       if (prev.hasValue) state = prev;
+      rethrow;
     }
   }
 

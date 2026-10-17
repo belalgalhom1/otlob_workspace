@@ -139,31 +139,23 @@ export class DriversService {
       throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
     }
 
+    // Online/offline is fully shift-driven: starting a shift flips the
+    // driver ONLINE, ending it flips OFFLINE. Manual flips are rejected so
+    // drivers can never go online/offline on their own.
+    if (
+      dto.status === DriverStatus.ONLINE ||
+      dto.status === DriverStatus.OFFLINE
+    ) {
+      throw new BadRequestException(DriverErrors.STATUS_MANAGED_BY_SHIFT);
+    }
+
     const oldStatus = driver.status;
     await this.driversRepository.updateStatus(driver.id, dto.status);
 
-    // Going offline drops any unapproved break request.
-    if (dto.status === DriverStatus.OFFLINE) {
-      const pending = await this.driversRepository.findPendingBreak(driver.id);
-      if (pending) {
-        await this.driversRepository.cancelBreak(pending.id);
-      }
-    }
-
-    if (
-      dto.status === DriverStatus.OFFLINE ||
-      dto.status === DriverStatus.SUSPENDED
-    ) {
-      const pos = await this.locationRepository.getDriverLocation(driver.id);
-      if (pos) {
-        await this.driversRepository.updateLastLocation(
-          driver.id,
-          pos.lng,
-          pos.lat,
-        );
-      }
-      await this.locationRepository.removeDriverLocation(driver.id);
-    }
+    // NOTE: manual ONLINE/OFFLINE is rejected above, so the old
+    // offline-cleanup branches are gone. Shift end paths settle breaks,
+    // persist the last location and drop live tracking themselves
+    // (see endShift / endShiftBySystem).
 
     this.eventEmitter.emit(
       EVENTS.DRIVER_STATUS_CHANGED,
@@ -706,8 +698,20 @@ export class DriversService {
     return { success: true, removed: 1 };
   }
 
-  async startShift(userId: string, shiftId: string) {
+  async startShift(
+    userId: string,
+    shiftId: string,
+    file?: Express.Multer.File,
+    latitude?: number,
+    longitude?: number,
+  ) {
     const driver = await this.assertDriver(userId);
+    if (driver.status === DriverStatus.SUSPENDED) {
+      throw new ForbiddenException(DriverErrors.ACCOUNT_SUSPENDED);
+    }
+    if (!driver.isApproved) {
+      throw new ForbiddenException(DriverErrors.NOT_APPROVED);
+    }
     const shift = await this.driversRepository.findShiftById(
       shiftId,
       driver.id,
@@ -718,8 +722,32 @@ export class DriversService {
       throw new BadRequestException(DriverErrors.SHIFT_NOT_SCHEDULED);
     }
 
+    // A selfie is mandatory to start a shift (shown in the shift list).
+    if (!file) {
+      throw new BadRequestException(DriverErrors.START_PHOTO_REQUIRED);
+    }
+
+    // The driver must physically be inside the shift's zone.
+    if (shift.zoneId) {
+      if (latitude == null || longitude == null) {
+        throw new BadRequestException(DriverErrors.NOT_IN_SHIFT_ZONE);
+      }
+      const zone = await this.locationRepository.findZoneByLocation(
+        longitude,
+        latitude,
+      );
+      if (!zone || zone.id !== shift.zoneId) {
+        throw new BadRequestException(DriverErrors.NOT_IN_SHIFT_ZONE);
+      }
+    }
+
+    // Upload first (no DB changes yet); the orphan is deleted below if the
+    // atomic start loses a concurrent race.
+    const photoUrl = await this.storage.upload(file, 'drivers/shift-starts');
+
+    let startedShift;
     try {
-      const startedShift = await this.driversRepository.startShiftSafely(
+      startedShift = await this.driversRepository.startShiftSafely(
         shiftId,
         driver.id,
       );
@@ -727,14 +755,42 @@ export class DriversService {
       if (!startedShift) {
         throw new BadRequestException(DriverErrors.SHIFT_NOT_SCHEDULED);
       }
-
-      return startedShift;
     } catch (error) {
+      await this.storage.delete(photoUrl).catch(() => null);
       if ((error as Error).message === 'ACTIVE_SHIFT_EXISTS') {
         throw new BadRequestException(DriverErrors.ACTIVE_SHIFT_EXISTS);
       }
       throw error;
     }
+
+    // Persist the start selfie (best-effort: the shift is already started).
+    await this.driversRepository
+      .updateShift(shiftId, { startPhotoUrl: photoUrl })
+      .catch((e: unknown) =>
+        this.logger.error(`Failed to save shift start photo: ${e}`),
+      );
+
+    // Starting a shift takes the driver ONLINE directly — there is no
+    // manual online/offline anymore.
+    const fresh = await this.driversRepository.findById(driver.id);
+    if (fresh && fresh.status === DriverStatus.OFFLINE) {
+      await this.driversRepository.updateStatus(
+        driver.id,
+        DriverStatus.ONLINE,
+      );
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          driver.id,
+          userId,
+          DriverStatus.OFFLINE,
+          DriverStatus.ONLINE,
+          'Shift started.',
+        ),
+      );
+    }
+
+    return startedShift;
   }
 
   async endShift(userId: string, shiftId: string) {
@@ -779,6 +835,34 @@ export class DriversService {
       });
     } catch (e) {
       throw new BadRequestException(DriverErrors.SHIFT_NOT_ACTIVE);
+    }
+
+    // Ending the shift takes the driver OFFLINE directly — there is no
+    // manual online/offline anymore. (ON_DELIVERY is rejected above, and
+    // breaks were already settled, so the flip is safe.)
+    const endedStatus = (await this.driversRepository.findById(driver.id))
+      ?.status;
+    if (endedStatus && endedStatus !== DriverStatus.OFFLINE) {
+      await this.driversRepository.updateStatus(driver.id, DriverStatus.OFFLINE);
+      const pos = await this.locationRepository.getDriverLocation(driver.id);
+      if (pos) {
+        await this.driversRepository.updateLastLocation(
+          driver.id,
+          pos.lng,
+          pos.lat,
+        );
+      }
+      await this.locationRepository.removeDriverLocation(driver.id);
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          driver.id,
+          userId,
+          endedStatus,
+          DriverStatus.OFFLINE,
+          'Shift ended.',
+        ),
+      );
     }
 
     // Tier Promotion Logic
@@ -845,6 +929,36 @@ export class DriversService {
       });
     } catch (e) {
       return;
+    }
+
+    // System-ended shifts also take the driver OFFLINE (ON_DELIVERY already
+    // returned early above, breaks already settled).
+    const sysStatus = (await this.driversRepository.findById(driverId))
+      ?.status;
+    if (sysStatus && sysStatus !== DriverStatus.OFFLINE) {
+      await this.driversRepository.updateStatus(
+        driverId,
+        DriverStatus.OFFLINE,
+      );
+      const sysPos = await this.locationRepository.getDriverLocation(driverId);
+      if (sysPos) {
+        await this.driversRepository.updateLastLocation(
+          driverId,
+          sysPos.lng,
+          sysPos.lat,
+        );
+      }
+      await this.locationRepository.removeDriverLocation(driverId);
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          driverId,
+          driverById.userId,
+          sysStatus,
+          DriverStatus.OFFLINE,
+          'Shift ended by system.',
+        ),
+      );
     }
 
     // Tier Promotion Logic

@@ -52,6 +52,10 @@ class RouterNotifier extends ChangeNotifier {
       needsPhoneProvider,
       (_, _) => notifyListeners(),
     );
+    _ref.listen<bool>(
+      needsAddressProvider,
+      (_, _) => notifyListeners(),
+    );
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -68,6 +72,15 @@ class RouterNotifier extends ChangeNotifier {
     // Phone gate: authenticated users without a phone number must complete it.
     if (path != RoutePaths.completePhone && _ref.read(needsPhoneProvider)) {
       return RoutePaths.completePhone;
+    }
+
+    // Address gate: first login (or a fresh account) with no delivery
+    // address must add one before continuing anywhere else.
+    if (authStatus == AuthStatus.authenticated &&
+        path != '/addresses' &&
+        path != RoutePaths.completePhone &&
+        _ref.read(needsAddressProvider)) {
+      return '/addresses';
     }
 
     final isGoingToSplash = path == RoutePaths.splash;

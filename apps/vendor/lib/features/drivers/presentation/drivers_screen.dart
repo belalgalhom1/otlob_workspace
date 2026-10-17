@@ -11,6 +11,7 @@ import 'widgets/assign_order_dialog.dart';
 import 'widgets/driver_shifts_dialog.dart';
 import '../../wallet/presentation/widgets/manual_transaction_dialog.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
 import 'widgets/driver_form_dialog.dart';
 import 'driver_statistics_screen.dart';
@@ -33,8 +34,9 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // NOTE: no loadMore() here — DriversNotifier.build() already fetches
+    // page 1; an extra call only double-fetched (or skipped to page 2).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(driversProvider.notifier).loadMore();
       _checkPermissions();
     });
   }
@@ -43,6 +45,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -84,7 +87,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                       children: [
                         Expanded(flex: 1, child: _buildList(state)),
                         const SizedBox(width: 16),
-                        Expanded(flex: 2, child: _buildMap(state)),
+                        Expanded(flex: 2, child: _buildMap(context, state)),
                       ],
                     ),
             ),
@@ -252,8 +255,13 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               final driver = data.drivers[index];
               final isSelected = _selectedDriver?.id == driver.id;
 
+              // Never hardcode the API host (breaks on non-prod backends)
+              // and never assume a leading slash or relative path.
               final avatarPath = driver.avatar;
-              final avatarUrl = avatarPath != null ? 'https://api.otlob-egy.online$avatarPath' : null;
+              final resolvedAvatar = (avatarPath == null || avatarPath.isEmpty)
+                  ? ''
+                  : ImageUtils.formatImageUrl(avatarPath);
+              final avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
 
               return InkWell(
                 onTap: () {
@@ -275,11 +283,11 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: _getStatusColor(driver.status).withValues(alpha: 0.1),
+                        backgroundColor: _getStatusColor(context, driver.status).withValues(alpha: 0.1),
                         backgroundImage: avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null,
                         child: avatarUrl == null ? Icon(
                           LucideIcons.user,
-                          color: _getStatusColor(driver.status),
+                          color: _getStatusColor(context, driver.status),
                         ) : null,
                       ),
                       const SizedBox(width: 16),
@@ -316,11 +324,26 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '${AppLocalizations.of(context)!.status}: ${_translateDriverStatus(context, driver.status)} • ${AppLocalizations.of(context)!.driverBalance}: ${driver.walletBalance} ${AppLocalizations.of(context)!.egp}',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontSize: 13,
+                            RichText(
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              text: TextSpan(
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontSize: 13,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: '${AppLocalizations.of(context)!.status}: ${_translateDriverStatus(context, driver.status)} • ',
+                                  ),
+                                  TextSpan(
+                                    text: '${AppLocalizations.of(context)!.driverBalance}: ${_formatBalance(driver.walletBalance)} ${AppLocalizations.of(context)!.egp}',
+                                    style: TextStyle(
+                                      color: driver.walletBalance < 0 ? AppColors.error : null,
+                                      fontWeight: driver.walletBalance < 0 ? FontWeight.bold : null,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -460,7 +483,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     );
   }
 
-  Widget _buildMap(AsyncValue<DriversState> state) {
+  Widget _buildMap(BuildContext context, AsyncValue<DriversState> state) {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -484,7 +507,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                 child: Icon(
                   LucideIcons.mapPin,
                   size: isSelected ? 40 : 30,
-                  color: _getStatusColor(d.status),
+                  color: _getStatusColor(context, d.status),
                 ),
               ),
             );
@@ -510,7 +533,16 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     );
   }
 
-  Color _getStatusColor(String status) {
+  /// Clean balance text: no trailing ".0" on whole amounts, negative
+  /// balances (driver owes) stand out in red via the caller.
+  String _formatBalance(double value) {
+    final isWhole = value.truncateToDouble() == value;
+    return value.toStringAsFixed(isWhole ? 0 : 2);
+  }
+
+  /// Theme-aware status color. (AppColors.textSecondary is fixed black and
+  /// was invisible on dark backgrounds for OFFLINE/unknown drivers.)
+  Color _getStatusColor(BuildContext context, String status) {
     switch (status) {
       case 'ONLINE':
         return AppColors.success;
@@ -519,11 +551,11 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       case 'ON_BREAK':
         return AppColors.warning;
       case 'OFFLINE':
-        return AppColors.textSecondary;
+        return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4);
       case 'SUSPENDED':
         return AppColors.error;
       default:
-        return AppColors.textSecondary;
+        return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4);
     }
   }
 

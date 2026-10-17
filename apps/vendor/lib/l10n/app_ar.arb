@@ -1,4 +1,4 @@
-{
+﻿{
   "@@locale": "ar",
   "done": "تم",
   "appTitle": "أطلب أدمن",
@@ -486,6 +486,7 @@
   "noDataAvailable": "لا توجد بيانات متاحة",
   "noUsersFoundSystem": "لم يتم العثور على مستخدمين في النظام.",
   "noDriversFound": "لم يتم العثور على سائقين.",
+  "noPagesFound": "لا توجد صفحات مطابقة",
   "confirmBroadcast": "تأكيد البث",
   "broadcastNow": "بث الآن",
   "announcementSuccess": "تم بث الإعلان بنجاح!",
@@ -502,6 +503,7 @@
   "statusSuspended": "موقوف",
   "locationPermissionsDenied": "تم رفض أذونات الموقع.",
   "pickLocation": "اختر الموقع",
+  "locationSelected": "تم تحديد الموقع",
   "auditLogs": "سجلات التدقيق",
   "noAuditLogsFound": "لم يتم العثور على سجلات تدقيق",
   "errorLoadingOrders": "حدث خطأ أثناء تحميل الطلبات",

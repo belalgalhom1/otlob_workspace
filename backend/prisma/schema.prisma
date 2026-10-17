@@ -944,6 +944,7 @@ model DriverShift {
   endTime            DateTime                  @db.Timestamptz(3)
   actualStart        DateTime?                 @db.Timestamptz(3)
   actualEnd          DateTime?                 @db.Timestamptz(3)
+  startPhotoUrl      String?
   startingLocation   Unsupported("geometry")?
   endingLocation     Unsupported("geometry")?
   status             DriverShiftStatus         @default(SCHEDULED)

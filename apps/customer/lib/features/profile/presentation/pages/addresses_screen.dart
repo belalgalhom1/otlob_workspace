@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -15,6 +18,9 @@ class AddressesScreen extends ConsumerWidget {
     final profileState = ref.watch(profileProvider);
     final s = AppStrings.of(context);
     final addresses = profileState.addresses;
+    // Forced by the post-login gate (no back stack exists here): explain
+    // why and where this screen leads.
+    final isGated = ref.watch(needsAddressProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -23,17 +29,49 @@ class AddressesScreen extends ConsumerWidget {
         foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
         elevation: 0,
       ),
-      body: addresses.isEmpty
-          ? _buildEmptyState(context)
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: addresses.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final address = addresses[index];
-                return _buildAddressCard(context, ref, address);
-              },
+      body: Column(
+        children: [
+          if (isGated)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      s.isArabic
+                          ? 'أضف عنوان التوصيل للمتابعة إلى الرئيسية'
+                          : 'Add a delivery address to continue to home',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          Expanded(
+            child: addresses.isEmpty
+                ? _buildEmptyState(context)
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: addresses.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final address = addresses[index];
+                      return _buildAddressCard(context, ref, address);
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddAddress(context, ref),
         backgroundColor: AppColors.primary,
@@ -217,11 +255,41 @@ class AddressesScreen extends ConsumerWidget {
     );
   }
 
+  Future<bool> _detectCurrentPosition(
+    void Function(void Function()) setState, {
+    required void Function(double lat, double lng) onDetected,
+    required void Function() onDone,
+  }) async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return false;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return false;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 10));
+      onDetected(pos.latitude, pos.longitude);
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      onDone();
+    }
+  }
+
   void _showAddAddress(BuildContext context, WidgetRef ref) {
     final labelCtrl = TextEditingController();
     final addressCtrl = TextEditingController();
+    final s = AppStrings.of(context);
     double? selectedLat;
     double? selectedLng;
+    bool detecting = false;
+    bool autoTried = false;
 
     showModalBottomSheet(
       context: context,
@@ -229,13 +297,35 @@ class AddressesScreen extends ConsumerWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
+          // Auto-detect the user's location once when the sheet opens.
+          if (!autoTried) {
+            autoTried = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (ctx.mounted) setState(() => detecting = true);
+              _detectCurrentPosition(
+                setState,
+                onDetected: (lat, lng) {
+                  if (ctx.mounted) {
+                    setState(() {
+                      selectedLat = lat;
+                      selectedLng = lng;
+                    });
+                  }
+                },
+                onDone: () {
+                  if (ctx.mounted) setState(() => detecting = false);
+                },
+              );
+            });
+          }
+          final isAr = s.isArabic;
           return Padding(
             padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Add New Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+                Text(isAr ? 'إضافة عنوان جديد' : 'Add New Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
                 const SizedBox(height: 24),
                 TextField(controller: labelCtrl, decoration: InputDecoration(labelText: AppStrings.of(context).addressLabel, prefixIcon: const Icon(Icons.label))),
                 const SizedBox(height: 16),
@@ -243,9 +333,18 @@ class AddressesScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.map_outlined),
-                  title: Text(selectedLat != null ? 'Location Selected' : 'Pick Location on Map'),
-                  subtitle: selectedLat != null ? Text('$selectedLat, $selectedLng') : null,
+                  leading: detecting
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(
+                          selectedLat != null ? Icons.check_circle : Icons.map_outlined,
+                          color: selectedLat != null ? Colors.green : null,
+                        ),
+                  title: Text(detecting
+                      ? (isAr ? 'جاري تحديد موقعك...' : 'Detecting your location...')
+                      : (selectedLat != null
+                          ? (isAr ? 'تم تحديد الموقع' : 'Location Selected')
+                          : (isAr ? 'تحديد الموقع على الخريطة' : 'Pick Location on Map'))),
+                  subtitle: selectedLat != null && !detecting ? Text('$selectedLat, $selectedLng') : null,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
                     // Navigate to map picker
@@ -270,6 +369,9 @@ class AddressesScreen extends ConsumerWidget {
                     onPressed: () async {
                       if (labelCtrl.text.isNotEmpty && addressCtrl.text.isNotEmpty) {
                         try {
+                          // Gated first-run (no back stack): adding the first
+                          // address must land the user on home.
+                          final wasGated = ref.read(needsAddressProvider);
                           await ref.read(profileProvider.notifier).addAddress({
                             'label': labelCtrl.text.trim(),
                             'address': addressCtrl.text.trim(),
@@ -281,9 +383,13 @@ class AddressesScreen extends ConsumerWidget {
                           });
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text(AppStrings.of(context).addressAdded), backgroundColor: Colors.green),
-                            );
+                            if (wasGated) {
+                              if (context.mounted) context.go('/home');
+                            } else {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text(AppStrings.of(context).addressAdded), backgroundColor: Colors.green),
+                              );
+                            }
                           }
                         } catch (e) {
                           if (ctx.mounted) {

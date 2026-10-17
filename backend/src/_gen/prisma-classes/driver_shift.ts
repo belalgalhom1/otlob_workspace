@@ -29,6 +29,9 @@ export class DriverShift {
   @ApiPropertyOptional({ type: Date })
   actualEnd?: Date;
 
+  @ApiPropertyOptional({ type: String })
+  startPhotoUrl?: string;
+
   @ApiProperty({ enum: DriverShiftStatus, enumName: 'DriverShiftStatus' })
   status: DriverShiftStatus = DriverShiftStatus.SCHEDULED;
 

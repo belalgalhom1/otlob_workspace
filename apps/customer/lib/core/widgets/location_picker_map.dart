@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,8 +19,100 @@ class LocationPickerMap extends StatefulWidget {
 class _LocationPickerMapState extends State<LocationPickerMap> {
   late MapController _mapController;
   LatLng? _selectedLocation;
-  // Default to Cairo, Saudi Arabia
+  // Default to Cairo, Egypt
   final LatLng _defaultLocation = const LatLng(30.0444, 31.2357);
+
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _searching = false;
+  bool _hasSearched = false;
+  Timer? _searchDebounce;
+
+  bool get _isAr => Localizations.localeOf(context).languageCode == 'ar';
+
+  /// Live place search (OpenStreetMap Nominatim, Egypt-biased): results
+  /// refresh automatically for anything typed (3+ chars), no submit needed.
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final query = value.trim();
+    if (query.length < 3) {
+      setState(() {
+        _searchResults = [];
+        _searching = false;
+        _hasSearched = false;
+      });
+      return;
+    }
+    // Instant UI feedback (spinner + clear button) while debouncing.
+    setState(() {
+      _searching = true;
+      _hasSearched = false;
+    });
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _searchPlaces(query);
+    });
+  }
+
+  Future<void> _searchPlaces(String query) async {
+    setState(() => _searching = true);
+    try {
+      final res = await Dio()
+          .get(
+            'https://nominatim.openstreetmap.org/search',
+            queryParameters: {
+              'q': query,
+              'format': 'jsonv2',
+              'limit': 6,
+              'countrycodes': 'eg',
+              'accept-language': _isAr ? 'ar' : 'en',
+              'addressdetails': 1,
+            },
+            options: Options(
+              headers: {'User-Agent': 'otlob-customer-app/1.0'},
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
+      final list = ((res.data as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => {
+                'name': e['display_name']?.toString() ?? query,
+                'lat': double.tryParse(e['lat']?.toString() ?? ''),
+                'lng': double.tryParse(e['lon']?.toString() ?? ''),
+              })
+          .where((e) => e['lat'] != null && e['lng'] != null)
+          .toList();
+      if (mounted) {
+        setState(() {
+          _searchResults = List<Map<String, dynamic>>.from(list);
+          _searching = false;
+          _hasSearched = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _searching = false;
+          _hasSearched = true;
+        });
+      }
+    }
+  }
+
+  void _pickSearchResult(Map<String, dynamic> place) {
+    final point = LatLng(
+      (place['lat'] as num).toDouble(),
+      (place['lng'] as num).toDouble(),
+    );
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _selectedLocation = point;
+      _searchResults = [];
+      _hasSearched = false;
+      _searchController.clear();
+    });
+    _mapController.move(point, 15.0);
+  }
 
   @override
   void initState() {
@@ -35,11 +128,16 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     bool serviceEnabled;
     LocationPermission permission;
 
+    final isAr = _isAr;
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location services are disabled. Please enable them in settings.')),
+          SnackBar(
+            content: Text(isAr
+                ? 'خدمات الموقع متوقفة. يرجى تفعيلها من الإعدادات.'
+                : 'Location services are disabled. Please enable them in settings.'),
+          ),
         );
       }
       await Geolocator.openLocationSettings();
@@ -52,17 +150,25 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
       if (permission == LocationPermission.denied) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permissions are denied.')),
+            SnackBar(
+              content: Text(isAr
+                  ? 'تم رفض إذن الموقع.'
+                  : 'Location permissions are denied.'),
+            ),
           );
         }
         return;
       }
     }
-    
+
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are permanently denied, please enable them in app settings.')),
+          SnackBar(
+            content: Text(isAr
+                ? 'إذن الموقع مرفوض نهائياً، يرجى تفعيله من إعدادات التطبيق.'
+                : 'Location permissions are permanently denied, please enable them in app settings.'),
+          ),
         );
       }
       await Geolocator.openAppSettings();
@@ -71,8 +177,10 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
 
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 8),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () async {
@@ -91,7 +199,11 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not fetch location: $e')),
+          SnackBar(
+            content: Text(_isAr
+                ? 'تعذر تحديد الموقع. حرك الخريطة واختر يدوياً.'
+                : 'Could not fetch location: $e'),
+          ),
         );
       }
     }
@@ -106,18 +218,22 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
   @override
   void dispose() {
     _mapController.dispose();
+    _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pick Location'),
+        title: Text(_isAr ? 'اختر الموقع' : 'Pick Location'),
         actions: [
           if (_selectedLocation != null)
             IconButton(
               icon: const Icon(LucideIcons.check),
+              tooltip: _isAr ? 'تأكيد' : 'Confirm',
               onPressed: () {
                 Navigator.pop(context, _selectedLocation);
               },
@@ -155,8 +271,136 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
                 ),
             ],
           ),
+          // Place search overlay.
           Positioned(
-            bottom: 24,
+            top: 12,
+            left: 16,
+            right: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(12),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (value) {
+                      _searchDebounce?.cancel();
+                      final query = value.trim();
+                      if (query.length >= 3) {
+                        setState(() {
+                          _searching = true;
+                          _hasSearched = false;
+                        });
+                        _searchPlaces(query);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: _isAr
+                          ? 'ابحث عن مكان... (٣ أحرف على الأقل)'
+                          : 'Search for a place... (min 3 chars)',
+                      prefixIcon: _searching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchResults = [];
+                                  _hasSearched = false;
+                                });
+                              },
+                            ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_searchResults.isNotEmpty ||
+                    (_hasSearched &&
+                        !_searching &&
+                        _searchController.text.trim().length >= 3))
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: _searchResults.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            child: Text(
+                              _isAr
+                                  ? 'لا توجد أماكن مطابقة'
+                                  : 'No places found',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.6),
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final place = _searchResults[i];
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(
+                            Icons.location_on_outlined,
+                            size: 20,
+                          ),
+                          title: Text(
+                            place['name'].toString(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          onTap: () => _pickSearchResult(place),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 24 + bottomInset,
             left: 24,
             right: 24,
             child: ElevatedButton(
@@ -169,11 +413,14 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
               onPressed: _selectedLocation == null
                   ? null
                   : () => Navigator.pop(context, _selectedLocation),
-              child: const Text('Confirm Location', style: TextStyle(fontSize: 16)),
+              child: Text(
+                _isAr ? 'تأكيد الموقع' : 'Confirm Location',
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           ),
           Positioned(
-            bottom: 90,
+            bottom: 96 + bottomInset,
             right: 24,
             child: FloatingActionButton(
               heroTag: 'locate_fab',

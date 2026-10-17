@@ -70,7 +70,33 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         }
         
         if (state.error != null && state.conversations.isEmpty) {
-          return Center(child: Text(ErrorUtils.translate(context, state.error)));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.alertCircle,
+                  size: 48,
+                  color: AppColors.error,
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    ErrorUtils.translate(context, state.error),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      ref.read(sharedInboxProvider.notifier).refresh(),
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                  label: Text(AppLocalizations.of(context)!.retry),
+                ),
+              ],
+            ),
+          );
         }
 
         final conversations = state.conversations
@@ -98,10 +124,9 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           return _buildEmptyState();
         }
         
-        return ListView.separated(
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           itemCount: conversations.length,
-          separatorBuilder: (context, index) =>
-              Divider(height: 1, color: Theme.of(context).dividerColor),
           itemBuilder: (context, index) {
             final conversation = conversations[index];
             return _buildConversationTile(conversation);
@@ -116,17 +141,25 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.messageSquare,
-            size: 64,
-            
+          Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              LucideIcons.messageSquare,
+              size: 48,
+              color: AppColors.primary.withValues(alpha: 0.7),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             AppLocalizations.of(context)!.noConversationsYet,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
-              
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -204,15 +237,25 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isUnread ? AppColors.primary.withValues(alpha: 0.03) : null,
-          border: Border(
-            bottom: BorderSide(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-              width: 1,
-            ),
+          color: isUnread
+              ? AppColors.primary.withValues(alpha: 0.07)
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isUnread
+                ? AppColors.primary.withValues(alpha: 0.35)
+                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -295,7 +338,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                             fontSize: 12,
                             color: isUnread
                                 ? AppColors.primary
-                                : Theme.of(context).colorScheme.onSurface,
+                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                             fontWeight: isUnread
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -312,7 +355,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: isUnread ? 0.85 : 0.6),
                             fontSize: 14,
                             fontWeight: isUnread
                                 ? FontWeight.w500

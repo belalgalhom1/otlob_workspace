@@ -182,12 +182,28 @@ export class DriversController {
   @Post('me/shifts/:shiftId/start')
   @Roles(Role.DRIVER)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Start a shift' })
+  @ApiFileUpload({ type: 'IMAGE', required: true })
+  @ApiOperation({
+    summary:
+      'Start a shift (selfie required, must be inside the shift zone, flips ONLINE)',
+  })
   startShift(
     @CurrentUser('sub') userId: string,
     @Param('shiftId') shiftId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body?: { latitude?: number; longitude?: number },
   ) {
-    return this.driversService.startShift(userId, shiftId);
+    const latitude =
+      body?.latitude != null ? Number(body.latitude) : undefined;
+    const longitude =
+      body?.longitude != null ? Number(body.longitude) : undefined;
+    return this.driversService.startShift(
+      userId,
+      shiftId,
+      file,
+      latitude,
+      longitude,
+    );
   }
 
   @ApiStandardResponse()

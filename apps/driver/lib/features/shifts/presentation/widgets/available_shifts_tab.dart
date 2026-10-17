@@ -73,8 +73,18 @@ class AvailableShiftsTab extends ConsumerWidget {
   Widget _buildPoolItem(BuildContext context, WidgetRef ref, Map<String, dynamic> pool, AppLocalizations l10n, String currentZoneId) {
     String startTime = pool['startTime'] ?? '';
     String endTime = pool['endTime'] ?? '';
+    String dayLabel = '';
 
     try {
+      final rawStart = pool['startTime'] ?? '';
+      if (rawStart.toString().isNotEmpty) {
+        final d = DateTime.parse(rawStart.toString()).toLocal();
+        try {
+          dayLabel = DateFormat('EEEE, MMM d', l10n.localeName).format(d);
+        } catch (_) {
+          dayLabel = DateFormat('EEEE, MMM d').format(d);
+        }
+      }
       if (startTime.isNotEmpty) {
         final d = DateTime.parse(startTime).toLocal();
         startTime = DateFormat.jm().format(d);
@@ -128,6 +138,23 @@ class AvailableShiftsTab extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
+          if (dayLabel.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(LucideIcons.calendarDays, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    dayLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
               Icon(LucideIcons.clock, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),

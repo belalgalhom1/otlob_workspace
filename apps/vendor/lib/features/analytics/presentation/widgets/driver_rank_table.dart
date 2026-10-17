@@ -239,7 +239,7 @@ class _DriverCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       // Tier chip
                       _Chip(
-                        label: driver.tier,
+                        label: _tierLabel(context, driver.tier),
                         color: AppColors.primary,
                         isDark: isDark,
                       ),
@@ -302,7 +302,7 @@ class _DriverCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              '${driver.walletBalance.toStringAsFixed(2)} EGP',
+                              '${driver.walletBalance.toStringAsFixed(2)} ${l10n.egp}',
                               style: const TextStyle(
                                   color: Colors.green,
                                   fontWeight: FontWeight.w600,
@@ -352,5 +352,20 @@ class _Chip extends StatelessWidget {
             fontSize: 10, color: color, fontWeight: FontWeight.bold),
       ),
     );
+  }
+}
+
+/// Localised tier name (GOLD/SILVER/BRONZE) for the on-screen chip.
+String _tierLabel(BuildContext context, String tier) {
+  final ar = Localizations.localeOf(context).languageCode == 'ar';
+  switch (tier.toUpperCase()) {
+    case 'GOLD':
+      return ar ? 'ذهبي' : 'Gold';
+    case 'SILVER':
+      return ar ? 'فضي' : 'Silver';
+    case 'BRONZE':
+      return ar ? 'برونزي' : 'Bronze';
+    default:
+      return tier;
   }
 }

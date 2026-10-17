@@ -230,6 +230,7 @@ export class AuditLogCreatedEvent {
     public readonly entityType: string,
     public readonly entityId: string,
     public readonly newValues: any,
+    public readonly oldValues?: any,
   ) {}
 }
 

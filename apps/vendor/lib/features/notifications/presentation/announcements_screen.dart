@@ -231,14 +231,34 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Audience selector
+                      // Audience selector (explicit label above the field —
+                      // a floating labelText collides with the top border
+                      // and gets clipped).
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.users, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            l10n.targetAudience,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: _audience,
                         decoration: InputDecoration(
-                          labelText: l10n.targetAudience,
+                          hintText: l10n.targetAudience,
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(LucideIcons.users),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 16,
+                          ),
                         ),
                         items: [
                           DropdownMenuItem(value: 'ALL', child: Text(l10n.allUsersGlobal)),
@@ -310,16 +330,21 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                         ),
                       const SizedBox(height: 28),
 
-                      // Submit button
+                      // Submit button (taller with centered text so the
+                      // two-word label never looks cramped or clipped).
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 58,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
                           ),
                           icon: _isLoading
                               ? SizedBox(
@@ -331,9 +356,17 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                                   ),
                                 )
                               : const Icon(LucideIcons.send, size: 18),
-                          label: Text(
-                            _isLoading ? l10n.sending : l10n.broadcastAnnouncement,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          label: Flexible(
+                            child: Text(
+                              _isLoading ? l10n.sending : l10n.broadcastAnnouncement,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           onPressed: _isLoading ? null : _submit,
                         ),

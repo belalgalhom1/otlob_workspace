@@ -80,8 +80,8 @@ export class NotificationListener {
       userId: event.driverUserId,
       title: 'Upcoming Shift Reminder',
       titleAr: 'تذكير بالوردية القادمة',
-      body: `Your shift at zone ${event.zoneId ?? 'Global'} starts in 30 minutes! Please go online.`,
-      bodyAr: `ورديتك في المنطقة ${event.zoneId ?? 'العامة'} تبدأ خلال 30 دقيقة! يرجى تسجيل الدخول.`,
+      body: `Your shift at zone ${event.zoneId ?? 'Global'} starts in 30 minutes! Be inside the zone and start it to go online.`,
+      bodyAr: `ورديتك في المنطقة ${event.zoneId ?? 'العامة'} تبدأ خلال 30 دقيقة! كن داخل المنطقة وابدأها لتظهر متصلاً.`,
       type: NotificationType.SYSTEM,
       data: { shiftId: event.shiftId },
     });

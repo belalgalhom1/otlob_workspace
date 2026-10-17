@@ -1,4 +1,4 @@
-{
+﻿{
   "hello": "مرحباً",
   "welcome_msg": "مرحباً بك في اطلب",
   "login_button": "تسجيل الدخول",
@@ -1718,6 +1718,9 @@
   "driver_error_cannot_end_while_on_delivery": "لا يمكن إنهاء الوردية أثناء تنفيذ طلب توصيل نشط.",
   "driver_error_cannot_remove_historical_shift": "لا يمكن حذف الورديات الماضية بعد اكتمالها.",
   "driver_error_active_shift_exists": "لديك وردية نشطة بالفعل حالياً.",
+  "driver_error_status_managed_by_shift": "حالة الاتصال تدار من الورديات. ابدأ وردية لتظهر متصلاً.",
+  "driver_error_not_in_shift_zone": "يجب أن تكون داخل منطقة الوردية لبدئها.",
+  "driver_error_start_photo_required": "يرجى التقاط صورة سيلفي لبدء الوردية.",
   "driver_error_shift_pool_not_found": "مجموعة الورديات غير موجودة.",
   "driver_error_shift_pool_full": "اكتمل العدد الأقصى للسائقين في هذه الوردية.",
   "driver_error_already_assigned_to_pool": "أنت مسجل بالفعل في هذه الوردية.",

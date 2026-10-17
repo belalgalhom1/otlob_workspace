@@ -18,6 +18,27 @@ class NeedsPhone extends Notifier<bool> {
 
 final needsPhoneProvider = NotifierProvider<NeedsPhone, bool>(NeedsPhone.new);
 
+class NeedsAddress extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final needsAddressProvider =
+    NotifierProvider<NeedsAddress, bool>(NeedsAddress.new);
+
+/// Returns true when the current user has no delivery address saved.
+Future<bool> userMissingAddress(Ref ref) async {
+  try {
+    final raw = await ref.read(customerAddressesRepositoryProvider).getAddresses();
+    final list = raw is List ? raw : <dynamic>[];
+    return list.isEmpty;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Returns true when the current user has no phone number on record.
 Future<bool> userMissingPhone(Ref ref) async {
   try {
@@ -86,6 +107,8 @@ class AuthController extends _$AuthController {
     // For now, treat all authenticated users as verified
     // If verification state is needed, fetch it from profile
     state = AuthStatus.authenticated;
+    ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
+    ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
     try {
       final push = ref.read(pushNotificationServiceProvider);
       await push.initialize();
@@ -98,6 +121,7 @@ class AuthController extends _$AuthController {
     await authRepo.login(email, password, appType: 'customer');
     state = AuthStatus.authenticated;
     ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
+    ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
     try {
       final push = ref.read(pushNotificationServiceProvider);
       await push.initialize();
@@ -116,6 +140,7 @@ class AuthController extends _$AuthController {
     );
     state = AuthStatus.authenticated;
     ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
+    ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
     try {
       final push = ref.read(pushNotificationServiceProvider);
       await push.initialize();
@@ -127,6 +152,7 @@ class AuthController extends _$AuthController {
     if (_logoutInProgress) return;
     _logoutInProgress = true;
     ref.read(needsPhoneProvider.notifier).set(false);
+    ref.read(needsAddressProvider.notifier).set(false);
     try {
       final authRepo = ref.read(sharedAuthRepositoryProvider);
 

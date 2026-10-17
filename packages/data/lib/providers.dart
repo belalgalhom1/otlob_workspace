@@ -42,7 +42,7 @@ final driverBreaksRepositoryProvider = Provider<DriverBreaksRepository>((ref) =>
 final driverDispatchRepositoryProvider = Provider<DriverDispatchRepository>((ref) => DriverDispatchRepository(ref.watch(apiClientProvider).getOrdersApi()));
 final driverOrdersRepositoryProvider = Provider<DriverOrdersRepository>((ref) => DriverOrdersRepository(ref.watch(apiClientProvider).getOrdersApi()));
 final driverProfileRepositoryProvider = Provider<DriverProfileRepository>((ref) => DriverProfileRepository(ref.watch(apiClientProvider).getDriversApi()));
-final driverShiftsRepositoryProvider = Provider<DriverShiftsRepository>((ref) => DriverShiftsRepository(ref.watch(apiClientProvider).getDriverShiftsApi(), ref.watch(apiClientProvider).getDriversApi()));
+final driverShiftsRepositoryProvider = Provider<DriverShiftsRepository>((ref) => DriverShiftsRepository(ref.watch(apiClientProvider).getDriverShiftsApi(), ref.watch(apiClientProvider).getDriversApi(), dio: ref.watch(dioProvider)));
 final driverStatisticsRepositoryProvider = Provider<DriverStatisticsRepository>((ref) => DriverStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final driverWalletRepositoryProvider = Provider<DriverWalletRepository>((ref) => DriverWalletRepository(ref.watch(apiClientProvider).getWalletFinancialsApi(), ref.watch(apiClientProvider).getDriversApi()));
 final sharedAuthRepositoryProvider = Provider<SharedAuthRepository>((ref) => SharedAuthRepository(ref.watch(apiClientProvider).getAuthenticationApi(), ref.watch(tokenServiceProvider)));

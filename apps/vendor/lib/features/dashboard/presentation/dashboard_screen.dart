@@ -288,6 +288,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                               if (!isMobile) _buildSearchBar(),
                               if (!isMobile) const SizedBox(width: 16),
+                              if (isMobile) ...[
+                                _buildHeaderAction(
+                                  LucideIcons.search,
+                                  onTap: _showPageSearch,
+                                  isMobile: isMobile,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               _buildHeaderAction(
                                 LucideIcons.messageSquare,
                                 onTap: () => setState(() => _selectedIndex = 6),
@@ -418,6 +426,68 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           if (_userRole == 'VENDOR_MEMBER') VendorContextSwitcher(isMobile: isMobile),
           const SizedBox(height: 16),
+          // Quick-jump entry: opens the searchable page palette
+          // (abbreviations). Visible everywhere so it's reachable on
+          // phones too, where the desktop header search bar is hidden.
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 8,
+              vertical: 4,
+            ),
+            child: InkWell(
+              onTap: () {
+                if (isMobile) {
+                  _scaffoldKey.currentState?.closeDrawer();
+                  Future.delayed(
+                    const Duration(milliseconds: 250),
+                    () {
+                      if (mounted) _showPageSearch();
+                    },
+                  );
+                } else {
+                  _showPageSearch();
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: isMobile
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      LucideIcons.search,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    if (isMobile) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(context)!.searchHint,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -468,25 +538,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isMobile,
                     ),
                   ] else ...[
-                    if (_hasPermission('VIEW_STATISTICS')) ...[
+                    if (_hasPermission('VIEW_STATISTICS'))
                       _buildMenuItem(
                         0,
                         LucideIcons.layoutDashboard,
                         AppLocalizations.of(context)!.dashboard,
                         isMobile,
                       ),
-                      _buildMenuItem(
-                        16,
-                        LucideIcons.barChart3,
-                        AppLocalizations.of(context)!.analytics,
-                        isMobile,
-                      ),
-                    ],
+                    // Orders sits above Analytics in the menu.
                     if (_hasPermission('MANAGE_ORDERS'))
                       _buildMenuItem(
                         1,
                         LucideIcons.shoppingBag,
                         AppLocalizations.of(context)!.orders,
+                        isMobile,
+                      ),
+                    if (_hasPermission('VIEW_STATISTICS'))
+                      _buildMenuItem(
+                        16,
+                        LucideIcons.barChart3,
+                        AppLocalizations.of(context)!.analytics,
                         isMobile,
                       ),
                     if (_hasPermission('MANAGE_VENDORS')) ...[
@@ -758,22 +829,160 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  /// Quick-jump palette: searchable list of every page with a short code
+  /// (ORD, DRV, BRK...) so a big sidebar is one keystroke away.
   Widget _buildSearchBar() {
-    return Container(
-      width: 200,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: AppLocalizations.of(context)!.searchHint,
-          prefixIcon: const Icon(LucideIcons.search, size: 18),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+    return InkWell(
+      onTap: _showPageSearch,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
         ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.search, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                AppLocalizations.of(context)!.searchHint,
+                style: TextStyle(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                  fontSize: 14,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Short searchable codes for every dashboard page ("abbreviations"),
+  /// in both languages — typing ORD or طلب finds Orders either way.
+  static const _pageCodesEn = <int, String>{
+    0: 'DASH',
+    1: 'ORD',
+    2: 'VND',
+    3: 'DRV',
+    4: 'USR',
+    5: 'TKT',
+    6: 'INB',
+    7: 'SET',
+    8: 'ZON',
+    9: 'BIZ',
+    10: 'PRM',
+    11: 'WAL',
+    12: 'AUD',
+    13: 'ANN',
+    14: 'ACL',
+    15: 'SHF',
+    16: 'ANL',
+    17: 'NTF',
+    18: 'BRK',
+  };
+
+  static const _pageCodesAr = <int, String>{
+    0: 'لوحة',
+    1: 'طلب',
+    2: 'متجر',
+    3: 'مندوب',
+    4: 'مستخدم',
+    5: 'تذكرة',
+    6: 'وارد',
+    7: 'إعدادات',
+    8: 'منطقة',
+    9: 'نشاط',
+    10: 'عروض',
+    11: 'محفظة',
+    12: 'تدقيق',
+    13: 'إعلان',
+    14: 'صلاحيات',
+    15: 'شفت',
+    16: 'تحليلات',
+    17: 'إشعار',
+    18: 'استراحة',
+  };
+
+  static const _pageIcons = <int, IconData>{
+    0: LucideIcons.layoutDashboard,
+    1: LucideIcons.shoppingBag,
+    2: LucideIcons.store,
+    3: LucideIcons.truck,
+    4: LucideIcons.userPlus,
+    5: LucideIcons.helpCircle,
+    6: LucideIcons.messageSquare,
+    7: LucideIcons.settings,
+    8: LucideIcons.map,
+    9: LucideIcons.layers,
+    10: LucideIcons.megaphone,
+    11: LucideIcons.wallet,
+    12: LucideIcons.shieldAlert,
+    13: LucideIcons.radio,
+    14: LucideIcons.shieldCheck,
+    15: LucideIcons.calendarClock,
+    16: LucideIcons.barChart3,
+    17: LucideIcons.bell,
+    18: LucideIcons.coffee,
+  };
+
+  /// Pages visible to the current user, mirroring the sidebar gates.
+  List<int> _visiblePageIndices() {
+    if (_userRole == 'VENDOR_MEMBER') {
+      return [0, 1, 2, 5, 6, 17, 11];
+    }
+    final pages = <int>[];
+    void add(int index, bool visible) {
+      if (visible) pages.add(index);
+    }
+
+    add(0, _hasPermission('VIEW_STATISTICS'));
+    add(1, _hasPermission('MANAGE_ORDERS'));
+    add(16, _hasPermission('VIEW_STATISTICS'));
+    add(2, _hasPermission('MANAGE_VENDORS'));
+    add(9, _hasPermission('MANAGE_VENDORS'));
+    add(3, _hasPermission('MANAGE_DRIVERS'));
+    add(15, _hasPermission('MANAGE_DRIVERS'));
+    add(18, _hasPermission('MANAGE_DRIVERS'));
+    add(4, _hasPermission('MANAGE_USERS'));
+    add(14, _hasPermission('MANAGE_USERS'));
+    add(8, _hasPermission('MANAGE_SETTINGS'));
+    add(10, _hasPermission('MANAGE_PROMOTIONS'));
+    add(
+      11,
+      _hasPermission('MANAGE_FINANCE') || _hasPermission('VIEW_FINANCIALS'),
+    );
+    add(12, _hasPermission('VIEW_AUDIT_LOGS'));
+    add(13, _hasPermission('MANAGE_ANNOUNCEMENTS'));
+    add(5, _hasPermission('MANAGE_TICKETS'));
+    add(6, _hasPermission('MANAGE_CONVERSATIONS'));
+    add(17, true);
+    add(
+      7,
+      _hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN',
+    );
+    return pages;
+  }
+
+  void _showPageSearch() {
+    final pages = _visiblePageIndices();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => _PageSearchDialog(
+        pages: pages,
+        codesEn: _pageCodesEn,
+        codesAr: _pageCodesAr,
+        icons: _pageIcons,
+        titleFor: (index) => _getMenuTitle(dialogCtx, index),
+        onSelect: (index) => setState(() => _selectedIndex = index),
       ),
     );
   }
@@ -1562,9 +1771,127 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return l10n.analytics;
       case 17:
         return l10n.notificationsTitle;
+      case 18:
+        return l10n.breaks;
       default:
         return l10n.dashboard;
     }
+  }
+}
+
+/// Searchable quick-jump dialog over dashboard pages.
+class _PageSearchDialog extends StatefulWidget {
+  final List<int> pages;
+  final Map<int, String> codesEn;
+  final Map<int, String> codesAr;
+  final Map<int, IconData> icons;
+  final String Function(int index) titleFor;
+  final ValueChanged<int> onSelect;
+
+  const _PageSearchDialog({
+    required this.pages,
+    required this.codesEn,
+    required this.codesAr,
+    required this.icons,
+    required this.titleFor,
+    required this.onSelect,
+  });
+
+  @override
+  State<_PageSearchDialog> createState() => _PageSearchDialogState();
+}
+
+class _PageSearchDialogState extends State<_PageSearchDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final query = _controller.text.trim().toLowerCase();
+    final filtered = widget.pages.where((index) {
+      if (query.isEmpty) return true;
+      final title = widget.titleFor(index).toLowerCase();
+      final codeEn = (widget.codesEn[index] ?? '').toLowerCase();
+      final codeAr = widget.codesAr[index] ?? '';
+      return title.contains(query) ||
+          codeEn.contains(query) ||
+          (query.isNotEmpty && codeAr.contains(_controller.text.trim()));
+    }).toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context)!.searchHint,
+                prefixIcon: const Icon(LucideIcons.search, size: 18),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: filtered.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(AppLocalizations.of(context)!.noPagesFound),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final index = filtered[i];
+                        return ListTile(
+                          leading: Icon(
+                            widget.icons[index] ?? LucideIcons.circleDot,
+                            color: AppColors.primary,
+                          ),
+                          title: Text(widget.titleFor(index)),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isAr
+                                  ? (widget.codesAr[index] ?? '')
+                                  : (widget.codesEn[index] ?? ''),
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            widget.onSelect(index);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

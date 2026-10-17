@@ -13,6 +13,19 @@ import '../theme/app_colors.dart';
 
 enum ExportFormat { excel, pdf }
 
+/// One table section inside a multi-section export (e.g. one analytics tab).
+class ExportSection {
+  final String title;
+  final List<String> headers;
+  final List<List<String>> rows;
+
+  const ExportSection({
+    required this.title,
+    required this.headers,
+    required this.rows,
+  });
+}
+
 class DataExportService {
   static String buildCsvContent(
     List<String> headers,
@@ -126,71 +139,162 @@ class DataExportService {
     required List<String> headers,
     required List<List<String>> rows,
     required String filename,
+    bool isRtl = true,
+  }) async {
+    await exportSectionsPdf(
+      context: context,
+      title: title,
+      sections: [ExportSection(title: title, headers: headers, rows: rows)],
+      filename: filename,
+      isRtl: isRtl,
+    );
+  }
+
+  /// Multi-section PDF: every section starts on its own page, so a full
+  /// analytics report lands in one file with one page per tab.
+  static Future<void> exportSectionsPdf({
+    required BuildContext context,
+    required String title,
+    required List<ExportSection> sections,
+    required String filename,
+    bool isRtl = true,
   }) async {
     final doc = pw.Document();
 
     final font = await PdfGoogleFonts.cairoRegular();
     final boldFont = await PdfGoogleFonts.cairoBold();
+    final direction =
+        isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    doc.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          theme: pw.ThemeData.withFont(base: font, bold: boldFont),
-          textDirection: pw.TextDirection.rtl,
-          margin: const pw.EdgeInsets.all(32),
-        ),
-        build: (pw.Context context) {
-          return [
-            pw.Header(
-              level: 0,
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    title,
-                    style: pw.TextStyle(
-                      fontSize: 22,
-                      fontWeight: pw.FontWeight.bold,
+    for (var s = 0; s < sections.length; s++) {
+      final section = sections[s];
+      doc.addPage(
+        pw.MultiPage(
+          pageTheme: pw.PageTheme(
+            theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+            textDirection: direction,
+            margin: const pw.EdgeInsets.all(32),
+          ),
+          build: (pw.Context context) {
+            return [
+              pw.Header(
+                level: 0,
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      sections.length > 1 && s > 0 ? section.title : title,
+                      style: pw.TextStyle(
+                        fontSize: 22,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  pw.Text(
-                    DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                    style: const pw.TextStyle(fontSize: 12),
-                  ),
-                ],
+                    pw.Text(
+                      dateStr,
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            pw.SizedBox(height: 16),
-            pw.Text(
-              '${headers.length} ${headers.length == 1 ? 'column' : 'columns'} - ${rows.length} ${rows.length == 1 ? 'row' : 'rows'}',
-              style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
-            ),
-            pw.SizedBox(height: 24),
-            pw.TableHelper.fromTextArray(
-              headers: headers,
-              data: _toPdfRows(rows, headers.length),
-              border: pw.TableBorder.all(color: PdfColors.grey300, width: 1),
-              headerStyle: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
+              if (sections.length > 1 && s == 0) ...[
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  section.title,
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+              if (sections.length > 1 && s > 0) ...[
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  title,
+                  style: const pw.TextStyle(
+                      fontSize: 12, color: PdfColors.grey600),
+                ),
+              ],
+              pw.SizedBox(height: 16),
+              pw.Text(
+                '${section.headers.length} ${section.headers.length == 1 ? 'column' : 'columns'} - ${section.rows.length} ${section.rows.length == 1 ? 'row' : 'rows'}',
+                style:
+                    const pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
               ),
-              headerDecoration:
-                  const pw.BoxDecoration(color: PdfColors.blueGrey800),
-              cellHeight: 30,
-              cellAlignments: {
-                for (var i = 0; i < headers.length; i++)
-                  i: pw.Alignment.centerRight,
-              },
-            ),
-          ];
-        },
-      ),
-    );
+              pw.SizedBox(height: 24),
+              pw.TableHelper.fromTextArray(
+                headers: section.headers,
+                data: _toPdfRows(section.rows, section.headers.length),
+                border:
+                    pw.TableBorder.all(color: PdfColors.grey300, width: 1),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+                headerDecoration:
+                    const pw.BoxDecoration(color: PdfColors.blueGrey800),
+                cellHeight: 30,
+                cellAlignments: {
+                  for (var i = 0; i < section.headers.length; i++)
+                    i: isRtl
+                        ? pw.Alignment.centerRight
+                        : pw.Alignment.centerLeft,
+                },
+              ),
+            ];
+          },
+        ),
+      );
+    }
 
     final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
     await Printing.sharePdf(
       bytes: await doc.save(),
       filename: '${filename}_$stamp.pdf',
+    );
+  }
+
+  /// Combined single-file CSV for multiple sections (blank line + titled
+  /// header row per section) so "everything" also ships as one file.
+  static String buildMultiCsvContent(List<ExportSection> sections) {
+    final buffer = StringBuffer('\uFEFF');
+    for (var s = 0; s < sections.length; s++) {
+      if (s > 0) buffer.writeln();
+      final section = sections[s];
+      buffer.writeln(_csvEscape('== ${section.title} =='));
+      buffer.writeln(section.headers.map(_csvEscape).join(','));
+      for (final row in section.rows) {
+        final cells = List<String>.from(row);
+        while (cells.length < section.headers.length) {
+          cells.add('');
+        }
+        buffer.writeln(
+          cells.take(section.headers.length).map(_csvEscape).join(','),
+        );
+      }
+    }
+    return buffer.toString();
+  }
+
+  static Future<void> exportSectionsCsv({
+    required BuildContext context,
+    required String title,
+    required List<ExportSection> sections,
+    required String filename,
+  }) async {
+    final content = buildMultiCsvContent(sections);
+
+    final stamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${filename}_$stamp.csv');
+    await file.writeAsString(content);
+
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'text/csv')],
+        title: title,
+        subject: title,
+      ),
     );
   }
 

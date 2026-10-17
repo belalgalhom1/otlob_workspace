@@ -67,9 +67,7 @@ bool _isInstaPayWallet(Map<dynamic, dynamic> wallet) {
 /// when the driver has no mobile-money wallet at all (fallback).
 List<dynamic> _visibleDriverWallets(List<dynamic> wallets) {
   final mobile = wallets.where((w) {
-    final m = w is Map
-        ? Map<dynamic, dynamic>.from(w as Map)
-        : <dynamic, dynamic>{};
+    final m = w is Map ? Map<dynamic, dynamic>.from(w) : <dynamic, dynamic>{};
     return !_isInstaPayWallet(m);
   }).toList();
   return mobile.isNotEmpty ? mobile : wallets;
@@ -420,7 +418,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     order['driver']['mobileWallets'] as List)
                 .map((wallet) {
               final walletMap = wallet is Map
-                  ? Map<dynamic, dynamic>.from(wallet as Map)
+                  ? Map<dynamic, dynamic>.from(wallet)
                   : <dynamic, dynamic>{};
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
@@ -1033,6 +1031,28 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+          // Direct shortcut into live tracking for active orders — no need
+          // to tap the whole card.
+          if (!isCancelled && status != 'DELIVERED') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    context.push('/order-tracking/${order['id']}'),
+                icon: const Icon(Icons.location_searching_rounded, size: 20),
+                label: Text(s.isArabic ? 'تتبع الطلب' : 'Track Order'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),

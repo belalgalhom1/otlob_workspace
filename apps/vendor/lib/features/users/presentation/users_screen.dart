@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:core/core.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
 import 'package:vendor/features/users/presentation/user_provider.dart';
@@ -474,14 +476,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      (u['name'] ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(color: AppColors.primary),
-                    ),
-                  ),
+                  _buildUserAvatar(u, 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -655,19 +650,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor: AppColors.primary.withValues(
-                            alpha: 0.1,
-                          ),
-                          child: Text(
-                            (u['name'] ?? 'U')[0].toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
+                        _buildUserAvatar(u, 14),
                         const SizedBox(width: 12),
                         Text(
                           u['name'] ?? AppLocalizations.of(context)!.unknown,
@@ -900,6 +883,32 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Avatar image with initial-letter fallback. Backend stores a relative
+  /// path, so it must be resolved to an absolute URL first.
+  Widget _buildUserAvatar(dynamic u, double radius) {
+    final raw = u is Map ? u['avatar']?.toString() ?? '' : '';
+    final url = ImageUtils.formatImageUrl(raw.isEmpty ? null : raw);
+    final name = u is Map ? (u['name']?.toString() ?? '') : '';
+    final initial = name.isEmpty ? 'U' : name[0].toUpperCase();
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+      backgroundImage:
+          url.isNotEmpty ? CachedNetworkImageProvider(url) : null,
+      onBackgroundImageError:
+          url.isNotEmpty ? (_, __) {} : null,
+      child: url.isEmpty
+          ? Text(
+              initial,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: radius * 0.75,
+              ),
+            )
+          : null,
     );
   }
 

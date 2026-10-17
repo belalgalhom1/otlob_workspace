@@ -38,7 +38,8 @@ export class AuditLogsProcessor extends WorkerHost {
         action: data.action,
         entityType: data.entityType,
         entityId: data.entityId,
-        newValues: data.newValues,
+        newValues: data.newValues ?? undefined,
+        oldValues: data.oldValues ?? undefined,
       },
     });
     return { created: true };

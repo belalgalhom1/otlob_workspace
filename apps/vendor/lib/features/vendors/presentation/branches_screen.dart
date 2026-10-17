@@ -504,24 +504,49 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             icon: LucideIcons.mapPin,
                           ),
                           const SizedBox(height: 16),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(LucideIcons.map),
-                            title: Text(
-                              selectedLat != null
-                                  ? 'Location Selected'
-                                  : 'Pick Location on Map',
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              leading: Icon(
+                                LucideIcons.map,
+                                color: selectedLat != null
+                                    ? AppColors.success
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.5),
+                              ),
+                              title: Text(
+                                selectedLat != null
+                                    ? AppLocalizations.of(context)!.locationSelected
+                                    : AppLocalizations.of(context)!.pickLocation,
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             subtitle: selectedLat != null
                                 ? Text(
-                                    '$selectedLat, $selectedLng',
+                                    '${selectedLat!.toStringAsFixed(4)}, ${selectedLng!.toStringAsFixed(4)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Theme.of(context)
                                           .colorScheme
-                                          .onSurface,
+                                          .onSurface
+                                          .withValues(alpha: 0.6),
+                                      fontSize: 12,
                                     ),
                                   )
                                 : null,
@@ -554,6 +579,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 });
                               }
                             },
+                          ),
                           ),
                           const SizedBox(height: 16),
                           Consumer(
@@ -815,8 +841,34 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
+            prefixIcon: Icon(
+              icon,
+              size: 18,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
+            ),
             contentPadding: const EdgeInsets.all(16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.15),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
+            ),
           ),
         ),
       ],

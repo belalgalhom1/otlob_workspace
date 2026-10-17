@@ -29,6 +29,7 @@ export class AuditLogListener {
           entityType: event.entityType,
           entityId: event.entityId,
           newValues: event.newValues,
+          oldValues: (event as { oldValues?: unknown }).oldValues,
         },
         { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
       );

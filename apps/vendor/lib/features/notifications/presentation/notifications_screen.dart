@@ -92,17 +92,25 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              LucideIcons.bellRing,
-                              size: 64,
-                              
+                            Container(
+                              padding: const EdgeInsets.all(28),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                LucideIcons.bellRing,
+                                size: 48,
+                                color: AppColors.primary.withValues(alpha: 0.7),
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
                             Text(
                               l10n.noNotificationsYet,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
-                                
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           ],
@@ -220,8 +228,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: iconColor.withValues(alpha: 0.1),
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              iconColor.withValues(alpha: 0.22),
+                                              iconColor.withValues(alpha: 0.06),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
                                           shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: iconColor.withValues(alpha: 0.3),
+                                            width: 1,
+                                          ),
                                         ),
                                         child: Icon(iconData, color: iconColor, size: 24),
                                       ),
@@ -258,20 +277,32 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                             const SizedBox(height: 6),
                                             Text(
                                               body,
+                                              maxLines: 4,
+                                              overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                color: Theme.of(context).colorScheme.onSurface,
+                                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85),
                                                 fontSize: 14,
-                                                height: 1.4,
+                                                height: 1.45,
                                               ),
                                             ),
                                             if (timeStr.isNotEmpty) ...[
                                               const SizedBox(height: 8),
-                                              Text(
-                                                timeStr,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    LucideIcons.clock,
+                                                    size: 12,
+                                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    timeStr,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ],

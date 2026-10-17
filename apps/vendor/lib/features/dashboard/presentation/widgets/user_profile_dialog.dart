@@ -3,13 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:api/api.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:core/core.dart';
@@ -196,22 +194,6 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
     );
   }
 
-  void _showDeleteAccount() {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => DeleteAccountDialog(
-        onConfirm: () async {
-          final userRepo = ref.read(sharedUserRepositoryProvider);
-          await userRepo.deleteAccount();
-          await ref.read(authProvider.notifier).logout();
-          if (dialogCtx.mounted) {
-            dialogCtx.go('/login');
-          }
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -222,7 +204,9 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
       child: Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
-          width: 500,
+          // Shrink on small screens: a fixed 500px width overflowed phones
+          // and clipped the Security buttons.
+          constraints: const BoxConstraints(maxWidth: 500),
           padding: const EdgeInsets.all(24),
           child: _isLoading
               ? const SizedBox(
@@ -282,8 +266,12 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
                               CircleAvatar(
                                 radius: 48,
                                 backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                // Backend returns a relative path — resolve it
+                                // or the image silently fails to load even
+                                // though the upload reported success.
                                 backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                                    ? CachedNetworkImageProvider(_avatarUrl!)
+                                    ? CachedNetworkImageProvider(
+                                        ImageUtils.formatImageUrl(_avatarUrl))
                                     : null,
                                 child: _avatarUrl == null || _avatarUrl!.isEmpty
                                     ? Icon(LucideIcons.user, size: 48, color: theme.colorScheme.primary)
@@ -394,34 +382,19 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
                         ),
                         const SizedBox(height: 12),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _showChangePassword,
-                                icon: const Icon(LucideIcons.keyRound, size: 16),
-                                label: Text(isAr ? 'تغيير كلمة المرور' : 'Change Password'),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
+                        // NOTE: no self-delete here — users cannot delete their
+                        // own account. Admins remove other users from the
+                        // Users page (which already blocks self-deletion).
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _showChangePassword,
+                            icon: const Icon(LucideIcons.keyRound, size: 16),
+                            label: Text(isAr ? 'تغيير كلمة المرور' : 'Change Password'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _showDeleteAccount,
-                                icon: const Icon(LucideIcons.trash2, size: 16, color: AppColors.error),
-                                label: Text(
-                                  isAr ? 'حذف الحساب' : 'Delete Account',
-                                  style: const TextStyle(color: AppColors.error),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
 
                         const SizedBox(height: 24),

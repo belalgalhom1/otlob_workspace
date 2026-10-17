@@ -1265,6 +1265,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noDriversFound => 'No drivers found.';
 
   @override
+  String get noPagesFound => 'No matching pages';
+
+  @override
   String get confirmBroadcast => 'Confirm Broadcast';
 
   @override
@@ -1311,6 +1314,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pickLocation => 'Pick Location';
+
+  @override
+  String get locationSelected => 'Location Selected';
 
   @override
   String get auditLogs => 'Audit Logs';

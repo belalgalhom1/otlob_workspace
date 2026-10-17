@@ -7,12 +7,55 @@ import '../../../../core/utils/image_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../providers/cart_controller.dart';
+import '../../../orders/presentation/providers/orders_provider.dart';
+import '../../../profile/presentation/providers/delivery_address_provider.dart';
 
-class CartScreen extends ConsumerWidget {
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends ConsumerState<CartScreen> {
+  /// Server estimates per vendor basket (same source as checkout).
+  final Map<String, Map<String, dynamic>?> _estimates = {};
+  final Map<String, bool> _estimating = {};
+  String? _estimateAddressId;
+
+  Future<void> _fetchBasketEstimate(String vendorId) async {
+    if (_estimating[vendorId] == true) return;
+    final address = ref.read(activeDeliveryAddressProvider);
+    if (address == null) return;
+    final loc = address['location'];
+    List<double> coords = [];
+    if (loc is List) {
+      coords = loc.map((e) => (e as num).toDouble()).toList();
+    } else if (loc is Map && loc['coordinates'] is List) {
+      coords = (loc['coordinates'] as List).map((e) => (e as num).toDouble()).toList();
+    }
+    if (coords.length != 2) return;
+    _estimating[vendorId] = true;
+    try {
+      final result = await ref.read(ordersProvider.notifier).estimateOrder(
+            vendorId: vendorId,
+            paymentMethod: 'CASH_ON_DELIVERY',
+            address: address['address']?.toString() ?? '',
+            location: coords,
+          );
+      if (mounted) {
+        setState(() {
+          _estimates[vendorId] = result;
+          _estimating[vendorId] = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _estimating[vendorId] = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final cartState = ref.watch(cartProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -127,8 +170,38 @@ class CartScreen extends ConsumerWidget {
     final isVendorOpen = vendorStatus == 'OPEN';
     final hasInactiveItems = items.any((it) => it.product['isActive'] == false || (it.selectedVariant != null && it.selectedVariant!['isActive'] == false));
     final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
-    final total = subtotal;
     final canCheckout = isVendorOpen && !hasInactiveItems;
+
+    // Same server estimate as checkout (items subtotal / delivery / tax /
+    // total) so the cart shows real numbers instead of
+    // "determined upon driver match".
+    final activeAddress = ref.watch(activeDeliveryAddressProvider);
+    final hasAddress = activeAddress != null;
+    // Delivery depends on the address — drop cached estimates when it changes.
+    final addressId = activeAddress?['id']?.toString();
+    if (addressId != _estimateAddressId) {
+      _estimateAddressId = addressId;
+      _estimates.clear();
+      _estimating.clear();
+    }
+    // NOTE: containsKey (not == null) is the "already tried" marker — a
+    // null estimate from the server must not refetch on every build.
+    final triedEstimate = _estimates.containsKey(vendorId);
+    final est = _estimates[vendorId];
+    final estimating = _estimating[vendorId] == true;
+    if (hasAddress && !triedEstimate && !estimating) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fetchBasketEstimate(vendorId);
+      });
+    }
+    double toNum(dynamic v) =>
+        v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+    final deliveryFee = est != null ? toNum(est['deliveryFee']) : 0.0;
+    final serviceFee = est != null ? toNum(est['serviceFee']) : 0.0;
+    final tax = est != null ? toNum(est['tax']) : 0.0;
+    final total = est != null
+        ? toNum(est['grandTotal'] ?? (subtotal + deliveryFee + serviceFee + tax))
+        : subtotal;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -277,28 +350,32 @@ class CartScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                _buildSummaryRow(s.subtotal, '${subtotal.toStringAsFixed(0)} ${s.egp}', isDark),
+                _buildSummaryRow(s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal', '${subtotal.toStringAsFixed(0)} ${s.egp}', isDark),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
-                      style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        s.isArabic ? 'تحدد عند تعيين الكابتن' : 'Determined upon driver match',
-                        style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
+                _buildSummaryRow(
+                  s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
+                  est != null
+                      ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}'
+                      : (estimating ? '...' : '--'),
+                  isDark,
+                  isDelivery: est != null,
                 ),
+                if (serviceFee > 0) ...[
+                  const SizedBox(height: 8),
+                  _buildSummaryRow(
+                    s.isArabic ? 'رسوم الخدمة' : 'Service Fee',
+                    '${serviceFee.toStringAsFixed(0)} ${s.egp}',
+                    isDark,
+                  ),
+                ],
+                if (est != null) ...[
+                  const SizedBox(height: 8),
+                  _buildSummaryRow(
+                    s.isArabic ? 'الضرائب' : 'Tax',
+                    '${tax.toStringAsFixed(0)} ${s.egp}',
+                    isDark,
+                  ),
+                ],
                 const Divider(height: 32),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -307,16 +384,18 @@ class CartScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal', 
+                          s.isArabic ? 'المجموع الإجمالي' : 'Total',
                           style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)',
+                          est != null
+                              ? (s.isArabic ? '(شامل جميع الرسوم)' : '(Including all fees)')
+                              : (s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)'),
                           style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 11),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${total.toStringAsFixed(0)} ${s.egp}', 
+                          '${total.toStringAsFixed(0)} ${s.egp}',
                           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.primary)
                         ),
                       ],
@@ -463,34 +542,28 @@ class CartScreen extends ConsumerWidget {
                     ),
                   ),
                 const SizedBox(height: 8),
-                Row(
+                // Wrap (not Row): the full price always shows — it flows
+                // to the next line on narrow screens instead of overflowing
+                // into the image or getting cut with "...".
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Flexible(
-                      child: Text(
-                        '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
-                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                      ),
+                    Text(
+                      '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16),
                     ),
-                    if (hasDiscount) ...[
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          '${(comparePrice * item.quantity).toStringAsFixed(0)} ${s.egp}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white38 : Colors.grey,
-                            decoration: TextDecoration.lineThrough,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: false,
+                    if (hasDiscount)
+                      Text(
+                        '${(comparePrice * item.quantity).toStringAsFixed(0)} ${s.egp}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white38 : Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ]

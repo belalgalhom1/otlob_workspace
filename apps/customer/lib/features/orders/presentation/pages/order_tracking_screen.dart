@@ -55,9 +55,7 @@ bool _trackingIsInstaPay(Map<dynamic, dynamic> wallet) {
 /// not InstaPay — unless InstaPay is all the driver has (fallback).
 List<dynamic> _trackingVisibleWallets(List<dynamic> wallets) {
   final mobile = wallets.where((w) {
-    final m = w is Map
-        ? Map<dynamic, dynamic>.from(w as Map)
-        : <dynamic, dynamic>{};
+    final m = w is Map ? Map<dynamic, dynamic>.from(w) : <dynamic, dynamic>{};
     return !_trackingIsInstaPay(m);
   }).toList();
   return mobile.isNotEmpty ? mobile : wallets;
@@ -230,7 +228,23 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     // app was backgrounded (and missed by the socket) is picked up instantly.
     _lifecycleObserver?.dispose();
     _lifecycleObserver = _TrackingLifecycleObserver(onResume: _fetchOrderDetails);
+
+    // Safety net while tracking is open: periodic refresh catches anything
+    // the socket missed (drops, background gaps). Stops itself on dispose
+    // and once the order reaches a terminal state.
+    _detailsRefreshTimer?.cancel();
+    _detailsRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted) return;
+      if (_orderStatus == 'DELIVERED' || _orderStatus == 'CANCELLED') {
+        _detailsRefreshTimer?.cancel();
+        _detailsRefreshTimer = null;
+        return;
+      }
+      _fetchOrderDetails();
+    });
   }
+
+  Timer? _detailsRefreshTimer;
 
   @override
   void dispose() {
@@ -238,6 +252,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     _driverLocSub?.cancel();
     _connectSub?.cancel();
     _driverRenderTimer?.cancel();
+    _detailsRefreshTimer?.cancel();
     _lifecycleObserver?.dispose();
     super.dispose();
   }
@@ -713,8 +728,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                               ['mobileWallets'] as List)
                                       .map((wallet) {
                                     final walletMap = wallet is Map
-                                        ? Map<dynamic, dynamic>.from(
-                                            wallet as Map)
+                                        ? Map<dynamic, dynamic>.from(wallet)
                                         : <dynamic, dynamic>{};
                                     final number = (walletMap['number'] ??
                                             walletMap['walletNumber'] ??

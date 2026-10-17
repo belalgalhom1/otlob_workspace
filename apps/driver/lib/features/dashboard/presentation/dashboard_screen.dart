@@ -648,17 +648,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 : l10n.goOnlineToReceive),
             textAlign: TextAlign.center,
           ),
-          if (!onBreak) ...[
+          // NOTE: no manual online/offline — status is fully shift-driven
+          // (starting a shift goes ONLINE, ending it goes OFFLINE).
+          // Offline drivers get a shortcut into their shifts instead.
+          if (!onBreak && !isOnline) ...[
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 56,
               child: PrimaryButton(
-                onPressed: () {
-                  final newStatus = isOnline ? 'OFFLINE' : 'ONLINE';
-                  ref.read(driverProfileProvider.notifier).updateStatus(newStatus);
-                },
-                text: isOnline ? l10n.goOffline : l10n.goOnline,
+                onPressed: () => context.push('/shifts'),
+                text: l10n.localeName == 'ar'
+                    ? 'الذهاب إلى الورديات لبدء العمل'
+                    : 'Go to Shifts to start working',
               ),
             ),
           ],
