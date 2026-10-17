@@ -1,4 +1,4 @@
-﻿{
+{
   "hello": "مرحباً",
   "welcome_msg": "مرحباً بك في اطلب",
   "login_button": "تسجيل الدخول",
@@ -1868,5 +1868,20 @@
   "common_success_resource_deleted": "تم الحذف بنجاح.",
   "location_required_title": "الموقع مطلوب",
   "location_required_message": "يرجى تفعيل خدمات الموقع لمواصلة استخدام التطبيق.",
-  "location_required_button": "تفعيل الموقع"
+  "location_required_button": "تفعيل الموقع",
+  "driver_error_assist_request_not_found": "طلب المساعدة غير موجود.",
+  "driver_error_assist_request_not_pending": "طلب المساعدة لم يعد قيد الانتظار.",
+  "driver_error_assist_request_already_open": "لديك طلب مساعدة مفتوح بالفعل لهذا التوصيل.",
+  "driver_error_assist_not_on_this_delivery": "أنت لست السائق الأساسي لهذا التوصيل.",
+  "driver_error_assist_delivery_not_assigned": "هذا التوصيل غير مؤهل لطلب سائق إضافي.",
+  "driver_error_assist_delivery_already_started": "تم استلام هذا التوصيل بالفعل، لذلك لا يمكن إضافة سائق مساعد الآن.",
+  "driver_error_assist_driver_not_eligible": "هذا السائق غير متاح للتعيين.",
+  "driver_error_assist_driver_already_assigned": "هذا السائق معين بالفعل لهذا التوصيل.",
+  "driver_error_assist_reason_required": "يرجى اختيار سبب طلب المساعدة.",
+  "order_error_fulfillment_not_found": "جزء الطلب غير موجود.",
+  "order_error_fulfillment_already_decided": "تم قبول أو رفض هذا الجزء من الطلب بالفعل.",
+  "order_error_rejection_reason_required": "يرجى توضيح سبب عدم إمكانية تنفيذ هذا الجزء من الطلب.",
+  "order_error_multi_vendor_not_allowed": "يتطلب الدفع من عدة موردين了两个 على الأقل.",
+  "order_error_empty_cart_for_vendor": "إحدى المتاجر في طلبك تحتوي على سلة فارغة.",
+  "order_error_no_delivery_groups": "تعذر تحديد توزيع التوصيلات لهذا الطلب."
 }

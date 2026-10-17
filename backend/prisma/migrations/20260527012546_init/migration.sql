@@ -1826,3 +1826,146 @@ ALTER TABLE "drivers" ADD CONSTRAINT "drivers_approvedById_fkey" FOREIGN KEY ("a
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 
+
+-- ============================================================================
+-- Multi-vendor checkout, smart delivery grouping, vendor decisions and
+-- extra-driver assistance. Additive only: no existing column is dropped or
+-- retyped, so single-vendor checkout, custom delivery and rides are untouched.
+-- ============================================================================
+
+-- CreateEnum
+CREATE TYPE "OrderVendorFulfillmentStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED');
+CREATE TYPE "DeliveryGroupStatus" AS ENUM ('PENDING', 'ACCEPTED', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
+CREATE TYPE "DriverAssistReason" AS ENUM ('TOO_LARGE', 'TOO_HEAVY', 'MULTI_STOP_COMPLEXITY', 'LONG_DISTANCE', 'ACCESS_RESTRICTED', 'OTHER');
+CREATE TYPE "DriverAssistRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'FULFILLED', 'CANCELLED');
+
+-- AlterTable: global delivery-fee floor + grouping thresholds (km)
+ALTER TABLE "platform_settings"
+  ADD COLUMN "minDeliveryFee" INTEGER NOT NULL DEFAULT 15,
+  ADD COLUMN "groupingMaxBranchDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 5.0,
+  ADD COLUMN "groupingMaxVendorCustomerDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 25.0,
+  ADD COLUMN "groupingMaxCombinedRouteKm" DOUBLE PRECISION NOT NULL DEFAULT 35.0;
+
+-- AlterTable: items gain an owning vendor portion + an auditable rejection stamp
+ALTER TABLE "order_items"
+  ADD COLUMN "fulfillmentId" TEXT,
+  ADD COLUMN "rejectedAt" TIMESTAMPTZ(3);
+
+-- AlterTable: per-vendor settlement (was unique(orderId, type) -> capped the
+-- order at one revenue + one commission row, so vendor portions could not pay out)
+DROP INDEX "vendor_wallet_transactions_orderId_type_key";
+CREATE UNIQUE INDEX "vendor_wallet_transactions_orderId_type_vendorId_key"
+  ON "vendor_wallet_transactions"("orderId", "type", "vendorId");
+
+-- CreateTable
+CREATE TABLE "order_vendor_fulfillments" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "vendorId" TEXT NOT NULL,
+    "vendorBranchId" TEXT,
+    "status" "OrderVendorFulfillmentStatus" NOT NULL DEFAULT 'PENDING',
+    "subtotal" INTEGER NOT NULL DEFAULT 0,
+    "commissionRate" INTEGER NOT NULL DEFAULT 10,
+    "rejectionCode" TEXT,
+    "rejectionReason" TEXT,
+    "rejectionReasonAr" TEXT,
+    "decidedByUserId" TEXT,
+    "decidedAt" TIMESTAMPTZ(3),
+    "deliveredAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "order_vendor_fulfillments_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "order_vendor_fulfillments_orderId_idx" ON "order_vendor_fulfillments"("orderId");
+CREATE INDEX "order_vendor_fulfillments_vendorId_status_idx" ON "order_vendor_fulfillments"("vendorId", "status");
+CREATE INDEX "order_vendor_fulfillments_status_createdAt_idx" ON "order_vendor_fulfillments"("status", "createdAt");
+
+ALTER TABLE "order_vendor_fulfillments" ADD CONSTRAINT "order_vendor_fulfillments_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order_vendor_fulfillments" ADD CONSTRAINT "order_vendor_fulfillments_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "order_vendor_fulfillments" ADD CONSTRAINT "order_vendor_fulfillments_vendorBranchId_fkey" FOREIGN KEY ("vendorBranchId") REFERENCES "vendor_branches"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "order_delivery_groups" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "sequence" INTEGER NOT NULL DEFAULT 1,
+    "status" "DeliveryGroupStatus" NOT NULL DEFAULT 'PENDING',
+    "primaryDriverId" TEXT,
+    "primaryDriverShiftId" TEXT,
+    "assistDriverId" TEXT,
+    "assistDriverShiftId" TEXT,
+    "assignedByUserId" TEXT,
+    "assignedAt" TIMESTAMPTZ(3),
+    "distanceKm" DOUBLE PRECISION,
+    "deliveryFee" INTEGER NOT NULL DEFAULT 0,
+    "estimatedPrepTime" INTEGER,
+    "pickedUpAt" TIMESTAMPTZ(3),
+    "deliveredAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "order_delivery_groups_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "order_delivery_groups_orderId_sequence_key" ON "order_delivery_groups"("orderId", "sequence");
+CREATE INDEX "order_delivery_groups_orderId_idx" ON "order_delivery_groups"("orderId");
+CREATE INDEX "order_delivery_groups_primaryDriverId_idx" ON "order_delivery_groups"("primaryDriverId");
+CREATE INDEX "order_delivery_groups_status_idx" ON "order_delivery_groups"("status");
+
+ALTER TABLE "order_delivery_groups" ADD CONSTRAINT "order_delivery_groups_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order_delivery_groups" ADD CONSTRAINT "order_delivery_groups_primaryDriverId_fkey" FOREIGN KEY ("primaryDriverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "order_delivery_groups" ADD CONSTRAINT "order_delivery_groups_primaryDriverShiftId_fkey" FOREIGN KEY ("primaryDriverShiftId") REFERENCES "driver_shifts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "order_delivery_groups" ADD CONSTRAINT "order_delivery_groups_assistDriverId_fkey" FOREIGN KEY ("assistDriverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "order_delivery_groups" ADD CONSTRAINT "order_delivery_groups_assistDriverShiftId_fkey" FOREIGN KEY ("assistDriverShiftId") REFERENCES "driver_shifts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "order_delivery_group_items" (
+    "deliveryGroupId" TEXT NOT NULL,
+    "fulfillmentId" TEXT NOT NULL,
+    "sequence" INTEGER NOT NULL DEFAULT 1,
+
+    CONSTRAINT "order_delivery_group_items_pkey" PRIMARY KEY ("deliveryGroupId", "fulfillmentId")
+);
+
+CREATE INDEX "order_delivery_group_items_fulfillmentId_idx" ON "order_delivery_group_items"("fulfillmentId");
+
+ALTER TABLE "order_delivery_group_items" ADD CONSTRAINT "order_delivery_group_items_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order_delivery_group_items" ADD CONSTRAINT "order_delivery_group_items_fulfillmentId_fkey" FOREIGN KEY ("fulfillmentId") REFERENCES "order_vendor_fulfillments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "driver_assist_requests" (
+    "id" TEXT NOT NULL,
+    "driverId" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "deliveryGroupId" TEXT,
+    "reason" "DriverAssistReason" NOT NULL DEFAULT 'OTHER',
+    "note" TEXT,
+    "status" "DriverAssistRequestStatus" NOT NULL DEFAULT 'PENDING',
+    "assignedDriverId" TEXT,
+    "reviewedByUserId" TEXT,
+    "reviewedAt" TIMESTAMPTZ(3),
+    "resolvedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "driver_assist_requests_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "driver_assist_requests_orderId_idx" ON "driver_assist_requests"("orderId");
+CREATE INDEX "driver_assist_requests_driverId_createdAt_idx" ON "driver_assist_requests"("driverId", "createdAt");
+CREATE INDEX "driver_assist_requests_status_createdAt_idx" ON "driver_assist_requests"("status", "createdAt");
+CREATE INDEX "driver_assist_requests_deliveryGroupId_idx" ON "driver_assist_requests"("deliveryGroupId");
+-- One open request per driver per delivery: enforced by the database, not by a
+-- racy application check (same partial-index technique as driver_breaks_*).
+CREATE UNIQUE INDEX "driver_assist_requests_open_uidx"
+  ON "driver_assist_requests"("driverId", "deliveryGroupId")
+  WHERE "status" = 'PENDING';
+
+ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_assignedDriverId_fkey" FOREIGN KEY ("assignedDriverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "order_items" ADD CONSTRAINT "order_items_fulfillmentId_fkey" FOREIGN KEY ("fulfillmentId") REFERENCES "order_vendor_fulfillments"("id") ON DELETE SET NULL ON UPDATE CASCADE;

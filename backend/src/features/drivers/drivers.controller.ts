@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
 import { DriversService } from './drivers.service';
+import { DriverAssistService } from './driver-assist.service';
 import { AuthService } from '../auth/auth.service';
 import {
   RegisterDriverDto,
@@ -25,10 +26,16 @@ import {
   AdminCreateDriverDto,
   AdminUpdateDriverDto,
 } from './dto/driver.dto';
+import {
+  RequestAssistDriverDto,
+  DecideAssistRequestDto,
+  AssignAssistDriverDto,
+} from './dto/driver-assist.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Permission, Role } from '@prisma/client';
+import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import {
   ApiStandardResponse,
   ApiPaginatedResponse,
@@ -49,6 +56,7 @@ export class DriversController {
   constructor(
     private readonly driversService: DriversService,
     private readonly authService: AuthService,
+    private readonly driverAssistService: DriverAssistService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -422,5 +430,95 @@ export class DriversController {
   @ApiOperation({ summary: '[Admin] List recent breaks for a driver' })
   adminGetBreaks(@Param('driverId') driverId: string) {
     return this.driversService.adminGetBreaks(driverId);
+  }
+  // ─── Extra driver assistance ───────────────────────────────────────────────
+  // NOTE: these are static `assist/*` paths and must stay before the
+  // `:driverId/...` param routes below, otherwise Express would capture
+  // `assist` as a driverId (same trap as `breaks/*`).
+
+  @ApiStandardResponse()
+  @Post('assist/:orderId/groups/:deliveryGroupId/request')
+  @Roles(Role.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Driver] Request an additional driver for a delivery I am assigned to',
+  })
+  requestAssist(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @Param('deliveryGroupId') deliveryGroupId: string,
+    @Body() dto: RequestAssistDriverDto,
+  ) {
+    return this.driverAssistService.requestAssist(actor, orderId, deliveryGroupId, dto);
+  }
+
+  @ApiArrayResponse()
+  @Get('assist/mine')
+  @Roles(Role.DRIVER)
+  @ApiOperation({ summary: '[Driver] My assistance requests and their status' })
+  myAssistRequests(@CurrentUser() actor: JwtAccessPayload) {
+    return this.driverAssistService.myRequests(actor);
+  }
+
+  @ApiStandardResponse()
+  @Patch('assist/:requestId/cancel')
+  @Roles(Role.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Driver] Withdraw my own pending assistance request' })
+  cancelAssistRequest(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('requestId') requestId: string,
+  ) {
+    return this.driverAssistService.cancelByDriver(requestId, actor);
+  }
+
+  @ApiArrayResponse()
+  @Get('assist/pending')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({ summary: '[Admin] Pending extra-driver assistance requests' })
+  listPendingAssistRequests() {
+    return this.driverAssistService.listPending();
+  }
+
+  @ApiArrayResponse()
+  @Get('assist/order/:orderId')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({ summary: '[Admin] Assistance requests for one order' })
+  listAssistRequestsForOrder(@Param('orderId') orderId: string) {
+    return this.driverAssistService.listForOrder(orderId);
+  }
+
+  @ApiStandardResponse()
+  @Patch('assist/:requestId/decide')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Approve or reject an assistance request' })
+  decideAssistRequest(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('requestId') requestId: string,
+    @Body() dto: DecideAssistRequestDto,
+  ) {
+    return this.driverAssistService.decide(requestId, actor, dto);
+  }
+
+  // The authorization rule for this action is an explicit disjunction:
+  // MANAGE_ORDERS **or** MANAGE_DRIVERS (mode: 'any'). It must NOT be AND.
+  @ApiStandardResponse()
+  @Patch('assist/:requestId/assign-driver')
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_DRIVERS, {
+    mode: 'any',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Admin] Assign an assisting driver, keeping the primary driver (MANAGE_ORDERS or MANAGE_DRIVERS)',
+  })
+  assignAssistDriver(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('requestId') requestId: string,
+    @Body() dto: AssignAssistDriverDto,
+  ) {
+    return this.driverAssistService.assignDriver(requestId, actor, dto);
   }
 }

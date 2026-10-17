@@ -1868,5 +1868,20 @@
   "common_success_resource_deleted": "Deleted successfully.",
   "location_required_title": "Location required",
   "location_required_message": "Enable location services to continue using the app.",
-  "location_required_button": "Enable location"
+  "location_required_button": "Enable location",
+  "driver_error_assist_request_not_found": "Assistance request not found.",
+  "driver_error_assist_request_not_pending": "This assistance request is no longer pending.",
+  "driver_error_assist_request_already_open": "You already have an open assistance request for this delivery.",
+  "driver_error_assist_not_on_this_delivery": "You are not the primary driver for this delivery.",
+  "driver_error_assist_delivery_not_assigned": "This delivery is not eligible for extra-driver assistance.",
+  "driver_error_assist_delivery_already_started": "This delivery has already been picked up, so an assisting driver can no longer be added.",
+  "driver_error_assist_driver_not_eligible": "This driver is not available for assignment.",
+  "driver_error_assist_driver_already_assigned": "This driver is already assigned to this delivery.",
+  "driver_error_assist_reason_required": "Please choose a reason for requesting assistance.",
+  "order_error_fulfillment_not_found": "Order portion not found.",
+  "order_error_fulfillment_already_decided": "This order portion has already been accepted or rejected.",
+  "order_error_rejection_reason_required": "Please tell us why this part of the order cannot be fulfilled.",
+  "order_error_multi_vendor_not_allowed": "Multi-vendor checkout requires at least two vendors.",
+  "order_error_empty_cart_for_vendor": "One of the vendors in your checkout has an empty cart.",
+  "order_error_no_delivery_groups": "We could not plan the deliveries for this order."
 }

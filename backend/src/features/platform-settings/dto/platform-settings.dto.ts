@@ -124,6 +124,18 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   maxDeliveryFee?: number;
 
+  @ApiProperty({
+    example: 15,
+    required: false,
+    description:
+      'Absolute minimum customer delivery fee in EGP. Applied after the per-vehicle min/max matrix, so a vehicle override still wins. 0 disables the global floor.',
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  minDeliveryFee?: number;
+
   @ApiProperty({ example: 15, required: false })
   @IsInt()
   @Min(0)
@@ -301,6 +313,42 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   fallbackOrderDistanceKm?: number;
+
+  @ApiProperty({
+    example: 5,
+    required: false,
+    description:
+      'Smart grouping (km): max straight-line distance between any two vendor branches that may share one delivery group.',
+  })
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  groupingMaxBranchDistanceKm?: number;
+
+  @ApiProperty({
+    example: 25,
+    required: false,
+    description:
+      'Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all.',
+  })
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  groupingMaxVendorCustomerDistanceKm?: number;
+
+  @ApiProperty({
+    example: 35,
+    required: false,
+    description:
+      'Smart grouping (km): max total pickup + drop-off route for one delivery group (sum of consecutive stop hops plus the final hop to the customer, best ordering).',
+  })
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  groupingMaxCombinedRouteKm?: number;
 
   // ─── Order behaviour ───────────────────────────────────────────────────────
 

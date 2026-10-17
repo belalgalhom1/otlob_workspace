@@ -845,8 +845,11 @@ export class StatisticsRepository {
       }
 
       if (orderId) {
+        // Scoped by vendorId: a multi-vendor order has one revenue + one
+        // commission row PER VENDOR, so an orderId+type-only guard would treat
+        // the second vendor's payout as a duplicate and silently skip it.
         const existing = await tx.vendorWalletTransaction.findFirst({
-          where: { orderId, type: type as VendorTransactionType },
+          where: { orderId, type: type as VendorTransactionType, vendorId },
         });
         if (existing) return existing.balanceAfter;
       }
@@ -889,8 +892,11 @@ export class StatisticsRepository {
       }
 
       if (orderId) {
+        // Scoped by vendorId: a multi-vendor order has one revenue + one
+        // commission row PER VENDOR, so an orderId+type-only guard would treat
+        // the second vendor's payout as a duplicate and silently skip it.
         const existing = await tx.vendorWalletTransaction.findFirst({
-          where: { orderId, type: type as VendorTransactionType },
+          where: { orderId, type: type as VendorTransactionType, vendorId },
         });
         if (existing) return existing.balanceAfter;
       }

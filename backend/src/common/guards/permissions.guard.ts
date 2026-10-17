@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Permission } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import { PERMISSIONS_KEY, PERMISSIONS_MODE_KEY, PermissionsMode } from '../decorators/permissions.decorator';
 import { JwtAccessPayload } from '../interfaces/jwt-payload.interface';
 import { Role } from '@prisma/client';
 import { CommonErrors } from '../constants/response.constants';
@@ -50,11 +50,20 @@ export class PermissionsGuard implements CanActivate {
       if (!adminUser)
         throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
 
-      const hasAll = requiredPermissions.every((p) =>
-        adminUser.permissions.includes(p),
+      const mode = this.reflector.getAllAndOverride<PermissionsMode>(
+        PERMISSIONS_MODE_KEY,
+        [context.getHandler(), context.getClass()],
       );
 
-      if (!hasAll) throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      // `all` is the historical behaviour and stays the default so no existing
+      // route is weakened. `any` implements explicit disjunctions such as
+      // "MANAGE_ORDERS or MANAGE_DRIVERS".
+      const satisfied =
+        mode === 'any'
+          ? requiredPermissions.some((p) => adminUser.permissions.includes(p))
+          : requiredPermissions.every((p) => adminUser.permissions.includes(p));
+
+      if (!satisfied) throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
       return true;
     }

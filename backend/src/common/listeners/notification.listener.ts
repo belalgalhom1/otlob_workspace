@@ -7,9 +7,16 @@ import {
   ShiftReminderEvent,
   ShiftMissedEvent,
   ShiftSwapCancelledEvent,
+  OrderVendorRejectedEvent,
+  OrderFulfillmentDecidedEvent,
+  DriverAssistDecidedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
-import { NotificationType, TicketStatus } from '@prisma/client';
+import {
+  NotificationType,
+  OrderVendorFulfillmentStatus,
+  TicketStatus,
+} from '@prisma/client';
 import {
   QUEUES,
   EVENT_JOBS,
@@ -110,6 +117,98 @@ export class NotificationListener {
       bodyAr: 'لم يتم قبول طلب التبديل. يرجى الحضور للوردية خلال 30 دقيقة.',
       type: NotificationType.SYSTEM,
       data: { shiftId: event.shiftId },
+    });
+  }
+  // ─── Multi-vendor orders ───────────────────────────────────────────────────
+
+  /**
+   * A vendor rejected its portion. Tell the customer promptly, naming the
+   * vendor, the affected items and the reason, and stating the money change so
+   * the customer is not surprised by the adjusted total.
+   */
+  @OnEvent(EVENTS.ORDER_VENDOR_REJECTED, { async: true })
+  async handleOrderVendorRejected(event: OrderVendorRejectedEvent) {
+    const items =
+      event.affectedItemNames.length > 0
+        ? event.affectedItemNames.join(', ')
+        : 'some items';
+    const money =
+      event.refundAmount > 0
+        ? ` ${event.refundAmount} EGP was removed from your total.`
+        : '';
+
+    if (!event.allPortionsRejected) {
+      await this.enqueueNotification({
+        userId: event.customerUserId,
+        title: `Part of your order was unavailable`,
+        titleAr: 'جزء من طلبك غير متوفر',
+        body: `${event.vendorName} could not fulfil: ${items}. ${event.rejectionReason}.${money}`,
+        bodyAr: `${event.vendorNameAr ?? event.vendorName} لم يستطع تلبية الطلب: ${items}. ${event.rejectionReasonAr ?? event.rejectionReason}.${money}`,
+        type: NotificationType.ORDER_UPDATE,
+        data: {
+          orderId: event.orderId,
+          type: 'VENDOR_PORTION_REJECTED',
+          fulfillmentId: event.fulfillmentId,
+          refundAmount: event.refundAmount,
+        },
+      });
+    }
+  }
+
+  /** Vendor accepted its own portion — tell the customer this part is moving. */
+  @OnEvent(EVENTS.ORDER_FULFILLMENT_DECIDED, { async: true })
+  async handleFulfillmentDecided(event: OrderFulfillmentDecidedEvent) {
+    if (event.status !== OrderVendorFulfillmentStatus.ACCEPTED) return;
+
+    await this.enqueueNotification({
+      userId: event.customerUserId,
+      title: 'A vendor accepted part of your order',
+      titleAr: 'قبل أحد الموردين جزءًا من طلبك',
+      body: `Part of your order ${event.orderNumber} was accepted and is now being prepared.`,
+      bodyAr: `تم قبول جزء من طلبك ${event.orderNumber} ويجري تجهيزه الآن.`,
+      type: NotificationType.ORDER_UPDATE,
+      data: {
+        orderId: event.orderId,
+        type: 'FULFILLMENT_ACCEPTED',
+        fulfillmentId: event.fulfillmentId,
+      },
+    });
+  }
+
+  // ─── Extra-driver assistance ──────────────────────────────────────────────
+
+  /** Support approved/rejected/withdrew an assistance request — tell the driver. */
+  @OnEvent(EVENTS.DRIVER_ASSIST_DECIDED, { async: true })
+  async handleAssistDecided(event: DriverAssistDecidedEvent) {
+    const copy: Record<string, { en: string; ar: string }> = {
+      approved: {
+        en: 'Your request for an extra driver was approved.',
+        ar: 'تمت الموافقة على طلبك لسائق إضافي.',
+      },
+      rejected: {
+        en: 'Your request for an extra driver was rejected.',
+        ar: 'تم رفض طلبك لسائق إضافي.',
+      },
+      cancelled: {
+        en: 'Your extra-driver request was withdrawn.',
+        ar: 'تم إلغاء طلب السائق الإضافي.',
+      },
+      fulfilled: {
+        en: 'An extra driver has been assigned to your delivery.',
+        ar: 'تم تعيين سائق إضافي لتوصيلك.',
+      },
+    };
+    const text = copy[event.decision];
+    if (!text) return;
+
+    await this.enqueueNotification({
+      userId: event.driverUserId,
+      title: 'Extra driver request update',
+      titleAr: 'تحديث طلب السائق الإضافي',
+      body: text.en,
+      bodyAr: text.ar,
+      type: NotificationType.ORDER_UPDATE,
+      data: { orderId: event.orderId, requestId: event.requestId },
     });
   }
 }

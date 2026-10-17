@@ -1,4 +1,10 @@
-import { DispatchStatus, OrderStatus, TicketStatus } from '@prisma/client';
+import {
+  DispatchStatus,
+  OrderStatus,
+  TicketStatus,
+  DriverAssistRequestStatus,
+  OrderVendorFulfillmentStatus,
+} from '@prisma/client';
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -263,5 +269,79 @@ export class ShiftDisabledEvent {
   constructor(
     public readonly driverUserId: string,
     public readonly shiftId: string,
+  ) {}
+}
+
+export type DriverAssistDecision =
+  | 'approved'
+  | 'rejected'
+  | 'fulfilled'
+  | 'cancelled';
+
+export class DriverAssistRequestedEvent {
+  constructor(
+    public readonly requestId: string,
+    public readonly driverUserId: string,
+    public readonly orderId: string,
+    public readonly orderNumber: string,
+    public readonly deliveryGroupId: string | null,
+    public readonly reason: string,
+    public readonly note: string | null,
+  ) {}
+}
+
+export class DriverAssistDecidedEvent {
+  constructor(
+    public readonly requestId: string,
+    public readonly driverUserId: string,
+    public readonly orderId: string,
+    public readonly decision: DriverAssistDecision,
+    public readonly actorUserId: string,
+    public readonly assignedDriverUserId: string | null,
+  ) {}
+}
+
+export class DriverAssistAssignedEvent {
+  constructor(
+    public readonly requestId: string,
+    public readonly orderId: string,
+    public readonly deliveryGroupId: string,
+    public readonly primaryDriverUserId: string,
+    public readonly assistDriverUserId: string,
+    public readonly actorUserId: string,
+  ) {}
+}
+
+export class OrderFulfillmentDecidedEvent {
+  constructor(
+    public readonly orderId: string,
+    public readonly orderNumber: string,
+    public readonly customerId: string,
+    public readonly customerUserId: string,
+    public readonly fulfillmentId: string,
+    public readonly vendorId: string,
+    public readonly vendorUserIds: string[],
+    public readonly status: OrderVendorFulfillmentStatus,
+    public readonly actorUserId: string,
+  ) {}
+}
+
+export class OrderVendorRejectedEvent {
+  constructor(
+    public readonly orderId: string,
+    public readonly orderNumber: string,
+    public readonly customerId: string,
+    public readonly customerUserId: string,
+    public readonly fulfillmentId: string,
+    public readonly vendorId: string,
+    public readonly vendorName: string,
+    public readonly vendorNameAr: string | null,
+    public readonly rejectionCode: string,
+    public readonly rejectionReason: string,
+    public readonly rejectionReasonAr: string | null,
+    public readonly affectedItemNames: string[],
+    public readonly refundAmount: number,
+    public readonly allPortionsRejected: boolean,
+    public readonly actorUserId: string,
   ) {}
 }

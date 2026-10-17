@@ -326,21 +326,66 @@ export class StatisticsService {
         }
       }
 
-      if (vendorId && isContracted) {
-        // Vendor wallet: credit revenue (subtotal) and debit commission ONLY if they are contracted
+      // ─── Vendor payouts ────────────────────────────────────────────────────────
+      // Single-vendor orders pay out exactly as before. Multi-vendor orders pay
+      // out once per ACCEPTED vendor portion, using each portion's own subtotal
+      // and the commission rate captured at checkout (so a later rate change
+      // cannot alter an already-delivered order). Rejected/cancelled portions
+      // are never dispatched and never paid.
+      const portions = await client.orderVendorFulfillment.findMany({
+        where: { orderId, status: 'ACCEPTED' },
+        select: { vendorId: true, subtotal: true, commissionRate: true },
+      });
+
+      const payables: Array<{
+        vendorId: string;
+        revenue: number;
+        commission: number;
+        description: string;
+      }> =
+        portions.length > 0
+          ? await Promise.all(
+              portions.map(async (p) => {
+                const contracted = await client.vendor.findUnique({
+                  where: { id: p.vendorId },
+                  select: { isContracted: true },
+                });
+                if (!contracted?.isContracted) return null;
+                const rate = Number(p.commissionRate ?? 0);
+                return {
+                  vendorId: p.vendorId,
+                  revenue: p.subtotal,
+                  commission: Math.round(p.subtotal * (rate / 100)),
+                  description: `Order ${orderNumber} revenue`,
+                };
+              }),
+            ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => !!r))
+          : // Legacy single-vendor path: unchanged behaviour.
+            vendorId && isContracted
+            ? [
+                {
+                  vendorId,
+                  revenue: vendorRevenue,
+                  commission,
+                  description: `Order ${orderNumber} revenue`,
+                },
+              ]
+            : [];
+
+      for (const payable of payables) {
         await this.statsRepository.creditVendorWallet(
-          vendorId,
-          vendorRevenue,
+          payable.vendorId,
+          payable.revenue,
           'ORDER_REVENUE',
           orderId,
-          `Order ${orderNumber} revenue`,
+          payable.description,
           client,
           { skipLock: true },
         );
 
         await this.statsRepository.debitVendorWallet(
-          vendorId,
-          commission,
+          payable.vendorId,
+          payable.commission,
           'COMMISSION_DEDUCTION',
           orderId,
           `Commission for order ${orderNumber}`,

@@ -6,6 +6,9 @@ import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersStateService } from './orders-state.service';
 import { OrdersPaymentService } from './orders-payment.service';
 import { OrdersRepository } from './orders.repository';
+import { OrderGroupingService } from './order-grouping.service';
+import { OrderVendorDecisionService } from './order-vendor-decision.service';
+import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { CartModule } from '../cart/cart.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { StatisticsModule } from '../statistics/statistics.module';
@@ -19,6 +22,9 @@ import { StatisticsModule } from '../statistics/statistics.module';
     OrdersStateService,
     OrdersPaymentService,
     OrdersRepository,
+    OrderGroupingService,
+    OrderVendorDecisionService,
+    OrdersMultiVendorService,
   ],
   exports: [
     OrdersService,
@@ -26,6 +32,9 @@ import { StatisticsModule } from '../statistics/statistics.module';
     OrdersStateService,
     OrdersPaymentService,
     OrdersRepository,
+    OrderGroupingService,
+    OrderVendorDecisionService,
+    OrdersMultiVendorService,
   ],
 })
 export class OrdersModule {}

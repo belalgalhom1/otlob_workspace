@@ -24,6 +24,9 @@ model PlatformSetting {
   pricePerKmTruck             Int     @default(12)
   pricePerKmMotorTricycle     Int     @default(4)
   maxDeliveryFee              Int     @default(0)
+  // Absolute customer-facing delivery-fee floor (EGP, whole pounds). Applied
+  // after the per-vehicle min/max matrix, so a vehicle override still wins.
+  minDeliveryFee              Int     @default(15)
   minDeliveryFeeBicycle       Int     @default(15)
   maxDeliveryFeeBicycle       Int     @default(0)
   minDeliveryFeeMotorcycle    Int     @default(15)
@@ -90,6 +93,16 @@ model PlatformSetting {
   maxKmForBicycle                       Float     @default(5.0)
   driverSearchMaxAttempts               Int       @default(5)
   fallbackOrderDistanceKm               Float     @default(3.0)
+  // ─── Smart multi-vendor delivery grouping (kilometres) ──────────────────
+  // Max straight-line distance between any two vendor branches that may share
+  // one delivery group.
+  groupingMaxBranchDistanceKm           Float     @default(5.0)
+  // Max straight-line distance from a vendor branch to the customer drop-off
+  // for that branch to be eligible for grouping at all.
+  groupingMaxVendorCustomerDistanceKm   Float     @default(25.0)
+  // Max total pickup+drop-off route length for a group (Σ consecutive stop
+  // hops + final hop to the customer, best ordering).
+  groupingMaxCombinedRouteKm            Float     @default(35.0)
   customOrderPlatformFee                Int       @default(10)
   maxDispatchBatchSize                  Int       @default(20)
   coinValue                             Int       @default(1)
@@ -487,6 +500,7 @@ model Vendor {
   orderReviews       OrderReview[]
   vertical           VendorVertical            @relation(fields: [verticalId], references: [id])
 
+  orderFulfillments OrderVendorFulfillment[]
   @@index([createdAt])
   @@index([status])
   @@index([verticalId])
@@ -529,6 +543,7 @@ model VendorBranch {
   vendorMembers VendorMember[]
   orders        Order[]
 
+  orderFulfillments OrderVendorFulfillment[]
   @@index([zoneId])
   @@index([vendorId, isOpen])
   @@index([location], type: Gist)
@@ -551,7 +566,10 @@ model VendorWalletTransaction {
   @@index([vendorId])
   @@index([orderId])
   @@index([createdAt])
-  @@unique([orderId, type])
+  // Was @@unique([orderId, type]) — that capped an order at ONE revenue + ONE
+  // commission row and made per-vendor settlement impossible. Scoped to
+  // vendorId so each vendor portion settles exactly once per order.
+  @@unique([orderId, type, vendorId])
   @@map("vendor_wallet_transactions")
 }
 
@@ -836,6 +854,10 @@ model Order {
   conversations        Conversation[]
   vendorTransactions   VendorWalletTransaction[]
   review               OrderReview?
+  // ─── Multi-vendor / grouped delivery (additive) ─────────────────────────
+  vendorFulfillments   OrderVendorFulfillment[]
+  deliveryGroups       OrderDeliveryGroup[]
+  assistRequests       DriverAssistRequest[]
 
   @@index([customerId])
   @@index([zoneId])
@@ -870,6 +892,9 @@ model OrderStatusEvent {
 model OrderItem {
   id              String            @id @default(uuid())
   orderId         String
+  // Set when the item belongs to a specific vendor portion of a multi-vendor
+  // order. Null for legacy single-vendor rows and custom-delivery/ride orders.
+  fulfillmentId   String?
   productId       String?
   variantId       String?
   productName     String
@@ -880,12 +905,17 @@ model OrderItem {
   specialRequest  String?
   selectedUnit    String?
   baseUnitPrice   Int?
+  // Auditable rejection marker: the row is never deleted so the audit trail and
+  // the original price snapshot survive.
+  rejectedAt      DateTime?         @db.Timestamptz(3)
   selectedOptions OrderItemOption[]
   order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fulfillment     OrderVendorFulfillment? @relation(fields: [fulfillmentId], references: [id])
   product         Product?          @relation(fields: [productId], references: [id])
   variant         ProductVariant?   @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
+  @@index([fulfillmentId])
   @@map("order_items")
 }
 
@@ -901,6 +931,121 @@ model OrderItemOption {
 
   @@index([orderItemId])
   @@map("order_item_options")
+}
+
+/// One vendor's independently-fulfillable portion of a customer order. This is
+/// the unit that accepts/rejects, settles, and gets picked up in a delivery.
+model OrderVendorFulfillment {
+  id             String                    @id @default(uuid())
+  orderId        String
+  vendorId       String
+  vendorBranchId String?
+  status         OrderVendorFulfillmentStatus @default(PENDING)
+  /// Money snapshot for this vendor only (EGP, whole pounds) — the sum of its
+  /// non-rejected items' totalPrice.
+  subtotal       Int                       @default(0)
+  /// Commission rate captured at checkout so settlement never re-reads a
+  /// mutable vendor setting.
+  commissionRate Int                       @default(10)
+  rejectionCode  String?
+  rejectionReason String?
+  rejectionReasonAr String?
+  decidedByUserId String?
+  decidedAt      DateTime?                 @db.Timestamptz(3)
+  deliveredAt    DateTime?                 @db.Timestamptz(3)
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)
+
+  order      Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor     Vendor                    @relation(fields: [vendorId], references: [id])
+  vendorBranch VendorBranch?           @relation(fields: [vendorBranchId], references: [id])
+  items      OrderItem[]
+  groups     OrderDeliveryGroupItem[]
+
+  @@index([orderId])
+  @@index([vendorId, status])
+  @@index([status, createdAt])
+  @@map("order_vendor_fulfillments")
+}
+
+/// A single physical delivery of a customer order: one primary driver, one or
+/// more vendor fulfillments, one customer drop-off.
+model OrderDeliveryGroup {
+  id             String                    @id @default(uuid())
+  orderId        String
+  sequence       Int                       @default(1)
+  status         DeliveryGroupStatus       @default(PENDING)
+  primaryDriverId String?
+  primaryDriverShiftId String?
+  /// Assisting driver — never replaces the primary, never carries pay.
+  assistDriverId String?
+  assistDriverShiftId String?
+  assignedByUserId String?
+  assignedAt     DateTime?                 @db.Timestamptz(3)
+  distanceKm     Float?
+  deliveryFee    Int                       @default(0)
+  estimatedPrepTime Int?
+  pickedUpAt     DateTime?                 @db.Timestamptz(3)
+  deliveredAt    DateTime?                 @db.Timestamptz(3)
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)
+
+  order        Order                      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  primaryDriver Driver?                   @relation("GroupPrimaryDriver", fields: [primaryDriverId], references: [id])
+  primaryDriverShift DriverShift?         @relation("GroupPrimaryShift", fields: [primaryDriverShiftId], references: [id])
+  assistDriver Driver?                    @relation("GroupAssistDriver", fields: [assistDriverId], references: [id])
+  assistDriverShift DriverShift?          @relation("GroupAssistShift", fields: [assistDriverShiftId], references: [id])
+  items       OrderDeliveryGroupItem[]
+  assistRequests DriverAssistRequest[]
+
+  @@unique([orderId, sequence])
+  @@index([orderId])
+  @@index([primaryDriverId])
+  @@index([status])
+  @@map("order_delivery_groups")
+}
+
+/// Join table: which vendor fulfillments ride together in a delivery group.
+model OrderDeliveryGroupItem {
+  deliveryGroupId String
+  fulfillmentId   String
+  sequence        Int                       @default(1)
+  deliveryGroup   OrderDeliveryGroup        @relation(fields: [deliveryGroupId], references: [id], onDelete: Cascade)
+  fulfillment     OrderVendorFulfillment    @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+
+  @@id([deliveryGroupId, fulfillmentId])
+  @@index([fulfillmentId])
+  @@map("order_delivery_group_items")
+}
+
+/// Persisted driver request for a second pair of hands. Mirrors the
+/// DriverBreak request/approve/reject precedent, including a partial unique
+/// index (SQL-only) that makes duplicate open requests impossible.
+model DriverAssistRequest {
+  id             String                    @id @default(uuid())
+  driverId       String
+  orderId        String
+  deliveryGroupId String?
+  reason         DriverAssistReason       @default(OTHER)
+  note           String?
+  status         DriverAssistRequestStatus @default(PENDING)
+  assignedDriverId String?
+  reviewedByUserId String?
+  reviewedAt     DateTime?                 @db.Timestamptz(3)
+  resolvedAt     DateTime?                 @db.Timestamptz(3)
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)
+
+  driver          Driver              @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryGroup   OrderDeliveryGroup? @relation(fields: [deliveryGroupId], references: [id])
+  assignedDriver  Driver?             @relation("AssistAssignedDriver", fields: [assignedDriverId], references: [id])
+
+  @@index([orderId])
+  @@index([driverId, createdAt])
+  @@index([status, createdAt])
+  @@index([deliveryGroupId])
+  @@map("driver_assist_requests")
 }
 
 model Driver {
@@ -941,6 +1086,10 @@ model Driver {
   orderReviews        OrderReview[]
   breaks              DriverBreak[]
 
+  primaryGroups    OrderDeliveryGroup[] @relation("GroupPrimaryDriver")
+  assistGroups     OrderDeliveryGroup[] @relation("GroupAssistDriver")
+  assistRequests   DriverAssistRequest[]
+  assignedAssistRequests DriverAssistRequest[] @relation("AssistAssignedDriver")
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
@@ -977,6 +1126,8 @@ model DriverShift {
   swapRequests       ShiftSwapRequest[]
   breaks             DriverBreak[]
 
+  primaryGroups    OrderDeliveryGroup[] @relation("GroupPrimaryShift")
+  assistGroups     OrderDeliveryGroup[] @relation("GroupAssistShift")
   @@index([shiftPoolId])
   @@index([zoneId])
   @@index([driverId, status])
@@ -1333,6 +1484,42 @@ enum OrderType {
   STANDARD
   CUSTOM_DELIVERY
   RIDE
+}
+
+enum OrderVendorFulfillmentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum DeliveryGroupStatus {
+  PENDING
+  ACCEPTED
+  LOOKING_FOR_DRIVER
+  DRIVER_ASSIGNED
+  PENDING_PAYMENT
+  READY_FOR_PICKUP
+  PICKED_UP
+  DELIVERED
+  CANCELLED
+}
+
+enum DriverAssistReason {
+  TOO_LARGE
+  TOO_HEAVY
+  MULTI_STOP_COMPLEXITY
+  LONG_DISTANCE
+  ACCESS_RESTRICTED
+  OTHER
+}
+
+enum DriverAssistRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+  CANCELLED
 }
 
 enum DispatchStatus {

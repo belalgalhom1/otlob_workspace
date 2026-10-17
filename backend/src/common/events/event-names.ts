@@ -38,6 +38,15 @@ export const EVENTS = {
   // Reviews
   REVIEW_SUBMITTED: 'review.submitted',
 
+  // Extra-driver assistance
+  DRIVER_ASSIST_REQUESTED: 'driver.assist.requested',
+  DRIVER_ASSIST_DECIDED: 'driver.assist.decided',
+  DRIVER_ASSIST_ASSIGNED: 'driver.assist.assigned',
+
+  // Multi-vendor orders
+  ORDER_FULFILLMENT_DECIDED: 'order.fulfillment.decided',
+  ORDER_VENDOR_REJECTED: 'order.vendor.rejected',
+
   // Platform settings
   SETTINGS_UPDATED: 'platform.settings.updated',
 } as const;

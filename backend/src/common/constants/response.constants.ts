@@ -273,6 +273,18 @@ export const DriverErrors = {
   CANNOT_REMOVE_HISTORICAL_SHIFT: 'driver.error.cannot_remove_historical_shift',
   CANNOT_DELETE_POOL_WITH_ASSIGNED_DRIVERS:
     'driver.error.cannot_delete_pool_with_assigned_drivers',
+  // Extra-driver assistance
+  ASSIST_REQUEST_NOT_FOUND: 'driver.error.assist_request_not_found',
+  ASSIST_REQUEST_NOT_PENDING: 'driver.error.assist_request_not_pending',
+  ASSIST_REQUEST_ALREADY_OPEN: 'driver.error.assist_request_already_open',
+  ASSIST_NOT_ON_THIS_DELIVERY: 'driver.error.assist_not_on_this_delivery',
+  ASSIST_DELIVERY_NOT_ASSIGNED: 'driver.error.assist_delivery_not_assigned',
+  ASSIST_DELIVERY_ALREADY_STARTED:
+    'driver.error.assist_delivery_already_started',
+  ASSIST_DRIVER_NOT_ELIGIBLE: 'driver.error.assist_driver_not_eligible',
+  ASSIST_DRIVER_ALREADY_ASSIGNED:
+    'driver.error.assist_driver_already_assigned',
+  ASSIST_REASON_REQUIRED: 'driver.error.assist_reason_required',
 };
 
 export const OrderErrors = {
@@ -318,6 +330,13 @@ export const OrderErrors = {
   DRIVERS_CANNOT_CANCEL: 'order.error.drivers_cannot_cancel',
   INSUFFICIENT_STOCK: 'order.error.insufficient_stock',
   INVALID_AMOUNT: 'order.error.invalid_amount',
+  // Multi-vendor checkout / vendor portions
+  FULFILLMENT_NOT_FOUND: 'order.error.fulfillment_not_found',
+  FULFILLMENT_ALREADY_DECIDED: 'order.error.fulfillment_already_decided',
+  REJECTION_REASON_REQUIRED: 'order.error.rejection_reason_required',
+  MULTI_VENDOR_NOT_ALLOWED: 'order.error.multi_vendor_not_allowed',
+  EMPTY_CART_FOR_VENDOR: 'order.error.empty_cart_for_vendor',
+  NO_DELIVERY_GROUPS: 'order.error.no_delivery_groups',
 };
 
 export const CartErrors = {

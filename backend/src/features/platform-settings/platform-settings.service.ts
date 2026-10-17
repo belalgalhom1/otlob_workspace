@@ -184,6 +184,7 @@ export class PlatformSettingsService {
       'pricePerKmTruck',
       'pricePerKmMotorTricycle',
       'maxDeliveryFee',
+      'minDeliveryFee',
       'minDeliveryFeeBicycle',
       'maxDeliveryFeeBicycle',
       'minDeliveryFeeMotorcycle',
@@ -210,6 +211,9 @@ export class PlatformSettingsService {
       'driverSearchRadiusMaxKm',
       'driverSearchMaxAttempts',
       'fallbackOrderDistanceKm',
+      'groupingMaxBranchDistanceKm',
+      'groupingMaxVendorCustomerDistanceKm',
+      'groupingMaxCombinedRouteKm',
       'customOrderPlatformFee',
       'autoCancelPendingMins',
       'mobileWalletTimeoutMins',
@@ -386,6 +390,15 @@ export class PlatformSettingsService {
     const maxFee = vehicleMaxFee > 0 ? vehicleMaxFee : Number(s.maxDeliveryFee);
     if (maxFee > 0 && fee > maxFee) {
       fee = maxFee;
+    }
+
+    // Global customer-facing floor (EGP). Applied last so a configured
+    // per-vehicle minimum still wins over it, and so a cheap zone override or
+    // sub-minimum `minDistanceFixedPrice` can never drop a delivery below the
+    // platform minimum. 0 disables the floor.
+    const globalMinFee = Number(s.minDeliveryFee ?? 0);
+    if (globalMinFee > 0 && fee < globalMinFee) {
+      fee = globalMinFee;
     }
 
     // Round to 2 decimal places
