@@ -350,6 +350,19 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   groupingMaxCombinedRouteKm?: number;
 
+  @ApiProperty({
+    example: 50,
+    required: false,
+    description:
+      'Assisting driver: percentage of the delivery group driver earnings that goes to the second driver (0-100). The primary driver receives the remainder. 0 assigns and tracks the assisting driver without paying them.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  assistDriverEarningsPercent?: number;
+
   // ─── Order behaviour ───────────────────────────────────────────────────────
 
   @ApiProperty({ example: 1500, required: false })

@@ -519,4 +519,25 @@ export class LocationRepository {
     `;
     return rows[0] || null;
   }
+  /**
+   * Pickup point for one delivery group: the first branch in the group's
+   * planned pickup order. Raw SQL because `location` is `Unsupported("geometry")`
+   * and cannot be selected through Prisma (same reason as
+   * getOrderLocationContext). Returns null when the group has no branch yet.
+   */
+  async getDeliveryGroupPickupLocation(
+    deliveryGroupId: string,
+  ): Promise<{ lng: number; lat: number } | null> {
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT ST_X(b."location"::geometry) AS lng,
+             ST_Y(b."location"::geometry) AS lat
+      FROM order_delivery_group_items gi
+      JOIN order_vendor_fulfillments f ON f.id = gi."fulfillmentId"
+      JOIN vendor_branches b ON b.id = f."vendorBranchId"
+      WHERE gi."deliveryGroupId" = ${deliveryGroupId}
+      ORDER BY gi.sequence ASC
+      LIMIT 1
+    `;
+    return rows[0] || null;
+  }
 }

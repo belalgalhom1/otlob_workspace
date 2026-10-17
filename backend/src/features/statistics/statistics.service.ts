@@ -116,6 +116,24 @@ export class StatisticsService {
     const driverEarnings = Math.round(driverDeliveryFee * driverShare);
     const applicationDeliveryCut = deliveryFee - driverEarnings;
 
+    // ─── Assisting driver ────────────────────────────────────────────────────
+    // A second driver SPLITS this delivery's driver earnings; they are never
+    // paid a second fee, because the customer only ever paid `deliveryFee` and
+    // `applicationDeliveryCut` above is derived from it. The split is
+    // conservative by construction: the assisting driver takes at most their
+    // configured percentage of the pot and the primary driver receives the
+    // remainder, so primaryShare + assistShare === driverEarnings exactly — no
+    // money is created or destroyed by a two-person delivery.
+    const assist = await this.resolveAssistShare({
+      orderId,
+      primaryTier: driverTier,
+      totalDriverEarnings: driverEarnings,
+      deliveryFee: driverDeliveryFee,
+      distanceKm,
+      driverShare,
+    });
+    const primaryShare = driverEarnings - assist.assistEarnings;
+
     // Sequentially process driver and vendor wallets to prevent DB row deadlocks
     const platformFee = isContracted ? commission : (serviceFee ?? commission);
     let platformRevenue = platformFee + applicationDeliveryCut;
@@ -202,13 +220,30 @@ export class StatisticsService {
       await this.creditDriverWallet(
         client,
         driverId,
-        driverEarnings,
+        primaryShare,
         orderId,
         driverShiftId,
         `Delivery fee for order ${orderNumber}`,
         'DELIVERY_FEE',
         { skipLock: true },
       );
+
+      // The assisting driver earns their configured share of the SAME fee.
+      // Cash collection stays with the primary driver — two drivers collecting
+      // the customer's money would risk double-collection and unreconciled
+      // float, so the assistant is paid purely from the fee pot.
+      if (assist.assistEarnings > 0 && assist.assistDriverId) {
+        await this.creditDriverWallet(
+          client,
+          assist.assistDriverId,
+          assist.assistEarnings,
+          orderId,
+          assist.assistDriverShiftId ?? null,
+          `Assisting delivery fee for order ${orderNumber}`,
+          'DELIVERY_FEE',
+          { skipLock: true },
+        );
+      }
 
       if (driverBonusFee > 0) {
         await this.creditDriverWallet(
@@ -517,7 +552,11 @@ export class StatisticsService {
     this.logger.log(
       `Order ${orderNumber} settled — ` +
         `vendor: +${vendorRevenue} -${commission} commission, ` +
-        `driver: +${driverEarnings}, platform: +${platformRevenue}`,
+        `driver: +${driverEarnings}` +
+        (assist.assistEarnings > 0
+          ? ` (primary +${primaryShare}, assisting +${assist.assistEarnings})`
+          : '') +
+        `, platform: +${platformRevenue}`,
     );
   }
 
@@ -881,8 +920,11 @@ export class StatisticsService {
       await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
     }
 
+    // Scoped by driverId: an order with an assisting driver has one DELIVERY_FEE
+    // row PER DRIVER, so an orderId+type-only guard would treat the assistant's
+    // payout as a duplicate and silently skip it.
     const existing = await client.driverWalletTransaction.findFirst({
-      where: { orderId, type },
+      where: { orderId, type, driverId },
     });
     if (existing) return;
 
@@ -903,5 +945,100 @@ export class StatisticsService {
         description,
       },
     });
+  }
+  /**
+   * Work out the assisting driver's share of one delivery's driver earnings.
+   *
+   * Money-conservation invariants this guarantees:
+   *  - `assistEarnings <= totalDriverEarnings`, so the primary driver always
+   *    keeps a non-negative remainder and the two shares sum to exactly the
+   *    pre-split earnings — no money is created or destroyed;
+   *  - the assistant's share reflects THEIR OWN tier bonus, mirroring the
+   *    primary's tier adjustment, so a lower-tier assistant earns
+   *    proportionally less on the same route;
+   *  - cash collection is deliberately NOT duplicated: only the primary driver
+   *    records CASH_COLLECTED, the assistant is paid from the fee pot only.
+   *
+   * Returns a zero share when the order has no assisting driver or the operator
+   * has set the percentage to 0 (the driver is still assigned and tracked).
+   */
+  private async resolveAssistShare(params: {
+    orderId: string;
+    primaryTier: string;
+    totalDriverEarnings: number;
+    deliveryFee: number;
+    distanceKm: number;
+    driverShare: number;
+  }): Promise<{
+    assistEarnings: number;
+    assistDriverId: string | null;
+    assistDriverShiftId: string | null;
+  }> {
+    const {
+      orderId,
+      primaryTier,
+      totalDriverEarnings,
+      deliveryFee,
+      distanceKm,
+      driverShare,
+    } = params;
+
+    const group = await this.prisma.orderDeliveryGroup.findFirst({
+      where: { orderId, assistDriverId: { not: null } },
+      select: {
+        assistDriverId: true,
+        assistDriverShiftId: true,
+        distanceKm: true,
+      },
+      orderBy: { sequence: 'asc' },
+    });
+
+    if (!group?.assistDriverId || totalDriverEarnings <= 0) {
+      return {
+        assistEarnings: 0,
+        assistDriverId: null,
+        assistDriverShiftId: null,
+      };
+    }
+
+    const settings = await this.platformSettings.getSettings();
+    const percent = Math.min(100, Math.max(0, Number(settings.assistDriverEarningsPercent ?? 50)));
+
+    const assistDriver = group.assistDriverId;
+    if (percent === 0) {
+      return {
+        assistEarnings: 0,
+        assistDriverId: assistDriver,
+        assistDriverShiftId: group.assistDriverShiftId,
+      };
+    }
+
+    const assist = await this.prisma.driver.findUnique({
+      where: { id: assistDriver },
+      select: { tier: true },
+    });
+
+    const tierBonusPerKm = (tier: string): number => {
+      if (tier === 'SILVER') return Number(settings.silverTierBonusPerKm ?? 0);
+      if (tier === 'BRONZE') return Number(settings.bronzeTierBonusPerKm ?? 0);
+      return Number(settings.goldTierBonusPerKm ?? 0);
+    };
+
+    // Same tier-difference rule the primary uses, evaluated for the assistant.
+    const tierDiffPerKm =
+      tierBonusPerKm(primaryTier) - tierBonusPerKm(assist?.tier ?? 'GOLD');
+    const routeKm = group.distanceKm ?? distanceKm;
+    const assistBaseFee = settings.driverShiftsEnabled
+      ? Math.max(0, deliveryFee - Math.max(0, tierDiffPerKm) * routeKm)
+      : deliveryFee;
+
+    const assistGross = Math.round(assistBaseFee * driverShare);
+    const share = Math.round((assistGross * percent) / 100);
+
+    return {
+      assistEarnings: Math.min(Math.max(0, share), totalDriverEarnings),
+      assistDriverId: assistDriver,
+      assistDriverShiftId: group.assistDriverShiftId,
+    };
   }
 }

@@ -13,7 +13,7 @@ import {
   OrderDispatchCancelledEvent,
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
-import { OrderStatus, DriverStatus } from '@prisma/client';
+import { DeliveryGroupStatus, OrderStatus, DriverStatus } from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../orders/orders.constants';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
@@ -27,6 +27,12 @@ export interface DispatchAttemptPayload {
   orderNumber: string;
   attempt: number;
   excludeDriverIds?: string[];
+  /**
+   * Which delivery this offer is for. Set for multi-vendor orders split into
+   * delivery groups; omitted for legacy single-vendor orders and for
+   * CUSTOM_DELIVERY/RIDE, where the order itself is the only delivery.
+   */
+  deliveryGroupId?: string | null;
 }
 
 // Dispatch outcome contract. The processor relies on this to decide whether a
@@ -67,7 +73,13 @@ export class DispatchService {
   async attemptDispatch(
     payload: DispatchAttemptPayload,
   ): Promise<DispatchOutcome> {
-    const { orderId, orderNumber, attempt, excludeDriverIds = [] } = payload;
+    const {
+      orderId,
+      orderNumber,
+      attempt,
+      excludeDriverIds = [],
+      deliveryGroupId = null,
+    } = payload;
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -82,6 +94,34 @@ export class DispatchService {
       },
     });
 
+    // A grouped delivery is dispatched and gated independently of its order:
+    // once one group is on the road the others still need their own driver.
+    const group = deliveryGroupId
+      ? await this.prisma.orderDeliveryGroup.findUnique({
+          where: { id: deliveryGroupId },
+          select: {
+            id: true,
+            orderId: true,
+            sequence: true,
+            status: true,
+            deliveryFee: true,
+            distanceKm: true,
+            primaryDriverId: true,
+          },
+        })
+      : null;
+
+    if (deliveryGroupId && (!group || group.orderId !== orderId)) {
+      this.logger.warn(
+        `Dispatch skipped for ${orderNumber}: delivery group ${deliveryGroupId} not found`,
+      );
+      return 'invalid';
+    }
+
+    // The fee this delivery actually earns. A group is priced separately, so
+    // using the order total here would over-state a split delivery's earnings.
+    const dispatchDeliveryFee = group ? group.deliveryFee : order?.deliveryFee ?? 0;
+
     const dispatchableStatuses: OrderStatus[] = [
       OrderStatus.LOOKING_FOR_DRIVER,
       OrderStatus.ACCEPTED,
@@ -89,20 +129,59 @@ export class DispatchService {
       OrderStatus.READY_FOR_PICKUP,
     ];
 
-    if (!order || !dispatchableStatuses.includes(order.status)) {
+    // Group-level gates: a group may already be looking for a driver, or may still
+    // be waiting on its vendors, so the order's own status is not sufficient.
+    const dispatchableGroupStatuses: DeliveryGroupStatus[] = [
+      DeliveryGroupStatus.PENDING,
+      DeliveryGroupStatus.ACCEPTED,
+      DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+      DeliveryGroupStatus.PREPARING,
+      DeliveryGroupStatus.READY_FOR_PICKUP,
+    ];
+
+    const orderDispatchable = !!order && dispatchableStatuses.includes(order.status);
+    const groupDispatchable =
+      !group || dispatchableGroupStatuses.includes(group.status);
+    const alreadyAssigned = !!group?.primaryDriverId;
+
+    if (!order || alreadyAssigned || !groupDispatchable) {
       this.logger.warn(
-        `Dispatch skipped for ${orderNumber}: status is ${order?.status ?? 'not found'}`,
+        `Dispatch skipped for ${orderNumber}: status ${order?.status ?? 'not found'}` +
+          (group ? `, group #${group.sequence} status ${group.status}` : '') +
+          (alreadyAssigned ? ' (group already has a driver)' : ''),
       );
       return 'invalid';
     }
 
-    const dispatchContext =
-      await this.locationRepository.getOrderLocationContext(orderId);
+    // Legacy single-vendor behaviour is preserved exactly: those orders only
+    // dispatch while the ORDER is in a dispatchable state.
+    if (!group && !orderDispatchable) {
+      this.logger.warn(
+        `Dispatch skipped for ${orderNumber}: status is ${order?.status}`,
+      );
+      return 'invalid';
+    }
+
+    // Pickup differs per group: the group's first branch, not the order's
+    // single vendor branch. The drop-off is always the order's delivery point.
+    const dispatchContext = await this.locationRepository.getOrderLocationContext(orderId);
     if (!dispatchContext) {
       this.logger.error(
         `No dispatch context (location) found for order ${orderNumber}`,
       );
       return 'invalid';
+    }
+
+    if (group) {
+      const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(group.id);
+      if (!pickup) {
+        this.logger.error(
+          `No pickup branch found for delivery group ${group.id} on order ${orderNumber}`,
+        );
+        return 'invalid';
+      }
+      dispatchContext.lng = pickup.lng;
+      dispatchContext.lat = pickup.lat;
     }
 
     const settings = await this.platformSettings.getSettings();
@@ -206,16 +285,26 @@ export class DispatchService {
           dispatchContext.requestedVehicleType,
         );
 
-        const pickupLocationName =
-          order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor';
+        // A grouped delivery is priced on its own fee, so the driver sees what
+        // that specific delivery earns rather than the whole order's fee.
+        const advertisedEarnings = group
+          ? this.earningsForGroupFee(dispatchDeliveryFee, settings)
+          : estimatedEarnings;
+
+        const pickupLocationName = group
+          ? `Delivery ${group.sequence}`
+          : order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor';
         const dropoffLocationName = order.customer?.user?.name ?? 'Customer';
 
         return {
           driverId: candidate.id,
           userId: candidate.userId,
           driverShiftId: candidate.activeShiftId,
+          // Carried through the Redis offer so the accepted/expired/rejected
+          // rows can all be attributed to the right delivery group.
+          deliveryGroupId: group?.id ?? null,
           distanceKm: candidate.distanceKm,
-          estimatedEarnings,
+          estimatedEarnings: advertisedEarnings,
           pickupLocationName,
           dropoffLocationName,
         };
@@ -249,7 +338,12 @@ export class DispatchService {
     // only one dispatch round can be in flight for an order at a time, even
     // across concurrent workers/retries. If another round already holds the
     // slot we must not broadcast a duplicate.
-    const activeKey = `otlobegy:order-dispatch-active:${orderId}`;
+    // Scope the single-flight claim to the DELIVERY, not the order. A grouped
+    // order needs several drivers in flight at once, one per group; keying this
+    // by orderId alone would make every group after the first return 'in_flight'
+    // and silently never get a driver.
+    const dispatchScope = group?.id ?? orderId;
+    const activeKey = `otlobegy:order-dispatch-active:${dispatchScope}`;
     const claimed = await this.redis.setNX(activeKey, dispatchId, redisTtl);
     if (!claimed) {
       // Clean up our own (non-winning) payload — the winner owns this order.
@@ -265,7 +359,7 @@ export class DispatchService {
       // crash recovery) can resume from the last attempt instead of resetting
       // the counter to 1 and silently defeating driverSearchMaxAttempts.
       await this.redis.set(
-        `otlobegy:dispatch-state:${orderId}`,
+        `otlobegy:dispatch-state:${dispatchScope}`,
         JSON.stringify({ attempt, excludeDriverIds }),
         timeoutSecs * 60,
       );
@@ -352,16 +446,21 @@ export class DispatchService {
       return;
     }
 
+    // Parse the payload FIRST: the cleanup keys below are scoped by the
+    // delivery this round owns, which only the payload knows.
+    const dispatchData = JSON.parse(active);
+
     // It is truly expired. Clean up Redis.
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    await this.redis.del(`otlobegy:order-dispatch-active:${orderId}`);
+    const expiryScope = (dispatchData as any).deliveryGroupId ?? orderId;
+    await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
+    await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
     // Read the rejected set BEFORE deleting it — every consumer below needs it.
     const rejectedBy: string[] = await this.redis.smembers(rejectedKey);
     await this.redis.del(rejectedKey);
 
     // Persist terminal state to Postgres for anyone who didn't reject
-    const dispatchData = JSON.parse(active);
     const candidates = dispatchData.candidates || [];
 
     await Promise.all(
@@ -384,6 +483,7 @@ export class DispatchService {
           orderId,
           driverId: candidate.driverId,
           driverShiftId: candidate.driverShiftId,
+          deliveryGroupId: candidate.deliveryGroupId ?? null,
           type: dispatchData.type,
           distanceKm: candidate.distanceKm,
           estimatedEarnings: candidate.estimatedEarnings,
@@ -424,7 +524,7 @@ export class DispatchService {
     // resume from the true next attempt instead of falling back to 1.
     const settings = await this.platformSettings.getSettings();
     await this.redis.set(
-      `otlobegy:dispatch-state:${orderId}`,
+      `otlobegy:dispatch-state:${(dispatchData as any).deliveryGroupId ?? orderId}`,
       JSON.stringify({
         attempt: attempt + 1,
         excludeDriverIds,
@@ -564,6 +664,7 @@ export class DispatchService {
           orderId,
           driverId,
           driverShiftId: candidate.driverShiftId,
+          deliveryGroupId: candidate.deliveryGroupId ?? null,
           type: dispatchData.type,
           distanceKm: candidate.distanceKm,
           estimatedEarnings: candidate.estimatedEarnings,
@@ -572,7 +673,33 @@ export class DispatchService {
         },
       });
 
-      // 2. Assign the order safely to prevent race conditions
+      // 2. Assign the delivery group, then mirror onto the order for back-compat.
+      // For a grouped order the GROUP is the authoritative assignment: each
+      // group gets its own driver, and the order's driverId/driverShiftId keep
+      // pointing at the first assigned group so existing customer-facing
+      // screens and settlement keep working unchanged.
+      const groupId = candidate.deliveryGroupId ?? null;
+
+      if (groupId) {
+        const groupClaimed = await tx.orderDeliveryGroup.updateMany({
+          where: { id: groupId, primaryDriverId: null },
+          data: {
+            primaryDriverId: driverId,
+            primaryDriverShiftId: candidate.driverShiftId,
+            status:
+              nextStatus === OrderStatus.PENDING_PAYMENT
+                ? DeliveryGroupStatus.PENDING_PAYMENT
+                : DeliveryGroupStatus.DRIVER_ASSIGNED,
+            assignedByUserId: 'system',
+            assignedAt: new Date(),
+          },
+        });
+        if (groupClaimed.count === 0) {
+          // Another admin/dispatch already took this delivery.
+          throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
+        }
+      }
+
       const updated = await tx.order.updateMany({
         where: { id: order.id, status: { in: dispatchableStatuses } },
         data: {
@@ -631,8 +758,10 @@ export class DispatchService {
 
     // Cleanup Redis
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    await this.redis.del(`otlobegy:order-dispatch-active:${orderId}`);
-    await this.redis.del(`otlobegy:dispatch-state:${orderId}`);
+    const acceptScope = (dispatchData as any).deliveryGroupId ?? orderId;
+    await this.redis.del(`otlobegy:order-dispatch-active:${acceptScope}`);
+    await this.redis.del(`otlobegy:dispatch-state:${acceptScope}`);
+
     await this.redis.del(rejectedKey);
 
     await Promise.all(
@@ -735,6 +864,7 @@ export class DispatchService {
         orderId,
         driverId,
         driverShiftId: candidate.driverShiftId,
+        deliveryGroupId: candidate.deliveryGroupId ?? null,
         type: dispatchData.type,
         distanceKm: candidate.distanceKm,
         estimatedEarnings: candidate.estimatedEarnings,
@@ -763,7 +893,8 @@ export class DispatchService {
       const rejectedList = await this.redis.smembers(rejectedKey);
 
       await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      await this.redis.del(`otlobegy:order-dispatch-active:${orderId}`);
+      const rejectScope = (dispatchData as any).deliveryGroupId ?? orderId;
+      await this.redis.del(`otlobegy:order-dispatch-active:${rejectScope}`);
       await this.redis.del(rejectedKey);
 
       await Promise.all(
@@ -787,7 +918,7 @@ export class DispatchService {
         // stuck-order monitor resumes from the true counter, never attempt 1.
         const branchSettings = await this.platformSettings.getSettings();
         await this.redis.set(
-          `otlobegy:dispatch-state:${orderId}`,
+          `otlobegy:dispatch-state:${rejectScope}`,
           JSON.stringify({
             attempt: expiryJob.data.attempt + 1,
             excludeDriverIds: expiryJob.data.excludeDriverIds,
@@ -944,20 +1075,50 @@ export class DispatchService {
   // ─── Cancel active dispatch (e.g. order cancelled) ────────────────────────
 
   async cancelActiveDispatch(orderId: string): Promise<void> {
-    const dispatchId = await this.redis.get(
-      `otlobegy:order-dispatch-active:${orderId}`,
-    );
-    if (!dispatchId) return;
+    // A grouped order can have one active round PER DELIVERY, each keyed by its
+    // own scope. Cancel every scope so no orphaned broadcast keeps hunting for a
+    // driver after the order is cancelled. Legacy orders have no groups, so
+    // this degrades to exactly the previous order-level behaviour.
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId },
+      select: { id: true },
+    });
+    const scopes: string[] = [orderId, ...groups.map((g) => g.id)];
 
+    const activeDispatchIds = (
+      await Promise.all(
+        scopes.map((scope) =>
+          this.redis.get(`otlobegy:order-dispatch-active:${scope}`),
+        ),
+      )
+    ).filter((id): id is string => !!id);
+
+    for (const id of activeDispatchIds) {
+      await this.cancelDispatchById(id, orderId);
+    }
+
+    // Always clear the per-scope keys even if a payload had already expired,
+    // so a later round is not permanently blocked by a stale claim.
+    for (const scope of scopes) {
+      await this.redis.del(`otlobegy:order-dispatch-active:${scope}`);
+      await this.redis.del(`otlobegy:dispatch-state:${scope}`);
+    }
+  }
+
+  /** Cancel one dispatch round and persist terminal states for the losers. */
+  private async cancelDispatchById(
+    dispatchId: string,
+    orderId: string,
+  ): Promise<void> {
     const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
     if (!raw) return;
 
     const dispatchData = JSON.parse(raw);
+    const scope = (dispatchData as any).deliveryGroupId ?? orderId;
 
-    // Cleanup Redis
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    await this.redis.del(`otlobegy:order-dispatch-active:${orderId}`);
-    await this.redis.del(`otlobegy:dispatch-state:${orderId}`);
+    await this.redis.del(`otlobegy:order-dispatch-active:${scope}`);
+    await this.redis.del(`otlobegy:dispatch-state:${scope}`);
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
     // Read BEFORE deleting — the persisted terminal states below need it.
     const rejectedBy: string[] = await this.redis.smembers(rejectedKey);
@@ -986,6 +1147,7 @@ export class DispatchService {
           orderId,
           driverId: candidate.driverId,
           driverShiftId: candidate.driverShiftId,
+          deliveryGroupId: candidate.deliveryGroupId ?? null,
           type: dispatchData.type,
           distanceKm: candidate.distanceKm,
           estimatedEarnings: candidate.estimatedEarnings,
@@ -1034,5 +1196,18 @@ export class DispatchService {
     const driverShare = 1 - driverCommissionRate / 100;
 
     return Math.round(deliveryFee * driverShare);
+  }
+  /**
+   * Net driver earnings for one already-priced delivery group.
+   * Mirrors calculateEstimatedEarnings but takes the group's stored fee instead
+   * of re-deriving from distance, so the figure shown to the driver matches the
+   * money settlement will actually pay for that specific delivery.
+   */
+  private earningsForGroupFee(
+    groupDeliveryFee: number,
+    settings: { deliveryCommissionRate?: number | null },
+  ): number {
+    const rate = Number(settings?.deliveryCommissionRate ?? 20);
+    return Math.max(0, Math.round(groupDeliveryFee * (1 - rate / 100)));
   }
 }

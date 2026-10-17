@@ -1969,3 +1969,29 @@ ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_deli
 ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_assignedDriverId_fkey" FOREIGN KEY ("assignedDriverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "order_items" ADD CONSTRAINT "order_items_fulfillmentId_fkey" FOREIGN KEY ("fulfillmentId") REFERENCES "order_vendor_fulfillments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- ============================================================================
+-- Assisting-driver pay + per-group dispatch.
+-- The assisting driver SPLITS the delivery group's driver earnings; the
+-- customer is never charged twice and the platform cut is preserved.
+-- ============================================================================
+
+-- AlterTable: assisting driver earnings share (percent of the group's driver pot)
+ALTER TABLE "platform_settings"
+  ADD COLUMN "assistDriverEarningsPercent" INTEGER NOT NULL DEFAULT 50;
+
+-- AlterTable: a dispatch offer now targets one delivery group. NULL keeps every
+-- legacy single-vendor dispatch (and CUSTOM_DELIVERY/RIDE) valid.
+ALTER TABLE "order_dispatches" ADD COLUMN "deliveryGroupId" TEXT;
+
+-- AlterTable: two drivers on one delivery each need their own ledger row, so
+-- the old (orderId, type) unique would have silently dropped the second payout.
+DROP INDEX "driver_wallet_transactions_orderId_type_key";
+CREATE UNIQUE INDEX "driver_wallet_transactions_orderId_type_driverId_key"
+  ON "driver_wallet_transactions"("orderId", "type", "driverId");
+
+CREATE INDEX "order_dispatches_deliveryGroupId_idx" ON "order_dispatches"("deliveryGroupId");
+
+ALTER TABLE "order_dispatches" ADD CONSTRAINT "order_dispatches_deliveryGroupId_fkey"
+  FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id")
+  ON DELETE CASCADE ON UPDATE CASCADE;

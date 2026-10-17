@@ -103,6 +103,12 @@ model PlatformSetting {
   // Max total pickup+drop-off route length for a group (Σ consecutive stop
   // hops + final hop to the customer, best ordering).
   groupingMaxCombinedRouteKm            Float     @default(35.0)
+  // ─── Assisting driver ─────────────────────────────────────────────────────
+  // Share (percent) of a delivery group's driver earnings that goes to the
+  // assisting driver. The primary driver receives the remainder, so the two
+  // shares always sum to exactly the pre-split earnings. 0 disables the
+  // assisting driver's pay (the driver is still assigned and tracked).
+  assistDriverEarningsPercent           Int       @default(50)
   customOrderPlatformFee                Int       @default(10)
   maxDispatchBatchSize                  Int       @default(20)
   coinValue                             Int       @default(1)
@@ -997,6 +1003,7 @@ model OrderDeliveryGroup {
   assistDriverShift DriverShift?          @relation("GroupAssistShift", fields: [assistDriverShiftId], references: [id])
   items       OrderDeliveryGroupItem[]
   assistRequests DriverAssistRequest[]
+  dispatches  OrderDispatch[]
 
   @@unique([orderId, sequence])
   @@index([orderId])
@@ -1189,7 +1196,10 @@ model DriverWalletTransaction {
   @@index([orderId])
   @@index([createdAt])
   @@index([driverShiftId])
-  @@unique([orderId, type])
+  // Was @@unique([orderId, type]) — that capped an order at ONE DELIVERY_FEE row
+  // and would silently skip the assisting driver's payout. Scoped to driverId so
+  // each driver on a delivery is paid exactly once per order+type.
+  @@unique([orderId, type, driverId])
   @@map("driver_wallet_transactions")
 }
 
@@ -1220,6 +1230,9 @@ model DriverStatistic {
 model OrderDispatch {
   id                String         @id @default(uuid())
   orderId           String
+  // Which delivery this offer is for. Null for legacy single-vendor orders and
+  // CUSTOM_DELIVERY/RIDE, where the order itself is the only delivery.
+  deliveryGroupId   String?
   driverId          String
   driverShiftId     String?
   type              OrderType      @default(STANDARD)
@@ -1232,8 +1245,10 @@ model OrderDispatch {
   driver            Driver         @relation(fields: [driverId], references: [id], onDelete: Cascade)
   driverShift       DriverShift?   @relation(fields: [driverShiftId], references: [id])
   order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryGroup     OrderDeliveryGroup? @relation(fields: [deliveryGroupId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+  @@index([deliveryGroupId])
   @@index([driverId])
   @@index([driverShiftId])
   @@index([status])

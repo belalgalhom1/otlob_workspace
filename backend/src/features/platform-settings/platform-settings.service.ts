@@ -214,6 +214,7 @@ export class PlatformSettingsService {
       'groupingMaxBranchDistanceKm',
       'groupingMaxVendorCustomerDistanceKm',
       'groupingMaxCombinedRouteKm',
+      'assistDriverEarningsPercent',
       'customOrderPlatformFee',
       'autoCancelPendingMins',
       'mobileWalletTimeoutMins',
