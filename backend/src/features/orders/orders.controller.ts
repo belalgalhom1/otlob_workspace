@@ -35,6 +35,7 @@ import { Permission, Role } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
+import { ApiArrayResponse } from '../../common/decorators/api-response.decorator';
 
 import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersStateService } from './orders-state.service';

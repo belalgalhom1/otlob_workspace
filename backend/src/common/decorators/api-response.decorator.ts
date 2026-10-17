@@ -49,10 +49,13 @@ export const ApiStandardResponse = <DataDto extends Type<unknown>>(
 };
 
 export const ApiArrayResponse = <DataDto extends Type<unknown>>(
-  dataDto: DataDto,
+  dataDto?: DataDto,
 ) => {
+  const itemSchema: Record<string, unknown> = dataDto
+    ? { $ref: getSchemaPath(dataDto) }
+    : {};
   return applyDecorators(
-    ApiExtraModels(ApiResponseDto, dataDto),
+    ApiExtraModels(ApiResponseDto, ...(dataDto ? [dataDto] : [])),
     ApiOkResponse({
       schema: {
         allOf: [
@@ -61,7 +64,7 @@ export const ApiArrayResponse = <DataDto extends Type<unknown>>(
             properties: {
               data: {
                 type: 'array',
-                items: { $ref: getSchemaPath(dataDto) },
+                items: itemSchema,
               },
             },
           },

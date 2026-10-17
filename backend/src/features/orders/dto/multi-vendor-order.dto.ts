@@ -1,4 +1,5 @@
 import {
+  ArrayMinSize,
   ArrayNotEmpty,
   ArrayUnique,
   IsArray,
@@ -45,7 +46,7 @@ export class PlaceMultiVendorOrderDto {
     description: '[longitude, latitude]',
   })
   @IsArray()
-  @Min(2)
+  @ArrayMinSize(2)
   deliveryLocation: [number, number];
 
   @ApiProperty({ example: 'Please ring the bell twice', required: false })

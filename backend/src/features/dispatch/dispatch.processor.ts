@@ -12,7 +12,7 @@ import {
   ORDER_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import { OrderStatus } from '@prisma/client';
+import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EVENTS } from 'src/common/events/event-names';
 import { OrderStatusChangedEvent } from 'src/common/events';
@@ -73,9 +73,16 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
       orderNumber: string;
       attempt: number;
       excludeDriverIds?: string[];
+      deliveryGroupId?: string | null;
     }>,
   ) {
-    const { orderId, orderNumber, attempt, excludeDriverIds = [] } = job.data;
+    const {
+      orderId,
+      orderNumber,
+      attempt,
+      excludeDriverIds = [],
+      deliveryGroupId = null,
+    } = job.data;
 
     // Read fresh status each time — never use a snapshot before a write
     const order = await this.prisma.order.findUnique({
@@ -95,15 +102,19 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
       OrderStatus.READY_FOR_PICKUP,
     ];
 
-    if (!dispatchableStatuses.includes(order.status)) {
+    // A grouped delivery is gated by its own DeliveryGroup status inside
+    // attemptDispatch, so the order-level gate only applies to legacy
+    // single-vendor orders (which have no group).
+    if (!deliveryGroupId && !dispatchableStatuses.includes(order.status)) {
       this.logger.warn(
         `Dispatch skipped for ${orderNumber}: status is ${order.status}`,
       );
       return { skipped: true, status: order.status };
     }
 
-    // Transition to LOOKING_FOR_DRIVER if still in initial ACCEPTED state
-    if (order.status === OrderStatus.ACCEPTED) {
+    // Transition to LOOKING_FOR_DRIVER if still in initial ACCEPTED state.
+    // Grouped deliveries move the ORDER here once, before per-group dispatch.
+    if (!deliveryGroupId && order.status === OrderStatus.ACCEPTED) {
       const fullOrder = await this.ordersRepository.updateStatus(
         orderId,
         OrderStatus.LOOKING_FOR_DRIVER,
@@ -142,6 +153,41 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     const maxAttempts = settings.driverSearchMaxAttempts ?? 5;
 
     if (attempt > maxAttempts) {
+      // A grouped order may have other deliveries that already have (or can
+      // still get) a driver, so cancel ONLY this delivery group rather than the
+      // whole order. Its later retries stop because a CANCELLED group is no
+      // longer dispatchable.
+      if (deliveryGroupId) {
+        this.logger.error(
+          `Delivery group ${deliveryGroupId} on order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
+        );
+        await this.prisma.orderDeliveryGroup.updateMany({
+          where: {
+            id: deliveryGroupId,
+            status: { not: DeliveryGroupStatus.CANCELLED },
+          },
+          data: { status: DeliveryGroupStatus.CANCELLED },
+        });
+        const remaining = await this.prisma.orderDeliveryGroup.count({
+          where: {
+            orderId,
+            status: { not: DeliveryGroupStatus.CANCELLED },
+          },
+        });
+        if (remaining === 0) {
+          await this.stateService.cancelOrder(
+            null, // system actor
+            orderId,
+            'Auto-cancelled: No drivers accepted any delivery after maximum attempts',
+          );
+        }
+        return {
+          noDriversFound: true,
+          attempts: attempt,
+          groupCancelled: true,
+        };
+      }
+
       this.logger.error(
         `Order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
       );
@@ -171,6 +217,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         orderNumber,
         attempt,
         excludeDriverIds,
+        deliveryGroupId,
       });
     } catch (err: any) {
       this.logger.error(
@@ -184,6 +231,51 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
       this.logger.warn(
         `Dispatch invalid for ${orderNumber} (attempt ${attempt})`,
       );
+
+      // A grouped delivery can be permanently un-dispatchable (no pickup
+      // branch, no allowed vehicle, …). Cancel ONLY that group so the order is
+      // not stuck forever waiting for a driver that can never be found — but
+      // never cancel a group another round has since assigned.
+      if (deliveryGroupId) {
+        const group = await this.prisma.orderDeliveryGroup.findUnique({
+          where: { id: deliveryGroupId },
+          select: { status: true, primaryDriverId: true },
+        });
+        const dispatchableGroupStates: DeliveryGroupStatus[] = [
+          DeliveryGroupStatus.PENDING,
+          DeliveryGroupStatus.ACCEPTED,
+          DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+          DeliveryGroupStatus.READY_FOR_PICKUP,
+        ];
+        const stillWaiting =
+          !!group &&
+          !group.primaryDriverId &&
+          dispatchableGroupStates.includes(group.status);
+
+        if (stillWaiting) {
+          await this.prisma.orderDeliveryGroup.updateMany({
+            where: { id: deliveryGroupId, primaryDriverId: null },
+            data: { status: DeliveryGroupStatus.CANCELLED },
+          });
+          this.logger.error(
+            `Delivery group ${deliveryGroupId} on order ${orderNumber} is undispatchable — cancelled`,
+          );
+          const remaining = await this.prisma.orderDeliveryGroup.count({
+            where: {
+              orderId,
+              status: { not: DeliveryGroupStatus.CANCELLED },
+            },
+          });
+          if (remaining === 0) {
+            await this.stateService.cancelOrder(
+              null,
+              orderId,
+              'Auto-cancelled: no delivery could be dispatched',
+            );
+          }
+        }
+      }
+
       return { invalid: true, attempt };
     }
 

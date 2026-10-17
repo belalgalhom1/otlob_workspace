@@ -120,7 +120,9 @@ export class DispatchService {
 
     // The fee this delivery actually earns. A group is priced separately, so
     // using the order total here would over-state a split delivery's earnings.
-    const dispatchDeliveryFee = group ? group.deliveryFee : order?.deliveryFee ?? 0;
+    const dispatchDeliveryFee = group
+      ? group.deliveryFee
+      : (order?.deliveryFee ?? 0);
 
     const dispatchableStatuses: OrderStatus[] = [
       OrderStatus.LOOKING_FOR_DRIVER,
@@ -135,11 +137,11 @@ export class DispatchService {
       DeliveryGroupStatus.PENDING,
       DeliveryGroupStatus.ACCEPTED,
       DeliveryGroupStatus.LOOKING_FOR_DRIVER,
-      DeliveryGroupStatus.PREPARING,
       DeliveryGroupStatus.READY_FOR_PICKUP,
     ];
 
-    const orderDispatchable = !!order && dispatchableStatuses.includes(order.status);
+    const orderDispatchable =
+      !!order && dispatchableStatuses.includes(order.status);
     const groupDispatchable =
       !group || dispatchableGroupStatuses.includes(group.status);
     const alreadyAssigned = !!group?.primaryDriverId;
@@ -164,7 +166,8 @@ export class DispatchService {
 
     // Pickup differs per group: the group's first branch, not the order's
     // single vendor branch. The drop-off is always the order's delivery point.
-    const dispatchContext = await this.locationRepository.getOrderLocationContext(orderId);
+    const dispatchContext =
+      await this.locationRepository.getOrderLocationContext(orderId);
     if (!dispatchContext) {
       this.logger.error(
         `No dispatch context (location) found for order ${orderNumber}`,
@@ -173,7 +176,8 @@ export class DispatchService {
     }
 
     if (group) {
-      const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(group.id);
+      const pickup =
+        await this.locationRepository.getDeliveryGroupPickupLocation(group.id);
       if (!pickup) {
         this.logger.error(
           `No pickup branch found for delivery group ${group.id} on order ${orderNumber}`,
@@ -293,7 +297,7 @@ export class DispatchService {
 
         const pickupLocationName = group
           ? `Delivery ${group.sequence}`
-          : order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor';
+          : (order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor');
         const dropoffLocationName = order.customer?.user?.name ?? 'Customer';
 
         return {
@@ -452,7 +456,7 @@ export class DispatchService {
 
     // It is truly expired. Clean up Redis.
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    const expiryScope = (dispatchData as any).deliveryGroupId ?? orderId;
+    const expiryScope = dispatchData.deliveryGroupId ?? orderId;
     await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
     await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
@@ -524,7 +528,7 @@ export class DispatchService {
     // resume from the true next attempt instead of falling back to 1.
     const settings = await this.platformSettings.getSettings();
     await this.redis.set(
-      `otlobegy:dispatch-state:${(dispatchData as any).deliveryGroupId ?? orderId}`,
+      `otlobegy:dispatch-state:${dispatchData.deliveryGroupId ?? orderId}`,
       JSON.stringify({
         attempt: attempt + 1,
         excludeDriverIds,
@@ -673,11 +677,14 @@ export class DispatchService {
         },
       });
 
-      // 2. Assign the delivery group, then mirror onto the order for back-compat.
+      // 2. Assign the delivery, then mirror onto the order for back-compat.
       // For a grouped order the GROUP is the authoritative assignment: each
-      // group gets its own driver, and the order's driverId/driverShiftId keep
-      // pointing at the first assigned group so existing customer-facing
-      // screens and settlement keep working unchanged.
+      // group gets its own driver and may be accepted concurrently with the
+      // others. The order row is updated lazily: the FIRST accepted group sets
+      // the collector (driverId/driverShiftId) and advances the aggregate
+      // status, while later groups must NOT be blocked by the order no longer
+      // being in a dispatchable status (which is exactly why the old
+      // order-status gate stranded every group after the first).
       const groupId = candidate.deliveryGroupId ?? null;
 
       if (groupId) {
@@ -698,31 +705,66 @@ export class DispatchService {
           // Another admin/dispatch already took this delivery.
           throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
         }
+
+        // Only the first assigned group becomes the order-level collector.
+        await tx.order.updateMany({
+          where: { id: order.id, driverId: null },
+          data: {
+            driverId,
+            driverShiftId: candidate.driverShiftId,
+            driverAssignedAt: new Date(),
+          },
+        });
+
+        // Move the aggregate status forward only while it is still awaiting a
+        // driver; never walk back PREPARING/READY_FOR_PICKUP.
+        await tx.order.updateMany({
+          where: {
+            id: order.id,
+            status: {
+              in: [
+                OrderStatus.PENDING,
+                OrderStatus.ACCEPTED,
+                OrderStatus.LOOKING_FOR_DRIVER,
+              ],
+            },
+          },
+          data: { status: nextStatus },
+        });
+
+        await tx.orderStatusEvent.create({
+          data: {
+            orderId: order.id,
+            status: nextStatus,
+            note: `Driver assigned to a delivery. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
+            createdBy: 'system',
+          },
+        });
+      } else {
+        const updated = await tx.order.updateMany({
+          where: { id: order.id, status: { in: dispatchableStatuses } },
+          data: {
+            driverId,
+            driverShiftId: candidate.driverShiftId,
+            status: nextStatus,
+            driverAssignedAt: new Date(),
+            distanceKm: totalDistanceKm,
+          },
+        });
+
+        if (updated.count === 0) {
+          throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
+        }
+
+        await tx.orderStatusEvent.create({
+          data: {
+            orderId: order.id,
+            status: nextStatus,
+            note: `Driver assigned. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
+            createdBy: 'system',
+          },
+        });
       }
-
-      const updated = await tx.order.updateMany({
-        where: { id: order.id, status: { in: dispatchableStatuses } },
-        data: {
-          driverId,
-          driverShiftId: candidate.driverShiftId,
-          status: nextStatus,
-          driverAssignedAt: new Date(),
-          distanceKm: totalDistanceKm,
-        },
-      });
-
-      if (updated.count === 0) {
-        throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-      }
-
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId: order.id,
-          status: nextStatus,
-          note: `Driver assigned. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-          createdBy: 'system',
-        },
-      });
 
       // 2b. Mark the driver busy. The guarded UPDATE is the hard backstop: if
       // the driver is already ON_DELIVERY (or suspended), nothing changes and
@@ -758,7 +800,7 @@ export class DispatchService {
 
     // Cleanup Redis
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    const acceptScope = (dispatchData as any).deliveryGroupId ?? orderId;
+    const acceptScope = dispatchData.deliveryGroupId ?? orderId;
     await this.redis.del(`otlobegy:order-dispatch-active:${acceptScope}`);
     await this.redis.del(`otlobegy:dispatch-state:${acceptScope}`);
 
@@ -893,7 +935,7 @@ export class DispatchService {
       const rejectedList = await this.redis.smembers(rejectedKey);
 
       await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      const rejectScope = (dispatchData as any).deliveryGroupId ?? orderId;
+      const rejectScope = dispatchData.deliveryGroupId ?? orderId;
       await this.redis.del(`otlobegy:order-dispatch-active:${rejectScope}`);
       await this.redis.del(rejectedKey);
 
@@ -1114,7 +1156,7 @@ export class DispatchService {
     if (!raw) return;
 
     const dispatchData = JSON.parse(raw);
-    const scope = (dispatchData as any).deliveryGroupId ?? orderId;
+    const scope = dispatchData.deliveryGroupId ?? orderId;
 
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
     await this.redis.del(`otlobegy:order-dispatch-active:${scope}`);

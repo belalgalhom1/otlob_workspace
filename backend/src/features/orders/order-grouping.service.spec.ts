@@ -59,8 +59,10 @@ describe('bestRouteKm', () => {
     const customer = { lng: 31.26, lat: 30.0 };
 
     const route = bestRouteKm([near, far], customer);
-    const forcedWorst = haversineKm(near, far) + haversineKm(near, customer);
-    expect(route).toBeLessThan(forcedWorst);
+    // Visiting the customer-nearest stop (`near`) first and doubling back to
+    // `far` costs this much more than the optimal far -> near -> customer trip.
+    const nearestFirst = haversineKm(near, far) + haversineKm(far, customer);
+    expect(route).toBeLessThan(nearestFirst);
   });
 
   it('equals the cheapest ordering for two stops', () => {
@@ -161,10 +163,10 @@ describe('OrderGroupingService.plan', () => {
   });
 
   it('Scenario E / test 7: splits when branches are close but the combined route is not', () => {
-    // Branch-to-branch is tiny, but both branches are far from the customer so
-    // a combined trip out-and-back exceeds the route budget.
+    // Branch-to-branch is tiny (~0.14 km), but both branches sit ~7.8 km from the
+    // customer, so a combined trip exceeds the 6 km route budget.
     const r = service.plan(
-      [stop('a', 31.2, 30.02), stop('b', 31.201, 30.021)],
+      [stop('a', 31.2, 30.07), stop('b', 31.201, 30.071)],
       CUSTOMER,
       T({ maxBranchDistanceKm: 5, maxVendorCustomerDistanceKm: 30, maxCombinedRouteKm: 6 }),
     );

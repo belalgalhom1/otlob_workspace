@@ -469,17 +469,44 @@ export class EventsProcessor extends WorkerHost {
     const marked = await this.redis.get(idempotencyKey);
     if (marked) return { skipped: true };
 
-    await this.dispatchQueue.add(
-      ORDER_JOBS.DISPATCH,
-      { orderId: data.orderId, orderNumber: data.orderNumber, attempt: 1 },
-      { delay: 500, attempts: 5, backoff: { type: 'fixed', delay: 60_000 } },
-    );
+    // A multi-vendor order splits into delivery groups, each of which needs its
+    // OWN driver, so fan out one independent dispatch round per non-empty group.
+    // Legacy/single-delivery orders (no groups) keep the single order-level job.
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId: data.orderId, items: { some: {} } },
+      select: { id: true },
+      orderBy: { sequence: 'asc' },
+    });
+
+    const jobPayloads =
+      groups.length > 0
+        ? groups.map((group) => ({
+            orderId: data.orderId,
+            orderNumber: data.orderNumber,
+            attempt: 1,
+            deliveryGroupId: group.id,
+          }))
+        : [
+            {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+              attempt: 1,
+            },
+          ];
+
+    for (const payload of jobPayloads) {
+      await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, payload, {
+        delay: 500,
+        attempts: 5,
+        backoff: { type: 'fixed', delay: 60_000 },
+      });
+    }
 
     // Marker set AFTER the add, so a retry after a partial failure re-runs the
-    // add while a duplicate event emission is deduped. A duplicated enqueue is
+    // adds while a duplicate event emission is deduped. Duplicated enqueues are
     // additionally absorbed by the dispatch processor's in-flight guard.
     await this.redis.set(idempotencyKey, '1', 14_400);
-    return { enqueued: true };
+    return { enqueued: true, groups: groups.length };
   }
 
   // ─── Moved DispatchListener / CartListener / NotificationListener ──────────

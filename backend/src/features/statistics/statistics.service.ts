@@ -9,7 +9,12 @@ import { OrderSettledEvent, DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
-import { Prisma, StatisticPeriod, DriverStatus } from '@prisma/client';
+import {
+  Prisma,
+  StatisticPeriod,
+  DriverStatus,
+  DeliveryGroupStatus,
+} from '@prisma/client';
 import {
   QUEUES,
   STATS_JOBS,
@@ -93,46 +98,176 @@ export class StatisticsService {
 
     const vendorRevenue = subtotal;
 
-    // Recalculate driver delivery fee based on tier
-    // Customer paid based on Gold tier. We subtract the difference if the driver is not Gold.
+    // Recalculate driver delivery fees by tier. The customer paid based on the
+    // Gold tier; each driver is adjusted down by their own tier difference.
     const settings = await this.platformSettings.getSettings();
     const goldBonus = Number(settings.goldTierBonusPerKm ?? 0);
     const silverBonus = Number(settings.silverTierBonusPerKm ?? 0);
     const bronzeBonus = Number(settings.bronzeTierBonusPerKm ?? 0);
 
-    let driverActualBonus = goldBonus;
-    if (driverTier === 'SILVER') driverActualBonus = silverBonus;
-    if (driverTier === 'BRONZE') driverActualBonus = bronzeBonus;
-
-    const tierDifferencePerKm = goldBonus - driverActualBonus;
-    const driverDeliveryFee =
-      settings.driverShiftsEnabled &&
-      orderType === 'STANDARD' &&
-      tierDifferencePerKm > 0
-        ? Math.max(0, deliveryFee - tierDifferencePerKm * distanceKm)
-        : deliveryFee;
+    const tierBonusPerKm = (tier: string): number =>
+      tier === 'SILVER'
+        ? silverBonus
+        : tier === 'BRONZE'
+          ? bronzeBonus
+          : goldBonus;
 
     const driverShare = 1 - deliveryCommissionRate / 100;
-    const driverEarnings = Math.round(driverDeliveryFee * driverShare);
-    const applicationDeliveryCut = deliveryFee - driverEarnings;
 
-    // ─── Assisting driver ────────────────────────────────────────────────────
-    // A second driver SPLITS this delivery's driver earnings; they are never
-    // paid a second fee, because the customer only ever paid `deliveryFee` and
-    // `applicationDeliveryCut` above is derived from it. The split is
-    // conservative by construction: the assisting driver takes at most their
-    // configured percentage of the pot and the primary driver receives the
-    // remainder, so primaryShare + assistShare === driverEarnings exactly — no
-    // money is created or destroyed by a two-person delivery.
-    const assist = await this.resolveAssistShare({
-      orderId,
-      primaryTier: driverTier,
-      totalDriverEarnings: driverEarnings,
-      deliveryFee: driverDeliveryFee,
-      distanceKm,
-      driverShare,
+    interface DriverPayout {
+      driverId: string;
+      driverShiftId: string | null;
+      amount: number;
+    }
+
+    // A delivery-grouped (multi-vendor) order has one primary driver per
+    // delivery; EACH one is paid their own tier-adjusted fee (and any assistant
+    // their own full fee). Without this only the mirrored order.driverId (the
+    // first group) was ever paid, silently stiffing every other driver.
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: {
+        orderId,
+        status: DeliveryGroupStatus.DELIVERED,
+        primaryDriverId: { not: null },
+      },
+      select: {
+        id: true,
+        sequence: true,
+        deliveryFee: true,
+        distanceKm: true,
+        primaryDriverId: true,
+        primaryDriverShiftId: true,
+        assistDriverId: true,
+        assistDriverShiftId: true,
+      },
+      orderBy: { sequence: 'asc' },
     });
-    const primaryShare = driverEarnings - assist.assistEarnings;
+
+    const primaryPayouts: DriverPayout[] = [];
+    const assistPayouts: DriverPayout[] = [];
+
+    const primaryFeeFor = (
+      fee: number,
+      routeKm: number,
+      primaryTier: string,
+    ): number => {
+      const tierDifferencePerKm = goldBonus - tierBonusPerKm(primaryTier);
+      return settings.driverShiftsEnabled &&
+        orderType === 'STANDARD' &&
+        tierDifferencePerKm > 0
+        ? Math.max(0, fee - tierDifferencePerKm * routeKm)
+        : fee;
+    };
+
+    // 100% rule: the assistant keeps their own FULL fee, mirroring the primary's
+    // tier adjustment — never a percentage of the primary's pot.
+    const assistFeeFor = (
+      primaryTier: string,
+      assistTier: string,
+      fee: number,
+      routeKm: number,
+    ): number => {
+      const tierDiffPerKm =
+        tierBonusPerKm(primaryTier) - tierBonusPerKm(assistTier);
+      const base = settings.driverShiftsEnabled
+        ? Math.max(0, fee - Math.max(0, tierDiffPerKm) * routeKm)
+        : fee;
+      return Math.max(0, Math.round(base * driverShare));
+    };
+
+    if (groups.length > 0) {
+      const primaryIds = Array.from(
+        new Set(groups.map((g) => g.primaryDriverId!).filter(Boolean)),
+      );
+      const assistIds = Array.from(
+        new Set(
+          groups
+            .map((g) => g.assistDriverId)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      const tierRows = await this.prisma.driver.findMany({
+        where: { id: { in: [...primaryIds, ...assistIds] } },
+        select: { id: true, tier: true },
+      });
+      const tierById = new Map(tierRows.map((d) => [d.id, d.tier as string]));
+
+      for (const g of groups) {
+        const primaryId = g.primaryDriverId!;
+        const primaryTier = tierById.get(primaryId) ?? driverTier;
+        const routeKm = g.distanceKm ?? distanceKm;
+        const primaryFee = primaryFeeFor(g.deliveryFee, routeKm, primaryTier);
+        const earnings = Math.max(0, Math.round(primaryFee * driverShare));
+
+        primaryPayouts.push({
+          driverId: primaryId,
+          driverShiftId: g.primaryDriverShiftId ?? null,
+          amount: earnings,
+        });
+
+        if (g.assistDriverId) {
+          const assistTier = tierById.get(g.assistDriverId) ?? 'GOLD';
+          const assistAmount = assistFeeFor(
+            primaryTier,
+            assistTier,
+            primaryFee,
+            routeKm,
+          );
+          if (assistAmount > 0) {
+            assistPayouts.push({
+              driverId: g.assistDriverId,
+              driverShiftId: g.assistDriverShiftId ?? null,
+              amount: assistAmount,
+            });
+          }
+        }
+      }
+    } else {
+      // Legacy single-delivery path — behaviour is unchanged.
+      const primaryFee = primaryFeeFor(deliveryFee, distanceKm, driverTier);
+      const earnings = Math.round(primaryFee * driverShare);
+      primaryPayouts.push({
+        driverId,
+        driverShiftId,
+        amount: earnings,
+      });
+
+      const assist = await this.resolveAssistShare({
+        orderId,
+        primaryTier: driverTier,
+        totalDriverEarnings: earnings,
+        deliveryFee: primaryFee,
+        distanceKm,
+        driverShare,
+      });
+      if (assist.assistEarnings > 0 && assist.assistDriverId) {
+        assistPayouts.push({
+          driverId: assist.assistDriverId,
+          driverShiftId: assist.assistDriverShiftId ?? null,
+          amount: assist.assistEarnings,
+        });
+      }
+    }
+
+    const totalPrimaryEarnings = primaryPayouts.reduce(
+      (sum, p) => sum + p.amount,
+      0,
+    );
+    const totalAssistEarnings = assistPayouts.reduce(
+      (sum, p) => sum + p.amount,
+      0,
+    );
+    const driverEarnings = totalPrimaryEarnings;
+    const applicationDeliveryCut = deliveryFee - totalPrimaryEarnings;
+    const paidDriverIds = Array.from(
+      new Set(
+        [
+          driverId,
+          ...primaryPayouts.map((p) => p.driverId),
+          ...assistPayouts.map((p) => p.driverId),
+        ].filter(Boolean),
+      ),
+    );
 
     // Sequentially process driver and vendor wallets to prevent DB row deadlocks
     const platformFee = isContracted ? commission : (serviceFee ?? commission);
@@ -142,6 +277,10 @@ export class StatisticsService {
     if (!settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
       platformRevenue -= driverBonusFee;
     }
+
+    // Each assisting driver's full fee is a second payout the customer did not
+    // pay for, so it is absorbed by the platform's revenue.
+    platformRevenue -= totalAssistEarnings;
 
     const isDriverCollected =
       paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
@@ -187,14 +326,25 @@ export class StatisticsService {
       // → vendor) prevents two settlements of different orders for the same
       // driver/vendor from corrupting each other's balance. Wallet helpers are
       // then told to skip re-locking (they would otherwise re-acquire it up to
-      // 4× per settlement).
-      await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+      // 4× per settlement). Every driver paid by this settlement is locked, not
+      // just the order-level collector, so multi-vendor deliveries are safe.
+      for (const paidDriverId of [...paidDriverIds].sort()) {
+        await client.$executeRaw`SELECT id FROM drivers WHERE id = ${paidDriverId} FOR UPDATE`;
+      }
 
-      if (vendorId && isContracted) {
-        // Vendor revenue + commission are applied below; lock the vendor once
-        // here (after the driver guard, matching acquisition order everywhere)
-        // so the two wallet writes don't each re-acquire the same row lock.
-        await client.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorId} FOR UPDATE`;
+      // Lock every vendor that will be paid (single vendor + all portions).
+      const portionVendorIds = await client.orderVendorFulfillment.findMany({
+        where: { orderId },
+        select: { vendorId: true },
+      });
+      const vendorLockIds = Array.from(
+        new Set([
+          ...(vendorId ? [vendorId] : []),
+          ...portionVendorIds.map((p) => p.vendorId),
+        ]),
+      ).sort();
+      for (const vendorLockId of vendorLockIds) {
+        await client.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorLockId} FOR UPDATE`;
       }
 
       if (isDriverCollected) {
@@ -217,28 +367,35 @@ export class StatisticsService {
         );
       }
 
-      await this.creditDriverWallet(
-        client,
-        driverId,
-        primaryShare,
-        orderId,
-        driverShiftId,
-        `Delivery fee for order ${orderNumber}`,
-        'DELIVERY_FEE',
-        { skipLock: true },
-      );
-
-      // The assisting driver earns their configured share of the SAME fee.
-      // Cash collection stays with the primary driver — two drivers collecting
-      // the customer's money would risk double-collection and unreconciled
-      // float, so the assistant is paid purely from the fee pot.
-      if (assist.assistEarnings > 0 && assist.assistDriverId) {
+      // Pay EACH delivery's primary driver their own tier-adjusted fee. For a
+      // single-delivery order there is exactly one entry (unchanged behaviour);
+      // a delivery-grouped order has one entry per delivered group.
+      for (const payout of primaryPayouts) {
+        if (payout.amount <= 0) continue;
         await this.creditDriverWallet(
           client,
-          assist.assistDriverId,
-          assist.assistEarnings,
+          payout.driverId,
+          payout.amount,
           orderId,
-          assist.assistDriverShiftId ?? null,
+          payout.driverShiftId,
+          `Delivery fee for order ${orderNumber}`,
+          'DELIVERY_FEE',
+          { skipLock: true },
+        );
+      }
+
+      // Each assisting driver earns their own FULL fee. Cash collection stays
+      // with the primary driver — two drivers collecting the customer's money
+      // would risk double-collection and unreconciled float, so assistants are
+      // paid purely from the fee pot (absorbed by platform revenue above).
+      for (const payout of assistPayouts) {
+        if (payout.amount <= 0) continue;
+        await this.creditDriverWallet(
+          client,
+          payout.driverId,
+          payout.amount,
+          orderId,
+          payout.driverShiftId,
           `Assisting delivery fee for order ${orderNumber}`,
           'DELIVERY_FEE',
           { skipLock: true },
@@ -265,66 +422,69 @@ export class StatisticsService {
       // platform itself ever collected the upfront online, which no current
       // payment method does.
 
-      // Fetch updated wallet balance after transactions
-      const driverSnapshot = await client.driver.findUnique({
-        where: { id: driverId },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-          walletBalance: true,
-          ordersSinceSettlement: true,
-        },
-      });
-
-      const currentBalance = driverSnapshot?.walletBalance ?? 0;
       const maxNegative = Number(
         (settings as any).maxNegativeDriverBalance ?? 500,
       );
-      const shouldLock = currentBalance < -maxNegative;
-
-      // Periodic settlement: after `driverSettlementOrderThreshold` delivered orders
-      // (default 10), a driver who owes the platform any money is blocked from new
-      // dispatches until they transfer it to the platform wallet via a top-up.
+      // Periodic settlement: after `driverSettlementOrderThreshold` delivered
+      // orders (default 10), a driver who owes the platform any money is blocked
+      // from new dispatches until they top up. Applied to EVERY driver paid by
+      // this settlement so each one's counters/limits stay accurate.
       const settlementThreshold = Number(
         settings.driverSettlementOrderThreshold ?? 10,
       );
-      const nextSettlementCount =
-        (driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
-      const settlementDue =
-        !shouldLock &&
-        settlementThreshold > 0 &&
-        nextSettlementCount >= settlementThreshold &&
-        currentBalance < 0;
 
-      const driver = await client.driver.update({
-        where: { id: driverId },
-        data: {
-          totalOrders: { increment: 1 },
-          ordersSinceSettlement: { increment: 1 },
-          // Self-healing: a driver whose balance recovered through earnings
-          // (e.g. a manually assigned order) must not stay blocked forever
-          // waiting for a top-up approval. Only the flag is cleared here —
-          // SUSPENDED status still requires the top-up flow to lift.
-          hasUnpaidCommission:
-            shouldLock || settlementDue || currentBalance < 0 ? true : false,
-          status: shouldLock ? DriverStatus.SUSPENDED : undefined,
-        },
-        select: { id: true, userId: true, status: true },
-      });
+      for (const paidDriverId of paidDriverIds) {
+        const driverSnapshot = await client.driver.findUnique({
+          where: { id: paidDriverId },
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            walletBalance: true,
+            ordersSinceSettlement: true,
+          },
+        });
 
-      if (shouldLock) {
-        statusEffects.push({
-          kind: 'LOCKED',
-          driver,
-          prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
+        const currentBalance = driverSnapshot?.walletBalance ?? 0;
+        const shouldLock = currentBalance < -maxNegative;
+
+        const nextSettlementCount =
+          (driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
+        const settlementDue =
+          !shouldLock &&
+          settlementThreshold > 0 &&
+          nextSettlementCount >= settlementThreshold &&
+          currentBalance < 0;
+
+        const driver = await client.driver.update({
+          where: { id: paidDriverId },
+          data: {
+            totalOrders: { increment: 1 },
+            ordersSinceSettlement: { increment: 1 },
+            // Self-healing: a driver whose balance recovered through earnings
+            // (e.g. a manually assigned order) must not stay blocked forever
+            // waiting for a top-up approval. Only the flag is cleared here —
+            // SUSPENDED status still requires the top-up flow to lift.
+            hasUnpaidCommission:
+              shouldLock || settlementDue || currentBalance < 0 ? true : false,
+            status: shouldLock ? DriverStatus.SUSPENDED : undefined,
+          },
+          select: { id: true, userId: true, status: true },
         });
-      } else if (settlementDue) {
-        statusEffects.push({
-          kind: 'SETTLEMENT',
-          driver,
-          prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
-        });
+
+        if (shouldLock) {
+          statusEffects.push({
+            kind: 'LOCKED',
+            driver,
+            prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
+          });
+        } else if (settlementDue) {
+          statusEffects.push({
+            kind: 'SETTLEMENT',
+            driver,
+            prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
+          });
+        }
       }
 
       if (coinsEarned > 0) {
@@ -394,7 +554,9 @@ export class StatisticsService {
                   description: `Order ${orderNumber} revenue`,
                 };
               }),
-            ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => !!r))
+            ).then((rows) =>
+              rows.filter((r): r is NonNullable<typeof r> => !!r),
+            )
           : // Legacy single-vendor path: unchanged behaviour.
             vendorId && isContracted
             ? [
@@ -437,20 +599,30 @@ export class StatisticsService {
     // transaction as the increment (see statistics.processor), not by job
     // attempts — retries are therefore safe. Jobs carry an explicit payload.
     if (applied) {
+      const driverEarningsByDriver = new Map<string, number>();
+      for (const payout of [...primaryPayouts, ...assistPayouts]) {
+        driverEarningsByDriver.set(
+          payout.driverId,
+          (driverEarningsByDriver.get(payout.driverId) ?? 0) + payout.amount,
+        );
+      }
+
       const statsJobs: Array<Promise<void>> = [
-        this.enqueueStatsJob({
-          name: STATS_JOBS.UPDATE_DRIVER,
-          sourceKey: `settle:${orderId}:${STATS_JOBS.UPDATE_DRIVER}`,
-          data: {
-            driverId,
-            increment: {
-              totalOrders: 1,
-              totalEarnings: driverEarnings,
-              completedOrders: 1,
+        ...Array.from(driverEarningsByDriver.entries()).map(([dId, amount]) =>
+          this.enqueueStatsJob({
+            name: STATS_JOBS.UPDATE_DRIVER,
+            sourceKey: `settle:${orderId}:driver:${dId}`,
+            data: {
+              driverId: dId,
+              increment: {
+                totalOrders: 1,
+                totalEarnings: amount,
+                completedOrders: 1,
+              },
             },
-          },
-          periods,
-        }),
+            periods,
+          }),
+        ),
         this.enqueueStatsJob({
           name: STATS_JOBS.UPDATE_APP,
           sourceKey: `settle:${orderId}:${STATS_JOBS.UPDATE_APP}`,
@@ -483,6 +655,41 @@ export class StatisticsService {
             periods,
           }),
         );
+      } else {
+        // Multi-vendor: one vendor-stats increment per accepted portion, keyed
+        // by vendor so several vendors of the same order each accrue once.
+        const portions = await this.prisma.orderVendorFulfillment.findMany({
+          where: { orderId, status: 'ACCEPTED' },
+          select: {
+            vendorId: true,
+            subtotal: true,
+            commissionRate: true,
+            vendor: { select: { isContracted: true } },
+          },
+        });
+        for (const portion of portions) {
+          statsJobs.push(
+            this.enqueueStatsJob({
+              name: STATS_JOBS.UPDATE_VENDOR,
+              sourceKey: `settle:${orderId}:vendor:${portion.vendorId}`,
+              data: {
+                vendorId: portion.vendorId,
+                increment: {
+                  totalOrders: 1,
+                  totalRevenue: portion.subtotal,
+                  totalCommission: portion.vendor?.isContracted
+                    ? Math.round(
+                        portion.subtotal *
+                          (Number(portion.commissionRate) / 100),
+                      )
+                    : 0,
+                  completedOrders: 1,
+                },
+              },
+              periods,
+            }),
+          );
+        }
       }
 
       await Promise.all(
@@ -500,7 +707,7 @@ export class StatisticsService {
     for (const effect of statusEffects) {
       if (effect.kind === 'LOCKED') {
         this.logger.warn(
-          `Driver ${driverId} locked out due to unpaid commission on driver-collected order ${orderNumber}.`,
+          `Driver ${effect.driver.id} locked out due to unpaid commission on driver-collected order ${orderNumber}.`,
         );
 
         this.socketService.disconnectUser(effect.driver.userId);
@@ -517,7 +724,7 @@ export class StatisticsService {
         );
       } else {
         this.logger.warn(
-          `Driver ${driverId} reached settlement milestone (${effect.driver.status}) with negative balance — blocked from new orders until settled.`,
+          `Driver ${effect.driver.id} reached settlement milestone (${effect.driver.status}) with negative balance — blocked from new orders until settled.`,
         );
 
         this.eventEmitter.emit(
@@ -552,9 +759,9 @@ export class StatisticsService {
     this.logger.log(
       `Order ${orderNumber} settled — ` +
         `vendor: +${vendorRevenue} -${commission} commission, ` +
-        `driver: +${driverEarnings}` +
-        (assist.assistEarnings > 0
-          ? ` (primary +${primaryShare}, assisting +${assist.assistEarnings})`
+        `drivers: +${driverEarnings} across ${primaryPayouts.length} deliver(s)` +
+        (totalAssistEarnings > 0
+          ? ` (+${totalAssistEarnings} assisting)`
           : '') +
         `, platform: +${platformRevenue}`,
     );
@@ -947,20 +1154,15 @@ export class StatisticsService {
     });
   }
   /**
-   * Work out the assisting driver's share of one delivery's driver earnings.
+   * Work out the assisting driver's earnings for one delivery.
    *
-   * Money-conservation invariants this guarantees:
-   *  - `assistEarnings <= totalDriverEarnings`, so the primary driver always
-   *    keeps a non-negative remainder and the two shares sum to exactly the
-   *    pre-split earnings — no money is created or destroyed;
-   *  - the assistant's share reflects THEIR OWN tier bonus, mirroring the
-   *    primary's tier adjustment, so a lower-tier assistant earns
-   *    proportionally less on the same route;
-   *  - cash collection is deliberately NOT duplicated: only the primary driver
-   *    records CASH_COLLECTED, the assistant is paid from the fee pot only.
+   * Product rule: a two-person delivery pays EACH driver their own FULL fee
+   * (100%) — the assistant is not paid a percentage of the primary's pot and the
+   * primary is not reduced. The assistant's fee mirrors the primary's tier
+   * adjustment (so a lower-tier assistant earns their own tier-correct amount),
+   * and cash collection stays with the primary driver only.
    *
-   * Returns a zero share when the order has no assisting driver or the operator
-   * has set the percentage to 0 (the driver is still assigned and tracked).
+   * Returns a zero share when the order has no assisting driver.
    */
   private async resolveAssistShare(params: {
     orderId: string;
@@ -1002,17 +1204,8 @@ export class StatisticsService {
     }
 
     const settings = await this.platformSettings.getSettings();
-    const percent = Math.min(100, Math.max(0, Number(settings.assistDriverEarningsPercent ?? 50)));
 
     const assistDriver = group.assistDriverId;
-    if (percent === 0) {
-      return {
-        assistEarnings: 0,
-        assistDriverId: assistDriver,
-        assistDriverShiftId: group.assistDriverShiftId,
-      };
-    }
-
     const assist = await this.prisma.driver.findUnique({
       where: { id: assistDriver },
       select: { tier: true },
@@ -1032,11 +1225,12 @@ export class StatisticsService {
       ? Math.max(0, deliveryFee - Math.max(0, tierDiffPerKm) * routeKm)
       : deliveryFee;
 
-    const assistGross = Math.round(assistBaseFee * driverShare);
-    const share = Math.round((assistGross * percent) / 100);
+    // 100%: the assistant keeps their own FULL fee — never a percentage of the
+    // pot. (The primary also keeps 100% of their own fee; see the caller.)
+    const assistEarnings = Math.max(0, Math.round(assistBaseFee * driverShare));
 
     return {
-      assistEarnings: Math.min(Math.max(0, share), totalDriverEarnings),
+      assistEarnings,
       assistDriverId: assistDriver,
       assistDriverShiftId: group.assistDriverShiftId,
     };

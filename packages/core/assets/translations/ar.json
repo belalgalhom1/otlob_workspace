@@ -1881,7 +1881,7 @@
   "order_error_fulfillment_not_found": "جزء الطلب غير موجود.",
   "order_error_fulfillment_already_decided": "تم قبول أو رفض هذا الجزء من الطلب بالفعل.",
   "order_error_rejection_reason_required": "يرجى توضيح سبب عدم إمكانية تنفيذ هذا الجزء من الطلب.",
-  "order_error_multi_vendor_not_allowed": "يتطلب الدفع من عدة موردين了两个 على الأقل.",
+  "order_error_multi_vendor_not_allowed": "يتطلب الدفع من عدة موردين على الأقل.",
   "order_error_empty_cart_for_vendor": "إحدى المتاجر في طلبك تحتوي على سلة فارغة.",
   "order_error_no_delivery_groups": "تعذر تحديد توزيع التوصيلات لهذا الطلب."
 }

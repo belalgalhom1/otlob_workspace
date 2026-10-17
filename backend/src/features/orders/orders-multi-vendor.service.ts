@@ -19,6 +19,8 @@ import {
 import { CustomerErrors } from '../../common/constants/response.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
+import { EVENTS } from '../../common/events/event-names';
+import { OrderCreatedEvent } from '../../common/events';
 
 export interface PlaceMultiVendorOrderDto {
   /** 2+ vendors; a single vendor should use the existing POST /orders. */
@@ -71,10 +73,7 @@ export class OrdersMultiVendorService {
    * Price a multi-vendor checkout without writing anything, so the customer
    * sees the real per-delivery breakdown before committing.
    */
-  async estimate(
-    actor: JwtAccessPayload,
-    dto: PlaceMultiVendorOrderDto,
-  ) {
+  async estimate(actor: JwtAccessPayload, dto: PlaceMultiVendorOrderDto) {
     const vendorIds = this.normaliseVendorIds(dto.vendorIds);
     const plan = await this.buildPlan(actor, vendorIds, dto);
 
@@ -94,7 +93,11 @@ export class OrdersMultiVendorService {
       groups: plan.grouping.groups.map((g) => ({
         sequence: g.sequence,
         vendorIds: g.stops.map((s) => s.vendorId),
-        deliveryFee: this.feeFor(plan, g.firstPickupToCustomerKm, g.sequence - 1),
+        deliveryFee: this.feeFor(
+          plan,
+          g.firstPickupToCustomerKm,
+          g.sequence - 1,
+        ),
         distanceKm: this.round2(g.firstPickupToCustomerKm),
         routeKm: this.round2(g.routeKm),
         splitReason: g.splitReason,
@@ -132,7 +135,11 @@ export class OrdersMultiVendorService {
           if (existing.customerId !== plan.customerId) {
             throw new BadRequestException(OrderErrors.NOT_AUTHORIZED_VIEW);
           }
-          return { id: existing.id, orderNumber: existing.orderNumber, created: false };
+          return {
+            id: existing.id,
+            orderNumber: existing.orderNumber,
+            created: false,
+          };
         }
       }
 
@@ -160,7 +167,7 @@ export class OrdersMultiVendorService {
           ${orderId}, ${orderNumber}, ${clientOrderKey}, 'STANDARD'::"OrderType",
           ${plan.customerId}, NULL, NULL, ${plan.zoneId},
           'PENDING'::"OrderStatus", ${dto.paymentMethod}::"PaymentMethod",
-          ${plan.grandTotal <= 0 ? 'PAID'::"PaymentStatus" : 'PENDING'::"PaymentStatus"},
+          ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
           ${dto.deliveryAddress},
           ST_SetSRID(ST_MakePoint(${dto.deliveryLocation[0]}, ${dto.deliveryLocation[1]}), 4326),
           ${plan.subtotal}, ${plan.deliveryFee}, ${plan.driverBonusFee},
@@ -177,7 +184,13 @@ export class OrdersMultiVendorService {
           select: { id: true, orderNumber: true },
         });
         if (!inserted || inserted.id !== orderId) {
-          return { id: orderId, orderNumber, created: false };
+          // A concurrent duplicate won the race: return the row that exists
+          // rather than the id we generated but never inserted.
+          return {
+            id: inserted?.id ?? orderId,
+            orderNumber: inserted?.orderNumber ?? orderNumber,
+            created: false,
+          };
         }
       }
 
@@ -205,9 +218,17 @@ export class OrdersMultiVendorService {
       // Items carry their owning portion (null keeps legacy rows compatible).
       for (const portion of plan.portions) {
         const fulfillmentId = fulfillmentIds.get(portion.vendorId)!;
+
+        // Allocate an id per item up-front so its options can be attached
+        // deterministically (createMany does not preserve/return input order).
+        const itemRows = portion.items.map((item) => ({
+          ...item,
+          id: randomUUID(),
+        }));
+
         await tx.orderItem.createMany({
-          data: portion.items.map((item) => ({
-            id: randomUUID(),
+          data: itemRows.map((item) => ({
+            id: item.id,
             orderId,
             fulfillmentId,
             productId: item.productId,
@@ -223,10 +244,10 @@ export class OrdersMultiVendorService {
           })),
         });
 
-        const options = portion.items.flatMap((item) =>
+        const options = itemRows.flatMap((item) =>
           item.options.map((o) => ({
             id: randomUUID(),
-            orderItemId: '',
+            orderItemId: item.id,
             optionId: o.optionId,
             optionName: o.optionName,
             groupName: o.groupName,
@@ -234,17 +255,16 @@ export class OrdersMultiVendorService {
           })),
         );
         if (options.length > 0) {
-          const createdItems = await tx.orderItem.findMany({
-            where: { orderId, fulfillmentId },
-            select: { id: true },
-            orderBy: { createdAt: 'asc' },
-          });
-          options.forEach((o, i) => {
-            o.orderItemId = createdItems[i]?.id ?? createdItems[0].id;
-          });
           await tx.orderItemOption.createMany({ data: options });
         }
       }
+
+      // Reserved stock must move exactly like the single-vendor path, so a
+      // later per-portion rejection's `restoreStock` cannot inflate inventory.
+      await this.decrementStock(
+        tx,
+        plan.portions.flatMap((p) => p.items),
+      );
 
       // Delivery groups — one per planned route, each with its own fee.
       for (const group of plan.grouping.groups) {
@@ -256,7 +276,11 @@ export class OrdersMultiVendorService {
             sequence: group.sequence,
             status: 'PENDING',
             distanceKm: this.round2(group.routeKm),
-            deliveryFee: this.feeFor(plan, group.firstPickupToCustomerKm, group.sequence - 1),
+            deliveryFee: this.feeFor(
+              plan,
+              group.firstPickupToCustomerKm,
+              group.sequence - 1,
+            ),
           },
         });
 
@@ -283,9 +307,148 @@ export class OrdersMultiVendorService {
           this.cartService.clearCart(actor.sub, vendorId),
         ),
       );
+
+      // Notify every vendor's staff that a new order is waiting for their
+      // portion decision. Without this the multi-vendor checkout emitted no
+      // ORDER_CREATED at all, so vendors were never told a portion existed.
+      const vendorUserIds = Array.from(
+        new Set(
+          (
+            await Promise.all(
+              vendorIds.map((vendorId) =>
+                this.ordersRepository.getVendorUserIds(vendorId),
+              ),
+            )
+          ).flat(),
+        ),
+      );
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_CREATED,
+        new OrderCreatedEvent(
+          created.id,
+          created.orderNumber,
+          plan.customerId,
+          actor.sub,
+          null,
+          vendorUserIds,
+          plan.grandTotal,
+          dto.paymentMethod,
+          'STANDARD',
+        ),
+      );
     }
 
     return this.ordersRepository.findById(created.id);
+  }
+
+  // ─── Stock ────────────────────────────────────────────────────────────────
+
+  /**
+   * Batched, guarded stock decrement mirroring OrdersRepository.createOrder:
+   * quantities are aggregated per distinct id, strip lines consume whole
+   * packages, and a guarded `UPDATE` throws on a concurrent sell-out.
+   */
+  private async decrementStock(
+    tx: Prisma.TransactionClient,
+    items: {
+      productId: string | null;
+      variantId: string | null;
+      quantity: number;
+      selectedUnit: string | null;
+    }[],
+  ): Promise<void> {
+    const aggregatedVariantQty = new Map<string, number>();
+    const aggregatedProductQty = new Map<string, number>();
+
+    for (const item of items) {
+      if (item.quantity <= 0) {
+        throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+      }
+      if (item.variantId) {
+        aggregatedVariantQty.set(
+          item.variantId,
+          (aggregatedVariantQty.get(item.variantId) ?? 0) + item.quantity,
+        );
+      } else if (item.productId) {
+        aggregatedProductQty.set(item.productId, 0);
+      }
+    }
+
+    const variantIds = [...aggregatedVariantQty.keys()].sort();
+    const trackedVariants = variantIds.length
+      ? await tx.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, tracksStock: true },
+        })
+      : [];
+    const trackedVariantIds = new Set(
+      trackedVariants.filter((v) => v.tracksStock).map((v) => v.id),
+    );
+
+    for (const [variantId, qty] of aggregatedVariantQty) {
+      if (!trackedVariantIds.has(variantId)) continue;
+      const rows = await tx.$executeRaw`
+        UPDATE product_variants
+        SET stock = stock - ${qty}
+        WHERE id = ${variantId}
+          AND stock IS NOT NULL
+          AND stock >= ${qty}
+      `;
+      if (rows === 0) {
+        throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+      }
+    }
+
+    const productIds = [...aggregatedProductQty.keys()].sort();
+    const trackedProducts = productIds.length
+      ? await tx.product.findMany({
+          where: { id: { in: productIds } },
+          select: {
+            id: true,
+            tracksStock: true,
+            sellByStrip: true,
+            stripsPerPackage: true,
+          },
+        })
+      : [];
+    const stripDividerById = new Map(
+      trackedProducts
+        .filter((p) => p.tracksStock)
+        .map((p) => [
+          p.id,
+          p.sellByStrip === true && Number(p.stripsPerPackage ?? 0) > 0
+            ? Number(p.stripsPerPackage)
+            : 1,
+        ]),
+    );
+
+    for (const item of items) {
+      if (!item.productId || item.variantId) continue;
+      const divider =
+        item.selectedUnit === 'strip'
+          ? (stripDividerById.get(item.productId) ?? 1)
+          : 1;
+      const packages = Math.ceil(item.quantity / divider);
+      aggregatedProductQty.set(
+        item.productId,
+        (aggregatedProductQty.get(item.productId) ?? 0) + packages,
+      );
+    }
+
+    for (const [productId, qty] of aggregatedProductQty) {
+      if (qty <= 0 || !stripDividerById.has(productId)) continue;
+      const rows = await tx.$executeRaw`
+        UPDATE products
+        SET stock = stock - ${qty}
+        WHERE id = ${productId}
+          AND stock IS NOT NULL
+          AND stock >= ${qty}
+      `;
+      if (rows === 0) {
+        throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
+      }
+    }
   }
 
   // ─── Planning ─────────────────────────────────────────────────────────────
@@ -332,7 +495,13 @@ export class OrdersMultiVendorService {
 
       const vendor = await this.prisma.vendor.findUnique({
         where: { id: vendorId },
-        select: { id: true, status: true, commissionRate: true, isContracted: true, deletedAt: true },
+        select: {
+          id: true,
+          status: true,
+          commissionRate: true,
+          isContracted: true,
+          deletedAt: true,
+        },
       });
       if (!vendor || vendor.deletedAt || vendor.status !== 'OPEN') {
         throw new BadRequestException(OrderErrors.VENDOR_NOT_ACCEPTING);
@@ -348,7 +517,8 @@ export class OrdersMultiVendorService {
       portions.push({
         vendorId,
         vendorBranchId: branch?.id ?? null,
-        commissionRate: vendor.commissionRate ?? settings.defaultCommissionRate ?? 10,
+        commissionRate:
+          vendor.commissionRate ?? settings.defaultCommissionRate ?? 10,
         subtotal: cart.subtotal,
         items: cart.items.map((i: any) => ({
           productId: i.productId ?? null,
@@ -358,7 +528,12 @@ export class OrdersMultiVendorService {
           unitPrice: Math.round(i.unitPrice),
           quantity: i.quantity,
           selectedUnit: i.selectedUnit,
-          baseUnitPrice: Math.round(i.unitPrice) - (i.selectedOptions ?? []).reduce((s: number, o: any) => s + Math.round(Number(o.priceAdded)), 0),
+          baseUnitPrice:
+            Math.round(i.unitPrice) -
+            (i.selectedOptions ?? []).reduce(
+              (s: number, o: any) => s + Math.round(Number(o.priceAdded)),
+              0,
+            ),
           totalPrice: Math.round(i.totalPrice),
           specialRequest: i.specialRequest ?? null,
           options: (i.selectedOptions ?? []).map((o: any) => ({
@@ -394,17 +569,17 @@ export class OrdersMultiVendorService {
     }
 
     // Per-group fee, each floored by the platform minimum, then summed.
-    const groupFees = grouping.groups.map((g) =>
-      Math.round(
-        await this.platformSettings.calculateDeliveryFee(
-          g.firstPickupToCustomerKm,
-          zone.baseDeliveryFeeOverride ?? null,
-          null,
-          true,
-          settings,
-        ),
-      ),
-    );
+    const groupFees: number[] = [];
+    for (const g of grouping.groups) {
+      const fee = await this.platformSettings.calculateDeliveryFee(
+        g.firstPickupToCustomerKm,
+        zone.baseDeliveryFeeOverride ?? null,
+        null,
+        true,
+        settings,
+      );
+      groupFees.push(Math.round(fee));
+    }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 
     const serviceFee = await this.serviceFeeFor(portions, settings);
@@ -434,7 +609,8 @@ export class OrdersMultiVendorService {
       discount = coinsToUse * (Number(settings.coinValue) || 1);
     }
 
-    const preDiscount = subtotal + deliveryFee + serviceFee + tax + driverBonusFee;
+    const preDiscount =
+      subtotal + deliveryFee + serviceFee + tax + driverBonusFee;
     if (discount > preDiscount) discount = preDiscount;
     const grandTotal = Math.max(0, preDiscount - discount);
     const coinsEarned =
@@ -476,7 +652,9 @@ export class OrdersMultiVendorService {
     return portions.reduce((sum, p) => {
       const v = byId.get(p.vendorId);
       if (!v || v.isContracted) return sum;
-      const rate = Number(v.commissionRate ?? settings.defaultCommissionRate ?? 10);
+      const rate = Number(
+        v.commissionRate ?? settings.defaultCommissionRate ?? 10,
+      );
       return sum + Math.round(p.subtotal * (rate / 100));
     }, 0);
   }

@@ -17,6 +17,7 @@ import { OrderErrors } from '../../common/constants/response.constants';
 import { EVENTS } from '../../common/events/event-names';
 import {
   OrderFulfillmentDecidedEvent,
+  OrderStatusChangedEvent,
   OrderVendorRejectedEvent,
 } from '../../common/events';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
@@ -80,6 +81,7 @@ export class OrderVendorDecisionService {
       OrderVendorFulfillmentStatus.ACCEPTED,
       actor.sub,
     );
+    await this.maybeAdvanceToDispatch(fulfillment.orderId);
     return this.findById(fulfillmentId);
   }
 
@@ -196,6 +198,10 @@ export class OrderVendorDecisionService {
         fulfillment.orderId,
         'All vendors rejected their portions',
       );
+    } else {
+      // A portion may have been rejected while others are already accepted and
+      // none are still pending — start the driver search in that case.
+      await this.maybeAdvanceToDispatch(fulfillment.orderId);
     }
 
     const vendor = await this.prisma.vendor.findUnique({
@@ -512,5 +518,77 @@ export class OrderVendorDecisionService {
       await this.ordersRepository.updateStatus(orderId, 'PENDING', 'system');
     }
     return false;
+  }
+
+  /**
+   * Once every vendor portion has been answered (none left PENDING) and at
+   * least one was accepted, move the ORDER into the driver-search state so the
+   * dispatch handoff runs. A multi-vendor order is then dispatched one round
+   * per delivery group by the handoff, so this only flips the order status once.
+   *
+   * Guarded and best-effort: a concurrent decision that already advanced the
+   * order makes this a no-op rather than an error.
+   */
+  private async maybeAdvanceToDispatch(orderId: string): Promise<void> {
+    const portions = await this.prisma.orderVendorFulfillment.findMany({
+      where: { orderId },
+      select: { status: true },
+    });
+    if (portions.length === 0) return;
+
+    const anyPending = portions.some(
+      (p) => p.status === OrderVendorFulfillmentStatus.PENDING,
+    );
+    const anyAccepted = portions.some(
+      (p) => p.status === OrderVendorFulfillmentStatus.ACCEPTED,
+    );
+    if (anyPending || !anyAccepted) return;
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        status: true,
+        customer: { select: { userId: true } },
+      },
+    });
+    if (!order) return;
+
+    const advanceable: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+    ];
+    if (!advanceable.includes(order.status)) return;
+
+    try {
+      const updated = await this.ordersRepository.updateStatus(
+        orderId,
+        OrderStatus.LOOKING_FOR_DRIVER,
+        'system',
+        'All vendor portions decided — searching for drivers',
+        undefined,
+        order.status,
+      );
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_STATUS_CHANGED,
+        new OrderStatusChangedEvent(
+          updated.id,
+          updated.orderNumber,
+          order.status,
+          OrderStatus.LOOKING_FOR_DRIVER,
+          updated.customerId,
+          order.customer.userId,
+          updated.vendorId,
+          [],
+          updated.driverId,
+          updated.driver?.userId ?? null,
+          'system',
+          'All vendor portions decided — searching for drivers',
+        ),
+      );
+    } catch {
+      // Lost a race with another decision or flow that already advanced it.
+    }
   }
 }

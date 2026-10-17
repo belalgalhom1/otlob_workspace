@@ -35,7 +35,7 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Permission, Role } from '@prisma/client';
-import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
+import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import {
   ApiStandardResponse,
   ApiPaginatedResponse,

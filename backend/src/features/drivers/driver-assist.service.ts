@@ -21,6 +21,7 @@ import {
   DeliveryGroupStatus,
   DriverAssistReason,
   DriverAssistRequestStatus,
+  DriverShiftStatus,
   DriverStatus,
   Prisma,
 } from '@prisma/client';
@@ -31,10 +32,7 @@ export interface RequestAssistDto {
 }
 
 export interface DecideAssistDto {
-  status: Extract<
-    DriverAssistRequestStatus,
-    'APPROVED' | 'REJECTED'
-  >;
+  status: Extract<DriverAssistRequestStatus, 'APPROVED' | 'REJECTED'>;
 }
 
 export interface AssignAssistDriverDto {
@@ -111,7 +109,9 @@ export class DriverAssistService {
 
     // Too late / no longer relevant.
     if (ASSIGNMENT_CLOSED_STATUSES.includes(group.status)) {
-      throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED);
+      throw new BadRequestException(
+        DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED,
+      );
     }
     if (
       group.order.status === 'CANCELLED' ||
@@ -304,7 +304,8 @@ export class DriverAssistService {
           status: true,
         },
       });
-      if (!group) throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+      if (!group)
+        throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
 
       if (ASSIGNMENT_CLOSED_STATUSES.includes(group.status)) {
         throw new BadRequestException(
@@ -327,7 +328,12 @@ export class DriverAssistService {
         where: {
           driverId: candidate.id,
           status: {
-            in: ['DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PICKED_UP'],
+            in: [
+              'DRIVER_ASSIGNED',
+              'PREPARING',
+              'READY_FOR_PICKUP',
+              'PICKED_UP',
+            ],
           },
         },
         select: { id: true },
@@ -336,17 +342,52 @@ export class DriverAssistService {
         throw new ConflictException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
       }
 
+      // Multi-vendor deliveries never set Order.driverId for non-first groups,
+      // so a driver could be the primary/assist of another live delivery group
+      // without the order-level check above seeing it. Check group membership
+      // too, excluding closed groups.
+      const busyGroup = await tx.orderDeliveryGroup.findFirst({
+        where: {
+          id: { not: groupId },
+          OR: [
+            { primaryDriverId: candidate.id },
+            { assistDriverId: candidate.id },
+          ],
+          status: {
+            notIn: [
+              DeliveryGroupStatus.DELIVERED,
+              DeliveryGroupStatus.CANCELLED,
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      if (busyGroup) {
+        throw new ConflictException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+      }
+
+      // Capture the assisting driver's active shift so settlement can attribute
+      // their delivery fee to the correct shift (mirrors the primary driver).
+      const activeShift = await tx.driverShift.findFirst({
+        where: { driverId: candidate.id, status: DriverShiftStatus.ACTIVE },
+        select: { id: true },
+        orderBy: { startTime: 'desc' },
+      });
+
       // CAS on assistDriverId so two concurrent admins cannot both win.
       const claimed = await tx.orderDeliveryGroup.updateMany({
         where: { id: groupId, assistDriverId: null },
         data: {
           assistDriverId: candidate.id,
+          assistDriverShiftId: activeShift?.id ?? null,
           assignedByUserId: actor.sub,
           assignedAt: new Date(),
         },
       });
       if (claimed.count === 0) {
-        throw new ConflictException(DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED);
+        throw new ConflictException(
+          DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED,
+        );
       }
 
       await tx.driverAssistRequest.update({
@@ -427,17 +468,30 @@ export class DriverAssistService {
       where: { id: requestId },
       include: this.includeShape(),
     });
-    if (!request) throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    if (!request)
+      throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
     return request;
   }
 
   private includeShape() {
     return {
       driver: {
-        select: { id: true, userId: true, name: true, vehicleType: true, status: true },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          vehicleType: true,
+          status: true,
+        },
       },
       assignedDriver: {
-        select: { id: true, userId: true, name: true, vehicleType: true, status: true },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          vehicleType: true,
+          status: true,
+        },
       },
       order: { select: { id: true, orderNumber: true, status: true } },
       deliveryGroup: {
@@ -466,18 +520,44 @@ export class DriverAssistService {
     primaryUserId: string | null;
     orderNumber: string;
   }): Promise<void> {
-    const recipients = [params.assistUserId, params.primaryUserId].filter(
-      (v): v is string => !!v && v !== params.assistUserId,
-    );
+    // Both drivers are notified: the assistant (with their own inbox message)
+    // and the primary (who keeps the delivery). Previously the assistant's
+    // persisted notification was filtered out, so they only ever received the
+    // transient socket event below.
+    const targets: {
+      userId: string;
+      title: string;
+      titleAr: string;
+      body: string;
+      bodyAr: string;
+    }[] = [];
+    if (params.assistUserId) {
+      targets.push({
+        userId: params.assistUserId,
+        title: 'Assisting a delivery',
+        titleAr: 'مساعد في توصيل',
+        body: `You were assigned to assist delivery ${params.orderNumber}. You earn the full delivery fee.`,
+        bodyAr: `تم تعيينك لمساعدة التوصيل ${params.orderNumber}. تحصل على كامل أجرة التوصيل.`,
+      });
+    }
+    if (params.primaryUserId && params.primaryUserId !== params.assistUserId) {
+      targets.push({
+        userId: params.primaryUserId,
+        title: 'Assisting driver assigned',
+        titleAr: 'تم تعيين سائق مساعد',
+        body: `A second driver was added to delivery ${params.orderNumber}. You remain the primary driver.`,
+        bodyAr: `تمت إضافة سائق ثانٍ للتوصيل ${params.orderNumber}. لا تزال السائق الأساسي.`,
+      });
+    }
 
-    for (const userId of recipients) {
+    for (const target of targets) {
       try {
         await this.notifications.create({
-          userId,
-          title: 'Assisting driver assigned',
-          titleAr: 'تم تعيين سائق مساعد',
-          body: `A second driver was added to delivery ${params.orderNumber}. You remain the primary driver.`,
-          bodyAr: `تمت إضافة سائق ثانٍ للتوصيل ${params.orderNumber}. لا تزال السائق الأساسي.`,
+          userId: target.userId,
+          title: target.title,
+          titleAr: target.titleAr,
+          body: target.body,
+          bodyAr: target.bodyAr,
           type: 'ORDER_UPDATE',
           data: { orderId: params.orderNumber },
         });
@@ -497,7 +577,6 @@ export class DriverAssistService {
   }
 
   private logWarn(error: unknown) {
-    // eslint-disable-next-line no-console
     console.warn('[DriverAssistService] side-effect failed', error);
   }
 }

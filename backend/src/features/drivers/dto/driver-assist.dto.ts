@@ -1,12 +1,13 @@
 import {
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { DriverAssistReason, DriverAssistRequestStatus } from '@prisma/client';
+import { DriverAssistReason } from '@prisma/client';
 
 export class RequestAssistDriverDto {
   @ApiProperty({
@@ -34,7 +35,7 @@ export class DecideAssistRequestDto {
     example: 'APPROVED',
     description: 'Support decision on the assistance request',
   })
-  @IsEnum(['APPROVED', 'REJECTED'] as unknown as DriverAssistRequestStatus)
+  @IsIn(['APPROVED', 'REJECTED'])
   status: 'APPROVED' | 'REJECTED';
 }
 

@@ -9,7 +9,11 @@ import {
   ORDER_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import { OrderStatus, PaymentMethod } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentMethod,
+  DeliveryGroupStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 
@@ -126,9 +130,25 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     }
 
     if (!order.driverId) {
-      throw new UnrecoverableError(
-        `Order ${orderNumber} has no driver assigned`,
-      );
+      // Delivery-grouped orders keep the collector in Order.driverId, but if
+      // that was never mirrored we still settle from a delivered group so the
+      // per-group drivers are paid instead of throwing the whole order away.
+      const group = await this.prisma.orderDeliveryGroup.findFirst({
+        where: {
+          orderId,
+          status: 'DELIVERED',
+          primaryDriverId: { not: null },
+        },
+        select: { primaryDriverId: true, primaryDriverShiftId: true },
+        orderBy: { sequence: 'asc' },
+      });
+      if (!group?.primaryDriverId) {
+        throw new UnrecoverableError(
+          `Order ${orderNumber} has no driver assigned`,
+        );
+      }
+      order.driverId = group.primaryDriverId;
+      order.driverShiftId = group.primaryDriverShiftId;
     }
 
     const settings = await this.platformSettings.getSettings();
@@ -265,37 +285,55 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     let recovered = 0;
     for (const order of stuckOrders) {
-      await this.clearStaleDispatchClaim(order.id);
+      // A grouped order has per-delivery state; re-queue one DISPATCH per
+      // dispatchable group using the GROUP-scoped state key. Falling back to a
+      // single order-level job would reset the attempt counter and re-broadcast
+      // the wrong (order-total) fee for a delivery-grouped order.
+      const groups = await this.prisma.orderDeliveryGroup.findMany({
+        where: {
+          orderId: order.id,
+          status: {
+            in: [
+              DeliveryGroupStatus.PENDING,
+              DeliveryGroupStatus.ACCEPTED,
+              DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+              DeliveryGroupStatus.READY_FOR_PICKUP,
+            ],
+          },
+          primaryDriverId: null,
+        },
+        select: { id: true },
+      });
 
-      // Resume from the last persisted dispatch attempt instead of resetting
-      // to 1. Resetting defeats driverSearchMaxAttempts and re-broadcasts to
-      // drivers who already rejected the order.
-      const stateRaw = await this.redis.get(
-        `otlobegy:dispatch-state:${order.id}`,
-      );
-      let attempt = 1;
-      let excludeDriverIds: string[] = [];
-      if (stateRaw) {
-        try {
-          const state: { attempt?: number; excludeDriverIds?: string[] } =
-            JSON.parse(stateRaw);
-          attempt = Number(state.attempt) || 1;
-          excludeDriverIds = Array.isArray(state.excludeDriverIds)
-            ? state.excludeDriverIds
-            : [];
-        } catch {
-          // Malformed state — fall back to a fresh attempt
+      if (groups.length > 0) {
+        for (const group of groups) {
+          await this.clearStaleDispatchClaim(group.id);
+          const state = await this.readDispatchState(group.id);
+          await this.dispatchQueue.add(
+            ORDER_JOBS.DISPATCH,
+            {
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              attempt: state.attempt,
+              excludeDriverIds: state.excludeDriverIds,
+              deliveryGroupId: group.id,
+            },
+            { removeOnComplete: true, removeOnFail: 100 },
+          );
+          recovered++;
         }
+        continue;
       }
 
-      // Create a dispatch job for the order again
+      await this.clearStaleDispatchClaim(order.id);
+      const state = await this.readDispatchState(order.id);
       await this.dispatchQueue.add(
         ORDER_JOBS.DISPATCH,
         {
           orderId: order.id,
           orderNumber: order.orderNumber,
-          attempt,
-          excludeDriverIds,
+          attempt: state.attempt,
+          excludeDriverIds: state.excludeDriverIds,
         },
         { removeOnComplete: true, removeOnFail: 100 },
       );
@@ -340,6 +378,32 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     }
 
     return { recovered };
+  }
+
+  // Resume from the last persisted dispatch attempt instead of resetting to 1.
+  // Resetting defeats driverSearchMaxAttempts and re-broadcasts to drivers who
+  // already rejected the delivery. Works for both the order scope and a
+  // delivery-group scope.
+  private async readDispatchState(
+    scopeId: string,
+  ): Promise<{ attempt: number; excludeDriverIds: string[] }> {
+    try {
+      const stateRaw = await this.redis.get(
+        `otlobegy:dispatch-state:${scopeId}`,
+      );
+      if (!stateRaw) return { attempt: 1, excludeDriverIds: [] };
+      const state: { attempt?: number; excludeDriverIds?: string[] } =
+        JSON.parse(stateRaw);
+      return {
+        attempt: Number(state.attempt) || 1,
+        excludeDriverIds: Array.isArray(state.excludeDriverIds)
+          ? state.excludeDriverIds
+          : [],
+      };
+    } catch {
+      // Malformed state — fall back to a fresh attempt.
+      return { attempt: 1, excludeDriverIds: [] };
+    }
   }
 
   // An order here with a stale in-flight claim may still be running a live

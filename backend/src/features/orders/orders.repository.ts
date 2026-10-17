@@ -125,6 +125,55 @@ const ORDER_INCLUDE = {
   items: {
     include: { selectedOptions: true, product: { select: { imageUrl: true } } },
   },
+  vendorFulfillments: {
+    orderBy: { createdAt: 'asc' as const },
+    include: {
+      vendor: {
+        select: { id: true, storeName: true, storeNameAr: true, logo: true },
+      },
+      items: {
+        where: { rejectedAt: null },
+        select: {
+          id: true,
+          productId: true,
+          productName: true,
+          variantName: true,
+          quantity: true,
+          selectedUnit: true,
+          unitPrice: true,
+          totalPrice: true,
+        },
+      },
+    },
+  },
+  deliveryGroups: {
+    orderBy: { sequence: 'asc' as const },
+    include: {
+      items: { orderBy: { sequence: 'asc' as const } },
+      primaryDriver: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          vehicleType: true,
+          vehiclePlate: true,
+          userId: true,
+          user: { select: { phone: true } },
+        },
+      },
+      assistDriver: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          vehicleType: true,
+          vehiclePlate: true,
+          userId: true,
+          user: { select: { phone: true } },
+        },
+      },
+    },
+  },
   statusEvents: {
     orderBy: { createdAt: 'desc' as const },
     take: 10,
