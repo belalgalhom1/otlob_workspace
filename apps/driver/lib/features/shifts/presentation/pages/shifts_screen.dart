@@ -216,19 +216,43 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
       double? lat;
       double? lng;
       try {
-        final perm = await Geolocator.checkPermission();
-        if (perm != LocationPermission.deniedForever) {
+        var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
+        }
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled &&
+            perm != LocationPermission.denied &&
+            perm != LocationPermission.deniedForever) {
           final pos = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.high,
             ),
-          ).timeout(const Duration(seconds: 10));
+          ).timeout(const Duration(seconds: 15));
           lat = pos.latitude;
           lng = pos.longitude;
         }
       } catch (_) {
-        // No GPS: the server will answer with a clear zone error.
+        // Fall through to the explicit message below.
       }
+
+      // Without a fix the backend can only answer "not in shift zone", which
+      // hides the real cause — tell the driver what to enable instead.
+      if (lat == null || lng == null) {
+        if (mounted) {
+          setState(() => _startingShiftId = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isAr
+                  ? 'تعذّر تحديد موقعك. فعّل خدمة الموقع (GPS) وامنح الإذن ثم أعد المحاولة.'
+                  : 'Could not get your location. Enable GPS, grant permission, then try again.'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+        }
+        return;
+      }
+
       await ref.read(driverShiftsProvider.notifier).startShift(
             shiftId,
             photoPath: photo.path,

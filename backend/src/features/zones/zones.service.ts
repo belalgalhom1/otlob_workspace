@@ -52,6 +52,8 @@ export class ZonesService {
       coordinates: dto.boundary,
     });
 
+    await this.assertValidPolygon(geoJson);
+
     try {
       await this.prisma.$executeRaw`
         INSERT INTO "zones" (
@@ -73,6 +75,34 @@ export class ZonesService {
 
       return await this.getZoneById(id);
     } catch (error: unknown) {
+      throw new BadRequestException(ZoneErrors.INVALID_BOUNDARY);
+    }
+  }
+
+  /**
+   * A self-intersecting (or otherwise malformed) polygon is stored happily by
+   * PostGIS but makes ST_Contains/ST_Covers unreliable — interior points get
+   * reported as outside — so a driver physically inside the zone is told they
+   * are not. Reject such boundaries at write time and force a redraw.
+   */
+  private async assertValidPolygon(geoJson: string): Promise<void> {
+    let valid = false;
+    let reason = 'unknown';
+    try {
+      const rows = await this.prisma.$queryRaw<
+        { valid: boolean; reason: string | null }[]
+      >`
+        SELECT ST_IsValid(g) AS valid, ST_IsValidReason(g) AS reason
+        FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON(${geoJson}), 4326) AS g) t
+      `;
+      valid = rows[0]?.valid === true;
+      reason = rows[0]?.reason ?? 'unknown';
+    } catch (error: unknown) {
+      reason = (error as Error).message;
+    }
+
+    if (!valid) {
+      this.logger.warn(`Rejected invalid zone boundary: ${reason}`);
       throw new BadRequestException(ZoneErrors.INVALID_BOUNDARY);
     }
   }
@@ -135,6 +165,8 @@ export class ZonesService {
         type: 'Polygon',
         coordinates: dto.boundary,
       });
+
+      await this.assertValidPolygon(geoJson);
 
       try {
         await this.prisma.$executeRaw`

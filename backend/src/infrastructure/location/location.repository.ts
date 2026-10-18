@@ -486,8 +486,8 @@ export class LocationRepository {
     latitude: number,
   ): Promise<boolean> {
     const rows = await this.prisma.$queryRaw<{ inside: boolean }[]>`
-      SELECT ST_Contains(
-        "boundary",
+      SELECT ST_Covers(
+        ST_MakeValid("boundary"),
         ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
       ) AS inside
       FROM zones
