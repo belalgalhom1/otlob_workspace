@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -213,51 +214,17 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
 
     setState(() => _startingShiftId = shiftId);
     try {
-      double? lat;
-      double? lng;
-      try {
-        var perm = await Geolocator.checkPermission();
-        if (perm == LocationPermission.denied) {
-          perm = await Geolocator.requestPermission();
-        }
-        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (serviceEnabled &&
-            perm != LocationPermission.denied &&
-            perm != LocationPermission.deniedForever) {
-          final pos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-            ),
-          ).timeout(const Duration(seconds: 15));
-          lat = pos.latitude;
-          lng = pos.longitude;
-        }
-      } catch (_) {
-        // Fall through to the explicit message below.
-      }
-
-      // Without a fix the backend can only answer "not in shift zone", which
-      // hides the real cause — tell the driver what to enable instead.
-      if (lat == null || lng == null) {
-        if (mounted) {
-          setState(() => _startingShiftId = null);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isAr
-                  ? 'تعذّر تحديد موقعك. فعّل خدمة الموقع (GPS) وامنح الإذن ثم أعد المحاولة.'
-                  : 'Could not get your location. Enable GPS, grant permission, then try again.'),
-              backgroundColor: AppColors.warning,
-            ),
-          );
-        }
+      final position = await _ensureLocationFix(isAr);
+      if (position == null) {
+        if (mounted) setState(() => _startingShiftId = null);
         return;
       }
 
       await ref.read(driverShiftsProvider.notifier).startShift(
             shiftId,
             photoPath: photo.path,
-            latitude: lat,
-            longitude: lng,
+            latitude: position.latitude,
+            longitude: position.longitude,
           );
       ref.invalidate(driverProfileProvider);
       if (mounted) {
@@ -280,6 +247,108 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     } finally {
       if (mounted) setState(() => _startingShiftId = null);
     }
+  }
+
+  /// Resolves a GPS fix for the shift start, guiding the driver through every
+  /// failure mode instead of letting the backend answer with a misleading
+  /// "not in shift zone". Keeps prompting until location services and the
+  /// permission are enabled and a fix is obtained, or the driver cancels.
+  Future<Position?> _ensureLocationFix(bool isAr) async {
+    while (true) {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        final go = await _showLocationPrompt(
+          isAr,
+          title: isAr ? 'خدمة الموقع مغلقة' : 'Location is off',
+          body: isAr
+              ? 'فعّل خدمة الموقع (GPS) من إعدادات الجهاز ثم عد للتطبيق.'
+              : 'Turn on location services (GPS) in your device settings, then come back.',
+          actionLabel: isAr ? 'فتح الإعدادات' : 'Open settings',
+        );
+        if (go != true) return null;
+        await Geolocator.openLocationSettings();
+        await Future.delayed(const Duration(seconds: 1));
+        continue;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        final go = await _showLocationPrompt(
+          isAr,
+          title: isAr ? 'إذن الموقع مرفوض' : 'Location permission denied',
+          body: isAr
+              ? 'افتح إعدادات التطبيق وامنح إذن الموقع (أثناء استخدام التطبيق) ثم عد.'
+              : 'Open the app settings, allow location (while using the app), then come back.',
+          actionLabel: isAr ? 'فتح الإعدادات' : 'Open settings',
+        );
+        if (go != true) return null;
+        await Geolocator.openAppSettings();
+        await Future.delayed(const Duration(seconds: 1));
+        continue;
+      }
+
+      if (permission == LocationPermission.denied) {
+        final retry = await _showLocationPrompt(
+          isAr,
+          title: isAr ? 'الموقع مطلوب' : 'Location required',
+          body: isAr
+              ? 'لا يمكن بدء الوردية بدون إذن الموقع.'
+              : 'You cannot start a shift without location permission.',
+          actionLabel: isAr ? 'المحاولة مرة أخرى' : 'Try again',
+        );
+        if (retry != true) return null;
+        continue;
+      }
+
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+          ),
+        ).timeout(const Duration(seconds: 20));
+      } on TimeoutException {
+        final retry = await _showLocationPrompt(
+          isAr,
+          title: isAr ? 'تعذّر تحديد الموقع' : "Couldn't get your location",
+          body: isAr
+              ? 'تأكد من تشغيل GPS ووجودك في مكان مفتوح ثم أعد المحاولة.'
+              : 'Make sure GPS is on and you have a clear view of the sky, then retry.',
+          actionLabel: isAr ? 'إعادة المحاولة' : 'Retry',
+        );
+        if (retry != true) return null;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<bool?> _showLocationPrompt(
+    bool isAr, {
+    required String title,
+    required String body,
+    required String actionLabel,
+  }) {
+    if (!mounted) return Future.value(null);
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(isAr ? 'إلغاء' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -232,6 +233,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
   Widget _buildShiftCard(BuildContext context, DriverShift shift) {
     final statusColor = _getStatusColor(shift.status);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     
     return Container(
       decoration: BoxDecoration(
@@ -339,7 +341,81 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               ],
             ),
           ],
+          if (shift.startPhotoUrl != null && shift.startPhotoUrl!.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1),
+            ),
+            Row(
+              children: [
+                const Icon(LucideIcons.camera, size: 14, color: AppColors.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  isAr ? 'صورة بدء الوردية' : 'Shift start photo',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => _showPhoto(context, shift.startPhotoUrl!),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: ImageUtils.formatImageUrl(shift.startPhotoUrl),
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(
+                    height: 180,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.05),
+                    alignment: Alignment.center,
+                    child: const CircularProgressIndicator(),
+                  ),
+                  errorWidget: (_, _, _) => Container(
+                    height: 180,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.05),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      LucideIcons.imageOff,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _showPhoto(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: InteractiveViewer(
+          child: CachedNetworkImage(
+            imageUrl: ImageUtils.formatImageUrl(url),
+            fit: BoxFit.contain,
+            placeholder: (_, _) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            errorWidget: (_, _, _) => const Icon(
+              LucideIcons.imageOff,
+              color: AppColors.textMuted,
+              size: 40,
+            ),
+          ),
+        ),
       ),
     );
   }

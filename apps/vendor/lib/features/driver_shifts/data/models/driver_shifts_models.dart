@@ -48,6 +48,7 @@ class DriverShift {
   final num? totalEarnings;
   final num? totalDeliveries;
   final String? zoneName;
+  final String? startPhotoUrl;
 
   const DriverShift({
     required this.id,
@@ -61,6 +62,7 @@ class DriverShift {
     this.totalEarnings,
     this.totalDeliveries,
     this.zoneName,
+    this.startPhotoUrl,
   });
 
   factory DriverShift.fromJson(Map<String, dynamic> json) {
@@ -74,6 +76,7 @@ class DriverShift {
       status: json['status'] as String? ?? 'SCHEDULED',
       totalEarnings: json['totalEarnings'] as num?,
       totalDeliveries: json['totalDeliveries'] as num?,
+      startPhotoUrl: json['startPhotoUrl'] as String?,
       zoneName: json['zone'] != null ? json['zone']['name'] as String? : null,
       driver: json['driver'] != null
           ? DriverUserInfo.fromJson(json['driver'] as Map<String, dynamic>)
