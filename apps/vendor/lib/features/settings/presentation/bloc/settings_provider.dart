@@ -130,10 +130,10 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('driverSearchRadiusStepKm')) b.driverSearchRadiusStepKm = parseNum(settings['driverSearchRadiusStepKm']);
       if (settings.containsKey('driverSearchRadiusMaxKm')) b.driverSearchRadiusMaxKm = parseNum(settings['driverSearchRadiusMaxKm']);
       if (settings.containsKey('driverSearchMaxAttempts')) b.driverSearchMaxAttempts = parseNum(settings['driverSearchMaxAttempts']);
-      if (settings.containsKey('fallbackOrderDistanceKm')) b.fallbackOrderDistanceKm = parseNum(settings['fallbackOrderDistanceKm']);
       if (settings.containsKey('driverAcceptTimeoutSecs')) b.driverAcceptTimeoutSecs = parseNum(settings['driverAcceptTimeoutSecs']);
       if (settings.containsKey('autoCancelPendingMins')) b.autoCancelPendingMins = parseNum(settings['autoCancelPendingMins']);
       if (settings.containsKey('maxDispatchBatchSize')) b.maxDispatchBatchSize = parseNum(settings['maxDispatchBatchSize']);
+      if (settings.containsKey('mobileWalletTimeoutMins')) b.mobileWalletTimeoutMins = parseNum(settings['mobileWalletTimeoutMins']);
       if (settings.containsKey('isMaintenanceMode')) b.isMaintenanceMode = parseBool(settings['isMaintenanceMode']);
       if (settings.containsKey('androidMinVersion')) b.androidMinVersion = settings['androidMinVersion'];
       if (settings.containsKey('androidLatestVersion')) b.androidLatestVersion = settings['androidLatestVersion'];

@@ -1196,6 +1196,69 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterAll => 'All';
 
   @override
+  String get filtersTitle => 'Filters';
+
+  @override
+  String get resetFilters => 'Reset';
+
+  @override
+  String get applyFilters => 'Apply';
+
+  @override
+  String get dateRange => 'Date Range';
+
+  @override
+  String get presetAllDates => 'All';
+
+  @override
+  String get presetToday => 'Today';
+
+  @override
+  String get presetTomorrow => 'Tomorrow';
+
+  @override
+  String get presetThisWeek => 'This Week';
+
+  @override
+  String get presetNextWeek => 'Next Week';
+
+  @override
+  String get presetThisMonth => 'This Month';
+
+  @override
+  String get presetCustom => 'Custom';
+
+  @override
+  String get sortBy => 'Sort By';
+
+  @override
+  String get sortSoonest => 'Soonest';
+
+  @override
+  String get sortLatest => 'Latest';
+
+  @override
+  String get shiftStatusLabel => 'Status';
+
+  @override
+  String get statusAll => 'All';
+
+  @override
+  String get statusUpcoming => 'Upcoming';
+
+  @override
+  String get statusActive => 'Active';
+
+  @override
+  String get statusCompleted => 'Completed';
+
+  @override
+  String get statusMissed => 'Missed';
+
+  @override
+  String get searchShiftsHint => 'Search by title or zone...';
+
+  @override
   String get statusOnline => 'ONLINE';
 
   @override
@@ -1458,7 +1521,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryCommissionRate => 'Delivery Commission Rate (%)';
 
   @override
-  String get customOrderPlatformFee => 'Custom Order Platform Fee';
+  String get customOrderPlatformFee => 'Custom Delivery Service Fee';
 
   @override
   String get defaultTaxRate => 'Default Tax Rate (%)';
@@ -2143,6 +2206,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get endShift => 'END SHIFT';
+
+  @override
+  String get endShiftConfirmTitle => 'End this shift?';
+
+  @override
+  String get endShiftConfirmMessage =>
+      'You\'ll go offline and this shift will be marked as completed.';
+
+  @override
+  String get endShiftSuccess => 'Shift ended — you\'re now offline';
+
+  @override
+  String get cancelShift => 'Cancel Shift';
+
+  @override
+  String get shiftCancelledSuccess => 'Shift cancelled';
+
+  @override
+  String get confirmAction => 'Confirm';
 
   @override
   String failedToAcceptDispatch(String error) {

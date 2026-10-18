@@ -508,10 +508,15 @@ export class OrdersMultiVendorService {
         dto.deliveryLocation[1],
         zone.id,
       );
+      // Every vendor portion needs an open branch inside the zone: without one
+      // there is no pickup point for the driver.
+      if (!branch) {
+        throw new BadRequestException(OrderErrors.NO_OPEN_BRANCH);
+      }
 
       portions.push({
         vendorId,
-        vendorBranchId: branch?.id ?? null,
+        vendorBranchId: branch.id,
         commissionRate:
           vendor.commissionRate ?? settings.defaultCommissionRate ?? 10,
         subtotal: cart.subtotal,
@@ -540,11 +545,9 @@ export class OrdersMultiVendorService {
         })),
         stop: {
           vendorId,
-          vendorBranchId: branch?.id ?? null,
-          // No open branch → fall back to the customer point, exactly like the
-          // single-vendor path uses fallbackOrderDistanceKm.
-          lng: branch?.lng ?? dto.deliveryLocation[0],
-          lat: branch?.lat ?? dto.deliveryLocation[1],
+          vendorBranchId: branch.id,
+          lng: branch.lng,
+          lat: branch.lat,
         },
       });
     }

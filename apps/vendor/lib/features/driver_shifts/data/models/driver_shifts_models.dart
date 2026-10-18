@@ -3,7 +3,11 @@
 
 class ShiftPool {
   final String id;
+  final String? batchId;
+  final String? title;
+  final String? titleAr;
   final String? zoneId;
+  final String? zoneName;
   final DateTime shiftDate;
   final DateTime startTime;
   final DateTime endTime;
@@ -12,7 +16,11 @@ class ShiftPool {
 
   const ShiftPool({
     required this.id,
+    this.batchId,
+    this.title,
+    this.titleAr,
     this.zoneId,
+    this.zoneName,
     required this.shiftDate,
     required this.startTime,
     required this.endTime,
@@ -23,7 +31,11 @@ class ShiftPool {
   factory ShiftPool.fromJson(Map<String, dynamic> json) {
     return ShiftPool(
       id: json['id'] as String,
+      batchId: json['batchId'] as String?,
+      title: json['title'] as String?,
+      titleAr: json['titleAr'] as String?,
       zoneId: json['zoneId'] as String?,
+      zoneName: json['zone'] != null ? json['zone']['name'] as String? : null,
       shiftDate: DateTime.parse(json['shiftDate'] as String).toLocal(),
       startTime: DateTime.parse(json['startTime'] as String).toLocal(),
       endTime: DateTime.parse(json['endTime'] as String).toLocal(),
@@ -33,6 +45,16 @@ class ShiftPool {
               .toList() ??
           [],
     );
+  }
+
+  /// Title matching the active language, falling back to the other language
+  /// when one side is empty.
+  String? localizedTitle(String languageCode) {
+    final primary = (languageCode == 'ar' ? titleAr : title)?.trim();
+    if (primary != null && primary.isNotEmpty) return primary;
+    final secondary = (languageCode == 'ar' ? title : titleAr)?.trim();
+    if (secondary != null && secondary.isNotEmpty) return secondary;
+    return null;
   }
 }
 
@@ -132,6 +154,8 @@ class GenerateShiftPoolsRequest {
   final String endTime;
   final int maxDrivers;
   final String? zoneId;
+  final String? title;
+  final String? titleAr;
 
   const GenerateShiftPoolsRequest({
     required this.startDate,
@@ -140,6 +164,8 @@ class GenerateShiftPoolsRequest {
     required this.endTime,
     required this.maxDrivers,
     this.zoneId,
+    this.title,
+    this.titleAr,
   });
 
   Map<String, dynamic> toJson() => {
@@ -149,6 +175,8 @@ class GenerateShiftPoolsRequest {
         'endTime': endTime,
         'maxDrivers': maxDrivers,
         if (zoneId != null) 'zoneId': zoneId,
+        if (title != null && title!.isNotEmpty) 'title': title,
+        if (titleAr != null && titleAr!.isNotEmpty) 'titleAr': titleAr,
       };
 }
 

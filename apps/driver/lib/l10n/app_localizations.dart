@@ -2366,6 +2366,132 @@ abstract class AppLocalizations {
   /// **'All'**
   String get filterAll;
 
+  /// No description provided for @filtersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get filtersTitle;
+
+  /// No description provided for @resetFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get resetFilters;
+
+  /// No description provided for @applyFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get applyFilters;
+
+  /// No description provided for @dateRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Range'**
+  String get dateRange;
+
+  /// No description provided for @presetAllDates.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get presetAllDates;
+
+  /// No description provided for @presetToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get presetToday;
+
+  /// No description provided for @presetTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get presetTomorrow;
+
+  /// No description provided for @presetThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This Week'**
+  String get presetThisWeek;
+
+  /// No description provided for @presetNextWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Week'**
+  String get presetNextWeek;
+
+  /// No description provided for @presetThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This Month'**
+  String get presetThisMonth;
+
+  /// No description provided for @presetCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get presetCustom;
+
+  /// No description provided for @sortBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort By'**
+  String get sortBy;
+
+  /// No description provided for @sortSoonest.
+  ///
+  /// In en, this message translates to:
+  /// **'Soonest'**
+  String get sortSoonest;
+
+  /// No description provided for @sortLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get sortLatest;
+
+  /// No description provided for @shiftStatusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get shiftStatusLabel;
+
+  /// No description provided for @statusAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get statusAll;
+
+  /// No description provided for @statusUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get statusUpcoming;
+
+  /// No description provided for @statusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get statusActive;
+
+  /// No description provided for @statusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get statusCompleted;
+
+  /// No description provided for @statusMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get statusMissed;
+
+  /// No description provided for @searchShiftsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by title or zone...'**
+  String get searchShiftsHint;
+
   /// No description provided for @statusOnline.
   ///
   /// In en, this message translates to:
@@ -2879,7 +3005,7 @@ abstract class AppLocalizations {
   /// No description provided for @customOrderPlatformFee.
   ///
   /// In en, this message translates to:
-  /// **'Custom Order Platform Fee'**
+  /// **'Custom Delivery Service Fee'**
   String get customOrderPlatformFee;
 
   /// No description provided for @defaultTaxRate.
@@ -4165,6 +4291,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'END SHIFT'**
   String get endShift;
+
+  /// No description provided for @endShiftConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'End this shift?'**
+  String get endShiftConfirmTitle;
+
+  /// No description provided for @endShiftConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll go offline and this shift will be marked as completed.'**
+  String get endShiftConfirmMessage;
+
+  /// No description provided for @endShiftSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift ended — you\'re now offline'**
+  String get endShiftSuccess;
+
+  /// No description provided for @cancelShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Shift'**
+  String get cancelShift;
+
+  /// No description provided for @shiftCancelledSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift cancelled'**
+  String get shiftCancelledSuccess;
+
+  /// No description provided for @confirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirmAction;
 
   /// No description provided for @failedToAcceptDispatch.
   ///

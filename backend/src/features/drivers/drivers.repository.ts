@@ -215,6 +215,9 @@ export class DriversRepository {
         orderBy: { startTime: 'asc' },
         include: {
           zone: true,
+          shiftPool: {
+            select: { batchId: true, title: true, titleAr: true },
+          },
         },
       }),
       this.prisma.driverShift.findMany({
@@ -228,6 +231,9 @@ export class DriversRepository {
         take: 20,
         include: {
           zone: true,
+          shiftPool: {
+            select: { batchId: true, title: true, titleAr: true },
+          },
         },
       }),
     ]);

@@ -5,6 +5,15 @@ export class ShiftPool {
   id: string;
 
   @ApiPropertyOptional({ type: String })
+  batchId?: string;
+
+  @ApiPropertyOptional({ type: String })
+  title?: string;
+
+  @ApiPropertyOptional({ type: String })
+  titleAr?: string;
+
+  @ApiPropertyOptional({ type: String })
   zoneId?: string;
 
   @ApiProperty({ type: Date })

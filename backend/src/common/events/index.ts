@@ -268,6 +268,29 @@ export class ShiftDisabledEvent {
   constructor(
     public readonly driverUserId: string,
     public readonly shiftId: string,
+    public readonly reason: 'admin' | 'self' = 'admin',
+  ) {}
+}
+
+export class ShiftAssignedEvent {
+  constructor(
+    public readonly driverUserId: string,
+    public readonly shiftId: string,
+  ) {}
+}
+
+export class ShiftSwapAcceptedEvent {
+  constructor(
+    public readonly offererUserId: string,
+    public readonly accepterUserId: string,
+    public readonly shiftId: string,
+  ) {}
+}
+
+export class ShiftSpotAvailableEvent {
+  constructor(
+    public readonly driverUserId: string,
+    public readonly shiftPoolId: string,
   ) {}
 }
 

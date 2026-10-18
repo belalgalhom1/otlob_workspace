@@ -687,7 +687,7 @@ export class DriversService {
 
     this.eventEmitter.emit(
       EVENTS.SHIFT_DISABLED,
-      new ShiftDisabledEvent(driver.user.id, shift.id),
+      new ShiftDisabledEvent(driver.user.id, shift.id, 'self'),
     );
 
     return { success: true, removed: 1 };

@@ -250,14 +250,17 @@ export class OrdersCheckoutService {
     );
     // The branch lookup only considers open branches geometrically inside the
     // customer's delivery zone, so a returned branch is always in that zone.
-    const distanceKm = branch
-      ? await this.ordersRepository.getDistanceKm(
-          branch.lng,
-          branch.lat,
-          lng,
-          lat,
-        )
-      : (Number(settings.fallbackOrderDistanceKm) ?? 3);
+    // Without an open branch there is no pickup point for the driver, so the
+    // order cannot be fulfilled.
+    if (!branch) {
+      throw new BadRequestException(OrderErrors.NO_OPEN_BRANCH);
+    }
+    const distanceKm = await this.ordersRepository.getDistanceKm(
+      branch.lng,
+      branch.lat,
+      lng,
+      lat,
+    );
 
     const maxRadius = Number(settings.maxDeliveryRadiusKm ?? 1500);
     if (maxRadius > 0 && distanceKm > maxRadius) {

@@ -7,6 +7,7 @@ import {
   ShiftReminderEvent,
   ShiftMissedEvent,
   ShiftSwapCancelledEvent,
+  ShiftDisabledEvent,
   OrderVendorRejectedEvent,
   OrderFulfillmentDecidedEvent,
   DriverAssistDecidedEvent,
@@ -119,6 +120,24 @@ export class NotificationListener {
       data: { shiftId: event.shiftId },
     });
   }
+
+  // An admin removed/reassigned the driver from a shift (or deleted the whole
+  // pool). Self-cancels are skipped — the driver already knows, they did it.
+  @OnEvent(EVENTS.SHIFT_DISABLED, { async: true })
+  async handleShiftDisabled(event: ShiftDisabledEvent) {
+    if (event.reason !== 'admin') return;
+
+    await this.enqueueNotification({
+      userId: event.driverUserId,
+      title: 'Shift Removed',
+      titleAr: 'تم إزالة الوردية',
+      body: 'A shift assigned to you was removed by the vendor. Open the app to see your updated schedule.',
+      bodyAr: 'تم إزالة وردية مسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.',
+      type: NotificationType.SYSTEM,
+      data: { shiftId: event.shiftId, type: 'SHIFT_REMOVED' },
+    });
+  }
+
   // ─── Multi-vendor orders ───────────────────────────────────────────────────
 
   /**

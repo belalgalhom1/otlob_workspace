@@ -1883,5 +1883,6 @@
   "order_error_rejection_reason_required": "Please tell us why this part of the order cannot be fulfilled.",
   "order_error_multi_vendor_not_allowed": "Multi-vendor checkout requires at least two vendors.",
   "order_error_empty_cart_for_vendor": "One of the vendors in your checkout has an empty cart.",
-  "order_error_no_delivery_groups": "We could not plan the deliveries for this order."
+  "order_error_no_delivery_groups": "We could not plan the deliveries for this order.",
+  "order_error_no_open_branch": "This vendor has no open branch serving your area right now."
 }

@@ -66,6 +66,7 @@ class DriverShifts extends _$DriverShifts {
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       if (prev.hasValue) state = prev;
+      rethrow;
     }
   }
 
@@ -77,6 +78,7 @@ class DriverShifts extends _$DriverShifts {
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       if (prev.hasValue) state = prev;
+      rethrow;
     }
   }
 

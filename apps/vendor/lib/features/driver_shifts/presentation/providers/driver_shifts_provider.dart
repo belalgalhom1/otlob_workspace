@@ -6,7 +6,8 @@ part 'driver_shifts_provider.g.dart';
 
 @riverpod
 class ShiftPools extends _$ShiftPools {
-  String? _date;
+  String? _startDate;
+  String? _endDate;
   String? _zoneId;
 
   @override
@@ -17,7 +18,8 @@ class ShiftPools extends _$ShiftPools {
   Future<List<ShiftPool>> _fetch() async {
     final dio = ref.read(dioProvider);
     final queryParams = <String, dynamic>{};
-    if (_date != null) queryParams['date'] = _date;
+    if (_startDate != null) queryParams['startDate'] = _startDate;
+    if (_endDate != null) queryParams['endDate'] = _endDate;
     if (_zoneId != null) queryParams['zoneId'] = _zoneId;
 
     final response = await dio.get('/driver-shifts/admin/pools', queryParameters: queryParams);
@@ -28,8 +30,9 @@ class ShiftPools extends _$ShiftPools {
     return [];
   }
 
-  Future<void> filter({String? date, String? zoneId}) async {
-    _date = date;
+  Future<void> filter({String? startDate, String? endDate, String? zoneId}) async {
+    _startDate = startDate;
+    _endDate = endDate;
     _zoneId = zoneId;
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _fetch());

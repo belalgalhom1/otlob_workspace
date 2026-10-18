@@ -13,6 +13,9 @@ import {
   ShiftMissedEvent,
   ShiftSwapCancelledEvent,
   ShiftDisabledEvent,
+  ShiftAssignedEvent,
+  ShiftSwapAcceptedEvent,
+  ShiftSpotAvailableEvent,
   DriverStatusChangedEvent,
 } from 'src/common/events';
 import {
@@ -21,6 +24,9 @@ import {
   BookOvertimeShiftDto,
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
+  UpdateShiftPoolDto,
+  ShiftTemplateDto,
+  ShiftReportQueryDto,
 } from './dto/driver-shifts.dto';
 import { DriverErrors } from 'src/common/constants/response.constants';
 import {
@@ -36,7 +42,8 @@ import {
   getDay,
   parseISO,
 } from 'date-fns';
-import { wallToUtc } from 'src/common/utils/timezone';
+import { wallToUtc, appTimeZone } from 'src/common/utils/timezone';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class DriverShiftsService {
@@ -60,6 +67,9 @@ export class DriverShiftsService {
       throw new BadRequestException(DriverErrors.INVALID_START_END_DATE);
     }
 
+    // Every pool produced by this call shares one batch id so the apps can
+    // present a multi-day generation as a single grouped shift.
+    const batchId = randomUUID();
     const pools: any[] = [];
     const [startHour, startMin] = dto.startTime.split(':').map(Number);
     const [endHour, endMin] = dto.endTime.split(':').map(Number);
@@ -91,6 +101,9 @@ export class DriverShiftsService {
       }
 
       pools.push({
+        batchId,
+        title: dto.title?.trim() || null,
+        titleAr: dto.titleAr?.trim() || null,
         zoneId: dto.zoneId ?? null,
         shiftDate: current,
         startTime: shiftStart,
@@ -116,31 +129,142 @@ export class DriverShiftsService {
         gte: startOfDay(targetDate),
         lte: endOfDay(targetDate),
       };
+    } else if (dto.startDate || dto.endDate) {
+      where.shiftDate = {};
+      if (dto.startDate) {
+        where.shiftDate.gte = startOfDay(parseISO(dto.startDate));
+      }
+      if (dto.endDate) {
+        where.shiftDate.lte = endOfDay(parseISO(dto.endDate));
+      }
     }
     if (dto.zoneId) where.zoneId = dto.zoneId;
 
-    const pools = await this.prisma.shiftPool.findMany({
-      where,
-      include: {
-        driverShifts: {
-          include: {
-            driver: {
-              include: { user: true },
+    const page = dto.page;
+    const limit = dto.limit;
+    const usePaging = page !== undefined && limit !== undefined;
+
+    const [total, pools] = await this.prisma.$transaction([
+      this.prisma.shiftPool.count({ where }),
+      this.prisma.shiftPool.findMany({
+        where,
+        include: {
+          zone: true,
+          driverShifts: {
+            include: {
+              driver: {
+                select: {
+                  id: true,
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      phone: true,
+                      email: true,
+                      avatar: true,
+                    },
+                  },
+                },
+              },
             },
           },
+          _count: {
+            select: { driverShifts: true, waitlist: true },
+          },
         },
-        _count: {
-          select: { driverShifts: true },
-        },
-      },
-      orderBy: [{ createdAt: 'desc' }, { shiftDate: 'asc' }, { startTime: 'asc' }],
-    });
+        orderBy: [
+          { createdAt: 'desc' },
+          { shiftDate: 'asc' },
+          { startTime: 'asc' },
+        ],
+        ...(usePaging ? { skip: (page - 1) * limit, take: limit } : {}),
+      }),
+    ]);
 
-    return pools.map((pool) => ({
+    const items = pools.map((pool) => ({
       ...pool,
       bookedDrivers: pool._count.driverShifts,
+      waitlistCount: pool._count.waitlist,
       isFull: pool._count.driverShifts >= pool.maxDrivers,
     }));
+
+    return {
+      items,
+      total,
+      page: page ?? 1,
+      limit: limit ?? total,
+      totalPages: usePaging ? Math.max(1, Math.ceil(total / limit)) : 1,
+    };
+  }
+
+  async updateShiftPool(poolId: string, dto: UpdateShiftPoolDto) {
+    const pool = await this.prisma.shiftPool.findUnique({
+      where: { id: poolId },
+      include: { _count: { select: { driverShifts: true } } },
+    });
+    if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
+
+    const data: Prisma.ShiftPoolUpdateInput = {};
+
+    if (dto.title !== undefined) data.title = dto.title.trim() || null;
+    if (dto.titleAr !== undefined) data.titleAr = dto.titleAr.trim() || null;
+
+    if (dto.maxDrivers !== undefined) {
+      if (dto.maxDrivers < pool._count.driverShifts) {
+        throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
+      }
+      data.maxDrivers = dto.maxDrivers;
+    }
+
+    // Changing the window recomposes wall-clock times on the pool's own day and
+    // propagates to every already-booked shift so drivers see the new hours.
+    if (dto.startTime || dto.endTime) {
+      const [sh, sm] = (dto.startTime ?? this.toHm(pool.startTime)).split(':').map(Number);
+      const [eh, em] = (dto.endTime ?? this.toHm(pool.endTime)).split(':').map(Number);
+      const day = pool.shiftDate;
+
+      const shiftStart = wallToUtc(
+        day.getUTCFullYear(),
+        day.getUTCMonth() + 1,
+        day.getUTCDate(),
+        sh,
+        sm,
+      );
+      let shiftEnd = wallToUtc(
+        day.getUTCFullYear(),
+        day.getUTCMonth() + 1,
+        day.getUTCDate(),
+        eh,
+        em,
+      );
+      if (shiftEnd <= shiftStart) {
+        shiftEnd = new Date(shiftEnd.getTime() + 24 * 60 * 60 * 1000);
+      }
+      data.startTime = shiftStart;
+      data.endTime = shiftEnd;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.shiftPool.update({ where: { id: poolId }, data });
+      if (data.startTime && data.endTime) {
+        await tx.driverShift.updateMany({
+          where: { shiftPoolId: poolId },
+          data: { startTime: data.startTime, endTime: data.endTime },
+        });
+      }
+      return updated;
+    });
+  }
+
+  private toHm(date: Date): string {
+    // Reverse the app-timezone wall clock used at generation time.
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: appTimeZone(),
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date);
+    return parts.replace(/\u200E/g, '').trim();
   }
 
   async terminateShiftPool(poolId: string) {
@@ -255,6 +379,10 @@ export class DriverShiftsService {
 
     if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
 
+    if (pool._count.driverShifts >= pool.maxDrivers) {
+      throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
+    }
+
     const existing = await this.prisma.driverShift.findFirst({
       where: {
         driverId: dto.driverId,
@@ -275,6 +403,22 @@ export class DriverShiftsService {
         endTime: pool.endTime,
       },
     });
+
+    // Being assigned clears any waitlist entry the driver had for this pool.
+    await this.prisma.shiftPoolWaitlist.deleteMany({
+      where: { shiftPoolId: pool.id, driverId: dto.driverId },
+    });
+
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: dto.driverId },
+      select: { userId: true },
+    });
+    if (driver) {
+      this.eventEmitter.emit(
+        EVENTS.SHIFT_ASSIGNED,
+        new ShiftAssignedEvent(driver.userId, shift.id),
+      );
+    }
 
     return shift;
   }
@@ -441,6 +585,9 @@ export class DriverShiftsService {
       .filter((pool) => pool._count.driverShifts < pool.maxDrivers)
       .map((pool) => ({
         id: pool.id,
+        batchId: pool.batchId,
+        title: pool.title,
+        titleAr: pool.titleAr,
         shiftDate: pool.shiftDate,
         startTime: pool.startTime,
         endTime: pool.endTime,

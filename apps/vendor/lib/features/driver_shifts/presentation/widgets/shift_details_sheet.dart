@@ -130,6 +130,24 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                       ).colorScheme.onSurface,
                     ),
                   ),
+                  if ((pool.localizedTitle(
+                                Localizations.localeOf(context).languageCode,
+                              ) ??
+                              '')
+                          .isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        pool.localizedTitle(
+                          Localizations.localeOf(context).languageCode,
+                        )!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -160,8 +178,14 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                 ? AppColors.error
                 : AppColors.success,
           ),
-          if (pool.zoneId != null)
-            _buildInfoChip(LucideIcons.mapPin, l10n.zone, AppColors.warning),
+          if ((pool.zoneName ?? '').trim().isNotEmpty || pool.zoneId != null)
+            _buildInfoChip(
+              LucideIcons.mapPin,
+              (pool.zoneName ?? '').trim().isNotEmpty
+                  ? pool.zoneName!.trim()
+                  : l10n.zone,
+              AppColors.warning,
+            ),
         ],
       ),
     );

@@ -210,7 +210,6 @@ export class PlatformSettingsService {
       'driverSearchRadiusStepKm',
       'driverSearchRadiusMaxKm',
       'driverSearchMaxAttempts',
-      'fallbackOrderDistanceKm',
       'groupingMaxBranchDistanceKm',
       'groupingMaxVendorCustomerDistanceKm',
       'customOrderPlatformFee',

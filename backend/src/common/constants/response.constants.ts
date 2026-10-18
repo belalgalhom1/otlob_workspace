@@ -290,6 +290,7 @@ export const DriverErrors = {
 export const OrderErrors = {
   NOT_FOUND: 'order.error.not_found',
   VENDOR_NOT_ACCEPTING: 'order.error.vendor_not_accepting',
+  NO_OPEN_BRANCH: 'order.error.no_open_branch',
   NOT_AUTHORIZED_VENDOR: 'order.error.not_authorized_vendor',
   NOT_AUTHORIZED_VIEW: 'order.error.not_authorized_view',
   NOT_MEMBER_OF_VENDOR: 'order.error.not_member_of_vendor',

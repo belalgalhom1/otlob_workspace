@@ -307,13 +307,6 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   driverSearchMaxAttempts?: number;
 
-  @ApiProperty({ example: 3, required: false })
-  @IsNumber()
-  @IsPositive()
-  @IsOptional()
-  @Type(() => Number)
-  fallbackOrderDistanceKm?: number;
-
   @ApiProperty({
     example: 5,
     required: false,

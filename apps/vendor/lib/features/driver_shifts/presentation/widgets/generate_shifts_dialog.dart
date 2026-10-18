@@ -24,6 +24,8 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
   TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
   late final TextEditingController _startTimeController;
   late final TextEditingController _endTimeController;
+  final _titleController = TextEditingController();
+  final _titleArController = TextEditingController();
   final _maxDriversController = TextEditingController(text: '20');
   String? _selectedZoneId;
   bool _isLoading = false;
@@ -46,6 +48,8 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
   void dispose() {
     _startTimeController.dispose();
     _endTimeController.dispose();
+    _titleController.dispose();
+    _titleArController.dispose();
     _maxDriversController.dispose();
     super.dispose();
   }
@@ -129,6 +133,12 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
               endTime: '$endHh:$endMm',
               maxDrivers: int.parse(_maxDriversController.text.trim()),
               zoneId: _selectedZoneId,
+              title: _titleController.text.trim().isEmpty
+                  ? null
+                  : _titleController.text.trim(),
+              titleAr: _titleArController.text.trim().isEmpty
+                  ? null
+                  : _titleArController.text.trim(),
             ),
           );
       if (ctx.mounted) {
@@ -200,6 +210,37 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
                     ],
                   ),
                   const SizedBox(height: 24),
+
+                  // Title
+                  TextFormField(
+                    controller: _titleController,
+                    maxLength: 100,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: l10n.shiftTitle,
+                      hintText: l10n.shiftTitleHint,
+                      prefixIcon: const Icon(LucideIcons.tag, size: 16),
+                      isDense: true,
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Arabic title
+                  TextFormField(
+                    controller: _titleArController,
+                    maxLength: 100,
+                    textInputAction: TextInputAction.next,
+                    textDirection: TextDirection.rtl,
+                    decoration: InputDecoration(
+                      labelText: l10n.shiftTitleAr,
+                      hintText: l10n.shiftTitleArHint,
+                      prefixIcon: const Icon(LucideIcons.tag, size: 16),
+                      isDense: true,
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Date range row
                   Row(

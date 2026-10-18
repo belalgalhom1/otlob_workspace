@@ -1560,7 +1560,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryCommissionRate => 'Delivery Commission Rate (%)';
 
   @override
-  String get customOrderPlatformFee => 'Custom Order Platform Fee';
+  String get customOrderPlatformFee => 'Custom Delivery Service Fee';
 
   @override
   String get defaultTaxRate => 'Default Tax Rate (%)';
@@ -1782,6 +1782,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSavedSuccessfully => 'Settings saved successfully';
+
+  @override
+  String get settingsChooseSection => 'Choose a section to configure';
+
+  @override
+  String get settingsSearchHint => 'Search settings...';
+
+  @override
+  String get settingsExplain => 'Explain';
+
+  @override
+  String get settingsUnsavedChanges => 'You have unsaved changes';
+
+  @override
+  String get settingsNoResults => 'No matching settings';
 
   @override
   String get adjustWalletVendor => 'Adjust Wallet (Vendor)';
@@ -2147,6 +2162,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shiftDate => 'Shift Date';
 
   @override
+  String get shiftTitle => 'Shift Title';
+
+  @override
+  String get shiftTitleHint => 'e.g. Morning Shift';
+
+  @override
+  String get shiftTitleAr => 'Shift Title (Arabic)';
+
+  @override
+  String get shiftTitleArHint => 'e.g. وردية الصباح';
+
+  @override
   String get startTime => 'Start Time';
 
   @override
@@ -2182,6 +2209,75 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allZones => 'All Zones';
+
+  @override
+  String get filtersTitle => 'Filters';
+
+  @override
+  String get resetFilters => 'Reset';
+
+  @override
+  String get applyFilters => 'Apply';
+
+  @override
+  String get dateRange => 'Date Range';
+
+  @override
+  String get presetAllDates => 'All';
+
+  @override
+  String get presetToday => 'Today';
+
+  @override
+  String get presetTomorrow => 'Tomorrow';
+
+  @override
+  String get presetThisWeek => 'This Week';
+
+  @override
+  String get presetNextWeek => 'Next Week';
+
+  @override
+  String get presetThisMonth => 'This Month';
+
+  @override
+  String get presetCustom => 'Custom';
+
+  @override
+  String get occupancyLabel => 'Occupancy';
+
+  @override
+  String get occupancyHasSpots => 'Has Spots';
+
+  @override
+  String get occupancyFull => 'Full';
+
+  @override
+  String get occupancyEmpty => 'Empty';
+
+  @override
+  String get assignmentLabel => 'Assignment';
+
+  @override
+  String get assignmentAssigned => 'Assigned';
+
+  @override
+  String get assignmentUnassigned => 'Unassigned';
+
+  @override
+  String get sortBy => 'Sort By';
+
+  @override
+  String get sortSoonest => 'Soonest';
+
+  @override
+  String get sortLatest => 'Latest';
+
+  @override
+  String get sortMostFull => 'Most Full';
+
+  @override
+  String get sortLeastFull => 'Least Full';
 
   @override
   String get searchDriver => 'Search Driver...';

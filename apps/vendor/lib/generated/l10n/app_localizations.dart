@@ -3071,7 +3071,7 @@ abstract class AppLocalizations {
   /// No description provided for @customOrderPlatformFee.
   ///
   /// In en, this message translates to:
-  /// **'Custom Order Platform Fee'**
+  /// **'Custom Delivery Service Fee'**
   String get customOrderPlatformFee;
 
   /// No description provided for @defaultTaxRate.
@@ -3511,6 +3511,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings saved successfully'**
   String get settingsSavedSuccessfully;
+
+  /// No description provided for @settingsChooseSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a section to configure'**
+  String get settingsChooseSection;
+
+  /// No description provided for @settingsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search settings...'**
+  String get settingsSearchHint;
+
+  /// No description provided for @settingsExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain'**
+  String get settingsExplain;
+
+  /// No description provided for @settingsUnsavedChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes'**
+  String get settingsUnsavedChanges;
+
+  /// No description provided for @settingsNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching settings'**
+  String get settingsNoResults;
 
   /// No description provided for @adjustWalletVendor.
   ///
@@ -4190,6 +4220,30 @@ abstract class AppLocalizations {
   /// **'Shift Date'**
   String get shiftDate;
 
+  /// No description provided for @shiftTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift Title'**
+  String get shiftTitle;
+
+  /// No description provided for @shiftTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Morning Shift'**
+  String get shiftTitleHint;
+
+  /// No description provided for @shiftTitleAr.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift Title (Arabic)'**
+  String get shiftTitleAr;
+
+  /// No description provided for @shiftTitleArHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. وردية الصباح'**
+  String get shiftTitleArHint;
+
   /// No description provided for @startTime.
   ///
   /// In en, this message translates to:
@@ -4261,6 +4315,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All Zones'**
   String get allZones;
+
+  /// No description provided for @filtersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get filtersTitle;
+
+  /// No description provided for @resetFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get resetFilters;
+
+  /// No description provided for @applyFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get applyFilters;
+
+  /// No description provided for @dateRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Range'**
+  String get dateRange;
+
+  /// No description provided for @presetAllDates.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get presetAllDates;
+
+  /// No description provided for @presetToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get presetToday;
+
+  /// No description provided for @presetTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get presetTomorrow;
+
+  /// No description provided for @presetThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This Week'**
+  String get presetThisWeek;
+
+  /// No description provided for @presetNextWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Week'**
+  String get presetNextWeek;
+
+  /// No description provided for @presetThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This Month'**
+  String get presetThisMonth;
+
+  /// No description provided for @presetCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get presetCustom;
+
+  /// No description provided for @occupancyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Occupancy'**
+  String get occupancyLabel;
+
+  /// No description provided for @occupancyHasSpots.
+  ///
+  /// In en, this message translates to:
+  /// **'Has Spots'**
+  String get occupancyHasSpots;
+
+  /// No description provided for @occupancyFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get occupancyFull;
+
+  /// No description provided for @occupancyEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty'**
+  String get occupancyEmpty;
+
+  /// No description provided for @assignmentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment'**
+  String get assignmentLabel;
+
+  /// No description provided for @assignmentAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned'**
+  String get assignmentAssigned;
+
+  /// No description provided for @assignmentUnassigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassigned'**
+  String get assignmentUnassigned;
+
+  /// No description provided for @sortBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort By'**
+  String get sortBy;
+
+  /// No description provided for @sortSoonest.
+  ///
+  /// In en, this message translates to:
+  /// **'Soonest'**
+  String get sortSoonest;
+
+  /// No description provided for @sortLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get sortLatest;
+
+  /// No description provided for @sortMostFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Most Full'**
+  String get sortMostFull;
+
+  /// No description provided for @sortLeastFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Least Full'**
+  String get sortLeastFull;
 
   /// No description provided for @searchDriver.
   ///

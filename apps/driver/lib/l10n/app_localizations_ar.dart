@@ -36,7 +36,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get uploadSuccess => 'تم رفع الصورة بنجاح';
 
   @override
-  String get uploadError => 'فشل رفع الصورة';
+  String get uploadError => 'معرفناش نرفع الصورة، جرب تاني.';
 
   @override
   String get generalSettings => 'الإعدادات العامة';
@@ -840,25 +840,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get common_error_validation =>
-      'خطأ في التحقق: يرجى التأكد من البيانات المدخلة.';
+      'في بيانات ناقصة أو مش مظبوطة، راجع اللي كتبته وجرب تاني.';
 
   @override
   String get common_error_server_error =>
-      'خطأ في الخادم: يرجى المحاولة مرة أخرى لاحقاً.';
+      'في مشكلة في السيرفر، جرب تاني بعد شوية.';
 
   @override
-  String get common_error_unknown => 'حدث خطأ غير معروف.';
+  String get common_error_unknown => 'حصل خطأ مش معروف، جرب تاني.';
 
   @override
-  String get common_error_forbidden => 'تم رفض الوصول: ليس لديك صلاحية.';
+  String get common_error_forbidden => 'مش مسموح لك تعمل ده، معندكش الصلاحية.';
 
   @override
-  String get common_error_unauthorized =>
-      'غير مصرح: يرجى تسجيل الدخول مرة أخرى.';
+  String get common_error_unauthorized => 'لازم تسجل دخول تاني عشان تكمل.';
 
   @override
   String get common_error_too_many_requests =>
-      'طلبات كثيرة جداً. يرجى الانتظار قليلاً.';
+      'بعت طلبات كتير أوي، استنى شوية وجرب تاني.';
 
   @override
   String get common_success_operation => 'تمت العملية بنجاح.';
@@ -874,80 +873,79 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get auth_error_user_exists =>
-      'المستخدم موجود بالفعل بهذا البريد أو الهاتف.';
+      'الحساب ده موجود بالفعل بنفس الإيميل أو الموبايل.';
 
   @override
-  String get auth_error_invalid_credentials =>
-      'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+  String get auth_error_invalid_credentials => 'الإيميل أو كلمة المرور مش صح.';
 
   @override
-  String get auth_error_unverified => 'الحساب غير مفعل.';
+  String get auth_error_unverified => 'حسابك لسه مش مفعّل.';
 
   @override
-  String get auth_error_banned => 'لقد تم حظر حسابك.';
+  String get auth_error_banned => 'حسابك محظور.';
 
   @override
-  String get auth_error_user_not_found => 'المستخدم غير موجود.';
+  String get auth_error_user_not_found => 'مفيش حساب بالبيانات دي.';
 
   @override
-  String get auth_error_otp_invalid => 'كود التحقق غير صحيح.';
+  String get auth_error_otp_invalid => 'كود التحقق غلط.';
 
   @override
-  String get auth_error_otp_expired => 'انتهت صلاحية كود التحقق.';
+  String get auth_error_otp_expired =>
+      'كود التحقق انتهت صلاحيته، اطلب واحد جديد.';
 
   @override
-  String get auth_error_session_expired =>
-      'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+  String get auth_error_session_expired => 'الجلسة انتهت، سجل دخول تاني.';
 
   @override
-  String get user_error_user_not_found => 'المستخدم غير موجود.';
+  String get user_error_user_not_found => 'المستخدم مش موجود.';
 
   @override
-  String get user_error_profile_update_failed => 'فشل تحديث الملف الشخصي.';
+  String get user_error_profile_update_failed =>
+      'معرفناش نحدّث بياناتك، جرب تاني.';
 
   @override
-  String get user_error_avatar_upload_failed => 'فشل رفع الصورة الشخصية.';
+  String get user_error_avatar_upload_failed => 'معرفناش نرفع صورتك، جرب تاني.';
 
   @override
-  String get user_error_invalid_password =>
-      'كلمة المرور الحالية التي أدخلتها غير صحيحة.';
+  String get user_error_invalid_password => 'كلمة المرور الحالية غلط.';
 
   @override
   String get user_error_password_same_as_old =>
-      'لا يمكن أن تكون كلمة المرور الجديدة هي نفسها القديمة.';
+      'كلمة المرور الجديدة لازم تكون مختلفة عن القديمة.';
 
   @override
   String get user_error_only_drivers_allowed =>
-      'لديك صلاحية الوصول إلى مستخدمي السائقين فقط.';
+      'مسموح لك تدير حسابات السواقين بس.';
 
   @override
   String get user_error_only_driver_creation_allowed =>
-      'لديك صلاحية إنشاء مستخدمين سائقين فقط.';
+      'مسموح لك تنشئ حسابات سواقين بس.';
 
   @override
   String get user_error_only_driver_role_allowed =>
-      'لديك صلاحية تعيين دور سائق فقط.';
+      'مسموح لك تحدّد رتبة سائق بس.';
 
   @override
-  String get vendor_error_not_found => 'التاجر غير موجود.';
+  String get vendor_error_not_found => 'المتجر مش موجود.';
 
   @override
   String get vendor_error_slug_taken => 'اسم المتجر أو الرابط مستخدم بالفعل.';
 
   @override
-  String get vendor_branch_error_not_found => 'الفرع غير موجود.';
+  String get vendor_branch_error_not_found => 'الفرع مش موجود.';
 
   @override
-  String get menu_category_error_not_found => 'التصنيف غير موجود.';
+  String get menu_category_error_not_found => 'القسم مش موجود.';
 
   @override
-  String get product_error_not_found => 'المنتج غير موجود.';
+  String get product_error_not_found => 'المنتج مش موجود.';
 
   @override
-  String get product_error_sku_taken => 'رمز التخزين (SKU) موجود بالفعل.';
+  String get product_error_sku_taken => 'كود المنتج مستخدم بالفعل.';
 
   @override
-  String get vendor_vertical_error_not_found => 'نوع العمل غير موجود.';
+  String get vendor_vertical_error_not_found => 'النشاط التجاري مش موجود.';
 
   @override
   String get showMore => 'عرض المزيد';
@@ -1139,7 +1137,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String errorOccurred(String error) {
-    return 'خطأ: $error';
+    return 'حصل خطأ: $error';
   }
 
   @override
@@ -1185,6 +1183,69 @@ class AppLocalizationsAr extends AppLocalizations {
   String get filterAll => 'الكل';
 
   @override
+  String get filtersTitle => 'الفلاتر';
+
+  @override
+  String get resetFilters => 'إعادة تعيين';
+
+  @override
+  String get applyFilters => 'تطبيق';
+
+  @override
+  String get dateRange => 'النطاق الزمني';
+
+  @override
+  String get presetAllDates => 'الكل';
+
+  @override
+  String get presetToday => 'اليوم';
+
+  @override
+  String get presetTomorrow => 'غداً';
+
+  @override
+  String get presetThisWeek => 'هذا الأسبوع';
+
+  @override
+  String get presetNextWeek => 'الأسبوع القادم';
+
+  @override
+  String get presetThisMonth => 'هذا الشهر';
+
+  @override
+  String get presetCustom => 'مخصص';
+
+  @override
+  String get sortBy => 'ترتيب حسب';
+
+  @override
+  String get sortSoonest => 'الأقرب';
+
+  @override
+  String get sortLatest => 'الأبعد';
+
+  @override
+  String get shiftStatusLabel => 'الحالة';
+
+  @override
+  String get statusAll => 'الكل';
+
+  @override
+  String get statusUpcoming => 'قادمة';
+
+  @override
+  String get statusActive => 'نشطة';
+
+  @override
+  String get statusCompleted => 'مكتملة';
+
+  @override
+  String get statusMissed => 'فائتة';
+
+  @override
+  String get searchShiftsHint => 'ابحث بالاسم أو المنطقة...';
+
+  @override
   String get statusOnline => 'متصل';
 
   @override
@@ -1206,13 +1267,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noAuditLogsFound => 'لم يتم العثور على سجلات تدقيق';
 
   @override
-  String get errorLoadingOrders => 'حدث خطأ أثناء تحميل الطلبات';
+  String get errorLoadingOrders => 'حصل خطأ أثناء تحميل الطلبات.';
 
   @override
   String get noSystemLogsFound => 'لم يتم العثور على سجلات للنظام';
 
   @override
-  String get errorLoadingLogs => 'حدث خطأ أثناء تحميل السجلات';
+  String get errorLoadingLogs => 'حصل خطأ أثناء تحميل السجلات.';
 
   @override
   String get cancelAction => 'إلغاء';
@@ -1443,7 +1504,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deliveryCommissionRate => 'نسبة عمولة التوصيل (%)';
 
   @override
-  String get customOrderPlatformFee => 'رسوم منصة الطلب المخصص';
+  String get customOrderPlatformFee => 'رسوم خدمات التوصيل المخصص';
 
   @override
   String get defaultTaxRate => 'نسبة الضريبة الافتراضية (%)';
@@ -1695,7 +1756,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String errorSavingSettings(String error) {
-    return 'خطأ في حفظ الإعدادات: $error';
+    return 'حصل خطأ أثناء حفظ الإعدادات: $error';
   }
 
   @override
@@ -1784,7 +1845,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String errorSavingZone(String error) {
-    return 'خطأ في حفظ المنطقة: $error';
+    return 'حصل خطأ أثناء حفظ المنطقة: $error';
   }
 
   @override
@@ -1950,7 +2011,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get profile => 'الملف الشخصي';
 
   @override
-  String get errorLoadingProfile => 'خطأ في تحميل الملف الشخصي';
+  String get errorLoadingProfile => 'حصل خطأ أثناء تحميل الملف الشخصي.';
 
   @override
   String get uploadingAvatar => 'جاري رفع الصورة...';
@@ -2013,7 +2074,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String errorLoadingSettings(String error) {
-    return 'خطأ في تحميل الإعدادات: $error';
+    return 'حصل خطأ أثناء تحميل الإعدادات: $error';
   }
 
   @override
@@ -2094,7 +2155,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String errorGeneric(String error) {
-    return 'خطأ: $error';
+    return 'حصل خطأ: $error';
   }
 
   @override
@@ -2125,6 +2186,25 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get endShift => 'إنهاء النوبة';
+
+  @override
+  String get endShiftConfirmTitle => 'إنهاء هذه الوردية؟';
+
+  @override
+  String get endShiftConfirmMessage =>
+      'هتتحول للاوفلاين وهتُسجل الوردية كمكتملة.';
+
+  @override
+  String get endShiftSuccess => 'تم إنهاء الوردية — أنت الآن غير متصل';
+
+  @override
+  String get cancelShift => 'إلغاء الوردية';
+
+  @override
+  String get shiftCancelledSuccess => 'تم إلغاء الوردية';
+
+  @override
+  String get confirmAction => 'تأكيد';
 
   @override
   String failedToAcceptDispatch(String error) {

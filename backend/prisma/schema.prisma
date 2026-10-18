@@ -155,6 +155,7 @@ model Zone {
   orders                  Order[]
   vendorBranches          VendorBranch[]
   shiftPools              ShiftPool[]
+  shiftTemplates          ShiftTemplate[]
 
   @@index([isActive])
   @@index([boundary], type: Gist)
@@ -1097,6 +1098,7 @@ model Driver {
   assistGroups     OrderDeliveryGroup[] @relation("GroupAssistDriver")
   assistRequests   DriverAssistRequest[]
   assignedAssistRequests DriverAssistRequest[] @relation("AssistAssignedDriver")
+  shiftWaitlist          ShiftPoolWaitlist[]
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
@@ -1147,6 +1149,9 @@ model DriverShift {
 
 model ShiftPool {
   id           String        @id @default(uuid())
+  batchId      String?
+  title        String?
+  titleAr      String?
   zoneId       String?
   shiftDate    DateTime      @db.Date
   startTime    DateTime      @db.Timestamptz(3)
@@ -1156,10 +1161,44 @@ model ShiftPool {
   updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
   zone         Zone?         @relation(fields: [zoneId], references: [id])
   driverShifts DriverShift[]
+  waitlist     ShiftPoolWaitlist[]
 
   @@index([shiftDate])
   @@index([zoneId])
+  @@index([batchId])
   @@map("shift_pools")
+}
+
+model ShiftPoolWaitlist {
+  id          String    @id @default(uuid())
+  shiftPoolId String
+  driverId    String
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  shiftPool ShiftPool @relation(fields: [shiftPoolId], references: [id], onDelete: Cascade)
+  driver    Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftPoolId, driverId])
+  @@index([shiftPoolId, createdAt])
+  @@map("shift_pool_waitlist")
+}
+
+model ShiftTemplate {
+  id         String   @id @default(uuid())
+  name       String
+  nameAr     String?
+  title      String?
+  titleAr    String?
+  startTime  String
+  endTime    String
+  maxDrivers Int      @default(1)
+  zoneId     String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  zone       Zone?    @relation(fields: [zoneId], references: [id])
+
+  @@index([zoneId])
+  @@map("shift_templates")
 }
 
 model ShiftSwapRequest {
