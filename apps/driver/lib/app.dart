@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:driver/l10n/app_localizations.dart';
@@ -19,7 +20,10 @@ class App extends ConsumerWidget {
       title: 'OTLOB Driver',
       debugShowCheckedModeBanner: false,
 
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: [
+        ...AppLocalizations.localizationsDelegates,
+        ...context.localizationDelegates,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       locale: appPreferences.locale,
 

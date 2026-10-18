@@ -123,7 +123,10 @@ class OtlobAdminApp extends ConsumerWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         routerConfig: router,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: [
+          ...AppLocalizations.localizationsDelegates,
+          ...context.localizationDelegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
       ),

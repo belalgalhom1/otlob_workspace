@@ -19,6 +19,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
   static const double _cartWidth = 200;
   static const double _cartHeight = 60;
   static const double _margin = 16;
+  static const double _bottomClearance = 28;
   static const double _trashSize = 80;
   static const double _dropRadius = 110;
 
@@ -88,7 +89,11 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
 
           final maxX = (maxWidth - _cartWidth - _margin)
               .clamp(_margin, double.infinity);
-          final maxY = (maxHeight - _cartHeight - _margin - bottomInset)
+          final maxY = (maxHeight -
+                  _cartHeight -
+                  _margin -
+                  bottomInset -
+                  _bottomClearance)
               .clamp(_margin, double.infinity);
 
           if (!_isInitialized) {
