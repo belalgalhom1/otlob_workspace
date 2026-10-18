@@ -34,6 +34,7 @@ import {
   Role,
 } from '@prisma/client';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { DriverShiftsService } from '../driver-shifts/driver-shifts.service';
 
 @Injectable()
 export class DriversService {
@@ -46,6 +47,7 @@ export class DriversService {
     private readonly locationRepository: LocationRepository,
     private readonly socketService: SocketService,
     private readonly platformSettings: PlatformSettingsService,
+    private readonly driverShiftsService: DriverShiftsService,
   ) {}
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -689,6 +691,11 @@ export class DriversService {
       EVENTS.SHIFT_DISABLED,
       new ShiftDisabledEvent(driver.user.id, shift.id, 'self'),
     );
+
+    // The freed seat goes to the pool's waitlist, if any.
+    if (shift.shiftPoolId) {
+      await this.driverShiftsService.promoteFromWaitlist(shift.shiftPoolId);
+    }
 
     return { success: true, removed: 1 };
   }

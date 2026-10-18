@@ -83,10 +83,44 @@ export class OrdersService {
         : Promise.resolve(null),
     ]);
 
+    // A multi-vendor order has vendorId = NULL and only mirrors the FIRST
+    // delivery's driver, so resolve access through the portions/groups as well:
+    // otherwise every other delivery's driver and every portion vendor is
+    // locked out of an order they are actively working.
+    const deliveryGroups = ((order as any).deliveryGroups ?? []) as Array<{
+      primaryDriverId: string | null;
+      assistDriverId: string | null;
+    }>;
+
+    const driverOwnsDelivery =
+      !!driver &&
+      (order.driverId === driver.id ||
+        deliveryGroups.some(
+          (g) =>
+            g.primaryDriverId === driver.id || g.assistDriverId === driver.id,
+        ));
+
+    const isCustomerOwner = !!customer && order.customerId === customer.id;
+
+    let isPortionVendorStaff = !!vendorMember;
+    if (!isCustomerOwner && !driverOwnsDelivery && !isPortionVendorStaff) {
+      const portionVendorIds = Array.from(
+        new Set(
+          (((order as any).vendorFulfillments ?? []) as Array<{
+            vendorId: string;
+          }>).map((f) => f.vendorId),
+        ),
+      );
+      if (portionVendorIds.length > 0) {
+        isPortionVendorStaff = !!(await this.prisma.vendorMember.findFirst({
+          where: { userId: actor.sub, vendorId: { in: portionVendorIds } },
+          select: { id: true },
+        }));
+      }
+    }
+
     const isOwner =
-      (customer && order.customerId === customer.id) ||
-      (driver && order.driverId === driver.id) ||
-      !!vendorMember;
+      isCustomerOwner || driverOwnsDelivery || isPortionVendorStaff;
 
     if (!isOwner) throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
     return order;

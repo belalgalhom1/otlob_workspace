@@ -12,7 +12,7 @@ import {
 } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import { OrderStatus } from '@prisma/client';
+import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { OrderErrors } from '../../common/constants/response.constants';
@@ -76,7 +76,8 @@ export class OrdersPaymentService {
       `Customer marked mobile wallet payment as PAID for order ${order.orderNumber}`,
     );
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      order.id,
       order.vendorId,
     );
     this.eventEmitter.emit(
@@ -109,36 +110,105 @@ export class OrdersPaymentService {
       where: { userId: actor.sub },
       select: { id: true, userId: true },
     });
-    if (!driver || order.driverId !== driver.id) {
+    if (!driver) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
-    if (order.status !== OrderStatus.PENDING_PAYMENT) {
+
+    // A multi-vendor order splits into delivery groups, each with its OWN
+    // primary driver, while order.driverId only mirrors the FIRST group. So
+    // authorize the driver who owns any group — otherwise the second
+    // delivery's driver could never confirm their customer's payment.
+    const groups = (
+      (((order as any).deliveryGroups ?? []) as Array<{
+        id: string;
+        status: DeliveryGroupStatus;
+        primaryDriverId: string | null;
+        pickedUpAt: Date | null;
+      }>)
+    ).filter(Boolean);
+
+    const ownsGroup = groups.some((g) => g.primaryDriverId === driver.id);
+    const authorized =
+      groups.length > 0 ? ownsGroup : order.driverId === driver.id;
+    if (!authorized) {
+      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
+    }
+
+    // "Awaiting payment" is per-delivery for a grouped order: the caller's own
+    // delivery must be sitting in PENDING_PAYMENT (the order-level status may
+    // already have moved on while a later delivery still waits on payment).
+    const awaitingPayment =
+      groups.length > 0
+        ? groups.some(
+            (g) =>
+              g.primaryDriverId === driver.id &&
+              g.status === DeliveryGroupStatus.PENDING_PAYMENT,
+          )
+        : order.status === OrderStatus.PENDING_PAYMENT;
+    if (!awaitingPayment) {
       throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
     }
 
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      order.id,
+      order.vendorId,
+    );
+
     if (received) {
-      // If the order was already picked up, preserve PICKED_UP so driver can deliver;
-      // otherwise, transition to DRIVER_ASSIGNED.
+      // Payment is per-ORDER (one charge), so one driver confirming receipt
+      // pays for the WHOLE order: the collecting delivery and any sibling
+      // delivery still waiting on payment all leave PENDING_PAYMENT together.
+      // Each group returns to the state it held before the payment detour
+      // (PICKED_UP if it had already been picked up, else DRIVER_ASSIGNED).
       const nextStatus = (order as any).pickedUpAt
         ? OrderStatus.PICKED_UP
         : OrderStatus.DRIVER_ASSIGNED;
 
-      await this.ordersRepository.updateStatus(
-        orderId,
-        nextStatus,
-        actor.sub,
-        'Driver confirmed payment received.',
-        { paymentStatus: 'COMPLETED' },
-        OrderStatus.PENDING_PAYMENT,
-      );
+      await this.prisma.$transaction(async (tx) => {
+        for (const g of groups) {
+          if (g.status !== DeliveryGroupStatus.PENDING_PAYMENT) continue;
+          await tx.orderDeliveryGroup.updateMany({
+            where: { id: g.id, status: DeliveryGroupStatus.PENDING_PAYMENT },
+            data: {
+              status: g.pickedUpAt
+                ? DeliveryGroupStatus.PICKED_UP
+                : DeliveryGroupStatus.DRIVER_ASSIGNED,
+            },
+          });
+        }
+
+        // Payment is a per-order fact: record it regardless of where the
+        // aggregate status currently sits.
+        await tx.order.updateMany({
+          where: { id: orderId },
+          data: { paymentStatus: 'COMPLETED' },
+        });
+
+        // Advance the order out of PENDING_PAYMENT when it is still there
+        // (single-delivery, or the first grouped delivery to confirm).
+        const advanced = await tx.order.updateMany({
+          where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
+          data: { status: nextStatus },
+        });
+        if (groups.length === 0 && advanced.count === 0) {
+          throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
+        }
+        if (advanced.count > 0) {
+          await tx.orderStatusEvent.create({
+            data: {
+              orderId,
+              status: nextStatus,
+              note: 'Driver confirmed payment received.',
+              createdBy: actor.sub,
+            },
+          });
+        }
+      });
 
       this.logger.log(
         `Driver confirmed payment for order ${order.orderNumber}. Order is now ${nextStatus}.`,
       );
 
-      const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-        order.vendorId,
-      );
       this.eventEmitter.emit(
         EVENTS.ORDER_PAYMENT_STATUS_CHANGED,
         new OrderPaymentStatusChangedEvent(
@@ -183,9 +253,6 @@ export class OrdersPaymentService {
       }
       this.logger.log(`Driver denied payment for order ${order.orderNumber}.`);
 
-      const vendorUserIds = await this.ordersRepository.getVendorUserIds(
-        order.vendorId,
-      );
       this.eventEmitter.emit(
         EVENTS.ORDER_PAYMENT_STATUS_CHANGED,
         new OrderPaymentStatusChangedEvent(

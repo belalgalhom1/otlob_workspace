@@ -155,7 +155,6 @@ model Zone {
   orders                  Order[]
   vendorBranches          VendorBranch[]
   shiftPools              ShiftPool[]
-  shiftTemplates          ShiftTemplate[]
 
   @@index([isActive])
   @@index([boundary], type: Gist)
@@ -992,6 +991,12 @@ model OrderDeliveryGroup {
   distanceKm     Float?
   deliveryFee    Int                       @default(0)
   estimatedPrepTime Int?
+  /// Proof photo this delivery's own driver uploaded at pickup. Stored per
+  /// delivery (not on the order) so one delivery's proof can never satisfy
+  /// another delivery's photo requirement.
+  pickupImageUrl String?
+  /// Proof photo this delivery's own driver uploaded at drop-off.
+  deliveryImageUrl String?
   pickedUpAt     DateTime?                 @db.Timestamptz(3)
   deliveredAt    DateTime?                 @db.Timestamptz(3)
   createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
@@ -1022,7 +1027,9 @@ model OrderDeliveryGroupItem {
   fulfillment     OrderVendorFulfillment    @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
 
   @@id([deliveryGroupId, fulfillmentId])
-  @@index([fulfillmentId])
+  /// A vendor portion rides in exactly one delivery — unique so it can never be
+  /// dispatched twice by two groups.
+  @@unique([fulfillmentId])
   @@map("order_delivery_group_items")
 }
 
@@ -1181,24 +1188,6 @@ model ShiftPoolWaitlist {
   @@unique([shiftPoolId, driverId])
   @@index([shiftPoolId, createdAt])
   @@map("shift_pool_waitlist")
-}
-
-model ShiftTemplate {
-  id         String   @id @default(uuid())
-  name       String
-  nameAr     String?
-  title      String?
-  titleAr    String?
-  startTime  String
-  endTime    String
-  maxDrivers Int      @default(1)
-  zoneId     String?
-  createdAt  DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
-  zone       Zone?    @relation(fields: [zoneId], references: [id])
-
-  @@index([zoneId])
-  @@map("shift_templates")
 }
 
 model ShiftSwapRequest {

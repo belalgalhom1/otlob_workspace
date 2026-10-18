@@ -8,6 +8,7 @@ import {
   ShiftMissedEvent,
   ShiftSwapCancelledEvent,
   ShiftDisabledEvent,
+  ShiftSpotAvailableEvent,
   OrderVendorRejectedEvent,
   OrderFulfillmentDecidedEvent,
   DriverAssistDecidedEvent,
@@ -135,6 +136,22 @@ export class NotificationListener {
       bodyAr: 'تم إزالة وردية مسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.',
       type: NotificationType.SYSTEM,
       data: { shiftId: event.shiftId, type: 'SHIFT_REMOVED' },
+    });
+  }
+
+  // A seat freed up in a full pool and the waitlist promoted this driver into
+  // it automatically.
+  @OnEvent(EVENTS.SHIFT_SPOT_AVAILABLE, { async: true })
+  async handleShiftSpotAvailable(event: ShiftSpotAvailableEvent) {
+    await this.enqueueNotification({
+      userId: event.driverUserId,
+      title: 'Shift Assigned From Waitlist',
+      titleAr: 'تم إسناد وردية من قائمة الانتظار',
+      body: 'A seat opened up in a shift you were waiting for and it is now yours. Open the app to view your schedule.',
+      bodyAr:
+        'تم توفّر مقعد في وردية كنت تنتظرها وأصبحت لك الآن. افتح التطبيق لعرض جدولك.',
+      type: NotificationType.SYSTEM,
+      data: { shiftPoolId: event.shiftPoolId, type: 'WAITLIST_PROMOTED' },
     });
   }
 

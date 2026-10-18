@@ -220,9 +220,30 @@ export class OrdersRepository {
 
     const where: Prisma.OrderWhereInput = { deletedAt: null };
     if (filters.status) where.status = filters.status;
-    if (filters.vendorId) where.vendorId = filters.vendorId;
     if (filters.customerId) where.customerId = filters.customerId;
-    if (filters.driverId) where.driverId = filters.driverId;
+
+    // A multi-vendor order has vendorId = NULL and only mirrors the FIRST
+    // delivery's driver onto the order, so an order-level filter alone would
+    // hide it from every other vendor that owns a portion and every other
+    // delivery's driver. Match those through the portions/groups too.
+    const and: Prisma.OrderWhereInput[] = [];
+    if (filters.vendorId) {
+      and.push({
+        OR: [
+          { vendorId: filters.vendorId },
+          { vendorFulfillments: { some: { vendorId: filters.vendorId } } },
+        ],
+      });
+    }
+    if (filters.driverId) {
+      and.push({
+        OR: [
+          { driverId: filters.driverId },
+          { deliveryGroups: { some: { primaryDriverId: filters.driverId } } },
+        ],
+      });
+    }
+    if (and.length > 0) where.AND = and;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -971,6 +992,34 @@ export class OrdersRepository {
       select: { userId: true },
     });
     return members.map((m) => m.userId);
+  }
+
+  /**
+   * Vendor-side users to notify about an order's status.
+   *
+   * Single-vendor orders resolve from the order's own vendor. Multi-vendor
+   * orders carry no order-level vendor (`vendorId` is null), so the union of
+   * every portion vendor's members is returned instead — otherwise no vendor
+   * would ever receive status/socket updates for its own delivery.
+   */
+  async getOrderVendorUserIds(
+    orderId: string,
+    orderVendorId: string | null,
+  ): Promise<string[]> {
+    if (orderVendorId) return this.getVendorUserIds(orderVendorId);
+
+    const portions = await this.prisma.orderVendorFulfillment.findMany({
+      where: { orderId },
+      select: { vendorId: true },
+    });
+    const vendorIds = Array.from(new Set(portions.map((p) => p.vendorId)));
+    if (vendorIds.length === 0) return [];
+
+    const members = await this.prisma.vendorMember.findMany({
+      where: { vendorId: { in: vendorIds } },
+      select: { userId: true },
+    });
+    return Array.from(new Set(members.map((m) => m.userId)));
   }
 
   async getZoneAtLocation(lng: number, lat: number) {

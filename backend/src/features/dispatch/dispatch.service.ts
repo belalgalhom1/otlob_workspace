@@ -788,6 +788,7 @@ export class DispatchService {
             orderId,
             driverId: c.driverId,
             driverShiftId: c.driverShiftId,
+            deliveryGroupId: c.deliveryGroupId ?? null,
             type: dispatchData.type,
             distanceKm: c.distanceKm,
             estimatedEarnings: c.estimatedEarnings,
@@ -827,13 +828,28 @@ export class DispatchService {
       );
     }
 
-    const members = order.vendorId
-      ? await this.prisma.vendorMember.findMany({
-          where: { vendorId: order.vendorId },
-          select: { userId: true },
-        })
+    // Notify every participating vendor. A multi-vendor order has no
+    // order-level vendor, so its vendor set comes from the portions.
+    const vendorIds = order.vendorId
+      ? [order.vendorId]
+      : Array.from(
+          new Set(
+            (
+              await this.prisma.orderVendorFulfillment.findMany({
+                where: { orderId: order.id },
+                select: { vendorId: true },
+              })
+            ).map((p) => p.vendorId),
+          ),
+        );
+    const vendorUserIds = vendorIds.length
+      ? (
+          await this.prisma.vendorMember.findMany({
+            where: { vendorId: { in: vendorIds } },
+            select: { userId: true },
+          })
+        ).map((m) => m.userId)
       : [];
-    const vendorUserIds = members.map((m) => m.userId);
 
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,

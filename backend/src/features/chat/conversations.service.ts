@@ -60,6 +60,86 @@ export class ConversationsService {
 
   // ─── System-level conversation creation ───────────────────────────────────
 
+  /**
+   * Vendor-side users that belong in an order's chat.
+   *
+   * Single-vendor: the order's own vendor's members, filtered to the order's
+   * branch (members with no branch belong to every branch). Multi-vendor: the
+   * union of every portion vendor's members, since the order has no vendor of
+   * its own.
+   */
+  private async resolveOrderVendorUserIds(order: {
+    id: string;
+    vendorId: string | null;
+    vendorBranchId?: string | null;
+  }): Promise<string[]> {
+    if (order.vendorId) {
+      const members = await this.prisma.vendorMember.findMany({
+        where: {
+          vendorId: order.vendorId,
+          OR: [
+            { branchId: null },
+            { branchId: order.vendorBranchId ?? undefined },
+          ],
+        },
+        select: { userId: true },
+      });
+      return members.map((m) => m.userId);
+    }
+
+    const portions = await this.prisma.orderVendorFulfillment.findMany({
+      where: { orderId: order.id },
+      select: { vendorId: true, vendorBranchId: true },
+    });
+    if (portions.length === 0) return [];
+
+    const vendorIds = Array.from(new Set(portions.map((p) => p.vendorId)));
+    const branchIds = Array.from(
+      new Set(
+        portions
+          .map((p) => p.vendorBranchId)
+          .filter((b): b is string => !!b),
+      ),
+    );
+    const members = await this.prisma.vendorMember.findMany({
+      where: {
+        vendorId: { in: vendorIds },
+        OR: [{ branchId: null }, { branchId: { in: branchIds } }],
+      },
+      select: { userId: true },
+    });
+    return Array.from(new Set(members.map((m) => m.userId)));
+  }
+
+  /**
+   * Every driver working an order: the order-level driver plus each delivery
+   * group's primary driver, so a multi-vendor order's later deliveries get
+   * their driver into the chat too.
+   */
+  private async resolveOrderDriverUserIds(order: {
+    id: string;
+    driverId: string | null;
+  }): Promise<string[]> {
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId: order.id },
+      select: { primaryDriverId: true },
+    });
+    const driverIds = Array.from(
+      new Set(
+        [order.driverId, ...groups.map((g) => g.primaryDriverId)].filter(
+          (d): d is string => !!d,
+        ),
+      ),
+    );
+    if (driverIds.length === 0) return [];
+
+    const drivers = await this.prisma.driver.findMany({
+      where: { id: { in: driverIds } },
+      select: { userId: true },
+    });
+    return drivers.map((d) => d.userId);
+  }
+
   async createSystemOrderConversation(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -87,30 +167,16 @@ export class ConversationsService {
 
     if (existing) return existing;
 
-    let vendorMembers: { userId: string }[] = [];
-    if (order.vendorId) {
-      vendorMembers = await this.prisma.vendorMember.findMany({
-        where: {
-          vendorId: order.vendorId,
-          OR: [
-            { branchId: null },
-            { branchId: order.vendorBranchId ?? undefined },
-          ],
-        },
-        select: { userId: true },
-      });
-    }
-
-    const participantUserIds = [
-      order.customer.userId,
-      ...vendorMembers.map((m) => m.userId),
+    // Multi-vendor orders carry no order-level vendor/driver: vendors come from
+    // the portions and drivers from every delivery group, so ALL participating
+    // vendors and drivers are in the room (not just the first vendor/driver).
+    const uniqueParticipantIds = [
+      ...new Set([
+        order.customer.userId,
+        ...(await this.resolveOrderVendorUserIds(order)),
+        ...(await this.resolveOrderDriverUserIds(order)),
+      ]),
     ];
-
-    if (order.driver?.userId) {
-      participantUserIds.push(order.driver.userId);
-    }
-
-    const uniqueParticipantIds = [...new Set(participantUserIds)];
 
     const conversation = await this.prisma.conversation.create({
       data: {
@@ -225,6 +291,7 @@ export class ConversationsService {
         id: true,
         customerId: true,
         vendorId: true,
+        vendorBranchId: true,
         driverId: true,
         customer: { select: { userId: true } },
         driver: { select: { userId: true } },
@@ -237,7 +304,11 @@ export class ConversationsService {
     const isVendorMember =
       actor.role === Role.VENDOR_MEMBER ||
       (await this.canManageConversations(actor.sub, actor.role));
-    const isDriver = order.driver?.userId === actor.sub;
+    // Any driver working the order counts, not just the order-level one — a
+    // multi-vendor order's later deliveries have their own drivers.
+    const isDriver = (await this.resolveOrderDriverUserIds(order)).includes(
+      actor.sub,
+    );
 
     if (!isCustomer && !isVendorMember && !isDriver) {
       throw new ForbiddenException(ChatErrors.NOT_AUTHORIZED);
@@ -267,24 +338,11 @@ export class ConversationsService {
       return this.formatConversation(existing, actor.sub);
     }
 
-    const vendorMembers = order.vendorId
-      ? await this.prisma.vendorMember.findMany({
-          where: {
-            vendorId: order.vendorId,
-            OR: [
-              { branchId: null },
-              { branchId: (order as any).vendorBranchId ?? undefined },
-            ],
-          },
-          select: { userId: true },
-        })
-      : [];
-
     const participantUserIds = [
       ...new Set([
         order.customer.userId,
-        ...(order.driver?.userId ? [order.driver.userId] : []),
-        ...vendorMembers.map((m) => m.userId),
+        ...(await this.resolveOrderVendorUserIds(order)),
+        ...(await this.resolveOrderDriverUserIds(order)),
       ]),
     ];
 

@@ -237,6 +237,7 @@ export const DriverErrors = {
   ACTIVE_SHIFT_EXISTS: 'driver.error.active_shift_exists',
   SHIFT_POOL_NOT_FOUND: 'driver.error.shift_pool_not_found',
   SHIFT_POOL_FULL: 'driver.error.shift_pool_full',
+  SHIFT_POOL_NOT_FULL: 'driver.error.shift_pool_not_full',
   ALREADY_ASSIGNED_TO_POOL: 'driver.error.already_assigned_to_pool',
   SHIFTS_DISABLED: 'driver.error.shifts_disabled',
   INVALID_WEEKLY_SHIFTS: 'driver.error.invalid_weekly_shifts',

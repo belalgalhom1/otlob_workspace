@@ -172,6 +172,8 @@ export class OrdersStateService {
         sequence: number;
         status: DeliveryGroupStatus;
         primaryDriverId: string | null;
+        pickupImageUrl: string | null;
+        deliveryImageUrl: string | null;
       }>
     ).filter(Boolean);
 
@@ -187,17 +189,20 @@ export class OrdersStateService {
         throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
       }
 
+      // Each delivery carries its OWN proof photos: the order-level photo is
+      // deliberately NOT accepted as a fallback, otherwise the first delivery's
+      // photo would let every later delivery skip its own proof.
       if (
         dto.status === OrderStatus.PICKED_UP &&
         !dto.pickupImageUrl &&
-        !(order as any).pickupImageUrl
+        !group.pickupImageUrl
       ) {
         throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
       }
       if (
         dto.status === OrderStatus.DELIVERED &&
         !dto.deliveryImageUrl &&
-        !(order as any).deliveryImageUrl
+        !group.deliveryImageUrl
       ) {
         throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
       }
@@ -317,7 +322,13 @@ export class OrdersStateService {
   private async applyGroupStatusTransition(
     actor: JwtAccessPayload,
     order: any,
-    group: { id: string; sequence: number; status: DeliveryGroupStatus },
+    group: {
+      id: string;
+      sequence: number;
+      status: DeliveryGroupStatus;
+      pickupImageUrl?: string | null;
+      deliveryImageUrl?: string | null;
+    },
     dto: UpdateOrderStatusDto,
   ) {
     const newStatus = dto.status as unknown as DeliveryGroupStatus;
@@ -327,6 +338,14 @@ export class OrdersStateService {
     };
     if (dto.status === OrderStatus.PICKED_UP) data.pickedUpAt = new Date();
     if (dto.status === OrderStatus.DELIVERED) data.deliveredAt = new Date();
+    // Proof photos belong to the delivery that produced them — never mirrored
+    // to the order, so one delivery's proof cannot satisfy another's.
+    if (dto.status === OrderStatus.PICKED_UP && dto.pickupImageUrl) {
+      data.pickupImageUrl = dto.pickupImageUrl;
+    }
+    if (dto.status === OrderStatus.DELIVERED && dto.deliveryImageUrl) {
+      data.deliveryImageUrl = dto.deliveryImageUrl;
+    }
 
     const claimed = await this.prisma.orderDeliveryGroup.updateMany({
       where: { id: group.id, status: group.status },
@@ -341,28 +360,6 @@ export class OrdersStateService {
       await this.prisma.orderVendorFulfillment.updateMany({
         where: { groups: { some: { deliveryGroupId: group.id } } },
         data: { deliveredAt: new Date() },
-      });
-    }
-
-    // Mirror the proof photo up to the order (the group has no image column).
-    if (
-      dto.status === OrderStatus.PICKED_UP &&
-      dto.pickupImageUrl &&
-      !order.pickupImageUrl
-    ) {
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: { pickupImageUrl: dto.pickupImageUrl },
-      });
-    }
-    if (
-      dto.status === OrderStatus.DELIVERED &&
-      dto.deliveryImageUrl &&
-      !order.deliveryImageUrl
-    ) {
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: { deliveryImageUrl: dto.deliveryImageUrl },
       });
     }
 
@@ -474,6 +471,13 @@ export class OrdersStateService {
       }
     }
 
+    // Notify every participating vendor, not just an order-level one: a
+    // multi-vendor order has no order-level vendor.
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      order.id,
+      fresh.vendorId,
+    );
+
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,
       new OrderStatusChangedEvent(
@@ -484,7 +488,7 @@ export class OrdersStateService {
         fresh.customerId,
         fresh.customer?.userId ?? fresh.customerId,
         fresh.vendorId,
-        [],
+        vendorUserIds,
         fresh.driverId,
         null,
         actor.sub,
@@ -648,7 +652,8 @@ export class OrdersStateService {
     // The dispatch listener will catch ORDER_STATUS_CHANGED to DRIVER_ASSIGNED
     // and cancel any automated dispatch ping that might be running automatically.
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      order.id,
       order.vendorId,
     );
     const customerUser = (order as { customer?: { user?: { id: string } } })
@@ -723,7 +728,8 @@ export class OrdersStateService {
       }
     }
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      order.id,
       order.vendorId,
     );
 
@@ -816,7 +822,8 @@ export class OrdersStateService {
       await this.ordersRepository.freeDriver(order.driverId);
     }
 
-    const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      order.id,
       order.vendorId,
     );
     const driverUserId = order.driver?.userId ?? null;

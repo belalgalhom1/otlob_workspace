@@ -7,9 +7,10 @@ import { DriverAssistService } from './driver-assist.service';
 
 import { AuthModule } from '../auth/auth.module';
 import { SocketModule } from '../../infrastructure/socket/socket.module';
+import { DriverShiftsModule } from '../driver-shifts/driver-shifts.module';
 
 @Module({
-  imports: [AuthModule, SocketModule],
+  imports: [AuthModule, SocketModule, DriverShiftsModule],
   controllers: [DriversController],
   providers: [DriversService, DriversRepository, DriverAssistService],
   exports: [DriversService, DriversRepository, DriverAssistService],

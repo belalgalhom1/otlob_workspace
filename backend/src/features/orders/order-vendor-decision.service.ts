@@ -6,13 +6,16 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
+  DeliveryGroupStatus,
   OrderStatus,
   OrderVendorFulfillmentStatus,
+  Prisma,
   VendorMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OrdersRepository } from './orders.repository';
 import { OrdersStateService } from './orders-state.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { OrderErrors } from '../../common/constants/response.constants';
 import { EVENTS } from '../../common/events/event-names';
 import {
@@ -43,6 +46,7 @@ export class OrderVendorDecisionService {
     private readonly prisma: PrismaService,
     private readonly ordersRepository: OrdersRepository,
     private readonly stateService: OrdersStateService,
+    private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -145,6 +149,21 @@ export class OrderVendorDecisionService {
 
     const refundAmount = items.reduce((sum, i) => sum + i.totalPrice, 0);
 
+    // Extra-vendor surcharge released when this portion leaves its delivery
+    // ("half the minimum delivery fee per extra vendor" at placement).
+    const settings = await this.platformSettings.getSettings();
+    const halfMinFee = Number(settings.minDeliveryFee ?? 0) / 2;
+
+    // The customer pays commission as a service fee only for UNCONTRACTED
+    // vendors, so rejecting a contracted vendor must not reduce it.
+    const rejectedVendor = await this.prisma.vendor.findUnique({
+      where: { id: fulfillment.vendorId },
+      select: { isContracted: true },
+    });
+    const serviceFeeDelta = rejectedVendor?.isContracted
+      ? 0
+      : -Math.round(refundAmount * (fulfillment.commissionRate / 100));
+
     const result = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.orderVendorFulfillment.updateMany({
         where: {
@@ -170,14 +189,32 @@ export class OrderVendorDecisionService {
         data: { rejectedAt: new Date() },
       });
 
+      // Which delivery was this portion riding on, before it is removed?
+      const ridingGroup = await tx.orderDeliveryGroupItem.findFirst({
+        where: { fulfillmentId },
+        select: { deliveryGroupId: true },
+      });
+
       // Pull them out of any delivery group so they can never be dispatched.
       await tx.orderDeliveryGroupItem.deleteMany({
         where: { fulfillmentId },
       });
 
+      // Losing a vendor can cancel its whole delivery (nobody left to pick up
+      // from) or merely release that vendor's extra-stop surcharge.
+      const deliveryFeeDelta = ridingGroup
+        ? await this.syncDeliveryGroupAfterVendorRemoved(
+            tx,
+            ridingGroup.deliveryGroupId,
+            fulfillment.orderId,
+            order.status,
+            halfMinFee,
+          )
+        : 0;
+
       await this.restoreStock(tx, items);
 
-      return { items, refundAmount };
+      return { items, refundAmount, deliveryFeeDelta };
     });
 
     // Recompute money OUTSIDE the CAS so the maths uses fresh values, then write
@@ -185,6 +222,8 @@ export class OrderVendorDecisionService {
     await this.recomputeTotalsAfterRejection(
       fulfillment.orderId,
       refundAmount,
+      result.deliveryFeeDelta,
+      serviceFeeDelta,
     );
 
     const allRejected = await this.recomputeOrderStatus(fulfillment.orderId);
@@ -311,6 +350,7 @@ export class OrderVendorDecisionService {
         vendorId: true,
         status: true,
         subtotal: true,
+        commissionRate: true,
       },
     });
     if (!fulfillment) {
@@ -412,17 +452,88 @@ export class OrderVendorDecisionService {
   }
 
   /**
+   * Cancel a delivery that has lost its last vendor, or release the
+   * extra-vendor surcharge when it still has someone to pick up from.
+   *
+   * An empty delivery can never be dispatched, and because the aggregate order
+   * status is derived from "every non-cancelled delivery is delivered", leaving
+   * it non-terminal stranded the order at PICKED_UP forever. Cancelling it here
+   * is what lets the order reach DELIVERED once the surviving deliveries finish.
+   *
+   * Returns the change to the ORDER-level delivery fee so the caller can apply
+   * it in the single order-level write.
+   */
+  private async syncDeliveryGroupAfterVendorRemoved(
+    tx: Prisma.TransactionClient,
+    deliveryGroupId: string,
+    orderId: string,
+    orderStatus: OrderStatus,
+    halfMinFee: number,
+  ): Promise<number> {
+    const group = await tx.orderDeliveryGroup.findUnique({
+      where: { id: deliveryGroupId },
+      select: { deliveryFee: true, sequence: true, primaryDriverId: true },
+    });
+    if (!group) return 0;
+
+    const remaining = await tx.orderDeliveryGroupItem.count({
+      where: { deliveryGroupId },
+    });
+
+    if (remaining === 0) {
+      // Nobody left to pick up from. Only ever cancel a delivery no driver has
+      // taken (a driver can only take a group after every portion was decided,
+      // so a group still losing vendors is always unassigned).
+      const cancelled = await tx.orderDeliveryGroup.updateMany({
+        where: {
+          id: deliveryGroupId,
+          status: { not: DeliveryGroupStatus.CANCELLED },
+          primaryDriverId: null,
+        },
+        data: { status: DeliveryGroupStatus.CANCELLED, deliveryFee: 0 },
+      });
+      if (cancelled.count === 0) return 0;
+
+      await tx.orderStatusEvent.create({
+        data: {
+          orderId,
+          status: orderStatus,
+          note: `Delivery ${group.sequence} cancelled — no vendors accepted`,
+          createdBy: 'system',
+        },
+      });
+      return -group.deliveryFee;
+    }
+
+    // One fewer vendor rides along — drop that vendor's extra-stop surcharge.
+    const newFee = Math.max(0, Math.round(group.deliveryFee - halfMinFee));
+    if (newFee === group.deliveryFee) return 0;
+
+    await tx.orderDeliveryGroup.update({
+      where: { id: deliveryGroupId },
+      data: { deliveryFee: newFee },
+    });
+    return newFee - group.deliveryFee;
+  }
+
+  /**
    * Reduce order money by the rejected portion.
    *
-   * Delivery fees are NOT reduced (the customer still had a delivery), but
-   * subtotal/serviceFee/tax/grandTotal shrink and coinsEarned is recomputed so
-   * the order stays internally consistent.
+   * The delivery fee drops only when the delivery itself shrank (a cancelled
+   * delivery, or one with fewer vendors riding along) — the caller passes that
+   * as `deliveryFeeDelta`. The service fee drops by exactly the rejected
+   * vendor's commission, and only when that vendor was uncontracted (contracted
+   * vendors' commission is never part of the customer-facing service fee).
    */
   private async recomputeTotalsAfterRejection(
     orderId: string,
     rejectedAmount: number,
+    deliveryFeeDelta = 0,
+    serviceFeeDelta = 0,
   ): Promise<void> {
-    if (rejectedAmount <= 0) return;
+    if (rejectedAmount <= 0 && deliveryFeeDelta === 0 && serviceFeeDelta === 0) {
+      return;
+    }
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -441,13 +552,19 @@ export class OrderVendorDecisionService {
     if (!order) return;
 
     const newSubtotal = Math.max(0, order.subtotal - rejectedAmount);
-    // serviceFee is a commission percentage of subtotal; scale it by the same
-    // ratio rather than re-reading mutable vendor settings.
-    const ratio = order.subtotal > 0 ? newSubtotal / order.subtotal : 0;
-    const newServiceFee = Math.round(order.serviceFee * ratio);
-    const newTax = Math.round(order.tax * ratio);
+    const newDeliveryFee = Math.max(0, order.deliveryFee + deliveryFeeDelta);
+    const newServiceFee = Math.max(0, order.serviceFee + serviceFeeDelta);
+    // Tax was charged on (subtotal + serviceFee); re-derive it from the order's
+    // own implied rate so the untouched portion keeps its original basis even if
+    // the platform rate changed since checkout.
+    const taxableBase = order.subtotal + order.serviceFee;
+    const impliedTaxRate = taxableBase > 0 ? order.tax / taxableBase : 0;
+    const newTax = Math.max(
+      0,
+      Math.round((newSubtotal + newServiceFee) * impliedTaxRate),
+    );
     const newPreDiscount =
-      newSubtotal + order.deliveryFee + order.driverBonusFee + newServiceFee + newTax;
+      newSubtotal + newDeliveryFee + order.driverBonusFee + newServiceFee + newTax;
     const newDiscount = Math.min(order.discount, newPreDiscount);
     const newGrandTotal = Math.max(0, newPreDiscount - newDiscount);
     const newUpfront =
@@ -459,6 +576,7 @@ export class OrderVendorDecisionService {
       where: { id: orderId },
       data: {
         subtotal: newSubtotal,
+        deliveryFee: newDeliveryFee,
         serviceFee: newServiceFee,
         tax: newTax,
         discount: newDiscount,
@@ -469,11 +587,17 @@ export class OrderVendorDecisionService {
     if (updated.count === 0) return;
 
     // Record the money movement on the order timeline so finance can audit it.
+    const parts: string[] = [];
+    if (rejectedAmount > 0) parts.push(`${rejectedAmount} EGP of food`);
+    if (deliveryFeeDelta !== 0)
+      parts.push(`${Math.abs(deliveryFeeDelta)} EGP of delivery fee`);
+    if (parts.length === 0) return;
+
     await this.prisma.orderStatusEvent.create({
       data: {
         orderId,
-        status: 'PENDING',
-        note: `Vendor portion rejected — ${rejectedAmount} EGP removed from the order`,
+        status: OrderStatus.PENDING,
+        note: `Vendor portion rejected — removed ${parts.join(' and ')} from the order`,
         createdBy: 'system',
       },
     });
@@ -570,6 +694,11 @@ export class OrderVendorDecisionService {
         order.status,
       );
 
+      const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+        orderId,
+        updated.vendorId,
+      );
+
       this.eventEmitter.emit(
         EVENTS.ORDER_STATUS_CHANGED,
         new OrderStatusChangedEvent(
@@ -580,7 +709,7 @@ export class OrderVendorDecisionService {
           updated.customerId,
           order.customer.userId,
           updated.vendorId,
-          [],
+          vendorUserIds,
           updated.driverId,
           updated.driver?.userId ?? null,
           'system',

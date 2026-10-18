@@ -23,6 +23,7 @@ import {
   BookOvertimeShiftDto,
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
+  JoinWaitlistDto,
 } from './dto/driver-shifts.dto';
 
 @ApiTags('Driver Shifts')
@@ -65,6 +66,14 @@ export class DriverShiftsController {
   @ApiOperation({ summary: '[Admin] Force-assign a driver to a shift pool' })
   adminAssignShift(@Body() dto: AdminAssignShiftDto) {
     return this.shiftsService.adminAssignShift(dto);
+  }
+
+  @ApiStandardResponse()
+  @Get('admin/pools/:poolId/waitlist')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({ summary: '[Admin] Get a pool waitlist (FIFO order)' })
+  getPoolWaitlist(@Param('poolId') poolId: string) {
+    return this.shiftsService.getPoolWaitlist(poolId);
   }
 
   @ApiStandardResponse()
@@ -151,5 +160,28 @@ export class DriverShiftsController {
     @Param('swapId') swapId: string,
   ) {
     return this.shiftsService.acceptSwap(userId, swapId);
+  }
+
+  @ApiStandardResponse()
+  @Post('waitlist')
+  @Roles(Role.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Join the waitlist of a full shift pool' })
+  joinWaitlist(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: JoinWaitlistDto,
+  ) {
+    return this.shiftsService.joinWaitlist(userId, dto.shiftPoolId);
+  }
+
+  @ApiStandardResponse()
+  @Delete('waitlist/:poolId')
+  @Roles(Role.DRIVER)
+  @ApiOperation({ summary: 'Leave the waitlist of a shift pool' })
+  leaveWaitlist(
+    @CurrentUser('sub') userId: string,
+    @Param('poolId') poolId: string,
+  ) {
+    return this.shiftsService.leaveWaitlist(userId, poolId);
   }
 }

@@ -83,6 +83,13 @@ export class BookOvertimeShiftDto {
   shiftPoolId!: string;
 }
 
+export class JoinWaitlistDto {
+  @ApiProperty({ example: 'pool-id' })
+  @IsString()
+  @IsNotEmpty()
+  shiftPoolId!: string;
+}
+
 export class QueryShiftPoolsDto {
   @ApiProperty({ example: '2026-05-10', required: false })
   @IsDateString()
@@ -146,52 +153,6 @@ export class UpdateShiftPoolDto {
   @IsString()
   @IsOptional()
   endTime?: string;
-}
-
-export class ShiftTemplateDto {
-  @ApiProperty({ example: 'Morning' })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  name!: string;
-
-  @ApiProperty({ example: 'صباحي', required: false, maxLength: 100 })
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  nameAr?: string;
-
-  @ApiProperty({ example: 'Morning Shift', required: false, maxLength: 100 })
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  title?: string;
-
-  @ApiProperty({ example: 'وردية الصباح', required: false, maxLength: 100 })
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  titleAr?: string;
-
-  @ApiProperty({ example: '08:00' })
-  @IsString()
-  @IsNotEmpty()
-  startTime!: string;
-
-  @ApiProperty({ example: '16:00' })
-  @IsString()
-  @IsNotEmpty()
-  endTime!: string;
-
-  @ApiProperty({ example: 50 })
-  @IsInt()
-  @Min(1)
-  maxDrivers!: number;
-
-  @ApiProperty({ example: 'zone-uuid', required: false })
-  @IsString()
-  @IsOptional()
-  zoneId?: string;
 }
 
 export class ShiftReportQueryDto {

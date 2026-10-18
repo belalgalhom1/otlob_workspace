@@ -25,7 +25,6 @@ import {
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
   UpdateShiftPoolDto,
-  ShiftTemplateDto,
   ShiftReportQueryDto,
 } from './dto/driver-shifts.dto';
 import { DriverErrors } from 'src/common/constants/response.constants';
@@ -244,16 +243,26 @@ export class DriverShiftsService {
       data.endTime = shiftEnd;
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.shiftPool.update({ where: { id: poolId }, data });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedPool = await tx.shiftPool.update({
+        where: { id: poolId },
+        data,
+      });
       if (data.startTime && data.endTime) {
         await tx.driverShift.updateMany({
           where: { shiftPoolId: poolId },
           data: { startTime: data.startTime, endTime: data.endTime },
         });
       }
-      return updated;
+      return updatedPool;
     });
+
+    // Raising capacity frees new seats — promote waitlisted drivers into them.
+    if (dto.maxDrivers !== undefined && dto.maxDrivers > pool.maxDrivers) {
+      await this.promoteFromWaitlist(poolId);
+    }
+
+    return updated;
   }
 
   private toHm(date: Date): string {
@@ -473,6 +482,10 @@ export class DriverShiftsService {
       new ShiftDisabledEvent(shift.driver.user.id, shift.id),
     );
 
+    if (shift.shiftPoolId) {
+      await this.promoteFromWaitlist(shift.shiftPoolId);
+    }
+
     return { success: true, removed: 1 };
   }
 
@@ -550,6 +563,8 @@ export class DriverShiftsService {
         new ShiftDisabledEvent(shift.driver.user.id, shift.id),
       );
     }
+
+    await this.promoteFromWaitlist(poolId);
 
     return { success: true, removed: removable.length, poolId };
   }
@@ -676,6 +691,12 @@ export class DriverShiftsService {
       }));
 
       await tx.driverShift.createMany({ data: creates });
+
+      // Booking directly supersedes any waitlist entry for these pools.
+      await tx.shiftPoolWaitlist.deleteMany({
+        where: { driverId, shiftPoolId: { in: dto.shiftPoolIds } },
+      });
+
       return { success: true, booked: creates.length };
     });
   }
@@ -724,6 +745,11 @@ export class DriverShiftsService {
           startTime: pool.startTime,
           endTime: pool.endTime,
         },
+      });
+
+      // Booking directly supersedes any waitlist entry for this pool.
+      await tx.shiftPoolWaitlist.deleteMany({
+        where: { driverId, shiftPoolId: pool.id },
       });
 
       return shift;
@@ -864,6 +890,168 @@ export class DriverShiftsService {
         data: { driverId },
       });
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WAITLIST
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // A driver can only wait for a pool that is already full — a pool with free
+  // seats should simply be booked. Joining is idempotent per (pool, driver).
+  async joinWaitlist(userId: string, poolId: string) {
+    await this.checkShiftsEnabled();
+
+    const driver = await this.prisma.driver.findUnique({ where: { userId } });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const pool = await this.prisma.shiftPool.findUnique({
+      where: { id: poolId },
+      include: { _count: { select: { driverShifts: true } } },
+    });
+    if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
+
+    if (pool.startTime <= new Date()) {
+      throw new BadRequestException(DriverErrors.INVALID_START_END_DATE);
+    }
+
+    const existingShift = await this.prisma.driverShift.findFirst({
+      where: { driverId: driver.id, shiftPoolId: poolId },
+    });
+    if (existingShift) {
+      throw new BadRequestException(DriverErrors.ALREADY_ASSIGNED_TO_POOL);
+    }
+
+    if (pool._count.driverShifts < pool.maxDrivers) {
+      throw new BadRequestException(DriverErrors.SHIFT_POOL_NOT_FULL);
+    }
+
+    await this.prisma.shiftPoolWaitlist.upsert({
+      where: {
+        shiftPoolId_driverId: { shiftPoolId: poolId, driverId: driver.id },
+      },
+      create: { shiftPoolId: poolId, driverId: driver.id },
+      update: {},
+    });
+
+    return { success: true };
+  }
+
+  async leaveWaitlist(userId: string, poolId: string) {
+    await this.checkShiftsEnabled();
+
+    const driver = await this.prisma.driver.findUnique({ where: { userId } });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    // Idempotent: leaving a waitlist you are not on is not an error.
+    await this.prisma.shiftPoolWaitlist.deleteMany({
+      where: { shiftPoolId: poolId, driverId: driver.id },
+    });
+
+    return { success: true };
+  }
+
+  async getPoolWaitlist(poolId: string) {
+    const pool = await this.prisma.shiftPool.findUnique({
+      where: { id: poolId },
+    });
+    if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
+
+    const entries = await this.prisma.shiftPoolWaitlist.findMany({
+      where: { shiftPoolId: poolId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            tier: true,
+            user: { select: { id: true, name: true, phone: true } },
+          },
+        },
+      },
+    });
+
+    return entries.map((entry, index) => ({
+      id: entry.id,
+      position: index + 1,
+      joinedAt: entry.createdAt,
+      driverId: entry.driverId,
+      driver: entry.driver,
+    }));
+  }
+
+  // Called whenever a seat frees in a pool (driver removed, capacity raised).
+  // Promotes the oldest eligible waitlisted driver into the freed seat and
+  // notifies them, skipping anyone who would overlap an existing shift.
+  async promoteFromWaitlist(poolId: string) {
+    try {
+      const promoted = await this.prisma.$transaction(async (tx) => {
+        // Serialize concurrent promotions on the same pool.
+        await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id = ${poolId} FOR UPDATE`;
+
+        const pool = await tx.shiftPool.findUnique({
+          where: { id: poolId },
+          include: { _count: { select: { driverShifts: true } } },
+        });
+        if (!pool) return null;
+        if (pool._count.driverShifts >= pool.maxDrivers) return null;
+
+        const entries = await tx.shiftPoolWaitlist.findMany({
+          where: { shiftPoolId: poolId },
+          orderBy: { createdAt: 'asc' },
+          include: { driver: { select: { id: true, userId: true } } },
+        });
+
+        for (const entry of entries) {
+          const alreadyBooked = await tx.driverShift.findFirst({
+            where: { driverId: entry.driverId, shiftPoolId: poolId },
+          });
+          if (alreadyBooked) {
+            await tx.shiftPoolWaitlist.delete({ where: { id: entry.id } });
+            continue;
+          }
+
+          const overlapping = await tx.driverShift.findFirst({
+            where: {
+              driverId: entry.driverId,
+              status: {
+                in: [DriverShiftStatus.SCHEDULED, DriverShiftStatus.ACTIVE],
+              },
+              startTime: { lt: pool.endTime },
+              endTime: { gt: pool.startTime },
+            },
+          });
+          if (overlapping) continue;
+
+          const shift = await tx.driverShift.create({
+            data: {
+              driverId: entry.driverId,
+              shiftPoolId: pool.id,
+              zoneId: pool.zoneId,
+              shiftDate: pool.shiftDate,
+              startTime: pool.startTime,
+              endTime: pool.endTime,
+            },
+          });
+
+          await tx.shiftPoolWaitlist.delete({ where: { id: entry.id } });
+
+          return { shiftId: shift.id, driverUserId: entry.driver.userId };
+        }
+
+        return null;
+      });
+
+      if (promoted) {
+        this.eventEmitter.emit(
+          EVENTS.SHIFT_SPOT_AVAILABLE,
+          new ShiftSpotAvailableEvent(promoted.driverUserId, poolId),
+        );
+      }
+    } catch (e) {
+      this.logger.error('Failed to promote from waitlist', e);
+    }
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

@@ -30,6 +30,11 @@ const WS = {
   DISPATCH_INCOMING: 'dispatch.incoming',
 } as const;
 
+// Lifetime (seconds) of the per-delivery dispatch-handoff dedupe marker. Long
+// enough to absorb duplicate emissions of one status transition; short enough
+// that a delivery whose round found no drivers can be dispatched again later.
+const DISPATCH_HANDOFF_MARKER_TTL = 300;
+
 export interface CreateNotificationPayload {
   userId: string;
   title: string;
@@ -222,7 +227,14 @@ export class EventsProcessor extends WorkerHost {
         select: { type: true },
       });
 
-      if (event.newStatus === OrderStatus.ACCEPTED && order?.type === 'STANDARD') {
+      // Multi-vendor orders never pass through ACCEPTED — they advance from
+      // PENDING straight to LOOKING_FOR_DRIVER once every portion is decided —
+      // so the chat must also be created on that transition.
+      if (
+        (event.newStatus === OrderStatus.ACCEPTED ||
+          event.newStatus === OrderStatus.LOOKING_FOR_DRIVER) &&
+        order?.type === 'STANDARD'
+      ) {
         await this.conversationsService.createSystemOrderConversation(
           event.orderId,
         );
@@ -465,10 +477,6 @@ export class EventsProcessor extends WorkerHost {
     orderId: string;
     orderNumber: string;
   }) {
-    const idempotencyKey = `otlobegy:dispatch-handoff:${data.orderId}`;
-    const marked = await this.redis.get(idempotencyKey);
-    if (marked) return { skipped: true };
-
     // A multi-vendor order splits into delivery groups, each of which needs its
     // OWN driver, so fan out one independent dispatch round per non-empty group.
     // Legacy/single-delivery orders (no groups) keep the single order-level job.
@@ -478,7 +486,12 @@ export class EventsProcessor extends WorkerHost {
       orderBy: { sequence: 'asc' },
     });
 
-    const jobPayloads =
+    const jobPayloads: Array<{
+      orderId: string;
+      orderNumber: string;
+      attempt: number;
+      deliveryGroupId?: string | null;
+    }> =
       groups.length > 0
         ? groups.map((group) => ({
             orderId: data.orderId,
@@ -494,19 +507,36 @@ export class EventsProcessor extends WorkerHost {
             },
           ];
 
+    let enqueued = 0;
     for (const payload of jobPayloads) {
+      // Dedupe per DELIVERY, not per order: an order-level key meant one
+      // delivery's marker suppressed every other delivery's dispatch for the
+      // whole TTL, and the 4h TTL blocked a legitimate later re-dispatch.
+      const scope = payload.deliveryGroupId ?? payload.orderId;
+      const idempotencyKey = `otlobegy:dispatch-handoff:${data.orderId}:${scope}`;
+      if (await this.redis.get(idempotencyKey)) continue;
+
       await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, payload, {
         delay: 500,
         attempts: 5,
         backoff: { type: 'fixed', delay: 60_000 },
       });
+
+      // Marker set AFTER the add, so a retry after a partial failure re-runs
+      // the missing adds while a duplicate event emission is deduped. The TTL
+      // only needs to cover duplicate emissions of the same transition — long
+      // enough for that, short enough to allow a real re-dispatch later.
+      // Duplicated enqueues are additionally absorbed by the dispatch
+      // processor's in-flight guard.
+      await this.redis.set(
+        idempotencyKey,
+        '1',
+        DISPATCH_HANDOFF_MARKER_TTL,
+      );
+      enqueued++;
     }
 
-    // Marker set AFTER the add, so a retry after a partial failure re-runs the
-    // adds while a duplicate event emission is deduped. Duplicated enqueues are
-    // additionally absorbed by the dispatch processor's in-flight guard.
-    await this.redis.set(idempotencyKey, '1', 14_400);
-    return { enqueued: true, groups: groups.length };
+    return { enqueued, groups: groups.length };
   }
 
   // ─── Moved DispatchListener / CartListener / NotificationListener ──────────

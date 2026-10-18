@@ -87,6 +87,7 @@ export class StatisticsService {
       coinsEarned,
       distanceKm,
       driverTier,
+      discount,
     } = payload;
 
     // Business rules for revenue split:
@@ -333,20 +334,50 @@ export class StatisticsService {
         // For contracted vendors, the driver collects grandTotal (food + delivery + fees).
         // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket,
         // so net cash collected on behalf of the platform is grandTotal - subtotal.
-        const collectedAmount = isContracted
-          ? grandTotal
-          : Math.max(0, grandTotal - subtotal);
+        //
+        // A multi-vendor order has one driver PER delivery, so the cash is split
+        // across the delivered groups — debiting it all to the mirrored first
+        // driver left every other delivery's driver owing nothing while still
+        // being paid their delivery fee.
+        if (groups.length > 0) {
+          const collections = await this.splitCollectedCash(client, {
+            groups,
+            subtotal,
+            deliveryFee,
+            serviceFee,
+            tax,
+            driverBonusFee,
+            discount,
+          });
+          for (const collected of collections) {
+            if (collected.amount === 0) continue;
+            await this.creditDriverWallet(
+              client,
+              collected.driverId,
+              -collected.amount,
+              orderId,
+              collected.driverShiftId,
+              `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
+              'CASH_COLLECTED',
+              { skipLock: true },
+            );
+          }
+        } else {
+          const collectedAmount = isContracted
+            ? grandTotal
+            : Math.max(0, grandTotal - subtotal);
 
-        await this.creditDriverWallet(
-          client,
-          driverId,
-          -collectedAmount,
-          orderId,
-          driverShiftId,
-          `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
-          'CASH_COLLECTED',
-          { skipLock: true },
-        );
+          await this.creditDriverWallet(
+            client,
+            driverId,
+            -collectedAmount,
+            orderId,
+            driverShiftId,
+            `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
+            'CASH_COLLECTED',
+            { skipLock: true },
+          );
+        }
       }
 
       // Pay EACH delivery's primary driver their own tier-adjusted fee. For a
@@ -1084,6 +1115,113 @@ export class StatisticsService {
   }
 
   // ─── Private ──────────────────────────────────────────────────────────────
+
+  /**
+   * Split the cash a multi-vendor order's drivers collect at the door.
+   *
+   * The customer pays the whole `grandTotal` in cash, but each delivery has its
+   * own driver. Every driver collects for their own delivery: that delivery's
+   * goods subtotal plus its own delivery fee, plus a proportional share of the
+   * order-level extras (service fee + tax + driver bonus − discount). Whatever
+   * the driver paid an UNCONTRACTED vendor in cash at pickup is then subtracted,
+   * because only the difference is owed back to the platform. Amounts are
+   * merged per driver so a single wallet debit is written per driver.
+   *
+   * With one group this reduces exactly to the single-delivery rule
+   * (`grandTotal`, or `grandTotal − subtotal` when uncontracted).
+   */
+  private async splitCollectedCash(
+    client: Prisma.TransactionClient,
+    params: {
+      groups: Array<{
+        id: string;
+        deliveryFee: number;
+        primaryDriverId: string | null;
+        primaryDriverShiftId: string | null;
+      }>;
+      subtotal: number;
+      deliveryFee: number;
+      serviceFee: number;
+      tax: number;
+      driverBonusFee: number;
+      discount: number;
+    },
+  ): Promise<
+    Array<{ driverId: string; driverShiftId: string | null; amount: number }>
+  > {
+    const items = await client.orderDeliveryGroupItem.findMany({
+      where: { deliveryGroupId: { in: params.groups.map((g) => g.id) } },
+      select: {
+        deliveryGroupId: true,
+        fulfillment: {
+          select: {
+            subtotal: true,
+            vendor: { select: { isContracted: true } },
+          },
+        },
+      },
+    });
+
+    const goodsByGroup = new Map<string, number>();
+    const cashPaidByGroup = new Map<string, number>();
+    for (const item of items) {
+      const f = item.fulfillment;
+      goodsByGroup.set(
+        item.deliveryGroupId,
+        (goodsByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,
+      );
+      if (!f.vendor?.isContracted) {
+        cashPaidByGroup.set(
+          item.deliveryGroupId,
+          (cashPaidByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,
+        );
+      }
+    }
+
+    const extras =
+      params.serviceFee + params.tax + params.driverBonusFee - params.discount;
+    const totalGross = params.subtotal + params.deliveryFee + extras;
+
+    const base = params.groups.map(
+      (g) => (goodsByGroup.get(g.id) ?? 0) + g.deliveryFee,
+    );
+    const baseTotal = base.reduce((s, b) => s + b, 0);
+
+    // Merge per driver so a driver who somehow holds two groups gets one debit
+    // (the wallet writer is idempotent per orderId+type+driverId).
+    const byDriver = new Map<
+      string,
+      { driverId: string; driverShiftId: string | null; amount: number }
+    >();
+    let allocated = 0;
+    params.groups.forEach((g, i) => {
+      if (!g.primaryDriverId) return;
+      const isLast = i === params.groups.length - 1;
+      const gross = isLast
+        ? totalGross - allocated
+        : baseTotal > 0
+          ? Math.round((base[i] / baseTotal) * totalGross)
+          : 0;
+      allocated += gross;
+
+      const cashPaid = cashPaidByGroup.get(g.id) ?? 0;
+      const amount = Math.max(0, gross - cashPaid);
+      if (amount === 0) return;
+
+      const existing = byDriver.get(g.primaryDriverId);
+      if (existing) {
+        existing.amount += amount;
+      } else {
+        byDriver.set(g.primaryDriverId, {
+          driverId: g.primaryDriverId,
+          driverShiftId: g.primaryDriverShiftId,
+          amount,
+        });
+      }
+    });
+
+    return [...byDriver.values()];
+  }
 
   private async creditDriverWallet(
     client: Prisma.TransactionClient,
