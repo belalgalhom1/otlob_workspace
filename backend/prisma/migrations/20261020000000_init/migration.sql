@@ -1,14 +1,3 @@
-node : Loaded Prisma config from prisma.config.ts.
-At line:1 char:13
-+ cd backend; node node_modules/prisma/build/index.js migrate diff --fr ...
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Loaded Prisma c...isma.config.ts.:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
