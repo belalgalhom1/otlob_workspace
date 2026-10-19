@@ -44,6 +44,7 @@ export const CRON_JOBS = {
   LATE_CHECK: 'cron.late_check',
   BREAK_WATCHDOG: 'cron.break_watchdog',
   GEO_FRESHNESS_SWEEP: 'cron.geo_freshness_sweep',
+  ASSIST_DECISION_TIMEOUT: 'cron.assist_decision_timeout',
 } as const;
 
 export const STATS_JOBS = {

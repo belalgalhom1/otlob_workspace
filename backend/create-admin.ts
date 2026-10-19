@@ -36,27 +36,31 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash(password, 10);
   
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {
-      password: hashedPassword,
-      name,
-      phone,
-      role: 'SUPER_ADMIN',
-      isEmailVerified: true,
-      isPhoneVerified: true,
-    },
-    create: {
-      email,
-      phone,
-      password: hashedPassword,
-      name,
-      role: 'SUPER_ADMIN',
-      isEmailVerified: true,
-      isPhoneVerified: true,
-      language: 'EN',
-    },
-  });
+  const existing = await prisma.user.findFirst({ where: { email } });
+  const user = existing
+    ? await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          password: hashedPassword,
+          name,
+          phone,
+          role: 'SUPER_ADMIN',
+          isEmailVerified: true,
+          isPhoneVerified: true,
+        },
+      })
+    : await prisma.user.create({
+        data: {
+          email,
+          phone,
+          password: hashedPassword,
+          name,
+          role: 'SUPER_ADMIN',
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          language: 'EN',
+        },
+      });
   
   console.log('✅ Successfully configured SUPER_ADMIN:');
   console.log(`   Email:    ${user.email}`);

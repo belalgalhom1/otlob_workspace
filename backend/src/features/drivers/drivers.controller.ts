@@ -448,6 +448,22 @@ export class DriversController {
     return this.driverAssistService.requestAssist(actor, orderId, deliveryGroupId, dto);
   }
 
+  @ApiStandardResponse()
+  @Post('assist/order/:orderId/request')
+  @Roles(Role.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Driver] Request an additional driver for a single-vendor order I am assigned to',
+  })
+  requestAssistOrder(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @Body() dto: RequestAssistDriverDto,
+  ) {
+    return this.driverAssistService.requestAssistOrder(actor, orderId, dto);
+  }
+
   @ApiArrayResponse()
   @Get('assist/mine')
   @Roles(Role.DRIVER)
@@ -515,5 +531,68 @@ export class DriversController {
     @Body() dto: AssignAssistDriverDto,
   ) {
     return this.driverAssistService.assignDriver(requestId, actor, dto);
+  }
+
+  @ApiStandardResponse()
+  @Patch('assist/:requestId/auto-assign')
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Admin] Auto-assign the nearest eligible driver as the assistant',
+  })
+  autoAssignAssistDriver(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('requestId') requestId: string,
+  ) {
+    return this.driverAssistService.autoAssignAssistDriver(requestId, actor);
+  }
+
+  @ApiStandardResponse()
+  @Patch('assist/:requestId/offer-nearest')
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_DRIVERS, {
+    mode: 'any',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Admin] Auto-offer the assist to the top-N nearest eligible drivers',
+  })
+  offerAssistToNearest(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('requestId') requestId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const n = Math.min(Math.max(Number(limit) || 5, 1), 10);
+    return this.driverAssistService.offerAssistToNearest(requestId, actor, n);
+  }
+
+  @ApiStandardResponse()
+  @Post('assist/:requestId/offer/respond')
+  @Roles(Role.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Driver] Accept or decline an assist offer',
+  })
+  respondToAssistOffer(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('requestId') requestId: string,
+    @Body() body: { accept: boolean },
+  ) {
+    return this.driverAssistService.respondToAssistOffer(
+      actor,
+      requestId,
+      body?.accept === true,
+    );
+  }
+
+  @ApiArrayResponse()
+  @Get('assist/offers/pending')
+  @Roles(Role.DRIVER)
+  @ApiOperation({
+    summary: '[Driver] Pending assist offers (HTTP fallback when socket is down)',
+  })
+  pendingAssistOffers(@CurrentUser() actor: JwtAccessPayload) {
+    return this.driverAssistService.getPendingAssistOffers(actor);
   }
 }

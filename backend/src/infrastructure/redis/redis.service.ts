@@ -86,6 +86,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Non-blocking pattern scan (cursor-based, safe for production). */
+  async scanKeys(pattern: string, count = 100): Promise<string[]> {
+    const found: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', count);
+      found.push(...keys);
+      cursor = next;
+    } while (cursor !== '0');
+    return found;
+  }
+
   async get(key: string): Promise<string | null> {
     try {
       return await this.client.get(key);

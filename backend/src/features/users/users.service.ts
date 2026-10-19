@@ -101,7 +101,7 @@ export class UsersService {
     const phoneChanged = dto.phone && dto.phone !== user.phone;
 
     if (emailChanged) {
-      const existingEmail = await this.prisma.user.findUnique({
+      const existingEmail = await this.prisma.user.findFirst({
         where: { email: dto.email },
       });
       if (existingEmail && existingEmail.id !== userId) {
@@ -110,7 +110,7 @@ export class UsersService {
     }
 
     if (phoneChanged) {
-      const existingPhone = await this.prisma.user.findUnique({
+      const existingPhone = await this.prisma.user.findFirst({
         where: { phone: dto.phone },
       });
       if (existingPhone && existingPhone.id !== userId) {

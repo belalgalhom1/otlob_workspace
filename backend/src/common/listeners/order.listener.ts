@@ -3,6 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SocketService } from '../../infrastructure/socket/socket.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { NotificationsService } from '../../features/notifications/notifications.service';
 import {
   OrderCreatedEvent,
   OrderStatusChangedEvent,
@@ -30,6 +32,8 @@ export class OrderListener {
 
   constructor(
     private readonly socketService: SocketService,
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
   ) {}
 
@@ -41,7 +45,8 @@ export class OrderListener {
   async handleOrderCreated(event: OrderCreatedEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_CREATED, event, {
-        attempts: 1,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
       });
     } catch (error: unknown) {
       this.logger.error(
@@ -89,7 +94,8 @@ export class OrderListener {
   async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_STATUS_CHANGED, event, {
-        attempts: 1,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
       });
     } catch (error: unknown) {
       this.logger.error(
@@ -104,7 +110,8 @@ export class OrderListener {
   async handleOrderCancelled(event: OrderCancelledEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_CANCELLED, event, {
-        attempts: 1,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
       });
     } catch (error: unknown) {
       this.logger.error(
@@ -119,7 +126,8 @@ export class OrderListener {
   async handleDispatchSent(event: OrderDispatchSentEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_DISPATCH_SENT, event, {
-        attempts: 1,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
       });
     } catch (error: unknown) {
       this.logger.error(
@@ -155,7 +163,8 @@ export class OrderListener {
   async handleDispatchResponded(event: OrderDispatchRespondedEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_DISPATCH_RESPONDED, event, {
-        attempts: 1,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
       });
     } catch (error: unknown) {
       this.logger.error(
@@ -167,8 +176,36 @@ export class OrderListener {
   // ─── Order settled ────────────────────────────────────────────────────────
 
   @OnEvent(EVENTS.ORDER_SETTLED)
-  handleOrderSettled(event: OrderSettledEvent) {
-    this.logger.log(`Order ${event.orderNumber} settled — settlement complete`);
-    // Future: send receipt notification to customer, update vendor dashboard
-  }
+  async handleOrderSettled(event: OrderSettledEvent) {
+    this.logger.log(`Order ${event.orderNumber} settled`);
+
+    // Send a receipt notification to the customer (best-effort).
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: event.orderId },
+        select: { customerId: true, orderNumber: true },
+      });
+      if (order?.customerId) {
+        const customer = await this.prisma.customer.findUnique({
+          where: { id: order.customerId },
+          select: { userId: true },
+        });
+        if (customer?.userId) {
+          await this.notificationsService.create({
+            userId: customer.userId,
+            title: 'Order delivered',
+            titleAr: 'تم توصيل الطلب',
+            body: `Order ${event.orderNumber} was delivered. Total: ${event.grandTotal}.`,
+            bodyAr: `تم توصيل الطلب ${event.orderNumber}. الإجمالي: ${event.grandTotal}.`,
+            type: 'ORDER_UPDATE' as any,
+            data: { orderId: event.orderId, orderNumber: event.orderNumber },
+          });
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send settled receipt: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+}
 }

@@ -131,6 +131,9 @@ export class OrderCancelledEvent {
     public readonly driverUserId: string | null,
     public readonly reason: string,
     public readonly cancelledByUserId: string | null, // null = system cancel
+    // All primary drivers of a multi-vendor order's delivery groups. For
+    // legacy single-vendor orders this is just [driverId] (or []).
+    public readonly driverIds: string[] = [],
   ) {}
 }
 

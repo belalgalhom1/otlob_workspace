@@ -39,6 +39,7 @@ export class ZonesController {
   @ApiStandardResponse()
   @Get()
   @ApiBearerAuth()
+  @RequirePermissions(Permission.MANAGE_SETTINGS)
   @ApiOperation({ summary: 'List all delivery zones' })
   findAll() {
     return this.zonesService.getAllZones();

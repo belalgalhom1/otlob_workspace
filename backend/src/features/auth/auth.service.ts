@@ -88,7 +88,7 @@ export class AuthService {
     try {
       user = await this.prisma.$transaction(
         async (tx) => {
-          const existing = await tx.user.findUnique({
+          const existing = await tx.user.findFirst({
             where: { email: dto.email },
           });
 
@@ -100,7 +100,7 @@ export class AuthService {
           }
 
           if (dto.phone) {
-            const existingPhone = await tx.user.findUnique({
+            const existingPhone = await tx.user.findFirst({
               where: { phone: dto.phone },
             });
             if (existingPhone) {
@@ -170,7 +170,7 @@ export class AuthService {
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
     this.logger.log(`Login attempt for: ${dto.email}`);
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findFirst({
       where: { email: dto.email },
       include: {
         vendorMemberships: {
@@ -364,7 +364,7 @@ export class AuthService {
 
     // 2. If no account, check if User exists by verifiedEmail to link (NEVER untrusted client email)
     if (!user && verifiedEmail) {
-      user = await this.prisma.user.findUnique({
+      user = await this.prisma.user.findFirst({
         where: { email: verifiedEmail },
         include: {
           driver: { select: { isApproved: true } },

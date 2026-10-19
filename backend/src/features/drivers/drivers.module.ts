@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { OrdersModule } from '../orders/orders.module';
 
 import { DriversController } from './drivers.controller';
 import { DriversService } from './drivers.service';
@@ -10,7 +11,7 @@ import { SocketModule } from '../../infrastructure/socket/socket.module';
 import { DriverShiftsModule } from '../driver-shifts/driver-shifts.module';
 
 @Module({
-  imports: [AuthModule, SocketModule, DriverShiftsModule],
+  imports: [AuthModule, SocketModule, DriverShiftsModule, forwardRef(() => OrdersModule)],
   controllers: [DriversController],
   providers: [DriversService, DriversRepository, DriverAssistService],
   exports: [DriversService, DriversRepository, DriverAssistService],

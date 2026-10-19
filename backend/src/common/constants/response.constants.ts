@@ -373,6 +373,7 @@ export const WalletErrors = {
   VENDOR_NOT_FOUND: 'wallet.error.vendor_not_found',
   DRIVER_NOT_FOUND: 'wallet.error.driver_not_found',
   INVALID_TRANSACTION_TYPE: 'wallet.error.invalid_transaction_type',
+  NEGATIVE_BALANCE_EXCEEDED: 'wallet.error.negative_balance_exceeded',
 };
 
 export const PushNotificationErrors = {

@@ -733,6 +733,20 @@ export class OrdersStateService {
       order.vendorId,
     );
 
+    // Multi-vendor orders have no single order-level driver; collect every
+    // primary driver of the (non-cancelled) delivery groups so the cancellation
+    // side-effects (cache clear, stats, notification) reach all of them.
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId: order.id },
+      select: { primaryDriverId: true },
+    });
+    const groupDriverIds = groups
+      .map((g) => g.primaryDriverId)
+      .filter((id): id is string => !!id);
+    const allDriverIds = Array.from(
+      new Set([order.driverId, ...groupDriverIds].filter((id): id is string => !!id)),
+    );
+
     const updatedOrder = await this.ordersRepository.cancelOrder(
       orderId,
       actor?.sub ?? 'system',
@@ -764,6 +778,7 @@ export class OrdersStateService {
         driverUserId,
         reason,
         actor?.sub ?? null,
+        allDriverIds,
       ),
     );
 

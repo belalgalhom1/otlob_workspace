@@ -319,10 +319,19 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleOrderCancelled(event: OrderCancelledEvent) {
+    const idempotencyKey = `notify:order_cancelled:${event.orderId}`;
+    const isNew = await this.redis
+      .getClient()
+      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
+    if (!isNew) return { skipped: true };
     this.logger.log(`Order cancelled: ${event.orderNumber} — ${event.reason}`);
 
-    if (event.driverId) {
-      await this.redis.del(`otlobegy:driver-active-order:${event.driverId}`);
+    const allDriverIds = (event.driverIds && event.driverIds.length > 0)
+      ? event.driverIds
+      : (event.driverId ? [event.driverId] : []);
+
+    for (const did of allDriverIds) {
+      await this.redis.del(`otlobegy:driver-active-order:${did}`);
     }
 
     const notifyUserIds = new Set<string>([
@@ -330,6 +339,16 @@ export class EventsProcessor extends WorkerHost {
       ...event.vendorUserIds,
     ]);
     if (event.driverUserId) notifyUserIds.add(event.driverUserId);
+    // Multi-vendor: notify every primary driver, not just the order-level one.
+    if (allDriverIds.length > 0) {
+      const drivers = await this.prisma.driver.findMany({
+        where: { id: { in: allDriverIds } },
+        select: { userId: true },
+      });
+      for (const d of drivers) {
+        if (d.userId) notifyUserIds.add(d.userId);
+      }
+    }
 
     // Single canonical event: every client already handles order.status with
     // CANCELLED (fast flip + refetch). The legacy order.cancelled emit only
@@ -365,16 +384,25 @@ export class EventsProcessor extends WorkerHost {
         ),
       );
 
-    await this.statisticsService
-      .recordCancellation(event.orderId, event.vendorId, event.driverId)
-      .catch((err: unknown) =>
-        this.logger.error(
-          `Failed to record cancellation stat: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
+    const cancelDrivers = allDriverIds.length > 0 ? allDriverIds : (event.driverId ? [event.driverId] : []);
+    for (const did of cancelDrivers) {
+      await this.statisticsService
+        .recordCancellation(event.orderId, event.vendorId, did)
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to record cancellation stat: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+    }
   }
 
   private async handleDispatchSent(event: OrderDispatchSentEvent) {
+    const idempotencyKey = `notify:dispatch_sent:${event.dispatchId}`;
+    const isNew = await this.redis
+      .getClient()
+      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
+    if (!isNew) return { skipped: true };
+
     this.logger.log(
       `Dispatch sent to driver ${event.driverId} for order ${event.orderNumber}`,
     );
@@ -419,6 +447,12 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleDispatchResponded(event: OrderDispatchRespondedEvent) {
+    const idempotencyKey = `notify:dispatch_responded:${event.dispatchId}:${event.status}`;
+    const isNew = await this.redis
+      .getClient()
+      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
+    if (!isNew) return { skipped: true };
+
     this.logger.log(
       `Dispatch ${event.dispatchId} responded: ${event.status} by driver ${event.driverId}`,
     );

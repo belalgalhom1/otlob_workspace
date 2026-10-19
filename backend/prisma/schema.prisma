@@ -56,6 +56,7 @@ model PlatformSetting {
   autoCancelPendingMins                 Int       @default(15)
   mobileWalletTimeoutMins               Int       @default(15)
   driverAcceptTimeoutSecs               Int       @default(30)
+  assistDecisionTimeoutSecs             Int       @default(120)
   isMaintenanceMode                     Boolean   @default(false)
   androidMinVersion                     String    @default("1.0.0")
   androidLatestVersion                  String    @default("1.0.0")
@@ -92,6 +93,9 @@ model PlatformSetting {
   retentionStatisticsDays               Int       @default(365)
   maxKmForBicycle                       Float     @default(5.0)
   driverSearchMaxAttempts               Int       @default(5)
+  driverSearchGeoCandidateLimit         Int       @default(200)
+  driverLocationFreshnessTtlSecs        Int       @default(30)
+  driverLocationPrecisionMeters         Int       @default(0)
   fallbackOrderDistanceKm               Float     @default(3.0)
   // ─── Smart multi-vendor delivery grouping (kilometres) ──────────────────
   // Max straight-line distance between any two vendor branches that may share
@@ -100,15 +104,6 @@ model PlatformSetting {
   // Max straight-line distance from a vendor branch to the customer drop-off
   // for that branch to be eligible for grouping at all.
   groupingMaxVendorCustomerDistanceKm   Float     @default(25.0)
-  // Max total pickup+drop-off route length for a group (Σ consecutive stop
-  // hops + final hop to the customer, best ordering).
-  groupingMaxCombinedRouteKm            Float     @default(35.0)
-  // ─── Assisting driver ─────────────────────────────────────────────────────
-  // Share (percent) of a delivery group's driver earnings that goes to the
-  // assisting driver. The primary driver receives the remainder, so the two
-  // shares always sum to exactly the pre-split earnings. 0 disables the
-  // assisting driver's pay (the driver is still assigned and tracked).
-  assistDriverEarningsPercent           Int       @default(50)
   customOrderPlatformFee                Int       @default(10)
   maxDispatchBatchSize                  Int       @default(20)
   coinValue                             Int       @default(1)
@@ -163,8 +158,8 @@ model Zone {
 
 model User {
   id                   String                    @id @default(uuid())
-  email                String?                   @unique
-  phone                String?                   @unique
+  email                String?                   // uniqueness enforced by partial index (deletedAt IS NULL) via migration
+  phone                String?                   // uniqueness enforced by partial index (deletedAt IS NULL) via migration
   password             String?
   name                 String
   role                 Role                      @default(CUSTOMER)
@@ -565,6 +560,7 @@ model VendorWalletTransaction {
   balanceAfter Int
   description  String?
   referenceId  String?
+  idempotencyKey String?
   createdAt    DateTime              @default(now()) @db.Timestamptz(3)
   order        Order?                @relation(fields: [orderId], references: [id])
   vendor       Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
@@ -576,6 +572,7 @@ model VendorWalletTransaction {
   // commission row and made per-vendor settlement impossible. Scoped to
   // vendorId so each vendor portion settles exactly once per order.
   @@unique([orderId, type, vendorId])
+  @@unique([vendorId, idempotencyKey])
   @@map("vendor_wallet_transactions")
 }
 
@@ -813,6 +810,13 @@ model Order {
   driverId             String?
   zoneId               String?
   driverShiftId        String?
+  // Assisted delivery (single-vendor orders): an extra driver helps the
+  // primary. Mirrors OrderDeliveryGroup's assist fields.
+  assistDriverId       String?
+  assistDriverShiftId  String?
+  assistFee            Int?
+  assistCustomerApproved Boolean?
+  assistApprovedAt     DateTime?                 @db.Timestamptz(3)
   status               OrderStatus               @default(PENDING)
   paymentMethod        PaymentMethod
   paymentStatus        PaymentStatus             @default(PENDING)
@@ -846,6 +850,7 @@ model Order {
   deliveryImageUrl     String?
   paymentReceiptUrl    String?
   actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
+  settledAt            DateTime?                 @db.Timestamptz(3)
   driverTransactions   DriverWalletTransaction[]
   dispatches           OrderDispatch[]
   items                OrderItem[]
@@ -853,6 +858,8 @@ model Order {
   customer             Customer                  @relation(fields: [customerId], references: [id])
   driver               Driver?                   @relation(fields: [driverId], references: [id])
   driverShift          DriverShift?              @relation(fields: [driverShiftId], references: [id])
+  assistDriver         Driver?                   @relation("OrderAssistDriver", fields: [assistDriverId], references: [id])
+  assistDriverShift    DriverShift?              @relation("OrderAssistShift", fields: [assistDriverShiftId], references: [id])
   vendor               Vendor?                   @relation(fields: [vendorId], references: [id])
   vendorBranch         VendorBranch?             @relation(fields: [vendorBranchId], references: [id])
   zone                 Zone?                     @relation(fields: [zoneId], references: [id])
@@ -983,9 +990,15 @@ model OrderDeliveryGroup {
   status         DeliveryGroupStatus       @default(PENDING)
   primaryDriverId String?
   primaryDriverShiftId String?
-  /// Assisting driver — never replaces the primary, never carries pay.
   assistDriverId String?
   assistDriverShiftId String?
+  /// Fee (minor units) the customer is charged for the assisting driver.
+  /// Null until an assistant is assigned; set at assignment time.
+  assistFee Int?
+  /// Customer's decision on the assisted delivery (and its fee).
+  /// null = not yet decided, true = approved (customer pays), false = declined.
+  assistCustomerApproved Boolean?
+  assistApprovedAt DateTime? @db.Timestamptz(3)
   assignedByUserId String?
   assignedAt     DateTime?                 @db.Timestamptz(3)
   distanceKm     Float?
@@ -1098,6 +1111,7 @@ model Driver {
   approvedBy          User?                     @relation("DriverApprovals", fields: [approvedById], references: [id])
   dispatches          OrderDispatch[]
   orders              Order[]
+  assistedOrders      Order[]                   @relation("OrderAssistDriver")
   orderReviews        OrderReview[]
   breaks              DriverBreak[]
 
@@ -1139,6 +1153,7 @@ model DriverShift {
   walletTransactions DriverWalletTransaction[]
   dispatches         OrderDispatch[]
   orders             Order[]
+  assistedOrders     Order[]                   @relation("OrderAssistShift")
   swapRequests       ShiftSwapRequest[]
   breaks             DriverBreak[]
 
@@ -1215,6 +1230,7 @@ model DriverWalletTransaction {
   balanceAfter  Int
   description   String?
   referenceId   String?
+  idempotencyKey String?
   createdAt     DateTime              @default(now()) @db.Timestamptz(3)
   driver        Driver                @relation(fields: [driverId], references: [id], onDelete: Cascade)
   driverShift   DriverShift?          @relation(fields: [driverShiftId], references: [id])
@@ -1225,9 +1241,9 @@ model DriverWalletTransaction {
   @@index([createdAt])
   @@index([driverShiftId])
   // Was @@unique([orderId, type]) — that capped an order at ONE DELIVERY_FEE row
-  // and would silently skip the assisting driver's payout. Scoped to driverId so
   // each driver on a delivery is paid exactly once per order+type.
   @@unique([orderId, type, driverId])
+  @@unique([driverId, idempotencyKey])
   @@map("driver_wallet_transactions")
 }
 

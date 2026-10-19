@@ -307,6 +307,27 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   driverSearchMaxAttempts?: number;
 
+  @ApiProperty({ example: 200, required: false, description: 'Max candidates to fetch from Redis geo-radius before SQL filtering (headroom for filters).' })
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  driverSearchGeoCandidateLimit?: number;
+
+  @ApiProperty({ example: 30, required: false, description: 'Driver location freshness TTL in seconds (how long a position is considered live).' })
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  driverLocationFreshnessTtlSecs?: number;
+
+  @ApiProperty({ example: 100, required: false, description: 'Location precision reduction in meters for customer-facing tracking (0 = exact).' })
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  driverLocationPrecisionMeters?: number;
+
   @ApiProperty({
     example: 5,
     required: false,
@@ -353,6 +374,19 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   driverAcceptTimeoutSecs?: number;
+
+  @ApiProperty({ example: 120, required: false })
+  @IsInt()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  assistDecisionTimeoutSecs?: number;
+
+  @ApiProperty({ example: 500, required: false })
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  maxNegativeDriverBalance?: number;
 
   @ApiProperty({ example: 3, required: false })
   @IsInt()

@@ -4,6 +4,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import {
   QUEUES,
   ORDER_JOBS,
+  EVENT_JOBS,
 } from '../../infrastructure/queue/queues.constants';
 import { Queue } from 'bullmq';
 import { v4 as uuidv4 } from 'uuid';
@@ -66,6 +67,7 @@ export class DispatchService {
     private readonly redis: RedisService,
     private readonly locationRepository: LocationRepository,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
+    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
   ) {}
 
   // ─── Core dispatch logic ──────────────────────────────────────────────────
@@ -384,7 +386,12 @@ export class DispatchService {
           attempt,
           excludeDriverIds: newExcludeDriverIds,
         },
-        { delay: timeoutSecs * 1000, jobId: `dispatch-expire-${dispatchId}` },
+        {
+          delay: timeoutSecs * 1000,
+          jobId: `dispatch-expire-${dispatchId}`,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2_000 },
+        },
       );
 
       // Register the dispatch on every candidate's pending set in parallel.
@@ -454,9 +461,34 @@ export class DispatchService {
     // delivery this round owns, which only the payload knows.
     const dispatchData = JSON.parse(active);
 
+    // Bail out if the order (or this delivery group) was cancelled while the
+    // dispatch was in flight �?" re-enqueueing would resurrect a dead delivery.
+    const expiryScope = dispatchData.deliveryGroupId ?? orderId;
+    const orderRow = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (orderRow?.status === 'CANCELLED') {
+      await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
+      await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
+      await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
+      return;
+    }
+    if (dispatchData.deliveryGroupId) {
+      const groupRow = await this.prisma.orderDeliveryGroup.findUnique({
+        where: { id: dispatchData.deliveryGroupId },
+        select: { status: true },
+      });
+      if (groupRow?.status === 'CANCELLED') {
+        await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
+        await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
+        await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
+        return;
+      }
+    }
+
     // It is truly expired. Clean up Redis.
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    const expiryScope = dispatchData.deliveryGroupId ?? orderId;
     await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
     await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
@@ -542,6 +574,7 @@ export class DispatchService {
       orderNumber,
       attempt: attempt + 1,
       excludeDriverIds,
+      deliveryGroupId: dispatchData.deliveryGroupId ?? null,
     });
   }
 
@@ -643,7 +676,11 @@ export class DispatchService {
       (c: any) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
     );
 
-    await this.prisma.$transaction(async (tx) => {
+    const acceptScope = dispatchData.deliveryGroupId ?? orderId;
+    const activeKey = `otlobegy:order-dispatch-active:${acceptScope}`;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
       // Serialize concurrent acceptances for the SAME driver. Two different
       // orders dispatch different payloads (separate Redis claims), so the
       // per-order SET NX cannot serialize them — lock the driver row instead.
@@ -659,6 +696,18 @@ export class DispatchService {
       });
       if (activeOrder) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+      }
+
+      // A driver whose shift ended between dispatch and accept must not take
+      // the order �?" the shift filter only applies at dispatch time.
+      if (candidate.driverShiftId) {
+        const shift = await tx.driverShift.findUnique({
+          where: { id: candidate.driverShiftId },
+          select: { status: true },
+        });
+        if (!shift || shift.status !== 'ACTIVE') {
+          throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+        }
       }
 
       // 1. Create the permanent accepted record
@@ -798,10 +847,32 @@ export class DispatchService {
         });
       }
     });
+    } catch (err) {
+      // Release the active slot ONLY if we still own it, so a failed accept
+      // doesn't block future dispatches for this delivery until TTL expiry.
+      try {
+        const current = await this.redis.get(activeKey);
+        if (current === dispatchId) {
+          await this.redis.del(activeKey);
+        }
+        await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
+      } catch {
+        // best-effort cleanup
+      }
+      // Convert a unique-constraint violation (concurrent accept race) into a
+      // clean, client-facing error instead of a raw Prisma P2002.
+      if (
+        err &&
+        typeof err === 'object' &&
+        (err as { code?: string }).code === 'P2002'
+      ) {
+        throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
+      }
+      throw err;
+    }
 
-    // Cleanup Redis
+    // Cleanup Redis (success path)
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    const acceptScope = dispatchData.deliveryGroupId ?? orderId;
     await this.redis.del(`otlobegy:order-dispatch-active:${acceptScope}`);
     await this.redis.del(`otlobegy:dispatch-state:${acceptScope}`);
 
@@ -851,15 +922,18 @@ export class DispatchService {
         ).map((m) => m.userId)
       : [];
 
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
+    // Durable: enqueue directly to the events queue instead of an in-process
+    // emit, so a process crash between commit and fan-out cannot lose the
+    // status change (conversation, customer push, dispatch handoff).
+    await this.eventsQueue.add(
+      EVENT_JOBS.ORDER_STATUS_CHANGED,
       new OrderStatusChangedEvent(
         order.id,
         order.orderNumber,
         order.status,
         nextStatus,
         order.customerId,
-        order.customer?.userId || order.customerId, // Using customer.userId if loaded
+        order.customer?.userId || order.customerId,
         order.vendorId,
         vendorUserIds,
         driverId,
@@ -867,6 +941,7 @@ export class DispatchService {
         'system',
         'Driver found and auto-assigned.',
       ),
+      { attempts: 3, backoff: { type: 'exponential', delay: 2_000 } },
     );
 
     return true;
@@ -989,17 +1064,26 @@ export class DispatchService {
           orderNumber: expiryJob.data.orderNumber,
           attempt: expiryJob.data.attempt + 1,
           excludeDriverIds: expiryJob.data.excludeDriverIds,
+          deliveryGroupId: dispatchData.deliveryGroupId ?? null,
         });
       } else {
         const order = await this.prisma.order.findUnique({
           where: { id: orderId },
         });
         if (order) {
+          // Resume from the persisted attempt counter instead of resetting to 1
+          // (which would silently defeat radius expansion).
+          const stateRaw = await this.redis.get(
+            `otlobegy:dispatch-state:${rejectScope}`,
+          );
+          const state = stateRaw ? JSON.parse(stateRaw) : null;
+          const nextAttempt = (state?.attempt ?? 1) + 1;
           await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
             orderId,
             orderNumber: order.orderNumber,
-            attempt: 1,
+            attempt: nextAttempt,
             excludeDriverIds: rejectedList,
+            deliveryGroupId: dispatchData.deliveryGroupId ?? null,
           });
         }
       }

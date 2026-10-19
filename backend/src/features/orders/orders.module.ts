@@ -12,9 +12,10 @@ import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { CartModule } from '../cart/cart.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { DriversModule } from '../drivers/drivers.module';
 
 @Module({
-  imports: [CartModule, forwardRef(() => DispatchModule), StatisticsModule],
+  imports: [CartModule, forwardRef(() => DispatchModule), StatisticsModule, forwardRef(() => DriversModule)],
   controllers: [OrdersController],
   providers: [
     OrdersService,

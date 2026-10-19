@@ -90,6 +90,18 @@ export class StatisticsService {
       discount,
     } = payload;
 
+    // Idempotency guard: never settle the same order twice. BullMQ retries
+    // after a partial failure used to re-run the stat upserts and double-count
+    // (wallet writes were already idempotent via orderId+type+driverId).
+    const orderRow = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { settledAt: true },
+    });
+    if (orderRow?.settledAt) {
+      this.logger.log(`Order ${orderNumber} already settled; skipping.`);
+      return;
+    }
+
     // Business rules for revenue split:
     // If the vendor is contracted: commission is paid by the vendor.
     // If NOT contracted: customer pays commission as a service fee, so the vendor receives the full subtotal.
@@ -138,12 +150,14 @@ export class StatisticsService {
         primaryDriverShiftId: true,
         assistDriverId: true,
         assistDriverShiftId: true,
+        assistCustomerApproved: true,
       },
       orderBy: { sequence: 'asc' },
     });
 
     const primaryPayouts: DriverPayout[] = [];
     const assistPayouts: DriverPayout[] = [];
+    const assistApprovedFlags: boolean[] = [];
 
     const primaryFeeFor = (
       fee: number,
@@ -218,11 +232,12 @@ export class StatisticsService {
               driverShiftId: g.assistDriverShiftId ?? null,
               amount: assistAmount,
             });
+            assistApprovedFlags.push(g.assistCustomerApproved === true);
           }
         }
       }
     } else {
-      // Legacy single-delivery path — behaviour is unchanged.
+      // Legacy single-delivery path (single-vendor order).
       const primaryFee = primaryFeeFor(deliveryFee, distanceKm, driverTier);
       const earnings = Math.round(primaryFee * driverShare);
       primaryPayouts.push({
@@ -230,6 +245,41 @@ export class StatisticsService {
         driverShiftId,
         amount: earnings,
       });
+
+      // Assisted delivery (single-vendor): the assistant earns their own full
+      // fee when the customer approved it (customer-funded, not platform).
+      const orderAssist = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          assistDriverId: true,
+          assistDriverShiftId: true,
+          assistFee: true,
+          assistCustomerApproved: true,
+        },
+      });
+      if (
+        orderAssist?.assistDriverId &&
+        orderAssist.assistCustomerApproved === true
+      ) {
+        const assistTierRow = await this.prisma.driver.findUnique({
+          where: { id: orderAssist.assistDriverId },
+          select: { tier: true },
+        });
+        const assistTier = assistTierRow?.tier ?? 'GOLD';
+        const assistAmount = assistFeeFor(
+          driverTier,
+          assistTier,
+          primaryFee,
+          distanceKm,
+        );
+        if (assistAmount > 0) {
+          assistPayouts.push({
+            driverId: orderAssist.assistDriverId,
+            driverShiftId: orderAssist.assistDriverShiftId ?? null,
+            amount: assistAmount,
+          });
+        }
+      }
     }
 
     const totalPrimaryEarnings = primaryPayouts.reduce(
@@ -261,9 +311,15 @@ export class StatisticsService {
       platformRevenue -= driverBonusFee;
     }
 
-    // Each assisting driver's full fee is a second payout the customer did not
-    // pay for, so it is absorbed by the platform's revenue.
-    platformRevenue -= totalAssistEarnings;
+    // Assisting drivers that the customer approved are paid from the customer's
+    // charge (already added to the order), so the platform does NOT absorb them.
+    // Only legacy/unapproved assists (assistCustomerApproved !== true) are
+    // absorbed by the platform's revenue.
+    const platformAbsorbedAssist = assistPayouts.reduce(
+      (sum, p, i) => sum + (assistApprovedFlags[i] ? 0 : p.amount),
+      0,
+    );
+    platformRevenue -= platformAbsorbedAssist;
 
     const isDriverCollected =
       paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
@@ -778,6 +834,11 @@ export class StatisticsService {
           : '') +
         `, platform: +${platformRevenue}`,
     );
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { settledAt: new Date() },
+    });
   }
 
   // ─── Record cancelled order ───────────────────────────────────────────────

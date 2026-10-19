@@ -7,6 +7,7 @@ import { DriverShiftStatus, DriverStatus } from '@prisma/client';
 import { CRON_JOBS } from '../../infrastructure/queue/queues.constants';
 import { DriverShiftsService } from '../driver-shifts/driver-shifts.service';
 import { DriversService } from './drivers.service';
+import { DriverAssistService } from './driver-assist.service';
 
 @Processor(QUEUES.DRIVERS, { concurrency: 10 })
 export class DriversProcessor extends WorkerHost implements OnModuleInit {
@@ -16,6 +17,7 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly driverShiftsService: DriverShiftsService,
     private readonly driversService: DriversService,
+    private readonly driverAssistService: DriverAssistService,
     @InjectQueue(QUEUES.DRIVERS) private readonly queue: Queue,
   ) {
     super();
@@ -43,6 +45,11 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
       {},
       { repeat: { pattern: '* * * * *' }, jobId: CRON_JOBS.BREAK_WATCHDOG },
     );
+    await this.queue.add(
+      CRON_JOBS.ASSIST_DECISION_TIMEOUT,
+      {},
+      { repeat: { pattern: '* * * * *' }, jobId: CRON_JOBS.ASSIST_DECISION_TIMEOUT },
+    );
   }
 
   async process(job: Job): Promise<any> {
@@ -55,6 +62,8 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
         return this.driverShiftsService.handle5MinLateCheck();
       case CRON_JOBS.BREAK_WATCHDOG:
         return this.driversService.autoEndExpiredBreaks();
+      case CRON_JOBS.ASSIST_DECISION_TIMEOUT:
+        return this.driverAssistService.autoDeclineExpiredAssistDecisions();
       default:
         this.logger.warn(`Unknown driver job: ${job.name}`);
     }

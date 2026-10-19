@@ -160,33 +160,42 @@ export class ZonesService {
   async updateZone(id: string, dto: UpdateZoneDto): Promise<ZoneQueryResult> {
     await this.getZoneById(id);
 
+    const { boundary: _boundary, ...standardFields } = dto;
+
+    let geoJson: string | null = null;
     if (dto.boundary) {
-      const geoJson = JSON.stringify({
+      geoJson = JSON.stringify({
         type: 'Polygon',
         coordinates: dto.boundary,
       });
-
       await this.assertValidPolygon(geoJson);
-
-      try {
-        await this.prisma.$executeRaw`
-          UPDATE "zones" SET 
-            "boundary" = ST_SetSRID(ST_GeomFromGeoJSON(${geoJson}), 4326),
-            "updatedAt" = NOW()
-          WHERE "id" = ${id};
-        `;
-      } catch (error: unknown) {
-        throw new BadRequestException(ZoneErrors.INVALID_BOUNDARY);
-      }
     }
 
-    const { boundary: _boundary, ...standardFields } = dto;
-
-    if (Object.keys(standardFields).length > 0) {
-      await this.prisma.zone.update({
-        where: { id },
-        data: standardFields,
+    // Geometry + scalar fields must land together: a partial failure used to
+    // leave a zone with a new boundary but stale metadata (or vice-versa).
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (geoJson) {
+          await tx.$executeRaw`
+            UPDATE "zones" SET 
+              "boundary" = ST_SetSRID(ST_GeomFromGeoJSON(${geoJson}), 4326),
+              "updatedAt" = NOW()
+            WHERE "id" = ${id};
+          `;
+        }
+        if (Object.keys(standardFields).length > 0) {
+          await tx.zone.update({
+            where: { id },
+            data: standardFields,
+          });
+        }
+        if (!geoJson && Object.keys(standardFields).length > 0) {
+          // keep updatedAt fresh even on scalar-only edits
+          await tx.$executeRaw`UPDATE "zones" SET "updatedAt" = NOW() WHERE "id" = ${id};`;
+        }
       });
+    } catch (error: unknown) {
+      throw new BadRequestException(ZoneErrors.INVALID_BOUNDARY);
     }
 
     return this.getZoneById(id);

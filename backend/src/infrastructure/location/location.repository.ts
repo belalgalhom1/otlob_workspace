@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PlatformSettingsService } from '../../features/platform-settings/platform-settings.service';
 import { EVENTS } from 'src/common/events/event-names';
 import { DriverLocationUpdatedEvent } from 'src/common/events';
 import { Prisma } from '@prisma/client';
@@ -14,6 +15,7 @@ export class LocationRepository {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly platformSettings: PlatformSettingsService,
   ) {}
 
   /**
@@ -93,6 +95,25 @@ export class LocationRepository {
   }
 
   /**
+   * Reduce location precision for customer-facing display (security/privacy).
+   * If precisionMeters > 0, rounds coordinates to a grid of that size.
+   */
+  static applyPrecisionReduction(
+    lng: number,
+    lat: number,
+    precisionMeters: number,
+  ): { lng: number; lat: number } {
+    if (precisionMeters <= 0) return { lng, lat };
+    // 1 degree latitude ≈ 111,111 meters
+    // 1 degree longitude ≈ 111,111 * cos(lat) meters
+    const latDeg = precisionMeters / 111111;
+    const lngDeg = precisionMeters / (111111 * Math.cos((lat * Math.PI) / 180));
+    const roundedLat = Math.round(lat / latDeg) * latDeg;
+    const roundedLng = Math.round(lng / lngDeg) * lngDeg;
+    return { lng: roundedLng, lat: roundedLat };
+  }
+
+  /**
    * Helper to build a PostGIS point for Prisma raw queries
    */
   static buildPointSql(lng: number, lat: number): Prisma.Sql {
@@ -107,15 +128,17 @@ export class LocationRepository {
     lng: number,
     lat: number,
   ): Promise<void> {
+    const settings = await this.platformSettings.getSettings();
     await this.redis.geoadd('otlobegy:driver-locations', lng, lat, driverId);
     // Freshness signal: expires shortly after the driver stops broadcasting,
     // letting consumers tell a live position apart from a stale geo member.
     // Must comfortably exceed the driver app's slowest heartbeat (30s when
     // idle/stationary) or a live position would be misreported as stale.
+    const ttlSecs = Number(settings.driverLocationFreshnessTtlSecs ?? 30);
     await this.redis.set(
       `otlobegy:driver-location-ts:${driverId}`,
       String(Date.now()),
-      90,
+      ttlSecs,
     );
   }
 
@@ -270,14 +293,21 @@ export class LocationRepository {
   async getDriverLocationWithState(
     driverId: string,
   ): Promise<{ lng: number; lat: number; isLive: boolean } | null> {
+    const settings = await this.platformSettings.getSettings();
+    const precisionMeters = Number(settings.driverLocationPrecisionMeters ?? 0);
+
     const live = await this.getDriverLocation(driverId);
     if (live && (await this.isDriverLocationFresh(driverId))) {
-      return { ...live, isLive: true };
+      const reduced = LocationRepository.applyPrecisionReduction(live.lng, live.lat, precisionMeters);
+      return { ...reduced, isLive: true };
     }
 
     const map = await this.getPersistedDriverLocations([driverId]);
     const persisted = map.get(driverId);
-    if (persisted) return { ...persisted, isLive: false };
+    if (persisted) {
+      const reduced = LocationRepository.applyPrecisionReduction(persisted.lng, persisted.lat, precisionMeters);
+      return { ...reduced, isLive: false };
+    }
 
     return null;
   }
@@ -313,6 +343,9 @@ export class LocationRepository {
     orderId: string,
     customerUserId: string,
   ): Promise<{ lng: number; lat: number } | null> {
+    const settings = await this.platformSettings.getSettings();
+    const precisionMeters = Number(settings.driverLocationPrecisionMeters ?? 0);
+
     const rows = await this.prisma.$queryRaw<
       Array<{
         driverId: string | null;
@@ -339,10 +372,12 @@ export class LocationRepository {
     }
 
     const live = await this.getDriverLocation(row.driverId);
-    if (live && (await this.isDriverLocationFresh(row.driverId))) return live;
+    if (live && (await this.isDriverLocationFresh(row.driverId))) {
+      return LocationRepository.applyPrecisionReduction(live.lng, live.lat, precisionMeters);
+    }
 
     if (row.lastLng != null && row.lastLat != null) {
-      return { lng: row.lastLng, lat: row.lastLat };
+      return LocationRepository.applyPrecisionReduction(row.lastLng, row.lastLat, precisionMeters);
     }
 
     return null;
@@ -395,14 +430,15 @@ export class LocationRepository {
     // (status/vehicleType/shift) may discard some, so keep a generous headroom
     // above the final cap of 20 that dispatch actually consumes. Without this
     // bound, a dense region can return the entire cluster on every round.
-    const GEORADIUS_CANDIDATE_LIMIT = 200;
+    const settings = await this.platformSettings.getSettings();
+    const geoCandidateLimit = Number(settings.driverSearchGeoCandidateLimit ?? 200);
 
     const nearby = await this.redis.georadius(
       'otlobegy:driver-locations',
       longitude,
       latitude,
       radiusKm,
-      GEORADIUS_CANDIDATE_LIMIT,
+      geoCandidateLimit,
     );
     if (nearby.length === 0) return [];
 

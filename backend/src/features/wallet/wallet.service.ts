@@ -306,6 +306,25 @@ export class WalletService {
       'vendor',
     );
 
+    // Idempotency: a retried/double-submitted request with the same key must
+    // not create a second ledger row (or move the balance twice).
+    if (dto.idempotencyKey) {
+      const existing = await this.prisma.vendorWalletTransaction.findUnique({
+        where: {
+          vendorId_idempotencyKey: {
+            vendorId,
+            idempotencyKey: dto.idempotencyKey,
+          },
+        },
+      });
+      if (existing) {
+        return {
+          message: CommonSuccess.RESOURCE_UPDATED,
+          data: existing,
+        };
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const updatedVendor = await tx.vendor.update({
         where: { id: vendorId },
@@ -322,6 +341,7 @@ export class WalletService {
           description: dto.description || 'Manual Admin Transaction',
           orderId,
           referenceId,
+          idempotencyKey: dto.idempotencyKey ?? null,
         },
       });
     });
@@ -351,6 +371,34 @@ export class WalletService {
       'driver',
     );
 
+    // Guard: never push a driver below the configured negative-balance floor
+    // (prevents runaway debt from a mistaken/abusive manual debit).
+    if (dto.amount < 0) {
+      const settings = await this.prisma.platformSetting.findFirst();
+      const maxNegative = Number(settings?.maxNegativeDriverBalance ?? 500);
+      const projected = Number(driver.walletBalance ?? 0) + dto.amount;
+      if (projected < -maxNegative) {
+        throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
+      }
+    }
+
+    if (dto.idempotencyKey) {
+      const existing = await this.prisma.driverWalletTransaction.findUnique({
+        where: {
+          driverId_idempotencyKey: {
+            driverId,
+            idempotencyKey: dto.idempotencyKey,
+          },
+        },
+      });
+      if (existing) {
+        return {
+          message: CommonSuccess.RESOURCE_UPDATED,
+          data: existing,
+        };
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const updatedDriver = await tx.driver.update({
         where: { id: driverId },
@@ -367,6 +415,7 @@ export class WalletService {
           description: dto.description || 'Manual Admin Transaction',
           orderId,
           referenceId,
+          idempotencyKey: dto.idempotencyKey ?? null,
         },
       });
     });

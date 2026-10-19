@@ -67,4 +67,9 @@ export class ProcessManualTransactionDto {
   @IsString()
   @IsOptional()
   referenceId?: string;
+
+  @ApiProperty({ example: 'admin-tx-uuid', required: false })
+  @IsString()
+  @IsOptional()
+  idempotencyKey?: string;
 }

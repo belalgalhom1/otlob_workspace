@@ -42,6 +42,7 @@ import { OrdersStateService } from './orders-state.service';
 import { OrdersPaymentService } from './orders-payment.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+import { DriverAssistService } from '../drivers/driver-assist.service';
 import { OrderResponseDto } from 'src/common/dto/response-models.dto';
 
 @ApiTags('Orders')
@@ -56,6 +57,7 @@ export class OrdersController {
     private readonly paymentService: OrdersPaymentService,
     private readonly vendorDecisionService: OrderVendorDecisionService,
     private readonly multiVendorService: OrdersMultiVendorService,
+    private readonly driverAssistService: DriverAssistService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -312,6 +314,46 @@ export class OrdersController {
       actor,
       orderId,
       reason ?? 'Cancelled by user',
+    );
+  }
+
+  @ApiStandardResponse()
+  @Post(':orderId/delivery-groups/:deliveryGroupId/assist/decision')
+  @Roles(Role.CUSTOMER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Customer] Approve or decline an assisted delivery (and its fee)',
+  })
+  decideAssist(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @Param('deliveryGroupId') deliveryGroupId: string,
+    @Body() body: { approved: boolean },
+  ) {
+    return this.driverAssistService.customerDecideAssist(
+      actor,
+      orderId,
+      deliveryGroupId,
+      body?.approved === true,
+    );
+  }
+
+  @ApiStandardResponse()
+  @Post(':orderId/assist/decision')
+  @Roles(Role.CUSTOMER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Customer] Approve or decline an assisted delivery (single-vendor order)',
+  })
+  decideAssistOrder(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @Body() body: { approved: boolean },
+  ) {
+    return this.driverAssistService.customerDecideAssistOrder(
+      actor,
+      orderId,
+      body?.approved === true,
     );
   }
 
