@@ -268,6 +268,7 @@ CREATE TABLE "zones" (
 DROP INDEX IF EXISTS "users_email_active_unique";
 DROP INDEX IF EXISTS "users_phone_active_unique";
 CREATE UNIQUE INDEX IF NOT EXISTS "users_email_active_unique"
+  ON "users" ("email")
   WHERE "deletedAt" IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "users_phone_active_unique"
   ON "users" ("phone")
