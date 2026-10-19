@@ -15,6 +15,7 @@ import { SocketService } from '../../infrastructure/socket/socket.service';
 import {
   UpdateNotificationSettingsDto,
   ChangePasswordDto,
+  ChangeEmailDto,
   SetPasswordDto,
   UpdateUserDto,
   QueryUsersDto,
@@ -160,6 +161,39 @@ export class UsersService {
     });
 
     return { avatar: avatarUrl, message: CommonSuccess.RESOURCE_UPDATED };
+  }
+
+  async changeEmail(
+    userId: string,
+    dto: ChangeEmailDto,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true, email: true },
+    });
+    if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
+    if (!user.password) throw new BadRequestException(UserErrors.PASSWORD_NOT_SET);
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isMatch) throw new UnauthorizedException(UserErrors.INVALID_PASSWORD);
+
+    if (dto.newEmail === user.email) {
+      throw new BadRequestException(UserErrors.EMAIL_SAME_AS_OLD);
+    }
+
+    const existingEmail = await this.prisma.user.findFirst({
+      where: { email: dto.newEmail },
+    });
+    if (existingEmail && existingEmail.id !== userId) {
+      throw new ConflictException(UserErrors.EMAIL_ALREADY_EXISTS);
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { email: dto.newEmail, isEmailVerified: false },
+    });
+
+    return { message: CommonSuccess.OPERATION_SUCCESS };
   }
 
   async changePassword(

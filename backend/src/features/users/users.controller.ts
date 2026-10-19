@@ -19,6 +19,7 @@ import {
   UpdateUserDto,
   UpdateNotificationSettingsDto,
   ChangePasswordDto,
+  ChangeEmailDto,
   SetPasswordDto,
   QueryUsersDto,
   AdminUpdateUserDto,
@@ -81,6 +82,17 @@ export class UsersController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.userService.changePassword(actor.sub, actor.sid, dto);
+  }
+
+  @ApiStandardResponse()
+  @Post('me/change-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change my email (requires current password)' })
+  changeEmail(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: ChangeEmailDto,
+  ) {
+    return this.userService.changeEmail(actor.sub, dto);
   }
 
   @ApiStandardResponse()

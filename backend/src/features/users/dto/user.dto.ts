@@ -10,6 +10,7 @@ import {
   Max,
   MinLength,
   MaxLength,
+  IsEmail,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer'; // Added Transform here
 import { Language, Permission, Role } from '@prisma/client';
@@ -87,6 +88,18 @@ export class ChangePasswordDto {
   @IsNotEmpty()
   @MaxLength(100)
   newPassword!: string;
+}
+
+export class ChangeEmailDto {
+  @ApiProperty({ example: 'currentpassword123' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword!: string;
+
+  @ApiProperty({ example: 'newemail@example.com' })
+  @IsString()
+  @IsEmail()
+  newEmail!: string;
 }
 
 export class SetPasswordDto {
