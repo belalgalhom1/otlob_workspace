@@ -1027,7 +1027,7 @@ export class DriversService {
     if (dto.status || dto.tier || dto.isApproved !== undefined) {
       const updateData: any = {
         status: dto.status ?? DriverStatus.OFFLINE,
-        tier: dto.tier ?? 'BRONZE',
+        tier: dto.tier ?? 'SILVER',
       };
 
       if (dto.isApproved !== undefined) {

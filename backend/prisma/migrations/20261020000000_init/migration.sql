@@ -924,7 +924,7 @@ CREATE TABLE "drivers" (
     "licenseNumber" TEXT,
     "vehicleType" "VehicleType" NOT NULL DEFAULT 'MOTORCYCLE',
     "vehiclePlate" TEXT,
-    "tier" "DriverTier" NOT NULL DEFAULT 'GOLD',
+    "tier" "DriverTier" NOT NULL DEFAULT 'SILVER',
     "status" "DriverStatus" NOT NULL DEFAULT 'OFFLINE',
     "lastLocation" geometry,
     "lastLocationUpdate" TIMESTAMPTZ(3),
@@ -2061,3 +2061,68 @@ ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_driverId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Delivery managers and their wallets
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'DRIVER_MANAGER';
+
+CREATE TYPE "DriverManagerTransactionType" AS ENUM ('DELIVERY_SHARE', 'BRONZE_PENALTY', 'ADJUSTMENT', 'PAYOUT');
+
+CREATE TABLE "driver_managers" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "zoneId" TEXT,
+    "walletBalance" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "driver_managers_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "driver_managers_userId_key" ON "driver_managers"("userId");
+
+CREATE INDEX "driver_managers_zoneId_idx" ON "driver_managers"("zoneId");
+
+ALTER TABLE "driver_managers"
+  ADD CONSTRAINT "driver_managers_userId_fkey"
+  FOREIGN KEY ("userId") REFERENCES "users"("id")
+  ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "driver_managers"
+  ADD CONSTRAINT "driver_managers_zoneId_fkey"
+  FOREIGN KEY ("zoneId") REFERENCES "zones"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE TABLE "driver_manager_wallet_transactions" (
+    "id" TEXT NOT NULL,
+    "managerId" TEXT NOT NULL,
+    "orderId" TEXT,
+    "type" "DriverManagerTransactionType" NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "balanceAfter" INTEGER NOT NULL,
+    "description" TEXT,
+    "referenceId" TEXT,
+    "idempotencyKey" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "driver_manager_wallet_transactions_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "driver_manager_wallet_transactions_orderId_type_managerId_key"
+  ON "driver_manager_wallet_transactions"("orderId", "type", "managerId");
+
+CREATE UNIQUE INDEX "driver_manager_wallet_transactions_managerId_idempotencyKey_key"
+  ON "driver_manager_wallet_transactions"("managerId", "idempotencyKey");
+
+CREATE INDEX "driver_manager_wallet_transactions_managerId_createdAt_idx"
+  ON "driver_manager_wallet_transactions"("managerId", "createdAt");
+
+CREATE INDEX "driver_manager_wallet_transactions_orderId_idx"
+  ON "driver_manager_wallet_transactions"("orderId");
+
+ALTER TABLE "driver_manager_wallet_transactions"
+  ADD CONSTRAINT "driver_manager_wallet_transactions_managerId_fkey"
+  FOREIGN KEY ("managerId") REFERENCES "driver_managers"("id")
+  ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "driver_manager_wallet_transactions"
+  ADD CONSTRAINT "driver_manager_wallet_transactions_orderId_fkey"
+  FOREIGN KEY ("orderId") REFERENCES "orders"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;

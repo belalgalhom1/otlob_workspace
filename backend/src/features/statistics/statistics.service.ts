@@ -31,6 +31,7 @@ export interface SettleOrderPayload {
   vendorId: string | null;
   driverId: string;
   driverShiftId: string | null;
+  zoneId: string | null;
   grandTotal: number;
   upfrontAmount: number;
   distanceKm: number;
@@ -75,6 +76,7 @@ export class StatisticsService {
       vendorId,
       driverId,
       driverShiftId,
+      zoneId,
       orderType,
       grandTotal,
       deliveryFee,
@@ -161,6 +163,7 @@ export class StatisticsService {
     const primaryPayouts: DriverPayout[] = [];
     const assistPayouts: DriverPayout[] = [];
     const assistApprovedFlags: boolean[] = [];
+    const bronzeDriverIds = new Set<string>();
 
     const primaryFeeFor = (
       fee: number,
@@ -168,11 +171,17 @@ export class StatisticsService {
       primaryTier: string,
     ): number => {
       const tierDifferencePerKm = goldBonus - tierBonusPerKm(primaryTier);
-      return settings.driverShiftsEnabled &&
+      let result =
+        settings.driverShiftsEnabled &&
         orderType === 'STANDARD' &&
         tierDifferencePerKm > 0
-        ? Math.max(0, fee - tierDifferencePerKm * routeKm)
-        : fee;
+          ? Math.max(0, fee - tierDifferencePerKm * routeKm)
+          : fee;
+      // Bronze drivers take 2 less than the standard delivery fee.
+      if (primaryTier === 'BRONZE') {
+        result = Math.max(0, result - 2);
+      }
+      return result;
     };
 
     // 100% rule: the assistant keeps their own FULL fee, mirroring the primary's
@@ -188,7 +197,12 @@ export class StatisticsService {
       const base = settings.driverShiftsEnabled
         ? Math.max(0, fee - Math.max(0, tierDiffPerKm) * routeKm)
         : fee;
-      return Math.max(0, Math.round(base * driverShare));
+      let amount = Math.max(0, Math.round(base * driverShare));
+      // Bronze assistants also take 2 less than their standard share.
+      if (assistTier === 'BRONZE') {
+        amount = Math.max(0, amount - 2);
+      }
+      return amount;
     };
 
     if (groups.length > 0) {
@@ -211,6 +225,7 @@ export class StatisticsService {
       for (const g of groups) {
         const primaryId = g.primaryDriverId!;
         const primaryTier = tierById.get(primaryId) ?? driverTier;
+        if (primaryTier === 'BRONZE') bronzeDriverIds.add(primaryId);
         const routeKm = g.distanceKm ?? distanceKm;
         const primaryFee = primaryFeeFor(g.deliveryFee, routeKm, primaryTier);
         const earnings = Math.max(0, Math.round(primaryFee * driverShare));
@@ -223,6 +238,7 @@ export class StatisticsService {
 
         if (g.assistDriverId) {
           const assistTier = tierById.get(g.assistDriverId) ?? 'GOLD';
+          if (assistTier === 'BRONZE') bronzeDriverIds.add(g.assistDriverId!);
           const assistAmount = assistFeeFor(
             primaryTier,
             assistTier,
@@ -242,6 +258,7 @@ export class StatisticsService {
     } else {
       // Legacy single-delivery path (single-vendor order).
       const primaryFee = primaryFeeFor(deliveryFee, distanceKm, driverTier);
+      if (driverTier === 'BRONZE') bronzeDriverIds.add(driverId);
       const earnings = Math.round(primaryFee * driverShare);
       primaryPayouts.push({
         driverId,
@@ -269,6 +286,9 @@ export class StatisticsService {
           select: { tier: true },
         });
         const assistTier = assistTierRow?.tier ?? 'GOLD';
+        if (assistTier === 'BRONZE' && orderAssist.assistDriverId) {
+          bronzeDriverIds.add(orderAssist.assistDriverId);
+        }
         const assistAmount = assistFeeFor(
           driverTier,
           assistTier,
@@ -344,6 +364,19 @@ export class StatisticsService {
     //  - Stats are written asynchronously via the stats queue AFTER commit, so
     //    the settlement transaction stays short (money only) and the stat
     //    workers scale independently.
+    const manager = zoneId
+      ? await this.prisma.driverManager.findFirst({
+          where: { zoneId },
+          select: { id: true },
+        })
+      : null;
+    const managerShareRate = 0.1;
+    const managerShare = manager
+      ? Math.round(deliveryFee * managerShareRate)
+      : 0;
+    const managerPenalty = manager ? 2 * bronzeDriverIds.size : 0;
+    const managerAmount = Math.max(0, managerShare - managerPenalty);
+
     const now = new Date();
     const periods = this.statsRepository.getPeriodsForDate(now);
     let applied = false;
@@ -472,6 +505,65 @@ export class StatisticsService {
           'DELIVERY_FEE',
           { skipLock: true },
         );
+      }
+
+      if (manager && (managerShare > 0 || managerPenalty > 0)) {
+        await client.$executeRaw`SELECT id FROM driver_managers WHERE id = ${manager.id} FOR UPDATE`;
+
+        const alreadyManagerSettled =
+          await client.driverManagerWalletTransaction.findFirst({
+            where: {
+              orderId,
+              type: 'DELIVERY_SHARE',
+              managerId: manager.id,
+            },
+          });
+
+        if (!alreadyManagerSettled) {
+          const managerRow = await client.driverManager.findUnique({
+            where: { id: manager.id },
+            select: { walletBalance: true },
+          });
+          let balance = managerRow?.walletBalance ?? 0;
+
+          if (managerShare > 0) {
+            balance += managerShare;
+            await client.driverManager.update({
+              where: { id: manager.id },
+              data: { walletBalance: balance },
+            });
+            await client.driverManagerWalletTransaction.create({
+              data: {
+                managerId: manager.id,
+                orderId,
+                type: 'DELIVERY_SHARE',
+                amount: managerShare,
+                balanceAfter: balance,
+                description: `Delivery manager share for order ${orderNumber}`,
+                idempotencyKey: `${orderId}:DELIVERY_SHARE:${manager.id}`,
+              },
+            });
+          }
+
+          if (managerPenalty > 0) {
+            balance -= managerPenalty;
+            await client.driverManager.update({
+              where: { id: manager.id },
+              data: { walletBalance: balance },
+            });
+            await client.driverManagerWalletTransaction.create({
+              data: {
+                managerId: manager.id,
+                orderId,
+                type: 'BRONZE_PENALTY',
+                amount: -managerPenalty,
+                balanceAfter: balance,
+                description: `Bronze driver penalty for order ${orderNumber}`,
+                idempotencyKey: `${orderId}:BRONZE_PENALTY:${manager.id}`,
+              },
+            });
+          }
+        }
       }
 
       if (driverBonusFee > 0) {

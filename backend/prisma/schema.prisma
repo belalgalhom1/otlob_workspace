@@ -150,6 +150,7 @@ model Zone {
   orders                  Order[]
   vendorBranches          VendorBranch[]
   shiftPools              ShiftPool[]
+  driverManagers          DriverManager[]
 
   @@index([isActive])
   @@index([boundary], type: Gist)
@@ -181,6 +182,7 @@ model User {
   customer             Customer?
   devices              Device[]
   driver               Driver?
+  driverManager        DriverManager?
   messages             Message[]
   notificationSettings NotificationSetting?
   notifications        Notification[]
@@ -879,6 +881,7 @@ model Order {
   actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
   settledAt            DateTime?                 @db.Timestamptz(3)
   driverTransactions   DriverWalletTransaction[]
+  driverManagerTransactions DriverManagerWalletTransaction[]
   dispatches           OrderDispatch[]
   items                OrderItem[]
   statusEvents         OrderStatusEvent[]
@@ -1112,7 +1115,7 @@ model Driver {
   licenseNumber       String?
   vehicleType         VehicleType               @default(MOTORCYCLE)
   vehiclePlate        String?
-  tier                DriverTier                @default(GOLD)
+  tier                DriverTier                @default(SILVER)
   status              DriverStatus              @default(OFFLINE)
   lastLocation        Unsupported("geometry")?
   lastLocationUpdate  DateTime?                 @db.Timestamptz(3)
@@ -1247,6 +1250,42 @@ model ShiftSwapRequest {
   @@map("shift_swap_requests")
 }
 
+model DriverManager {
+  id           String                      @id @default(uuid())
+  userId       String                      @unique
+  zoneId       String?
+  walletBalance Int                        @default(0)
+  createdAt    DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime                    @updatedAt @db.Timestamptz(3)
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone         Zone?                       @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  walletTransactions DriverManagerWalletTransaction[]
+
+  @@index([zoneId])
+  @@map("driver_managers")
+}
+
+model DriverManagerWalletTransaction {
+  id             String                      @id @default(uuid())
+  managerId      String
+  orderId        String?
+  type           DriverManagerTransactionType
+  amount         Int
+  balanceAfter   Int
+  description    String?
+  referenceId    String?
+  idempotencyKey String?
+  createdAt      DateTime                    @default(now()) @db.Timestamptz(3)
+  manager        DriverManager               @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  order          Order?                      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, type, managerId])
+  @@unique([managerId, idempotencyKey])
+  @@index([managerId, createdAt])
+  @@index([orderId])
+  @@map("driver_manager_wallet_transactions")
+}
+
 model DriverWalletTransaction {
   id            String                @id @default(uuid())
   driverId      String
@@ -1375,6 +1414,7 @@ enum Language {
 enum Role {
   CUSTOMER
   DRIVER
+  DRIVER_MANAGER
   VENDOR_MEMBER
   ADMIN
   SUPER_ADMIN
@@ -1510,6 +1550,13 @@ enum DriverTier {
   BRONZE
   SILVER
   GOLD
+}
+
+enum DriverManagerTransactionType {
+  DELIVERY_SHARE
+  BRONZE_PENALTY
+  ADJUSTMENT
+  PAYOUT
 }
 
 enum SwapRequestStatus {

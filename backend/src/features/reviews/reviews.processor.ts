@@ -67,11 +67,24 @@ export class ReviewsProcessor extends WorkerHost {
         ? Math.round(agg._avg.driverRating * 100)
         : 500;
 
+      // Keep the tier in sync with the rolling customer rating. New drivers
+      // start on SILVER; a strong record promotes to GOLD, a poor one drops
+      // to BRONZE (which also reduces the delivery fee by 2).
+      const newTier =
+        agg._count._all === 0
+          ? 'SILVER'
+          : convertedRating >= 450
+            ? 'GOLD'
+            : convertedRating >= 400
+              ? 'SILVER'
+              : 'BRONZE';
+
       await this.prisma.driver.update({
         where: { id: driverId },
         data: {
           rating: convertedRating,
           ratingCount: agg._count._all,
+          tier: newTier,
         },
       });
 
