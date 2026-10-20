@@ -475,6 +475,7 @@ model Vendor {
   ratingCount        Int                       @default(0)
   commissionRate     Int                       @default(10)
   status             VendorStatus              @default(CLOSED)
+  // Vendor-owned wallet. Every VendorMember reads this same balance and ledger.
   walletBalance      Int                       @default(0)
   isContracted       Boolean                   @default(false)
   workingHours       Json?
@@ -544,13 +545,17 @@ model VendorBranch {
   vendorMembers VendorMember[]
   orders        Order[]
 
-  orderFulfillments OrderVendorFulfillment[]
+  orderFulfillments   OrderVendorFulfillment[]
+  productAvailability ProductBranchAvailability[]
+
   @@index([zoneId])
   @@index([vendorId, isOpen])
   @@index([location], type: Gist)
   @@map("vendor_branches")
 }
 
+// Vendor-owned ledger. Rows are scoped by vendorId; there is no member/user
+// wallet. All members of the vendor see the same history.
 model VendorWalletTransaction {
   id           String                @id @default(uuid())
   vendorId     String
@@ -565,14 +570,15 @@ model VendorWalletTransaction {
   order        Order?                @relation(fields: [orderId], references: [id])
   vendor       Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
-  @@index([vendorId])
-  @@index([orderId])
-  @@index([createdAt])
   // Was @@unique([orderId, type]) — that capped an order at ONE revenue + ONE
   // commission row and made per-vendor settlement impossible. Scoped to
   // vendorId so each vendor portion settles exactly once per order.
   @@unique([orderId, type, vendorId])
   @@unique([vendorId, idempotencyKey])
+  @@index([vendorId, createdAt])
+  @@index([vendorId, type, createdAt])
+  @@index([orderId])
+  @@index([createdAt])
   @@map("vendor_wallet_transactions")
 }
 
@@ -652,6 +658,11 @@ model MenuCategory {
   @@map("menu_categories")
 }
 
+enum ProductBranchAvailabilityMode {
+  ALL
+  SPECIFIC
+}
+
 model Product {
   id               String               @id @default(uuid())
   version          Int                  @default(100)
@@ -682,6 +693,8 @@ model Product {
   variants         ProductVariant[]
   promotions       Promotion[]
   offers           Offer[]
+  branchAvailabilityMode ProductBranchAvailabilityMode @default(ALL)
+  branchAvailability     ProductBranchAvailability[]
   category         MenuCategory?        @relation(fields: [categoryId], references: [id])
   vendor           Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -689,6 +702,20 @@ model Product {
   @@index([categoryId])
   @@index([deletedAt])
   @@map("products")
+}
+
+// ALL means every current and future branch; SPECIFIC resolves through the
+// explicit rows below. A one-branch product is simply SPECIFIC with one row.
+model ProductBranchAvailability {
+  productId String
+  branchId  String
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch    VendorBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([productId, branchId])
+  @@index([branchId, productId])
+  @@map("product_branch_availability")
 }
 
 model ProductVariant {

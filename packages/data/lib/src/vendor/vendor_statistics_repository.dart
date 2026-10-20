@@ -48,6 +48,41 @@ class VendorStatisticsRepository {
     return ResponseParser.parse(response);
   }
 
+  /// Product-level sales/profit report. The endpoint is newer than the
+  /// generated client, so it is called through Dio.
+  Future<dynamic> getVendorProductSales(
+    String vendorId, {
+    DateTime? from,
+    DateTime? to,
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String sortBy = 'revenue',
+    String sortOrder = 'desc',
+  }) async {
+    final dio = _dio;
+    if (dio == null) return null;
+
+    final response = await dio.get<dynamic>(
+      '/statistics/vendors/$vendorId/products',
+      queryParameters: {
+        'from': ?_dateParamOrNull(from),
+        'to': ?_dateParamOrNull(to),
+        'page': page,
+        'limit': limit,
+        'search': ?search,
+        'sortBy': sortBy,
+        'sortOrder': sortOrder,
+      },
+    );
+    if (response.data is Map) {
+      return (response.data as Map)['data'];
+    }
+    return response.data;
+  }
+
+  static String? _dateParamOrNull(DateTime? d) => d == null ? null : _dateParam(d);
+
   static String _dateParam(DateTime d) {
     final month = d.month.toString().padLeft(2, '0');
     final day = d.day.toString().padLeft(2, '0');

@@ -2,6 +2,7 @@ import { Vendor } from './vendor';
 import { Zone } from './zone';
 import { VendorMember } from './vendor_member';
 import { Order } from './order';
+import { ProductBranchAvailability } from './product_branch_availability';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class VendorBranchRelations {
@@ -16,4 +17,7 @@ export class VendorBranchRelations {
 
   @ApiProperty({ isArray: true, type: () => Order })
   orders: Order[];
+
+  @ApiProperty({ isArray: true, type: () => ProductBranchAvailability })
+  productAvailability: ProductBranchAvailability[];
 }

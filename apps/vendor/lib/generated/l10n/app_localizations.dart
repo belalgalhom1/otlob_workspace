@@ -740,6 +740,78 @@ abstract class AppLocalizations {
   /// **'Branches'**
   String get branches;
 
+  /// No description provided for @branchAvailability.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch availability'**
+  String get branchAvailability;
+
+  /// No description provided for @allBranches.
+  ///
+  /// In en, this message translates to:
+  /// **'All branches'**
+  String get allBranches;
+
+  /// No description provided for @specificBranches.
+  ///
+  /// In en, this message translates to:
+  /// **'Specific branches'**
+  String get specificBranches;
+
+  /// No description provided for @allBranchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Available at every current branch and any branch added later.'**
+  String get allBranchesHint;
+
+  /// No description provided for @specificBranchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose one branch for a single location, or several branches. New branches are not included automatically.'**
+  String get specificBranchesHint;
+
+  /// No description provided for @branchAvailabilityRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one branch.'**
+  String get branchAvailabilityRequired;
+
+  /// No description provided for @noBranchesAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No branches yet. This product will be available at all branches, including future ones.'**
+  String get noBranchesAvailable;
+
+  /// No description provided for @noBranchesSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No branches selected'**
+  String get noBranchesSelected;
+
+  /// No description provided for @oneBranchSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'1 branch selected'**
+  String get oneBranchSelected;
+
+  /// No description provided for @branchesSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} branches selected'**
+  String branchesSelected(int count);
+
+  /// No description provided for @selectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get selectAll;
+
+  /// No description provided for @clearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get clearAll;
+
   /// No description provided for @menuCategories.
   ///
   /// In en, this message translates to:

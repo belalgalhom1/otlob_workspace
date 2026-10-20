@@ -8,7 +8,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../../infrastructure/storage/storage.service';
-import { Prisma } from '@prisma/client';
+import {
+  Prisma,
+  ProductBranchAvailabilityMode,
+} from '@prisma/client';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -48,6 +51,13 @@ const PRODUCT_DETAIL_INCLUDE = {
       options: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
     },
   },
+  branchAvailability: {
+    select: {
+      branchId: true,
+      branch: { select: { id: true, name: true, nameAr: true } },
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
   _count: { select: { favoritedBy: true } },
 };
 
@@ -67,6 +77,7 @@ const PRODUCT_LIST_INCLUDE = {
       tracksStock: true,
     },
   },
+  branchAvailability: { select: { branchId: true } },
   _count: { select: { favoritedBy: true } },
 };
 
@@ -114,6 +125,18 @@ export class ProductsService implements OnModuleInit {
       where.OR = [
         { name: { contains: dto.search, mode: 'insensitive' } },
         { nameAr: { contains: dto.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (dto.branchId) {
+      await this.assertBranchBelongsToVendor(dto.branchId, vendorId);
+      where.AND = [
+        {
+          OR: [
+            { branchAvailabilityMode: ProductBranchAvailabilityMode.ALL },
+            { branchAvailability: { some: { branchId: dto.branchId } } },
+          ],
+        },
       ];
     }
 
@@ -179,6 +202,12 @@ export class ProductsService implements OnModuleInit {
       await this.assertSkuAvailable(sku);
     }
 
+    const availability = await this.resolveBranchAvailability(
+      vendorId,
+      dto.branchAvailabilityMode,
+      dto.branchIds,
+    );
+
     const product = await this.prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
         data: {
@@ -198,8 +227,18 @@ export class ProductsService implements OnModuleInit {
           isFeatured: dto.isFeatured ?? false,
           sellByStrip: dto.sellByStrip ?? false,
           stripsPerPackage: dto.stripsPerPackage ?? null,
+          branchAvailabilityMode: availability.mode,
         },
       });
+
+      if (availability.branchIds.length > 0) {
+        await tx.productBranchAvailability.createMany({
+          data: availability.branchIds.map((branchId) => ({
+            productId: created.id,
+            branchId,
+          })),
+        });
+      }
 
       // Create option groups + options for simple products
       if (!dto.hasVariants && dto.optionGroups?.length) {
@@ -244,41 +283,69 @@ export class ProductsService implements OnModuleInit {
       await this.assertSkuAvailable(sku, productId);
     }
 
+    const availability = await this.resolveBranchAvailabilityForUpdate(
+      vendorId,
+      productId,
+      dto.branchAvailabilityMode,
+      dto.branchIds,
+    );
+
     try {
-      await this.prisma.product.update({
-        where: {
-          id: productId,
-          ...(dto.version !== undefined && { version: dto.version }),
-        },
-        data: {
-          ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
-          ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
-          ...(dto.description !== undefined && {
-            description: dto.description,
-          }),
-          ...(dto.descriptionAr !== undefined && {
-            descriptionAr: dto.descriptionAr,
-          }),
-          ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
-          ...(dto.comparePrice !== undefined && {
-            comparePrice: dto.comparePrice,
-          }),
-          ...(sku !== undefined && { sku }),
-          ...(dto.stock !== undefined && { stock: dto.stock }),
-          ...(dto.tracksStock !== undefined && {
-            tracksStock: dto.tracksStock,
-          }),
-          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-          ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
-          ...(dto.sellByStrip !== undefined && {
-            sellByStrip: dto.sellByStrip,
-          }),
-          ...(dto.stripsPerPackage !== undefined && {
-            stripsPerPackage: dto.stripsPerPackage,
-          }),
-          version: { increment: 1 },
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.product.update({
+          where: {
+            id: productId,
+            ...(dto.version !== undefined && { version: dto.version }),
+          },
+          data: {
+            ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+            ...(dto.name !== undefined && { name: dto.name }),
+            ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
+            ...(dto.descriptionAr !== undefined && {
+              descriptionAr: dto.descriptionAr,
+            }),
+            ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
+            ...(dto.comparePrice !== undefined && {
+              comparePrice: dto.comparePrice,
+            }),
+            ...(sku !== undefined && { sku }),
+            ...(dto.stock !== undefined && { stock: dto.stock }),
+            ...(dto.tracksStock !== undefined && {
+              tracksStock: dto.tracksStock,
+            }),
+            ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+            ...(dto.isFeatured !== undefined && {
+              isFeatured: dto.isFeatured,
+            }),
+            ...(dto.sellByStrip !== undefined && {
+              sellByStrip: dto.sellByStrip,
+            }),
+            ...(dto.stripsPerPackage !== undefined && {
+              stripsPerPackage: dto.stripsPerPackage,
+            }),
+            ...(availability && {
+              branchAvailabilityMode: availability.mode,
+            }),
+            version: { increment: 1 },
+          },
+        });
+
+        if (availability) {
+          await tx.productBranchAvailability.deleteMany({
+            where: { productId },
+          });
+          if (availability.branchIds.length > 0) {
+            await tx.productBranchAvailability.createMany({
+              data: availability.branchIds.map((branchId) => ({
+                productId,
+                branchId,
+              })),
+            });
+          }
+        }
       });
     } catch (error) {
       if (
@@ -655,6 +722,96 @@ export class ProductsService implements OnModuleInit {
 
     if (dto.optionGroups?.length) {
       await this.createOptionGroups(tx, null, variant.id, dto.optionGroups);
+    }
+  }
+
+  private async resolveBranchAvailability(
+    vendorId: string,
+    mode?: ProductBranchAvailabilityMode,
+    branchIds?: string[],
+  ): Promise<{
+    mode: ProductBranchAvailabilityMode;
+    branchIds: string[];
+  }> {
+    const uniqueBranchIds = [...new Set(branchIds ?? [])];
+    const resolvedMode =
+      mode ??
+      (uniqueBranchIds.length > 0
+        ? ProductBranchAvailabilityMode.SPECIFIC
+        : ProductBranchAvailabilityMode.ALL);
+
+    if (resolvedMode === ProductBranchAvailabilityMode.ALL) {
+      if (uniqueBranchIds.length > 0) {
+        throw new BadRequestException(
+          ProductErrors.BRANCH_AVAILABILITY_INVALID,
+        );
+      }
+      return { mode: ProductBranchAvailabilityMode.ALL, branchIds: [] };
+    }
+
+    if (uniqueBranchIds.length === 0) {
+      throw new BadRequestException(ProductErrors.BRANCHES_REQUIRED);
+    }
+
+    const branches = await this.prisma.vendorBranch.findMany({
+      where: {
+        id: { in: uniqueBranchIds },
+        vendorId,
+      },
+      select: { id: true },
+    });
+    if (branches.length !== uniqueBranchIds.length) {
+      throw new BadRequestException(ProductErrors.BRANCH_NOT_IN_VENDOR);
+    }
+
+    return {
+      mode: ProductBranchAvailabilityMode.SPECIFIC,
+      branchIds: uniqueBranchIds,
+    };
+  }
+
+  private async resolveBranchAvailabilityForUpdate(
+    vendorId: string,
+    productId: string,
+    mode?: ProductBranchAvailabilityMode,
+    branchIds?: string[],
+  ): Promise<{
+    mode: ProductBranchAvailabilityMode;
+    branchIds: string[];
+  } | null> {
+    if (mode === undefined && branchIds === undefined) return null;
+
+    if (
+      mode === ProductBranchAvailabilityMode.SPECIFIC &&
+      branchIds === undefined
+    ) {
+      const existing = await this.prisma.productBranchAvailability.findMany({
+        where: { productId },
+        select: { branchId: true },
+      });
+      if (existing.length === 0) {
+        throw new BadRequestException(ProductErrors.BRANCHES_REQUIRED);
+      }
+      return this.resolveBranchAvailability(
+        vendorId,
+        ProductBranchAvailabilityMode.SPECIFIC,
+        existing.map((row) => row.branchId),
+      );
+    }
+
+    return this.resolveBranchAvailability(vendorId, mode, branchIds);
+  }
+
+  private async assertBranchBelongsToVendor(
+    branchId: string,
+    vendorId: string,
+  ) {
+    const branch = await this.prisma.vendorBranch.findFirst({
+      where: { id: branchId, vendorId },
+      select: { id: true },
+    });
+    if (!branch) {
+      throw new BadRequestException(ProductErrors.BRANCH_NOT_IN_VENDOR);
     }
   }
 

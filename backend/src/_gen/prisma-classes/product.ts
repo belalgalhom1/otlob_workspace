@@ -58,6 +58,9 @@ export class Product {
   @ApiProperty({ type: Boolean })
   isFeatured: boolean;
 
+  @ApiProperty({ enum: ['ALL', 'SPECIFIC'], default: 'ALL' })
+  branchAvailabilityMode: string = 'ALL';
+
   @ApiPropertyOptional({ type: Date })
   deletedAt?: Date;
 

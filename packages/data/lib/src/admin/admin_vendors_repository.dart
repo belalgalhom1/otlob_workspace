@@ -1,4 +1,5 @@
 import 'package:api/api.dart';
+import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 import '../shared/response_parser.dart';
 
@@ -326,6 +327,68 @@ class AdminVendorsRepository {
             updateProductDto: updateProductDto,
           );
     return ResponseParser.parse(response);
+  }
+
+  /// Creates a product and its branch availability atomically.
+  ///
+  /// The generated client predates the branch fields. Serializing the existing
+  /// DTO keeps every other field wire-compatible, then the two branch fields
+  /// are added before the raw request.
+  Future<dynamic> createProductWithBranchAvailability(
+    String vendorId,
+    CreateProductDto createProductDto, {
+    required String branchAvailabilityMode,
+    required List<String> branchIds,
+    bool isAdmin = true,
+  }) async {
+    final body = _serializeProductDto(
+      createProductDto,
+      const FullType(CreateProductDto),
+    );
+    body['branchAvailabilityMode'] = branchAvailabilityMode;
+    body['branchIds'] = branchIds;
+
+    final response = await _dio.post(
+      isAdmin ? '/vendors/$vendorId/products/admin' : '/vendors/$vendorId/products',
+      data: body,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  /// Updates a product and replaces its branch availability atomically.
+  Future<dynamic> updateProductWithBranchAvailability(
+    String vendorId,
+    String productId,
+    UpdateProductDto updateProductDto, {
+    required String branchAvailabilityMode,
+    required List<String> branchIds,
+    bool isAdmin = true,
+  }) async {
+    final body = _serializeProductDto(
+      updateProductDto,
+      const FullType(UpdateProductDto),
+    );
+    body['branchAvailabilityMode'] = branchAvailabilityMode;
+    body['branchIds'] = branchIds;
+
+    final response = await _dio.patch(
+      isAdmin
+          ? '/vendors/$vendorId/products/admin/$productId'
+          : '/vendors/$vendorId/products/$productId',
+      data: body,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Map<String, dynamic> _serializeProductDto(Object dto, FullType type) {
+    final serialized = standardSerializers.serialize(
+      dto,
+      specifiedType: type,
+    );
+    if (serialized is! Map) return <String, dynamic>{};
+    return serialized.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
   }
 
   Future<dynamic> uploadProductImage(

@@ -333,6 +333,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get branches => 'Branches';
 
   @override
+  String get branchAvailability => 'Branch availability';
+
+  @override
+  String get allBranches => 'All branches';
+
+  @override
+  String get specificBranches => 'Specific branches';
+
+  @override
+  String get allBranchesHint =>
+      'Available at every current branch and any branch added later.';
+
+  @override
+  String get specificBranchesHint =>
+      'Choose one branch for a single location, or several branches. New branches are not included automatically.';
+
+  @override
+  String get branchAvailabilityRequired => 'Select at least one branch.';
+
+  @override
+  String get noBranchesAvailable =>
+      'No branches yet. This product will be available at all branches, including future ones.';
+
+  @override
+  String get noBranchesSelected => 'No branches selected';
+
+  @override
+  String get oneBranchSelected => '1 branch selected';
+
+  @override
+  String branchesSelected(int count) {
+    return '$count branches selected';
+  }
+
+  @override
+  String get selectAll => 'Select all';
+
+  @override
+  String get clearAll => 'Clear all';
+
+  @override
   String get menuCategories => 'Menu Categories';
 
   @override

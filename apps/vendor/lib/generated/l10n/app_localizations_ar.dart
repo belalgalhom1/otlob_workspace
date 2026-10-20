@@ -332,6 +332,47 @@ class AppLocalizationsAr extends AppLocalizations {
   String get branches => 'الفروع';
 
   @override
+  String get branchAvailability => 'توفر الفروع';
+
+  @override
+  String get allBranches => 'كل الفروع';
+
+  @override
+  String get specificBranches => 'فروع محددة';
+
+  @override
+  String get allBranchesHint =>
+      'متاح في كل الفروع الحالية وأي فرع يُضاف لاحقًا.';
+
+  @override
+  String get specificBranchesHint =>
+      'اختر فرعًا واحدًا إذا كان المنتج متاحًا في موقع واحد، أو عدة فروع. الفروع الجديدة لا تُضاف تلقائيًا.';
+
+  @override
+  String get branchAvailabilityRequired => 'اختر فرعًا واحدًا على الأقل.';
+
+  @override
+  String get noBranchesAvailable =>
+      'لا توجد فروع بعد. سيكون المنتج متاحًا في كل الفروع، بما فيها الفروع الجديدة.';
+
+  @override
+  String get noBranchesSelected => 'لم يتم اختيار فروع';
+
+  @override
+  String get oneBranchSelected => 'تم اختيار فرع واحد';
+
+  @override
+  String branchesSelected(int count) {
+    return 'تم اختيار $count فروع';
+  }
+
+  @override
+  String get selectAll => 'تحديد الكل';
+
+  @override
+  String get clearAll => 'إلغاء التحديد';
+
+  @override
   String get menuCategories => 'تصنيفات المنيو';
 
   @override

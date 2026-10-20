@@ -240,6 +240,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final bool isActive = product['isActive'] ?? true;
     final double price =
         double.tryParse(product['basePrice']?.toString() ?? '') ?? 0.0;
+    final branchMode =
+        product['branchAvailabilityMode']?.toString() ?? 'ALL';
+    final branchCount =
+        (product['branchAvailability'] as List?)?.length ?? 0;
+    final branchLabel = branchMode == 'ALL'
+        ? AppLocalizations.of(context)!.allBranches
+        : branchCount == 1
+        ? AppLocalizations.of(context)!.oneBranchSelected
+        : branchCount == 0
+        ? AppLocalizations.of(context)!.noBranchesSelected
+        : AppLocalizations.of(context)!.branchesSelected(branchCount);
 
     return Container(
       decoration: BoxDecoration(
@@ -379,6 +390,35 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                               : null,
                         ),
                       ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.gitBranch,
+                            size: 10,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            branchLabel,
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -468,7 +508,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         if (product != null) {
           final updateResult = await ref
               .read(adminVendorsRepositoryProvider)
-              .updateProduct(
+              .updateProductWithBranchAvailability(
                 widget.vendorId,
                 product['id'],
                 UpdateProductDto((b) {
@@ -488,6 +528,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
                   if (result['categoryId'] != null) b.categoryId = JsonObject(result['categoryId']);
                 }),
+                branchAvailabilityMode:
+                    result['branchAvailabilityMode']?.toString() ?? 'ALL',
+                branchIds: List<String>.from(
+                  result['branchIds'] as List? ?? const [],
+                ),
                 isAdmin: widget.isAdmin,
               );
           success = updateResult != null;
@@ -495,7 +540,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         } else {
           final createdProduct = await ref
               .read(adminVendorsRepositoryProvider)
-              .createProduct(
+              .createProductWithBranchAvailability(
                 widget.vendorId,
                 CreateProductDto((b) {
                   b.name = result['name'] ?? '';
@@ -525,6 +570,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     }
                   }
                 }),
+                branchAvailabilityMode:
+                    result['branchAvailabilityMode']?.toString() ?? 'ALL',
+                branchIds: List<String>.from(
+                  result['branchIds'] as List? ?? const [],
+                ),
                 isAdmin: widget.isAdmin,
               );
           productId = createdProduct?['id'];

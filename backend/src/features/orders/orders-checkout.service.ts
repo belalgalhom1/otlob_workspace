@@ -62,6 +62,12 @@ export class OrdersCheckoutService {
       dto.paymentMethod,
       dto.coinsToUse,
       coinBalance,
+      this.productIdsFromItems(cart.items),
+    );
+
+    await this.cartService.assertItemsAvailableAtBranch(
+      cart.items,
+      money.branch.id,
     );
 
     const items: OrderItemData[] = cart.items.map((item: any) => {
@@ -169,6 +175,12 @@ export class OrdersCheckoutService {
       dto.paymentMethod,
       dto.coinsToUse,
       coinBalance,
+      this.productIdsFromItems(cart.items),
+    );
+
+    await this.cartService.assertItemsAvailableAtBranch(
+      cart.items,
+      money.branch.id,
     );
 
     return {
@@ -209,6 +221,18 @@ export class OrdersCheckoutService {
     };
   }
 
+  private productIdsFromItems(
+    items: Array<{ productId?: string | null }>,
+  ): string[] {
+    return [
+      ...new Set(
+        items
+          .map((item) => item.productId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+  }
+
   private async computeStandardOrderMoney(
     vendorId: string,
     subtotal: number,
@@ -216,6 +240,7 @@ export class OrdersCheckoutService {
     paymentMethod: PaymentMethod,
     coinsToUse: number | undefined,
     coinBalance: number | null,
+    productIds: string[] = [],
   ) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
@@ -247,12 +272,28 @@ export class OrdersCheckoutService {
       lng,
       lat,
       zone?.id,
+      productIds,
     );
     // The branch lookup only considers open branches geometrically inside the
     // customer's delivery zone, so a returned branch is always in that zone.
-    // Without an open branch there is no pickup point for the driver, so the
-    // order cannot be fulfilled.
+    // It also requires every cart product to be available at that branch.
     if (!branch) {
+      if (productIds.length > 0) {
+        const anyOpenBranch =
+          await this.ordersRepository.getNearestOpenBranchLocation(
+            vendorId,
+            lng,
+            lat,
+            zone?.id,
+          );
+        if (anyOpenBranch) {
+          throw new BadRequestException(
+            OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH,
+          );
+        }
+      }
+      // Without an open branch there is no pickup point for the driver, so the
+      // order cannot be fulfilled at all.
       throw new BadRequestException(OrderErrors.NO_OPEN_BRANCH);
     }
     const distanceKm = await this.ordersRepository.getDistanceKm(

@@ -1709,6 +1709,9 @@
   "product_error_base_price_required_without_variants": "Base price is required when product has no variants.",
   "product_error_category_not_found": "Menu category not found.",
   "product_error_image_upload_failed": "Failed to upload product image.",
+  "product_error_branches_required": "Select at least one branch for this product.",
+  "product_error_branch_not_in_vendor": "One or more selected branches do not belong to this store.",
+  "product_error_branch_availability_invalid": "Branch availability settings are invalid.",
   "driver_error_profile_exists": "A driver profile already exists for this account.",
   "driver_error_profile_not_found": "Driver profile not found.",
   "driver_error_account_suspended": "Your driver account is currently suspended. Please contact support.",
@@ -1884,5 +1887,6 @@
   "order_error_multi_vendor_not_allowed": "Multi-vendor checkout requires at least two vendors.",
   "order_error_empty_cart_for_vendor": "One of the vendors in your checkout has an empty cart.",
   "order_error_no_delivery_groups": "We could not plan the deliveries for this order.",
-  "order_error_no_open_branch": "This vendor has no open branch serving your area right now."
+  "order_error_no_open_branch": "This vendor has no open branch serving your area right now.",
+  "order_error_product_not_available_at_branch": "One or more products in your cart are not available at the branch serving your address."
 }

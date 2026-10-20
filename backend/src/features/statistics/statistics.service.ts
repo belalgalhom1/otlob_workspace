@@ -19,7 +19,10 @@ import {
   QUEUES,
   STATS_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import type { StatPeriodRange } from './statistics.repository';
+import type {
+  StatPeriodRange,
+  VendorProductSalesOptions,
+} from './statistics.repository';
 
 export interface SettleOrderPayload {
   orderId: string;
@@ -1111,20 +1114,49 @@ export class StatisticsService {
     return this.statsRepository.getAppStats(period, limit, from, to);
   }
 
+  async getVendorProductSales(
+    vendorId: string,
+    opts: VendorProductSalesOptions = {},
+  ) {
+    return this.statsRepository.getVendorProductSales(vendorId, opts);
+  }
+
   async getMostOrderedProduct(vendorId: string) {
     // Tiebreaker: 1. Higher quantity sold (totalOrders), 2. More recent activity (lastOrderedAt), 3. Lower productId
     const result = await this.prisma.$queryRaw<
       Array<{ productId: string; totalOrders: number; lastOrderedAt: Date }>
     >`
-      SELECT 
-        oi."productId" as "productId", 
-        SUM(oi.quantity)::int as "totalOrders",
-        MAX(o."createdAt") as "lastOrderedAt"
-      FROM order_items oi
-      JOIN orders o ON o.id = oi."orderId"
-      WHERE o."vendorId" = ${vendorId} AND o.status = 'DELIVERED' AND oi."productId" IS NOT NULL
-      GROUP BY oi."productId"
-      ORDER BY "totalOrders" DESC, "lastOrderedAt" DESC, oi."productId" ASC
+      WITH vendor_items AS (
+        SELECT oi."productId", oi.quantity, o."createdAt"
+        FROM order_items oi
+        JOIN orders o ON o.id = oi."orderId"
+        WHERE o."vendorId" = ${vendorId}
+          AND o.status = 'DELIVERED'
+          AND o."deletedAt" IS NULL
+          AND oi."fulfillmentId" IS NULL
+          AND oi."rejectedAt" IS NULL
+          AND oi."productId" IS NOT NULL
+
+        UNION ALL
+
+        SELECT oi."productId", oi.quantity, o."createdAt"
+        FROM order_items oi
+        JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
+        JOIN orders o ON o.id = f."orderId"
+        WHERE f."vendorId" = ${vendorId}
+          AND f.status = 'ACCEPTED'
+          AND o.status = 'DELIVERED'
+          AND o."deletedAt" IS NULL
+          AND oi."rejectedAt" IS NULL
+          AND oi."productId" IS NOT NULL
+      )
+      SELECT
+        "productId" AS "productId",
+        SUM("quantity")::int AS "totalOrders",
+        MAX("createdAt") AS "lastOrderedAt"
+      FROM vendor_items
+      GROUP BY "productId"
+      ORDER BY "totalOrders" DESC, "lastOrderedAt" DESC, "productId" ASC
       LIMIT 1
     `;
 

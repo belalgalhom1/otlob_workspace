@@ -25,7 +25,7 @@ final adminVendorsRepositoryProvider = Provider<AdminVendorsRepository>((ref) =>
   ref.watch(apiClientProvider).getPromotionsApi(),
   ref.watch(apiClientProvider).dio,
 ));
-final adminVendorWalletRepositoryProvider = Provider<AdminVendorWalletRepository>((ref) => AdminVendorWalletRepository(ref.watch(apiClientProvider).getVendorsWalletTransactionsApi()));
+final adminVendorWalletRepositoryProvider = Provider<AdminVendorWalletRepository>((ref) => AdminVendorWalletRepository(ref.watch(apiClientProvider).getVendorsWalletTransactionsApi(), dio: ref.watch(dioProvider)));
 final adminVerticalsRepositoryProvider = Provider<AdminVerticalsRepository>((ref) => AdminVerticalsRepository(ref.watch(apiClientProvider).getVendorsVerticalsCategoriesApi()));
 final adminWalletRepositoryProvider = Provider<AdminWalletRepository>((ref) => AdminWalletRepository(ref.watch(apiClientProvider).getWalletFinancialsApi()));
 final adminZonesRepositoryProvider = Provider<AdminZonesRepository>((ref) => AdminZonesRepository(ref.watch(apiClientProvider).getLogisticsZonesApi(), dio: ref.watch(dioProvider)));
@@ -67,5 +67,5 @@ final vendorOrdersRepositoryProvider = Provider<VendorOrdersRepository>((ref) =>
 final vendorProfileRepositoryProvider = Provider<VendorProfileRepository>((ref) => VendorProfileRepository(ref.watch(apiClientProvider).getVendorsCoreManagementApi()));
 final vendorPromotionsRepositoryProvider = Provider<VendorPromotionsRepository>((ref) => VendorPromotionsRepository(ref.watch(apiClientProvider).getPromotionsApi()));
 final vendorStatisticsRepositoryProvider = Provider<VendorStatisticsRepository>((ref) => VendorStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
-final vendorWalletRepositoryProvider = Provider<VendorWalletRepository>((ref) => VendorWalletRepository(ref.watch(apiClientProvider).getVendorsWalletTransactionsApi(), ref.watch(apiClientProvider).getWalletFinancialsApi()));
+final vendorWalletRepositoryProvider = Provider<VendorWalletRepository>((ref) => VendorWalletRepository(ref.watch(apiClientProvider).getVendorsWalletTransactionsApi(), ref.watch(apiClientProvider).getWalletFinancialsApi(), dio: ref.watch(dioProvider)));
 

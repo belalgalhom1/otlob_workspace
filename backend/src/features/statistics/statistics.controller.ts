@@ -13,6 +13,8 @@ import {
   Min,
   Max,
   IsISO8601,
+  IsString,
+  IsIn,
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -65,6 +67,42 @@ class AnalyticsQueryDto {
   to?: string;
 }
 
+class VendorProductSalesQueryDto {
+  @IsISO8601()
+  @IsOptional()
+  from?: string;
+
+  @IsISO8601()
+  @IsOptional()
+  @ValidateIf((o: VendorProductSalesQueryDto) => o.from !== undefined)
+  to?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number = 20;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsIn(['revenue', 'quantity', 'orders', 'net', 'name'])
+  @IsOptional()
+  sortBy?: 'revenue' | 'quantity' | 'orders' | 'net' | 'name' = 'revenue';
+
+  @IsIn(['asc', 'desc'])
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc' = 'desc';
+}
+
 @ApiTags('Statistics')
 @ApiBearerAuth()
 @Controller('statistics')
@@ -99,6 +137,30 @@ export class StatisticsController {
   @ApiOperation({ summary: 'Get the most ordered product for a vendor' })
   getMostOrderedProduct(@Param('vendorId') vendorId: string) {
     return this.statisticsService.getMostOrderedProduct(vendorId);
+  }
+
+  @ApiStandardResponse()
+  @Get('vendors/:vendorId/products')
+  @VendorMember({ vendorIdParam: 'vendorId' })
+  @ApiOperation({
+    summary: 'Get product-level sales and profit for a vendor (member or admin)',
+  })
+  @ApiQuery({ name: 'from', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({ name: 'to', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['revenue', 'quantity', 'orders', 'net', 'name'],
+  })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+  getVendorProductSales(
+    @Param('vendorId') vendorId: string,
+    @Query() dto: VendorProductSalesQueryDto,
+  ) {
+    return this.statisticsService.getVendorProductSales(vendorId, dto);
   }
 
   // ─── Driver stats (self) ──────────────────────────────────────────────────

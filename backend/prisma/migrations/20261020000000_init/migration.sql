@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
@@ -9,6 +12,9 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 
 -- CreateEnum
 CREATE TYPE "CoinTransactionType" AS ENUM ('EARNED', 'SPENT', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "ProductBranchAvailabilityMode" AS ENUM ('ALL', 'SPECIFIC');
 
 -- CreateEnum
 CREATE TYPE "DevicePlatform" AS ENUM ('ANDROID', 'IOS', 'WEB');
@@ -252,17 +258,6 @@ CREATE TABLE "zones" (
 
     CONSTRAINT "zones_pkey" PRIMARY KEY ("id")
 );
-
--- Partial unique indexes so soft-deleted users credentials can be re-registered
-DROP INDEX IF EXISTS "users_email_active_unique";
-DROP INDEX IF EXISTS "users_phone_active_unique";
-CREATE UNIQUE INDEX IF NOT EXISTS "users_email_active_unique"
-  ON "users" ("email")
-  WHERE "deletedAt" IS NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS "users_phone_active_unique"
-  ON "users" ("phone")
-  WHERE "deletedAt" IS NULL;
-
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -647,8 +642,18 @@ CREATE TABLE "products" (
     "deletedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+    "branchAvailabilityMode" "ProductBranchAvailabilityMode" NOT NULL DEFAULT 'ALL',
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "product_branch_availability" (
+    "productId" TEXT NOT NULL,
+    "branchId" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "product_branch_availability_pkey" PRIMARY KEY ("productId","branchId")
 );
 
 -- CreateTable
@@ -1206,6 +1211,17 @@ CREATE INDEX "users_role_idx" ON "users"("role");
 -- CreateIndex
 CREATE INDEX "users_deletedAt_idx" ON "users"("deletedAt");
 
+-- Partial unique indexes so soft-deleted users credentials can be re-registered
+DROP INDEX IF EXISTS "users_email_active_unique";
+DROP INDEX IF EXISTS "users_phone_active_unique";
+CREATE UNIQUE INDEX IF NOT EXISTS "users_email_active_unique"
+  ON "users" ("email")
+  WHERE "deletedAt" IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "users_phone_active_unique"
+  ON "users" ("phone")
+  WHERE "deletedAt" IS NULL;
+
 -- CreateIndex
 CREATE UNIQUE INDEX "devices_token_key" ON "devices"("token");
 
@@ -1360,7 +1376,10 @@ CREATE INDEX "vendor_branches_vendorId_isOpen_idx" ON "vendor_branches"("vendorI
 CREATE INDEX "vendor_branches_location_idx" ON "vendor_branches" USING GIST ("location");
 
 -- CreateIndex
-CREATE INDEX "vendor_wallet_transactions_vendorId_idx" ON "vendor_wallet_transactions"("vendorId");
+CREATE INDEX "vendor_wallet_transactions_vendorId_createdAt_idx" ON "vendor_wallet_transactions"("vendorId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "vendor_wallet_transactions_vendorId_type_createdAt_idx" ON "vendor_wallet_transactions"("vendorId", "type", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "vendor_wallet_transactions_orderId_idx" ON "vendor_wallet_transactions"("orderId");
@@ -1403,6 +1422,9 @@ CREATE INDEX "products_categoryId_idx" ON "products"("categoryId");
 
 -- CreateIndex
 CREATE INDEX "products_deletedAt_idx" ON "products"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "product_branch_availability_branchId_productId_idx" ON "product_branch_availability"("branchId", "productId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "product_variants_sku_key" ON "product_variants"("sku");
@@ -1807,6 +1829,12 @@ ALTER TABLE "products" ADD CONSTRAINT "products_categoryId_fkey" FOREIGN KEY ("c
 ALTER TABLE "products" ADD CONSTRAINT "products_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "product_branch_availability" ADD CONSTRAINT "product_branch_availability_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "product_branch_availability" ADD CONSTRAINT "product_branch_availability_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "vendor_branches"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "product_variants" ADD CONSTRAINT "product_variants_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -2033,4 +2061,3 @@ ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_driverId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

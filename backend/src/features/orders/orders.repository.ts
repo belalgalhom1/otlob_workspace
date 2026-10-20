@@ -1045,6 +1045,7 @@ export class OrdersRepository {
     toLng: number,
     toLat: number,
     zoneId?: string,
+    productIds: string[] = [],
   ): Promise<
     { id: string; zoneId: string | null; lng: number; lat: number } | null
   > {
@@ -1055,6 +1056,24 @@ export class OrdersRepository {
           "location"
         )`
       : Prisma.empty;
+    // Prefer the nearest branch that can actually fulfil every cart line.
+    // ALL products pass; SPECIFIC products need a matching availability row.
+    const availabilityFilter =
+      productIds.length > 0
+        ? Prisma.sql`
+          AND NOT EXISTS (
+            SELECT 1
+            FROM products p
+            WHERE p.id IN (${Prisma.join(productIds)})
+              AND p."branchAvailabilityMode" = 'SPECIFIC'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM product_branch_availability pba
+                WHERE pba."productId" = p.id
+                  AND pba."branchId" = vendor_branches.id
+              )
+          )`
+        : Prisma.empty;
     const rows = await this.prisma.$queryRaw<
       Array<{ id: string; zoneId: string | null; lng: number; lat: number }>
     >`
@@ -1067,6 +1086,7 @@ export class OrdersRepository {
       WHERE "vendorId"::text = ${vendorId}::text
         AND "isOpen" = true
         ${zoneFilter}
+        ${availabilityFilter}
       ORDER BY
         ST_Distance(
           location::geography,

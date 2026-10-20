@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
-import { Prisma, MessageType } from '@prisma/client';
+import {
+  Prisma,
+  MessageType,
+  ProductBranchAvailabilityMode,
+} from '@prisma/client';
 import { CartErrors } from 'src/common/constants/response.constants';
 import {
   CustomerErrors,
@@ -639,6 +643,41 @@ export class CartService {
       coinBalance: customer.coinBalance,
       cart: formatted,
     };
+  }
+
+  /**
+   * A product is branch-available when it is either marked ALL or has an
+   * explicit availability row for the branch that will fulfil the order.
+   * Checkout resolves that branch from the delivery location, so this check
+   * must run after branch resolution rather than inside cart validation.
+   */
+  async assertItemsAvailableAtBranch(
+    items: Array<{ productId?: string | null }>,
+    branchId: string,
+  ) {
+    const productIds = [
+      ...new Set(
+        items
+          .map((item) => item.productId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (productIds.length === 0) return;
+
+    const unavailable = await this.prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        branchAvailabilityMode: ProductBranchAvailabilityMode.SPECIFIC,
+        branchAvailability: { none: { branchId } },
+      },
+      select: { id: true, name: true },
+    });
+
+    if (unavailable.length > 0) {
+      throw new BadRequestException(
+        OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH,
+      );
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

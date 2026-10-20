@@ -11,9 +11,12 @@ import {
   IsArray,
   ValidateNested,
   Max,
+  IsEnum,
+  ArrayUnique,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { ProductBranchAvailabilityMode } from '@prisma/client';
 
 // ─── Option ───────────────────────────────────────────────────────────────────
 
@@ -352,6 +355,29 @@ export class CreateProductDto {
   @Type(() => Number)
   stripsPerPackage?: number;
 
+  @ApiProperty({
+    enum: ProductBranchAvailabilityMode,
+    default: ProductBranchAvailabilityMode.ALL,
+    required: false,
+    description:
+      'ALL includes every current and future branch. SPECIFIC uses branchIds.',
+  })
+  @IsEnum(ProductBranchAvailabilityMode)
+  @IsOptional()
+  branchAvailabilityMode?: ProductBranchAvailabilityMode;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      'Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.',
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  branchIds?: string[];
+
   // Option groups for simple (non-variant) products
   @ApiProperty({ type: [CreateOptionGroupDto], required: false })
   @IsArray()
@@ -455,6 +481,28 @@ export class UpdateProductDto {
   @Type(() => Number)
   stripsPerPackage?: number;
 
+  @ApiProperty({
+    enum: ProductBranchAvailabilityMode,
+    required: false,
+    description:
+      'ALL includes every current and future branch. SPECIFIC uses branchIds.',
+  })
+  @IsEnum(ProductBranchAvailabilityMode)
+  @IsOptional()
+  branchAvailabilityMode?: ProductBranchAvailabilityMode;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      'Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.',
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  branchIds?: string[];
+
   @ApiProperty({ example: 1, required: false })
   @IsInt()
   @IsOptional()
@@ -489,6 +537,16 @@ export class QueryProductsDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440001',
+    required: false,
+    description:
+      'When provided, only products available at this vendor branch are returned.',
+  })
+  @IsUUID()
+  @IsOptional()
+  branchId?: string;
 
   @ApiProperty({ example: 1, required: false, default: 1 })
   @IsOptional()

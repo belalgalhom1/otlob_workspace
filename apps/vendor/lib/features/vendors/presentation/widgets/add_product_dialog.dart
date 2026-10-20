@@ -55,6 +55,10 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   List<dynamic> _categories = [];
   String? _selectedCategoryId;
   bool _isLoadingCategories = true;
+  List<dynamic> _branches = [];
+  bool _isLoadingBranches = true;
+  String _branchAvailabilityMode = 'ALL';
+  final Set<String> _selectedBranchIds = {};
   XFile? _imageFile;
   bool _isPickingImage = false;
 
@@ -102,12 +106,16 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     );
     _stripPriceController = TextEditingController();
     _selectedCategoryId = p?['categoryId']?.toString();
+    _branchAvailabilityMode =
+        (p?['branchAvailabilityMode'] ?? 'ALL').toString();
+    _selectedBranchIds.addAll(_branchIdsFromProduct(p));
 
     _updateStripPrice();
     _priceController.addListener(_updateStripPrice);
     _stripsCountController.addListener(_updateStripPrice);
 
     _fetchCategories();
+    _fetchBranches();
     if (isEdit) {
       _fetchProductDetails();
     }
@@ -123,11 +131,74 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
         setState(() {
           _variants = List<dynamic>.from(product['variants'] ?? []);
           _optionGroups = List<dynamic>.from(product['optionGroups'] ?? []);
+          final detailMode = product['branchAvailabilityMode']?.toString();
+          if (detailMode == 'ALL' || detailMode == 'SPECIFIC') {
+            _branchAvailabilityMode = detailMode!;
+          }
+          final detailBranchIds = _branchIdsFromProduct(product);
+          if (detailBranchIds.isNotEmpty || detailMode == 'ALL') {
+            _selectedBranchIds
+              ..clear()
+              ..addAll(detailBranchIds);
+          }
           _isLoadingDetails = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingDetails = false);
+    }
+  }
+
+  List<String> _branchIdsFromProduct(dynamic product) {
+    final direct = product?['branchIds'];
+    if (direct is List) {
+      return direct
+          .map((id) => id?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
+    }
+
+    final rows = product?['branchAvailability'];
+    if (rows is! List) return const [];
+    return rows
+        .map((row) {
+          if (row is String) return row;
+          if (row is Map) {
+            final directId = row['branchId'];
+            if (directId != null) return directId.toString();
+            final branch = row['branch'];
+            if (branch is Map && branch['id'] != null) {
+              return branch['id'].toString();
+            }
+          }
+          return null;
+        })
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _fetchBranches() async {
+    try {
+      final branches = await ref
+          .read(adminVendorsRepositoryProvider)
+          .getBranches(widget.vendorId);
+      if (!mounted) return;
+      final list = branches is List
+          ? List<dynamic>.from(branches)
+          : List<dynamic>.from(branches?['data'] as List? ?? const []);
+      setState(() {
+        _branches = list;
+        _isLoadingBranches = false;
+        final validIds = _branches
+            .map((branch) => branch['id']?.toString())
+            .whereType<String>()
+            .toSet();
+        _selectedBranchIds.removeWhere((id) => !validIds.contains(id));
+      });
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingBranches = false);
     }
   }
 
@@ -778,8 +849,162 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 24),
+            _buildSectionHeader(
+              AppLocalizations.of(context)!.branchAvailability,
+            ),
+            const SizedBox(height: 12),
+            _buildBranchAvailabilitySection(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBranchAvailabilitySection() {
+    final l10n = AppLocalizations.of(context)!;
+    final isSpecific = _branchAvailabilityMode == 'SPECIFIC';
+    final allSelected =
+        _branches.isNotEmpty && _selectedBranchIds.length == _branches.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                selected: !isSpecific,
+                onSelected: (_) =>
+                    setState(() => _branchAvailabilityMode = 'ALL'),
+                avatar: const Icon(LucideIcons.globe, size: 16),
+                label: Text(l10n.allBranches),
+              ),
+              ChoiceChip(
+                selected: isSpecific,
+                onSelected: (_) =>
+                    setState(() => _branchAvailabilityMode = 'SPECIFIC'),
+                avatar: const Icon(LucideIcons.gitBranch, size: 16),
+                label: Text(l10n.specificBranches),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingBranches)
+            const LinearProgressIndicator(minHeight: 2)
+          else if (!isSpecific)
+            Text(
+              l10n.allBranchesHint,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            )
+          else if (_branches.isEmpty)
+            Text(
+              l10n.noBranchesAvailable,
+              style: const TextStyle(fontSize: 12, color: AppColors.error),
+            )
+          else ...[
+            Text(
+              l10n.specificBranchesHint,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _selectedBranchIds.isEmpty
+                        ? l10n.noBranchesSelected
+                        : _selectedBranchIds.length == 1
+                        ? l10n.oneBranchSelected
+                        : l10n.branchesSelected(_selectedBranchIds.length),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      if (allSelected) {
+                        _selectedBranchIds.clear();
+                      } else {
+                        _selectedBranchIds
+                          ..clear()
+                          ..addAll(
+                            _branches
+                                .map((branch) => branch['id']?.toString())
+                                .whereType<String>()
+                                .where((id) => id.isNotEmpty),
+                          );
+                      }
+                    });
+                  },
+                  child: Text(
+                    allSelected ? l10n.clearAll : l10n.selectAll,
+                  ),
+                ),
+              ],
+            ),
+            ..._branches.map((branch) {
+              final id = branch['id']?.toString() ?? '';
+              final name =
+                  branch['name']?.toString().trim().isNotEmpty == true
+                  ? branch['name'].toString()
+                  : l10n.unnamedBranch;
+              final address = branch['address']?.toString();
+              return CheckboxListTile(
+                value: _selectedBranchIds.contains(id),
+                onChanged: id.isEmpty
+                    ? null
+                    : (selected) {
+                        setState(() {
+                          if (selected == true) {
+                            _selectedBranchIds.add(id);
+                          } else {
+                            _selectedBranchIds.remove(id);
+                          }
+                        });
+                      },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(name, style: const TextStyle(fontSize: 13)),
+                subtitle: address == null || address.isEmpty
+                    ? null
+                    : Text(
+                        address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+              );
+            }),
+          ],
+        ],
       ),
     );
   }
@@ -1891,6 +2116,15 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
       return;
     }
 
+    if (_branchAvailabilityMode == 'SPECIFIC' &&
+        _selectedBranchIds.isEmpty) {
+      _showNotice(
+        AppLocalizations.of(context)!.branchAvailabilityRequired,
+        isError: true,
+      );
+      return;
+    }
+
     Navigator.pop(context, {
       'vendorId': widget.vendorId,
       'productId': widget.product?['id'],
@@ -1912,6 +2146,10 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
       'hasVariants': _variants.isNotEmpty,
       'variants': _variants,
       'optionGroups': _optionGroups,
+      'branchAvailabilityMode': _branchAvailabilityMode,
+      'branchIds': _branchAvailabilityMode == 'SPECIFIC'
+          ? _selectedBranchIds.toList()
+          : <String>[],
     });
   }
 

@@ -128,7 +128,8 @@ class WalletDashboardScreen extends ConsumerWidget {
                             children: [
                               const Icon(LucideIcons.wallet, size: 18),
                               const SizedBox(width: 8),
-                              Text(l10n.walletAndFinancials), // Just "My Wallet" basically
+                              // Vendor-owned wallet, shared by every member.
+                              Text(l10n.walletAndFinancials),
                             ],
                           ),
                         ),

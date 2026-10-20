@@ -7,12 +7,23 @@ import {
   tzDayStart,
   tzParts,
   parseDateStart,
+  parseDateEnd,
 } from 'src/common/utils/timezone';
 
 export interface StatPeriodRange {
   period: StatisticPeriod;
   startDate: Date;
   endDate: Date;
+}
+
+export interface VendorProductSalesOptions {
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: 'revenue' | 'quantity' | 'orders' | 'net' | 'name';
+  sortOrder?: 'asc' | 'desc';
 }
 
 @Injectable()
@@ -462,6 +473,184 @@ export class StatisticsRepository {
       ...productById.get(rp.productId),
       totalOrders: rp.totalOrders,
     }));
+  }
+
+  /**
+   * Product-level sales report for one vendor.
+   *
+   * Handles both order shapes:
+   *  - legacy/single-vendor: items hang directly off the order (`vendorId`)
+   *  - multi-vendor: items belong to an accepted `OrderVendorFulfillment`
+   *
+   * Only delivered, non-rejected items count. Commission uses the rate captured
+   * on the fulfillment (multi-vendor) or the vendor's current rate (single
+   * vendor), and is zero for uncontracted vendors — matching settlement, where
+   * uncontracted vendors keep the cash directly.
+   */
+  async getVendorProductSales(
+    vendorId: string,
+    opts: VendorProductSalesOptions = {},
+  ) {
+    const page = Math.max(1, opts.page ?? 1);
+    const limit = Math.min(100, Math.max(1, opts.limit ?? 20));
+    const offset = (page - 1) * limit;
+
+    const search = opts.search?.trim();
+    const searchSql = search
+      ? Prisma.sql`WHERE (vi."productName" ILIKE ${`%${search}%`} OR vi."productNameAr" ILIKE ${`%${search}%`})`
+      : Prisma.empty;
+
+    const rangeSql = Prisma.sql`
+      ${opts.from ? Prisma.sql`AND o."createdAt" >= ${parseDateStart(opts.from)}` : Prisma.empty}
+      ${opts.to ? Prisma.sql`AND o."createdAt" <= ${parseDateEnd(opts.to)}` : Prisma.empty}
+    `;
+
+    const sortColumns: Record<string, string> = {
+      revenue: '"grossRevenue"',
+      quantity: '"quantitySold"',
+      orders: '"ordersCount"',
+      net: '"netRevenue"',
+      name: '"productName"',
+    };
+    const sortColumn = Prisma.raw(
+      sortColumns[opts.sortBy ?? 'revenue'] ?? sortColumns.revenue,
+    );
+    const sortDirection = Prisma.raw(
+      opts.sortOrder === 'asc' ? 'ASC' : 'DESC',
+    );
+
+    // Two union branches keep both vendor lookups indexable:
+    //   1. orders(vendorId, status) for single-vendor / legacy orders
+    //   2. order_vendor_fulfillments(vendorId, status) for multi-vendor orders
+    // Using `COALESCE(f.vendorId, o.vendorId) = $1` here would force a
+    // sequential scan as the platform grows, so avoid it.
+    const cte = Prisma.sql`
+      WITH vendor_items AS (
+        SELECT
+          oi."orderId" AS "orderId",
+          oi."productId" AS "productId",
+          COALESCE(p.name, oi."productName") AS "productName",
+          p."nameAr" AS "productNameAr",
+          p."imageUrl" AS "productImage",
+          CASE WHEN oi."productId" IS NULL THEN oi."productName" ELSE NULL END AS "customKey",
+          oi.quantity AS "quantity",
+          oi."totalPrice" AS "totalPrice",
+          v."commissionRate"::numeric AS "commissionRate",
+          v."isContracted" AS "isContracted"
+        FROM order_items oi
+        JOIN orders o ON o.id = oi."orderId"
+        JOIN vendors v ON v.id = o."vendorId"
+        LEFT JOIN products p ON p.id = oi."productId"
+        WHERE o."vendorId" = ${vendorId}
+          AND o.status = 'DELIVERED'
+          AND o."deletedAt" IS NULL
+          AND oi."fulfillmentId" IS NULL
+          AND oi."rejectedAt" IS NULL
+          ${rangeSql}
+
+        UNION ALL
+
+        SELECT
+          oi."orderId" AS "orderId",
+          oi."productId" AS "productId",
+          COALESCE(p.name, oi."productName") AS "productName",
+          p."nameAr" AS "productNameAr",
+          p."imageUrl" AS "productImage",
+          CASE WHEN oi."productId" IS NULL THEN oi."productName" ELSE NULL END AS "customKey",
+          oi.quantity AS "quantity",
+          oi."totalPrice" AS "totalPrice",
+          f."commissionRate"::numeric AS "commissionRate",
+          v."isContracted" AS "isContracted"
+        FROM order_items oi
+        JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
+        JOIN orders o ON o.id = f."orderId"
+        JOIN vendors v ON v.id = f."vendorId"
+        LEFT JOIN products p ON p.id = oi."productId"
+        WHERE f."vendorId" = ${vendorId}
+          AND f.status = 'ACCEPTED'
+          AND o.status = 'DELIVERED'
+          AND o."deletedAt" IS NULL
+          AND oi."rejectedAt" IS NULL
+          ${rangeSql}
+      )
+    `;
+
+    const [rows, totalsRows] = await Promise.all([
+      this.prisma.$queryRaw<
+        Array<{
+          productId: string | null;
+          productName: string;
+          productNameAr: string | null;
+          productImage: string | null;
+          quantitySold: number;
+          ordersCount: number;
+          grossRevenue: number;
+          commission: number;
+          netRevenue: number;
+        }>
+      >(Prisma.sql`
+        ${cte}
+        SELECT
+          vi."productId" AS "productId",
+          MAX(vi."productName") AS "productName",
+          MAX(vi."productNameAr") AS "productNameAr",
+          MAX(vi."productImage") AS "productImage",
+          SUM(vi."quantity")::int AS "quantitySold",
+          COUNT(DISTINCT vi."orderId")::int AS "ordersCount",
+          SUM(vi."totalPrice")::int AS "grossRevenue",
+          SUM(CASE WHEN vi."isContracted" THEN ROUND(vi."totalPrice" * vi."commissionRate" / 100.0) ELSE 0 END)::int AS "commission",
+          (
+            SUM(vi."totalPrice") -
+            SUM(CASE WHEN vi."isContracted" THEN ROUND(vi."totalPrice" * vi."commissionRate" / 100.0) ELSE 0 END)
+          )::int AS "netRevenue"
+        FROM vendor_items vi
+        ${searchSql}
+        GROUP BY vi."productId", vi."customKey"
+        ORDER BY ${sortColumn} ${sortDirection}
+        LIMIT ${limit} OFFSET ${offset}
+      `),
+      this.prisma.$queryRaw<
+        Array<{
+          productCount: number;
+          quantitySold: number;
+          ordersCount: number;
+          grossRevenue: number;
+          commission: number;
+        }>
+      >(Prisma.sql`
+        ${cte}
+        SELECT
+          COUNT(DISTINCT COALESCE(vi."productId", 'custom:' || vi."customKey"))::int AS "productCount",
+          COALESCE(SUM(vi."quantity"), 0)::int AS "quantitySold",
+          COUNT(DISTINCT vi."orderId")::int AS "ordersCount",
+          COALESCE(SUM(vi."totalPrice"), 0)::int AS "grossRevenue",
+          COALESCE(SUM(CASE WHEN vi."isContracted" THEN ROUND(vi."totalPrice" * vi."commissionRate" / 100.0) ELSE 0 END), 0)::int AS "commission"
+        FROM vendor_items vi
+        ${searchSql}
+      `),
+    ]);
+
+    const totals = totalsRows[0] ?? {
+      productCount: 0,
+      quantitySold: 0,
+      ordersCount: 0,
+      grossRevenue: 0,
+      commission: 0,
+    };
+
+    return {
+      products: rows,
+      totals: {
+        ...totals,
+        netRevenue: totals.grossRevenue - totals.commission,
+      },
+      page,
+      limit,
+      total: totals.productCount,
+      totalPages: Math.ceil(totals.productCount / limit),
+      from: opts.from ?? null,
+      to: opts.to ?? null,
+    };
   }
 
   // ─── App stats — atomic upsert ────────────────────────────────────────────

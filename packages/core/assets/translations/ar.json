@@ -1709,6 +1709,9 @@
   "product_error_base_price_required_without_variants": "لازم تكتب السعر الأساسي لأن المنتج ملوش أحجام.",
   "product_error_category_not_found": "القسم مش موجود.",
   "product_error_image_upload_failed": "معرفناش نرفع صورة المنتج، جرب تاني.",
+  "product_error_branches_required": "اختر فرعًا واحدًا على الأقل للمنتج.",
+  "product_error_branch_not_in_vendor": "في فروع مختارة مش تابعة للمتجر ده.",
+  "product_error_branch_availability_invalid": "إعدادات توفر الفروع غير صحيحة.",
   "driver_error_profile_exists": "في ملف سائق مسجّل بالفعل للحساب ده.",
   "driver_error_profile_not_found": "ملف السائق مش موجود.",
   "driver_error_account_suspended": "حسابك كسائق موقوف، كلم الدعم.",
@@ -1884,5 +1887,6 @@
   "order_error_multi_vendor_not_allowed": "مينفعش تطلب من أكتر من متجر في نفس السلة.",
   "order_error_empty_cart_for_vendor": "في متجر من اللي في طلبك سلته فاضية.",
   "order_error_no_delivery_groups": "معرفناش نظبط توزيع التوصيل للطلب ده، جرب تاني.",
-  "order_error_no_open_branch": "مفيش فرع مفتوح للمتجر ده في منطقتك دلوقتي، جرب متجر تاني."
+  "order_error_no_open_branch": "مفيش فرع مفتوح للمتجر ده في منطقتك دلوقتي، جرب متجر تاني.",
+  "order_error_product_not_available_at_branch": "في منتجات في السلة مش متاحة في الفرع اللي بيخدم عنوانك."
 }

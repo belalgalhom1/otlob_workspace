@@ -7,14 +7,51 @@ import 'package:vendor/core/utils/error_utils.dart';
 import 'package:intl/intl.dart';
 import 'vendor_wallet_provider.dart';
 import 'vendor_finance_statistics_screen.dart';
+import 'vendor_product_sales_screen.dart';
 
-class VendorWalletScreen extends ConsumerWidget {
+class VendorWalletScreen extends ConsumerStatefulWidget {
   const VendorWalletScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VendorWalletScreen> createState() => _VendorWalletScreenState();
+}
+
+class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
+  static const _transactionTypes = <String>[
+    'ORDER_REVENUE',
+    'COMMISSION_DEDUCTION',
+    'CASH_COLLECTED',
+    'PAYOUT',
+    'REFUND',
+    'ADJUSTMENT',
+  ];
+
+  bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'ORDER_REVENUE':
+        return _isArabic ? 'إيراد طلب' : 'Order Revenue';
+      case 'COMMISSION_DEDUCTION':
+        return _isArabic ? 'خصم عمولة' : 'Commission';
+      case 'CASH_COLLECTED':
+        return _isArabic ? 'تحصيل نقدي' : 'Cash Collected';
+      case 'PAYOUT':
+        return _isArabic ? 'مدفوعات' : 'Payout';
+      case 'REFUND':
+        return _isArabic ? 'استرداد' : 'Refund';
+      case 'ADJUSTMENT':
+        return _isArabic ? 'تسوية' : 'Adjustment';
+      default:
+        return type.replaceAll('_', ' ');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(vendorWalletDataProvider);
+    final notifier = ref.read(vendorWalletDataProvider.notifier);
     final theme = Theme.of(context);
 
     return state.when(
@@ -23,9 +60,11 @@ class VendorWalletScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
+            const Icon(LucideIcons.alertTriangle,
+                size: 48, color: AppColors.error),
             const SizedBox(height: 12),
-            Text(ErrorUtils.translate(context, err), style: const TextStyle(color: AppColors.error)),
+            Text(ErrorUtils.translate(context, err),
+                style: const TextStyle(color: AppColors.error)),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => ref.invalidate(vendorWalletDataProvider),
@@ -41,55 +80,85 @@ class VendorWalletScreen extends ConsumerWidget {
       ),
       data: (data) {
         if (data.isEmpty) {
-          return const Center(child: Text('No vendor selected or found.'));
+          return Center(
+            child: Text(
+              _isArabic ? 'لم يتم اختيار متجر' : 'No vendor selected or found.',
+            ),
+          );
         }
-        
-        final balanceData = data['balance'] is Map ? data['balance'] as Map<String, dynamic> : <String, dynamic>{};
+
+        final balanceData = data['balance'] is Map
+            ? data['balance'] as Map<String, dynamic>
+            : <String, dynamic>{};
         final balance = double.tryParse(
-            (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0').toString()
-        ) ?? 0.0;
-        
+                (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0')
+                    .toString()) ??
+            0.0;
+        final summary = data['summary'] is Map
+            ? data['summary'] as Map<String, dynamic>
+            : <String, dynamic>{};
+
         final transactions = data['transactions'] as List<dynamic>;
+        final hasMore = data['hasMore'] == true;
 
         return RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(vendorWalletDataProvider);
-          },
+          onRefresh: notifier.refresh,
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
               _buildBalanceCard(context, balance, theme),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const SizedBox(height: 16),
+              _buildFilterBar(context, notifier, theme),
+              const SizedBox(height: 16),
+              if (summary.isNotEmpty) _buildSummary(context, summary, theme),
+              const SizedBox(height: 24),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   Text(
-                    Localizations.localeOf(context).languageCode == 'ar' ? 'المعاملات' : 'Transactions',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    _isArabic ? 'المعاملات' : 'Transactions',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  Row(
+                  Wrap(
+                    spacing: 4,
                     children: [
                       if (transactions.isNotEmpty)
                         TextButton.icon(
-                          onPressed: () =>
-                              _exportTransactions(context, balance, transactions),
+                          onPressed: () => _exportTransactions(
+                              context, balance, transactions),
                           icon: const Icon(Icons.download, size: 18),
-                          label: Text(
-                            Localizations.localeOf(context).languageCode == 'ar' ? 'تصدير' : 'Export',
-                          ),
+                          label: Text(_isArabic ? 'تصدير' : 'Export'),
                         ),
                       TextButton.icon(
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => const VendorFinanceStatisticsScreen(),
+                              builder: (_) =>
+                                  const VendorProductSalesScreen(),
                             ),
                           );
                         },
-                        icon: const Icon(LucideIcons.chartNoAxesCombined, size: 18),
+                        icon: const Icon(LucideIcons.package, size: 18),
                         label: Text(
-                          Localizations.localeOf(context).languageCode == 'ar' ? 'الإحصائيات' : 'Statistics',
+                          _isArabic ? 'المنتجات المباعة' : 'Products sold',
                         ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const VendorFinanceStatisticsScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(LucideIcons.chartNoAxesCombined,
+                            size: 18),
+                        label: Text(_isArabic ? 'الإحصائيات' : 'Statistics'),
                       ),
                     ],
                   ),
@@ -102,22 +171,255 @@ class VendorWalletScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(32.0),
                     child: Column(
                       children: [
-                        Icon(LucideIcons.receipt, size: 48, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                        Icon(LucideIcons.receipt,
+                            size: 48,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.2)),
                         const SizedBox(height: 16),
                         Text(
-                          'No transactions yet',
-                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                          _isArabic ? 'لا توجد معاملات' : 'No transactions yet',
+                          style: TextStyle(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5)),
                         ),
                       ],
                     ),
                   ),
                 )
-              else
-                ...transactions.map((tx) => _buildTransactionCard(context, tx, theme)),
+              else ...[
+                ...transactions.map(
+                    (tx) => _buildTransactionCard(context, tx, theme)),
+                if (hasMore)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: OutlinedButton.icon(
+                        onPressed: notifier.loadMore,
+                        icon: const Icon(LucideIcons.chevronDown, size: 18),
+                        label: Text(_isArabic ? 'تحميل المزيد' : 'Load more'),
+                      ),
+                    ),
+                  ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFilterBar(
+    BuildContext context,
+    VendorWalletData notifier,
+    ThemeData theme,
+  ) {
+    final selectedType = notifier.selectedType;
+    final from = notifier.fromDate;
+    final to = notifier.toDate;
+    final hasFilters =
+        selectedType != null || from != null || to != null;
+
+    final dateLabel = from == null && to == null
+        ? (_isArabic ? 'كل التواريخ' : 'All dates')
+        : '${from != null ? DateFormat('yyyy-MM-dd').format(from) : '...'}'
+            ' - '
+            '${to != null ? DateFormat('yyyy-MM-dd').format(to) : '...'}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: 200,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: _isArabic ? 'نوع المعاملة' : 'Transaction type',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: selectedType,
+                  isExpanded: true,
+                  isDense: true,
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: null,
+                      child: Text(_isArabic ? 'كل الأنواع' : 'All types'),
+                    ),
+                    ..._transactionTypes.map(
+                      (type) => DropdownMenuItem<String>(
+                        value: type,
+                        child: Text(_typeLabel(type)),
+                      ),
+                    ),
+                  ],
+                  onChanged: notifier.setType,
+                ),
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final now = DateTime.now();
+              final range = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: now,
+                initialDateRange: from != null && to != null
+                    ? DateTimeRange(start: from, end: to)
+                    : null,
+              );
+              if (range != null) {
+                await notifier.setDateRange(range.start, range.end);
+              }
+            },
+            icon: const Icon(LucideIcons.calendar, size: 18),
+            label: Text(dateLabel),
+          ),
+          if (hasFilters)
+            TextButton.icon(
+              onPressed: notifier.clearFilters,
+              icon: const Icon(LucideIcons.x, size: 18),
+              label: Text(_isArabic ? 'مسح الفلاتر' : 'Clear filters'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummary(
+    BuildContext context,
+    Map<String, dynamic> summary,
+    ThemeData theme,
+  ) {
+    final credits =
+        double.tryParse(summary['totalCredits']?.toString() ?? '0') ?? 0;
+    final debits =
+        double.tryParse(summary['totalDebits']?.toString() ?? '0') ?? 0;
+    final net = double.tryParse(summary['netChange']?.toString() ?? '0') ?? 0;
+    final count = summary['transactionCount'] ?? 0;
+
+    final cards = <Widget>[
+      _summaryCard(
+        context,
+        theme,
+        label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
+        value: '+${credits.toStringAsFixed(2)} EGP',
+        color: AppColors.success,
+      ),
+      _summaryCard(
+        context,
+        theme,
+        label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
+        value: '-${debits.toStringAsFixed(2)} EGP',
+        color: AppColors.error,
+      ),
+      _summaryCard(
+        context,
+        theme,
+        label: _isArabic ? 'صافي التغير' : 'Net change',
+        value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
+        color: net >= 0 ? AppColors.success : AppColors.error,
+      ),
+      _summaryCard(
+        context,
+        theme,
+        label: _isArabic ? 'عدد المعاملات' : 'Transactions',
+        value: '$count',
+        color: AppColors.primary,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(spacing: 12, runSpacing: 12, children: cards),
+        if (summary['byType'] is List && (summary['byType'] as List).isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final entry in summary['byType'] as List)
+                Builder(
+                  builder: (context) {
+                    if (entry is! Map) return const SizedBox.shrink();
+                    final total =
+                        double.tryParse(entry['total']?.toString() ?? '0') ?? 0;
+                    return Chip(
+                      label: Text(
+                        '${_typeLabel(entry['type']?.toString() ?? '')}: '
+                        '${total >= 0 ? '+' : ''}${total.toStringAsFixed(2)} EGP',
+                        style: TextStyle(
+                          color: total >= 0
+                              ? AppColors.success
+                              : AppColors.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                      backgroundColor: theme.colorScheme.surface,
+                      side: BorderSide(
+                        color:
+                            theme.dividerColor.withValues(alpha: 0.15),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _summaryCard(
+    BuildContext context,
+    ThemeData theme, {
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -126,8 +428,7 @@ class VendorWalletScreen extends ConsumerWidget {
     double balance,
     List<dynamic> transactions,
   ) async {
-    final isArabic =
-        Localizations.localeOf(context).languageCode == 'ar';
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final dateFormat = DateFormat('yyyy-MM-dd hh:mm a');
     final headers = [
       isArabic ? 'التاريخ' : 'Date',
@@ -143,7 +444,7 @@ class VendorWalletScreen extends ConsumerWidget {
               ? dateFormat.format(
                   DateTime.parse(tx['createdAt'].toString()).toLocal())
               : '',
-          (tx['type']?.toString() ?? '').replaceAll('_', ' '),
+          _typeLabel(tx['type']?.toString() ?? ''),
           tx['description']?.toString() ?? '',
           '${(double.tryParse(tx['amount']?.toString() ?? '0') ?? 0).toStringAsFixed(2)} EGP',
           tx['balanceAfter'] != null
@@ -164,7 +465,8 @@ class VendorWalletScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBalanceCard(BuildContext context, double balance, ThemeData theme) {
+  Widget _buildBalanceCard(
+      BuildContext context, double balance, ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -196,12 +498,13 @@ class VendorWalletScreen extends ConsumerWidget {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(LucideIcons.wallet, color: Colors.white, size: 24),
+                child: const Icon(LucideIcons.wallet,
+                    color: Colors.white, size: 24),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Available Balance',
-                style: TextStyle(
+              Text(
+                _isArabic ? 'الرصيد المتاح' : 'Available Balance',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -224,14 +527,15 @@ class VendorWalletScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionCard(BuildContext context, dynamic tx, ThemeData theme) {
+  Widget _buildTransactionCard(
+      BuildContext context, dynamic tx, ThemeData theme) {
     final type = tx['type'] ?? 'UNKNOWN';
     final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
     final date = tx['createdAt'] != null
         ? DateTime.parse(tx['createdAt'].toString()).toLocal()
         : DateTime.now();
     final description = tx['description'] as String? ?? '';
-    
+
     final isCredit = amount >= 0;
     final color = isCredit ? AppColors.success : AppColors.error;
     final icon = isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight;
@@ -261,7 +565,7 @@ class VendorWalletScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  type.replaceAll('_', ' '),
+                  _typeLabel(type.toString()),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,

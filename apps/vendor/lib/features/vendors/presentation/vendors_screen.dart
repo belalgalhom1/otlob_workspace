@@ -13,6 +13,8 @@ import 'package:vendor/features/vendors/presentation/products_screen.dart';
 import 'package:vendor/features/vendors/presentation/vendor_members_screen.dart';
 import 'package:vendor/features/wallet/presentation/widgets/manual_transaction_dialog.dart';
 import 'package:vendor/features/wallet/presentation/vendor_finance_statistics_screen.dart';
+import 'package:vendor/features/wallet/presentation/admin_vendor_wallet_screen.dart';
+import 'package:vendor/features/wallet/presentation/vendor_product_sales_screen.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
@@ -23,8 +25,14 @@ import '../../../l10n/l10n_error_helper.dart';
 class VendorsScreen extends ConsumerStatefulWidget {
   final String? userRole;
   final String? vendorRole;
+  final List<String> permissions;
 
-  const VendorsScreen({super.key, this.userRole, this.vendorRole});
+  const VendorsScreen({
+    super.key,
+    this.userRole,
+    this.vendorRole,
+    this.permissions = const [],
+  });
 
   @override
   ConsumerState<VendorsScreen> createState() => _VendorsScreenState();
@@ -32,6 +40,15 @@ class VendorsScreen extends ConsumerStatefulWidget {
 
 class _VendorsScreenState extends ConsumerState<VendorsScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  bool _hasPermission(String permission) =>
+      widget.userRole == 'SUPER_ADMIN' ||
+      widget.permissions.contains(permission);
+
+  bool get _canViewWallet =>
+      _hasPermission('VIEW_FINANCIALS') || _hasPermission('MANAGE_FINANCE');
+
+  bool get _canManageFinance => _hasPermission('MANAGE_FINANCE');
 
   @override
   void dispose() {
@@ -436,6 +453,24 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
             );
           },
         ),
+        _buildActionItem(
+          context: context,
+          icon: LucideIcons.package,
+          color: Colors.teal,
+          label: Localizations.localeOf(context).languageCode == 'ar'
+              ? 'المنتجات المباعة'
+              : 'Products Sold',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => VendorProductSalesScreen(
+                  vendorId: v['id'],
+                  vendorName: v['storeName'],
+                ),
+              ),
+            );
+          },
+        ),
 
         if (widget.userRole != 'VENDOR_MEMBER' || widget.vendorRole == 'OWNER' || widget.vendorRole == 'MANAGER')
           _buildActionItem(
@@ -464,7 +499,26 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
             label: AppLocalizations.of(context)!.deleteVendor,
             onPressed: () => _confirmDelete(context, v),
           ),
-        if (widget.userRole != 'VENDOR_MEMBER')
+        if (widget.userRole != 'VENDOR_MEMBER' && _canViewWallet)
+          _buildActionItem(
+            context: context,
+            icon: LucideIcons.wallet,
+            color: Colors.green,
+            label: Localizations.localeOf(context).languageCode == 'ar'
+                ? 'عرض المحفظة'
+                : 'View Wallet',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AdminVendorWalletScreen(
+                    vendorId: v['id'],
+                    vendorName: v['storeName'],
+                  ),
+                ),
+              );
+            },
+          ),
+        if (widget.userRole != 'VENDOR_MEMBER' && _canManageFinance)
           _buildActionItem(
             context: context,
             icon: LucideIcons.wallet,

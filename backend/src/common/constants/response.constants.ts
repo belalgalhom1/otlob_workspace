@@ -222,6 +222,9 @@ export const ProductErrors = {
   CATEGORY_NOT_FOUND: 'product.error.category_not_found',
   IMAGE_UPLOAD_FAILED: 'product.error.image_upload_failed',
   CONCURRENT_MODIFICATION: 'product.error.concurrent_modification',
+  BRANCHES_REQUIRED: 'product.error.branches_required',
+  BRANCH_NOT_IN_VENDOR: 'product.error.branch_not_in_vendor',
+  BRANCH_AVAILABILITY_INVALID: 'product.error.branch_availability_invalid',
 };
 
 export const DriverErrors = {
@@ -340,6 +343,8 @@ export const OrderErrors = {
   MULTI_VENDOR_NOT_ALLOWED: 'order.error.multi_vendor_not_allowed',
   EMPTY_CART_FOR_VENDOR: 'order.error.empty_cart_for_vendor',
   NO_DELIVERY_GROUPS: 'order.error.no_delivery_groups',
+  PRODUCT_NOT_AVAILABLE_AT_BRANCH:
+    'order.error.product_not_available_at_branch',
 };
 
 export const CartErrors = {

@@ -995,7 +995,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 1:
         return OrdersScreen(initialOrderId: _highlightOrderId);
       case 2:
-        return VendorsScreen(userRole: _userRole, vendorRole: _vendorRole);
+        return VendorsScreen(
+          userRole: _userRole,
+          vendorRole: _vendorRole,
+          permissions: _userPermissions,
+        );
       case 3:
         return const DriversScreen();
       case 4:

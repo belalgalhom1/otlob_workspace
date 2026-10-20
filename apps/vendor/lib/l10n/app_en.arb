@@ -110,6 +110,25 @@
   "noCategory": "No category",
   "restaurant": "Restaurant",
   "branches": "Branches",
+  "branchAvailability": "Branch availability",
+  "allBranches": "All branches",
+  "specificBranches": "Specific branches",
+  "allBranchesHint": "Available at every current branch and any branch added later.",
+  "specificBranchesHint": "Choose one branch for a single location, or several branches. New branches are not included automatically.",
+  "branchAvailabilityRequired": "Select at least one branch.",
+  "noBranchesAvailable": "No branches yet. This product will be available at all branches, including future ones.",
+  "noBranchesSelected": "No branches selected",
+  "oneBranchSelected": "1 branch selected",
+  "branchesSelected": "{count} branches selected",
+  "@branchesSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "Select all",
+  "clearAll": "Clear all",
   "menuCategories": "Menu Categories",
   "products": "Products",
   "editVendor": "Edit Vendor",

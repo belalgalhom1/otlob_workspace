@@ -502,17 +502,41 @@ export class OrdersMultiVendorService {
         throw new BadRequestException(OrderErrors.VENDOR_NOT_ACCEPTING);
       }
 
+      const productIds = [
+        ...new Set(
+          cart.items
+            .map((item: any) => item.productId)
+            .filter((id: string | null): id is string => Boolean(id)),
+        ),
+      ];
       const branch = await this.ordersRepository.getNearestOpenBranchLocation(
         vendorId,
         dto.deliveryLocation[0],
         dto.deliveryLocation[1],
         zone.id,
+        productIds,
       );
-      // Every vendor portion needs an open branch inside the zone: without one
-      // there is no pickup point for the driver.
+      // Every vendor portion needs an open branch inside the zone that can
+      // fulfil all of that vendor's cart lines.
       if (!branch) {
+        if (productIds.length > 0) {
+          const anyOpenBranch =
+            await this.ordersRepository.getNearestOpenBranchLocation(
+              vendorId,
+              dto.deliveryLocation[0],
+              dto.deliveryLocation[1],
+              zone.id,
+            );
+          if (anyOpenBranch) {
+            throw new BadRequestException(
+              OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH,
+            );
+          }
+        }
         throw new BadRequestException(OrderErrors.NO_OPEN_BRANCH);
       }
+
+      await this.cartService.assertItemsAvailableAtBranch(cart.items, branch.id);
 
       portions.push({
         vendorId,

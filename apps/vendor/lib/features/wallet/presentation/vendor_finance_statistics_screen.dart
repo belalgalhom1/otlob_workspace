@@ -59,6 +59,13 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
             value: (rows) =>
                 '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalTax'])).toStringAsFixed(2)} EGP',
           ),
+          StatisticSummaryItem(
+            labelAr: 'صافي الربح',
+            labelEn: 'Net Profit',
+            icon: Icons.savings_outlined,
+            value: (rows) =>
+                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue']) - StatisticsFormat.numOf(r['totalCommission'])).toStringAsFixed(2)} EGP',
+          ),
         ],
         exportColumns: [
           StatisticExportColumn(
@@ -83,6 +90,14 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
             labelEn: 'Tax',
             value: (row) =>
                 StatisticsFormat.numOf(row['totalTax']).toStringAsFixed(2),
+          ),
+          StatisticExportColumn(
+            labelAr: 'صافي الربح',
+            labelEn: 'Net Profit',
+            value: (row) =>
+                (StatisticsFormat.numOf(row['totalRevenue']) -
+                        StatisticsFormat.numOf(row['totalCommission']))
+                    .toStringAsFixed(2),
           ),
           StatisticExportColumn(
             labelAr: 'المكتملة',

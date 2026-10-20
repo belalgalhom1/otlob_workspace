@@ -5,6 +5,7 @@ import { ProductOptionGroup } from './product_option_group';
 import { ProductVariant } from './product_variant';
 import { Promotion } from './promotion';
 import { Offer } from './offer';
+import { ProductBranchAvailability } from './product_branch_availability';
 import { MenuCategory } from './menu_category';
 import { Vendor } from './vendor';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -30,6 +31,9 @@ export class ProductRelations {
 
   @ApiProperty({ isArray: true, type: () => Offer })
   offers: Offer[];
+
+  @ApiProperty({ isArray: true, type: () => ProductBranchAvailability })
+  branchAvailability: ProductBranchAvailability[];
 
   @ApiPropertyOptional({ type: () => MenuCategory })
   category?: MenuCategory;
