@@ -31,6 +31,7 @@ class InboxCountsState {
 class SharedInboxCountsNotifier extends Notifier<InboxCountsState> {
   StreamSubscription? _msgSub;
   StreamSubscription? _readSub;
+  StreamSubscription? _closedSub;
   StreamSubscription? _notifSub;
 
   @override
@@ -40,11 +41,13 @@ class SharedInboxCountsNotifier extends Notifier<InboxCountsState> {
     final socket = ref.read(coreSocketServiceProvider);
     _msgSub = socket.onEvent(SocketEvent.chatMessage).listen((_) => fetchCounts());
     _readSub = socket.onEvent(SocketEvent.chatRead).listen((_) => fetchCounts());
+    _closedSub = socket.onEvent(SocketEvent.conversationClosed).listen((_) => fetchCounts());
     _notifSub = socket.onEvent(SocketEvent.notificationNew).listen((_) => fetchCounts());
 
     ref.onDispose(() {
       _msgSub?.cancel();
       _readSub?.cancel();
+      _closedSub?.cancel();
       _notifSub?.cancel();
     });
 

@@ -97,9 +97,9 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
   /// A ticket counts as "active" (chat should open) only when it is neither
   /// CLOSED nor RESOLVED **and** it still has a conversation attached.
-  /// The backend deletes the chat thread on resolve/close and nulls
-  /// `conversationId`, so without these guards the user gets auto-routed
-  /// into a dead chat and can never open a new issue.
+  /// The backend removes the customer from the chat participants on resolve/close
+  /// and hides `conversationId` from the customer so they cannot re-enter the
+  /// resolved/closed thread and can open a new issue instead.
   bool _isTicketChatActive(dynamic t) {
     if (t is! Map) return false;
     final status = (t['status']?.toString() ?? '').toUpperCase();

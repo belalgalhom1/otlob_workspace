@@ -6,7 +6,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ConversationStatus, MessageType, Role, Prisma } from '@prisma/client';
+import {
+  ConversationStatus,
+  MessageType,
+  Permission,
+  Role,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SendMessageDto, QueryMessagesDto, MarkReadDto } from './dto/chat.dto';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
@@ -48,6 +54,24 @@ export class MessagesService {
     private readonly chatMedia: ChatMediaService,
   ) {}
 
+  private async canManageConversations(
+    actorId: string,
+    actorRole: Role,
+  ): Promise<boolean> {
+    if (actorRole === Role.SUPER_ADMIN) return true;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { permissions: true },
+    });
+
+    return (
+      !!user &&
+      (user.permissions.includes(Permission.MANAGE_CONVERSATIONS) ||
+        user.permissions.includes(Permission.MANAGE_TICKETS))
+    );
+  }
+
   async send(
     actor: JwtAccessPayload,
     conversationId: string,
@@ -68,7 +92,7 @@ export class MessagesService {
     const isParticipant = conversation.participants.some(
       (p) => p.userId === actor.sub,
     );
-    const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
     const isVendorMember = await this.isVendorMemberForConversation(
       actor.sub,
       actor.role,
@@ -322,7 +346,7 @@ export class MessagesService {
     const isParticipant = conversation.participants.some(
       (p) => p.userId === actor.sub,
     );
-    const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
     const isVendorMember = await this.isVendorMemberForConversation(
       actor.sub,
       actor.role,
@@ -414,7 +438,7 @@ export class MessagesService {
       select: { vendorId: true, participants: { select: { userId: true } } },
     });
 
-    const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
     const isVendorMember = await this.isVendorMemberForConversation(
       actor.sub,
       actor.role,
@@ -481,7 +505,7 @@ export class MessagesService {
       throw new ForbiddenException(ChatErrors.CANNOT_DELETE_SYSTEM_MESSAGE);
     }
 
-    const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
     if (message.senderId !== actor.sub && !isAdmin) {
       throw new ForbiddenException(ChatErrors.NOT_MESSAGE_SENDER);
     }
@@ -512,7 +536,7 @@ export class MessagesService {
       throw new BadRequestException(ChatErrors.ONLY_TEXT_CAN_BE_EDITED);
     }
 
-    const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
     if (message.senderId !== actor.sub && !isAdmin) {
       throw new ForbiddenException(ChatErrors.NOT_MESSAGE_SENDER);
     }
@@ -553,7 +577,7 @@ export class MessagesService {
     const isParticipant = conversation.participants.some(
       (p) => p.userId === actor.sub,
     );
-    const isAdmin = actor.role === Role.SUPER_ADMIN;
+    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
     const isVendorMember = await this.isVendorMemberForConversation(
       actor.sub,
       actor.role,

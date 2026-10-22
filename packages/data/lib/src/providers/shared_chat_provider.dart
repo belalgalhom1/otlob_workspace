@@ -48,7 +48,7 @@ class SharedChat extends _$SharedChat {
         } catch (_) {
           conversation = await chatRepo.getConversation(args.id);
         }
-      } else if (args.type == 'support') {
+      } else if (args.type == 'support' && (args.id.isEmpty || args.id == '0')) {
         conversation = await chatRepo.createSupportConversation();
       } else {
         conversation = await chatRepo.getConversation(args.id);
@@ -71,9 +71,14 @@ class SharedChat extends _$SharedChat {
           .onEvent(SocketEvent.chatRead)
           .listen(_onSocketRead);
 
+      final closedSub = socket
+          .onEvent(SocketEvent.conversationClosed)
+          .listen(_onSocketClosed);
+
       ref.onDispose(() {
         sub.cancel();
         readSub.cancel();
+        closedSub.cancel();
       });
 
       final fetchedMessages = await _fetchMessages();
@@ -91,7 +96,13 @@ class SharedChat extends _$SharedChat {
       return result;
     } catch (e) {
       print('SharedChat init error: $e');
-      return [];
+      rethrow;
+    }
+  }
+
+  void _onSocketClosed(dynamic data) {
+    if (data is Map && data['conversationId'] == _conversationId) {
+      state = AsyncError('CHAT_CONVERSATION_CLOSED', StackTrace.current);
     }
   }
 

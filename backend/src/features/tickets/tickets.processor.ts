@@ -7,7 +7,10 @@ import {
   TICKET_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import { TicketStatus } from '@prisma/client';
+import { ConversationStatus, TicketStatus } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ChatConversationClosedEvent } from 'src/common/events';
+import { EVENTS } from 'src/common/events/event-names';
 import { MessagesService } from '../chat/messages.service';
 
 @Processor(QUEUES.TICKETS, { concurrency: 5 })
@@ -17,6 +20,7 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messagesService: MessagesService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectQueue(QUEUES.TICKETS) private readonly queue: Queue,
   ) {
     super();
@@ -42,13 +46,14 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
   }
 
   /**
-   * Closes one ticket and deletes its chat (messages/participants cascade),
-   * mirroring the manual resolve/close path so auto-closed tickets don't
-   * leave dead threads behind either.
+   * Closes one ticket and removes the customer from its chat participants
+   * (closing the conversation without deleting messages), mirroring the
+   * manual resolve/close path.
    */
-  private async closeTicketAndDeleteChat(
+  private async closeTicketAndRemoveCustomer(
     ticketId: string,
     conversationId: string | null,
+    creatorId: string,
   ): Promise<void> {
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -57,17 +62,28 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
           data: { status: TicketStatus.CLOSED, lastStatusUpdateAt: new Date() },
         });
         if (conversationId) {
-          await tx.supportTicket.update({
-            where: { id: ticketId },
-            data: { conversationId: null },
+          await tx.conversationParticipant.deleteMany({
+            where: {
+              conversationId,
+              userId: creatorId,
+            },
           });
-          // deleteMany: no-throw when the row is already gone, so a
-          // half-finished previous attempt can never wedge the retry loop.
-          await tx.conversation.deleteMany({
+          await tx.conversation.updateMany({
             where: { id: conversationId },
+            data: { status: ConversationStatus.CLOSED },
           });
         }
       });
+      if (conversationId) {
+        this.eventEmitter.emit(
+          EVENTS.CHAT_CONVERSATION_CLOSED,
+          new ChatConversationClosedEvent(
+            conversationId,
+            [creatorId],
+            'system',
+          ),
+        );
+      }
     } catch (error: unknown) {
       this.logger.error(
         `Failed to auto-close ticket ${ticketId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -180,12 +196,16 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
         status: TicketStatus.WAITING_ON_USER,
         lastStatusUpdateAt: { lt: fortyEightHoursAgo },
       },
-      select: { id: true, conversationId: true },
+      select: { id: true, conversationId: true, creatorId: true },
       take: 100,
       orderBy: { lastStatusUpdateAt: 'asc' },
     });
     for (const ticket of staleWaiting) {
-      await this.closeTicketAndDeleteChat(ticket.id, ticket.conversationId);
+      await this.closeTicketAndRemoveCustomer(
+        ticket.id,
+        ticket.conversationId,
+        ticket.creatorId,
+      );
     }
 
     // 4. RESOLVED -> CLOSED after 24 hours
@@ -195,12 +215,16 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
         status: TicketStatus.RESOLVED,
         lastStatusUpdateAt: { lt: twentyFourHoursAgo },
       },
-      select: { id: true, conversationId: true },
+      select: { id: true, conversationId: true, creatorId: true },
       take: 100,
       orderBy: { lastStatusUpdateAt: 'asc' },
     });
     for (const ticket of staleResolved) {
-      await this.closeTicketAndDeleteChat(ticket.id, ticket.conversationId);
+      await this.closeTicketAndRemoveCustomer(
+        ticket.id,
+        ticket.conversationId,
+        ticket.creatorId,
+      );
     }
 
     return {

@@ -23,7 +23,10 @@ import {
   Prisma,
 } from '@prisma/client';
 import { TicketErrors } from 'src/common/constants/response.constants';
-import { TicketStatusUpdatedEvent } from 'src/common/events';
+import {
+  ChatConversationClosedEvent,
+  TicketStatusUpdatedEvent,
+} from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { MessagesService } from '../chat/messages.service';
 
@@ -195,6 +198,7 @@ export class TicketsService implements OnModuleInit {
         data: {
           type: ConversationType.SUPPORT,
           status: ConversationStatus.OPEN,
+          creatorId: actor.sub,
           vendorId: dto.vendorId ?? null,
           participants: {
             create: [
@@ -244,7 +248,7 @@ export class TicketsService implements OnModuleInit {
     this.logger.log(
       `Ticket created: ${ticket.ticketNumber} by user ${actor.sub} (assigned to ${assigneeId ?? 'none'})`,
     );
-    return this.formatTicket(ticket);
+    return this.formatTicket(ticket, actor);
   }
 
   async list(actor: JwtAccessPayload, dto: QueryTicketsDto) {
@@ -304,7 +308,7 @@ export class TicketsService implements OnModuleInit {
     );
 
     return {
-      tickets: tickets.map((t) => this.formatTicket(t)),
+      tickets: tickets.map((t) => this.formatTicket(t, actor)),
       total,
       counts: statusCounts,
       page,
@@ -322,7 +326,7 @@ export class TicketsService implements OnModuleInit {
     if (!ticket) throw new NotFoundException(TicketErrors.NOT_FOUND);
 
     await this.assertAccess(actor, ticket);
-    return this.formatTicket(ticket);
+    return this.formatTicket(ticket, actor);
   }
 
   async update(
@@ -470,26 +474,43 @@ export class TicketsService implements OnModuleInit {
         dto.status === TicketStatus.CLOSED
       ) {
         if (result.conversationId) {
-          // Resolving/closing deletes the chat outright (messages and
-          // participants cascade) so the customer can open a fresh ticket
-          // instead of being routed back into the dead thread. The ticket
-          // link is nulled first (no ON DELETE action on it).
-          await tx.supportTicket.update({
-            where: { id: result.id },
-            data: { conversationId: null },
+          // Resolving/closing removes the customer (creator) from the chat
+          // participants and closes the conversation so the customer cannot
+          // view or re-enter the thread by any means, while preserving the
+          // conversation and messages for admins/managers.
+          await tx.conversationParticipant.deleteMany({
+            where: {
+              conversationId: result.conversationId,
+              userId: result.creatorId,
+            },
           });
-          // deleteMany: a concurrent resolve already deleting the thread
-          // must not fail this request.
-          await tx.conversation.deleteMany({
+          await tx.conversation.updateMany({
             where: { id: result.conversationId },
+            data: { status: ConversationStatus.CLOSED },
           });
-          result.conversationId = null;
-          result.conversation = null;
+          if (result.conversation) {
+            result.conversation.status = ConversationStatus.CLOSED;
+          }
         }
       }
 
       return result;
     });
+
+    if (
+      (dto.status === TicketStatus.RESOLVED ||
+        dto.status === TicketStatus.CLOSED) &&
+      updated.conversationId
+    ) {
+      this.eventEmitter.emit(
+        EVENTS.CHAT_CONVERSATION_CLOSED,
+        new ChatConversationClosedEvent(
+          updated.conversationId,
+          [updated.creatorId],
+          actor.sub,
+        ),
+      );
+    }
 
     if (dto.status && dto.status !== ticket.status) {
       this.eventEmitter.emit(
@@ -507,7 +528,7 @@ export class TicketsService implements OnModuleInit {
     this.logger.log(
       `Ticket ${ticket.ticketNumber} updated by user ${actor.sub}`,
     );
-    return this.formatTicket(updated);
+    return this.formatTicket(updated, actor);
   }
 
   async remove(actor: JwtAccessPayload, ticketId: string) {
@@ -627,7 +648,7 @@ export class TicketsService implements OnModuleInit {
     } as const;
   }
 
-  private formatTicket(ticketRaw: unknown) {
+  private formatTicket(ticketRaw: unknown, viewer?: JwtAccessPayload) {
     const ticket = ticketRaw as {
       id: string;
       ticketNumber: string;
@@ -659,6 +680,15 @@ export class TicketsService implements OnModuleInit {
       createdAt: Date;
       updatedAt: Date;
     };
+    const isResolvedOrClosed =
+      ticket.status === TicketStatus.RESOLVED ||
+      ticket.status === TicketStatus.CLOSED;
+    const hideConversationFromViewer =
+      isResolvedOrClosed &&
+      viewer !== undefined &&
+      viewer.sub === ticket.creator.id &&
+      viewer.role !== Role.SUPER_ADMIN;
+
     return {
       id: ticket.id,
       ticketNumber: ticket.ticketNumber,
@@ -672,8 +702,12 @@ export class TicketsService implements OnModuleInit {
       assignee: ticket.assignee ?? null,
       order: ticket.order ?? null,
       vendor: ticket.vendor ?? null,
-      conversationId: ticket.conversationId ?? null,
-      conversation: ticket.conversation ?? null,
+      conversationId: hideConversationFromViewer
+        ? null
+        : (ticket.conversationId ?? null),
+      conversation: hideConversationFromViewer
+        ? null
+        : (ticket.conversation ?? null),
       metadata: ticket.metadata,
       lastStatusUpdateAt: ticket.lastStatusUpdateAt,
       escalatedAt: ticket.escalatedAt,

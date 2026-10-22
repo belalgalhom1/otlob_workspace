@@ -58,10 +58,14 @@ class SharedInbox extends _$SharedInbox {
     final readSub = socket
         .onEvent(SocketEvent.chatRead)
         .listen(_onRealtimeEvent);
+    final closedSub = socket
+        .onEvent(SocketEvent.conversationClosed)
+        .listen(_onConversationClosed);
 
     ref.onDispose(() {
       sub.cancel();
       readSub.cancel();
+      closedSub.cancel();
     });
 
     return InboxState(isLoading: true);
@@ -71,6 +75,19 @@ class SharedInbox extends _$SharedInbox {
     if (!ref.mounted) return;
     // When a new message comes in, refresh the inbox
     _fetchConversations(1, true); // true = silent refresh
+  }
+
+  void _onConversationClosed(dynamic data) {
+    if (!ref.mounted) return;
+    final closedId = data is Map ? data['conversationId']?.toString() : null;
+    if (closedId != null && closedId.isNotEmpty) {
+      state = state.copyWith(
+        conversations: state.conversations
+            .where((c) => c['id']?.toString() != closedId)
+            .toList(),
+      );
+    }
+    _fetchConversations(1, true);
   }
 
   Future<void> _fetchConversations([int page = 1, bool silent = false]) async {

@@ -36,6 +36,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   String? _recordingPath;
   StreamSubscription? _recordingSubscription;
   Duration _recordingDuration = Duration.zero;
+  bool _hasPoppedForClosed = false;
 
   final ValueNotifier<bool> _hasText = ValueNotifier(false);
 
@@ -172,6 +173,24 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<Message>>>(sharedChatProvider(_args), (previous, next) {
+      if (next.hasError && !_hasPoppedForClosed) {
+        final errStr = next.error.toString();
+        if (errStr.contains('CHAT_CONVERSATION_CLOSED') ||
+            errStr.contains('NOT_A_PARTICIPANT') ||
+            errStr.contains('CONVERSATION_NOT_FOUND') ||
+            errStr.contains('403') ||
+            errStr.contains('404')) {
+          _hasPoppedForClosed = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && context.canPop()) {
+              context.pop();
+            }
+          });
+        }
+      }
+    });
+
     final chatState = ref.watch(sharedChatProvider(_args));
     final l10n = AppLocalizations.of(context)!;
 
@@ -265,7 +284,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
               },
             ),
           ),
-          _buildInputBar(context),
+          if (!chatState.hasError) _buildInputBar(context),
         ],
       ),
     );
