@@ -13,8 +13,8 @@ build/
 *.log
 
 # Environment Variables
-.env
-#.env*
+#.env
+.env*
 
 # OS Files
 .DS_Store
