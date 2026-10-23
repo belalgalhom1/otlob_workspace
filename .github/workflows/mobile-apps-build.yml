@@ -48,7 +48,13 @@ jobs:
       - name: Build APK
         working-directory: ${{ matrix.app_path }}
         run: |
-          touch .env
+          if [ -f .env-example ]; then
+            cp .env-example .env
+          elif [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
           flutter build apk --release
 
       - name: Upload APK artifact
