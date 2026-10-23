@@ -1,0 +1,56 @@
+name: Automatic App Builds
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-apps:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app_job_name: otlob-vendor
+            app_path: apps/vendor
+          - app_job_name: otlob-driver
+            app_path: apps/driver
+          - app_job_name: otlob-customer
+            app_path: apps/customer
+    name: ${{ matrix.app_job_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install workspace dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: ${{ matrix.app_path }}
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app_job_name }}-apk
+          path: ${{ matrix.app_path }}/build/app/outputs/flutter-apk/*.apk
