@@ -8,6 +8,7 @@ import { QueryOrdersDto } from './dto/order.dto';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { Role, Permission } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
   OrderErrors,
   DriverErrors,
@@ -18,6 +19,7 @@ export class OrdersService {
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly prisma: PrismaService,
+    private readonly platformSettings: PlatformSettingsService,
   ) {}
 
   async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
@@ -27,7 +29,11 @@ export class OrdersService {
     });
     if (!customer)
       return { orders: [], total: 0, page: 1, limit: 20, totalPages: 0 };
-    return this.ordersRepository.findMany({ ...dto, customerId: customer.id });
+    const result = await this.ordersRepository.findMany({ ...dto, customerId: customer.id });
+    result.orders = await Promise.all(
+      result.orders.map((o: any) => this.projectOrderForRole(o, actor)),
+    );
+    return result;
   }
 
   async getVendorOrders(
@@ -47,7 +53,11 @@ export class OrdersService {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
     }
 
-    return this.ordersRepository.findMany({ ...dto, vendorId });
+    const result = await this.ordersRepository.findMany({ ...dto, vendorId });
+    result.orders = await Promise.all(
+      result.orders.map((o: any) => this.projectOrderForRole(o, actor, vendorId)),
+    );
+    return result;
   }
 
   async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
@@ -56,13 +66,19 @@ export class OrdersService {
       select: { id: true },
     });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    return this.ordersRepository.findMany({ ...dto, driverId: driver.id });
+    const result = await this.ordersRepository.findMany({ ...dto, driverId: driver.id });
+    result.orders = await Promise.all(
+      result.orders.map((o: any) => this.projectOrderForRole(o, actor)),
+    );
+    return result;
   }
 
   async getOne(actor: JwtAccessPayload, orderId: string) {
     const order = await this.ordersRepository.findById(orderId);
 
-    if (await this.canManageOrders(actor.sub, actor.role)) return order;
+    if (await this.canManageOrders(actor.sub, actor.role)) {
+      return this.enrichWithAdminHelpers(order);
+    }
 
     const [customer, driver, vendorMember] = await Promise.all([
       this.prisma.customer.findUnique({
@@ -103,6 +119,7 @@ export class OrdersService {
     const isCustomerOwner = !!customer && order.customerId === customer.id;
 
     let isPortionVendorStaff = !!vendorMember;
+    let matchingVendorId = order.vendorId ?? undefined;
     if (!isCustomerOwner && !driverOwnsDelivery && !isPortionVendorStaff) {
       const portionVendorIds = Array.from(
         new Set(
@@ -112,10 +129,14 @@ export class OrdersService {
         ),
       );
       if (portionVendorIds.length > 0) {
-        isPortionVendorStaff = !!(await this.prisma.vendorMember.findFirst({
+        const found = await this.prisma.vendorMember.findFirst({
           where: { userId: actor.sub, vendorId: { in: portionVendorIds } },
-          select: { id: true },
-        }));
+          select: { vendorId: true },
+        });
+        if (found) {
+          isPortionVendorStaff = true;
+          matchingVendorId = found.vendorId;
+        }
       }
     }
 
@@ -123,19 +144,282 @@ export class OrdersService {
       isCustomerOwner || driverOwnsDelivery || isPortionVendorStaff;
 
     if (!isOwner) throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-    return order;
+    return this.projectOrderForRole(order, actor, matchingVendorId);
   }
 
   async adminFindAll(dto: QueryOrdersDto) {
-    return this.ordersRepository.findMany(dto);
+    const result = await this.ordersRepository.findMany(dto);
+    result.orders = await Promise.all(
+      result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
+    );
+    return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ROLE PROJECTIONS (High-throughput in-memory data masking)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async projectOrderForRole(
+    order: any,
+    actor: JwtAccessPayload,
+    vendorIdScope?: string,
+  ): Promise<any> {
+    if (!order) return order;
+
+    if (await this.canManageOrders(actor.sub, actor.role)) {
+      return this.enrichWithAdminHelpers(order);
+    }
+
+    if (actor.role === Role.DRIVER) {
+      return this.projectForDriver(order, actor);
+    }
+
+    if (actor.role === Role.VENDOR_MEMBER) {
+      return this.projectForVendor(order, actor, vendorIdScope);
+    }
+
+    if (actor.role === Role.CUSTOMER) {
+      return this.projectForCustomer(order);
+    }
+
+    return order;
+  }
+
+  private async projectForDriver(order: any, actor: JwtAccessPayload): Promise<any> {
+    const isPrepaid =
+      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+      order.paymentMethod !== 'MOBILE_WALLET';
+    const grandTotal = Number(order.grandTotal ?? 0);
+    const upfrontAmount = Number(order.upfrontAmount ?? 0);
+    const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+
+    let isStorePrepaid =
+      order.vendorBranch?.isContracted ??
+      order.vendor?.isContracted ??
+      false;
+    const subtotal = Number(order.subtotal ?? 0);
+    let cashToPayStore = isStorePrepaid ? 0 : subtotal;
+
+    const settings = await this.platformSettings.getSettings();
+    const rate = Number(settings?.deliveryCommissionRate ?? 20);
+
+    let deliveryFee = Number(order.deliveryFee ?? 0);
+    if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
+      const myDriver = await this.prisma.driver.findUnique({
+        where: { userId: actor.sub },
+        select: { id: true },
+      });
+      if (myDriver) {
+        const group = order.deliveryGroups.find(
+          (g: any) => g.primaryDriverId === myDriver.id,
+        );
+        if (group?.deliveryFee != null) {
+          deliveryFee = Number(group.deliveryFee);
+        }
+        if (group?.items && Array.isArray(group.items) && order.vendorFulfillments) {
+          const fulfillmentIds = new Set(group.items.map((it: any) => it.fulfillmentId));
+          const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
+            fulfillmentIds.has(f.id),
+          );
+          if (myFulfillments.length > 0) {
+            cashToPayStore = 0;
+            let allContracted = true;
+            for (const f of myFulfillments) {
+              const contracted =
+                f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              if (!contracted) {
+                cashToPayStore += Number(f.subtotal ?? 0);
+                allContracted = false;
+              }
+            }
+            isStorePrepaid = allContracted;
+          }
+        }
+      }
+    }
+    const driverEarnings = Math.max(0, Math.round(deliveryFee * (1 - rate / 100)));
+
+    return {
+      ...order,
+      grandTotal: cashToCollect,
+      total: cashToCollect,
+      serviceFee: 0,
+      tax: 0,
+      discount: 0,
+      financials: {
+        viewRole: 'DRIVER',
+        cashToCollect,
+        isPrepaid,
+        cashToPayStore,
+        isStorePrepaid,
+        driverEarnings,
+      },
+    };
+  }
+
+  private async projectForVendor(
+    order: any,
+    actor: JwtAccessPayload,
+    vendorIdScope?: string,
+  ): Promise<any> {
+    let vendorId = vendorIdScope;
+    if (!vendorId) {
+      if (order.vendorId) {
+        vendorId = order.vendorId;
+      } else {
+        const membership = await this.prisma.vendorMember.findFirst({
+          where: { userId: actor.sub },
+          select: { vendorId: true },
+        });
+        vendorId = membership?.vendorId;
+      }
+    }
+
+    let items = order.items ?? [];
+    let vendorSubtotal = Number(order.subtotal ?? 0);
+    let commissionRate = Number(
+      order.vendorBranch?.commissionRate ??
+      order.vendor?.commissionRate ??
+      10,
+    );
+    let isContracted =
+      order.vendorBranch?.isContracted ??
+      order.vendor?.isContracted ??
+      false;
+
+    if (order.vendorFulfillments && Array.isArray(order.vendorFulfillments) && vendorId) {
+      const myFulfillment = order.vendorFulfillments.find(
+        (f: any) => f.vendorId === vendorId,
+      );
+      if (myFulfillment) {
+        vendorSubtotal = Number(myFulfillment.subtotal ?? 0);
+        commissionRate = Number(myFulfillment.commissionRate ?? commissionRate);
+        if (myFulfillment.vendorBranch?.isContracted != null) {
+          isContracted = myFulfillment.vendorBranch.isContracted;
+        }
+        if (myFulfillment.items && myFulfillment.items.length > 0) {
+          items = myFulfillment.items;
+        } else if (order.items) {
+          items = order.items.filter(
+            (i: any) => i.fulfillmentId === myFulfillment.id || !i.fulfillmentId,
+          );
+        }
+      }
+    }
+
+    const commissionAmount = isContracted
+      ? Math.round(vendorSubtotal * (commissionRate / 100))
+      : 0;
+    const netPayout = isContracted
+      ? Math.max(0, vendorSubtotal - commissionAmount)
+      : vendorSubtotal;
+
+    return {
+      ...order,
+      items,
+      subtotal: vendorSubtotal,
+      deliveryFee: 0,
+      serviceFee: 0,
+      tax: 0,
+      driverBonusFee: 0,
+      discount: 0,
+      grandTotal: vendorSubtotal,
+      total: vendorSubtotal,
+      financials: {
+        viewRole: 'VENDOR',
+        storeSubtotal: vendorSubtotal,
+        commissionRate,
+        commissionAmount,
+        netPayout,
+        isContracted,
+        payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
+      },
+    };
+  }
+
+  private projectForCustomer(order: any): any {
+    const isPrepaid =
+      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+      order.paymentMethod !== 'MOBILE_WALLET';
+    const grandTotal = Number(order.grandTotal ?? 0);
+    const upfrontAmount = Number(order.upfrontAmount ?? 0);
+    const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+
+    const sanitized = { ...order };
+    if (sanitized.vendor) {
+      const { commissionRate, walletBalance, ...safeVendor } = sanitized.vendor;
+      sanitized.vendor = safeVendor;
+    }
+    if (sanitized.vendorBranch) {
+      const { commissionRate, ...safeBranch } = sanitized.vendorBranch;
+      sanitized.vendorBranch = safeBranch;
+    }
+    if (sanitized.vendorFulfillments) {
+      sanitized.vendorFulfillments = sanitized.vendorFulfillments.map((f: any) => {
+        const { commissionRate, ...safeF } = f;
+        return safeF;
+      });
+    }
+
+    return {
+      ...sanitized,
+      financials: {
+        viewRole: 'CUSTOMER',
+        cashToPayAtDoor,
+        isPrepaid,
+      },
+    };
+  }
+
+  private async enrichWithAdminHelpers(order: any): Promise<any> {
+    if (!order) return order;
+    const isPrepaid =
+      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+      order.paymentMethod !== 'MOBILE_WALLET';
+    const grandTotal = Number(order.grandTotal ?? 0);
+    const upfrontAmount = Number(order.upfrontAmount ?? 0);
+    const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+
+    const isStorePrepaid =
+      order.vendorBranch?.isContracted ??
+      order.vendor?.isContracted ??
+      false;
+    const subtotal = Number(order.subtotal ?? 0);
+    const cashToPayStore = isStorePrepaid ? 0 : subtotal;
+
+    const settings = await this.platformSettings.getSettings();
+    const rate = Number(settings?.deliveryCommissionRate ?? 20);
+    const deliveryFee = Number(order.deliveryFee ?? 0);
+    const driverEarnings = Math.max(0, Math.round(deliveryFee * (1 - rate / 100)));
+
+    return {
+      ...order,
+      financials: {
+        viewRole: 'ADMIN',
+        cashToCollect,
+        isPrepaid,
+        cashToPayStore,
+        isStorePrepaid,
+        driverEarnings,
+      },
+    };
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.SUPER_ADMIN) return true;
+    if (
+      role === Role.SUPER_ADMIN ||
+      role === Role.ADMIN ||
+      role === Role.DRIVER_MANAGER
+    ) {
+      return true;
+    }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { permissions: true },
     });
-    return !!user?.permissions.includes(Permission.MANAGE_ORDERS);
+    return !!(
+      user?.permissions.includes(Permission.MANAGE_ORDERS) ||
+      user?.permissions.includes(Permission.MANAGE_DRIVERS)
+    );
   }
 }

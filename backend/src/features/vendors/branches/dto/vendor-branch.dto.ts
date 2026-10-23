@@ -9,6 +9,9 @@ import {
   IsNumber,
   IsUUID,
   MaxLength,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -56,6 +59,28 @@ export class CreateVendorBranchDto {
   @IsBoolean()
   @IsOptional()
   isOpen?: boolean;
+
+  @ApiProperty({
+    example: true,
+    required: false,
+    description:
+      'Contracted status override for this branch. If null/undefined, falls back to vendor.isContracted.',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isContracted?: boolean;
+
+  @ApiProperty({
+    example: 10,
+    required: false,
+    description:
+      'Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  commissionRate?: number;
 }
 
 export class UpdateVendorBranchDto {
@@ -107,4 +132,26 @@ export class UpdateVendorBranchDto {
   @IsBoolean()
   @IsOptional()
   isOpen?: boolean;
+
+  @ApiProperty({
+    example: true,
+    required: false,
+    description:
+      'Contracted status override for this branch. If null/undefined, falls back to vendor.isContracted.',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isContracted?: boolean;
+
+  @ApiProperty({
+    example: 10,
+    required: false,
+    description:
+      'Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  commissionRate?: number;
 }

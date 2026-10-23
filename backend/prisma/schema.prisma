@@ -536,6 +536,8 @@ model VendorBranch {
   address   String
   phone     String?
   isOpen    Boolean                 @default(true)
+  isContracted Boolean?
+  commissionRate Int?
   location  Unsupported("geometry")
   vendorId  String
   zoneId    String
@@ -547,8 +549,9 @@ model VendorBranch {
   vendorMembers VendorMember[]
   orders        Order[]
 
-  orderFulfillments   OrderVendorFulfillment[]
-  productAvailability ProductBranchAvailability[]
+  orderFulfillments    OrderVendorFulfillment[]
+  productAvailability  ProductBranchAvailability[]
+  categoryAvailability CategoryBranchAvailability[]
 
   @@index([zoneId])
   @@index([vendorId, isOpen])
@@ -655,9 +658,24 @@ model MenuCategory {
   updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
   vendor        Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   products      Product[]
+  branchAvailabilityMode ProductBranchAvailabilityMode @default(ALL)
+  branchAvailability     CategoryBranchAvailability[]
 
   @@index([vendorId, isActive])
   @@map("menu_categories")
+}
+
+// ALL means every current and future branch; SPECIFIC resolves through explicit rows below.
+model CategoryBranchAvailability {
+  categoryId String
+  branchId   String
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  branch     VendorBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, branchId])
+  @@index([branchId, categoryId])
+  @@map("category_branch_availability")
 }
 
 enum ProductBranchAvailabilityMode {

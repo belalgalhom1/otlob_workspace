@@ -6,7 +6,12 @@ import {
   IsInt,
   Min,
   MaxLength,
+  IsEnum,
+  IsArray,
+  ArrayUnique,
+  IsUUID,
 } from 'class-validator';
+import { ProductBranchAvailabilityMode } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -51,6 +56,29 @@ export class CreateMenuCategoryDto {
   @IsString()
   @IsOptional()
   iconUrl?: string;
+
+  @ApiProperty({
+    enum: ProductBranchAvailabilityMode,
+    default: ProductBranchAvailabilityMode.ALL,
+    required: false,
+    description:
+      'ALL includes every current and future branch. SPECIFIC uses branchIds.',
+  })
+  @IsEnum(ProductBranchAvailabilityMode)
+  @IsOptional()
+  branchAvailabilityMode?: ProductBranchAvailabilityMode;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      'Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.',
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  branchIds?: string[];
 }
 
 export class UpdateMenuCategoryDto {
@@ -94,6 +122,28 @@ export class UpdateMenuCategoryDto {
   @IsString()
   @IsOptional()
   iconUrl?: string;
+
+  @ApiProperty({
+    enum: ProductBranchAvailabilityMode,
+    required: false,
+    description:
+      'ALL includes every current and future branch. SPECIFIC uses branchIds.',
+  })
+  @IsEnum(ProductBranchAvailabilityMode)
+  @IsOptional()
+  branchAvailabilityMode?: ProductBranchAvailabilityMode;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      'Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.',
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  branchIds?: string[];
 }
 
 export class ReorderCategoriesDto {

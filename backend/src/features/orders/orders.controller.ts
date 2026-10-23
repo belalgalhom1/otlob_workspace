@@ -72,12 +72,13 @@ export class OrdersController {
   @Post()
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Place a new order from active cart' })
-  placeOrder(
+  async placeOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: PlaceOrderDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.checkoutService.placeOrder(actor, dto, idempotencyKey);
+    const order = await this.checkoutService.placeOrder(actor, dto, idempotencyKey);
+    return this.ordersService.projectOrderForRole(order, actor);
   }
 
   @ApiStandardResponse(OrderResponseDto)
@@ -88,12 +89,13 @@ export class OrdersController {
   @Post('custom')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Place a custom delivery or ride order' })
-  placeCustomOrder(
+  async placeCustomOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: PlaceCustomOrderDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.checkoutService.placeCustomOrder(actor, dto, idempotencyKey);
+    const order = await this.checkoutService.placeCustomOrder(actor, dto, idempotencyKey);
+    return this.ordersService.projectOrderForRole(order, actor);
   }
 
   @ApiStandardResponse(OrderFeeEstimateDto)

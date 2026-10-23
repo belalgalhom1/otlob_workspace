@@ -38,6 +38,8 @@ export class VendorBranchesService {
         vb.address,
         vb.phone,
         vb."isOpen",
+        vb."isContracted",
+        vb."commissionRate",
         vb."vendorId",
         vb."zoneId",
         vb."createdAt",
@@ -65,6 +67,8 @@ export class VendorBranchesService {
         vb.address,
         vb.phone,
         vb."isOpen",
+        vb."isContracted",
+        vb."commissionRate",
         vb."vendorId",
         vb."zoneId",
         vb."createdAt",
@@ -99,7 +103,7 @@ export class VendorBranchesService {
 
     await this.prisma.$executeRaw`
       INSERT INTO vendor_branches (
-        id, "vendorId", name, "nameAr", address, phone, "isOpen",
+        id, "vendorId", name, "nameAr", address, phone, "isOpen", "isContracted", "commissionRate",
         location, "zoneId", "updatedAt"
       ) VALUES (
         ${id},
@@ -109,6 +113,8 @@ export class VendorBranchesService {
         ${dto.address},
         ${dto.phone ?? null},
         ${dto.isOpen ?? true},
+        ${dto.isContracted ?? null},
+        ${dto.commissionRate ?? null},
         ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326),
         ${resolvedZoneId},
         NOW()
@@ -168,6 +174,12 @@ export class VendorBranchesService {
           }),
           ...(scalarFields.isOpen !== undefined && {
             isOpen: scalarFields.isOpen,
+          }),
+          ...(scalarFields.isContracted !== undefined && {
+            isContracted: scalarFields.isContracted,
+          }),
+          ...(scalarFields.commissionRate !== undefined && {
+            commissionRate: scalarFields.commissionRate,
           }),
           ...(finalZoneId !== undefined && {
             zoneId: finalZoneId,

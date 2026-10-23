@@ -542,7 +542,10 @@ export class OrdersMultiVendorService {
         vendorId,
         vendorBranchId: branch.id,
         commissionRate:
-          vendor.commissionRate ?? settings.defaultCommissionRate ?? 10,
+          branch.commissionRate ??
+          vendor.commissionRate ??
+          settings.defaultCommissionRate ??
+          10,
         subtotal: cart.subtotal,
         items: cart.items.map((i: any) => ({
           productId: i.productId ?? null,
@@ -663,7 +666,7 @@ export class OrdersMultiVendorService {
   }
 
   private async serviceFeeFor(
-    portions: Array<{ vendorId: string; subtotal: number }>,
+    portions: Array<{ vendorId: string; vendorBranchId?: string; subtotal: number }>,
     settings: any,
   ): Promise<number> {
     // Mirrors the single-vendor rule: uncontracted vendors pay commission as a
@@ -672,13 +675,31 @@ export class OrdersMultiVendorService {
       where: { id: { in: portions.map((p) => p.vendorId) } },
       select: { id: true, isContracted: true, commissionRate: true },
     });
+    const branchIds = portions
+      .map((p) => p.vendorBranchId)
+      .filter((id): id is string => Boolean(id));
+
+    const branches = branchIds.length > 0
+      ? await this.prisma.vendorBranch.findMany({
+          where: { id: { in: branchIds } },
+          select: { id: true, isContracted: true, commissionRate: true },
+        })
+      : [];
+
     const byId = new Map(vendors.map((v) => [v.id, v]));
+    const branchMap = new Map(branches.map((b) => [b.id, b]));
 
     return portions.reduce((sum, p) => {
       const v = byId.get(p.vendorId);
-      if (!v || v.isContracted) return sum;
+      const b = p.vendorBranchId ? branchMap.get(p.vendorBranchId) : null;
+      const isContracted =
+        b?.isContracted != null ? b.isContracted : (v?.isContracted ?? false);
+      if (isContracted) return sum;
       const rate = Number(
-        v.commissionRate ?? settings.defaultCommissionRate ?? 10,
+        b?.commissionRate ??
+          v?.commissionRate ??
+          settings.defaultCommissionRate ??
+          10,
       );
       return sum + Math.round(p.subtotal * (rate / 100));
     }, 0);

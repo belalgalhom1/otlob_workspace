@@ -115,6 +115,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         coinsUsed: true,
         discount: true,
         vendor: { select: { commissionRate: true, isContracted: true } },
+        vendorBranch: { select: { isContracted: true, commissionRate: true } },
         driver: { select: { tier: true } },
       },
     });
@@ -177,9 +178,15 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       coinsEarned: Number(order.coinsEarned),
       coinsUsed: Number(order.coinsUsed),
       discount: Number(order.discount),
-      commissionRate: order.vendor ? Number(order.vendor.commissionRate) : 0,
+      commissionRate:
+        order.vendorBranch?.commissionRate != null
+          ? Number(order.vendorBranch.commissionRate)
+          : (order.vendor ? Number(order.vendor.commissionRate) : 0),
       deliveryCommissionRate,
-      isContracted: order.vendor ? order.vendor.isContracted : false,
+      isContracted:
+        order.vendorBranch?.isContracted != null
+          ? order.vendorBranch.isContracted
+          : (order.vendor ? order.vendor.isContracted : false),
     });
 
     this.logger.log(`Order ${orderNumber} settled`);

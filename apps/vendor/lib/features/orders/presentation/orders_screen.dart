@@ -910,6 +910,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final driver = order['driver'] ?? {};
     final driverName = driver['name']?.toString() ?? '';
     final driverPhone = driver['user']?['phone']?.toString() ?? '';
+    final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
+    final String? branchName = branch == null
+        ? null
+        : (isArabic
+            ? (branch['nameAr']?.toString() ?? branch['name']?.toString())
+            : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
     final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
     final areFeesFinalized = !isCancelled;
     final orderNumber = order['orderNumber']?.toString() ?? 'N/A';
@@ -1064,6 +1070,38 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       isArabic,
                                     ),
                                   ),
+                                  if (branchName != null && branchName.toString().isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(LucideIcons.mapPin, size: 11, color: AppColors.primary),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              branchName.toString(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Theme.of(context).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -1844,18 +1882,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   Widget _buildPricingBreakdown(dynamic order, bool isArabic) {
-    final status = order['status'] as String? ?? 'PENDING';
-    final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
-    final areFeesFinalized = !isCancelled;
+    
 
-    final subtotal =
-        double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
-    final deliveryFee = areFeesFinalized ? (double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0) : null;
-    final serviceFee = areFeesFinalized ? (double.tryParse(order['serviceFee']?.toString() ?? '0') ?? 0.0) : null;
-    final tax = areFeesFinalized ? (double.tryParse(order['tax']?.toString() ?? '0') ?? 0.0) : null;
-    final discount =
-        double.tryParse(order['discount']?.toString() ?? '0') ?? 0.0;
-    final grandTotal = areFeesFinalized ? (double.tryParse(order['grandTotal']?.toString() ?? '0') ?? 0.0) : subtotal;
+    final financials = order['financials'] is Map ? order['financials'] as Map : null;
+    final subtotal = financials?['storeSubtotal'] != null
+        ? (double.tryParse(financials!['storeSubtotal'].toString()) ?? 0.0)
+        : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0);
+    final commissionRate = financials?['commissionRate'] != null
+        ? (double.tryParse(financials!['commissionRate'].toString()) ?? 0.0)
+        : null;
+    final commissionAmount = financials?['commissionAmount'] != null
+        ? (double.tryParse(financials!['commissionAmount'].toString()) ?? 0.0)
+        : null;
+    final netPayout = financials?['netPayout'] != null
+        ? (double.tryParse(financials!['netPayout'].toString()) ?? 0.0)
+        : subtotal;
+    final isContracted = financials?['isContracted'] ??
+        (order['vendorBranch']?['isContracted'] ?? order['vendor']?['isContracted'] ?? false);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1870,21 +1913,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       ),
       child: Column(
         children: [
-          _buildPriceRow(isArabic ? 'المجموع الفرعي' : 'Subtotal', subtotal),
-          const SizedBox(height: 6),
-          _buildPriceRow(
-            isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
-            deliveryFee,
-          ),
-          const SizedBox(height: 6),
-          _buildPriceRow(isArabic ? 'رسوم الخدمة' : 'Service Fee', serviceFee),
-          const SizedBox(height: 6),
-          _buildPriceRow(isArabic ? 'الضريبة' : 'Tax', tax),
-          if (discount > 0) ...[
+          _buildPriceRow(isArabic ? 'إجمالي منتجات المتجر' : 'Store Food Subtotal', subtotal),
+          if (commissionAmount != null && commissionAmount > 0) ...[
             const SizedBox(height: 6),
             _buildPriceRow(
-              isArabic ? 'الخصم' : 'Discount',
-              -discount,
+              isArabic ? 'عمولة المنصة (${commissionRate?.toInt() ?? 10}٪)' : 'Platform Commission (${commissionRate?.toInt() ?? 10}%)',
+              -commissionAmount,
               isDiscount: true,
             ),
           ],
@@ -1896,14 +1930,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                isArabic ? 'الإجمالي النهائي' : 'Grand Total',
+                isArabic ? 'صافي مستحقات المتجر' : 'Net Store Payout',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
               ),
               Text(
-                '${grandTotal.toStringAsFixed(2)} EGP',
+                '${netPayout.toStringAsFixed(2)} EGP',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -1911,6 +1945,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isContracted
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : AppColors.warning.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isContracted ? LucideIcons.wallet : LucideIcons.banknote,
+                  size: 14,
+                  color: isContracted ? AppColors.primary : AppColors.warning,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isContracted
+                      ? (isArabic ? 'تتم التسوية في محفظة المتجر الرقمية' : 'Settled to store digital wallet')
+                      : (isArabic ? 'تحصيل نقدي من الكابتن عند الاستلام' : 'Collect cash from driver upon pickup'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isContracted ? AppColors.primary : AppColors.warning,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

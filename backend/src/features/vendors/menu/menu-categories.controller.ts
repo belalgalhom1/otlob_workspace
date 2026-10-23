@@ -44,11 +44,13 @@ export class MenuCategoriesController {
   @Get()
   @ApiOperation({ summary: 'List all menu categories for a vendor' })
   @ApiQuery({ name: 'activeOnly', required: false, type: Boolean })
+  @ApiQuery({ name: 'branchId', required: false, type: String })
   findAll(
     @Param('vendorId') vendorId: string,
     @Query('activeOnly') activeOnly?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.service.findAll(vendorId, activeOnly === 'true');
+    return this.service.findAll(vendorId, activeOnly === 'true', branchId);
   }
 
   @Public()

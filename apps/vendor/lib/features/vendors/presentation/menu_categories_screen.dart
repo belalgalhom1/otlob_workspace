@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:api/api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -32,6 +31,7 @@ class MenuCategoriesScreen extends ConsumerStatefulWidget {
 class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
   List<dynamic> _categories = [];
   List<dynamic> _filteredCategories = [];
+  List<dynamic> _branches = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
 
@@ -49,15 +49,26 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
 
   Future<void> _fetchCategories() async {
     setState(() => _isLoading = true);
-    final categories = await ref
-        .read(adminVendorsRepositoryProvider)
-        .getMenuCategories(widget.vendorId);
-    if (mounted) {
-      setState(() {
-        _categories = categories;
-        _filteredCategories = categories;
-        _isLoading = false;
-      });
+    try {
+      final results = await Future.wait([
+        ref.read(adminVendorsRepositoryProvider).getMenuCategories(widget.vendorId),
+        ref.read(adminVendorsRepositoryProvider).getBranches(widget.vendorId),
+      ]);
+      final categories = results[0];
+      final branchesRaw = results[1];
+      final branchesList = branchesRaw is List
+          ? List<dynamic>.from(branchesRaw)
+          : List<dynamic>.from(branchesRaw?['data'] as List? ?? const []);
+      if (mounted) {
+        setState(() {
+          _categories = categories is List ? categories : [];
+          _filteredCategories = _categories;
+          _branches = branchesList;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -304,17 +315,46 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                category['nameAr'] ?? '',
-                style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
-                  fontSize: 14,
-                ),
-              ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (category['nameAr'] != null && category['nameAr'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      category['nameAr'].toString(),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                if (category['branchAvailabilityMode'] == 'SPECIFIC') ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.gitBranch, size: 12, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          AppLocalizations.of(context)!.specificBranches,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -388,6 +428,15 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
       text: category?['nameAr'] ?? '',
     );
     PlatformFile? selectedIcon;
+    String branchAvailabilityMode = category?['branchAvailabilityMode']?.toString() ?? 'ALL';
+    final Set<String> selectedBranchIds = {};
+    if (category?['branchAvailability'] is List) {
+      for (final row in category['branchAvailability']) {
+        if (row is Map && row['branchId'] != null) {
+          selectedBranchIds.add(row['branchId'].toString());
+        }
+      }
+    }
 
     final result = await showDialog<bool>(
       context: context,
@@ -525,6 +574,108 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                             icon: LucideIcons.languages,
                             textAlign: TextAlign.right,
                           ),
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(LucideIcons.gitBranch, size: 18, color: AppColors.primary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        AppLocalizations.of(context)!.branchAvailability,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  branchAvailabilityMode == 'ALL'
+                                      ? AppLocalizations.of(context)!.allBranchesHint
+                                      : AppLocalizations.of(context)!.specificBranchesHint,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                SegmentedButton<String>(
+                                  segments: [
+                                    ButtonSegment<String>(
+                                      value: 'ALL',
+                                      label: Text(
+                                        AppLocalizations.of(context)!.allBranches,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    ButtonSegment<String>(
+                                      value: 'SPECIFIC',
+                                      label: Text(
+                                        AppLocalizations.of(context)!.specificBranches,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                  selected: {branchAvailabilityMode},
+                                  onSelectionChanged: (val) {
+                                    setDialogState(() {
+                                      branchAvailabilityMode = val.first;
+                                      if (branchAvailabilityMode == 'SPECIFIC' && selectedBranchIds.isEmpty && _branches.isNotEmpty) {
+                                        selectedBranchIds.addAll(_branches.map((b) => b['id'].toString()));
+                                      }
+                                    });
+                                  },
+                                ),
+                                if (branchAvailabilityMode == 'SPECIFIC') ...[
+                                  const SizedBox(height: 12),
+                                  if (_branches.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Text(
+                                        AppLocalizations.of(context)!.noBranchesAvailable,
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      ),
+                                    )
+                                  else
+                                    ..._branches.map((branch) {
+                                      final id = branch['id']?.toString() ?? '';
+                                      final bName = (Localizations.localeOf(context).languageCode == 'ar'
+                                              ? branch['nameAr']
+                                              : branch['name']) ??
+                                          branch['name'] ??
+                                          id;
+                                      final isChecked = selectedBranchIds.contains(id);
+                                      return CheckboxListTile(
+                                        value: isChecked,
+                                        dense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        title: Text(bName.toString(), style: const TextStyle(fontSize: 13)),
+                                        onChanged: (val) {
+                                          setDialogState(() {
+                                            if (val == true) {
+                                              selectedBranchIds.add(id);
+                                            } else {
+                                              selectedBranchIds.remove(id);
+                                            }
+                                          });
+                                        },
+                                      );
+                                    }),
+                                ],
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -559,31 +710,41 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                           bool success;
                           String? categoryId = category?['id'];
 
+                          if (branchAvailabilityMode == 'SPECIFIC' && selectedBranchIds.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(AppLocalizations.of(context)!.branchAvailabilityRequired),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                            return;
+                          }
+
                           if (isEdit) {
                             success = (await ref
                                 .read(adminVendorsRepositoryProvider)
-                                .updateMenuCategory(
+                                .updateMenuCategoryRaw(
                                   widget.vendorId,
                                   categoryId!,
-                                  UpdateMenuCategoryDto((b) {
-                                    b.name = nameController.text;
-                                    b.nameAr = nameArController.text;
-                                    b.isActive = category?['isActive'] ?? true;
-                                    if (category?['description'] != null) b.description = category?['description'];
-                                    if (category?['descriptionAr'] != null) b.descriptionAr = category?['descriptionAr'];
-                                  }),
+                                  name: nameController.text.trim(),
+                                  nameAr: nameArController.text.trim(),
+                                  branchAvailabilityMode: branchAvailabilityMode,
+                                  branchIds: branchAvailabilityMode == 'SPECIFIC'
+                                      ? selectedBranchIds.toList()
+                                      : [],
                                   isAdmin: widget.isAdmin,
                                 )) != null;
                           } else {
                             success = (await ref
                                 .read(adminVendorsRepositoryProvider)
-                                .createMenuCategory(
-                                  widget.vendorId, 
-                                  CreateMenuCategoryDto((b) {
-                                    b.name = nameController.text;
-                                    b.nameAr = nameArController.text;
-                                    b.isActive = true;
-                                  }),
+                                .createMenuCategoryRaw(
+                                  widget.vendorId,
+                                  name: nameController.text.trim(),
+                                  nameAr: nameArController.text.trim(),
+                                  branchAvailabilityMode: branchAvailabilityMode,
+                                  branchIds: branchAvailabilityMode == 'SPECIFIC'
+                                      ? selectedBranchIds.toList()
+                                      : [],
                                   isAdmin: widget.isAdmin,
                                 )) != null;
                           }

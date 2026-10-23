@@ -189,10 +189,27 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ] else ...[
                 _buildInfoRow(context, LucideIcons.store, vendor['storeName'] ?? vendor['name'] ?? l10n.vendorFallback),
-                if (vendor['address'] != null) ...[
-                  const SizedBox(height: 12),
-                  _buildInfoRow(context, LucideIcons.map, vendor['address']),
-                ],
+                () {
+                  final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
+                  final String? branchName = branch == null
+                      ? null
+                      : (l10n.localeName == 'ar'
+                          ? (branch['nameAr']?.toString() ?? branch['name']?.toString())
+                          : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
+                  final dynamic branchAddress = branch != null ? branch['address'] : order['pickupAddress'];
+                  return Column(
+                    children: [
+                      if (branchName != null && branchName.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildInfoRow(context, LucideIcons.mapPin, branchName),
+                      ],
+                      if (branchAddress != null && branchAddress.toString().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildInfoRow(context, LucideIcons.map, branchAddress.toString()),
+                      ],
+                    ],
+                  );
+                }(),
               ],
 
               const SizedBox(height: 24),
@@ -341,52 +358,195 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               const Divider(),
               const SizedBox(height: 16),
               
-              // Financials
-              _buildTotalRow(context, l10n.localeName == 'ar' ? 'المجموع الفرعي' : 'Subtotal', order['subtotal'], currency),
-              const SizedBox(height: 8),
-              _buildTotalRow(context, l10n.localeName == 'ar' ? 'رسوم التوصيل' : 'Delivery Fee', order['deliveryFee'], currency),
-              if (order['serviceFee'] != null && (double.tryParse(order['serviceFee'].toString()) ?? 0.0) > 0) ...[
-                const SizedBox(height: 8),
-                _buildTotalRow(context, l10n.localeName == 'ar' ? 'رسوم الخدمة' : 'Service Fee', order['serviceFee'], currency),
-              ],
-              if (order['tax'] != null && order['tax'] > 0) ...[
-                const SizedBox(height: 8),
-                _buildTotalRow(context, l10n.localeName == 'ar' ? 'الضريبة' : 'Tax', order['tax'], currency),
-              ],
-              const SizedBox(height: 16),
-              _buildTotalRow(
-                context,
-                l10n.localeName == 'ar' ? 'الإجمالي' : 'Total',
-                order['total'] ?? order['grandTotal'],
-                currency,
-                isTotal: true
-              ),
-              const SizedBox(height: 12),
-              _buildInfoRow(
-                context,
-                LucideIcons.wallet,
-                _paymentMethodLabel(
-                  order['paymentMethod']?.toString() ?? '',
-                  l10n.localeName == 'ar',
-                ),
-              ),
-              if (order['upfrontAmount'] != null && (double.tryParse(order['upfrontAmount'].toString()) ?? 0.0) > 0) ...[
-                const SizedBox(height: 8),
-                _buildTotalRow(
-                  context,
-                  l10n.localeName == 'ar' ? 'المدفوع مقدماً' : 'Paid Upfront',
-                  '-${order['upfrontAmount']}',
-                  currency,
-                ),
-                const SizedBox(height: 8),
-                _buildTotalRow(
-                  context,
-                  l10n.localeName == 'ar' ? 'المطلوب تحصيله كاش' : 'Cash to Collect',
-                  ((double.tryParse((order['total'] ?? order['grandTotal']).toString()) ?? 0.0) - (double.tryParse(order['upfrontAmount'].toString()) ?? 0.0)),
-                  currency,
-                  isTotal: true,
-                ),
-              ],
+              // Operational Financial Cards for Driver
+              Builder(builder: (context) {
+                final financials = order['financials'] is Map ? order['financials'] as Map : null;
+
+                final isPrepaid = financials?['isPrepaid'] == true ||
+                    (order['paymentMethod'] != 'CASH_ON_DELIVERY' && order['paymentMethod'] != 'MOBILE_WALLET');
+                final double cashToCollect = financials?['cashToCollect'] != null
+                    ? (double.tryParse(financials!['cashToCollect'].toString()) ?? 0.0)
+                    : (isPrepaid
+                        ? 0.0
+                        : ((double.tryParse((order['total'] ?? order['grandTotal']).toString()) ?? 0.0) - (double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0)));
+
+                final bool isStorePrepaid = financials?['isStorePrepaid'] ??
+                    (order['vendorBranch']?['isContracted'] ?? order['vendor']?['isContracted'] ?? false);
+                final double cashToPayStore = financials?['cashToPayStore'] != null
+                    ? (double.tryParse(financials!['cashToPayStore'].toString()) ?? 0.0)
+                    : (isStorePrepaid ? 0.0 : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0));
+
+                final double driverEarnings = financials?['driverEarnings'] != null
+                    ? (double.tryParse(financials!['driverEarnings'].toString()) ?? 0.0)
+                    : (double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0);
+
+                final isAr = l10n.localeName == 'ar';
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. Customer Cash Collection Card
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: (isPrepaid || cashToCollect <= 0)
+                            ? AppColors.primary.withValues(alpha: 0.08)
+                            : AppColors.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: (isPrepaid || cashToCollect <= 0)
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : AppColors.success.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            (isPrepaid || cashToCollect <= 0) ? LucideIcons.creditCard : LucideIcons.banknote,
+                            color: (isPrepaid || cashToCollect <= 0) ? AppColors.primary : AppColors.success,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (isPrepaid || cashToCollect <= 0)
+                                      ? (isAr ? 'الطلب مدفوع إلكترونياً' : 'Order Paid Online')
+                                      : (isAr ? 'المطلوب تحصيله كاش من العميل' : 'Cash to Collect from Customer'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  (isPrepaid || cashToCollect <= 0)
+                                      ? (isAr ? 'لا تحصل كاش (0 $currency)' : 'Do Not Collect Cash (0 $currency)')
+                                      : '${cashToCollect.toStringAsFixed(2)} $currency',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: (isPrepaid || cashToCollect <= 0) ? AppColors.primary : AppColors.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 2. Store Pickup Payment Instruction Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isStorePrepaid
+                            ? Colors.grey.withValues(alpha: 0.08)
+                            : AppColors.warning.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isStorePrepaid
+                              ? Colors.grey.withValues(alpha: 0.2)
+                              : AppColors.warning.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isStorePrepaid ? LucideIcons.store : LucideIcons.badgeDollarSign,
+                            color: isStorePrepaid ? Colors.grey : AppColors.warning,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isStorePrepaid
+                                      ? (isAr ? 'متجر شريك معتمد: لا تدفع كاش في المتجر (0 $currency)' : 'Partner Store: Pay 0 $currency at store')
+                                      : (isAr ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPayStore.toStringAsFixed(2)} $currency' : 'Uncontracted: Pay store in cash: ${cashToPayStore.toStringAsFixed(2)} $currency'),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isStorePrepaid
+                                        ? Theme.of(context).colorScheme.onSurface
+                                        : AppColors.warning,
+                                  ),
+                                ),
+                                if (!isStorePrepaid && isPrepaid) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    isAr
+                                        ? 'الطلب مدفوع إلكترونياً — سيتم استرداد المبلغ لمحفظتك فور التسليم'
+                                        : 'Paid online — Cash will be reimbursed to your wallet upon delivery',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 3. Driver Delivery Earnings Card
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(LucideIcons.bike, size: 18, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                isAr ? 'أرباحك من هذا التوصيل' : 'Your Delivery Earnings',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${driverEarnings.toStringAsFixed(2)} $currency',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Payment Method Detail
+                    _buildInfoRow(
+                      context,
+                      LucideIcons.wallet,
+                      _paymentMethodLabel(
+                        order['paymentMethod']?.toString() ?? '',
+                        isAr,
+                      ),
+                    ),
+                  ],
+                );
+              }),
               
               const SizedBox(height: 24),
               PrimaryButton(
@@ -519,29 +679,4 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Widget _buildTotalRow(BuildContext context, String label, dynamic value, String currency, {bool isTotal = false}) {
-    final valNum = double.tryParse(value?.toString() ?? '0') ?? 0.0;
-    
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? 18 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        Text(
-          '${valNum.toStringAsFixed(2)} $currency',
-          style: TextStyle(
-            fontSize: isTotal ? 18 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-      ],
-    );
-  }
 }

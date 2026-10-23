@@ -76,8 +76,12 @@ export class VendorsController {
   @ApiStandardResponse()
   @Get(':vendorId')
   @ApiOperation({ summary: 'Get a specific vendor by ID' })
-  findOne(@Param('vendorId') vendorId: string) {
-    return this.service.findOne(vendorId);
+  @ApiQuery({ name: 'branchId', required: false, description: 'Optional branch UUID to filter menu for a specific branch' })
+  findOne(
+    @Param('vendorId') vendorId: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.service.findOne(vendorId, branchId);
   }
 
   @ApiStandardResponse()

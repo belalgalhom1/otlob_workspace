@@ -19,6 +19,12 @@ export class VendorBranch {
   @ApiProperty({ type: Boolean })
   isOpen: boolean = true;
 
+  @ApiPropertyOptional({ type: Boolean })
+  isContracted?: boolean;
+
+  @ApiPropertyOptional({ type: Number })
+  commissionRate?: number;
+
   @ApiProperty({ type: String })
   vendorId: string;
 

@@ -531,6 +531,8 @@ CREATE TABLE "vendor_branches" (
     "address" TEXT NOT NULL,
     "phone" TEXT,
     "isOpen" BOOLEAN NOT NULL DEFAULT true,
+    "isContracted" BOOLEAN,
+    "commissionRate" INTEGER,
     "location" geometry NOT NULL,
     "vendorId" TEXT NOT NULL,
     "zoneId" TEXT NOT NULL,
@@ -612,6 +614,7 @@ CREATE TABLE "menu_categories" (
     "iconUrl" TEXT,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "branchAvailabilityMode" "ProductBranchAvailabilityMode" NOT NULL DEFAULT 'ALL',
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
@@ -654,6 +657,15 @@ CREATE TABLE "product_branch_availability" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "product_branch_availability_pkey" PRIMARY KEY ("productId","branchId")
+);
+
+-- CreateTable
+CREATE TABLE "category_branch_availability" (
+    "categoryId" TEXT NOT NULL,
+    "branchId" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "category_branch_availability_pkey" PRIMARY KEY ("categoryId","branchId")
 );
 
 -- CreateTable
@@ -1427,6 +1439,9 @@ CREATE INDEX "products_deletedAt_idx" ON "products"("deletedAt");
 CREATE INDEX "product_branch_availability_branchId_productId_idx" ON "product_branch_availability"("branchId", "productId");
 
 -- CreateIndex
+CREATE INDEX "category_branch_availability_branchId_categoryId_idx" ON "category_branch_availability"("branchId", "categoryId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "product_variants_sku_key" ON "product_variants"("sku");
 
 -- CreateIndex
@@ -1833,6 +1848,12 @@ ALTER TABLE "product_branch_availability" ADD CONSTRAINT "product_branch_availab
 
 -- AddForeignKey
 ALTER TABLE "product_branch_availability" ADD CONSTRAINT "product_branch_availability_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "vendor_branches"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "category_branch_availability" ADD CONSTRAINT "category_branch_availability_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "menu_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "category_branch_availability" ADD CONSTRAINT "category_branch_availability_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "vendor_branches"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "product_variants" ADD CONSTRAINT "product_variants_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;

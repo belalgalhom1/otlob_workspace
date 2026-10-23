@@ -160,7 +160,17 @@ export class OrderVendorDecisionService {
       where: { id: fulfillment.vendorId },
       select: { isContracted: true },
     });
-    const serviceFeeDelta = rejectedVendor?.isContracted
+    const rejectedBranch = fulfillment.vendorBranchId
+      ? await this.prisma.vendorBranch.findUnique({
+          where: { id: fulfillment.vendorBranchId },
+          select: { isContracted: true },
+        })
+      : null;
+    const isContracted =
+      rejectedBranch?.isContracted != null
+        ? rejectedBranch.isContracted
+        : (rejectedVendor?.isContracted ?? false);
+    const serviceFeeDelta = isContracted
       ? 0
       : -Math.round(refundAmount * (fulfillment.commissionRate / 100));
 
@@ -348,6 +358,7 @@ export class OrderVendorDecisionService {
         id: true,
         orderId: true,
         vendorId: true,
+        vendorBranchId: true,
         status: true,
         subtotal: true,
         commissionRate: true,
@@ -375,6 +386,16 @@ export class OrderVendorDecisionService {
     return {
       items: { where: { rejectedAt: null }, select: { id: true, productName: true, quantity: true, totalPrice: true } },
       vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+      vendorBranch: {
+        select: {
+          id: true,
+          name: true,
+          nameAr: true,
+          address: true,
+          phone: true,
+          isContracted: true,
+        },
+      },
       groups: {
         select: {
           deliveryGroup: {

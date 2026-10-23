@@ -94,6 +94,10 @@ class VendorProductSalesQueryDto {
   @IsOptional()
   search?: string;
 
+  @IsUUID()
+  @IsOptional()
+  branchId?: string;
+
   @IsIn(['revenue', 'quantity', 'orders', 'net', 'name'])
   @IsOptional()
   sortBy?: 'revenue' | 'quantity' | 'orders' | 'net' | 'name' = 'revenue';
@@ -150,6 +154,7 @@ export class StatisticsController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'branchId', required: false, description: 'Filter sales by specific branch UUID' })
   @ApiQuery({
     name: 'sortBy',
     required: false,

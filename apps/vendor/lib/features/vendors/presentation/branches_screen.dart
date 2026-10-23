@@ -241,6 +241,92 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     );
   }
 
+  Widget _buildContractBadge(dynamic branch) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final dynamic branchContracted = branch['isContracted'];
+    Widget contractWidget;
+    if (branchContracted == true) {
+      contractWidget = Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          isAr ? 'شريك معتمد' : 'Contracted',
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    } else if (branchContracted == false) {
+      contractWidget = Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          isAr ? 'غير متعاقد' : 'Uncontracted',
+          style: const TextStyle(
+            color: AppColors.warning,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    } else {
+      contractWidget = Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          isAr ? 'يتبع المتجر' : 'Inherits Vendor',
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    final dynamic commRate = branch['commissionRate'];
+    if (commRate != null) {
+      return Wrap(
+        spacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          contractWidget,
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.info.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              isAr ? 'عمولة: $commRate٪' : 'Commission: $commRate%',
+              style: const TextStyle(
+                color: AppColors.info,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return contractWidget;
+  }
+
   Widget _buildBranchCard(dynamic branch) {
     return Container(
       decoration: BoxDecoration(
@@ -277,6 +363,8 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildContractBadge(branch),
+            const SizedBox(height: 4),
             Text(
               branch['address'] ??
                   AppLocalizations.of(context)!.noAddressProvided,
@@ -424,6 +512,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     final phoneController = TextEditingController(
       text: branch?['phoneNumber'] ?? '',
     );
+    final commissionController = TextEditingController(
+      text: branch?['commissionRate']?.toString() ?? '',
+    );
     double? selectedLat = branch?['lat'] != null
         ? double.tryParse(branch['lat'].toString())
         : null;
@@ -432,6 +523,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
         : null;
     String? selectedZoneId = branch?['zoneId'] ?? branch?['zone']?['id'];
     String? errorMessage;
+    bool? isContracted = branch?['isContracted'] as bool?;
 
     final result = await showDialog<bool>(
       context: context,
@@ -644,6 +736,96 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             icon: LucideIcons.phone,
                             keyboardType: TextInputType.phone,
                           ),
+                          const SizedBox(height: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(LucideIcons.handshake, size: 18, color: AppColors.primary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        Localizations.localeOf(context).languageCode == 'ar'
+                                            ? 'حالة التعاقد للفرع'
+                                            : 'Branch Contract Status',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  Localizations.localeOf(context).languageCode == 'ar'
+                                      ? 'إذا لم يتم التحديد، سيتبع الفرع حالة المتجر الرئيسية تلقائياً'
+                                      : 'If unset, branch inherits the vendor contract status',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                SegmentedButton<bool?>(
+                                  segments: [
+                                    ButtonSegment<bool?>(
+                                      value: null,
+                                      label: Text(
+                                        Localizations.localeOf(context).languageCode == 'ar'
+                                            ? 'افتراضي المتجر'
+                                            : 'Inherit',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    ButtonSegment<bool?>(
+                                      value: true,
+                                      label: Text(
+                                        Localizations.localeOf(context).languageCode == 'ar'
+                                            ? 'شريك معتمد'
+                                            : 'Contracted',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    ButtonSegment<bool?>(
+                                      value: false,
+                                      label: Text(
+                                        Localizations.localeOf(context).languageCode == 'ar'
+                                            ? 'غير متعاقد'
+                                            : 'Uncontracted',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                  selected: {isContracted},
+                                  onSelectionChanged: (Set<bool?> selection) {
+                                    setState(() {
+                                      isContracted = selection.first;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDialogTextField(
+                            controller: commissionController,
+                            label: Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'نسبة العمولة الخاصة بالفرع (٪) (اختياري)'
+                                : 'Branch Commission Rate (%) (Optional)',
+                            hint: Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'اتركه فارغاً ليتبع نسبة المتجر'
+                                : 'Leave empty to inherit vendor rate',
+                            keyboardType: TextInputType.number,
+                            icon: LucideIcons.percent,
+                          ),
                           if (errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Container(
@@ -746,6 +928,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             lat: selectedLat,
                                             lng: selectedLng,
                                             zoneId: selectedZoneId,
+                                            isContracted: isContracted,
+                                            commissionRate: commissionController.text.trim().isNotEmpty
+                                                ? int.tryParse(commissionController.text.trim())
+                                                : null,
                                           ) !=
                                       null;
                                 } else {
@@ -769,6 +955,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             lat: selectedLat!,
                                             lng: selectedLng!,
                                             zoneId: selectedZoneId,
+                                            isContracted: isContracted,
+                                            commissionRate: commissionController.text.trim().isNotEmpty
+                                                ? int.tryParse(commissionController.text.trim())
+                                                : null,
                                           ) !=
                                       null;
                                 }

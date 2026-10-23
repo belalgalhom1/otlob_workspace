@@ -470,6 +470,66 @@ export class StatisticsService {
             { skipLock: true },
           );
         }
+      } else {
+        // Customer paid online (Card / Fawry / etc.) — no cash collected from customer.
+        // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket.
+        // Since platform collected the money online, the platform must reimburse the driver wallet.
+        if (groups.length > 0) {
+          const items = await client.orderDeliveryGroupItem.findMany({
+            where: { deliveryGroupId: { in: groups.map((g) => g.id) } },
+            select: {
+              deliveryGroupId: true,
+              fulfillment: {
+                select: {
+                  subtotal: true,
+                  vendor: { select: { isContracted: true } },
+                  vendorBranch: { select: { isContracted: true } },
+                },
+              },
+            },
+          });
+          const cashPaidByGroup = new Map<string, number>();
+          for (const item of items) {
+            const f = item.fulfillment;
+            const branchOrVendorContracted =
+              f.vendorBranch?.isContracted != null
+                ? f.vendorBranch.isContracted
+                : (f.vendor?.isContracted ?? false);
+            if (!branchOrVendorContracted) {
+              cashPaidByGroup.set(
+                item.deliveryGroupId,
+                (cashPaidByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,
+              );
+            }
+          }
+          for (const g of groups) {
+            if (!g.primaryDriverId) continue;
+            const paidAtStore = cashPaidByGroup.get(g.id) ?? 0;
+            if (paidAtStore > 0) {
+              await this.creditDriverWallet(
+                client,
+                g.primaryDriverId,
+                paidAtStore,
+                orderId,
+                g.primaryDriverShiftId,
+                `Store food reimbursement for order ${orderNumber}`,
+                'CASH_HANDED_TO_VENDOR',
+                { skipLock: true },
+              );
+            }
+          }
+        } else if (!isContracted && subtotal > 0) {
+          await this.creditDriverWallet(
+            client,
+            driverId,
+            subtotal,
+            orderId,
+            driverShiftId,
+            `Store food reimbursement for order ${orderNumber}`,
+            'CASH_HANDED_TO_VENDOR',
+            { skipLock: true },
+          );
+        }
       }
 
       // Pay EACH delivery's primary driver their own tier-adjusted fee. For a
@@ -709,7 +769,15 @@ export class StatisticsService {
                   where: { id: p.vendorId },
                   select: { isContracted: true },
                 });
-                if (!contracted?.isContracted) return null;
+                const fulfillment = await client.orderVendorFulfillment.findFirst({
+                  where: { orderId, vendorId: p.vendorId },
+                  select: { vendorBranch: { select: { isContracted: true } } },
+                });
+                const isContracted =
+                  fulfillment?.vendorBranch?.isContracted != null
+                    ? fulfillment.vendorBranch.isContracted
+                    : (contracted?.isContracted ?? false);
+                if (!isContracted) return null;
                 const rate = Number(p.commissionRate ?? 0);
                 return {
                   vendorId: p.vendorId,
@@ -829,9 +897,14 @@ export class StatisticsService {
             subtotal: true,
             commissionRate: true,
             vendor: { select: { isContracted: true } },
+            vendorBranch: { select: { isContracted: true } },
           },
         });
         for (const portion of portions) {
+          const isContracted =
+            portion.vendorBranch?.isContracted != null
+              ? portion.vendorBranch.isContracted
+              : (portion.vendor?.isContracted ?? false);
           statsJobs.push(
             this.enqueueStatsJob({
               name: STATS_JOBS.UPDATE_VENDOR,
@@ -841,7 +914,7 @@ export class StatisticsService {
                 increment: {
                   totalOrders: 1,
                   totalRevenue: portion.subtotal,
-                  totalCommission: portion.vendor?.isContracted
+                  totalCommission: isContracted
                     ? Math.round(
                         portion.subtotal *
                           (Number(portion.commissionRate) / 100),
@@ -1342,6 +1415,7 @@ export class StatisticsService {
           select: {
             subtotal: true,
             vendor: { select: { isContracted: true } },
+            vendorBranch: { select: { isContracted: true } },
           },
         },
       },
@@ -1355,7 +1429,11 @@ export class StatisticsService {
         item.deliveryGroupId,
         (goodsByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,
       );
-      if (!f.vendor?.isContracted) {
+      const isContracted =
+        f.vendorBranch?.isContracted != null
+          ? f.vendorBranch.isContracted
+          : (f.vendor?.isContracted ?? false);
+      if (!isContracted) {
         cashPaidByGroup.set(
           item.deliveryGroupId,
           (cashPaidByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,

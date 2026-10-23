@@ -131,6 +131,8 @@ class AdminVendorsRepository {
     required double lng,
     String? zoneId,
     bool isOpen = true,
+    bool? isContracted,
+    int? commissionRate,
   }) async {
     final response = await _dio.post(
       '/vendors/$vendorId/branches/admin',
@@ -142,6 +144,8 @@ class AdminVendorsRepository {
         'location': [lat, lng],
         if (zoneId != null && zoneId.isNotEmpty) 'zoneId': zoneId,
         'isOpen': isOpen,
+        if (isContracted != null) 'isContracted': isContracted,
+        if (commissionRate != null) 'commissionRate': commissionRate,
       },
     );
     return ResponseParser.parse(response);
@@ -172,6 +176,8 @@ class AdminVendorsRepository {
     double? lng,
     String? zoneId,
     bool? isOpen,
+    bool? isContracted,
+    int? commissionRate,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
@@ -181,6 +187,8 @@ class AdminVendorsRepository {
     if (lat != null && lng != null) body['location'] = [lat, lng];
     if (zoneId != null && zoneId.isNotEmpty) body['zoneId'] = zoneId;
     if (isOpen != null) body['isOpen'] = isOpen;
+    if (isContracted != null) body['isContracted'] = isContracted;
+    if (commissionRate != null) body['commissionRate'] = commissionRate;
     final response = await _dio.patch(
       '/vendors/$vendorId/branches/admin/$branchId',
       data: body,
@@ -197,9 +205,75 @@ class AdminVendorsRepository {
   }
 
   // --- Categories Proxy ---
-  Future<dynamic> getMenuCategories(String vendorId) async {
-    final response = await _menuApi.menuCategoriesControllerFindAll(
-      vendorId: vendorId,
+  Future<dynamic> getMenuCategories(String vendorId, {String? branchId}) async {
+    final response = await _dio.get(
+      '/vendors/$vendorId/categories',
+      queryParameters: {
+        if (branchId != null) 'branchId': branchId,
+      },
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> createMenuCategoryRaw(
+    String vendorId, {
+    required String name,
+    String? nameAr,
+    String? description,
+    String? descriptionAr,
+    int? sortOrder,
+    bool isActive = true,
+    String branchAvailabilityMode = 'ALL',
+    List<String>? branchIds,
+    bool isAdmin = true,
+  }) async {
+    final endpoint = isAdmin
+        ? '/vendors/$vendorId/categories/admin'
+        : '/vendors/$vendorId/categories';
+    final response = await _dio.post(
+      endpoint,
+      data: {
+        'name': name,
+        if (nameAr != null && nameAr.isNotEmpty) 'nameAr': nameAr,
+        if (description != null && description.isNotEmpty) 'description': description,
+        if (descriptionAr != null && descriptionAr.isNotEmpty) 'descriptionAr': descriptionAr,
+        if (sortOrder != null) 'sortOrder': sortOrder,
+        'isActive': isActive,
+        'branchAvailabilityMode': branchAvailabilityMode,
+        if (branchIds != null && branchIds.isNotEmpty) 'branchIds': branchIds,
+      },
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> updateMenuCategoryRaw(
+    String vendorId,
+    String categoryId, {
+    String? name,
+    String? nameAr,
+    String? description,
+    String? descriptionAr,
+    int? sortOrder,
+    bool? isActive,
+    String? branchAvailabilityMode,
+    List<String>? branchIds,
+    bool isAdmin = true,
+  }) async {
+    final endpoint = isAdmin
+        ? '/vendors/$vendorId/categories/admin/$categoryId'
+        : '/vendors/$vendorId/categories/$categoryId';
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (nameAr != null) body['nameAr'] = nameAr;
+    if (description != null) body['description'] = description;
+    if (descriptionAr != null) body['descriptionAr'] = descriptionAr;
+    if (sortOrder != null) body['sortOrder'] = sortOrder;
+    if (isActive != null) body['isActive'] = isActive;
+    if (branchAvailabilityMode != null) body['branchAvailabilityMode'] = branchAvailabilityMode;
+    if (branchIds != null) body['branchIds'] = branchIds;
+    final response = await _dio.patch(
+      endpoint,
+      data: body,
     );
     return ResponseParser.parse(response);
   }

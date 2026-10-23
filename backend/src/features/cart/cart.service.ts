@@ -667,8 +667,18 @@ export class CartService {
     const unavailable = await this.prisma.product.findMany({
       where: {
         id: { in: productIds },
-        branchAvailabilityMode: ProductBranchAvailabilityMode.SPECIFIC,
-        branchAvailability: { none: { branchId } },
+        OR: [
+          {
+            branchAvailabilityMode: ProductBranchAvailabilityMode.SPECIFIC,
+            branchAvailability: { none: { branchId } },
+          },
+          {
+            category: {
+              branchAvailabilityMode: ProductBranchAvailabilityMode.SPECIFIC,
+              branchAvailability: { none: { branchId } },
+            },
+          },
+        ],
       },
       select: { id: true, name: true },
     });

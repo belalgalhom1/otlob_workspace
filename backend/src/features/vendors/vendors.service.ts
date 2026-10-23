@@ -160,6 +160,7 @@ export class VendorsService {
         branchNameAr: string | null;
         branchAddress: string;
         branchIsOpen: boolean;
+        branchIsContracted: boolean | null;
         branchZoneId: string;
         inZone: boolean;
         distanceKm: number;
@@ -177,6 +178,8 @@ export class VendorsService {
               vb."nameAr" AS "branchNameAr",
               vb.address AS "branchAddress",
               vb."isOpen" AS "branchIsOpen",
+              vb."isContracted" AS "branchIsContracted",
+              vb."commissionRate" AS "branchCommissionRate",
               vb."zoneId" AS "branchZoneId",
               ${targetZoneId ? Prisma.sql`(vb."zoneId" = ${targetZoneId})` : Prisma.sql`false`} AS "inZone",
               ${hasCoords ? Prisma.sql`ROUND((ST_Distance(vb.location::geography, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)::geography) / 1000.0)::numeric, 1)::float` : Prisma.sql`0.0::float`} AS "distanceKm",
@@ -198,6 +201,8 @@ export class VendorsService {
             "branchNameAr",
             "branchAddress",
             "branchIsOpen",
+            "branchIsContracted",
+            "branchCommissionRate",
             "branchZoneId",
             "inZone",
             "distanceKm"
@@ -236,6 +241,8 @@ export class VendorsService {
                 nameAr: branch.branchNameAr,
                 address: branch.branchAddress,
                 isOpen: branch.branchIsOpen,
+                isContracted: branch.branchIsContracted,
+                commissionRate: branch.branchCommissionRate,
                 zoneId: branch.branchZoneId,
                 distanceKm: branch.distanceKm,
               },
@@ -331,33 +338,39 @@ export class VendorsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, branchId?: string) {
     const cacheKey = `vendor_details_${id}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached as Record<string, unknown>;
-
-    const vendor = await this.prisma.vendor.findFirst({
-      where: { id, deletedAt: null },
-      include: this.vendorDetailsIncludes(),
-    });
-    if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
-    const mapped = this.mapVendorForApp(vendor);
-    await this.cacheManager.set(cacheKey, mapped, 300000); // 5 mins
+    let mapped = await this.cacheManager.get<Record<string, unknown>>(cacheKey);
+    if (!mapped) {
+      const vendor = await this.prisma.vendor.findFirst({
+        where: { id, deletedAt: null },
+        include: this.vendorDetailsIncludes(),
+      });
+      if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
+      mapped = this.mapVendorForApp(vendor);
+      await this.cacheManager.set(cacheKey, mapped, 300000); // 5 mins
+    }
+    if (branchId) {
+      return this.filterVendorMenuForBranch(mapped, branchId);
+    }
     return mapped;
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, branchId?: string) {
     const cacheKey = `vendor_slug_details_${slug}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached as Record<string, unknown>;
-
-    const vendor = await this.prisma.vendor.findFirst({
-      where: { slug, deletedAt: null },
-      include: this.vendorDetailsIncludes(),
-    });
-    if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
-    const mapped = this.mapVendorForApp(vendor);
-    await this.cacheManager.set(cacheKey, mapped, 300000); // 5 mins
+    let mapped = await this.cacheManager.get<Record<string, unknown>>(cacheKey);
+    if (!mapped) {
+      const vendor = await this.prisma.vendor.findFirst({
+        where: { slug, deletedAt: null },
+        include: this.vendorDetailsIncludes(),
+      });
+      if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
+      mapped = this.mapVendorForApp(vendor);
+      await this.cacheManager.set(cacheKey, mapped, 300000); // 5 mins
+    }
+    if (branchId) {
+      return this.filterVendorMenuForBranch(mapped, branchId);
+    }
     return mapped;
   }
 
@@ -666,10 +679,18 @@ export class VendorsService {
       categories: {
         where: { isActive: true },
         orderBy: { sortOrder: Prisma.SortOrder.asc },
+        include: {
+          branchAvailability: {
+            select: { branchId: true },
+          },
+        },
       },
       products: {
         where: { isActive: true, deletedAt: null },
         include: {
+          branchAvailability: {
+            select: { branchId: true },
+          },
           variants: {
             where: { isActive: true },
             include: {
@@ -1007,8 +1028,51 @@ return {
             hasVariants: p.hasVariants,
             variants: mappedVariants,
             optionGroups: p.optionGroups || [],
+            branchAvailabilityMode: p.branchAvailabilityMode,
+            branchAvailability: p.branchAvailability,
           };
         }) || [],
+    };
+  }
+
+  private filterVendorMenuForBranch(
+    vendor: Record<string, unknown>,
+    branchId: string,
+  ) {
+    const categories = (vendor.categories as Array<any>) ?? [];
+    const products = (vendor.products as Array<any>) ?? [];
+
+    const availableCategories = categories.filter((c) => {
+      if (c.branchAvailabilityMode === 'SPECIFIC') {
+        const branchIds = (c.branchAvailability ?? []).map((b: any) => b.branchId);
+        return branchIds.includes(branchId);
+      }
+      return true;
+    });
+    const availableCategoryIds = new Set(availableCategories.map((c) => c.id));
+
+    const availableProducts = products.filter((p) => {
+      if (p.categoryId && !availableCategoryIds.has(p.categoryId)) {
+        return false;
+      }
+      if (p.branchAvailabilityMode === 'SPECIFIC') {
+        const branchIds = (p.branchAvailability ?? []).map((b: any) => b.branchId);
+        return branchIds.includes(branchId);
+      }
+      return true;
+    });
+
+    const productCategoryIds = new Set(
+      availableProducts.map((p) => p.categoryId).filter(Boolean),
+    );
+    const finalCategories = availableCategories.filter((c) =>
+      productCategoryIds.has(c.id),
+    );
+
+    return {
+      ...vendor,
+      categories: finalCategories,
+      products: availableProducts,
     };
   }
 }

@@ -105,6 +105,17 @@ const ORDER_INCLUDE = {
       ratingCount: true,
     },
   },
+  vendorBranch: {
+    select: {
+      id: true,
+      name: true,
+      nameAr: true,
+      address: true,
+      phone: true,
+      isContracted: true,
+      commissionRate: true,
+    },
+  },
   driver: {
     select: {
       id: true,
@@ -128,7 +139,18 @@ const ORDER_INCLUDE = {
     orderBy: { createdAt: 'asc' as const },
     include: {
       vendor: {
-        select: { id: true, storeName: true, storeNameAr: true, logo: true },
+        select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true },
+      },
+      vendorBranch: {
+        select: {
+          id: true,
+          name: true,
+          nameAr: true,
+          address: true,
+          phone: true,
+          isContracted: true,
+          commissionRate: true,
+        },
       },
       items: {
         where: { rejectedAt: null },
@@ -264,6 +286,33 @@ export class OrdersRepository {
               logo: true,
               rating: true,
               ratingCount: true,
+            },
+          },
+          vendorBranch: {
+            select: {
+              id: true,
+              name: true,
+              nameAr: true,
+              address: true,
+              phone: true,
+              isContracted: true,
+              commissionRate: true,
+            },
+          },
+          vendorFulfillments: {
+            include: {
+              vendor: { select: { id: true, storeName: true, logo: true } },
+              vendorBranch: {
+                select: {
+                  id: true,
+                  name: true,
+                  nameAr: true,
+                  address: true,
+                  phone: true,
+                  isContracted: true,
+                  commissionRate: true,
+                },
+              },
             },
           },
           driver: {
@@ -1047,7 +1096,18 @@ export class OrdersRepository {
     zoneId?: string,
     productIds: string[] = [],
   ): Promise<
-    { id: string; zoneId: string | null; lng: number; lat: number } | null
+    {
+      id: string;
+      zoneId: string | null;
+      lng: number;
+      lat: number;
+      isContracted: boolean | null;
+      commissionRate?: number | null;
+      name?: string;
+      nameAr?: string | null;
+      address?: string | null;
+      phone?: string | null;
+    } | null
   > {
     const zoneFilter = zoneId
       ? Prisma.sql`
@@ -1064,22 +1124,43 @@ export class OrdersRepository {
           AND NOT EXISTS (
             SELECT 1
             FROM products p
+            LEFT JOIN menu_categories c ON c.id = p."categoryId"
             WHERE p.id IN (${Prisma.join(productIds)})
-              AND p."branchAvailabilityMode" = 'SPECIFIC'
-              AND NOT EXISTS (
-                SELECT 1
-                FROM product_branch_availability pba
-                WHERE pba."productId" = p.id
-                  AND pba."branchId" = vendor_branches.id
+              AND (
+                (
+                  p."branchAvailabilityMode" = 'SPECIFIC'
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM product_branch_availability pba
+                    WHERE pba."productId" = p.id
+                      AND pba."branchId" = vendor_branches.id
+                  )
+                )
+                OR
+                (
+                  c."branchAvailabilityMode" = 'SPECIFIC'
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM category_branch_availability cba
+                    WHERE cba."categoryId" = c.id
+                      AND cba."branchId" = vendor_branches.id
+                  )
+                )
               )
           )`
         : Prisma.empty;
     const rows = await this.prisma.$queryRaw<
-      Array<{ id: string; zoneId: string | null; lng: number; lat: number }>
+      Array<{ id: string; zoneId: string | null; isContracted: boolean | null; commissionRate: number | null; lng: number; lat: number }>
     >`
       SELECT
         id,
+        name,
+        "nameAr",
+        address,
+        phone,
         "zoneId",
+        "isContracted",
+        "commissionRate",
         ST_X(location::geometry) AS lng,
         ST_Y(location::geometry) AS lat
       FROM vendor_branches

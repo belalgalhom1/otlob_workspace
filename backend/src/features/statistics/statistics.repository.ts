@@ -22,6 +22,7 @@ export interface VendorProductSalesOptions {
   page?: number;
   limit?: number;
   search?: string;
+  branchId?: string;
   sortBy?: 'revenue' | 'quantity' | 'orders' | 'net' | 'name';
   sortOrder?: 'asc' | 'desc';
 }
@@ -504,6 +505,12 @@ export class StatisticsRepository {
       ${opts.from ? Prisma.sql`AND o."createdAt" >= ${parseDateStart(opts.from)}` : Prisma.empty}
       ${opts.to ? Prisma.sql`AND o."createdAt" <= ${parseDateEnd(opts.to)}` : Prisma.empty}
     `;
+    const singleBranchFilter = opts.branchId
+      ? Prisma.sql`AND o."vendorBranchId" = ${opts.branchId}`
+      : Prisma.empty;
+    const multiBranchFilter = opts.branchId
+      ? Prisma.sql`AND f."vendorBranchId" = ${opts.branchId}`
+      : Prisma.empty;
 
     const sortColumns: Record<string, string> = {
       revenue: '"grossRevenue"',
@@ -535,11 +542,12 @@ export class StatisticsRepository {
           CASE WHEN oi."productId" IS NULL THEN oi."productName" ELSE NULL END AS "customKey",
           oi.quantity AS "quantity",
           oi."totalPrice" AS "totalPrice",
-          v."commissionRate"::numeric AS "commissionRate",
-          v."isContracted" AS "isContracted"
+          COALESCE(vb."commissionRate", v."commissionRate")::numeric AS "commissionRate",
+          COALESCE(vb."isContracted", v."isContracted") AS "isContracted"
         FROM order_items oi
         JOIN orders o ON o.id = oi."orderId"
         JOIN vendors v ON v.id = o."vendorId"
+        LEFT JOIN vendor_branches vb ON vb.id = o."vendorBranchId"
         LEFT JOIN products p ON p.id = oi."productId"
         WHERE o."vendorId" = ${vendorId}
           AND o.status = 'DELIVERED'
@@ -547,6 +555,7 @@ export class StatisticsRepository {
           AND oi."fulfillmentId" IS NULL
           AND oi."rejectedAt" IS NULL
           ${rangeSql}
+          ${singleBranchFilter}
 
         UNION ALL
 
@@ -560,11 +569,12 @@ export class StatisticsRepository {
           oi.quantity AS "quantity",
           oi."totalPrice" AS "totalPrice",
           f."commissionRate"::numeric AS "commissionRate",
-          v."isContracted" AS "isContracted"
+          COALESCE(vb."isContracted", v."isContracted") AS "isContracted"
         FROM order_items oi
         JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
         JOIN orders o ON o.id = f."orderId"
         JOIN vendors v ON v.id = f."vendorId"
+        LEFT JOIN vendor_branches vb ON vb.id = f."vendorBranchId"
         LEFT JOIN products p ON p.id = oi."productId"
         WHERE f."vendorId" = ${vendorId}
           AND f.status = 'ACCEPTED'
@@ -572,6 +582,7 @@ export class StatisticsRepository {
           AND o."deletedAt" IS NULL
           AND oi."rejectedAt" IS NULL
           ${rangeSql}
+          ${multiBranchFilter}
       )
     `;
 

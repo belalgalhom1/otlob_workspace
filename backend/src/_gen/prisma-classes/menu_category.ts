@@ -28,6 +28,9 @@ export class MenuCategory {
   @ApiProperty({ type: Boolean })
   isActive: boolean = true;
 
+  @ApiProperty({ enum: ['ALL', 'SPECIFIC'], default: 'ALL' })
+  branchAvailabilityMode: string = 'ALL';
+
   @ApiProperty({ type: Date })
   createdAt: Date;
 
