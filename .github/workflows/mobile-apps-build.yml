@@ -1,121 +1,121 @@
 name: App Builds
 
 on:
-push:
-branches:
-- main
-- master
-- develop
-pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build-android-apps:
-name: ${{ matrix.app_job_name }}
-runs-on: ubuntu-latest
-strategy:
-fail-fast: false
-matrix:
-include:
-- app_job_name: otlob-vendor
-app_path: apps/vendor
-- app_job_name: otlob-driver
-app_path: apps/driver
-- app_job_name: otlob-customer
-app_path: apps/customer
+  build-android-apps:
+    name: ${{ matrix.app_job_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app_job_name: otlob-vendor
+            app_path: apps/vendor
+          - app_job_name: otlob-driver
+            app_path: apps/driver
+          - app_job_name: otlob-customer
+            app_path: apps/customer
 
-steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Set up Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Set up Flutter
-    uses: subosito/flutter-action@v2
-    with:
-      channel: stable
-      cache: false
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: false
 
-  - name: Install workspace dependencies
-    run: flutter pub get
+      - name: Install workspace dependencies
+        run: flutter pub get
 
-  - name: Build APK
-    working-directory: ${{ matrix.app_path }}
-    shell: bash
-    run: |
-      set -euo pipefail
+      - name: Build APK
+        working-directory: ${{ matrix.app_path }}
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      if [ -f .env-example ]; then
-        cp .env-example .env
-      elif [ -f .env.example ]; then
-        cp .env.example .env
-      else
-        touch .env
-      fi
+          if [ -f .env-example ]; then
+            cp .env-example .env
+          elif [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
 
-      flutter build apk --release
+          flutter build apk --release
 
-      cp build/app/outputs/flutter-apk/app-release.apk \
-        build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
 
-  - name: Upload APK artifact
-    uses: actions/upload-artifact@v4
-    with:
-      name: ${{ matrix.app_job_name }}-apk
-      path: ${{ matrix.app_path }}/build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
-      if-no-files-found: error
-      retention-days: 7
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app_job_name }}-apk
+          path: ${{ matrix.app_path }}/build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
+          if-no-files-found: error
+          retention-days: 7
 
-release:
-name: Publish APK Release
-needs: build-android-apps
-if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-runs-on: ubuntu-latest
+  release:
+    name: Publish APK Release
+    needs: build-android-apps
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Download APK artifacts
-    uses: actions/download-artifact@v4
-    with:
-      path: release-artifacts
+    steps:
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
 
-  - name: Delete old APK releases and tags
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GH_REPO: ${{ github.repository }}
-    shell: bash
-    run: |
-      set -euo pipefail
+      - name: Delete old APK releases and tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      echo "Finding old automated APK releases..."
+          echo "Finding old automated APK releases..."
 
-      gh release list --limit 1000 --json tagName --jq '.[].tagName' |
-      while IFS= read -r tag; do
-        [[ "$tag" == apk-build-* ]] || continue
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' |
+          while IFS= read -r tag; do
+            [[ "$tag" == apk-build-* ]] || continue
 
-        echo "Deleting old APK release and tag: $tag"
-        gh release delete "$tag" --yes --cleanup-tag
-      done
+            echo "Deleting old APK release and tag: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
 
-  - name: Publish GitHub release
-    uses: softprops/action-gh-release@v2
-    with:
-      tag_name: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
-      name: APK Build #${{ github.run_number }}
-      body: |
-        Automated APK release generated by GitHub Actions.
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
+          name: "APK Build #${{ github.run_number }}"
+          body: |
+            Automated APK release generated by GitHub Actions.
 
-        Commit: ${{ github.sha }}
+            Commit: ${{ github.sha }}
 
-        Included APKs:
-        - otlob-vendor.apk
-        - otlob-driver.apk
-        - otlob-customer.apk
-      files: release-artifacts/**/*.apk
-      prerelease: false
-      make_latest: true
+            Included APKs:
+            - otlob-vendor.apk
+            - otlob-driver.apk
+            - otlob-customer.apk
+          files: release-artifacts/**/*.apk
+          prerelease: false
+          make_latest: true
