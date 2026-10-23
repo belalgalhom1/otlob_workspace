@@ -56,15 +56,16 @@ jobs:
             touch .env
           fi
           flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app_job_name }}-apk
-          path: ${{ matrix.app_path }}/build/app/outputs/flutter-apk/*.apk
+          path: ${{ matrix.app_path }}/build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
 
-  publish-release:
-    name: publish-release
+  release:
+    name: release
     needs: build-android-apps
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
