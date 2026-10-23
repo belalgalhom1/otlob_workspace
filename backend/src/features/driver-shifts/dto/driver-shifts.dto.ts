@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -112,12 +113,14 @@ export class QueryShiftPoolsDto {
   zoneId?: string;
 
   @ApiProperty({ example: 1, required: false })
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @IsOptional()
   page?: number;
 
   @ApiProperty({ example: 20, required: false })
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)

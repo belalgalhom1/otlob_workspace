@@ -100,14 +100,16 @@ export class DriverShiftsService {
       }
 
       pools.push({
+        id: randomUUID(),
         batchId,
         title: dto.title?.trim() || null,
         titleAr: dto.titleAr?.trim() || null,
-        zoneId: dto.zoneId ?? null,
+        zoneId: dto.zoneId && dto.zoneId.trim().isNotEmpty ? dto.zoneId.trim() : null,
         shiftDate: current,
         startTime: shiftStart,
         endTime: shiftEnd,
         maxDrivers: dto.maxDrivers,
+        updatedAt: new Date(),
       });
 
       current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
@@ -682,6 +684,7 @@ export class DriverShiftsService {
 
       // Book them
       const creates = pools.map((pool) => ({
+        id: randomUUID(),
         driverId,
         shiftPoolId: pool.id,
         zoneId: pool.zoneId,

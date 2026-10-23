@@ -724,21 +724,12 @@ export class OrdersCheckoutService {
     const settings = await this.platformSettings.getSettings();
 
     const subtotal = dto.price * (dto.quantity ?? 1);
-    const branchCommission =
-      typeof branch !== 'undefined' && branch?.commissionRate != null
-        ? Number(branch.commissionRate)
-        : null;
     const vendorCommission =
-      branchCommission != null
-        ? branchCommission
-        : (vendor.commissionRate != null
-            ? Number(vendor.commissionRate)
-            : Number(settings.defaultCommissionRate ?? 10));
+      vendor.commissionRate != null
+        ? Number(vendor.commissionRate)
+        : Number(settings.defaultCommissionRate ?? 10);
     const commissionRate = vendorCommission / 100;
-    const isContracted =
-      (typeof branch !== 'undefined' && branch?.isContracted != null)
-        ? branch.isContracted
-        : vendor.isContracted;
+    const isContracted = vendor.isContracted;
     const serviceFee = !isContracted
       ? Math.round(subtotal * commissionRate)
       : 0;

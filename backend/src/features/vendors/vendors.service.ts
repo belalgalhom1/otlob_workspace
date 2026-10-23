@@ -161,6 +161,7 @@ export class VendorsService {
         branchAddress: string;
         branchIsOpen: boolean;
         branchIsContracted: boolean | null;
+        branchCommissionRate: number | null;
         branchZoneId: string;
         inZone: boolean;
         distanceKm: number;
@@ -816,6 +817,8 @@ export class VendorsService {
       variants: unknown[];
       optionGroups: unknown[];
       offers?: unknown[];
+      branchAvailabilityMode?: string;
+      branchAvailability?: unknown[];
     }[];
   }) {
     let status = vendor.status;

@@ -24,8 +24,11 @@ class ShiftPools extends _$ShiftPools {
 
     final response = await dio.get('/driver-shifts/admin/pools', queryParameters: queryParams);
     final raw = response.data is Map ? response.data['data'] : response.data;
-    if (raw is List) {
-      return raw.map((e) => ShiftPool.fromJson(e as Map<String, dynamic>)).toList();
+    final list = raw is List
+        ? raw
+        : (raw is Map && raw['items'] is List ? raw['items'] as List : null);
+    if (list != null) {
+      return list.map((e) => ShiftPool.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
   }

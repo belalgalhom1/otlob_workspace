@@ -995,7 +995,7 @@ CREATE TABLE "shift_pools" (
     "endTime" TIMESTAMPTZ(3) NOT NULL,
     "maxDrivers" INTEGER NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "shift_pools_pkey" PRIMARY KEY ("id")
 );

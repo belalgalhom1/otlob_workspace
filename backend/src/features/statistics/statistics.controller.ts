@@ -9,6 +9,7 @@ import { Permission, Role, StatisticPeriod } from '@prisma/client';
 import {
   IsEnum,
   IsOptional,
+  IsUUID,
   IsInt,
   Min,
   Max,

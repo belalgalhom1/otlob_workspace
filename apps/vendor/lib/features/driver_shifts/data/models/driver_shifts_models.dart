@@ -36,10 +36,10 @@ class ShiftPool {
       titleAr: json['titleAr'] as String?,
       zoneId: json['zoneId'] as String?,
       zoneName: json['zone'] != null ? json['zone']['name'] as String? : null,
-      shiftDate: DateTime.parse(json['shiftDate'] as String).toLocal(),
-      startTime: DateTime.parse(json['startTime'] as String).toLocal(),
-      endTime: DateTime.parse(json['endTime'] as String).toLocal(),
-      maxDrivers: json['maxDrivers'] as int,
+      shiftDate: DateTime.tryParse(json['shiftDate']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      startTime: DateTime.tryParse(json['startTime']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      endTime: DateTime.tryParse(json['endTime']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      maxDrivers: (json['maxDrivers'] as num?)?.toInt() ?? 0,
       driverShifts: (json['driverShifts'] as List<dynamic>?)
               ?.map((e) => DriverShift.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -174,7 +174,7 @@ class GenerateShiftPoolsRequest {
         'startTime': startTime,
         'endTime': endTime,
         'maxDrivers': maxDrivers,
-        if (zoneId != null) 'zoneId': zoneId,
+        if (zoneId != null && zoneId!.isNotEmpty) 'zoneId': zoneId,
         if (title != null && title!.isNotEmpty) 'title': title,
         if (titleAr != null && titleAr!.isNotEmpty) 'titleAr': titleAr,
       };

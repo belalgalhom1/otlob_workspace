@@ -666,7 +666,7 @@ export class OrdersMultiVendorService {
   }
 
   private async serviceFeeFor(
-    portions: Array<{ vendorId: string; vendorBranchId?: string; subtotal: number }>,
+    portions: Array<{ vendorId: string; vendorBranchId?: string | null; subtotal: number }>,
     settings: any,
   ): Promise<number> {
     // Mirrors the single-vendor rule: uncontracted vendors pay commission as a
