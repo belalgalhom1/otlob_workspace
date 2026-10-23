@@ -64,8 +64,8 @@ jobs:
           name: ${{ matrix.app_job_name }}-apk
           path: ${{ matrix.app_path }}/build/app/outputs/flutter-apk/${{ matrix.app_job_name }}.apk
 
-  publish-release:
-    name: publish-release
+  release:
+    name: release
     needs: build-android-apps
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
