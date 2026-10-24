@@ -145,7 +145,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          flutter build apk --release --no-pub
+          flutter build apk --release
 
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           OUTPUT_PATH="build/app/outputs/flutter-apk/${APP_NAME}.apk"
