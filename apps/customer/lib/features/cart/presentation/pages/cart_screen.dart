@@ -609,7 +609,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               Positioned(
                 top: 0, right: 0,
                 child: GestureDetector(
-                  onTap: () => ref.read(cartProvider.notifier).updateQuantity(item, 0),
+                  onTap: () {
+                    final vid = item.product.vendorId;
+                    if (vid != null) _estimates.remove(vid);
+                    ref.read(cartProvider.notifier).updateQuantity(item, 0);
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
@@ -713,12 +717,20 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min, 
               children: [
-                _qtyBtn(Icons.remove, isDark, () => ref.read(cartProvider.notifier).updateQuantity(item, item.quantity - 1)),
+                _qtyBtn(Icons.remove, isDark, () {
+                  final vid = item.product.vendorId;
+                  if (vid != null) _estimates.remove(vid);
+                  ref.read(cartProvider.notifier).updateQuantity(item, item.quantity - 1);
+                }),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8), 
                   child: Text('${item.quantity}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87))
                 ),
-                _qtyBtn(Icons.add, isDark, () => ref.read(cartProvider.notifier).updateQuantity(item, item.quantity + 1)),
+                _qtyBtn(Icons.add, isDark, () {
+                  final vid = item.product.vendorId;
+                  if (vid != null) _estimates.remove(vid);
+                  ref.read(cartProvider.notifier).updateQuantity(item, item.quantity + 1);
+                }),
               ]
             ),
           ),

@@ -157,7 +157,11 @@ class Cart extends _$Cart {
         final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: unit);
         
         final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
-        currentBaskets[vendorId] = items;
+        if (items.isEmpty) {
+          currentBaskets.remove(vendorId);
+        } else {
+          currentBaskets[vendorId] = items;
+        }
         state = CartState(vendorBaskets: currentBaskets);
       }
     } catch (e) {
@@ -198,7 +202,11 @@ class Cart extends _$Cart {
         final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: cartItem.selectedUnit);
 
         final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
-        currentBaskets[vendorId] = items;
+        if (items.isEmpty) {
+          currentBaskets.remove(vendorId);
+        } else {
+          currentBaskets[vendorId] = items;
+        }
         state = CartState(vendorBaskets: currentBaskets);
       }
     } catch (e) {
