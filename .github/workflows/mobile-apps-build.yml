@@ -120,9 +120,6 @@ jobs:
           echo "ERROR: NDK installation failed after 3 attempts."
           exit 1
 
-      - name: Resolve workspace dependencies
-        run: dart pub get
-
       - name: Prepare environment
         working-directory: ${{ matrix.app_path }}
         shell: bash
@@ -144,17 +141,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          flutter build apk --release --no-pub
-
+      
+          flutter pub get
+          flutter build apk --release
+      
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           OUTPUT_PATH="build/app/outputs/flutter-apk/${APP_NAME}.apk"
-
+      
           if [ ! -f "$APK_PATH" ]; then
             echo "ERROR: Expected APK was not created: $APK_PATH"
             exit 1
           fi
-
+      
           cp "$APK_PATH" "$OUTPUT_PATH"
           echo "Created APK: $OUTPUT_PATH"
 
