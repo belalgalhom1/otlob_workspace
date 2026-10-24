@@ -3,6 +3,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -45,6 +47,7 @@ export class OrderVendorDecisionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersRepository: OrdersRepository,
+    @Inject(forwardRef(() => OrdersStateService))
     private readonly stateService: OrdersStateService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
