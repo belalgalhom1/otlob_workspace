@@ -27,17 +27,17 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool get isMultiVendor => activeVendorIds.length > 1;
   List<String> get activeVendorIds {
-    final cart = ref.read(cartProvider);
     if (widget.vendorIds != null && widget.vendorIds!.isNotEmpty) {
-      final valid = widget.vendorIds!
-          .where((id) => (cart.vendorBaskets[id]?.isNotEmpty ?? false))
-          .toList();
-      if (valid.isNotEmpty) return valid;
+      return widget.vendorIds!;
     }
     if (widget.vendorId != null && widget.vendorId!.isNotEmpty) {
       return [widget.vendorId!];
     }
-    return [];
+    final cart = ref.read(cartProvider);
+    return cart.vendorBaskets.entries
+        .where((e) => e.value.isNotEmpty)
+        .map((e) => e.key)
+        .toList();
   }
 
   String _selectedPayment = 'CASH_ON_DELIVERY';
@@ -317,6 +317,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final hasAnyItems = vendorIds.any((vid) => (cartState.vendorBaskets[vid] ?? []).isNotEmpty);
 
     if (vendorIds.isEmpty || !hasAnyItems) {
+      if (cartState.vendorBaskets.isEmpty) {
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.pop(),
+            ),
+          ),
+          body: const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+        );
+      }
       return Scaffold(
         appBar: AppBar(
             leading: IconButton(
@@ -408,7 +421,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(context).padding.bottom + 36,
+              ),
               children: [
                 _sectionCard(s.deliveryAddress, [
                   if (profileState.addresses.isEmpty)
@@ -503,65 +521,188 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ]),
                 const SizedBox(height: 16),
                 _sectionCard(s.orderSummary, [
-                  if (!isMultiVendor && branchName != null && branchName.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${s.isArabic ? 'الفرع:' : 'Branch:'} $branchName',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
-                          ),
+                  if (isMultiVendor) ...[
+                    ...vendorIds.map((vid) {
+                      final basketItems = cartState.vendorBaskets[vid] ?? [];
+                      if (basketItems.isEmpty) return const SizedBox.shrink();
+                      final first = basketItems.first.product;
+                      final storeName = s.isArabic
+                          ? (first.vendorNameAr ?? first.vendorName ?? s.vendor)
+                          : (first.vendorName ?? s.vendor);
+                      final branch = ref.watch(selectedBranchProvider)[vid];
+                      final bName = branch?.localizedName(s.isArabic);
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  ...vendorItems.map((item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(children: [
-                              Expanded(
-                                  child: Text(item.product.name,
-                                      style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold))),
-                              Text('x${item.quantity}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.grey)),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                    '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                    maxLines: 1,
+                            Row(
+                              children: [
+                                const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '$storeName${bName != null && bName.isNotEmpty ? ' • $bName' : ''}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     overflow: TextOverflow.ellipsis,
-                                    softWrap: false),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${basketItems.length} ${s.isArabic ? 'منتجات' : 'items'}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            const Divider(height: 1),
+                            const SizedBox(height: 6),
+                            ...basketItems.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Expanded(
+                                        child: Text(item.product.name,
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold))),
+                                    Text('x${item.quantity}',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey)),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                          '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: false),
+                                    ),
+                                  ]),
+                                  if (item.selectedVariant != null)
+                                    Text(
+                                        item.selectedVariant!.localizedName(s.isArabic),
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.grey)),
+                                  if (item.selectedOptions.isNotEmpty)
+                                    Text(
+                                        item.selectedOptions
+                                            .map((o) => o.localizedName(s.isArabic))
+                                            .join(', '),
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.blueGrey)),
+                                ],
                               ),
-                            ]),
-                            if (item.selectedVariant != null)
-                              Text(
-                                  item.selectedVariant!.localizedName(s.isArabic),
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.grey)),
-                            if (item.selectedOptions.isNotEmpty)
-                              Text(
-                                  item.selectedOptions
-                                      .map((o) => o.localizedName(s.isArabic))
-                                      .join(', '),
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.blueGrey)),
+                            )),
                           ],
                         ),
-                      )),
+                      );
+                    }),
+                    if (est != null && ((est['isSplit'] == true) || ((est['deliveryCount'] as num? ?? 1) > 1)))
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_shipping_outlined, color: Colors.blue, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                s.isArabic
+                                    ? 'سيتم توصيل هذا الطلب عبر ${est['deliveryCount']} شحنات منفصلة لضمان سرعة التوصيل.'
+                                    : 'This order will be delivered in ${est['deliveryCount']} separate shipments for faster delivery.',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ] else ...[
+                    if (branchName != null && branchName.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${s.isArabic ? 'الفرع:' : 'Branch:'} $branchName',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    ...vendorItems.map((item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Expanded(
+                                    child: Text(item.product.name,
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold))),
+                                Text('x${item.quantity}',
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Colors.grey)),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                      '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false),
+                                ),
+                              ]),
+                              if (item.selectedVariant != null)
+                                Text(
+                                    item.selectedVariant!.localizedName(s.isArabic),
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.grey)),
+                              if (item.selectedOptions.isNotEmpty)
+                                Text(
+                                    item.selectedOptions
+                                        .map((o) => o.localizedName(s.isArabic))
+                                        .join(', '),
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.blueGrey)),
+                            ],
+                          ),
+                        )),
+                  ],
                   const Divider(),
                   _priceRow(
                       s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal',
@@ -569,7 +710,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   const SizedBox(height: 6),
                   _priceRow(
                       s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
-                      hasEstimate ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}' : (_isEstimating ? '...' : '--')),
+                      hasEstimate
+                          ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}${isMultiVendor && (est['deliveryCount'] as num? ?? 1) > 1 ? ' (${est['deliveryCount']} ${s.isArabic ? 'شحنات' : 'trips'})' : ''}'
+                          : (_isEstimating ? '...' : '--')),
                   if (serviceFee > 0) ...[
                     const SizedBox(height: 6),
                     _priceRow(
@@ -776,10 +919,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                     child: Text(
                         _estimateError != null
-                            ? (s.isArabic ? 'خارج منطقة التوصيل لهذا المتجر' : 'Outside this store\'s delivery zone')
+                            ? ErrorUtils.translate(context, _estimateError!)
                             : isBelowMinOrder
                             ? (s.isArabic ? 'المبلغ أقل من الحد الأدنى للطلب (${minOrder.toStringAsFixed(0)} ${s.egp})' : 'Below Min Order Amount (${minOrder.toStringAsFixed(0)} ${s.egp})')
                             : '${s.placeOrder} (${finalTotal.toStringAsFixed(0)} ${s.egp})',
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

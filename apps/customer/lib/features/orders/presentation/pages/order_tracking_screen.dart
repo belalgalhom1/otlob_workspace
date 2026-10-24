@@ -467,23 +467,30 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
             top: 16,
             left: 16,
             right: 16,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.72,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                   Text(
                     s.isArabic ? 'حالة الطلب' : 'Order Status',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -1157,7 +1164,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    ),
+  ],
       ),
     );
   }

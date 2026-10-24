@@ -142,6 +142,34 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () {
+                        final anyClosed = cartState.vendorBaskets.values.any((items) =>
+                            items.isNotEmpty && (items.first.product.vendorStatus ?? 'OPEN') != 'OPEN');
+                        if (anyClosed) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(s.isArabic
+                                  ? 'أحد المتاجر في سلتك مغلق حالياً. يرجى إزالة منتجاته للمتابعة'
+                                  : 'One of the stores in your cart is currently closed. Please remove its items to proceed'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final anyInactive = cartState.vendorBaskets.values.any((items) =>
+                            items.any((it) => !it.product.isActive || (it.selectedVariant != null && !it.selectedVariant!.isActive)));
+                        if (anyInactive) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(s.isArabic
+                                  ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
+                                  : 'Your basket contains unavailable items. Please remove them to proceed.'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
                         final activeVendorIds = cartState.vendorBaskets.entries
                             .where((e) => e.value.isNotEmpty)
                             .map((e) => e.key)

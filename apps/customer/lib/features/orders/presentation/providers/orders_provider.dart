@@ -559,7 +559,7 @@ class Orders extends _$Orders {
       return null;
     } catch (e) {
       debugPrint('Estimate multi vendor error: $e');
-      return null;
+      rethrow;
     }
   }
 
