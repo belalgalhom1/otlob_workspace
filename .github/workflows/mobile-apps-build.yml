@@ -43,7 +43,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Flutter with cache
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -51,7 +51,7 @@ jobs:
           pub-cache: true
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Resolve workspace dependencies
         run: dart pub get
@@ -74,6 +74,7 @@ jobs:
         working-directory: ${{ matrix.app_path }}
         env:
           APP_NAME: ${{ matrix.app_job_name }}
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -91,11 +92,11 @@ jobs:
           retention-days: 7
 
   release:
-    name: Publish APK release
+    name: release
     needs: build-android-apps
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Download APK artifacts
@@ -104,22 +105,6 @@ jobs:
           path: release-artifacts
           pattern: '*-apk'
           merge-multiple: true
-
-      - name: Delete old automated APK releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          gh release list --limit 1000 --json tagName --jq '.[].tagName' |
-          while IFS= read -r tag; do
-            [[ "$tag" == apk-build-* ]] || continue
-
-            echo "Deleting old release: $tag"
-            gh release delete "$tag" --yes --cleanup-tag
-          done
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -133,3 +118,21 @@ jobs:
           files: release-artifacts/*.apk
           prerelease: false
           make_latest: true
+
+      - name: Delete old automated APK releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CURRENT_TAG: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' |
+          while IFS= read -r tag; do
+            [[ "$tag" == apk-build-* ]] || continue
+            [[ "$tag" == "$CURRENT_TAG" ]] && continue
+
+            echo "Deleting old release: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
