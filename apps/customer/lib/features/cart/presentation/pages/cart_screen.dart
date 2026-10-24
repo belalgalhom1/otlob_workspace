@@ -7,6 +7,7 @@ import '../../../../core/utils/image_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../providers/cart_controller.dart';
+import '../../../home/presentation/providers/vendor_detail_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../profile/presentation/providers/delivery_address_provider.dart';
 
@@ -97,6 +98,68 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 return _buildVendorBasket(context, ref, vendorId, vendorItems, s, isDark);
               },
             ),
+      bottomNavigationBar: cartState.vendorBaskets.length > 1
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.isArabic ? 'طلب متعدد المتاجر' : 'Combined Multi-Vendor Order',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            s.isArabic
+                                ? '${cartState.vendorBaskets.length} متاجر • ${cartState.totalItems} منتجات'
+                                : '${cartState.vendorBaskets.length} stores • ${cartState.totalItems} items',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.push('/checkout', extra: cartState.vendorBaskets.keys.toList());
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        s.isArabic ? 'إتمام طلب الكل' : 'Checkout All',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -194,9 +257,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         if (mounted) _fetchBasketEstimate(vendorId);
       });
     }
+    final selectedBranch = ref.watch(selectedBranchProvider)[vendorId];
+    final branchName = selectedBranch?.localizedName(s.isArabic);
     double toNum(dynamic v) =>
         v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
-    final deliveryFee = est != null ? toNum(est['deliveryFee']) : 0.0;
+    final rawDeliveryFee = est != null ? toNum(est['deliveryFee']) : 0.0;
+    final driverBonusFee = est != null ? toNum(est['driverBonusFee']) : 0.0;
+    // Fold driverBonusFee into deliveryFee for clean customer display
+    final deliveryFee = rawDeliveryFee + driverBonusFee;
     final serviceFee = est != null ? toNum(est['serviceFee']) : 0.0;
     final tax = est != null ? toNum(est['tax']) : 0.0;
     final total = est != null
@@ -278,6 +346,28 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             color: isDark ? Colors.white : Colors.black87
                           ),
                         ),
+                        if (branchName != null && branchName.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.storefront_rounded, size: 13, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    '${s.isArabic ? "فرع" : "Branch"}: $branchName',
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white60 : Colors.black54,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         if (!isVendorOpen)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),

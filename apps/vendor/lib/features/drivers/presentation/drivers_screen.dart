@@ -15,6 +15,7 @@ import 'package:vendor/core/utils/error_utils.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
 import 'widgets/driver_form_dialog.dart';
+import 'widgets/assist_requests_dialog.dart';
 import 'driver_statistics_screen.dart';
 
 class DriversScreen extends ConsumerStatefulWidget {
@@ -204,7 +205,21 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               icon: const Icon(LucideIcons.filter, size: 16),
               label: Text(AppLocalizations.of(context)!.filterAction),
             ),
-            if (_canManageDrivers)
+            if (_canManageDrivers) ...[
+              OutlinedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const AssistRequestsDialog(),
+                  );
+                },
+                icon: const Icon(LucideIcons.users, size: 16),
+                label: Text(
+                  AppLocalizations.of(context)!.localeName == 'ar'
+                      ? 'طلبات المساعدة'
+                      : 'Assist Requests',
+                ),
+              ),
               FilledButton.icon(
                 onPressed: () {
                   showDialog(
@@ -215,6 +230,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                 icon: const Icon(LucideIcons.plus, size: 16),
                 label: Text(AppLocalizations.of(context)!.createNewUser),
               ),
+            ],
           ],
         ),
       ),

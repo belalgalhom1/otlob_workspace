@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../providers/cart_controller.dart';
+import '../../../home/presentation/providers/vendor_detail_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../profile/presentation/providers/profile_controller.dart';
 import '../../../profile/presentation/providers/coin_history_provider.dart';
@@ -16,13 +17,25 @@ import '../../../../core/providers/platform_settings_provider.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   final String? vendorId;
-  const CheckoutScreen({super.key, required this.vendorId});
+  final List<String>? vendorIds;
+  const CheckoutScreen({super.key, this.vendorId, this.vendorIds});
 
   @override
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+  bool get isMultiVendor => (widget.vendorIds != null && widget.vendorIds!.length > 1);
+  List<String> get activeVendorIds {
+    if (widget.vendorIds != null && widget.vendorIds!.isNotEmpty) {
+      return widget.vendorIds!;
+    }
+    if (widget.vendorId != null && widget.vendorId!.isNotEmpty) {
+      return [widget.vendorId!];
+    }
+    return [];
+  }
+
   String _selectedPayment = 'CASH_ON_DELIVERY';
   bool _isProcessing = false;
   bool _useCoins = false;
@@ -44,8 +57,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   Future<void> _fetchEstimate() async {
     if (_isEstimating) return;
-    final vendorId = widget.vendorId;
-    if (vendorId == null) return;
+    final vendorIds = activeVendorIds;
+    if (vendorIds.isEmpty) return;
 
     final selectedAddress = ref.read(activeDeliveryAddressProvider);
     if (selectedAddress == null) return;
@@ -65,7 +78,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     int? coinsToUse;
     if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
       final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
-      final subtotal = ref.read(cartProvider).getVendorSubtotal(widget.vendorId ?? '');
+      final subtotal = isMultiVendor
+          ? vendorIds.fold(0.0, (acc, vid) => acc + ref.read(cartProvider).getVendorSubtotal(vid))
+          : ref.read(cartProvider).getVendorSubtotal(vendorIds.first);
       if (maxCoinDiscount > subtotal) {
         coinsToUse = (subtotal / settings.coinValue).ceil();
       } else {
@@ -73,12 +88,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
     }
 
-    // Cart fingerprint: quantity/option/unit/vendor changes must invalidate
-    // the fee quote, since placeOrder charges the live server cart, not the
-    // snapshot the old quote was computed from. The screen already
-    // re-invokes _fetchEstimate every build, so a key change refetches.
-    final vendorCartItems =
-        ref.read(cartProvider).vendorBaskets[widget.vendorId ?? ''] ?? [];
+    final vendorCartItems = isMultiVendor
+        ? vendorIds.expand((vid) => ref.read(cartProvider).vendorBaskets[vid] ?? <CartItem>[]).toList()
+        : (ref.read(cartProvider).vendorBaskets[vendorIds.first] ?? []);
     final cartFingerprint = vendorCartItems.map((i) {
       final pid = i.backendId ?? i.product.id;
       final vid = i.selectedVariant?.id ?? '';
@@ -90,19 +102,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return '$pid|$vid|${i.quantity}|${i.selectedUnit}|${opts.join(',')}';
     }).join(';');
 
-    final estimateKey = '$vendorId|${coords[0]},${coords[1]}|$_selectedPayment|${coinsToUse ?? 0}|$cartFingerprint';
+    final estimateKey = '${vendorIds.join(",")}|${coords[0]},${coords[1]}|$_selectedPayment|${coinsToUse ?? 0}|$cartFingerprint';
     if (estimateKey == _lastEstimateKey) return;
     _lastEstimateKey = estimateKey;
 
     setState(() => _isEstimating = true);
     try {
-      final result = await ref.read(ordersProvider.notifier).estimateOrder(
-        vendorId: vendorId,
-        paymentMethod: _selectedPayment,
-        address: selectedAddress['address'] ?? '',
-        location: coords,
-        coinsToUse: coinsToUse,
-      );
+      final result = isMultiVendor
+          ? await ref.read(ordersProvider.notifier).estimateMultiVendorOrder(
+              vendorIds: vendorIds,
+              paymentMethod: _selectedPayment,
+              address: selectedAddress['address'] ?? '',
+              location: coords,
+              coinsToUse: coinsToUse,
+            )
+          : await ref.read(ordersProvider.notifier).estimateOrder(
+              vendorId: vendorIds.first,
+              paymentMethod: _selectedPayment,
+              address: selectedAddress['address'] ?? '',
+              location: coords,
+              coinsToUse: coinsToUse,
+            );
       if (mounted) {
         setState(() {
           _estimate = result;
@@ -170,30 +190,63 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ? _notesController.text.trim()
         : null;
 
-    final (errorMsg, orderId) = await ref.read(ordersProvider.notifier).placeOrder(
-          vendorId: widget.vendorId ?? '',
-          items: vendorItems,
-          paymentMethod: _selectedPayment.startsWith('MOBILE_WALLET')
-              ? 'MOBILE_WALLET'
-              : 'CASH_ON_DELIVERY',
-          address: selectedAddress['address'] ?? s.locationName,
-          location: coords,
-          specialRequest: specialRequest,
-          coinsToUse: coinsToUse,
-          idempotencyKey: _clientOrderKeyForCheckout(),
-        );
+    final vendorIds = activeVendorIds;
+    if (vendorIds.isEmpty) return;
 
-    if (mounted) {
-      setState(() => _isProcessing = false);
-      if (errorMsg == null && orderId != null) {
-        _clientOrderKey = null;
-        ref.read(cartProvider.notifier).clearVendorCart(widget.vendorId ?? '');
-        _showSuccess(s, orderId);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
-            backgroundColor: Colors.red,
-        ));
+    if (isMultiVendor) {
+      final (errorMsg, orderId) = await ref.read(ordersProvider.notifier).placeMultiVendorOrder(
+            vendorIds: vendorIds,
+            paymentMethod: _selectedPayment.startsWith('MOBILE_WALLET')
+                ? 'MOBILE_WALLET'
+                : 'CASH_ON_DELIVERY',
+            address: selectedAddress['address'] ?? s.locationName,
+            location: coords,
+            specialRequest: specialRequest,
+            coinsToUse: coinsToUse,
+            idempotencyKey: _clientOrderKeyForCheckout(),
+          );
+
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        if (errorMsg == null && orderId != null) {
+          _clientOrderKey = null;
+          for (final vid in vendorIds) {
+            ref.read(cartProvider.notifier).clearVendorCart(vid);
+          }
+          _showSuccess(s, orderId);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
+              backgroundColor: Colors.red,
+          ));
+        }
+      }
+    } else {
+      final (errorMsg, orderId) = await ref.read(ordersProvider.notifier).placeOrder(
+            vendorId: vendorIds.first,
+            items: vendorItems,
+            paymentMethod: _selectedPayment.startsWith('MOBILE_WALLET')
+                ? 'MOBILE_WALLET'
+                : 'CASH_ON_DELIVERY',
+            address: selectedAddress['address'] ?? s.locationName,
+            location: coords,
+            specialRequest: specialRequest,
+            coinsToUse: coinsToUse,
+            idempotencyKey: _clientOrderKeyForCheckout(),
+          );
+
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        if (errorMsg == null && orderId != null) {
+          _clientOrderKey = null;
+          ref.read(cartProvider.notifier).clearVendorCart(vendorIds.first);
+          _showSuccess(s, orderId);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
+              backgroundColor: Colors.red,
+          ));
+        }
       }
     }
   }
@@ -256,8 +309,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final cartState = ref.watch(cartProvider);
     final profileState = ref.watch(profileProvider);
 
-    if (widget.vendorId == null ||
-        !cartState.vendorBaskets.containsKey(widget.vendorId)) {
+    final vendorIds = activeVendorIds;
+    final hasAnyItems = vendorIds.any((vid) => (cartState.vendorBaskets[vid] ?? []).isNotEmpty);
+
+    if (vendorIds.isEmpty || !hasAnyItems) {
       return Scaffold(
         appBar: AppBar(
             leading: IconButton(
@@ -267,11 +322,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
-    final vendorItems = cartState.vendorBaskets[widget.vendorId ?? ''] ?? [];
-    final vendorName = vendorItems.isNotEmpty
-        ? (vendorItems.first.product.vendorName ?? s.vendor)
-        : s.vendor;
-    final subtotal = cartState.getVendorSubtotal(widget.vendorId ?? '');
+    final vendorItems = isMultiVendor
+        ? vendorIds.expand((vid) => cartState.vendorBaskets[vid] ?? <CartItem>[]).toList()
+        : (cartState.vendorBaskets[vendorIds.first] ?? []);
+    final selectedBranch = !isMultiVendor && vendorIds.isNotEmpty
+        ? ref.watch(selectedBranchProvider)[vendorIds.first]
+        : null;
+    final branchName = selectedBranch?.localizedName(s.isArabic);
+    final vendorName = isMultiVendor
+        ? (s.isArabic ? 'عدة متاجر (${vendorIds.length})' : 'Multiple Stores (${vendorIds.length})')
+        : (vendorItems.isNotEmpty
+            ? '${vendorItems.first.product.vendorName ?? s.vendor}${branchName != null && branchName.isNotEmpty ? ' • $branchName' : ''}'
+            : s.vendor);
+    final subtotal = isMultiVendor
+        ? vendorIds.fold(0.0, (acc, vid) => acc + cartState.getVendorSubtotal(vid))
+        : cartState.getVendorSubtotal(vendorIds.first);
     final settings = ref.watch(platformSettingsProvider).value;
 
     final minOrder = (settings?.minOrderAmount != null) ? settings!.minOrderAmount.toDouble() : 0.0;
@@ -306,14 +371,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     final est = _estimate;
-    final deliveryFee = (est != null && est['deliveryFee'] != null) ? (est['deliveryFee'] as num).toDouble() : 0.0;
-    final serviceFee = (est != null && est['serviceFee'] != null) ? (est['serviceFee'] as num).toDouble() : 0.0;
+    final rawDeliveryFee = (est != null && est['deliveryFee'] != null) ? (est['deliveryFee'] as num).toDouble() : 0.0;
     final driverBonusFee = (est != null && est['driverBonusFee'] != null) ? (est['driverBonusFee'] as num).toDouble() : 0.0;
+    // Driver bonus is an internal platform incentive — fold into customer Delivery Fee
+    final deliveryFee = rawDeliveryFee + driverBonusFee;
+    final serviceFee = (est != null && est['serviceFee'] != null) ? (est['serviceFee'] as num).toDouble() : 0.0;
     final tax = (est != null && est['tax'] != null) ? (est['tax'] as num).toDouble() : 0.0;
     final hasEstimate = est != null;
     final estDiscount = hasEstimate ? ((est['discount'] as num?)?.toDouble() ?? 0.0) : 0.0;
     final coinDiscount = hasEstimate ? estDiscount : localCoinDiscount;
-    final totalWithFees = subtotal + deliveryFee + serviceFee + driverBonusFee + tax;
+    final totalWithFees = subtotal + deliveryFee + serviceFee + tax;
     final finalTotal = hasEstimate
         ? ((est['grandTotal'] as num?)?.toDouble() ?? totalWithFees)
         : totalWithFees - coinDiscount;
@@ -432,6 +499,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ]),
                 const SizedBox(height: 16),
                 _sectionCard(s.orderSummary, [
+                  if (!isMultiVendor && branchName != null && branchName.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${s.isArabic ? 'الفرع:' : 'Branch:'} $branchName',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   ...vendorItems.map((item) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Column(
@@ -486,12 +572,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         s.isArabic ? 'رسوم الخدمة' : 'Service Fee',
                         '${serviceFee.toStringAsFixed(0)} ${s.egp}'),
                   ],
-                  if (driverBonusFee > 0) ...[
-                    const SizedBox(height: 6),
-                    _priceRow(
-                        s.isArabic ? 'عمولة الكابتن' : 'Driver Bonus',
-                        '${driverBonusFee.toStringAsFixed(0)} ${s.egp}'),
-                  ],
+
                   if (tax > 0) ...[
                     const SizedBox(height: 6),
                     _priceRow(

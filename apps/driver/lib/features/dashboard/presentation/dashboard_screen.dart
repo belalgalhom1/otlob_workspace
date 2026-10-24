@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +20,19 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:core/core.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
 import 'package:data/providers.dart';
+
+final pendingAssistOffersProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  try {
+    final response = await ref.read(driverOrdersRepositoryProvider).getPendingAssistOffers();
+    if (response is List) return response;
+    if (response is Map && response['items'] is List) return response['items'] as List;
+    if (response is Map && response['data'] is List) return response['data'] as List;
+    return [];
+  } catch (_) {
+    return [];
+  }
+});
+
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -651,6 +665,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           // NOTE: no manual online/offline — status is fully shift-driven
           // (starting a shift goes ONLINE, ending it goes OFFLINE).
           // Offline drivers get a shortcut into their shifts instead.
+          // Pending Assist Offers Section
+          if (isOnline && !onBreak) ...[
+            Consumer(builder: (context, ref, _) {
+              final offersAsync = ref.watch(pendingAssistOffersProvider);
+              return offersAsync.when(
+                data: (offers) {
+                  if (offers.isEmpty) return const SizedBox.shrink();
+                  final firstOffer = offers.first as Map<dynamic, dynamic>;
+                  final offerId = firstOffer['id']?.toString() ?? '';
+                  final order = firstOffer['order'] is Map ? firstOffer['order'] as Map : {};
+                  final orderNumber = order['orderNumber']?.toString() ?? '';
+                  final reason = firstOffer['reason']?.toString() ?? '';
+                  
+
+                  return Container(
+                    margin: const EdgeInsets.only(top: 24),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.primary, width: 2),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.users, color: AppColors.primary, size: 22),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                l10n.localeName == 'ar'
+                                    ? 'عرض مساعدة توصيل - كابتن إضافي'
+                                    : 'Assistant Delivery Offer',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.localeName == 'ar'
+                              ? 'طلب مساعدة لشحنة ${orderNumber.isNotEmpty ? '#$orderNumber ' : ''}($reason). يمكنك الانضمام ومشاركة التوصيل ككابتن مساعد.'
+                              : 'Assist offer for cargo ${orderNumber.isNotEmpty ? '#$orderNumber ' : ''}($reason). Join as assistant driver.',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: false);
+                                  ref.invalidate(pendingAssistOffersProvider);
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: Text(l10n.localeName == 'ar' ? 'تخطي' : 'Decline'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: true);
+                                  ref.invalidate(pendingAssistOffersProvider);
+                                  if (context.mounted) {
+                                    context.push('/order-execution');
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: Text(l10n.localeName == 'ar' ? 'قبول العرض' : 'Accept Offer'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+              );
+            }),
+          ],
+
           if (!onBreak && !isOnline) ...[
             const SizedBox(height: 24),
             SizedBox(

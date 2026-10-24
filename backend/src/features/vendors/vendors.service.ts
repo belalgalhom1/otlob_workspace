@@ -677,6 +677,20 @@ export class VendorsService {
   private vendorDetailsIncludes() {
     return {
       ...this.vendorIncludes(),
+      branches: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          nameAr: true,
+          address: true,
+          isOpen: true,
+          lat: true,
+          lng: true,
+          isContracted: true,
+          commissionRate: true,
+        },
+      },
       categories: {
         where: { isActive: true },
         orderBy: { sortOrder: Prisma.SortOrder.asc },
@@ -863,6 +877,7 @@ export class VendorsService {
       distanceKm,
       inCustomerZone,
       closestBranch,
+      branches: (vendor as any).branches ?? [],
       deliveryTime,
       deliveryTimeEn,
       deliveryFee: '15 ج رسوم توصيل',

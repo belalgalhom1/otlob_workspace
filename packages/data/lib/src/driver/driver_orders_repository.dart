@@ -3,7 +3,8 @@ import '../shared/response_parser.dart';
 
 class DriverOrdersRepository {
   final OrdersApi _api;
-  DriverOrdersRepository(this._api);
+  final DriversApi? _driversApi;
+  DriverOrdersRepository(this._api, {DriversApi? driversApi}) : _driversApi = driversApi;
 
   Future<dynamic> getMyOrders({String? status, num? limit = 20, num? page = 1}) async {
     final response = await _api.ordersControllerGetMyOrdersAsDriver(
@@ -15,17 +16,12 @@ class DriverOrdersRepository {
   }
 
   Future<dynamic> getActiveDriverOrder() async {
-    // We fetch orders that are in an active state for the driver
-    // In Prisma schema: LOOKING_FOR_DRIVER, DRIVER_ASSIGNED, PENDING_PAYMENT, READY_FOR_PICKUP, PICKED_UP
-    // We just fetch first page without status and filter, or fetch specific statuses if supported.
-    // Assuming backend supports comma-separated status or we can just fetch all and filter in memory since active orders are max 1 usually.
     final response = await _api.ordersControllerGetMyOrdersAsDriver(
       limit: 50,
       page: 1,
     );
     final list = ResponseParser.parseList(response);
     
-    // Find the first active order
     final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
     final dataList = (list['data'] ?? list['orders'] ?? list['items']) as List?;
     if (dataList != null) {
@@ -55,8 +51,50 @@ class DriverOrdersRepository {
     );
     return ResponseParser.parse(response);
   }
+
   Future<dynamic> getOrderById(String orderId) async {
     final response = await _api.ordersControllerGetOne(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
+
+  // --- Driver Assist Methods ---
+  Future<dynamic> requestAssistOrder(String orderId, {required String reason, String? note}) async {
+    if (_driversApi == null) throw Exception("DriversApi required for assist operations");
+    final dto = RequestAssistDriverDto((b) => b
+      ..reason = reason
+      ..note = note
+    );
+    final response = await _driversApi.driversControllerRequestAssistOrder(
+      orderId: orderId,
+      requestAssistDriverDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> getMyAssistRequests() async {
+    if (_driversApi == null) throw Exception("DriversApi required for assist operations");
+    final response = await _driversApi.driversControllerMyAssistRequests();
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> cancelAssistRequest(String requestId) async {
+    if (_driversApi == null) throw Exception("DriversApi required for assist operations");
+    final response = await _driversApi.driversControllerCancelAssistRequest(requestId: requestId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> getPendingAssistOffers() async {
+    if (_driversApi == null) throw Exception("DriversApi required for assist operations");
+    final response = await _driversApi.driversControllerPendingAssistOffers();
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> respondToAssistOffer(String requestId, {required bool accept}) async {
+    if (_driversApi == null) throw Exception("DriversApi required for assist operations");
+    final response = await _driversApi.driversControllerRespondToAssistOffer(
+      requestId: requestId,
+      accept: accept,
+    );
     return ResponseParser.parse(response);
   }
 }

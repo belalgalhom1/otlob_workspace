@@ -59,10 +59,12 @@ export class DriverShiftsService {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   async generateShiftPools(dto: GenerateShiftPoolsDto) {
-    const startDate = parseISO(dto.startDate);
-    const endDate = parseISO(dto.endDate);
+    const [sYear, sMonth, sDay] = dto.startDate.split('-').map(Number);
+    const [eYear, eMonth, eDay] = dto.endDate.split('-').map(Number);
+    let current = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+    const end = new Date(Date.UTC(eYear, eMonth - 1, eDay));
 
-    if (startDate > endDate) {
+    if (current > end) {
       throw new BadRequestException(DriverErrors.INVALID_START_END_DATE);
     }
 
@@ -73,23 +75,24 @@ export class DriverShiftsService {
     const [startHour, startMin] = dto.startTime.split(':').map(Number);
     const [endHour, endMin] = dto.endTime.split(':').map(Number);
 
-    let current = startOfDay(startDate);
-    const end = startOfDay(endDate);
-
     while (current <= end) {
+      const curYear = current.getUTCFullYear();
+      const curMonth = current.getUTCMonth() + 1;
+      const curDay = current.getUTCDate();
+
       // Compose wall-clock times in the app timezone from .env (NOT
       // server-local), otherwise every shift drifts by the UTC offset.
       const shiftStart = wallToUtc(
-        current.getUTCFullYear(),
-        current.getUTCMonth() + 1,
-        current.getUTCDate(),
+        curYear,
+        curMonth,
+        curDay,
         startHour,
         startMin,
       );
       let shiftEnd = wallToUtc(
-        current.getUTCFullYear(),
-        current.getUTCMonth() + 1,
-        current.getUTCDate(),
+        curYear,
+        curMonth,
+        curDay,
         endHour,
         endMin,
       );
@@ -104,8 +107,8 @@ export class DriverShiftsService {
         batchId,
         title: dto.title?.trim() || null,
         titleAr: dto.titleAr?.trim() || null,
-        zoneId: dto.zoneId && dto.zoneId.trim().isNotEmpty ? dto.zoneId.trim() : null,
-        shiftDate: current,
+        zoneId: dto.zoneId && dto.zoneId.trim().length > 0 ? dto.zoneId.trim() : null,
+        shiftDate: new Date(Date.UTC(curYear, curMonth - 1, curDay)),
         startTime: shiftStart,
         endTime: shiftEnd,
         maxDrivers: dto.maxDrivers,

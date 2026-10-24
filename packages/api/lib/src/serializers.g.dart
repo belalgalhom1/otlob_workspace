@@ -28,6 +28,7 @@ Serializers _$serializers =
           ..add(ApiControllerRoot200Response.serializer)
           ..add(AppVersionCheckDto.serializer)
           ..add(AppVersionCheckDtoPlatformEnum.serializer)
+          ..add(AssignAssistDriverDto.serializer)
           ..add(AuditActionType.serializer)
           ..add(AuditLogResponseDto.serializer)
           ..add(AuditLogsControllerFindAll200Response.serializer)
@@ -63,6 +64,7 @@ Serializers _$serializers =
           ..add(CreateWalletTopUpDto.serializer)
           ..add(CreateZoneDto.serializer)
           ..add(Customer.serializer)
+          ..add(DecideAssistRequestDto.serializer)
           ..add(DispatchAnnouncementDto.serializer)
           ..add(DispatchAnnouncementDtoAudienceEnum.serializer)
           ..add(DispatchAnnouncementDtoTypeEnum.serializer)
@@ -108,6 +110,7 @@ Serializers _$serializers =
           ..add(PlaceCustomOrderDtoVehicleTypeEnum.serializer)
           ..add(PlaceDirectOrderDto.serializer)
           ..add(PlaceDirectOrderDtoPaymentMethodEnum.serializer)
+          ..add(PlaceMultiVendorOrderDto.serializer)
           ..add(PlaceOrderDto.serializer)
           ..add(PlaceOrderDtoPaymentMethodEnum.serializer)
           ..add(ProcessManualTransactionDto.serializer)
@@ -133,6 +136,7 @@ Serializers _$serializers =
           ..add(RegisterDtoRoleEnum.serializer)
           ..add(RegisterDtoVendorRoleEnum.serializer)
           ..add(ReorderCategoriesDto.serializer)
+          ..add(RequestAssistDriverDto.serializer)
           ..add(ResetPasswordDto.serializer)
           ..add(RespondToDispatchDto.serializer)
           ..add(RespondToDispatchDtoResponseEnum.serializer)
@@ -286,6 +290,10 @@ Serializers _$serializers =
             () => ListBuilder<CreateProductVariantDto>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [
               const FullType(CreateProductOptionDto),
             ]),
@@ -370,6 +378,26 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(String)]),
             () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(num)]),
+            () => ListBuilder<num>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [

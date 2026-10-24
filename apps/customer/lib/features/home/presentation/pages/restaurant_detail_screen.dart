@@ -32,6 +32,75 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final closestBranch = widget.restaurant['_proximity']?['closestBranch'];
+      final closestBranchId = closestBranch?['id']?.toString() ??
+          widget.restaurant['branchId']?.toString();
+      final vendorId = widget.restaurant['id']?.toString() ?? '';
+      if (closestBranchId != null && vendorId.isNotEmpty && mounted) {
+        ref.read(selectedBranchProvider.notifier).selectBranchById(
+          vendorId,
+          closestBranchId,
+          name: closestBranch?['name']?.toString(),
+          nameAr: closestBranch?['nameAr']?.toString(),
+          address: closestBranch?['address']?.toString(),
+        );
+      }
+    });
+  }
+
+  void _showBranchSelector(BuildContext context, List<dynamic> branches, String vendorId, bool isAr) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final currentSelected = ref.read(selectedBranchProvider)[vendorId]?.id;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isAr ? 'اختر الفرع المناسب' : 'Select Branch',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ...branches.map((b) {
+                if (b is! Map) return const SizedBox.shrink();
+                final bId = b['id']?.toString() ?? '';
+                final bName = (isAr ? (b['nameAr'] ?? b['name']) : b['name'])?.toString() ?? 'Branch';
+                final bAddress = b['address']?.toString() ?? '';
+                final isSelected = bId == currentSelected;
+                return ListTile(
+                  leading: Icon(LucideIcons.mapPin, color: isSelected ? AppColors.primary : Colors.grey),
+                  title: Text(bName, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                  subtitle: bAddress.isNotEmpty ? Text(bAddress) : null,
+                  trailing: isSelected ? const Icon(LucideIcons.check, color: AppColors.primary) : null,
+                  onTap: () {
+                    ref.read(selectedBranchProvider.notifier).selectBranchById(
+                      vendorId,
+                      bId,
+                      name: b['name']?.toString(),
+                      nameAr: b['nameAr']?.toString(),
+                      address: b['address']?.toString(),
+                    );
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -203,6 +272,48 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                               letterSpacing: 0.1,
                             ),
                           ),
+                          Builder(builder: (context) {
+                            final branches = (fullVendor['branches'] as List<dynamic>?) ?? [];
+                            final activeBranchId = ref.watch(selectedBranchProvider)[fullVendor['id'].toString()]?.id;
+                            final currentBranch = branches.where((b) => b['id']?.toString() == activeBranchId).firstOrNull ??
+                                (fullVendor['closestBranch'] is Map ? fullVendor['closestBranch'] as Map : null) ??
+                                (branches.isNotEmpty ? branches.first as Map : null);
+                            if (currentBranch == null) return const SizedBox.shrink();
+                            final bName = (isAr ? (currentBranch['nameAr'] ?? currentBranch['name']) : currentBranch['name'])?.toString() ?? '';
+                            final bAddress = currentBranch['address']?.toString() ?? '';
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6, bottom: 6),
+                              child: Row(
+                                children: [
+                                  const Icon(LucideIcons.mapPin, size: 14, color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      '${isAr ? "الفرع" : "Branch"}: $bName${bAddress.isNotEmpty ? " • $bAddress" : ""}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white70 : Colors.black87,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (branches.length > 1)
+                                    InkWell(
+                                      onTap: () => _showBranchSelector(context, branches, fullVendor['id'].toString(), isAr),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        child: Text(
+                                          isAr ? 'تغيير' : 'Change',
+                                          style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }),
                           _buildWorkingHoursWidget(
                             (fullVendor['workingHours'] as List<dynamic>?) ?? [],
                             isAr,

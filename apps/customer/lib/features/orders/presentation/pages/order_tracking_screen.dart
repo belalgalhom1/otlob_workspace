@@ -516,6 +516,241 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
+                  // Customer Assist Decision Prompt
+                  if (_orderDetails != null) ...[
+                    Builder(builder: (context) {
+                      final order = _orderDetails!;
+                      final deliveryGroups = order['deliveryGroups'] is List ? order['deliveryGroups'] as List : [];
+                      
+                      Map? pendingGroup;
+                      for (final g in deliveryGroups) {
+                        if (g is Map && g['assistDriverId'] != null && g['assistCustomerApproved'] == null) {
+                          pendingGroup = g;
+                          break;
+                        }
+                      }
+
+                      final isSinglePending = order['assistDriverId'] != null && order['assistCustomerApproved'] == null;
+                      if (!isSinglePending && pendingGroup == null) return const SizedBox.shrink();
+
+                      final fee = pendingGroup != null
+                          ? (pendingGroup['assistFee']?.toString() ?? '0')
+                          : (order['assistFee']?.toString() ?? '0');
+                      final deliveryGroupId = pendingGroup?['id']?.toString();
+                      final isAr = s.isArabic;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.primary, width: 1.5),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.group_add_rounded, color: AppColors.primary, size: 24),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    isAr ? 'طلب مندوب مساعد إضافي للشحنة' : 'Assistant Driver Assigned',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              isAr
+                                  ? 'تم تعيين كابتن مساعد إضافي لدعم توصيل الطلب. الرسوم الإضافية: $fee ج.م. يرجى تأكيد موافقتك للمتابعة.'
+                                  : 'An assistant driver has been assigned to support delivery (Fee: $fee EGP). Please confirm your decision to continue.',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () async {
+                                      final ok = await ref.read(ordersProvider.notifier).decideAssistOrder(
+                                        widget.orderId,
+                                        approve: false,
+                                        deliveryGroupId: deliveryGroupId,
+                                      );
+                                      if (ok && mounted) _fetchOrderDetails();
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: Text(isAr ? 'رفض' : 'Decline'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () async {
+                                      final ok = await ref.read(ordersProvider.notifier).decideAssistOrder(
+                                        widget.orderId,
+                                        approve: true,
+                                        deliveryGroupId: deliveryGroupId,
+                                      );
+                                      if (ok && mounted) _fetchOrderDetails();
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: Text(isAr ? 'موافقة' : 'Approve'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+
+                  // Single-Vendor Store & Branch Card
+                  if (_orderDetails != null &&
+                      _orderDetails!['vendor'] != null &&
+                      (_orderDetails!['vendorFulfillments'] is! List ||
+                          (_orderDetails!['vendorFulfillments'] as List).isEmpty))
+                    Builder(builder: (context) {
+                      final v = _orderDetails!['vendor'] as Map;
+                      final b = _orderDetails!['vendorBranch'] as Map?;
+                      final storeName = (s.isArabic ? (v['storeNameAr'] ?? v['storeName']) : (v['storeName'] ?? v['name']))?.toString() ?? 'Store';
+                      final branchName = b != null ? (s.isArabic ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.storefront_rounded, size: 20, color: AppColors.primary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    storeName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (branchName != null && branchName.isNotEmpty)
+                                    Text(
+                                      '${s.isArabic ? "الفرع: " : "Branch: "}$branchName',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white60 : Colors.black54,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
+                  // Multi-Vendor Fulfillments Overview
+                  if (_orderDetails != null &&
+                      _orderDetails!['vendorFulfillments'] is List &&
+                      (_orderDetails!['vendorFulfillments'] as List).isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.storefront_rounded, size: 20, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                s.isArabic ? 'حالة تحضير المتاجر للطلب' : 'Store Fulfillment Status',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          ...(_orderDetails!['vendorFulfillments'] as List).map((f) {
+                            if (f is! Map) return const SizedBox.shrink();
+                            final v = f['vendor'] is Map ? f['vendor'] as Map : {};
+                            final b = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : null;
+                            final storeName = (s.isArabic ? (v['storeNameAr'] ?? v['storeName']) : (v['storeName'] ?? v['name']))?.toString() ?? 'Store';
+                            final branchName = b != null ? (s.isArabic ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
+                            final fStatus = f['status']?.toString() ?? 'PENDING';
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(storeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                        if (branchName != null && branchName.isNotEmpty)
+                                          Text(
+                                            '${s.isArabic ? "الفرع: " : "Branch: "}$branchName',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: fStatus == 'READY_FOR_PICKUP'
+                                          ? Colors.green.withValues(alpha: 0.15)
+                                          : (fStatus == 'PREPARING'
+                                              ? Colors.orange.withValues(alpha: 0.15)
+                                              : Colors.blue.withValues(alpha: 0.15)),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _getDisplayStatus(fStatus, s.isArabic),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: fStatus == 'READY_FOR_PICKUP'
+                                            ? Colors.green
+                                            : (fStatus == 'PREPARING' ? Colors.orange : Colors.blue),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (_orderDetails != null &&
                       _orderDetails!['driver'] != null) ...[
                     Container(

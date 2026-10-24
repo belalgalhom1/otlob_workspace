@@ -21,6 +21,10 @@ class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
   final bool? isActive;
   @override
   final String? iconUrl;
+  @override
+  final String? branchAvailabilityMode;
+  @override
+  final BuiltList<String>? branchIds;
 
   factory _$CreateMenuCategoryDto([
     void Function(CreateMenuCategoryDtoBuilder)? updates,
@@ -34,6 +38,8 @@ class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
     this.sortOrder,
     this.isActive,
     this.iconUrl,
+    this.branchAvailabilityMode,
+    this.branchIds,
   }) : super._();
   @override
   CreateMenuCategoryDto rebuild(
@@ -54,7 +60,9 @@ class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
         descriptionAr == other.descriptionAr &&
         sortOrder == other.sortOrder &&
         isActive == other.isActive &&
-        iconUrl == other.iconUrl;
+        iconUrl == other.iconUrl &&
+        branchAvailabilityMode == other.branchAvailabilityMode &&
+        branchIds == other.branchIds;
   }
 
   @override
@@ -67,6 +75,8 @@ class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
     _$hash = $jc(_$hash, sortOrder.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, iconUrl.hashCode);
+    _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
+    _$hash = $jc(_$hash, branchIds.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -80,7 +90,9 @@ class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
           ..add('descriptionAr', descriptionAr)
           ..add('sortOrder', sortOrder)
           ..add('isActive', isActive)
-          ..add('iconUrl', iconUrl))
+          ..add('iconUrl', iconUrl)
+          ..add('branchAvailabilityMode', branchAvailabilityMode)
+          ..add('branchIds', branchIds))
         .toString();
   }
 }
@@ -118,6 +130,17 @@ class CreateMenuCategoryDtoBuilder
   String? get iconUrl => _$this._iconUrl;
   set iconUrl(String? iconUrl) => _$this._iconUrl = iconUrl;
 
+  String? _branchAvailabilityMode;
+  String? get branchAvailabilityMode => _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(String? branchAvailabilityMode) =>
+      _$this._branchAvailabilityMode = branchAvailabilityMode;
+
+  ListBuilder<String>? _branchIds;
+  ListBuilder<String> get branchIds =>
+      _$this._branchIds ??= ListBuilder<String>();
+  set branchIds(ListBuilder<String>? branchIds) =>
+      _$this._branchIds = branchIds;
+
   CreateMenuCategoryDtoBuilder() {
     CreateMenuCategoryDto._defaults(this);
   }
@@ -132,6 +155,8 @@ class CreateMenuCategoryDtoBuilder
       _sortOrder = $v.sortOrder;
       _isActive = $v.isActive;
       _iconUrl = $v.iconUrl;
+      _branchAvailabilityMode = $v.branchAvailabilityMode;
+      _branchIds = $v.branchIds?.toBuilder();
       _$v = null;
     }
     return this;
@@ -151,21 +176,39 @@ class CreateMenuCategoryDtoBuilder
   CreateMenuCategoryDto build() => _build();
 
   _$CreateMenuCategoryDto _build() {
-    final _$result =
-        _$v ??
-        _$CreateMenuCategoryDto._(
-          name: BuiltValueNullFieldError.checkNotNull(
-            name,
-            r'CreateMenuCategoryDto',
-            'name',
-          ),
-          nameAr: nameAr,
-          description: description,
-          descriptionAr: descriptionAr,
-          sortOrder: sortOrder,
-          isActive: isActive,
-          iconUrl: iconUrl,
+    _$CreateMenuCategoryDto _$result;
+    try {
+      _$result =
+          _$v ??
+          _$CreateMenuCategoryDto._(
+            name: BuiltValueNullFieldError.checkNotNull(
+              name,
+              r'CreateMenuCategoryDto',
+              'name',
+            ),
+            nameAr: nameAr,
+            description: description,
+            descriptionAr: descriptionAr,
+            sortOrder: sortOrder,
+            isActive: isActive,
+            iconUrl: iconUrl,
+            branchAvailabilityMode: branchAvailabilityMode,
+            branchIds: _branchIds?.build(),
+          );
+    } catch (_) {
+      late String _$failedField;
+      try {
+        _$failedField = 'branchIds';
+        _branchIds?.build();
+      } catch (e) {
+        throw BuiltValueNestedFieldError(
+          r'CreateMenuCategoryDto',
+          _$failedField,
+          e.toString(),
         );
+      }
+      rethrow;
+    }
     replace(_$result);
     return _$result;
   }

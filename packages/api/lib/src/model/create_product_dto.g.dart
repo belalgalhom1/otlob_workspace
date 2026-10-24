@@ -41,6 +41,10 @@ class _$CreateProductDto extends CreateProductDto {
   final BuiltList<CreateOptionGroupDto>? optionGroups;
   @override
   final BuiltList<CreateProductVariantDto>? variants;
+  @override
+  final String? branchAvailabilityMode;
+  @override
+  final BuiltList<String>? branchIds;
 
   factory _$CreateProductDto([
     void Function(CreateProductDtoBuilder)? updates,
@@ -64,6 +68,8 @@ class _$CreateProductDto extends CreateProductDto {
     this.stripsPerPackage,
     this.optionGroups,
     this.variants,
+    this.branchAvailabilityMode,
+    this.branchIds,
   }) : super._();
   @override
   CreateProductDto rebuild(void Function(CreateProductDtoBuilder) updates) =>
@@ -93,7 +99,9 @@ class _$CreateProductDto extends CreateProductDto {
         sellByStrip == other.sellByStrip &&
         stripsPerPackage == other.stripsPerPackage &&
         optionGroups == other.optionGroups &&
-        variants == other.variants;
+        variants == other.variants &&
+        branchAvailabilityMode == other.branchAvailabilityMode &&
+        branchIds == other.branchIds;
   }
 
   @override
@@ -116,6 +124,8 @@ class _$CreateProductDto extends CreateProductDto {
     _$hash = $jc(_$hash, stripsPerPackage.hashCode);
     _$hash = $jc(_$hash, optionGroups.hashCode);
     _$hash = $jc(_$hash, variants.hashCode);
+    _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
+    _$hash = $jc(_$hash, branchIds.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -139,7 +149,9 @@ class _$CreateProductDto extends CreateProductDto {
           ..add('sellByStrip', sellByStrip)
           ..add('stripsPerPackage', stripsPerPackage)
           ..add('optionGroups', optionGroups)
-          ..add('variants', variants))
+          ..add('variants', variants)
+          ..add('branchAvailabilityMode', branchAvailabilityMode)
+          ..add('branchIds', branchIds))
         .toString();
   }
 }
@@ -222,6 +234,17 @@ class CreateProductDtoBuilder
   set variants(ListBuilder<CreateProductVariantDto>? variants) =>
       _$this._variants = variants;
 
+  String? _branchAvailabilityMode;
+  String? get branchAvailabilityMode => _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(String? branchAvailabilityMode) =>
+      _$this._branchAvailabilityMode = branchAvailabilityMode;
+
+  ListBuilder<String>? _branchIds;
+  ListBuilder<String> get branchIds =>
+      _$this._branchIds ??= ListBuilder<String>();
+  set branchIds(ListBuilder<String>? branchIds) =>
+      _$this._branchIds = branchIds;
+
   CreateProductDtoBuilder() {
     CreateProductDto._defaults(this);
   }
@@ -246,6 +269,8 @@ class CreateProductDtoBuilder
       _stripsPerPackage = $v.stripsPerPackage;
       _optionGroups = $v.optionGroups?.toBuilder();
       _variants = $v.variants?.toBuilder();
+      _branchAvailabilityMode = $v.branchAvailabilityMode;
+      _branchIds = $v.branchIds?.toBuilder();
       _$v = null;
     }
     return this;
@@ -291,6 +316,8 @@ class CreateProductDtoBuilder
             stripsPerPackage: stripsPerPackage,
             optionGroups: _optionGroups?.build(),
             variants: _variants?.build(),
+            branchAvailabilityMode: branchAvailabilityMode,
+            branchIds: _branchIds?.build(),
           );
     } catch (_) {
       late String _$failedField;
@@ -299,6 +326,9 @@ class CreateProductDtoBuilder
         _optionGroups?.build();
         _$failedField = 'variants';
         _variants?.build();
+
+        _$failedField = 'branchIds';
+        _branchIds?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
           r'CreateProductDto',

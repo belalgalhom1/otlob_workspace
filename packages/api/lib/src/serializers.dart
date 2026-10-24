@@ -1,3 +1,7 @@
+import 'package:api/src/model/place_multi_vendor_order_dto.dart';
+import 'package:api/src/model/request_assist_driver_dto.dart';
+import 'package:api/src/model/decide_assist_request_dto.dart';
+import 'package:api/src/model/assign_assist_driver_dto.dart';
 //
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
@@ -259,6 +263,11 @@ part 'serializers.g.dart';
   PlaceCustomOrderDto,
   PlaceDirectOrderDto,
   PlaceOrderDto,
+  PlaceMultiVendorOrderDto,
+  RequestAssistDriverDto,
+  DecideAssistRequestDto,
+  AssignAssistDriverDto,
+
   ProcessManualTransactionDto,
   Product,
   ProductOption,

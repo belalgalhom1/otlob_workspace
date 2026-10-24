@@ -42,6 +42,12 @@ abstract class CreateVendorBranchDto implements Built<CreateVendorBranchDto, Cre
   @BuiltValueField(wireName: r'isOpen')
   bool? get isOpen;
 
+    @BuiltValueField(wireName: r'isContracted')
+  bool? get isContracted;
+
+  @BuiltValueField(wireName: r'commissionRate')
+  num? get commissionRate;
+
   CreateVendorBranchDto._();
 
   factory CreateVendorBranchDto([void updates(CreateVendorBranchDtoBuilder b)]) = _$CreateVendorBranchDto;
@@ -100,6 +106,20 @@ class _$CreateVendorBranchDtoSerializer implements PrimitiveSerializer<CreateVen
       yield serializers.serialize(
         object.zoneId,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.isContracted != null) {
+      yield r'isContracted';
+      yield serializers.serialize(
+        object.isContracted,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.commissionRate != null) {
+      yield r'commissionRate';
+      yield serializers.serialize(
+        object.commissionRate,
+        specifiedType: const FullType(num),
       );
     }
     if (object.isOpen != null) {
@@ -180,6 +200,20 @@ class _$CreateVendorBranchDtoSerializer implements PrimitiveSerializer<CreateVen
             specifiedType: const FullType(bool),
           ) as bool;
           result.isOpen = valueDes;
+          break;
+        case r'isContracted':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isContracted = valueDes;
+          break;
+        case r'commissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.commissionRate = valueDes;
           break;
         default:
           unhandled.add(key);

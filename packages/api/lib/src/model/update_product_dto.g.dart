@@ -37,6 +37,10 @@ class _$UpdateProductDto extends UpdateProductDto {
   final num? stripsPerPackage;
   @override
   final num? version;
+  @override
+  final String? branchAvailabilityMode;
+  @override
+  final BuiltList<String>? branchIds;
 
   factory _$UpdateProductDto([
     void Function(UpdateProductDtoBuilder)? updates,
@@ -58,6 +62,8 @@ class _$UpdateProductDto extends UpdateProductDto {
     this.sellByStrip,
     this.stripsPerPackage,
     this.version,
+    this.branchAvailabilityMode,
+    this.branchIds,
   }) : super._();
   @override
   UpdateProductDto rebuild(void Function(UpdateProductDtoBuilder) updates) =>
@@ -85,7 +91,9 @@ class _$UpdateProductDto extends UpdateProductDto {
         isFeatured == other.isFeatured &&
         sellByStrip == other.sellByStrip &&
         stripsPerPackage == other.stripsPerPackage &&
-        version == other.version;
+        version == other.version &&
+        branchAvailabilityMode == other.branchAvailabilityMode &&
+        branchIds == other.branchIds;
   }
 
   @override
@@ -106,6 +114,8 @@ class _$UpdateProductDto extends UpdateProductDto {
     _$hash = $jc(_$hash, sellByStrip.hashCode);
     _$hash = $jc(_$hash, stripsPerPackage.hashCode);
     _$hash = $jc(_$hash, version.hashCode);
+    _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
+    _$hash = $jc(_$hash, branchIds.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -127,7 +137,9 @@ class _$UpdateProductDto extends UpdateProductDto {
           ..add('isFeatured', isFeatured)
           ..add('sellByStrip', sellByStrip)
           ..add('stripsPerPackage', stripsPerPackage)
-          ..add('version', version))
+          ..add('version', version)
+          ..add('branchAvailabilityMode', branchAvailabilityMode)
+          ..add('branchIds', branchIds))
         .toString();
   }
 }
@@ -198,6 +210,17 @@ class UpdateProductDtoBuilder
   num? get version => _$this._version;
   set version(num? version) => _$this._version = version;
 
+  String? _branchAvailabilityMode;
+  String? get branchAvailabilityMode => _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(String? branchAvailabilityMode) =>
+      _$this._branchAvailabilityMode = branchAvailabilityMode;
+
+  ListBuilder<String>? _branchIds;
+  ListBuilder<String> get branchIds =>
+      _$this._branchIds ??= ListBuilder<String>();
+  set branchIds(ListBuilder<String>? branchIds) =>
+      _$this._branchIds = branchIds;
+
   UpdateProductDtoBuilder() {
     UpdateProductDto._defaults(this);
   }
@@ -220,6 +243,8 @@ class UpdateProductDtoBuilder
       _sellByStrip = $v.sellByStrip;
       _stripsPerPackage = $v.stripsPerPackage;
       _version = $v.version;
+      _branchAvailabilityMode = $v.branchAvailabilityMode;
+      _branchIds = $v.branchIds?.toBuilder();
       _$v = null;
     }
     return this;
@@ -239,25 +264,43 @@ class UpdateProductDtoBuilder
   UpdateProductDto build() => _build();
 
   _$UpdateProductDto _build() {
-    final _$result =
-        _$v ??
-        _$UpdateProductDto._(
-          categoryId: categoryId,
-          name: name,
-          nameAr: nameAr,
-          description: description,
-          descriptionAr: descriptionAr,
-          basePrice: basePrice,
-          comparePrice: comparePrice,
-          sku: sku,
-          stock: stock,
-          tracksStock: tracksStock,
-          isActive: isActive,
-          isFeatured: isFeatured,
-          sellByStrip: sellByStrip,
-          stripsPerPackage: stripsPerPackage,
-          version: version,
+    _$UpdateProductDto _$result;
+    try {
+      _$result =
+          _$v ??
+          _$UpdateProductDto._(
+            categoryId: categoryId,
+            name: name,
+            nameAr: nameAr,
+            description: description,
+            descriptionAr: descriptionAr,
+            basePrice: basePrice,
+            comparePrice: comparePrice,
+            sku: sku,
+            stock: stock,
+            tracksStock: tracksStock,
+            isActive: isActive,
+            isFeatured: isFeatured,
+            sellByStrip: sellByStrip,
+            stripsPerPackage: stripsPerPackage,
+            version: version,
+            branchAvailabilityMode: branchAvailabilityMode,
+            branchIds: _branchIds?.build(),
+          );
+    } catch (_) {
+      late String _$failedField;
+      try {
+        _$failedField = 'branchIds';
+        _branchIds?.build();
+      } catch (e) {
+        throw BuiltValueNestedFieldError(
+          r'UpdateProductDto',
+          _$failedField,
+          e.toString(),
         );
+      }
+      rethrow;
+    }
     replace(_$result);
     return _$result;
   }

@@ -1,3 +1,4 @@
+import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -548,6 +549,157 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 );
               }),
               
+              // Multi-Store Pickups Section (for Multi-Vendor orders)
+              if (order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.store, size: 18, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.localeName == 'ar' ? 'محطات الاستلام من المتاجر' : 'Store Pickup Stops',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...((order['vendorFulfillments'] as List).map((f) {
+                        if (f is! Map) return const SizedBox.shrink();
+                        final v = f['vendor'] is Map ? f['vendor'] as Map : {};
+                        final b = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : null;
+                        final name = (l10n.localeName == 'ar' ? (v['storeNameAr'] ?? v['storeName']) : (v['storeName'] ?? v['name']))?.toString() ?? 'Store';
+                        final branchName = b != null ? (l10n.localeName == 'ar' ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
+                        final displayName = (branchName != null && branchName.isNotEmpty) ? '$name ($branchName)' : name;
+                        final fStatus = f['status']?.toString() ?? '';
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('• $displayName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                              Text(fStatus, style: TextStyle(fontSize: 11, color: fStatus == 'READY_FOR_PICKUP' ? AppColors.success : Colors.orange, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        );
+                      })),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Assistant Driver Section
+              Builder(builder: (context) {
+                final assistRequests = (order['assistRequests'] as List?) ?? [];
+                final activeAssist = assistRequests.where((a) => a is Map && a['status'] != 'CANCELLED' && a['status'] != 'REJECTED').firstOrNull;
+                final deliveryGroups = (order['deliveryGroups'] as List?) ?? [];
+                final directAssistDriver = order['assistDriver'] is Map
+                    ? order['assistDriver'] as Map
+                    : (deliveryGroups.where((g) => g is Map && g['assistDriver'] != null).firstOrNull?['assistDriver'] as Map?);
+
+                final isAr = l10n.localeName == 'ar';
+                final isFinished = order['status'] == 'DELIVERED' || order['status'] == 'CANCELLED';
+
+                if (directAssistDriver != null || activeAssist != null) {
+                  final bool isAssigned = directAssistDriver != null || activeAssist?['status'] == 'ASSIGNED' || activeAssist?['status'] == 'FULFILLED';
+                  final aDriver = directAssistDriver ?? (activeAssist?['assistDriver'] is Map ? activeAssist!['assistDriver'] as Map : (activeAssist?['assignedDriver'] is Map ? activeAssist!['assignedDriver'] as Map : null));
+                  final aName = aDriver?['name']?.toString() ?? (isAr ? 'مندوب مساعد' : 'Assistant Driver');
+                  final aStatus = isAssigned ? 'ASSIGNED' : (activeAssist?['status']?.toString() ?? 'PENDING');
+                  return Container(
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: aStatus == 'ASSIGNED'
+                          ? AppColors.success.withValues(alpha: 0.1)
+                          : AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: aStatus == 'ASSIGNED'
+                            ? AppColors.success.withValues(alpha: 0.4)
+                            : AppColors.primary.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              aStatus == 'ASSIGNED' ? LucideIcons.userCheck : LucideIcons.userPlus,
+                              size: 18,
+                              color: aStatus == 'ASSIGNED' ? AppColors.success : AppColors.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                aStatus == 'ASSIGNED'
+                                    ? (isAr ? 'تم تعيين المندوب المساعد: $aName' : 'Assistant Assigned: $aName')
+                                    : (aStatus == 'PENDING_CUSTOMER'
+                                        ? (isAr ? 'طلب المساعدة: بانتظار موافقة العميل' : 'Assist: Waiting for Customer')
+                                        : (isAr ? 'طلب المساعدة: بانتظار تعيين الإدارة' : 'Assist: Waiting for Admin')),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: aStatus == 'ASSIGNED' ? AppColors.success : AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (aStatus != 'ASSIGNED' && !isFinished) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                final reqId = activeAssist['id']?.toString();
+                                if (reqId != null) {
+                                  await ref.read(orderExecutionProvider.notifier).cancelAssist(reqId);
+                                  if (context.mounted) Navigator.pop(context);
+                                }
+                              },
+                              icon: const Icon(LucideIcons.xCircle, size: 16, color: AppColors.error),
+                              label: Text(isAr ? 'إلغاء الطلب' : 'Cancel Request', style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+
+                if (!isFinished) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showRequestAssistDialog(context, ref, order['id']?.toString() ?? ''),
+                      icon: const Icon(LucideIcons.userPlus, size: 18),
+                      label: Text(
+                        isAr ? 'طلب كابتن إضافي للمساعدة (حمولات ثقيلة)' : 'Request Assistant Driver (Heavy Cargo)',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  );
+                }
+
+                return const SizedBox.shrink();
+              }),
+
               const SizedBox(height: 24),
               PrimaryButton(
                 text: l10n.localeName == 'ar' ? 'إغلاق' : 'Close',
@@ -677,6 +829,113 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
 
   void _showSnack(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+
+  void _showRequestAssistDialog(BuildContext context, WidgetRef ref, String orderId) {
+    String selectedReason = 'TOO_HEAVY';
+    final noteController = TextEditingController();
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+
+    final reasons = [
+      {'code': 'TOO_HEAVY', 'label': isAr ? 'حمولة ثقيلة جداً' : 'Too Heavy'},
+      {'code': 'TOO_LARGE', 'label': isAr ? 'حجم كبير جداً' : 'Too Large / Bulky'},
+      {'code': 'MULTI_STOP_COMPLEXITY', 'label': isAr ? 'تعدد نقاط الاستلام والشحن' : 'Multi-stop Complexity'},
+      {'code': 'ACCESS_RESTRICTED', 'label': isAr ? 'صعوبة الوصول أو الأدوار العليا' : 'Access Restricted / High Floor'},
+      {'code': 'LONG_DISTANCE', 'label': isAr ? 'مسافة طويلة جداً' : 'Long Distance'},
+      {'code': 'OTHER', 'label': isAr ? 'سبب آخر' : 'Other'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(LucideIcons.userPlus, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isAr ? 'طلب كابتن إضافي للمساعدة' : 'Request Assistant Driver',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAr
+                      ? 'حدد سبب طلب كابتن مساعد لمشاركتك في تنفيذ هذا التوصيل:'
+                      : 'Select why you need a second driver for this delivery:',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedReason,
+                  decoration: InputDecoration(
+                    labelText: isAr ? 'سبب المساعدة' : 'Reason',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: reasons.map((r) => DropdownMenuItem(
+                    value: r['code'],
+                    child: Text(r['label']!),
+                  )).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedReason = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: isAr ? 'ملاحظات إضافية (اختياري)' : 'Additional Notes (Optional)',
+                    hintText: isAr ? 'مثال: يوجد 4 كراتين كبيرة...' : 'e.g., 4 large boxes...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(isAr ? 'إلغاء' : 'Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final ok = await ref.read(orderExecutionProvider.notifier).requestAssist(
+                  reason: selectedReason,
+                  note: noteController.text.trim().isNotEmpty ? noteController.text.trim() : null,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok
+                          ? (isAr ? 'تم إرسال طلب المساعدة بنجاح' : 'Assist request sent successfully')
+                          : (isAr ? 'تعذر إرسال الطلب' : 'Failed to send assist request')),
+                      backgroundColor: ok ? AppColors.success : AppColors.error,
+                    ),
+                  );
+                  Navigator.pop(context); // Close bottom sheet to refresh
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+              ),
+              child: Text(isAr ? 'إرسال الطلب' : 'Submit Request'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
 }

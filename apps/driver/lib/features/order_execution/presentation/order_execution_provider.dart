@@ -151,4 +151,30 @@ class OrderExecution extends _$OrderExecution {
       }
     }
   }
+
+  Future<bool> requestAssist({required String reason, String? note}) async {
+    final prev = state;
+    final orderId = _activeOrderId(prev);
+    if (orderId == null) return false;
+    try {
+      final repository = ref.read(driverOrdersRepositoryProvider);
+      await repository.requestAssistOrder(orderId, reason: reason, note: note);
+      await _fetchActiveOrder();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> cancelAssist(String requestId) async {
+    try {
+      final repository = ref.read(driverOrdersRepositoryProvider);
+      await repository.cancelAssistRequest(requestId);
+      await _fetchActiveOrder();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
 }

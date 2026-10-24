@@ -81,4 +81,43 @@ class AdminDriversRepository {
     return ResponseParser.parse(response);
   }
 
+
+  // --- Admin Driver Assist Operations ---
+  Future<dynamic> listPendingAssistRequests() async {
+    final response = await _api.driversControllerListPendingAssistRequests();
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> listAssistRequestsForOrder(String orderId) async {
+    final response = await _api.driversControllerListAssistRequestsForOrder(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> decideAssistRequest(String requestId, {required String status}) async {
+    final dto = DecideAssistRequestDto((b) => b..status = status);
+    final response = await _api.driversControllerDecideAssistRequest(
+      requestId: requestId,
+      decideAssistRequestDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> assignAssistDriver(String requestId, {required String driverId}) async {
+    final dto = AssignAssistDriverDto((b) => b..driverId = driverId);
+    final response = await _api.driversControllerAssignAssistDriver(
+      requestId: requestId,
+      assignAssistDriverDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> autoAssignAssistDriver(String requestId) async {
+    final response = await _api.driversControllerAutoAssignAssistDriver(requestId: requestId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> offerAssistToNearest(String requestId) async {
+    final response = await _api.driversControllerOfferAssistToNearest(requestId: requestId);
+    return ResponseParser.parse(response);
+  }
 }

@@ -573,9 +573,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final items = (order['items'] as List<dynamic>?) ?? [];
     final vendor = order['vendor'] as Map<String, dynamic>?;
 
-    final vendorName = s.isArabic
+    final vendorBranch = order['vendorBranch'] as Map<String, dynamic>?;
+    final baseVendorName = s.isArabic
         ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? s.vendor)
         : (vendor?['storeName'] ?? s.vendor);
+    final branchName = vendorBranch != null
+        ? (s.isArabic ? (vendorBranch['nameAr'] ?? vendorBranch['name']) : (vendorBranch['name'] ?? vendorBranch['nameAr']))?.toString()
+        : null;
+    final vendorName = (branchName != null && branchName.isNotEmpty)
+        ? '$baseVendorName • $branchName'
+        : baseVendorName;
     final vendorLogoUrl = vendor?['logo'] as String?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

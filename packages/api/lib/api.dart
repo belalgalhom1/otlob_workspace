@@ -122,6 +122,11 @@ export 'package:api/src/model/permission.dart';
 export 'package:api/src/model/place_custom_order_dto.dart';
 export 'package:api/src/model/place_direct_order_dto.dart';
 export 'package:api/src/model/place_order_dto.dart';
+export 'package:api/src/model/place_multi_vendor_order_dto.dart';
+export 'package:api/src/model/request_assist_driver_dto.dart';
+export 'package:api/src/model/decide_assist_request_dto.dart';
+export 'package:api/src/model/assign_assist_driver_dto.dart';
+
 export 'package:api/src/model/process_manual_transaction_dto.dart';
 export 'package:api/src/model/product.dart';
 export 'package:api/src/model/product_option.dart';

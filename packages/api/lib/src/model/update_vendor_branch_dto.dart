@@ -42,6 +42,12 @@ abstract class UpdateVendorBranchDto implements Built<UpdateVendorBranchDto, Upd
   @BuiltValueField(wireName: r'isOpen')
   bool? get isOpen;
 
+    @BuiltValueField(wireName: r'isContracted')
+  bool? get isContracted;
+
+  @BuiltValueField(wireName: r'commissionRate')
+  num? get commissionRate;
+
   UpdateVendorBranchDto._();
 
   factory UpdateVendorBranchDto([void updates(UpdateVendorBranchDtoBuilder b)]) = _$UpdateVendorBranchDto;
@@ -105,6 +111,20 @@ class _$UpdateVendorBranchDtoSerializer implements PrimitiveSerializer<UpdateVen
       yield serializers.serialize(
         object.zoneId,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.isContracted != null) {
+      yield r'isContracted';
+      yield serializers.serialize(
+        object.isContracted,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.commissionRate != null) {
+      yield r'commissionRate';
+      yield serializers.serialize(
+        object.commissionRate,
+        specifiedType: const FullType(num),
       );
     }
     if (object.isOpen != null) {
@@ -185,6 +205,20 @@ class _$UpdateVendorBranchDtoSerializer implements PrimitiveSerializer<UpdateVen
             specifiedType: const FullType(bool),
           ) as bool;
           result.isOpen = valueDes;
+          break;
+        case r'isContracted':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isContracted = valueDes;
+          break;
+        case r'commissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.commissionRate = valueDes;
           break;
         default:
           unhandled.add(key);

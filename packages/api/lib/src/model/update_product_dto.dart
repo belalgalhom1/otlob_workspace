@@ -1,3 +1,4 @@
+import 'package:built_collection/built_collection.dart';
 //
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
@@ -73,6 +74,12 @@ abstract class UpdateProductDto implements Built<UpdateProductDto, UpdateProduct
 
   @BuiltValueField(wireName: r'version')
   num? get version;
+
+    @BuiltValueField(wireName: r'branchAvailabilityMode')
+  String? get branchAvailabilityMode;
+
+  @BuiltValueField(wireName: r'branchIds')
+  BuiltList<String>? get branchIds;
 
   UpdateProductDto._();
 
@@ -193,6 +200,20 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
       yield serializers.serialize(
         object.stripsPerPackage,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.branchAvailabilityMode != null) {
+      yield r'branchAvailabilityMode';
+      yield serializers.serialize(
+        object.branchAvailabilityMode,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.branchIds != null) {
+      yield r'branchIds';
+      yield serializers.serialize(
+        object.branchIds,
+        specifiedType: const FullType(BuiltList, [FullType(String)]),
       );
     }
     if (object.version != null) {
@@ -330,6 +351,20 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
             specifiedType: const FullType(num),
           ) as num;
           result.version = valueDes;
+          break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.branchAvailabilityMode = valueDes;
+          break;
+        case r'branchIds':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(String)]),
+          ) as BuiltList<String>;
+          result.branchIds.replace(valueDes);
           break;
         default:
           unhandled.add(key);

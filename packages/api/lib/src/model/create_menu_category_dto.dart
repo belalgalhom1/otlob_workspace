@@ -1,3 +1,4 @@
+import 'package:built_collection/built_collection.dart';
 //
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
@@ -40,6 +41,12 @@ abstract class CreateMenuCategoryDto implements Built<CreateMenuCategoryDto, Cre
 
   @BuiltValueField(wireName: r'iconUrl')
   String? get iconUrl;
+
+    @BuiltValueField(wireName: r'branchAvailabilityMode')
+  String? get branchAvailabilityMode;
+
+  @BuiltValueField(wireName: r'branchIds')
+  BuiltList<String>? get branchIds;
 
   CreateMenuCategoryDto._();
 
@@ -104,6 +111,20 @@ class _$CreateMenuCategoryDtoSerializer implements PrimitiveSerializer<CreateMen
       yield serializers.serialize(
         object.isActive,
         specifiedType: const FullType(bool),
+      );
+    }
+    if (object.branchAvailabilityMode != null) {
+      yield r'branchAvailabilityMode';
+      yield serializers.serialize(
+        object.branchAvailabilityMode,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.branchIds != null) {
+      yield r'branchIds';
+      yield serializers.serialize(
+        object.branchIds,
+        specifiedType: const FullType(BuiltList, [FullType(String)]),
       );
     }
     if (object.iconUrl != null) {
@@ -184,6 +205,20 @@ class _$CreateMenuCategoryDtoSerializer implements PrimitiveSerializer<CreateMen
             specifiedType: const FullType(String),
           ) as String;
           result.iconUrl = valueDes;
+          break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.branchAvailabilityMode = valueDes;
+          break;
+        case r'branchIds':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(String)]),
+          ) as BuiltList<String>;
+          result.branchIds.replace(valueDes);
           break;
         default:
           unhandled.add(key);

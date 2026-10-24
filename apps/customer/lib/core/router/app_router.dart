@@ -239,7 +239,13 @@ GoRouter appRouter(Ref ref) {
         path: '/checkout',
         name: 'checkout',
         builder: (context, state) {
-          final vendorId = state.extra as String?;
+          final extra = state.extra;
+          if (extra is List<String>) {
+            return CheckoutScreen(vendorIds: extra);
+          } else if (extra is List) {
+            return CheckoutScreen(vendorIds: extra.map((e) => e.toString()).toList());
+          }
+          final vendorId = extra as String?;
           return CheckoutScreen(vendorId: vendorId);
         },
       ),

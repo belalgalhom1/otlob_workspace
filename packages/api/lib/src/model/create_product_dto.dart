@@ -84,6 +84,12 @@ abstract class CreateProductDto implements Built<CreateProductDto, CreateProduct
   @BuiltValueField(wireName: r'variants')
   BuiltList<CreateProductVariantDto>? get variants;
 
+    @BuiltValueField(wireName: r'branchAvailabilityMode')
+  String? get branchAvailabilityMode;
+
+  @BuiltValueField(wireName: r'branchIds')
+  BuiltList<String>? get branchIds;
+
   CreateProductDto._();
 
   factory CreateProductDto([void updates(CreateProductDtoBuilder b)]) = _$CreateProductDto;
@@ -221,6 +227,20 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
       yield serializers.serialize(
         object.optionGroups,
         specifiedType: const FullType(BuiltList, [FullType(CreateOptionGroupDto)]),
+      );
+    }
+    if (object.branchAvailabilityMode != null) {
+      yield r'branchAvailabilityMode';
+      yield serializers.serialize(
+        object.branchAvailabilityMode,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.branchIds != null) {
+      yield r'branchIds';
+      yield serializers.serialize(
+        object.branchIds,
+        specifiedType: const FullType(BuiltList, [FullType(String)]),
       );
     }
     if (object.variants != null) {
@@ -371,6 +391,20 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
             specifiedType: const FullType(BuiltList, [FullType(CreateProductVariantDto)]),
           ) as BuiltList<CreateProductVariantDto>;
           result.variants.replace(valueDes);
+          break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.branchAvailabilityMode = valueDes;
+          break;
+        case r'branchIds':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(String)]),
+          ) as BuiltList<String>;
+          result.branchIds.replace(valueDes);
           break;
         default:
           unhandled.add(key);

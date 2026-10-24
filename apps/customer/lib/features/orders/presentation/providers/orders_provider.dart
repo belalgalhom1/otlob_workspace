@@ -531,4 +531,81 @@ class Orders extends _$Orders {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> estimateMultiVendorOrder({
+    required List<String> vendorIds,
+    required String paymentMethod,
+    required String address,
+    required List<double> location,
+    int? coinsToUse,
+  }) async {
+    final repository = ref.read(customerOrderRepositoryProvider);
+    try {
+      final dto = PlaceMultiVendorOrderDto((b) => b
+        ..vendorIds = ListBuilder<String>(vendorIds)
+        ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? 'MOBILE_WALLET' : 'CASH_ON_DELIVERY'
+        ..deliveryAddress = address
+        ..deliveryLocation = ListBuilder<num>(location.length >= 2 ? [location[0], location[1]] : [0.0, 0.0])
+        ..coinsToUse = coinsToUse
+      );
+      final result = await repository.estimateMultiVendor(dto);
+      if (result is Map) {
+        return Map<String, dynamic>.from(result);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Estimate multi vendor error: $e');
+      return null;
+    }
+  }
+
+  Future<(String?, String?)> placeMultiVendorOrder({
+    required List<String> vendorIds,
+    required String paymentMethod,
+    required String address,
+    required List<double> location,
+    String? specialRequest,
+    int? coinsToUse,
+    String? idempotencyKey,
+  }) async {
+    final repository = ref.read(customerOrderRepositoryProvider);
+    try {
+      final dto = PlaceMultiVendorOrderDto((b) => b
+        ..vendorIds = ListBuilder<String>(vendorIds)
+        ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? 'MOBILE_WALLET' : 'CASH_ON_DELIVERY'
+        ..deliveryAddress = address
+        ..deliveryLocation = ListBuilder<num>(location.length >= 2 ? [location[0], location[1]] : [0.0, 0.0])
+        ..specialRequest = specialRequest
+        ..coinsToUse = coinsToUse
+      );
+      final result = await repository.placeMultiVendorOrder(dto, idempotencyKey: idempotencyKey);
+      ref.invalidateSelf();
+      String? orderId;
+      if (result is Map && result['id'] != null) {
+        orderId = result['id'].toString();
+      }
+      return (null, orderId);
+    } catch (e) {
+      debugPrint('Place multi vendor order error: $e');
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map && data['message'] != null) {
+          return (data['message'].toString(), null);
+        }
+      }
+      return ('Failed to place multi-vendor order', null);
+    }
+  }
+
+  Future<bool> decideAssistOrder(String orderId, {required bool approve, String? deliveryGroupId}) async {
+    final repository = ref.read(customerOrderRepositoryProvider);
+    try {
+      await repository.decideAssistOrder(orderId, approved: approve, deliveryGroupId: deliveryGroupId);
+      ref.invalidateSelf();
+      return true;
+    } catch (e) {
+      debugPrint('Customer decide assist error: $e');
+      return false;
+    }
+  }
 }

@@ -21,6 +21,10 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
   final String? zoneId;
   @override
   final bool? isOpen;
+  @override
+  final bool? isContracted;
+  @override
+  final num? commissionRate;
 
   factory _$UpdateVendorBranchDto([
     void Function(UpdateVendorBranchDtoBuilder)? updates,
@@ -34,6 +38,8 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
     this.location,
     this.zoneId,
     this.isOpen,
+    this.isContracted,
+    this.commissionRate,
   }) : super._();
   @override
   UpdateVendorBranchDto rebuild(
@@ -54,7 +60,9 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
         phone == other.phone &&
         location == other.location &&
         zoneId == other.zoneId &&
-        isOpen == other.isOpen;
+        isOpen == other.isOpen &&
+        isContracted == other.isContracted &&
+        commissionRate == other.commissionRate;
   }
 
   @override
@@ -67,6 +75,8 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
     _$hash = $jc(_$hash, location.hashCode);
     _$hash = $jc(_$hash, zoneId.hashCode);
     _$hash = $jc(_$hash, isOpen.hashCode);
+    _$hash = $jc(_$hash, isContracted.hashCode);
+    _$hash = $jc(_$hash, commissionRate.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -80,7 +90,9 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
           ..add('phone', phone)
           ..add('location', location)
           ..add('zoneId', zoneId)
-          ..add('isOpen', isOpen))
+          ..add('isOpen', isOpen)
+          ..add('isContracted', isContracted)
+          ..add('commissionRate', commissionRate))
         .toString();
   }
 }
@@ -118,6 +130,15 @@ class UpdateVendorBranchDtoBuilder
   bool? get isOpen => _$this._isOpen;
   set isOpen(bool? isOpen) => _$this._isOpen = isOpen;
 
+  bool? _isContracted;
+  bool? get isContracted => _$this._isContracted;
+  set isContracted(bool? isContracted) => _$this._isContracted = isContracted;
+
+  num? _commissionRate;
+  num? get commissionRate => _$this._commissionRate;
+  set commissionRate(num? commissionRate) =>
+      _$this._commissionRate = commissionRate;
+
   UpdateVendorBranchDtoBuilder() {
     UpdateVendorBranchDto._defaults(this);
   }
@@ -132,6 +153,8 @@ class UpdateVendorBranchDtoBuilder
       _location = $v.location?.toBuilder();
       _zoneId = $v.zoneId;
       _isOpen = $v.isOpen;
+      _isContracted = $v.isContracted;
+      _commissionRate = $v.commissionRate;
       _$v = null;
     }
     return this;
@@ -163,6 +186,8 @@ class UpdateVendorBranchDtoBuilder
             location: _location?.build(),
             zoneId: zoneId,
             isOpen: isOpen,
+            isContracted: isContracted,
+            commissionRate: commissionRate,
           );
     } catch (_) {
       late String _$failedField;

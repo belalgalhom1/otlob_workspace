@@ -195,7 +195,14 @@ export class DriverAssistService {
 
   async listPending() {
     return this.prisma.driverAssistRequest.findMany({
-      where: { status: DriverAssistRequestStatus.PENDING },
+      where: {
+        status: {
+          in: [
+            DriverAssistRequestStatus.PENDING,
+            DriverAssistRequestStatus.APPROVED,
+          ],
+        },
+      },
       orderBy: { createdAt: 'asc' },
       take: 100,
       include: this.includeShape(),
@@ -270,7 +277,10 @@ export class DriverAssistService {
       return this.assignAssistDriverOrder(requestId, actor, dto);
     }
 
-    if (request.status !== DriverAssistRequestStatus.APPROVED) {
+    if (
+      request.status !== DriverAssistRequestStatus.APPROVED &&
+      request.status !== DriverAssistRequestStatus.PENDING
+    ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
     if (!request.deliveryGroupId) {
@@ -521,6 +531,8 @@ export class DriverAssistService {
         actor.sub,
       ),
     );
+
+    try { await this.redis.del(`assist:offer:${requestId}`); } catch {}
 
     // The primary driver keeps the delivery; the assisting driver is added.
     await this.notifyAssistAssignment({
@@ -894,7 +906,10 @@ export class DriverAssistService {
 
   async assignAssistDriverOrder(requestId: string, actor: JwtAccessPayload, dto: AssignAssistDriverDto) {
     const request = await this.findById(requestId);
-    if (request.status !== DriverAssistRequestStatus.APPROVED) {
+    if (
+      request.status !== DriverAssistRequestStatus.APPROVED &&
+      request.status !== DriverAssistRequestStatus.PENDING
+    ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
     if (request.deliveryGroupId) {
@@ -996,6 +1011,8 @@ export class DriverAssistService {
       try { await this.socket.emitToUser(customer.userId, 'order.assist.proposed', { orderId, assistFee }); } catch (e) { this.logWarn(e); }
     }
 
+    try { await this.redis.del(`assist:offer:${requestId}`); } catch {}
+
     const candidate2 = await this.prisma.driver.findUnique({ where: { id: dto.driverId }, select: { userId: true } });
     await this.notifyAssistAssignment({
       assistUserId: candidate2?.userId ?? '',
@@ -1071,7 +1088,10 @@ export class DriverAssistService {
    */
   async autoAssignAssistDriver(requestId: string, actor: JwtAccessPayload) {
     const request = await this.findById(requestId);
-    if (request.status !== DriverAssistRequestStatus.APPROVED) {
+    if (
+      request.status !== DriverAssistRequestStatus.APPROVED &&
+      request.status !== DriverAssistRequestStatus.PENDING
+    ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
     const nearest = await this.findNearestEligibleAssistDrivers(request, 1);
@@ -1092,8 +1112,21 @@ export class DriverAssistService {
     limit = 5,
   ) {
     const request = await this.findById(requestId);
-    if (request.status !== DriverAssistRequestStatus.APPROVED) {
+    if (
+      request.status !== DriverAssistRequestStatus.APPROVED &&
+      request.status !== DriverAssistRequestStatus.PENDING
+    ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+    }
+    if (request.status === DriverAssistRequestStatus.PENDING) {
+      await this.prisma.driverAssistRequest.update({
+        where: { id: requestId },
+        data: {
+          status: DriverAssistRequestStatus.APPROVED,
+          reviewedByUserId: actor.sub,
+          reviewedAt: new Date(),
+        },
+      });
     }
     const driverIds = await this.findNearestEligibleAssistDrivers(request, limit);
     if (driverIds.length === 0) {

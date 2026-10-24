@@ -78,4 +78,28 @@ class CustomerOrderRepository {
     );
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> placeMultiVendorOrder(PlaceMultiVendorOrderDto dto, {String? idempotencyKey}) async {
+    final response = await _api.ordersControllerPlaceMultiVendorOrder(
+      placeMultiVendorOrderDto: dto,
+      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> estimateMultiVendor(PlaceMultiVendorOrderDto dto) async {
+    final response = await _api.ordersControllerEstimateMultiVendor(
+      placeMultiVendorOrderDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> decideAssistOrder(String orderId, {required bool approved, String? deliveryGroupId}) async {
+    final response = await _api.ordersControllerDecideAssistOrder(
+      orderId: orderId,
+      approved: approved,
+      deliveryGroupId: deliveryGroupId,
+    );
+    return ResponseParser.parse(response);
+  }
 }
