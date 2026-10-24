@@ -49,7 +49,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     if (loc is List) {
       coords = loc.map((e) => (e as num).toDouble()).toList();
     } else if (loc is Map && loc['coordinates'] is List) {
-      coords = (loc['coordinates'] as List).map((e) => (e as num).toDouble()).toList();
+      coords = (loc['coordinates'] as List)
+          .map((e) => (e as num).toDouble())
+          .toList();
     }
     if (coords.length != 2) {
       if (mounted) {
@@ -61,7 +63,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     }
     _estimating[vendorId] = true;
     try {
-      final result = await ref.read(ordersProvider.notifier).estimateOrder(
+      final result = await ref
+          .read(ordersProvider.notifier)
+          .estimateOrder(
             vendorId: vendorId,
             paymentMethod: 'CASH_ON_DELIVERY',
             address: address['address']?.toString() ?? '',
@@ -93,7 +97,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
     final isMultiVendor = activeBaskets.length > 1;
 
-    ref.listen<Map<String, dynamic>?>(activeDeliveryAddressProvider, (prev, next) {
+    ref.listen<Map<String, dynamic>?>(activeDeliveryAddressProvider, (
+      prev,
+      next,
+    ) {
       final prevId = prev?['id']?.toString();
       final nextId = next?['id']?.toString();
       if (prevId != nextId) {
@@ -105,18 +112,20 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     });
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFFBFBFB),
+      backgroundColor: isDark
+          ? AppColors.backgroundDark
+          : const Color(0xFFFBFBFB),
       appBar: AppBar(
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          s.cart, 
+          s.cart,
           style: TextStyle(
-            fontWeight: FontWeight.w900, 
+            fontWeight: FontWeight.w900,
             fontSize: 22,
             color: isDark ? Colors.white : Colors.black,
-          )
+          ),
         ),
         actions: [
           if (activeBaskets.isNotEmpty)
@@ -124,7 +133,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               padding: const EdgeInsetsDirectional.only(end: 8),
               child: IconButton(
                 onPressed: () => _showClearConfirmation(context, ref, s),
-                icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+                icon: const Icon(
+                  Icons.delete_sweep_rounded,
+                  color: Colors.redAccent,
+                ),
                 tooltip: s.clearAll,
               ),
             ),
@@ -142,109 +154,177 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 child: CircularProgressIndicator(color: AppColors.primary),
               )
             : activeBaskets.isEmpty
-                ? _buildEmptyCart(context, s, isDark)
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: activeBaskets.length,
-                    itemBuilder: (context, index) {
-                      final vendorId = activeBaskets.keys.elementAt(index);
-                      final vendorItems = activeBaskets[vendorId] ?? [];
-                      return _buildVendorBasket(context, ref, vendorId, vendorItems, s, isDark, isMultiVendor);
-                    },
-                  ),
+            ? _buildEmptyCart(context, s, isDark)
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: activeBaskets.length,
+                itemBuilder: (context, index) {
+                  final vendorId = activeBaskets.keys.elementAt(index);
+                  final vendorItems = activeBaskets[vendorId] ?? [];
+                  return _buildVendorBasket(
+                    context,
+                    ref,
+                    vendorId,
+                    vendorItems,
+                    s,
+                    isDark,
+                    isMultiVendor,
+                  );
+                },
+              ),
       ),
       bottomNavigationBar: isMultiVendor
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.isArabic ? 'طلب متعدد المتاجر' : 'Combined Multi-Vendor Order',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            s.isArabic
-                                ? '${activeBaskets.length} متاجر • ${cartState.totalItems} منتجات'
-                                : '${activeBaskets.length} stores • ${cartState.totalItems} items',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white60 : Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        final anyClosed = activeBaskets.values.any((items) =>
-                            items.isNotEmpty && (items.first.product.vendorStatus ?? 'OPEN') != 'OPEN');
-                        if (anyClosed) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(s.isArabic
-                                  ? 'أحد المتاجر في سلتك مغلق حالياً. يرجى إزالة منتجاته للمتابعة'
-                                  : 'One of the stores in your cart is currently closed. Please remove its items to proceed'),
-                              backgroundColor: Colors.redAccent,
-                            ),
-                          );
-                          return;
-                        }
-
-                        final anyInactive = activeBaskets.values.any((items) =>
-                            items.any((it) => !it.product.isActive || (it.selectedVariant != null && !it.selectedVariant!.isActive)));
-                        if (anyInactive) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(s.isArabic
-                                  ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
-                                  : 'Your basket contains unavailable items. Please remove them to proceed.'),
-                              backgroundColor: Colors.redAccent,
-                            ),
-                          );
-                          return;
-                        }
-
-                        context.push('/checkout', extra: activeBaskets.keys.toList());
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: Text(
-                        s.isArabic ? 'إتمام طلب الكل' : 'Checkout All',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          ? _buildMultiVendorBottomBar(
+              context,
+              s,
+              isDark,
+              activeBaskets,
+              cartState.totalItems,
             )
           : null,
     );
+  }
+
+  /// True when the screen is too narrow (or the user's font scale is too
+  /// large) to keep a label and an action button side by side. Stacking them
+  /// avoids squeezing the label into a one-character-per-line column.
+  bool _useStackedActions(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final scaledBodyText = MediaQuery.textScalerOf(context).scale(14);
+    return width < 360 || scaledBodyText > 20;
+  }
+
+  Widget _buildMultiVendorBottomBar(
+    BuildContext context,
+    AppStrings s,
+    bool isDark,
+    Map<String, List<CartItem>> activeBaskets,
+    int totalItems,
+  ) {
+    final info = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          s.isArabic ? 'طلب متعدد المتاجر' : 'Combined Multi-Vendor Order',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          s.isArabic
+              ? '${activeBaskets.length} متاجر • $totalItems منتجات'
+              : '${activeBaskets.length} stores • $totalItems items',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white60 : Colors.black54,
+          ),
+        ),
+      ],
+    );
+
+    final action = ElevatedButton(
+      onPressed: () => _checkoutAll(context, s, activeBaskets),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.black,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Text(
+        s.isArabic ? 'إتمام طلب الكل' : 'Checkout All',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      ),
+    );
+
+    final stacked = _useStackedActions(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: stacked
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [info, const SizedBox(height: 10), action],
+              )
+            : Row(
+                children: [
+                  Expanded(child: info),
+                  const SizedBox(width: 12),
+                  action,
+                ],
+              ),
+      ),
+    );
+  }
+
+  void _checkoutAll(
+    BuildContext context,
+    AppStrings s,
+    Map<String, List<CartItem>> activeBaskets,
+  ) {
+    final anyClosed = activeBaskets.values.any(
+      (items) =>
+          items.isNotEmpty &&
+          (items.first.product.vendorStatus ?? 'OPEN') != 'OPEN',
+    );
+    if (anyClosed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.isArabic
+                ? 'أحد المتاجر في سلتك مغلق حالياً. يرجى إزالة منتجاته للمتابعة'
+                : 'One of the stores in your cart is currently closed. Please remove its items to proceed',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final anyInactive = activeBaskets.values.any(
+      (items) => items.any(
+        (it) =>
+            !it.product.isActive ||
+            (it.selectedVariant != null && !it.selectedVariant!.isActive),
+      ),
+    );
+    if (anyInactive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.isArabic
+                ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
+                : 'Your basket contains unavailable items. Please remove them to proceed.',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    context.push('/checkout', extra: activeBaskets.keys.toList());
   }
 
   Widget _buildEmptyCart(BuildContext context, AppStrings s, bool isDark) {
@@ -255,7 +335,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center, 
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
                   padding: const EdgeInsets.all(40),
@@ -264,31 +344,31 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.shopping_basket_outlined, 
-                    size: 120, 
-                    color: isDark ? Colors.white12 : Colors.grey.shade200
+                    Icons.shopping_basket_outlined,
+                    size: 120,
+                    color: isDark ? Colors.white12 : Colors.grey.shade200,
                   ),
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  s.emptyCart, 
+                  s.emptyCart,
                   style: TextStyle(
-                    fontSize: 24, 
+                    fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : Colors.black
-                  )
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 48),
                   child: Text(
-                    s.emptyCartSub, 
+                    s.emptyCartSub,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey.shade600, 
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
                       fontSize: 16,
-                      height: 1.5
-                    )
+                      height: 1.5,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -298,12 +378,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
                     minimumSize: const Size(200, 56),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
                     elevation: 0,
                   ),
                   child: Text(
-                    s.browseNow, 
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)
+                    s.browseNow,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ],
@@ -314,7 +399,15 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
   }
 
-  Widget _buildVendorBasket(BuildContext context, WidgetRef ref, String vendorId, List<CartItem> items, AppStrings s, bool isDark, bool isMultiVendor) {
+  Widget _buildVendorBasket(
+    BuildContext context,
+    WidgetRef ref,
+    String vendorId,
+    List<CartItem> items,
+    AppStrings s,
+    bool isDark,
+    bool isMultiVendor,
+  ) {
     if (items.isEmpty) return const SizedBox.shrink();
 
     final firstProduct = items.first.product;
@@ -323,7 +416,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         : (firstProduct.vendorName ?? s.vendor);
     final vendorStatus = firstProduct.vendorStatus ?? 'OPEN';
     final isVendorOpen = vendorStatus == 'OPEN';
-    final hasInactiveItems = items.any((it) => !it.product.isActive || (it.selectedVariant != null && !it.selectedVariant!.isActive));
+    final hasInactiveItems = items.any(
+      (it) =>
+          !it.product.isActive ||
+          (it.selectedVariant != null && !it.selectedVariant!.isActive),
+    );
     final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
     final canCheckout = isVendorOpen && !hasInactiveItems;
 
@@ -350,7 +447,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final serviceFee = est != null ? toNum(est['serviceFee']) : 0.0;
     final tax = est != null ? toNum(est['tax']) : 0.0;
     final total = est != null
-        ? toNum(est['grandTotal'] ?? (subtotal + deliveryFee + serviceFee + tax))
+        ? toNum(
+            est['grandTotal'] ?? (subtotal + deliveryFee + serviceFee + tax),
+          )
         : subtotal;
 
     return Container(
@@ -360,10 +459,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08), 
-            blurRadius: 24, 
-            offset: const Offset(0, 8)
-          )
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
       child: Column(
@@ -371,14 +470,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         children: [
           // Vendor Header
           InkWell(
-            onTap: () => context.push('/vendor', extra: {
-              'id': vendorId,
-              'storeName': firstProduct.vendorName,
-              'storeNameAr': firstProduct.vendorNameAr,
-              'logo': firstProduct.vendorLogo,
-              'coverImage': firstProduct.vendorCoverImage,
-              'image': firstProduct.vendorCoverImage,
-            }),
+            onTap: () => context.push(
+              '/vendor',
+              extra: {
+                'id': vendorId,
+                'storeName': firstProduct.vendorName,
+                'storeNameAr': firstProduct.vendorNameAr,
+                'logo': firstProduct.vendorLogo,
+                'coverImage': firstProduct.vendorCoverImage,
+                'image': firstProduct.vendorCoverImage,
+              },
+            ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
@@ -393,17 +495,29 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                               color: AppColors.primary.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.storefront_rounded, color: AppColors.primary, size: 20),
+                            child: const Icon(
+                              Icons.storefront_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
                           )
                         : CachedNetworkImage(
-                            imageUrl: ImageUtils.formatImageUrl(firstProduct.vendorLogo),
+                            imageUrl: ImageUtils.formatImageUrl(
+                              firstProduct.vendorLogo,
+                            ),
                             height: 40,
                             width: 40,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
-                              height: 40, width: 40,
-                              color: isDark ? Colors.white12 : Colors.grey.shade100,
-                              child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              height: 40,
+                              width: 40,
+                              color: isDark
+                                  ? Colors.white12
+                                  : Colors.grey.shade100,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
                             ),
                             errorWidget: (context, url, error) => Container(
                               padding: const EdgeInsets.all(10),
@@ -411,7 +525,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                                 color: AppColors.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.storefront_rounded, color: AppColors.primary, size: 20),
+                              child: const Icon(
+                                Icons.storefront_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
                             ),
                           ),
                   ),
@@ -421,11 +539,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          vendorName, 
+                          vendorName,
                           style: TextStyle(
-                            fontWeight: FontWeight.w900, 
+                            fontWeight: FontWeight.w900,
                             fontSize: 18,
-                            color: isDark ? Colors.white : Colors.black87
+                            color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
                         if (branchName != null && branchName.isNotEmpty)
@@ -433,13 +551,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             padding: const EdgeInsets.only(top: 2),
                             child: Row(
                               children: [
-                                const Icon(Icons.storefront_rounded, size: 13, color: AppColors.primary),
+                                const Icon(
+                                  Icons.storefront_rounded,
+                                  size: 13,
+                                  color: AppColors.primary,
+                                ),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     '${s.isArabic ? "فرع" : "Branch"}: $branchName',
                                     style: TextStyle(
-                                      color: isDark ? Colors.white60 : Colors.black54,
+                                      color: isDark
+                                          ? Colors.white60
+                                          : Colors.black54,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -454,14 +578,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 s.isArabic ? 'مغلق حالياً' : 'Closed Now',
-                                style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
@@ -469,22 +600,26 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     ),
                   ),
                   Icon(
-                    s.isArabic ? Icons.arrow_back_ios_rounded : Icons.arrow_forward_ios_rounded, 
-                    size: 14, 
-                    color: isDark ? Colors.white24 : Colors.black26
+                    s.isArabic
+                        ? Icons.arrow_back_ios_rounded
+                        : Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: isDark ? Colors.white24 : Colors.black26,
                   ),
                 ],
               ),
             ),
           ),
-          
+
           const Divider(indent: 20, endIndent: 20, height: 32),
 
           // Items List
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              children: items.map((item) => _buildCartItem(context, ref, item, s, isDark)).toList(),
+              children: items
+                  .map((item) => _buildCartItem(context, ref, item, s, isDark))
+                  .toList(),
             ),
           ),
 
@@ -494,8 +629,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.withValues(alpha: 0.03),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.02)
+                  : Colors.grey.withValues(alpha: 0.03),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(28),
+              ),
             ),
             child: Column(
               children: [
@@ -509,28 +648,46 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 18),
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.redAccent,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             s.isArabic
                                 ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
                                 : 'Your basket contains unavailable items. Please remove them to proceed.',
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                _buildSummaryRow(s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal', '${subtotal.toStringAsFixed(0)} ${s.egp}', isDark),
+                _buildSummaryRow(
+                  s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal',
+                  '${subtotal.toStringAsFixed(0)} ${s.egp}',
+                  isDark,
+                ),
                 const SizedBox(height: 8),
                 _buildSummaryRow(
                   s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
                   est != null
                       ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}'
                       : (isMultiVendor
-                          ? (s.isArabic ? 'تُحسب عند الدفع' : 'Calculated at checkout')
-                          : (estimating ? '...' : (s.isArabic ? 'تُحسب عند الدفع' : 'Calculated at checkout'))),
+                            ? (s.isArabic
+                                  ? 'تُحسب عند الدفع'
+                                  : 'Calculated at checkout')
+                            : (estimating
+                                  ? '...'
+                                  : (s.isArabic
+                                        ? 'تُحسب عند الدفع'
+                                        : 'Calculated at checkout'))),
                   isDark,
                   isDelivery: est != null,
                 ),
@@ -551,30 +708,53 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   ),
                 ],
                 const Divider(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final totalInfo = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           s.isArabic ? 'المجموع الإجمالي' : 'Total',
-                          style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         Text(
                           est != null
-                              ? (s.isArabic ? '(شامل جميع الرسوم)' : '(Including all fees)')
-                              : (s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)'),
-                          style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 11),
+                              ? (s.isArabic
+                                    ? '(شامل جميع الرسوم)'
+                                    : '(Including all fees)')
+                              : (s.isArabic
+                                    ? '(غير شامل التوصيل)'
+                                    : '(Excl. delivery)'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white38
+                                : Colors.grey.shade500,
+                            fontSize: 11,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${total.toStringAsFixed(0)} ${s.egp}',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.primary)
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 24,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ],
-                    ),
-                    ElevatedButton(
+                    );
+
+                    final checkoutButton = ElevatedButton(
                       onPressed: canCheckout
                           ? () => context.push('/checkout', extra: vendorId)
                           : () {
@@ -582,24 +762,64 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                                 SnackBar(
                                   content: Text(
                                     !isVendorOpen
-                                        ? (s.isArabic ? 'المتجر مغلق حالياً ولا يستقبل طلبات' : 'Store is currently closed')
-                                        : (s.isArabic ? 'الرجاء إزالة المنتجات غير المتوفرة للمتابعة' : 'Please remove unavailable items to proceed'),
+                                        ? (s.isArabic
+                                              ? 'المتجر مغلق حالياً ولا يستقبل طلبات'
+                                              : 'Store is currently closed')
+                                        : (s.isArabic
+                                              ? 'الرجاء إزالة المنتجات غير المتوفرة للمتابعة'
+                                              : 'Please remove unavailable items to proceed'),
                                   ),
                                   backgroundColor: Colors.redAccent,
                                 ),
                               );
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: canCheckout ? AppColors.primary : Colors.grey,
-                        foregroundColor: canCheckout ? Colors.black : Colors.white70,
+                        backgroundColor: canCheckout
+                            ? AppColors.primary
+                            : Colors.grey,
+                        foregroundColor: canCheckout
+                            ? Colors.black
+                            : Colors.white70,
                         minimumSize: const Size(120, 54),
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         elevation: 0,
                       ),
-                      child: Text(s.checkout, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                    ),
-                  ],
+                      child: Text(
+                        s.checkout,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    );
+
+                    final stacked =
+                        constraints.maxWidth < 260 ||
+                        _useStackedActions(context);
+                    if (stacked) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          totalInfo,
+                          const SizedBox(height: 12),
+                          checkoutButton,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: totalInfo),
+                        const SizedBox(width: 12),
+                        checkoutButton,
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -609,28 +829,57 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, bool isDark, {bool isDelivery = false}) {
+  Widget _buildSummaryRow(
+    String label,
+    String value,
+    bool isDark, {
+    bool isDelivery = false,
+  }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14, fontWeight: FontWeight.w600)),
-        Text(
-          value, 
-          style: TextStyle(
-            color: isDelivery && value.startsWith('0') ? AppColors.success : (isDark ? Colors.white : Colors.black), 
-            fontSize: 14, 
-            fontWeight: FontWeight.w800
-          )
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isDark ? Colors.white70 : Colors.black54,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              color: isDelivery && value.startsWith('0')
+                  ? AppColors.success
+                  : (isDark ? Colors.white : Colors.black),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildCartItem(BuildContext context, WidgetRef ref, CartItem item, AppStrings s, bool isDark) {
-    final isInactive = !item.product.isActive || (item.selectedVariant != null && !item.selectedVariant!.isActive);
+  Widget _buildCartItem(
+    BuildContext context,
+    WidgetRef ref,
+    CartItem item,
+    AppStrings s,
+    bool isDark,
+  ) {
+    final isInactive =
+        !item.product.isActive ||
+        (item.selectedVariant != null && !item.selectedVariant!.isActive);
     final comparePrice =
         item.selectedVariant?.comparePrice ?? item.product.comparePrice;
-    final itemUnitPrice = item.totalPrice / (item.quantity > 0 ? item.quantity : 1);
+    final itemUnitPrice =
+        item.totalPrice / (item.quantity > 0 ? item.quantity : 1);
     final hasDiscount = comparePrice != null && comparePrice > itemUnitPrice;
 
     return Container(
@@ -644,11 +893,24 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: (item.product.imageUrl?.isEmpty ?? true)
-                    ? Container(height: 80, width: 80, color: isDark ? Colors.white12 : Colors.grey.shade100, child: const Icon(Icons.fastfood, color: Colors.grey))
-                    : CachedNetworkImage(imageUrl: ImageUtils.formatImageUrl(item.product.imageUrl), height: 80, width: 80, fit: BoxFit.cover),
+                    ? Container(
+                        height: 80,
+                        width: 80,
+                        color: isDark ? Colors.white12 : Colors.grey.shade100,
+                        child: const Icon(Icons.fastfood, color: Colors.grey),
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: ImageUtils.formatImageUrl(
+                          item.product.imageUrl,
+                        ),
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.cover,
+                      ),
               ),
               Positioned(
-                top: 0, right: 0,
+                top: 0,
+                right: 0,
                 child: GestureDetector(
                   onTap: () {
                     final vid = item.product.vendorId;
@@ -657,62 +919,103 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   },
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    child: const Icon(Icons.close, size: 12, color: Colors.white),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 12,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(width: 16),
-          
+
           // Details
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.product.localizedName(s.isArabic), 
+                  item.product.localizedName(s.isArabic),
                   style: TextStyle(
-                    fontWeight: FontWeight.w800, 
-                    fontSize: 15, 
-                    color: isInactive ? Colors.grey : (isDark ? Colors.white : Colors.black),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: isInactive
+                        ? Colors.grey
+                        : (isDark ? Colors.white : Colors.black),
                     decoration: isInactive ? TextDecoration.lineThrough : null,
-                  ), 
-                  maxLines: 2, 
-                  overflow: TextOverflow.ellipsis
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 if (isInactive)
                   Container(
                     margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: Text(
                       s.isArabic ? 'غير متوفر حالياً' : 'Currently Unavailable',
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 if (item.selectedUnit == 'strip')
                   Container(
                     margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                    child: Text(s.strip, style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      s.strip,
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 if (item.selectedVariant != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       item.selectedVariant!.localizedName(s.isArabic),
-                      style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 if (item.selectedOptions.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      item.selectedOptions.map((o) => o.localizedName(s.isArabic)).join(', '),
-                      style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 11),
+                      item.selectedOptions
+                          .map((o) => o.localizedName(s.isArabic))
+                          .join(', '),
+                      style: TextStyle(
+                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        fontSize: 11,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -728,7 +1031,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   children: [
                     Text(
                       '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
                     ),
                     if (hasDiscount)
                       Text(
@@ -742,37 +1049,50 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       ),
                   ],
                 ),
-              ]
-            )
+              ],
+            ),
           ),
-          
+
           const SizedBox(width: 12),
 
           // Quantity Pill
           Container(
-            height: 40,
+            constraints: const BoxConstraints(minHeight: 40),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100, 
-              borderRadius: BorderRadius.circular(20)
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min, 
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _qtyBtn(Icons.remove, isDark, () {
                   final vid = item.product.vendorId;
                   if (vid != null) _estimates.remove(vid);
-                  ref.read(cartProvider.notifier).updateQuantity(item, item.quantity - 1);
+                  ref
+                      .read(cartProvider.notifier)
+                      .updateQuantity(item, item.quantity - 1);
                 }),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8), 
-                  child: Text('${item.quantity}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87))
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    '${item.quantity}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
                 ),
                 _qtyBtn(Icons.add, isDark, () {
                   final vid = item.product.vendorId;
                   if (vid != null) _estimates.remove(vid);
-                  ref.read(cartProvider.notifier).updateQuantity(item, item.quantity + 1);
+                  ref
+                      .read(cartProvider.notifier)
+                      .updateQuantity(item, item.quantity + 1);
                 }),
-              ]
+              ],
             ),
           ),
         ],
@@ -786,20 +1106,34 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(8), 
-        child: Icon(icon, size: 18, color: AppColors.primary)
+        padding: const EdgeInsets.all(8),
+        child: Icon(icon, size: 18, color: AppColors.primary),
       ),
     ),
   );
 
-  void _showClearConfirmation(BuildContext context, WidgetRef ref, AppStrings s) {
+  void _showClearConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    AppStrings s,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(s.clearAll, style: const TextStyle(fontWeight: FontWeight.w900)),
-        content: Text(s.emptyCartSub), // Reusing string for confirmation
+        title: Text(
+          s.clearAll,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: Text(
+          s.isArabic
+              ? 'هل أنت متأكد من حذف جميع المنتجات من السلة؟'
+              : 'Are you sure you want to remove all items from your cart?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(s.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(s.cancel),
+          ),
           TextButton(
             onPressed: () async {
               // Show a simple loading indicator or just await the remote operation
@@ -807,8 +1141,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               if (context.mounted) {
                 Navigator.pop(context);
               }
-            }, 
-            child: Text(s.yes, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+            },
+            child: Text(
+              s.yes,
+              style: const TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
