@@ -22,13 +22,26 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   /// Server estimates per vendor basket (same source as checkout).
   final Map<String, Map<String, dynamic>?> _estimates = {};
   final Map<String, bool> _estimating = {};
-  String? _estimateAddressId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(cartProvider.notifier).loadCarts();
+      }
+    });
+  }
 
   Future<void> _fetchBasketEstimate(String vendorId) async {
     if (_estimating[vendorId] == true) return;
     final address = ref.read(activeDeliveryAddressProvider);
     if (address == null) {
-      _estimates[vendorId] = null;
+      if (mounted) {
+        setState(() {
+          _estimates[vendorId] = null;
+        });
+      }
       return;
     }
     final loc = address['location'];
@@ -39,7 +52,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       coords = (loc['coordinates'] as List).map((e) => (e as num).toDouble()).toList();
     }
     if (coords.length != 2) {
-      _estimates[vendorId] = null;
+      if (mounted) {
+        setState(() {
+          _estimates[vendorId] = null;
+        });
+      }
       return;
     }
     _estimating[vendorId] = true;
@@ -76,6 +93,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
     final isMultiVendor = activeBaskets.length > 1;
 
+    ref.listen<Map<String, dynamic>?>(activeDeliveryAddressProvider, (prev, next) {
+      final prevId = prev?['id']?.toString();
+      final nextId = next?['id']?.toString();
+      if (prevId != nextId) {
+        setState(() {
+          _estimates.clear();
+          _estimating.clear();
+        });
+      }
+    });
+
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFFBFBFB),
       appBar: AppBar(
@@ -102,17 +130,30 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ),
         ],
       ),
-      body: activeBaskets.isEmpty
-          ? _buildEmptyCart(context, s, isDark)
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-              itemCount: activeBaskets.length,
-              itemBuilder: (context, index) {
-                final vendorId = activeBaskets.keys.elementAt(index);
-                final vendorItems = activeBaskets[vendorId] ?? [];
-                return _buildVendorBasket(context, ref, vendorId, vendorItems, s, isDark, isMultiVendor);
-              },
-            ),
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          _estimates.clear();
+          _estimating.clear();
+          await ref.read(cartProvider.notifier).loadCarts();
+        },
+        child: cartState.isLoading && activeBaskets.isEmpty
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
+            : activeBaskets.isEmpty
+                ? _buildEmptyCart(context, s, isDark)
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: activeBaskets.length,
+                    itemBuilder: (context, index) {
+                      final vendorId = activeBaskets.keys.elementAt(index);
+                      final vendorItems = activeBaskets[vendorId] ?? [];
+                      return _buildVendorBasket(context, ref, vendorId, vendorItems, s, isDark, isMultiVendor);
+                    },
+                  ),
+      ),
       bottomNavigationBar: isMultiVendor
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -207,61 +248,69 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Widget _buildEmptyCart(BuildContext context, AppStrings s, bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, 
-        children: [
-          Container(
-            padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.05),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.shopping_basket_outlined, 
-              size: 120, 
-              color: isDark ? Colors.white12 : Colors.grey.shade200
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, 
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(40),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.shopping_basket_outlined, 
+                    size: 120, 
+                    color: isDark ? Colors.white12 : Colors.grey.shade200
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  s.emptyCart, 
+                  style: TextStyle(
+                    fontSize: 24, 
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : Colors.black
+                  )
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Text(
+                    s.emptyCartSub, 
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600, 
+                      fontSize: 16,
+                      height: 1.5
+                    )
+                  ),
+                ),
+                const SizedBox(height: 40),
+                ElevatedButton(
+                  onPressed: () => context.go('/home'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(200, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    s.browseNow, 
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
-          Text(
-            s.emptyCart, 
-            style: TextStyle(
-              fontSize: 24, 
-              fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : Colors.black
-            )
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 48),
-            child: Text(
-              s.emptyCartSub, 
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isDark ? Colors.white60 : Colors.grey.shade600, 
-                fontSize: 16,
-                height: 1.5
-              )
-            ),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton(
-            onPressed: () => context.go('/home'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              minimumSize: const Size(200, 56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-              elevation: 0,
-            ),
-            child: Text(
-              s.browseNow, 
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)
-            ),
-          ),
-        ]
-      )
+        ),
+      ),
     );
   }
 
@@ -278,15 +327,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
     final canCheckout = isVendorOpen && !hasInactiveItems;
 
-    // Delivery depends on the address — drop cached estimates when it changes.
-    final activeAddress = ref.watch(activeDeliveryAddressProvider);
-    final hasAddress = activeAddress != null;
-    final addressId = activeAddress?['id']?.toString();
-    if (addressId != _estimateAddressId) {
-      _estimateAddressId = addressId;
-      _estimates.clear();
-      _estimating.clear();
-    }
+    final hasAddress = ref.watch(activeDeliveryAddressProvider) != null;
 
     // In multi-vendor carts, delivery fee is determined holistically at checkout.
     // In single-vendor carts, server estimate is fetched once for the active address.

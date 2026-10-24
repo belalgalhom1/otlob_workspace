@@ -10,8 +10,22 @@ part 'cart_controller.g.dart';
 
 class CartState {
   final Map<String, List<CartItem>> vendorBaskets;
+  final bool isLoading;
 
-  const CartState({required this.vendorBaskets});
+  const CartState({
+    required this.vendorBaskets,
+    this.isLoading = false,
+  });
+
+  CartState copyWith({
+    Map<String, List<CartItem>>? vendorBaskets,
+    bool? isLoading,
+  }) {
+    return CartState(
+      vendorBaskets: vendorBaskets ?? this.vendorBaskets,
+      isLoading: isLoading ?? this.isLoading,
+    );
+  }
 
   int get totalItems {
     int count = 0;
@@ -50,14 +64,18 @@ class Cart extends _$Cart {
     });
 
     final authStatus = ref.read(authControllerProvider);
-    if (authStatus == AuthStatus.authenticated) {
+    if (authStatus != AuthStatus.unauthenticated) {
       _loadCarts();
     }
-    return const CartState(vendorBaskets: {});
+    return const CartState(vendorBaskets: {}, isLoading: false);
   }
 
   void clearLocal() {
-    state = const CartState(vendorBaskets: {});
+    state = const CartState(vendorBaskets: {}, isLoading: false);
+  }
+
+  Future<void> loadCarts({bool force = false}) async {
+    await _loadCarts(force: force);
   }
 
   List<CartItem> _parseCartItems(
@@ -67,22 +85,29 @@ class Cart extends _$Cart {
     String defaultUnit = 'package',
   }) {
     if (rawItems == null) return [];
-    final vendorName = vendorJson?['storeName'];
-    final vendorNameAr = vendorJson?['storeNameAr'];
-    final vendorLogo = vendorJson?['logo'];
-    final vendorCoverImage = vendorJson?['coverImage'];
+    final vendorName = vendorJson?['storeName']?.toString();
+    final vendorNameAr = vendorJson?['storeNameAr']?.toString();
+    final vendorLogo = vendorJson?['logo']?.toString();
+    final vendorCoverImage = vendorJson?['coverImage']?.toString();
     final commissionRate = vendorJson?['commissionRate'];
     final isContracted = vendorJson?['isContracted'];
-    final vendorStatus = vendorJson?['status'] ?? 'OPEN';
+    final vendorStatus = vendorJson?['status']?.toString() ?? 'OPEN';
 
     final List<CartItem> items = [];
     for (final i in rawItems) {
-      final itemJson = Map<String, dynamic>.from(i as Map);
-      final productJson = Map<String, dynamic>.from(itemJson['product'] as Map? ?? {});
+      if (i is! Map) continue;
+      final itemJson = Map<String, dynamic>.from(i);
+      final productRaw = itemJson['product'];
+      final productJson = productRaw is Map
+          ? Map<String, dynamic>.from(productRaw)
+          : <String, dynamic>{};
       final unitPrice = (itemJson['unitPrice'] as num?)?.toDouble();
       final totalPrice = (itemJson['totalPrice'] as num?)?.toDouble();
 
       final itemProduct = Map<String, dynamic>.from(productJson);
+      if (itemProduct['id'] == null && itemJson['productId'] != null) {
+        itemProduct['id'] = itemJson['productId'];
+      }
       if (unitPrice != null) itemProduct['price'] = unitPrice;
       if (productJson['comparePrice'] != null) {
         itemProduct['comparePrice'] = productJson['comparePrice'];
@@ -96,19 +121,22 @@ class Cart extends _$Cart {
       itemProduct['isContracted'] = isContracted;
       itemProduct['vendorStatus'] = vendorStatus;
 
+      final variantRaw = itemJson['variant'];
+      final optionsRaw = itemJson['options'];
+
       items.add(CartItem(
         backendId: itemJson['id']?.toString(),
         product: CartProductRef.fromJson(itemProduct),
         quantity: (itemJson['quantity'] as num?)?.toInt() ?? 1,
         selectedUnit: (itemJson['selectedUnit'] as String?) ?? defaultUnit,
-        selectedVariant: itemJson['variant'] != null
-            ? CartVariantRef.fromJson(
-                Map<String, dynamic>.from(itemJson['variant'] as Map))
+        selectedVariant: variantRaw is Map
+            ? CartVariantRef.fromJson(Map<String, dynamic>.from(variantRaw))
             : null,
-        selectedOptions: itemJson['options'] != null
-            ? (itemJson['options'] as List)
+        selectedOptions: optionsRaw is List
+            ? optionsRaw
+                .whereType<Map>()
                 .map((o) =>
-                    CartOptionRef.fromJson(Map<String, dynamic>.from(o as Map)))
+                    CartOptionRef.fromJson(Map<String, dynamic>.from(o)))
                 .toList()
             : [],
         unitPrice: unitPrice,
@@ -118,33 +146,46 @@ class Cart extends _$Cart {
     return items;
   }
 
-  Future<void> _loadCarts() async {
+  Future<void> _loadCarts({bool force = false}) async {
     final authStatus = ref.read(authControllerProvider);
-    if (authStatus != AuthStatus.authenticated) {
+    if (authStatus == AuthStatus.unauthenticated) {
       clearLocal();
       return;
     }
     try {
+      final authRepo = ref.read(sharedAuthRepositoryProvider);
+      final hasSession = await authRepo.isLoggedIn();
+      if (!hasSession) {
+        clearLocal();
+        return;
+      }
+
+      state = state.copyWith(isLoading: true);
       final cartRepo = ref.read(customerCartRepositoryProvider);
       final carts = await cartRepo.getMyCarts();
-      
+
       final Map<String, List<CartItem>> baskets = {};
-      
+
       if (carts is List) {
         for (final c in carts) {
-          final cartJson = Map<String, dynamic>.from(c as Map);
-          final vendorId = cartJson['vendorId'] as String;
-          final vendorJson = cartJson['vendor'] as Map<String, dynamic>?;
+          if (c is! Map) continue;
+          final cartJson = Map<String, dynamic>.from(c);
+          final vendorId = cartJson['vendorId']?.toString() ?? '';
+          if (vendorId.isEmpty) continue;
+          final vendorJson = cartJson['vendor'] is Map
+              ? Map<String, dynamic>.from(cartJson['vendor'] as Map)
+              : null;
           final items = _parseCartItems(cartJson['items'] as List?, vendorId, vendorJson);
           if (items.isNotEmpty) {
             baskets[vendorId] = items;
           }
         }
       }
-      
-      state = CartState(vendorBaskets: baskets);
-    } catch (e) {
-      debugPrint('Error loading carts: $e');
+
+      state = CartState(vendorBaskets: baskets, isLoading: false);
+    } catch (e, st) {
+      debugPrint('Error loading carts: $e\n$st');
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -154,8 +195,12 @@ class Cart extends _$Cart {
     Map<String, dynamic>? variant,
     List<Map<String, dynamic>> options = const [],
   }) async {
-    final vendorId = product['vendorId'] as String;
-    
+    final vendorId = product['vendorId']?.toString() ?? '';
+    if (vendorId.isEmpty) {
+      debugPrint('Cannot add item: missing vendorId');
+      return;
+    }
+
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
 
@@ -174,16 +219,18 @@ class Cart extends _$Cart {
 
       if (response != null && response is Map) {
         final updatedCart = Map<String, dynamic>.from(response);
-        final vendorJson = updatedCart['vendor'] as Map<String, dynamic>?;
+        final vendorJson = updatedCart['vendor'] is Map
+            ? Map<String, dynamic>.from(updatedCart['vendor'] as Map)
+            : null;
         final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: unit);
-        
+
         final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
         if (items.isEmpty) {
           currentBaskets.remove(vendorId);
         } else {
           currentBaskets[vendorId] = items;
         }
-        state = CartState(vendorBaskets: currentBaskets);
+        state = state.copyWith(vendorBaskets: currentBaskets);
       }
     } catch (e) {
       debugPrint('Error adding to cart: $e');
@@ -198,7 +245,7 @@ class Cart extends _$Cart {
     }
 
     String? vendorId = cartItem.product.vendorId;
-    if (vendorId == null) {
+    if (vendorId == null || vendorId.isEmpty) {
       for (final entry in state.vendorBaskets.entries) {
         if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product.id == cartItem.product.id)) {
           vendorId = entry.key;
@@ -206,11 +253,11 @@ class Cart extends _$Cart {
         }
       }
     }
-    if (vendorId == null || cartItem.backendId == null) return;
+    if (vendorId == null || vendorId.isEmpty || cartItem.backendId == null) return;
 
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
-      
+
       final response = await cartRepo.updateItem(
         vendorId,
         cartItem.backendId!,
@@ -219,7 +266,9 @@ class Cart extends _$Cart {
 
       if (response != null && response is Map) {
         final updatedCart = Map<String, dynamic>.from(response);
-        final vendorJson = updatedCart['vendor'] as Map<String, dynamic>?;
+        final vendorJson = updatedCart['vendor'] is Map
+            ? Map<String, dynamic>.from(updatedCart['vendor'] as Map)
+            : null;
         final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: cartItem.selectedUnit);
 
         final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
@@ -228,7 +277,7 @@ class Cart extends _$Cart {
         } else {
           currentBaskets[vendorId] = items;
         }
-        state = CartState(vendorBaskets: currentBaskets);
+        state = state.copyWith(vendorBaskets: currentBaskets);
       }
     } catch (e) {
       debugPrint('Error updating quantity: $e');
@@ -238,7 +287,7 @@ class Cart extends _$Cart {
 
   Future<void> _removeItemExact(CartItem cartItem) async {
     String? vendorId = cartItem.product.vendorId;
-    if (vendorId == null) {
+    if (vendorId == null || vendorId.isEmpty) {
       for (final entry in state.vendorBaskets.entries) {
         if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product.id == cartItem.product.id)) {
           vendorId = entry.key;
@@ -246,29 +295,31 @@ class Cart extends _$Cart {
         }
       }
     }
-    if (vendorId == null || cartItem.backendId == null) return;
+    if (vendorId == null || vendorId.isEmpty || cartItem.backendId == null) return;
 
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
       await cartRepo.removeItem(vendorId, cartItem.backendId!);
-      
+
       final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
-      final vendorItems = List<CartItem>.from(currentBaskets[vendorId]!);
-      
+      final existingItems = currentBaskets[vendorId];
+      if (existingItems == null) return;
+      final vendorItems = List<CartItem>.from(existingItems);
+
       vendorItems.removeWhere((item) =>
         (item.backendId != null && item.backendId == cartItem.backendId) ||
         (item.product.id == cartItem.product.id &&
             item.variantId == cartItem.variantId &&
             item.selectedUnit == cartItem.selectedUnit &&
             item.optionsKey == cartItem.optionsKey));
-      
+
       if (vendorItems.isEmpty) {
         currentBaskets.remove(vendorId);
       } else {
         currentBaskets[vendorId] = vendorItems;
       }
-      
-      state = CartState(vendorBaskets: currentBaskets);
+
+      state = state.copyWith(vendorBaskets: currentBaskets);
     } catch (e) {
       debugPrint('Error removing item: $e');
     }
@@ -278,10 +329,10 @@ class Cart extends _$Cart {
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
       await cartRepo.clearCart(vendorId);
-      
+
       final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
       currentBaskets.remove(vendorId);
-      state = CartState(vendorBaskets: currentBaskets);
+      state = state.copyWith(vendorBaskets: currentBaskets);
     } catch (e) {
       debugPrint('Error clearing vendor cart: $e');
     }
@@ -297,6 +348,6 @@ class Cart extends _$Cart {
         debugPrint('Error clearing vendor cart $vendorId on remote: $e');
       }
     }
-    state = const CartState(vendorBaskets: {});
+    state = const CartState(vendorBaskets: {}, isLoading: false);
   }
 }

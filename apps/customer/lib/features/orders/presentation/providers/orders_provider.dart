@@ -305,8 +305,8 @@ class Orders extends _$Orders {
       }
 
       final result = await repository.estimateOrder(builder.build());
-      if (result is Map<String, dynamic>) {
-        return result;
+      if (result is Map) {
+        return Map<String, dynamic>.from(result);
       }
       return null;
     } catch (e) {
@@ -368,8 +368,8 @@ class Orders extends _$Orders {
         ..coinsToUse = coinsToUse);
 
       final result = await repo.estimateCustomOrder(dto);
-      if (result is Map<String, dynamic>) {
-        return result;
+      if (result is Map) {
+        return Map<String, dynamic>.from(result);
       }
       return null;
     } catch (e) {

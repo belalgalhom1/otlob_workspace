@@ -1,6 +1,7 @@
 /// Typed cart domain. Parsed once at the data boundary
 /// ([CartItem.fromServerJson]); screens and providers must use these
 /// accessors instead of raw `product['…']` lookups.
+library;
 
 double _asDouble(dynamic value, [double fallback = 0.0]) {
   if (value is num) return value.toDouble();
@@ -149,7 +150,9 @@ class CartProductRef {
         commissionRate: json['commissionRate'] == null
             ? null
             : _asDouble(json['commissionRate']),
-        isContracted: json['isContracted'] as bool?,
+        isContracted: json['isContracted'] == null
+            ? null
+            : _asBool(json['isContracted']),
         vendorStatus: json['vendorStatus']?.toString(),
         name: json['name']?.toString() ?? '',
         nameAr: json['nameAr']?.toString(),
