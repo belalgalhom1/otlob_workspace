@@ -115,7 +115,9 @@ class Cart extends _$Cart {
           final vendorId = cartJson['vendorId'] as String;
           final vendorJson = cartJson['vendor'] as Map<String, dynamic>?;
           final items = _parseCartItems(cartJson['items'] as List?, vendorId, vendorJson);
-          baskets[vendorId] = items;
+          if (items.isNotEmpty) {
+            baskets[vendorId] = items;
+          }
         }
       }
       

@@ -27,7 +27,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   Future<void> _fetchBasketEstimate(String vendorId) async {
     if (_estimating[vendorId] == true) return;
     final address = ref.read(activeDeliveryAddressProvider);
-    if (address == null) return;
+    if (address == null) {
+      _estimates[vendorId] = null;
+      return;
+    }
     final loc = address['location'];
     List<double> coords = [];
     if (loc is List) {
@@ -35,7 +38,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     } else if (loc is Map && loc['coordinates'] is List) {
       coords = (loc['coordinates'] as List).map((e) => (e as num).toDouble()).toList();
     }
-    if (coords.length != 2) return;
+    if (coords.length != 2) {
+      _estimates[vendorId] = null;
+      return;
+    }
     _estimating[vendorId] = true;
     try {
       final result = await ref.read(ordersProvider.notifier).estimateOrder(
@@ -51,7 +57,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _estimating[vendorId] = false);
+      if (mounted) {
+        setState(() {
+          _estimates[vendorId] = null;
+          _estimating[vendorId] = false;
+        });
+      }
     }
   }
 
@@ -60,6 +71,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final s = AppStrings.of(context);
     final cartState = ref.watch(cartProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeBaskets = Map<String, List<CartItem>>.fromEntries(
+      cartState.vendorBaskets.entries.where((e) => e.value.isNotEmpty),
+    );
+    final isMultiVendor = activeBaskets.length > 1;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFFBFBFB),
@@ -76,7 +91,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           )
         ),
         actions: [
-          if (cartState.vendorBaskets.isNotEmpty)
+          if (activeBaskets.isNotEmpty)
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 8),
               child: IconButton(
@@ -87,18 +102,18 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ),
         ],
       ),
-      body: cartState.vendorBaskets.isEmpty
+      body: activeBaskets.isEmpty
           ? _buildEmptyCart(context, s, isDark)
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-              itemCount: cartState.vendorBaskets.length,
+              itemCount: activeBaskets.length,
               itemBuilder: (context, index) {
-                final vendorId = cartState.vendorBaskets.keys.elementAt(index);
-                final vendorItems = cartState.vendorBaskets[vendorId] ?? [];
-                return _buildVendorBasket(context, ref, vendorId, vendorItems, s, isDark);
+                final vendorId = activeBaskets.keys.elementAt(index);
+                final vendorItems = activeBaskets[vendorId] ?? [];
+                return _buildVendorBasket(context, ref, vendorId, vendorItems, s, isDark, isMultiVendor);
               },
             ),
-      bottomNavigationBar: cartState.vendorBaskets.length > 1
+      bottomNavigationBar: isMultiVendor
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -129,8 +144,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           ),
                           Text(
                             s.isArabic
-                                ? '${cartState.vendorBaskets.length} متاجر • ${cartState.totalItems} منتجات'
-                                : '${cartState.vendorBaskets.length} stores • ${cartState.totalItems} items',
+                                ? '${activeBaskets.length} متاجر • ${cartState.totalItems} منتجات'
+                                : '${activeBaskets.length} stores • ${cartState.totalItems} items',
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white60 : Colors.black54,
@@ -142,7 +157,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () {
-                        final anyClosed = cartState.vendorBaskets.values.any((items) =>
+                        final anyClosed = activeBaskets.values.any((items) =>
                             items.isNotEmpty && (items.first.product.vendorStatus ?? 'OPEN') != 'OPEN');
                         if (anyClosed) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -156,7 +171,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           return;
                         }
 
-                        final anyInactive = cartState.vendorBaskets.values.any((items) =>
+                        final anyInactive = activeBaskets.values.any((items) =>
                             items.any((it) => !it.product.isActive || (it.selectedVariant != null && !it.selectedVariant!.isActive)));
                         if (anyInactive) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -170,11 +185,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           return;
                         }
 
-                        final activeVendorIds = cartState.vendorBaskets.entries
-                            .where((e) => e.value.isNotEmpty)
-                            .map((e) => e.key)
-                            .toList();
-                        context.push('/checkout', extra: activeVendorIds);
+                        context.push('/checkout', extra: activeBaskets.keys.toList());
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -254,7 +265,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
   }
 
-  Widget _buildVendorBasket(BuildContext context, WidgetRef ref, String vendorId, List<CartItem> items, AppStrings s, bool isDark) {
+  Widget _buildVendorBasket(BuildContext context, WidgetRef ref, String vendorId, List<CartItem> items, AppStrings s, bool isDark, bool isMultiVendor) {
     if (items.isEmpty) return const SizedBox.shrink();
 
     final firstProduct = items.first.product;
@@ -267,24 +278,22 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
     final canCheckout = isVendorOpen && !hasInactiveItems;
 
-    // Same server estimate as checkout (items subtotal / delivery / tax /
-    // total) so the cart shows real numbers instead of
-    // "determined upon driver match".
+    // Delivery depends on the address — drop cached estimates when it changes.
     final activeAddress = ref.watch(activeDeliveryAddressProvider);
     final hasAddress = activeAddress != null;
-    // Delivery depends on the address — drop cached estimates when it changes.
     final addressId = activeAddress?['id']?.toString();
     if (addressId != _estimateAddressId) {
       _estimateAddressId = addressId;
       _estimates.clear();
       _estimating.clear();
     }
-    // NOTE: containsKey (not == null) is the "already tried" marker — a
-    // null estimate from the server must not refetch on every build.
+
+    // In multi-vendor carts, delivery fee is determined holistically at checkout.
+    // In single-vendor carts, server estimate is fetched once for the active address.
     final triedEstimate = _estimates.containsKey(vendorId);
-    final est = _estimates[vendorId];
-    final estimating = _estimating[vendorId] == true;
-    if (hasAddress && !triedEstimate && !estimating) {
+    final est = isMultiVendor ? null : _estimates[vendorId];
+    final estimating = isMultiVendor ? false : (_estimating[vendorId] == true);
+    if (!isMultiVendor && hasAddress && !triedEstimate && !estimating) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchBasketEstimate(vendorId);
       });
@@ -478,7 +487,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
                   est != null
                       ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}'
-                      : (estimating ? '...' : '--'),
+                      : (isMultiVendor
+                          ? (s.isArabic ? 'تُحسب عند الدفع' : 'Calculated at checkout')
+                          : (estimating ? '...' : (s.isArabic ? 'تُحسب عند الدفع' : 'Calculated at checkout'))),
                   isDark,
                   isDelivery: est != null,
                 ),
