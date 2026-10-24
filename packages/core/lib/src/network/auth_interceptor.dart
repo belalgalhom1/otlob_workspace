@@ -201,18 +201,8 @@ class AuthInterceptor extends Interceptor {
             }
           }
 
-          // Publish the new token to waiters. Keep the mutex held until the
-          // retry settles so a 401 arriving in the interim awaits this
-          // completer instead of kicking off a second, doomed refresh.
+          // Publish the new token to waiters.
           completer.complete(newAccessToken);
-
-          // Retry current request with new token
-          final requestOptions = err.requestOptions;
-          requestOptions.extra['retried'] = true;
-          requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-
-          final retryResponse = await _dio.fetch(requestOptions);
-          return handler.resolve(retryResponse);
         } else {
           throw DioException(
             requestOptions: err.requestOptions,
@@ -230,8 +220,26 @@ class AuthInterceptor extends Interceptor {
         completer.completeError(e);
         return handler.next(err);
       } finally {
-        // Release the mutex only after retry/failure has settled.
+        // Release the mutex once refresh completes or fails.
         _refreshCompleter = null;
+      }
+
+      // Retry current request with new token outside the refresh try/catch block
+      // so a 403/404 on the target business endpoint does not clear auth tokens.
+      try {
+        final requestOptions = err.requestOptions;
+        requestOptions.extra['retried'] = true;
+        final latestToken = await _storage.read(key: 'access_token');
+        if (latestToken != null) {
+          requestOptions.headers['Authorization'] = 'Bearer $latestToken';
+          final retryResponse = await _dio.fetch(requestOptions);
+          return handler.resolve(retryResponse);
+        }
+      } catch (retryErr) {
+        if (retryErr is DioException) {
+          return handler.next(retryErr);
+        }
+        return handler.next(err);
       }
     }
 

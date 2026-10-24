@@ -87,6 +87,7 @@ const NON_CANCELLABLE: OrderStatus[] = [
   OrderStatus.PICKED_UP,
 ];
 import { forwardRef, Inject } from '@nestjs/common';
+import { OrderVendorDecisionService } from './order-vendor-decision.service';
 
 @Injectable()
 export class OrdersStateService {
@@ -96,6 +97,8 @@ export class OrdersStateService {
     private readonly ordersRepository: OrdersRepository,
     @Inject(forwardRef(() => DispatchService))
     private readonly dispatchService: DispatchService,
+    @Inject(forwardRef(() => OrderVendorDecisionService))
+    private readonly vendorDecisionService: OrderVendorDecisionService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -108,17 +111,38 @@ export class OrdersStateService {
   ) {
     const order = await this.ordersRepository.findById(orderId);
 
-    const [isMember, canManage] = await Promise.all([
-      order.vendorId
-        ? this.prisma.vendorMember.findUnique({
-            where: {
-              vendorId_userId: { vendorId: order.vendorId, userId: actor.sub },
-            },
-            select: { id: true, branchId: true },
-          })
-        : Promise.resolve(null),
-      this.canManageOrders(actor.sub, actor.role),
-    ]);
+    let isMember: { id: string; branchId: string | null; vendorId?: string } | null = order.vendorId
+      ? await this.prisma.vendorMember.findUnique({
+          where: {
+            vendorId_userId: { vendorId: order.vendorId, userId: actor.sub },
+          },
+          select: { id: true, branchId: true },
+        })
+      : null;
+
+    let matchingFulfillment: any = null;
+    const fulfillments = ((order as any).vendorFulfillments ?? []) as any[];
+
+    if (!isMember && fulfillments.length > 0) {
+      const portionVendorIds = Array.from(
+        new Set(fulfillments.map((f: any) => f.vendorId)),
+      ) as string[];
+      const member = await this.prisma.vendorMember.findFirst({
+        where: {
+          userId: actor.sub,
+          vendorId: { in: portionVendorIds },
+        },
+        select: { id: true, branchId: true, vendorId: true },
+      });
+      if (member) {
+        isMember = member;
+        matchingFulfillment = fulfillments.find(
+          (f: any) => f.vendorId === member.vendorId,
+        );
+      }
+    }
+
+    const canManage = await this.canManageOrders(actor.sub, actor.role);
 
     if (!isMember && !canManage) {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
@@ -127,9 +151,36 @@ export class OrdersStateService {
     if (
       isMember &&
       isMember.branchId &&
+      matchingFulfillment &&
+      matchingFulfillment.vendorBranchId &&
+      isMember.branchId !== matchingFulfillment.vendorBranchId
+    ) {
+      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
+    } else if (
+      isMember &&
+      isMember.branchId &&
+      (order as any).vendorBranchId &&
       isMember.branchId !== (order as any).vendorBranchId
     ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
+    }
+
+    // For multi-vendor orders, accept / cancel are per-fulfillment decisions
+    if (matchingFulfillment) {
+      if (dto.status === OrderStatus.ACCEPTED) {
+        if (matchingFulfillment.status === 'ACCEPTED') {
+          return this.ordersRepository.findById(orderId);
+        }
+        await this.vendorDecisionService.accept(actor, matchingFulfillment.id);
+        return this.ordersRepository.findById(orderId);
+      }
+      if (dto.status === OrderStatus.CANCELLED) {
+        await this.vendorDecisionService.reject(actor, matchingFulfillment.id, {
+          code: 'VENDOR_CANCELLED',
+          reason: dto.note ?? 'Cancelled by vendor',
+        });
+        return this.ordersRepository.findById(orderId);
+      }
     }
 
     if (dto.status === OrderStatus.CANCELLED) {
@@ -143,6 +194,29 @@ export class OrdersStateService {
     const allowed = VENDOR_ALLOWED_TRANSITIONS[order.status];
     if (!allowed || !allowed.includes(dto.status)) {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+    }
+
+    // For multi-vendor orders moving to READY_FOR_PICKUP, also advance the vendor's delivery group
+    if (matchingFulfillment && dto.status === OrderStatus.READY_FOR_PICKUP) {
+      const groupItem = await this.prisma.orderDeliveryGroupItem.findFirst({
+        where: { fulfillmentId: matchingFulfillment.id },
+        select: { deliveryGroupId: true },
+      });
+      if (groupItem) {
+        await this.prisma.orderDeliveryGroup.updateMany({
+          where: {
+            id: groupItem.deliveryGroupId,
+            status: {
+              in: [
+                DeliveryGroupStatus.DRIVER_ASSIGNED,
+                DeliveryGroupStatus.PENDING_PAYMENT,
+                DeliveryGroupStatus.ACCEPTED,
+              ],
+            },
+          },
+          data: { status: DeliveryGroupStatus.READY_FOR_PICKUP },
+        });
+      }
     }
 
     return this.applyStatusTransition(actor, order, dto);

@@ -233,6 +233,42 @@ export class OrdersRepository {
       }
     }
 
+    if ((order as any).vendorFulfillments?.length > 0) {
+      const branchIds = Array.from(
+        new Set(
+          (order as any).vendorFulfillments
+            .map((f: any) => f.vendorBranchId)
+            .filter((id: any): id is string => Boolean(id)),
+        ),
+      );
+      if (branchIds.length > 0) {
+        const branchLocs = await this.prisma.$queryRaw<
+          Array<{ id: string; lng: number; lat: number }>
+        >`
+          SELECT id, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
+          FROM vendor_branches WHERE id IN (${Prisma.join(branchIds)})
+        `;
+        for (const f of (order as any).vendorFulfillments) {
+          if (f.vendorBranch) {
+            const bloc = branchLocs.find((b) => b.id === f.vendorBranchId);
+            if (bloc && bloc.lng !== null && bloc.lat !== null) {
+              f.vendorBranch.lng = bloc.lng;
+              f.vendorBranch.lat = bloc.lat;
+              f.vendorBranch.location = [bloc.lng, bloc.lat];
+            }
+          }
+        }
+      }
+      if (!(order as any).pickupLocation) {
+        const firstWithLoc = (order as any).vendorFulfillments.find(
+          (f: any) => f.vendorBranch?.location,
+        );
+        if (firstWithLoc) {
+          (order as any).pickupLocation = firstWithLoc.vendorBranch.location;
+        }
+      }
+    }
+
     return order;
   }
 
@@ -301,7 +337,7 @@ export class OrdersRepository {
           },
           vendorFulfillments: {
             include: {
-              vendor: { select: { id: true, storeName: true, logo: true } },
+              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
               vendorBranch: {
                 select: {
                   id: true,
@@ -361,6 +397,47 @@ export class OrdersRepository {
           }
           if (loc.pickupLng !== null && loc.pickupLat !== null) {
             (order as any).pickupLocation = [loc.pickupLng, loc.pickupLat];
+          }
+        }
+      }
+
+      // Populate fulfillments branch coordinates and fallback pickup location for multi-vendor orders
+      const allBranchIds = Array.from(
+        new Set(
+          orders.flatMap((o: any) =>
+            ((o.vendorFulfillments ?? []) as any[])
+              .map((f: any) => f.vendorBranchId)
+              .filter((id: any): id is string => Boolean(id)),
+          ),
+        ),
+      );
+      if (allBranchIds.length > 0) {
+        const branchLocs = await this.prisma.$queryRaw<
+          Array<{ id: string; lng: number; lat: number }>
+        >`
+          SELECT id, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
+          FROM vendor_branches WHERE id IN (${Prisma.join(allBranchIds)})
+        `;
+        for (const order of orders) {
+          if ((order as any).vendorFulfillments?.length > 0) {
+            for (const f of (order as any).vendorFulfillments) {
+              if (f.vendorBranch) {
+                const bloc = branchLocs.find((b) => b.id === f.vendorBranchId);
+                if (bloc && bloc.lng !== null && bloc.lat !== null) {
+                  f.vendorBranch.lng = bloc.lng;
+                  f.vendorBranch.lat = bloc.lat;
+                  f.vendorBranch.location = [bloc.lng, bloc.lat];
+                }
+              }
+            }
+            if (!(order as any).pickupLocation) {
+              const firstWithLoc = (order as any).vendorFulfillments.find(
+                (f: any) => f.vendorBranch?.location,
+              );
+              if (firstWithLoc) {
+                (order as any).pickupLocation = firstWithLoc.vendorBranch.location;
+              }
+            }
           }
         }
       }

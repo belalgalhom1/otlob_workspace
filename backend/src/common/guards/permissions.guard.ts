@@ -39,14 +39,22 @@ export class PermissionsGuard implements CanActivate {
 
     if (user.role === Role.SUPER_ADMIN) return true;
 
-    if (user.role === Role.ADMIN) {
-      const adminUser = await this.prisma.user.findUnique({
+    if (user.role === Role.ADMIN || user.role === Role.DRIVER_MANAGER) {
+      const dbUser = await this.prisma.user.findUnique({
         where: { id: user.sub },
         select: { permissions: true },
       });
 
-      if (!adminUser)
+      if (!dbUser)
         throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
+
+      const effectivePermissions = new Set<Permission>(dbUser.permissions);
+      if (user.role === Role.DRIVER_MANAGER) {
+        effectivePermissions.add(Permission.MANAGE_DRIVERS);
+        effectivePermissions.add(Permission.MANAGE_ORDERS);
+        effectivePermissions.add(Permission.VIEW_FINANCIALS);
+        effectivePermissions.add(Permission.VIEW_STATISTICS);
+      }
 
       const mode = this.reflector.getAllAndOverride<PermissionsMode>(
         PERMISSIONS_MODE_KEY,
@@ -58,8 +66,8 @@ export class PermissionsGuard implements CanActivate {
       // "MANAGE_ORDERS or MANAGE_DRIVERS".
       const satisfied =
         mode === 'any'
-          ? requiredPermissions.some((p) => adminUser.permissions.includes(p))
-          : requiredPermissions.every((p) => adminUser.permissions.includes(p));
+          ? requiredPermissions.some((p) => effectivePermissions.has(p))
+          : requiredPermissions.every((p) => effectivePermissions.has(p));
 
       if (!satisfied) throw new ForbiddenException(CommonErrors.FORBIDDEN);
 

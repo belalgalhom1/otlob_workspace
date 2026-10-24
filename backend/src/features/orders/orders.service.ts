@@ -204,6 +204,12 @@ export class OrdersService {
     const rate = Number(settings?.deliveryCommissionRate ?? 20);
 
     let deliveryFee = Number(order.deliveryFee ?? 0);
+    let groupVendor = order.vendor;
+    let groupVendorBranch = order.vendorBranch;
+    let groupPickupLocation = order.pickupLocation;
+    let groupPickupAddress = order.pickupAddress;
+    let projectedStatus = order.status;
+
     if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
       const myDriver = await this.prisma.driver.findUnique({
         where: { userId: actor.sub },
@@ -213,26 +219,45 @@ export class OrdersService {
         const group = order.deliveryGroups.find(
           (g: any) => g.primaryDriverId === myDriver.id,
         );
-        if (group?.deliveryFee != null) {
-          deliveryFee = Number(group.deliveryFee);
-        }
-        if (group?.items && Array.isArray(group.items) && order.vendorFulfillments) {
-          const fulfillmentIds = new Set(group.items.map((it: any) => it.fulfillmentId));
-          const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
-            fulfillmentIds.has(f.id),
-          );
-          if (myFulfillments.length > 0) {
-            cashToPayStore = 0;
-            let allContracted = true;
-            for (const f of myFulfillments) {
-              const contracted =
-                f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
-              if (!contracted) {
-                cashToPayStore += Number(f.subtotal ?? 0);
-                allContracted = false;
+        if (group) {
+          if (group.status) {
+            projectedStatus = group.status;
+          }
+          if (group.deliveryFee != null) {
+            deliveryFee = Number(group.deliveryFee);
+          }
+          if (group.items && Array.isArray(group.items) && order.vendorFulfillments) {
+            const fulfillmentIds = new Set(group.items.map((it: any) => it.fulfillmentId));
+            const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
+              fulfillmentIds.has(f.id),
+            );
+            if (myFulfillments.length > 0) {
+              cashToPayStore = 0;
+              let allContracted = true;
+              for (const f of myFulfillments) {
+                const contracted =
+                  f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+                if (!contracted) {
+                  cashToPayStore += Number(f.subtotal ?? 0);
+                  allContracted = false;
+                }
+              }
+              isStorePrepaid = allContracted;
+
+              const firstFulfillment = myFulfillments[0];
+              if (!groupVendor && firstFulfillment.vendor) {
+                groupVendor = firstFulfillment.vendor;
+              }
+              if (!groupVendorBranch && firstFulfillment.vendorBranch) {
+                groupVendorBranch = firstFulfillment.vendorBranch;
+              }
+              if (!groupPickupLocation && firstFulfillment.vendorBranch?.location) {
+                groupPickupLocation = firstFulfillment.vendorBranch.location;
+              }
+              if (!groupPickupAddress && firstFulfillment.vendorBranch?.address) {
+                groupPickupAddress = firstFulfillment.vendorBranch.address;
               }
             }
-            isStorePrepaid = allContracted;
           }
         }
       }
@@ -241,6 +266,11 @@ export class OrdersService {
 
     return {
       ...order,
+      status: projectedStatus,
+      vendor: groupVendor,
+      vendorBranch: groupVendorBranch,
+      pickupLocation: groupPickupLocation,
+      pickupAddress: groupPickupAddress,
       grandTotal: cashToCollect,
       total: cashToCollect,
       serviceFee: 0,
@@ -359,6 +389,12 @@ export class OrdersService {
         const { commissionRate, ...safeF } = f;
         return safeF;
       });
+      if (!sanitized.vendor && sanitized.vendorFulfillments.length > 0) {
+        sanitized.vendor = sanitized.vendorFulfillments[0].vendor;
+        if (!sanitized.vendorBranch && sanitized.vendorFulfillments[0].vendorBranch) {
+          sanitized.vendorBranch = sanitized.vendorFulfillments[0].vendorBranch;
+        }
+      }
     }
 
     return {
@@ -392,8 +428,17 @@ export class OrdersService {
     const deliveryFee = Number(order.deliveryFee ?? 0);
     const driverEarnings = Math.max(0, Math.round(deliveryFee * (1 - rate / 100)));
 
+    let vendor = order.vendor;
+    let vendorBranch = order.vendorBranch;
+    if (!vendor && order.vendorFulfillments?.length > 0) {
+      vendor = order.vendorFulfillments[0].vendor;
+      vendorBranch ??= order.vendorFulfillments[0].vendorBranch;
+    }
+
     return {
       ...order,
+      vendor,
+      vendorBranch,
       financials: {
         viewRole: 'ADMIN',
         cashToCollect,

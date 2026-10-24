@@ -72,11 +72,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   bool _hasPermission(String requiredPermission) {
     if (_userRole == 'SUPER_ADMIN') return true;
-    if (_userRole == 'ADMIN' && _userPermissions.contains(requiredPermission)) return true;
+    if (_userPermissions.contains(requiredPermission)) return true;
     if (_userRole == 'DRIVER_MANAGER' &&
         (requiredPermission == 'MANAGE_DRIVERS' ||
             requiredPermission == 'MANAGE_ORDERS' ||
-            requiredPermission == 'VIEW_FINANCIALS')) {
+            requiredPermission == 'VIEW_FINANCIALS' ||
+            requiredPermission == 'VIEW_STATISTICS')) {
       return true;
     }
     return false;
@@ -208,6 +209,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           } else {
             _selectedIndex = 0;
           }
+        } else if (role == 'DRIVER_MANAGER') {
+          _selectedIndex = 0;
         }
       });
     }
@@ -545,7 +548,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isMobile,
                     ),
                   ] else ...[
-                    if (_hasPermission('VIEW_STATISTICS'))
+                    if (_hasPermission('VIEW_STATISTICS') || _userRole == 'DRIVER_MANAGER')
                       _buildMenuItem(
                         0,
                         LucideIcons.layoutDashboard,
@@ -949,7 +952,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return [0, 1, 2, 5, 6, 17, 11];
     }
     if (_userRole == 'DRIVER_MANAGER') {
-      return [1, 3, 15, 18, 11, 6, 17];
+      return [0, 1, 3, 15, 18, 11, 6, 17];
     }
     final pages = <int>[];
     void add(int index, bool visible) {

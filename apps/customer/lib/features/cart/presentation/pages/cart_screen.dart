@@ -142,7 +142,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () {
-                        context.push('/checkout', extra: cartState.vendorBaskets.keys.toList());
+                        final activeVendorIds = cartState.vendorBaskets.entries
+                            .where((e) => e.value.isNotEmpty)
+                            .map((e) => e.key)
+                            .toList();
+                        context.push('/checkout', extra: activeVendorIds);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,

@@ -530,6 +530,13 @@ export class UsersService {
           });
         }
       }
+      if (newRole === Role.DRIVER_MANAGER) {
+        await tx.driverManager.upsert({
+          where: { userId },
+          create: { userId },
+          update: {},
+        });
+      }
 
       return u;
     });

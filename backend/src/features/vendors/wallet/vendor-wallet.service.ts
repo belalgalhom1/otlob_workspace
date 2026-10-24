@@ -151,7 +151,7 @@ export class VendorWalletService {
       where.order = {
         OR: [
           { vendorBranchId: dto.branchId },
-          { fulfillments: { some: { vendorBranchId: dto.branchId } } },
+          { vendorFulfillments: { some: { vendorBranchId: dto.branchId } } },
         ],
       };
     }

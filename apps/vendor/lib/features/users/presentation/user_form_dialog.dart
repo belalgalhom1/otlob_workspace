@@ -299,7 +299,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                   },
                 ),
               ],
-              if (selectedRole == 'ADMIN') ...[
+              if (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER') ...[
                 const SizedBox(height: 16),
                 Text(
                   Localizations.localeOf(context).languageCode == 'ar'
@@ -486,7 +486,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                                   vendorRole: selectedVendorRole,
                                   title: titleController.text.isNotEmpty ? titleController.text : null,
                                   titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
-                                  permissions: selectedRole == 'ADMIN' ? selectedPermissions : null,
+                                  permissions: (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER') ? selectedPermissions : null,
                                 );
                             if (btnCtx.mounted) {
                               ScaffoldMessenger.of(btnCtx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(btnCtx)!.common_success_resource_created), backgroundColor: AppColors.success));

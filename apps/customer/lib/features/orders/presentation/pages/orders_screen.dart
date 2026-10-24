@@ -572,18 +572,43 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final isCustom = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
     final items = (order['items'] as List<dynamic>?) ?? [];
     final vendor = order['vendor'] as Map<String, dynamic>?;
-
     final vendorBranch = order['vendorBranch'] as Map<String, dynamic>?;
-    final baseVendorName = s.isArabic
-        ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? s.vendor)
-        : (vendor?['storeName'] ?? s.vendor);
+    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
+
+    String baseVendorName;
+    String? vendorLogoUrl = vendor?['logo'] as String?;
+
+    if (vendor != null && (vendor['storeName'] != null || vendor['storeNameAr'] != null)) {
+      baseVendorName = s.isArabic
+          ? (vendor['storeNameAr'] ?? vendor['storeName'] ?? s.vendor)
+          : (vendor['storeName'] ?? vendor['storeNameAr'] ?? s.vendor);
+    } else if (fulfillments.isNotEmpty) {
+      final names = <String>[];
+      for (final f in fulfillments) {
+        if (f is Map) {
+          final v = f['vendor'] as Map<String, dynamic>?;
+          if (v != null) {
+            final name = s.isArabic
+                ? (v['storeNameAr'] ?? v['storeName'])
+                : (v['storeName'] ?? v['storeNameAr']);
+            if (name != null && name.toString().trim().isNotEmpty && !names.contains(name.toString().trim())) {
+              names.add(name.toString().trim());
+            }
+            vendorLogoUrl ??= v['logo'] as String?;
+          }
+        }
+      }
+      baseVendorName = names.isNotEmpty ? names.join(' + ') : s.vendor;
+    } else {
+      baseVendorName = s.vendor;
+    }
+
     final branchName = vendorBranch != null
         ? (s.isArabic ? (vendorBranch['nameAr'] ?? vendorBranch['name']) : (vendorBranch['name'] ?? vendorBranch['nameAr']))?.toString()
         : null;
-    final vendorName = (branchName != null && branchName.isNotEmpty)
+    final vendorName = (branchName != null && branchName.isNotEmpty && fulfillments.length <= 1)
         ? '$baseVendorName • $branchName'
         : baseVendorName;
-    final vendorLogoUrl = vendor?['logo'] as String?;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final status = order['status'] as String? ?? 'PENDING';

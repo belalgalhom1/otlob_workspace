@@ -398,8 +398,12 @@ class Orders extends _$Orders {
       ref.invalidateSelf();
       
       String? orderId;
-      if (result is Map && result['id'] != null) {
-        orderId = result['id'].toString();
+      if (result is Map) {
+        if (result['id'] != null) {
+          orderId = result['id'].toString();
+        } else if (result['data'] is Map && result['data']['id'] != null) {
+          orderId = result['data']['id'].toString();
+        }
       }
       
       return (null, orderId); // Success
@@ -581,8 +585,12 @@ class Orders extends _$Orders {
       final result = await repository.placeMultiVendorOrder(dto, idempotencyKey: idempotencyKey);
       ref.invalidateSelf();
       String? orderId;
-      if (result is Map && result['id'] != null) {
-        orderId = result['id'].toString();
+      if (result is Map) {
+        if (result['id'] != null) {
+          orderId = result['id'].toString();
+        } else if (result['data'] is Map && result['data']['id'] != null) {
+          orderId = result['data']['id'].toString();
+        }
       }
       return (null, orderId);
     } catch (e) {

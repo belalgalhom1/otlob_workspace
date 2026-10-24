@@ -120,6 +120,14 @@ export class AuthService {
             },
           });
 
+          if (dto.role === Role.DRIVER_MANAGER) {
+            await tx.driverManager.create({
+              data: {
+                userId: u.id,
+              },
+            });
+          }
+
           if (dto.role === Role.VENDOR_MEMBER && dto.vendorId) {
             await tx.vendorMember.create({
               data: {

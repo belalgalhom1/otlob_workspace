@@ -370,14 +370,16 @@ export class OrderVendorDecisionService {
 
     // Vendor identity is derived from the fulfillment itself, never from a
     // client-supplied vendorId, so a member cannot act on another vendor.
-    const member = await this.prisma.vendorMember.findUnique({
-      where: {
-        vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
-      },
-      select: { id: true },
-    });
-    if (!member) {
-      throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
+    if (actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
+      const member = await this.prisma.vendorMember.findUnique({
+        where: {
+          vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
+        },
+        select: { id: true },
+      });
+      if (!member) {
+        throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
+      }
     }
     return fulfillment;
   }

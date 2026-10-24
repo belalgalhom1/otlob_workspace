@@ -104,7 +104,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   Future<void> _checkPermissions() async {
     final repo = ref.read(sharedAuthRepositoryProvider);
     final role = await repo.getUserRole();
-    if (role == 'SUPER_ADMIN') {
+    if (role == 'SUPER_ADMIN' || role == 'DRIVER_MANAGER') {
       if (mounted) setState(() => _canManageDrivers = true);
       return;
     }

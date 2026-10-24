@@ -221,6 +221,23 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       vendorLat = double.tryParse((vendorData['latitude'] ?? 0.0).toString()) ?? 0.0;
       vendorLng = double.tryParse((vendorData['longitude'] ?? 0.0).toString()) ?? 0.0;
     }
+
+    if (vendorLat == 0.0 && vendorLng == 0.0 && order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) {
+      for (final f in (order['vendorFulfillments'] as List)) {
+        if (f is Map && f['vendorBranch'] is Map) {
+          final branch = f['vendorBranch'] as Map;
+          if (branch['location'] is List && (branch['location'] as List).length > 1) {
+            vendorLng = double.tryParse(branch['location'][0].toString()) ?? 0.0;
+            vendorLat = double.tryParse(branch['location'][1].toString()) ?? 0.0;
+            if (vendorLat != 0.0 || vendorLng != 0.0) break;
+          } else if (branch['lng'] != null && branch['lat'] != null) {
+            vendorLng = double.tryParse(branch['lng'].toString()) ?? 0.0;
+            vendorLat = double.tryParse(branch['lat'].toString()) ?? 0.0;
+            if (vendorLat != 0.0 || vendorLng != 0.0) break;
+          }
+        }
+      }
+    }
     
     final dl = order['deliveryLocation'];
     double customerLat = 0.0;

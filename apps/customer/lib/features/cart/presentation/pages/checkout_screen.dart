@@ -25,10 +25,14 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  bool get isMultiVendor => (widget.vendorIds != null && widget.vendorIds!.length > 1);
+  bool get isMultiVendor => activeVendorIds.length > 1;
   List<String> get activeVendorIds {
+    final cart = ref.read(cartProvider);
     if (widget.vendorIds != null && widget.vendorIds!.isNotEmpty) {
-      return widget.vendorIds!;
+      final valid = widget.vendorIds!
+          .where((id) => (cart.vendorBaskets[id]?.isNotEmpty ?? false))
+          .toList();
+      if (valid.isNotEmpty) return valid;
     }
     if (widget.vendorId != null && widget.vendorId!.isNotEmpty) {
       return [widget.vendorId!];
