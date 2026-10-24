@@ -678,17 +678,16 @@ export class VendorsService {
     return {
       ...this.vendorIncludes(),
       branches: {
-        where: { isActive: true },
         select: {
           id: true,
           name: true,
           nameAr: true,
           address: true,
+          phone: true,
           isOpen: true,
-          lat: true,
-          lng: true,
           isContracted: true,
           commissionRate: true,
+          zoneId: true,
         },
       },
       categories: {

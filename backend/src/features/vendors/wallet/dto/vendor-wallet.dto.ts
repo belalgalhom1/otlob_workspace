@@ -5,6 +5,7 @@ import {
   Min,
   Max,
   IsDateString,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VendorTransactionType } from '@prisma/client';
@@ -15,6 +16,11 @@ export class QueryVendorWalletDto {
   @IsEnum(VendorTransactionType)
   @IsOptional()
   type?: VendorTransactionType;
+
+  @ApiProperty({ example: 'uuid', required: false, description: 'Filter transactions by vendor branch ID' })
+  @IsUUID()
+  @IsOptional()
+  branchId?: string;
 
   @ApiProperty({ example: '2023-01-01', required: false })
   @IsDateString()

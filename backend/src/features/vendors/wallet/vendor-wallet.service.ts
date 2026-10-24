@@ -55,7 +55,14 @@ export class VendorWalletService {
         take: limit,
         include: {
           order: {
-            select: { id: true, orderNumber: true },
+            select: {
+              id: true,
+              orderNumber: true,
+              vendorBranchId: true,
+              vendorBranch: {
+                select: { id: true, name: true, nameAr: true },
+              },
+            },
           },
         },
       }),
@@ -139,6 +146,15 @@ export class VendorWalletService {
     const where: Prisma.VendorWalletTransactionWhereInput = { vendorId };
 
     if (dto.type) where.type = dto.type;
+
+    if (dto.branchId) {
+      where.order = {
+        OR: [
+          { vendorBranchId: dto.branchId },
+          { fulfillments: { some: { vendorBranchId: dto.branchId } } },
+        ],
+      };
+    }
 
     if (dto.from || dto.to) {
       // Date-only filters mean whole app-timezone days; full ISO instants
