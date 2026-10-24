@@ -236,6 +236,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.black,
+        // The global ElevatedButton theme uses an infinite minimum width,
+        // which squeezes this button's Row siblings to zero width.
+        minimumSize: const Size(0, 48),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
