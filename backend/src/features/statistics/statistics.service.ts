@@ -761,6 +761,7 @@ export class StatisticsService {
         revenue: number;
         commission: number;
         description: string;
+        commissionDescription: string;
       }> =
         portions.length > 0
           ? await Promise.all(
@@ -771,7 +772,11 @@ export class StatisticsService {
                 });
                 const fulfillment = await client.orderVendorFulfillment.findFirst({
                   where: { orderId, vendorId: p.vendorId },
-                  select: { vendorBranch: { select: { isContracted: true } } },
+                  select: {
+                    vendorBranch: {
+                      select: { name: true, isContracted: true },
+                    },
+                  },
                 });
                 const isContracted =
                   fulfillment?.vendorBranch?.isContracted != null
@@ -779,11 +784,15 @@ export class StatisticsService {
                     : (contracted?.isContracted ?? false);
                 if (!isContracted) return null;
                 const rate = Number(p.commissionRate ?? 0);
+                const bName = fulfillment?.vendorBranch?.name
+                  ? ` (${fulfillment.vendorBranch.name})`
+                  : '';
                 return {
                   vendorId: p.vendorId,
                   revenue: p.subtotal,
                   commission: Math.round(p.subtotal * (rate / 100)),
-                  description: `Order ${orderNumber} revenue`,
+                  description: `Order ${orderNumber}${bName} revenue`,
+                  commissionDescription: `Commission for order ${orderNumber}${bName}`,
                 };
               }),
             ).then((rows) =>
@@ -791,14 +800,24 @@ export class StatisticsService {
             )
           : // Legacy single-vendor path: unchanged behaviour.
             vendorId && isContracted
-            ? [
-                {
-                  vendorId,
-                  revenue: vendorRevenue,
-                  commission,
-                  description: `Order ${orderNumber} revenue`,
-                },
-              ]
+            ? await (async () => {
+                const orderRow = await client.order.findUnique({
+                  where: { id: orderId },
+                  select: { vendorBranch: { select: { name: true } } },
+                });
+                const bName = orderRow?.vendorBranch?.name
+                  ? ` (${orderRow.vendorBranch.name})`
+                  : '';
+                return [
+                  {
+                    vendorId,
+                    revenue: vendorRevenue,
+                    commission,
+                    description: `Order ${orderNumber}${bName} revenue`,
+                    commissionDescription: `Commission for order ${orderNumber}${bName}`,
+                  },
+                ];
+              })()
             : [];
 
       for (const payable of payables) {
@@ -817,7 +836,7 @@ export class StatisticsService {
           payable.commission,
           'COMMISSION_DEDUCTION',
           orderId,
-          `Commission for order ${orderNumber}`,
+          payable.commissionDescription,
           client,
           { skipLock: true },
         );

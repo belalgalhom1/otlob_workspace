@@ -2,6 +2,7 @@ import { Controller, Get, Query, Param } from '@nestjs/common';
 import { VendorWalletService } from './vendor-wallet.service';
 import { QueryVendorWalletDto } from './dto/vendor-wallet.dto';
 import { VendorMember } from '../../../common/decorators/vendor-member.decorator';
+import { CurrentVendorBranch } from '../../../common/decorators/current-vendor-branch.decorator';
 import { RequirePermissions } from '../../../common/decorators/permissions.decorator';
 import { Permission } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -31,7 +32,11 @@ export class VendorWalletController {
   listTransactions(
     @Param('vendorId') vendorId: string,
     @Query() dto: QueryVendorWalletDto,
+    @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
+    if (assignedBranchId && !dto.branchId) {
+      dto.branchId = assignedBranchId;
+    }
     return this.service.listTransactions(vendorId, dto);
   }
 
@@ -43,7 +48,11 @@ export class VendorWalletController {
   getSummary(
     @Param('vendorId') vendorId: string,
     @Query() dto: QueryVendorWalletDto,
+    @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
+    if (assignedBranchId && !dto.branchId) {
+      dto.branchId = assignedBranchId;
+    }
     return this.service.getSummary(vendorId, dto);
   }
 
