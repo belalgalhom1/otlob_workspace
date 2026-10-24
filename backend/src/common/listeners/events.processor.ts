@@ -238,6 +238,11 @@ export class EventsProcessor extends WorkerHost {
         await this.conversationsService.createSystemOrderConversation(
           event.orderId,
         );
+        if (event.newStatus === OrderStatus.LOOKING_FOR_DRIVER) {
+          await this.conversationsService.syncOrderDriverParticipants(
+            event.orderId,
+          );
+        }
       }
 
       await this.enqueueDispatchHandoff(event.orderId, event.orderNumber);

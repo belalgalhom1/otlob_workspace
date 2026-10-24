@@ -45,6 +45,7 @@ export class ConversationsService {
     actorRole: Role,
   ): Promise<boolean> {
     if (actorRole === Role.SUPER_ADMIN) return true;
+    if (actorRole !== Role.ADMIN) return false;
 
     const user = await this.prisma.user.findUnique({
       where: { id: actorId },
@@ -205,7 +206,61 @@ export class ConversationsService {
     return conversation;
   }
 
+  /**
+   * Ensure that only currently assigned driver(s) remain as participants
+   * in the order's conversation. Any previous drivers that were unassigned
+   * or replaced are pruned so they cannot see or access the chat.
+   */
+  async syncOrderDriverParticipants(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        driverId: true,
+      },
+    });
+    if (!order) return;
+
+    const currentDriverUserIds = await this.resolveOrderDriverUserIds(order);
+
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        orderId,
+        type: ConversationType.ORDER,
+      },
+      include: {
+        participants: {
+          include: {
+            user: { select: { id: true, role: true } },
+          },
+        },
+      },
+    });
+    if (!conversation) return;
+
+    const staleDriverParticipants = conversation.participants.filter(
+      (p) =>
+        p.user.role === Role.DRIVER &&
+        !currentDriverUserIds.includes(p.userId),
+    );
+
+    if (staleDriverParticipants.length > 0) {
+      const staleUserIds = staleDriverParticipants.map((p) => p.userId);
+      await this.prisma.conversationParticipant.deleteMany({
+        where: {
+          conversationId: conversation.id,
+          userId: { in: staleUserIds },
+        },
+      });
+      this.logger.log(
+        `Pruned stale driver participants [${staleUserIds.join(', ')}] from order conversation ${conversation.id}`,
+      );
+    }
+  }
+
   async addParticipantToOrderConversation(orderId: string, userId: string) {
+    await this.syncOrderDriverParticipants(orderId);
+
     const conversation = await this.prisma.conversation.findFirst({
       where: {
         orderId,
@@ -301,16 +356,16 @@ export class ConversationsService {
     if (!order) throw new NotFoundException(ChatErrors.ORDER_NOT_FOUND);
 
     const isCustomer = order.customer.userId === actor.sub;
-    const isVendorMember =
-      actor.role === Role.VENDOR_MEMBER ||
-      (await this.canManageConversations(actor.sub, actor.role));
-    // Any driver working the order counts, not just the order-level one — a
-    // multi-vendor order's later deliveries have their own drivers.
+    const orderVendorUserIds = await this.resolveOrderVendorUserIds(order);
+    const isVendorMember = orderVendorUserIds.includes(actor.sub);
     const isDriver = (await this.resolveOrderDriverUserIds(order)).includes(
       actor.sub,
     );
+    const isStaffAdmin =
+      (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) &&
+      (await this.canManageConversations(actor.sub, actor.role));
 
-    if (!isCustomer && !isVendorMember && !isDriver) {
+    if (!isCustomer && !isVendorMember && !isDriver && !isStaffAdmin) {
       throw new ForbiddenException(ChatErrors.NOT_AUTHORIZED);
     }
 
@@ -535,9 +590,10 @@ export class ConversationsService {
         type: ConversationType.SUPPORT,
         vendorId: null,
         status: ConversationStatus.OPEN,
-        participants: {
-          some: { userId: dto.userId },
-        },
+        AND: [
+          { participants: { some: { userId: actor.sub } } },
+          { participants: { some: { userId: dto.userId } } },
+        ],
       },
       include: this.conversationIncludes(actor.sub),
     });
@@ -579,13 +635,15 @@ export class ConversationsService {
     const { page = 1, limit = 20 } = dto;
     const skip = (page - 1) * limit;
 
-    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
+    const isStaffAdmin =
+      (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) &&
+      (await this.canManageConversations(actor.sub, actor.role));
 
     const where: Prisma.ConversationWhereInput = {
       status: { not: ConversationStatus.ARCHIVED },
     };
 
-    if (!isAdmin) {
+    if (!isStaffAdmin) {
       where.participants = { some: { userId: actor.sub } };
     }
 

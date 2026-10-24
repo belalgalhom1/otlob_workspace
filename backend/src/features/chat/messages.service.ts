@@ -59,6 +59,7 @@ export class MessagesService {
     actorRole: Role,
   ): Promise<boolean> {
     if (actorRole === Role.SUPER_ADMIN) return true;
+    if (actorRole !== Role.ADMIN) return false;
 
     const user = await this.prisma.user.findUnique({
       where: { id: actorId },
