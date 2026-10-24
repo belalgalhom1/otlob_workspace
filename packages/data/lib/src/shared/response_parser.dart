@@ -5,24 +5,59 @@ import 'package:built_value/json_object.dart';
 class ResponseParser {
   static dynamic parse(dynamic response) {
     if (response == null || response.data == null) return null;
+    final rawData = response.data;
+
+    if (rawData is Map) {
+      if ((rawData.containsKey('success') || rawData.containsKey('statusCode')) &&
+          rawData.containsKey('data')) {
+        return _deepToMap(rawData['data']);
+      }
+      return _deepToMap(rawData);
+    }
+
     try {
-      dynamic rawData = response.data;
-      if (rawData.success != null && rawData.data != null) {
+      if (rawData.data != null) {
         return _deepToMap(rawData.data);
       }
     } catch (_) {}
+
     return _deepToMap(response.data);
   }
 
   static dynamic parseList(dynamic response) {
     if (response == null || response.data == null) return [];
+    final rawData = response.data;
+
+    if (rawData is Map) {
+      if ((rawData.containsKey('success') || rawData.containsKey('statusCode')) &&
+          rawData.containsKey('data')) {
+        final parsed = _deepToMap(rawData['data']);
+        if (parsed is List) return parsed;
+        if (parsed is Map && parsed.containsKey('data') && parsed['data'] is List) {
+          return parsed['data'];
+        }
+        return parsed ?? [];
+      }
+      if (rawData.containsKey('data') && rawData['data'] is List) {
+        return _deepToMap(rawData['data']) ?? [];
+      }
+      return _deepToMap(rawData) ?? [];
+    }
+
     try {
-      dynamic rawData = response.data;
-      if (rawData.success != null && rawData.data != null) {
-        return _deepToMap(rawData.data) ?? [];
+      if (rawData.data != null) {
+        final parsed = _deepToMap(rawData.data);
+        if (parsed is List) return parsed;
+        if (parsed is Map && parsed.containsKey('data') && parsed['data'] is List) {
+          return parsed['data'];
+        }
+        return parsed ?? [];
       }
     } catch (_) {}
-    return _deepToMap(response.data) ?? [];
+
+    final fallback = _deepToMap(response.data);
+    if (fallback is List) return fallback;
+    return fallback ?? [];
   }
 
   static dynamic _deepToMap(dynamic obj) {

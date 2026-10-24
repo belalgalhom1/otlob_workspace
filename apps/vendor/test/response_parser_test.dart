@@ -6,7 +6,7 @@ import 'package:data/data.dart';
 import 'package:flutter/foundation.dart';
 
 void main() {
-  test('Test ResponseParser', () {
+  test('Test ResponseParser with BuiltValue', () {
     final res = ApiControllerRoot200Response((b) => b
       ..success = true
       ..statusCode = 200
@@ -19,10 +19,50 @@ void main() {
     final result = ResponseParser.parseList(response);
     
     debugPrint('RESULT: $result');
-    debugPrint('RESULT TYPE: ${result.runtimeType}');
-    if (result is Map) {
-      debugPrint('KEYS: ${result.keys}');
-      debugPrint('USERS: ${result['users']}');
-    }
+    expect(result, isA<Map<String, dynamic>>());
+  });
+
+  test('Test ResponseParser with Raw Dio Map - List', () {
+    final rawDio = {
+      'success': true,
+      'statusCode': 200,
+      'message': 'Operation successful',
+      'data': [
+        {'id': 'cat_1', 'name': 'Sweets'},
+        {'id': 'cat_2', 'name': 'Ice Cream'}
+      ],
+      'timestamp': '2026-10-24T19:50:00Z',
+    };
+
+    final response = Response(data: rawDio, requestOptions: RequestOptions(path: '/'));
+    final parsed = ResponseParser.parse(response);
+    final parsedList = ResponseParser.parseList(response);
+
+    expect(parsed, isA<List>());
+    expect((parsed as List).length, 2);
+    expect(parsed[0]['name'], 'Sweets');
+
+    expect(parsedList, isA<List>());
+    expect((parsedList as List).length, 2);
+    expect(parsedList[1]['name'], 'Ice Cream');
+  });
+
+  test('Test ResponseParser with Raw Dio Map - Object', () {
+    final rawDio = {
+      'success': true,
+      'statusCode': 200,
+      'message': 'Operation successful',
+      'data': {
+        'id': 'v_1',
+        'storeName': 'Blaban Mansoura',
+      },
+      'timestamp': '2026-10-24T19:50:00Z',
+    };
+
+    final response = Response(data: rawDio, requestOptions: RequestOptions(path: '/'));
+    final parsed = ResponseParser.parse(response);
+
+    expect(parsed, isA<Map>());
+    expect((parsed as Map)['storeName'], 'Blaban Mansoura');
   });
 }

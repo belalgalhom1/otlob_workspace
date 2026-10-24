@@ -224,12 +224,12 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                       padding: const EdgeInsets.all(20),
                       child: Builder(builder: (context) {
                         final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                        final name = isAr && fullVendor['nameAr'] != null && fullVendor['nameAr'].toString().isNotEmpty
-                            ? fullVendor['nameAr'] as String
-                            : fullVendor['name'] as String;
-                        final description = isAr && fullVendor['vendorAr'] != null && fullVendor['vendorAr'].toString().isNotEmpty
-                            ? fullVendor['vendorAr'] as String
-                            : fullVendor['vendor'] as String;
+                        final name = (isAr && fullVendor['nameAr'] != null && fullVendor['nameAr'].toString().isNotEmpty
+                            ? fullVendor['nameAr']
+                            : (fullVendor['name'] ?? fullVendor['storeName'] ?? ''))?.toString() ?? '';
+                        final description = (isAr && fullVendor['vendorAr'] != null && fullVendor['vendorAr'].toString().isNotEmpty
+                            ? fullVendor['vendorAr']
+                            : (fullVendor['vendor'] ?? fullVendor['description'] ?? ''))?.toString() ?? '';
 
                         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -720,12 +720,12 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                 children: [
                   Builder(builder: (context) {
                     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                    final name = isAr && item['nameAr'] != null && item['nameAr'].toString().isNotEmpty
-                        ? item['nameAr'] as String
-                        : item['name'] as String;
-                    final description = isAr && item['descriptionAr'] != null && item['descriptionAr'].toString().isNotEmpty
-                        ? item['descriptionAr'] as String
-                        : item['description'] as String? ?? '';
+                    final name = (isAr && item['nameAr'] != null && item['nameAr'].toString().isNotEmpty
+                        ? item['nameAr']
+                        : (item['name'] ?? ''))?.toString() ?? '';
+                    final description = (isAr && item['descriptionAr'] != null && item['descriptionAr'].toString().isNotEmpty
+                        ? item['descriptionAr']
+                        : (item['description'] ?? ''))?.toString() ?? '';
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

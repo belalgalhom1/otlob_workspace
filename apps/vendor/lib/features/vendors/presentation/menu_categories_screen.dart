@@ -54,14 +54,21 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
         ref.read(adminVendorsRepositoryProvider).getMenuCategories(widget.vendorId),
         ref.read(adminVendorsRepositoryProvider).getBranches(widget.vendorId),
       ]);
-      final categories = results[0];
+      final categoriesRaw = results[0];
       final branchesRaw = results[1];
       final branchesList = branchesRaw is List
           ? List<dynamic>.from(branchesRaw)
-          : List<dynamic>.from(branchesRaw?['data'] as List? ?? const []);
+          : (branchesRaw is Map && branchesRaw['data'] is List
+              ? List<dynamic>.from(branchesRaw['data'] as List)
+              : const <dynamic>[]);
+      final categoriesList = categoriesRaw is List
+          ? List<dynamic>.from(categoriesRaw)
+          : (categoriesRaw is Map && categoriesRaw['data'] is List
+              ? List<dynamic>.from(categoriesRaw['data'] as List)
+              : const <dynamic>[]);
       if (mounted) {
         setState(() {
-          _categories = categories is List ? categories : [];
+          _categories = categoriesList;
           _filteredCategories = _categories;
           _branches = branchesList;
           _isLoading = false;
@@ -735,7 +742,7 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                                   isAdmin: widget.isAdmin,
                                 )) != null;
                           } else {
-                            success = (await ref
+                            final res = await ref
                                 .read(adminVendorsRepositoryProvider)
                                 .createMenuCategoryRaw(
                                   widget.vendorId,
@@ -746,33 +753,47 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                                       ? selectedBranchIds.toList()
                                       : [],
                                   isAdmin: widget.isAdmin,
-                                )) != null;
+                                );
+                            success = res != null;
+                            if (res is Map && res['id'] != null) {
+                              categoryId = res['id']?.toString();
+                            }
                           }
 
                           if (success && selectedIcon != null) {
-                            if (!isEdit) {
-                              final categories = await ref
+                            if (!isEdit && categoryId == null) {
+                              final categoriesRaw = await ref
                                   .read(adminVendorsRepositoryProvider)
                                   .getMenuCategories(widget.vendorId);
-                              final newCat = categories.firstWhere(
-                                (c) => c['name'] == nameController.text,
+                              final List<dynamic> categoriesList = categoriesRaw is List
+                                  ? categoriesRaw
+                                  : (categoriesRaw is Map && categoriesRaw['data'] is List
+                                      ? categoriesRaw['data'] as List
+                                      : const []);
+                              final newCat = categoriesList.firstWhere(
+                                (c) => c is Map && c['name'] == nameController.text.trim(),
+                                orElse: () => null,
                               );
-                              categoryId = newCat['id'];
+                              if (newCat != null && newCat is Map) {
+                                categoryId = newCat['id']?.toString();
+                              }
                             }
 
-                            final iconBytes =
-                                selectedIcon!.bytes ??
-                                await File(selectedIcon!.path!).readAsBytes();
+                            if (categoryId != null) {
+                              final iconBytes =
+                                  selectedIcon!.bytes ??
+                                  await File(selectedIcon!.path!).readAsBytes();
 
-                            await ref
-                                .read(adminVendorsRepositoryProvider)
-                                .uploadMenuCategoryIcon(
-                                  widget.vendorId,
-                                  categoryId!,
-                                  iconBytes.toList(),
-                                  selectedIcon!.name,
-                                  isAdmin: widget.isAdmin,
-                                );
+                              await ref
+                                  .read(adminVendorsRepositoryProvider)
+                                  .uploadMenuCategoryIcon(
+                                    widget.vendorId,
+                                    categoryId,
+                                    iconBytes.toList(),
+                                    selectedIcon!.name,
+                                    isAdmin: widget.isAdmin,
+                                  );
+                            }
                           }
 
                           if (!context.mounted) return;
