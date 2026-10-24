@@ -54,42 +54,66 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v6
 
+      
       - name: Install Android NDK with retry
         shell: bash
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
           set -euo pipefail
 
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+
+          if [ -z "$SDK_ROOT" ]; then
+            for candidate in \
+              "$RUNNER_TEMP/android-sdk" \
+              "/usr/local/lib/android/sdk" \
+              "$HOME/Android/Sdk"
+            do
+              if [ -d "$candidate/cmdline-tools" ] && \
+                 [ -d "$candidate/platform-tools" ]; then
+                SDK_ROOT="$candidate"
+                break
+              fi
+            done
+          fi
+
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            echo "ERROR: Could not locate the Android SDK."
+            exit 1
+          fi
+
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" \
+            -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager not found in $SDK_ROOT/cmdline-tools"
+            exit 1
+          fi
+
           NDK_VERSION="28.2.13676358"
           NDK_PACKAGE="ndk;$NDK_VERSION"
-          NDK_DIRECTORY="$ANDROID_HOME/ndk/$NDK_VERSION"
+          NDK_DIRECTORY="$SDK_ROOT/ndk/$NDK_VERSION"
+
+          echo "Android SDK: $SDK_ROOT"
+          echo "SDK manager: $SDKMANAGER"
 
           if [ -d "$NDK_DIRECTORY" ]; then
             echo "NDK $NDK_VERSION is already installed."
             exit 0
           fi
 
-          if [ ! -x "$SDKMANAGER" ]; then
-            echo "ERROR: Android SDK manager not found: $SDKMANAGER"
-            exit 1
-          fi
-
           for attempt in 1 2 3; do
             echo "Installing NDK $NDK_VERSION (attempt $attempt/3)..."
 
-            if "$SDKMANAGER" --install "$NDK_PACKAGE" &&
-               [ -d "$NDK_DIRECTORY" ]; then
+            if "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
+              --install "$NDK_PACKAGE" &&
+              [ -d "$NDK_DIRECTORY" ]; then
               echo "NDK $NDK_VERSION installed successfully."
               exit 0
             fi
 
-            echo "NDK installation attempt $attempt failed."
-
             if [ "$attempt" -lt 3 ]; then
-              echo "Retrying in 10 seconds..."
-              sleep 10
+              echo "Installation failed. Retrying in 15 seconds..."
+              sleep 15
             fi
           done
 
