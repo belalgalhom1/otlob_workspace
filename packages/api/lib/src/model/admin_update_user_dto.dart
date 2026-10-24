@@ -367,6 +367,7 @@ class AdminUpdateUserDtoRoleEnum extends EnumClass {
   static const AdminUpdateUserDtoRoleEnum CUSTOMER = _$adminUpdateUserDtoRoleEnum_CUSTOMER;
   @BuiltValueEnumConst(wireName: r'DRIVER')
   static const AdminUpdateUserDtoRoleEnum DRIVER = _$adminUpdateUserDtoRoleEnum_DRIVER;
+  static const AdminUpdateUserDtoRoleEnum DRIVER_MANAGER = _$adminUpdateUserDtoRoleEnum_DRIVER_MANAGER;
   @BuiltValueEnumConst(wireName: r'VENDOR_MEMBER')
   static const AdminUpdateUserDtoRoleEnum VENDOR_MEMBER = _$adminUpdateUserDtoRoleEnum_VENDOR_MEMBER;
   @BuiltValueEnumConst(wireName: r'ADMIN')

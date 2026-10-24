@@ -120,4 +120,19 @@ class AdminDriversRepository {
     final response = await _api.driversControllerOfferAssistToNearest(requestId: requestId);
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> getDriverManagerWallet() async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.get('/driver-managers/me/wallet');
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> getDriverManagerTransactions({int page = 1, int limit = 20}) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.get('/driver-managers/me/transactions', queryParameters: {
+      'page': page,
+      'limit': limit,
+    });
+    return ResponseParser.parse(response);
+  }
 }

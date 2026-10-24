@@ -217,6 +217,7 @@ class RegisterDtoRoleEnum extends EnumClass {
   static const RegisterDtoRoleEnum CUSTOMER = _$registerDtoRoleEnum_CUSTOMER;
   @BuiltValueEnumConst(wireName: r'DRIVER')
   static const RegisterDtoRoleEnum DRIVER = _$registerDtoRoleEnum_DRIVER;
+  static const RegisterDtoRoleEnum DRIVER_MANAGER = _$registerDtoRoleEnum_DRIVER_MANAGER;
   @BuiltValueEnumConst(wireName: r'VENDOR_MEMBER')
   static const RegisterDtoRoleEnum VENDOR_MEMBER = _$registerDtoRoleEnum_VENDOR_MEMBER;
   @BuiltValueEnumConst(wireName: r'ADMIN')

@@ -6,14 +6,31 @@ import { DriverErrors } from '../../common/constants/response.constants';
 export class DriverManagersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getMyWallet(userId: string) {
-    const manager = await this.prisma.driverManager.findUnique({
+  private async getManager(userId: string) {
+    let manager = await this.prisma.driverManager.findUnique({
       where: { userId },
       select: { id: true, walletBalance: true },
     });
     if (!manager) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      if (user && user.role === 'DRIVER_MANAGER') {
+        manager = await this.prisma.driverManager.create({
+          data: { userId },
+          select: { id: true, walletBalance: true },
+        });
+      }
+    }
+    if (!manager) {
       throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     }
+    return manager;
+  }
+
+  async getMyWallet(userId: string) {
+    const manager = await this.getManager(userId);
 
     const transactions = await this.prisma.driverManagerWalletTransaction.findMany({
       where: { managerId: manager.id },
@@ -28,13 +45,7 @@ export class DriverManagersService {
   }
 
   async getTransactions(userId: string, page = 1, limit = 20) {
-    const manager = await this.prisma.driverManager.findUnique({
-      where: { userId },
-      select: { id: true, walletBalance: true },
-    });
-    if (!manager) {
-      throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    }
+    const manager = await this.getManager(userId);
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([

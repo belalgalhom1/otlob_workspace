@@ -7,6 +7,7 @@ import 'pending_topups_screen.dart';
 import 'platform_wallets_screen.dart';
 import 'vendor_wallet_screen.dart';
 import 'platform_statistics_screen.dart';
+import 'driver_manager_wallet_screen.dart';
 
 class WalletDashboardScreen extends ConsumerWidget {
   final String? userRole;
@@ -26,8 +27,9 @@ class WalletDashboardScreen extends ConsumerWidget {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
-    final showAdminTabs =
-        (userRole ?? '') != 'VENDOR_MEMBER' && canManageFinance == true;
+    final isDriverManager = (userRole ?? '') == 'DRIVER_MANAGER';
+    final isVendor = (userRole ?? '') == 'VENDOR_MEMBER';
+    final showAdminTabs = !isVendor && !isDriverManager && canManageFinance == true;
 
     return DefaultTabController(
       length: showAdminTabs ? 2 : 1,
@@ -128,8 +130,11 @@ class WalletDashboardScreen extends ConsumerWidget {
                             children: [
                               const Icon(LucideIcons.wallet, size: 18),
                               const SizedBox(width: 8),
-                              // Vendor-owned wallet, shared by every member.
-                              Text(l10n.walletAndFinancials),
+                              Text(isDriverManager
+                                  ? (Localizations.localeOf(context).languageCode == 'ar'
+                                      ? 'محفظة الإدارة'
+                                      : 'Manager Wallet')
+                                  : l10n.walletAndFinancials),
                             ],
                           ),
                         ),
@@ -168,7 +173,7 @@ class WalletDashboardScreen extends ConsumerWidget {
               child: TabBarView(
                 children: showAdminTabs
                     ? [const PendingTopUpsScreen(), const PlatformWalletsScreen()]
-                    : [const VendorWalletScreen()],
+                    : [isDriverManager ? const DriverManagerWalletScreen() : const VendorWalletScreen()],
               ),
             ),
           ],

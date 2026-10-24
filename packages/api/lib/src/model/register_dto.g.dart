@@ -10,6 +10,8 @@ const RegisterDtoRoleEnum _$registerDtoRoleEnum_CUSTOMER =
     const RegisterDtoRoleEnum._('CUSTOMER');
 const RegisterDtoRoleEnum _$registerDtoRoleEnum_DRIVER =
     const RegisterDtoRoleEnum._('DRIVER');
+const RegisterDtoRoleEnum _$registerDtoRoleEnum_DRIVER_MANAGER =
+    const RegisterDtoRoleEnum._('DRIVER_MANAGER');
 const RegisterDtoRoleEnum _$registerDtoRoleEnum_VENDOR_MEMBER =
     const RegisterDtoRoleEnum._('VENDOR_MEMBER');
 const RegisterDtoRoleEnum _$registerDtoRoleEnum_ADMIN =
@@ -23,6 +25,8 @@ RegisterDtoRoleEnum _$registerDtoRoleEnumValueOf(String name) {
       return _$registerDtoRoleEnum_CUSTOMER;
     case 'DRIVER':
       return _$registerDtoRoleEnum_DRIVER;
+    case 'DRIVER_MANAGER':
+      return _$registerDtoRoleEnum_DRIVER_MANAGER;
     case 'VENDOR_MEMBER':
       return _$registerDtoRoleEnum_VENDOR_MEMBER;
     case 'ADMIN':
@@ -38,6 +42,7 @@ final BuiltSet<RegisterDtoRoleEnum> _$registerDtoRoleEnumValues =
     BuiltSet<RegisterDtoRoleEnum>(const <RegisterDtoRoleEnum>[
       _$registerDtoRoleEnum_CUSTOMER,
       _$registerDtoRoleEnum_DRIVER,
+      _$registerDtoRoleEnum_DRIVER_MANAGER,
       _$registerDtoRoleEnum_VENDOR_MEMBER,
       _$registerDtoRoleEnum_ADMIN,
       _$registerDtoRoleEnum_SUPER_ADMIN,

@@ -37,6 +37,8 @@ const AdminUpdateUserDtoRoleEnum _$adminUpdateUserDtoRoleEnum_CUSTOMER =
     const AdminUpdateUserDtoRoleEnum._('CUSTOMER');
 const AdminUpdateUserDtoRoleEnum _$adminUpdateUserDtoRoleEnum_DRIVER =
     const AdminUpdateUserDtoRoleEnum._('DRIVER');
+const AdminUpdateUserDtoRoleEnum _$adminUpdateUserDtoRoleEnum_DRIVER_MANAGER =
+    const AdminUpdateUserDtoRoleEnum._('DRIVER_MANAGER');
 const AdminUpdateUserDtoRoleEnum _$adminUpdateUserDtoRoleEnum_VENDOR_MEMBER =
     const AdminUpdateUserDtoRoleEnum._('VENDOR_MEMBER');
 const AdminUpdateUserDtoRoleEnum _$adminUpdateUserDtoRoleEnum_ADMIN =
@@ -50,6 +52,8 @@ AdminUpdateUserDtoRoleEnum _$adminUpdateUserDtoRoleEnumValueOf(String name) {
       return _$adminUpdateUserDtoRoleEnum_CUSTOMER;
     case 'DRIVER':
       return _$adminUpdateUserDtoRoleEnum_DRIVER;
+    case 'DRIVER_MANAGER':
+      return _$adminUpdateUserDtoRoleEnum_DRIVER_MANAGER;
     case 'VENDOR_MEMBER':
       return _$adminUpdateUserDtoRoleEnum_VENDOR_MEMBER;
     case 'ADMIN':
@@ -65,6 +69,7 @@ final BuiltSet<AdminUpdateUserDtoRoleEnum> _$adminUpdateUserDtoRoleEnumValues =
     BuiltSet<AdminUpdateUserDtoRoleEnum>(const <AdminUpdateUserDtoRoleEnum>[
       _$adminUpdateUserDtoRoleEnum_CUSTOMER,
       _$adminUpdateUserDtoRoleEnum_DRIVER,
+      _$adminUpdateUserDtoRoleEnum_DRIVER_MANAGER,
       _$adminUpdateUserDtoRoleEnum_VENDOR_MEMBER,
       _$adminUpdateUserDtoRoleEnum_ADMIN,
       _$adminUpdateUserDtoRoleEnum_SUPER_ADMIN,

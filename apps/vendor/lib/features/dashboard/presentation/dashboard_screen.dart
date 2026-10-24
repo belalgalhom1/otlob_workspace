@@ -73,6 +73,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _hasPermission(String requiredPermission) {
     if (_userRole == 'SUPER_ADMIN') return true;
     if (_userRole == 'ADMIN' && _userPermissions.contains(requiredPermission)) return true;
+    if (_userRole == 'DRIVER_MANAGER' &&
+        (requiredPermission == 'MANAGE_DRIVERS' ||
+            requiredPermission == 'MANAGE_ORDERS' ||
+            requiredPermission == 'VIEW_FINANCIALS')) {
+      return true;
+    }
     return false;
   }
 
@@ -729,6 +735,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         translatedRole = l10n.vendorMember;
       } else if (_userRole == 'DRIVER') {
         translatedRole = l10n.driver;
+      } else if (_userRole == 'DRIVER_MANAGER') {
+        translatedRole = Localizations.localeOf(context).languageCode == 'ar' ? 'مدير مناديب' : 'Driver Manager';
       } else if (_userRole == 'CUSTOMER') {
         translatedRole = l10n.customer;
       }
@@ -939,6 +947,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   List<int> _visiblePageIndices() {
     if (_userRole == 'VENDOR_MEMBER') {
       return [0, 1, 2, 5, 6, 17, 11];
+    }
+    if (_userRole == 'DRIVER_MANAGER') {
+      return [1, 3, 15, 18, 11, 6, 17];
     }
     final pages = <int>[];
     void add(int index, bool visible) {

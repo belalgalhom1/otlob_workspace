@@ -8,6 +8,7 @@ part of 'role.dart';
 
 const Role _$CUSTOMER = const Role._('CUSTOMER');
 const Role _$DRIVER = const Role._('DRIVER');
+const Role _$DRIVER_MANAGER = const Role._('DRIVER_MANAGER');
 const Role _$VENDOR_MEMBER = const Role._('VENDOR_MEMBER');
 const Role _$ADMIN = const Role._('ADMIN');
 const Role _$SUPER_ADMIN = const Role._('SUPER_ADMIN');
@@ -18,6 +19,8 @@ Role _$valueOf(String name) {
       return _$CUSTOMER;
     case 'DRIVER':
       return _$DRIVER;
+    case 'DRIVER_MANAGER':
+      return _$DRIVER_MANAGER;
     case 'VENDOR_MEMBER':
       return _$VENDOR_MEMBER;
     case 'ADMIN':
@@ -32,6 +35,7 @@ Role _$valueOf(String name) {
 final BuiltSet<Role> _$values = BuiltSet<Role>(const <Role>[
   _$CUSTOMER,
   _$DRIVER,
+  _$DRIVER_MANAGER,
   _$VENDOR_MEMBER,
   _$ADMIN,
   _$SUPER_ADMIN,
@@ -41,6 +45,7 @@ class _$RoleMeta {
   const _$RoleMeta();
   Role get CUSTOMER => _$CUSTOMER;
   Role get DRIVER => _$DRIVER;
+  Role get DRIVER_MANAGER => _$DRIVER_MANAGER;
   Role get VENDOR_MEMBER => _$VENDOR_MEMBER;
   Role get ADMIN => _$ADMIN;
   Role get SUPER_ADMIN => _$SUPER_ADMIN;

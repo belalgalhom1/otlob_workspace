@@ -284,6 +284,10 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                       child: Text(AppLocalizations.of(context)!.driver),
                     ),
                     DropdownMenuItem(
+                      value: 'DRIVER_MANAGER',
+                      child: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'مدير مناديب' : 'Driver Manager'),
+                    ),
+                    DropdownMenuItem(
                       value: 'CUSTOMER',
                       child: Text(AppLocalizations.of(context)!.customer),
                     ),

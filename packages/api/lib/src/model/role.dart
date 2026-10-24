@@ -15,6 +15,8 @@ class Role extends EnumClass {
   static const Role CUSTOMER = _$CUSTOMER;
   @BuiltValueEnumConst(wireName: r'DRIVER')
   static const Role DRIVER = _$DRIVER;
+  @BuiltValueEnumConst(wireName: r'DRIVER_MANAGER')
+  static const Role DRIVER_MANAGER = _$DRIVER_MANAGER;
   @BuiltValueEnumConst(wireName: r'VENDOR_MEMBER')
   static const Role VENDOR_MEMBER = _$VENDOR_MEMBER;
   @BuiltValueEnumConst(wireName: r'ADMIN')
