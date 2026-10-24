@@ -102,7 +102,7 @@ class AuthNotifier extends _$AuthNotifier {
 
   Future<void> _finishVendorLogin(SharedAuthRepository repository) async {
     final role = await repository.getUserRole();
-    if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+    if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER' && role != 'DRIVER_MANAGER') {
       await logout();
       state = AsyncValue.error(
         'auth.error.unauthorized_role',
@@ -153,7 +153,7 @@ class AuthNotifier extends _$AuthNotifier {
       }
 
       final role = await repository.getUserRole();
-      if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+      if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER' && role != 'DRIVER_MANAGER') {
         await logout();
         state = const AsyncValue.data(false);
         return;

@@ -95,7 +95,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       final repo = ref.read(sharedAuthRepositoryProvider);
       if (!await repo.isLoggedIn()) return false;
       final role = await repo.getUserRole();
-      return role == 'SUPER_ADMIN' || role == 'ADMIN';
+      return role == 'SUPER_ADMIN' || role == 'ADMIN' || role == 'DRIVER_MANAGER';
     } catch (_) {
       return false;
     }
@@ -107,7 +107,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         if (state.value == true) {
           final repo = ref.read(sharedAuthRepositoryProvider);
           final role = await repo.getUserRole();
-          if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER') {
+          if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER' && role != 'DRIVER_MANAGER') {
             await repo.logout();
             if (context.mounted) context.go('/login');
             return;

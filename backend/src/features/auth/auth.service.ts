@@ -225,7 +225,8 @@ export class AuthService {
       dto.app === 'vendor' &&
       user.role !== Role.VENDOR_MEMBER &&
       user.role !== Role.ADMIN &&
-      user.role !== Role.SUPER_ADMIN
+      user.role !== Role.SUPER_ADMIN &&
+      user.role !== Role.DRIVER_MANAGER
     ) {
       this.logger.warn(
         `Login failed: Non-vendor/admin user ${dto.email} attempted login to Vendor app`,
@@ -445,7 +446,8 @@ export class AuthService {
       dto.app === 'vendor' &&
       user.role !== Role.VENDOR_MEMBER &&
       user.role !== Role.ADMIN &&
-      user.role !== Role.SUPER_ADMIN
+      user.role !== Role.SUPER_ADMIN &&
+      user.role !== Role.DRIVER_MANAGER
     ) {
       throw new ForbiddenException(AuthErrors.ONLY_VENDOR_APP_ALLOWED);
     }
