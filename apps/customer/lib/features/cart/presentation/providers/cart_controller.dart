@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
 import 'package:flutter/foundation.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 
 import 'cart_models.dart';
 export 'cart_models.dart' show CartItem, CartProductRef, CartVariantRef, CartOptionRef;
@@ -40,8 +41,23 @@ class CartState {
 class Cart extends _$Cart {
   @override
   CartState build() {
-    _loadCarts();
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.authenticated) {
+        _loadCarts();
+      } else if (next == AuthStatus.unauthenticated) {
+        clearLocal();
+      }
+    });
+
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      _loadCarts();
+    }
     return const CartState(vendorBaskets: {});
+  }
+
+  void clearLocal() {
+    state = const CartState(vendorBaskets: {});
   }
 
   List<CartItem> _parseCartItems(
@@ -103,6 +119,11 @@ class Cart extends _$Cart {
   }
 
   Future<void> _loadCarts() async {
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus != AuthStatus.authenticated) {
+      clearLocal();
+      return;
+    }
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
       final carts = await cartRepo.getMyCarts();

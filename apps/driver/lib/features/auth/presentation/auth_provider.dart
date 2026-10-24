@@ -8,6 +8,13 @@ import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/core/services/location_service.dart';
+import 'package:driver/features/orders/presentation/driver_orders_history_provider.dart';
+import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:driver/features/notifications/presentation/notifications_provider.dart';
+import 'package:driver/features/shifts/presentation/shifts_provider.dart';
+import 'package:driver/core/providers/driver_breaks_provider.dart';
+import 'package:driver/features/profile/presentation/settings_provider.dart';
+import 'package:data/providers.dart' as data_providers;
 import 'package:core/core.dart';
 
 part 'auth_provider.g.dart';
@@ -179,7 +186,22 @@ class Auth extends _$Auth {
         })().timeout(const Duration(seconds: 10));
       } catch (_) {}
 
+      _clearDriverState();
       state = const AsyncValue.data(true);
+  }
+
+  void _clearDriverState() {
+    ref.invalidate(splashProvider);
+    ref.invalidate(driverProfileProvider);
+    ref.invalidate(driverOrdersHistoryProvider);
+    ref.invalidate(data_providers.sharedInboxProvider);
+    ref.invalidate(data_providers.sharedChatProvider);
+    ref.invalidate(data_providers.sharedInboxCountsProvider);
+    ref.invalidate(orderExecutionProvider);
+    ref.invalidate(driverNotificationsProvider);
+    ref.invalidate(driverShiftsProvider);
+    ref.invalidate(breaksOverviewProvider);
+    ref.invalidate(settingsProvider);
   }
 
   Future<void> logout() async {
@@ -195,34 +217,31 @@ class Auth extends _$Auth {
       } catch (e) {
         debugPrint('Failed to stop location tracking on logout: $e');
       }
-      ref.read(coreSocketServiceProvider).disconnect();
-      await GoogleSignInService.signOut();
+      try {
+        ref.read(coreSocketServiceProvider).disconnect();
+      } catch (_) {}
+      try {
+        await GoogleSignInService.signOut();
+      } catch (_) {}
 
       final repository = ref.read(sharedAuthRepositoryProvider);
 
-      // No session: nothing to clean up or revoke. Running push cleanup here
-      // would fire authenticated calls, 401 (no token), and re-enter the
-      // logout/refresh/clear/emit loop.
-      if (!await repository.isLoggedIn()) {
-        state = const AsyncValue.data(false);
-        ref.invalidate(splashProvider);
-        ref.invalidate(driverProfileProvider);
-        _goToLogin();
-        return;
+      if (await repository.isLoggedIn()) {
+        String? fcmToken;
+        try {
+          final push = ref.read(pushNotificationServiceProvider);
+          fcmToken = await push.getToken();
+          await push.unsubscribeFromRoleTopics('DRIVER');
+          await push.unregisterToken();
+        } catch (_) {}
+
+        try {
+          await repository.logout(fcmToken: fcmToken);
+        } catch (_) {}
       }
 
-      String? fcmToken;
-      try {
-        final push = ref.read(pushNotificationServiceProvider);
-        fcmToken = await push.getToken();
-        await push.unsubscribeFromRoleTopics('DRIVER');
-        await push.unregisterToken();
-      } catch (_) {}
-
-      await repository.logout(fcmToken: fcmToken);
+      _clearDriverState();
       state = const AsyncValue.data(false);
-      ref.invalidate(splashProvider);
-      ref.invalidate(driverProfileProvider);
       _goToLogin();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

@@ -156,6 +156,8 @@ class CoreSocketService with WidgetsBindingObserver {
 
   void disconnect() {
     _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
   }
 
   void dispose() {

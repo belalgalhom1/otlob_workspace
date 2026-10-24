@@ -4,6 +4,7 @@ import 'package:api/api.dart' hide CartItem;
 import 'package:built_collection/built_collection.dart';
 import 'package:core/core.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math';
 
@@ -81,11 +82,35 @@ class Orders extends _$Orders {
 
   @override
   OrdersState build() {
-    Future.microtask(() => _initFetch());
-    return OrdersState(isLoading: true);
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.authenticated) {
+        _initFetch();
+      } else if (next == AuthStatus.unauthenticated) {
+        clear();
+      }
+    });
+
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      Future.microtask(() => _initFetch());
+    }
+    return OrdersState(isLoading: authStatus == AuthStatus.authenticated);
+  }
+
+  void clear() {
+    state = OrdersState(
+      activeOrders: const [],
+      pastOrders: const [],
+      isLoading: false,
+    );
   }
 
   Future<void> _initFetch() async {
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus != AuthStatus.authenticated) {
+      clear();
+      return;
+    }
     state = state.copyWith(isLoading: true, error: null, activePage: 1, pastPage: 1);
     try {
       final activeResult = await _fetchFromApi(page: 1, limit: _limit, isActive: true);

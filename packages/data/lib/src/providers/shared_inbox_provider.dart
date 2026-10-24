@@ -44,6 +44,11 @@ class SharedInbox extends _$SharedInbox {
   InboxState build() {
     Future.microtask(() async {
       if (!ref.mounted) return;
+      final tokenService = ref.read(tokenServiceProvider);
+      if (!await tokenService.hasSession()) {
+        state = InboxState(isLoading: false);
+        return;
+      }
       // Ensure the socket is connected before subscribing to events
       final socket = ref.read(coreSocketServiceProvider);
       await socket.init();
@@ -71,8 +76,14 @@ class SharedInbox extends _$SharedInbox {
     return InboxState(isLoading: true);
   }
 
-  void _onRealtimeEvent(dynamic data) {
+  void clear() {
+    state = InboxState();
+  }
+
+  void _onRealtimeEvent(dynamic data) async {
     if (!ref.mounted) return;
+    final tokenService = ref.read(tokenServiceProvider);
+    if (!await tokenService.hasSession()) return;
     // When a new message comes in, refresh the inbox
     _fetchConversations(1, true); // true = silent refresh
   }
@@ -92,6 +103,13 @@ class SharedInbox extends _$SharedInbox {
 
   Future<void> _fetchConversations([int page = 1, bool silent = false]) async {
     if (!ref.mounted) return;
+    final tokenService = ref.read(tokenServiceProvider);
+    if (!await tokenService.hasSession()) {
+      if (ref.mounted) {
+        state = InboxState(isLoading: false);
+      }
+      return;
+    }
 
     if (!silent) {
       if (page == 1) {

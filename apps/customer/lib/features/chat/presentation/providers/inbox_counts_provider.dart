@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
 import '../../../../core/services/socket_service.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 import 'package:flutter/foundation.dart';
 
 part 'inbox_counts_provider.g.dart';
@@ -21,7 +22,18 @@ class InboxCountsState {
 class InboxCounts extends _$InboxCounts {
   @override
   InboxCountsState build() {
-    Future.microtask(() => _fetchCounts());
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.authenticated) {
+        _fetchCounts();
+      } else if (next == AuthStatus.unauthenticated) {
+        state = InboxCountsState();
+      }
+    });
+
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      Future.microtask(() => _fetchCounts());
+    }
 
     // Typed broadcast streams: survive socket re-auth (legacy socket.on
     // bindings die with the old socket instance).
@@ -44,6 +56,11 @@ class InboxCounts extends _$InboxCounts {
   }
 
   Future<void> _fetchCounts() async {
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus != AuthStatus.authenticated) {
+      state = InboxCountsState();
+      return;
+    }
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get('/inbox/counts');

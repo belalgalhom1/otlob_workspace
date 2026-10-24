@@ -50,11 +50,25 @@ class DriverOrdersHistory extends _$DriverOrdersHistory {
 
   @override
   DriverOrdersHistoryState build() {
-    Future.microtask(() => fetchDeliveries(isRefresh: true));
-    return const DriverOrdersHistoryState(isLoading: true);
+    Future.microtask(() async {
+      final authRepo = ref.read(sharedAuthRepositoryProvider);
+      if (await authRepo.isLoggedIn()) {
+        fetchDeliveries(isRefresh: true);
+      }
+    });
+    return const DriverOrdersHistoryState(isLoading: false);
+  }
+
+  void clear() {
+    state = const DriverOrdersHistoryState();
   }
 
   Future<void> fetchDeliveries({bool isRefresh = false}) async {
+    final authRepo = ref.read(sharedAuthRepositoryProvider);
+    if (!await authRepo.isLoggedIn()) {
+      clear();
+      return;
+    }
     if (state.isLoading && !isRefresh) return;
     state = state.copyWith(
       isLoading: true,

@@ -2,8 +2,20 @@ import 'dart:async';
 import 'package:api/api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:data/data.dart';
-import 'package:core/core.dart';
+import 'package:data/data.dart' hide inboxCountsProvider;
+import 'package:data/providers.dart' as data_providers;
+import 'package:core/core.dart' hide tokenServiceProvider;
+import '../../../../core/services/token_service.dart';
+import '../../../../core/services/socket_service.dart';
+import '../../../orders/presentation/providers/orders_provider.dart';
+import '../../../cart/presentation/providers/cart_controller.dart';
+import '../../../profile/presentation/providers/profile_controller.dart';
+import '../../../profile/presentation/providers/delivery_address_provider.dart';
+import '../../../profile/presentation/providers/coin_history_provider.dart';
+import '../../../chat/presentation/providers/inbox_counts_provider.dart';
+import '../../../chat/presentation/providers/support_ticket_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../home/presentation/providers/favorites_provider.dart';
 
 part 'auth_controller.g.dart';
 
@@ -84,13 +96,28 @@ class AuthController extends _$AuthController {
     logout();
   }
 
+  void _clearUserProviders() {
+    ref.invalidate(data_providers.sharedInboxProvider);
+    ref.invalidate(data_providers.sharedChatProvider);
+    ref.invalidate(data_providers.sharedInboxCountsProvider);
+    ref.invalidate(ordersProvider);
+    ref.invalidate(cartProvider);
+    ref.invalidate(profileProvider);
+    ref.invalidate(activeDeliveryAddressProvider);
+    ref.invalidate(manualSelectedAddressIdProvider);
+    ref.invalidate(inboxCountsProvider);
+    ref.invalidate(notificationsProvider);
+    ref.invalidate(favoritesProvider);
+    ref.invalidate(coinHistoryProvider);
+    ref.invalidate(supportTicketProvider);
+  }
+
   Future<void> checkAuthStatus() async {
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     final hasSession = await authRepo.isLoggedIn();
 
     if (!hasSession) {
-      await authRepo.logout();
-      state = AuthStatus.unauthenticated;
+      await logout();
       return;
     }
 
@@ -99,8 +126,7 @@ class AuthController extends _$AuthController {
       try {
         await authRepo.refreshToken();
       } catch (_) {
-        await authRepo.logout();
-        state = AuthStatus.unauthenticated;
+        await logout();
         return;
       }
     }
@@ -118,6 +144,7 @@ class AuthController extends _$AuthController {
   }
 
   Future<void> login(String email, String password) async {
+    _clearUserProviders();
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     await authRepo.login(email, password, appType: 'customer');
     state = AuthStatus.authenticated;
@@ -132,6 +159,7 @@ class AuthController extends _$AuthController {
 
   Future<void> signInWithGoogle() async {
     final idToken = await GoogleSignInService.getIdToken();
+    _clearUserProviders();
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     await authRepo.socialLogin(
       SocialLoginDto((b) => b
@@ -157,25 +185,36 @@ class AuthController extends _$AuthController {
     try {
       final authRepo = ref.read(sharedAuthRepositoryProvider);
 
-      // No session: skip push cleanup/revocation. Those calls would fire
-      // without a bearer token, 401, and re-enter the logout loop.
-      if (!await authRepo.isLoggedIn()) {
-        state = AuthStatus.unauthenticated;
-        return;
-      }
-
       try {
         await GoogleSignInService.signOut();
       } catch (_) {}
 
+      try {
+        ref.read(socketServiceProvider).disconnect();
+      } catch (_) {}
+      try {
+        ref.read(coreSocketServiceProvider).disconnect();
+      } catch (_) {}
+
       String? fcmToken;
       try {
-        final push = ref.read(pushNotificationServiceProvider);
-        fcmToken = await push.getToken();
-        await push.unsubscribeFromRoleTopics('CUSTOMER');
-        await push.unregisterToken();
+        if (await authRepo.isLoggedIn()) {
+          final push = ref.read(pushNotificationServiceProvider);
+          fcmToken = await push.getToken();
+          await push.unsubscribeFromRoleTopics('CUSTOMER');
+          await push.unregisterToken();
+        }
       } catch (_) {}
-      await authRepo.logout(fcmToken: fcmToken);
+
+      try {
+        await authRepo.logout(fcmToken: fcmToken);
+      } catch (_) {}
+
+      try {
+        await ref.read(tokenServiceProvider).clearTokens();
+      } catch (_) {}
+
+      _clearUserProviders();
       state = AuthStatus.unauthenticated;
     } finally {
       _logoutInProgress = false;

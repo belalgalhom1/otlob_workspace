@@ -23,6 +23,11 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
   @override
   void initState() {
     super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(driverOrdersHistoryProvider.notifier).fetchDeliveries(isRefresh: true);
+      }
+    });
     _scrollController.addListener(_onScroll);
   }
 

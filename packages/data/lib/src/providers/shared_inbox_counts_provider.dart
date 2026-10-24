@@ -36,13 +36,30 @@ class SharedInboxCountsNotifier extends Notifier<InboxCountsState> {
 
   @override
   InboxCountsState build() {
-    Future.microtask(() => fetchCounts());
+    Future.microtask(() async {
+      final tokenService = ref.read(tokenServiceProvider);
+      if (await tokenService.hasSession()) {
+        fetchCounts();
+      }
+    });
 
     final socket = ref.read(coreSocketServiceProvider);
-    _msgSub = socket.onEvent(SocketEvent.chatMessage).listen((_) => fetchCounts());
-    _readSub = socket.onEvent(SocketEvent.chatRead).listen((_) => fetchCounts());
-    _closedSub = socket.onEvent(SocketEvent.conversationClosed).listen((_) => fetchCounts());
-    _notifSub = socket.onEvent(SocketEvent.notificationNew).listen((_) => fetchCounts());
+    _msgSub = socket.onEvent(SocketEvent.chatMessage).listen((_) async {
+      final tokenService = ref.read(tokenServiceProvider);
+      if (await tokenService.hasSession()) fetchCounts();
+    });
+    _readSub = socket.onEvent(SocketEvent.chatRead).listen((_) async {
+      final tokenService = ref.read(tokenServiceProvider);
+      if (await tokenService.hasSession()) fetchCounts();
+    });
+    _closedSub = socket.onEvent(SocketEvent.conversationClosed).listen((_) async {
+      final tokenService = ref.read(tokenServiceProvider);
+      if (await tokenService.hasSession()) fetchCounts();
+    });
+    _notifSub = socket.onEvent(SocketEvent.notificationNew).listen((_) async {
+      final tokenService = ref.read(tokenServiceProvider);
+      if (await tokenService.hasSession()) fetchCounts();
+    });
 
     ref.onDispose(() {
       _msgSub?.cancel();
@@ -54,7 +71,16 @@ class SharedInboxCountsNotifier extends Notifier<InboxCountsState> {
     return const InboxCountsState();
   }
 
+  void clear() {
+    state = const InboxCountsState();
+  }
+
   Future<void> fetchCounts() async {
+    final tokenService = ref.read(tokenServiceProvider);
+    if (!await tokenService.hasSession()) {
+      state = const InboxCountsState();
+      return;
+    }
     try {
       final repo = ref.read(sharedInboxRepositoryProvider);
       final res = await repo.getCounts();

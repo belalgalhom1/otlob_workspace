@@ -4,6 +4,17 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:core/core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:data/providers.dart' as data_providers;
+import 'package:vendor/features/orders/presentation/orders_provider.dart';
+import 'package:vendor/features/tickets/presentation/ticket_provider.dart';
+import 'package:vendor/features/users/presentation/user_provider.dart';
+import 'package:vendor/features/promotions/presentation/promotion_provider.dart';
+import 'package:vendor/features/vendors/presentation/vendor_provider.dart';
+import 'package:vendor/features/vendors/presentation/vertical_provider.dart';
+import 'package:vendor/features/zones/presentation/zone_provider.dart';
+import 'package:vendor/features/settings/presentation/bloc/settings_provider.dart';
+import 'package:vendor/features/wallet/presentation/vendor_wallet_provider.dart';
+import 'package:vendor/features/wallet/data/wallet_providers.dart';
 
 part 'auth_provider.g.dart';
 
@@ -111,6 +122,8 @@ class AuthNotifier extends _$AuthNotifier {
       return;
     }
 
+    _clearVendorState();
+
     // Seed the active vendor for single-membership accounts so they land
     // on the dashboard instead of the vendor-selection screen.
     await _seedActiveVendor(repository, onlySingle: true);
@@ -192,32 +205,57 @@ class AuthNotifier extends _$AuthNotifier {
     }
   }
 
+  void _clearVendorState() {
+    ref.invalidate(ordersProvider);
+    ref.invalidate(ordersRefreshErrorProvider);
+    ref.invalidate(activeVendorProvider);
+    ref.invalidate(data_providers.sharedInboxProvider);
+    ref.invalidate(data_providers.sharedChatProvider);
+    ref.invalidate(data_providers.sharedInboxCountsProvider);
+    ref.invalidate(ticketProvider);
+    ref.invalidate(userProvider);
+    ref.invalidate(promotionProvider);
+    ref.invalidate(vendorProvider);
+    ref.invalidate(verticalProvider);
+    ref.invalidate(zoneProvider);
+    ref.invalidate(settingsProvider);
+    ref.invalidate(vendorWalletDataProvider);
+    ref.invalidate(pendingTopUpsProvider);
+    ref.invalidate(platformWalletsProvider);
+  }
+
   Future<void> logout() async {
     if (_logoutInProgress) return;
     _logoutInProgress = true;
     try {
-      await GoogleSignInService.signOut();
-      await ref.read(activeVendorProvider.notifier).clearActiveVendor();
+      try {
+        await GoogleSignInService.signOut();
+      } catch (_) {}
+      try {
+        await ref.read(activeVendorProvider.notifier).clearActiveVendor();
+      } catch (_) {}
+      try {
+        ref.read(coreSocketServiceProvider).disconnect();
+      } catch (_) {}
 
       final repository = ref.read(sharedAuthRepositoryProvider);
 
-      // No session: nothing to revoke. Running push cleanup here would fire
-      // authenticated calls, 401, and re-enter the logout loop.
-      if (!await repository.isLoggedIn()) {
-        state = const AsyncValue.data(false);
-        return;
+      if (await repository.isLoggedIn()) {
+        String? fcmToken;
+        try {
+          final push = ref.read(pushNotificationServiceProvider);
+          final role = await repository.getUserRole();
+          fcmToken = await push.getToken();
+          await push.unsubscribeFromRoleTopics(role ?? 'VENDOR');
+          await push.unregisterToken();
+        } catch (_) {}
+
+        try {
+          await repository.logout(fcmToken: fcmToken);
+        } catch (_) {}
       }
 
-      String? fcmToken;
-      try {
-        final push = ref.read(pushNotificationServiceProvider);
-        final role = await repository.getUserRole();
-        fcmToken = await push.getToken();
-        await push.unsubscribeFromRoleTopics(role ?? 'VENDOR');
-        await push.unregisterToken();
-      } catch (_) {}
-
-      await repository.logout(fcmToken: fcmToken);
+      _clearVendorState();
       state = const AsyncValue.data(false);
     } finally {
       _logoutInProgress = false;

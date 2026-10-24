@@ -1,12 +1,20 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'profile_controller.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 
 part 'delivery_address_provider.g.dart';
 
 @Riverpod(keepAlive: true)
 class ManualSelectedAddressId extends _$ManualSelectedAddressId {
   @override
-  String? build() => null;
+  String? build() {
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.unauthenticated) {
+        state = null;
+      }
+    });
+    return null;
+  }
 
   void setAddressId(String? id) {
     state = id;

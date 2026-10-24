@@ -30,7 +30,16 @@ class OrdersNotifier extends _$OrdersNotifier {
     return const AsyncValue.loading();
   }
 
+  void clear() {
+    state = AsyncValue.data(OrdersStateData([], 0, {}));
+  }
+
   Future<void> fetchOrders({Map<String, dynamic> params = const {}}) async {
+    final authRepo = ref.read(sharedAuthRepositoryProvider);
+    if (!await authRepo.isLoggedIn()) {
+      clear();
+      return;
+    }
     final isInitialLoad = !state.hasValue;
     if (isInitialLoad) {
       state = const AsyncValue.loading();

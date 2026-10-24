@@ -38,6 +38,9 @@ class TokenService {
     'user_id',
     'user_role',
     'user_name',
+    'user_email',
+    'user_phone',
+    'user_avatar',
     'vendor_memberships',
     'user_permissions',
   ];
