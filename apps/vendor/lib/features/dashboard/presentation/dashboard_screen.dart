@@ -41,7 +41,10 @@ import 'package:vendor/features/driver_breaks/presentation/driver_breaks_screen.
 import 'package:vendor/features/analytics/presentation/pages/analytics_screen.dart';
 import 'package:vendor/features/dashboard/presentation/widgets/user_profile_dialog.dart';
 
-final mostOrderedProductProvider = FutureProvider.family<dynamic, String>((ref, vendorId) async {
+final mostOrderedProductProvider = FutureProvider.family<dynamic, String>((
+  ref,
+  vendorId,
+) async {
   try {
     final repo = ref.read(vendorStatisticsRepositoryProvider);
     return await repo.getMostOrderedProduct(vendorId);
@@ -52,7 +55,6 @@ final mostOrderedProductProvider = FutureProvider.family<dynamic, String>((ref, 
 });
 
 class DashboardScreen extends ConsumerStatefulWidget {
-
   const DashboardScreen({super.key});
 
   @override
@@ -148,7 +150,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       // Administrative data only for admins
       if (!isVendor) {
         if (_hasPermission('MANAGE_ORDERS')) {
-          ref.read(ordersProvider.notifier).fetchOrders(params: {'limit': 1}); // Fetch to get total orders count
+          ref
+              .read(ordersProvider.notifier)
+              .fetchOrders(
+                params: {'limit': 1},
+              ); // Fetch to get total orders count
         }
         if (_hasPermission('MANAGE_VENDORS')) {
           ref.read(verticalProvider.notifier).fetchVerticals();
@@ -166,7 +172,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ref.read(ticketProvider.notifier).fetchTickets(params: {'limit': 1});
         }
       } else {
-        ref.read(ordersProvider.notifier).fetchOrders(params: {'limit': 1}); // Vendor members need total orders too
+        ref
+            .read(ordersProvider.notifier)
+            .fetchOrders(
+              params: {'limit': 1},
+            ); // Vendor members need total orders too
       }
     }
   }
@@ -174,8 +184,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _loadUserInfo() async {
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
     final name = await ref.read(sharedAuthRepositoryProvider).getUserName();
-    final memberships = await ref.read(sharedAuthRepositoryProvider).getVendorMemberships();
-    final perms = await ref.read(sharedAuthRepositoryProvider).getUserPermissions();
+    final memberships = await ref
+        .read(sharedAuthRepositoryProvider)
+        .getVendorMemberships();
+    final perms = await ref
+        .read(sharedAuthRepositoryProvider)
+        .getUserPermissions();
     String? vId = ref.read(activeVendorProvider);
     String? vRole;
     if (vId != null) {
@@ -226,8 +240,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _initData(); // Refetch data
       }
     });
-    ref.listen<PendingNotificationRoute?>(notificationRouterProvider,
-        (previous, next) {
+    ref.listen<PendingNotificationRoute?>(notificationRouterProvider, (
+      previous,
+      next,
+    ) {
       if (next != null && next != previous) {
         _consumePendingNotificationRoute();
       }
@@ -296,16 +312,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ),
                               ),
 
-                              if (!isMobile) _buildSearchBar(),
                               if (!isMobile) const SizedBox(width: 16),
-                              if (isMobile) ...[
-                                _buildHeaderAction(
-                                  LucideIcons.search,
-                                  onTap: _showPageSearch,
-                                  isMobile: isMobile,
-                                ),
-                                const SizedBox(width: 4),
-                              ],
+                              if (isMobile) const SizedBox(width: 4),
                               _buildHeaderAction(
                                 LucideIcons.messageSquare,
                                 onTap: () => setState(() => _selectedIndex = 6),
@@ -315,7 +323,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               SizedBox(width: isMobile ? 4 : 8),
                               _buildHeaderAction(
                                 LucideIcons.bell,
-                                onTap: () => setState(() => _selectedIndex = 17),
+                                onTap: () =>
+                                    setState(() => _selectedIndex = 17),
                                 isMobile: isMobile,
                                 badgeCount: inboxCounts.notificationsUnread,
                               ),
@@ -326,9 +335,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ],
                           ),
                         ),
-                        Expanded(
-                          child: _buildIndexedStack(isMobile),
-                        ),
+                        Expanded(child: _buildIndexedStack(isMobile)),
                       ],
                     ),
                   ),
@@ -434,7 +441,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
           ),
-          if (_userRole == 'VENDOR_MEMBER') VendorContextSwitcher(isMobile: isMobile),
+          if (_userRole == 'VENDOR_MEMBER')
+            VendorContextSwitcher(isMobile: isMobile),
           const SizedBox(height: 16),
           // Quick-jump entry: opens the searchable page palette
           // (abbreviations). Visible everywhere so it's reachable on
@@ -448,12 +456,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onTap: () {
                 if (isMobile) {
                   _scaffoldKey.currentState?.closeDrawer();
-                  Future.delayed(
-                    const Duration(milliseconds: 250),
-                    () {
-                      if (mounted) _showPageSearch();
-                    },
-                  );
+                  Future.delayed(const Duration(milliseconds: 250), () {
+                    if (mounted) _showPageSearch();
+                  });
                 } else {
                   _showPageSearch();
                 }
@@ -548,7 +553,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isMobile,
                     ),
                   ] else ...[
-                    if (_hasPermission('VIEW_STATISTICS') || _userRole == 'DRIVER_MANAGER')
+                    if (_hasPermission('VIEW_STATISTICS') ||
+                        _userRole == 'DRIVER_MANAGER')
                       _buildMenuItem(
                         0,
                         LucideIcons.layoutDashboard,
@@ -632,7 +638,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         AppLocalizations.of(context)!.promotions,
                         isMobile,
                       ),
-                    if (_hasPermission('MANAGE_FINANCE') || _hasPermission('VIEW_FINANCIALS'))
+                    if (_hasPermission('MANAGE_FINANCE') ||
+                        _hasPermission('VIEW_FINANCIALS'))
                       _buildMenuItem(
                         11,
                         LucideIcons.wallet,
@@ -683,7 +690,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Column(
             children: [
               Divider(color: Theme.of(context).dividerColor),
-              if (_hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN')
+              if (_hasPermission('MANAGE_SETTINGS') ||
+                  _userRole == 'SUPER_ADMIN')
                 _buildMenuItem(
                   7,
                   LucideIcons.settings,
@@ -702,9 +710,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _openUserProfileDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => UserProfileDialog(
-        onProfileUpdated: () => _loadUserInfo(),
-      ),
+      builder: (ctx) =>
+          UserProfileDialog(onProfileUpdated: () => _loadUserInfo()),
     );
   }
 
@@ -739,7 +746,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       } else if (_userRole == 'DRIVER') {
         translatedRole = l10n.driver;
       } else if (_userRole == 'DRIVER_MANAGER') {
-        translatedRole = Localizations.localeOf(context).languageCode == 'ar' ? 'مدير مناديب' : 'Driver Manager';
+        translatedRole = Localizations.localeOf(context).languageCode == 'ar'
+            ? 'مدير مناديب'
+            : 'Driver Manager';
       } else if (_userRole == 'CUSTOMER') {
         translatedRole = l10n.customer;
       }
@@ -764,7 +773,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     child: CircleAvatar(
                       radius: 18,
                       backgroundColor: AppColors.primary,
-                      child: Text(initials, style: const TextStyle(fontSize: 12)),
+                      child: Text(
+                        initials,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
                 ),
@@ -793,7 +805,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           CircleAvatar(
                             radius: 18,
                             backgroundColor: AppColors.primary,
-                            child: Text(initials, style: const TextStyle(fontSize: 12)),
+                            child: Text(
+                              initials,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -838,43 +853,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ],
             ),
-    );
-  }
-
-  /// Quick-jump palette: searchable list of every page with a short code
-  /// (ORD, DRV, BRK...) so a big sidebar is one keystroke away.
-  Widget _buildSearchBar() {
-    return InkWell(
-      onTap: _showPageSearch,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            const Icon(LucideIcons.search, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                AppLocalizations.of(context)!.searchHint,
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
-                  fontSize: 14,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -980,10 +958,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     add(5, _hasPermission('MANAGE_TICKETS'));
     add(6, _hasPermission('MANAGE_CONVERSATIONS'));
     add(17, true);
-    add(
-      7,
-      _hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN',
-    );
+    add(7, _hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN');
     return pages;
   }
 
@@ -1064,18 +1039,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              LucideIcons.construction,
-              size: 64,
-              
-            ),
+            const Icon(LucideIcons.construction, size: 64),
             const SizedBox(height: 16),
             Text(
               '${_getMenuTitle(context, _selectedIndex)} ${AppLocalizations.of(context)!.comingSoon}',
-              style: const TextStyle(
-                fontSize: 20,
-                
-              ),
+              style: const TextStyle(fontSize: 20),
             ),
           ],
         ),
@@ -1094,22 +1062,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           runSpacing: 16,
           children: [
             // Always show these core stats
-            if (_hasPermission('MANAGE_VENDORS') || _userRole == 'VENDOR_MEMBER')
-            Consumer(
-              builder: (context, ref, child) {
-                final state = ref.watch(vendorProvider);
-                String count = '...';
-                if (state.hasValue) count = state.value!.total.toString();
-                return StatCard(
-                  title: l10n.totalVendors,
-                  value: count,
-                  icon: LucideIcons.store,
-                  color: AppColors.primary,
-                  isMobile: isMobile,
-                  onTap: () => setState(() => _selectedIndex = 2),
-                );
-              },
-            ),
+            if (_hasPermission('MANAGE_VENDORS') ||
+                _userRole == 'VENDOR_MEMBER')
+              Consumer(
+                builder: (context, ref, child) {
+                  final state = ref.watch(vendorProvider);
+                  String count = '...';
+                  if (state.hasValue) count = state.value!.total.toString();
+                  return StatCard(
+                    title: l10n.totalVendors,
+                    value: count,
+                    icon: LucideIcons.store,
+                    color: AppColors.primary,
+                    isMobile: isMobile,
+                    onTap: () => setState(() => _selectedIndex = 2),
+                  );
+                },
+              ),
             if (_hasPermission('MANAGE_USERS'))
               Consumer(
                 builder: (context, ref, child) {
@@ -1127,26 +1096,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 },
               ),
             if (_hasPermission('MANAGE_ORDERS') || _userRole == 'VENDOR_MEMBER')
-            Consumer(
-              builder: (context, ref, child) {
-                final state = ref.watch(ordersProvider);
-                String orderCount = '0';
-                if (state.hasValue) {
-                  orderCount = state.value!.total.toString();
-                } else if (state.isLoading) {
-                  orderCount = '...';
-                }
+              Consumer(
+                builder: (context, ref, child) {
+                  final state = ref.watch(ordersProvider);
+                  String orderCount = '0';
+                  if (state.hasValue) {
+                    orderCount = state.value!.total.toString();
+                  } else if (state.isLoading) {
+                    orderCount = '...';
+                  }
 
-                return StatCard(
-                  title: l10n.orders,
-                  value: orderCount,
-                  icon: LucideIcons.shoppingBag,
-                  color: AppColors.warning,
-                  isMobile: isMobile,
-                  onTap: () => setState(() => _selectedIndex = 1),
-                );
-              },
-            ),
+                  return StatCard(
+                    title: l10n.orders,
+                    value: orderCount,
+                    icon: LucideIcons.shoppingBag,
+                    color: AppColors.warning,
+                    isMobile: isMobile,
+                    onTap: () => setState(() => _selectedIndex = 1),
+                  );
+                },
+              ),
             if (_hasPermission('MANAGE_DRIVERS'))
               Consumer(
                 builder: (context, ref, child) {
@@ -1242,21 +1211,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ],
         ),
-        if (_hasPermission('MANAGE_TICKETS') || _hasPermission('MANAGE_SETTINGS') || _hasPermission('MANAGE_VENDORS') || _hasPermission('MANAGE_PROMOTIONS'))
+        if (_hasPermission('MANAGE_TICKETS') ||
+            _hasPermission('MANAGE_SETTINGS') ||
+            _hasPermission('MANAGE_VENDORS') ||
+            _hasPermission('MANAGE_PROMOTIONS'))
           Padding(
             padding: const EdgeInsets.only(top: 16.0),
             child: Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: () => setState(() => _isStatsExpanded = !_isStatsExpanded),
+                onPressed: () =>
+                    setState(() => _isStatsExpanded = !_isStatsExpanded),
                 icon: Icon(
-                  _isStatsExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                  _isStatsExpanded
+                      ? LucideIcons.chevronUp
+                      : LucideIcons.chevronDown,
                   size: 16,
                 ),
                 label: Text(_isStatsExpanded ? l10n.showLess : l10n.showMore),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
               ),
             ),
@@ -1330,9 +1308,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Text(
                           l10n.noOrdersFound,
-                          style: const TextStyle(
-                            
-                          ),
+                          style: const TextStyle(),
                         ),
                       ),
                     );
@@ -1346,12 +1322,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     itemBuilder: (context, index) {
                       final order = data.orders[index];
                       final status = order['status']?.toString() ?? 'PENDING';
-                      final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
+                      final isCancelled =
+                          status.contains('CANCEL') ||
+                          status.contains('REJECT');
                       final areFeesFinalized = !isCancelled;
 
-                      final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
-                      final grandTotal = double.tryParse(order['grandTotal']?.toString() ?? '0') ?? 0.0;
-                      final displayTotal = areFeesFinalized ? grandTotal : subtotal;
+                      final subtotal =
+                          double.tryParse(
+                            order['subtotal']?.toString() ?? '0',
+                          ) ??
+                          0.0;
+                      final grandTotal =
+                          double.tryParse(
+                            order['grandTotal']?.toString() ?? '0',
+                          ) ??
+                          0.0;
+                      final displayTotal = areFeesFinalized
+                          ? grandTotal
+                          : subtotal;
 
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(
@@ -1375,11 +1363,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           style: const TextStyle(fontSize: 14),
                         ),
                         subtitle: Text(
-                          (order['vendor'] is Map ? order['vendor']['storeName'] : null) ?? 'Unknown Vendor',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            
-                          ),
+                          (order['vendor'] is Map
+                                  ? order['vendor']['storeName']
+                                  : null) ??
+                              'Unknown Vendor',
+                          style: const TextStyle(fontSize: 12),
                         ),
                         trailing: Text(
                           '${displayTotal.toStringAsFixed(2)} EGP',
@@ -1454,9 +1442,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Text(
                           AppLocalizations.of(context)!.noSystemLogsFound,
-                          style: const TextStyle(
-                            
-                          ),
+                          style: const TextStyle(),
                         ),
                       ),
                     );
@@ -1469,7 +1455,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         Divider(color: Theme.of(context).dividerColor),
                     itemBuilder: (context, index) {
                       final log = data.logs[index];
-                      final actionType = (log['actionType'] ?? 'OTHER').toString();
+                      final actionType = (log['actionType'] ?? 'OTHER')
+                          .toString();
                       final rawDate = (log['createdAt'] ?? '').toString();
                       String dateStr = rawDate;
                       try {
@@ -1514,14 +1501,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         title: Text(
                           actionType,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         subtitle: Text(
                           dateStr,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            
-                          ),
+                          style: const TextStyle(fontSize: 11),
                         ),
                       );
                     },
@@ -1538,7 +1525,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
                       '${AppLocalizations.of(context)!.errorLoadingLogs}\n${ErrorUtils.translate(context, e)}',
-                      style: const TextStyle(color: AppColors.error, fontSize: 10),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 10,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -1593,7 +1583,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isLabelVisible: badgeCount > 0,
                       label: Text(
                         '$badgeCount',
-                        style: const TextStyle(fontSize: 9, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Colors.white,
+                        ),
                       ),
                       child: Icon(
                         icon,
@@ -1623,7 +1616,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isLabelVisible: badgeCount > 0,
                       label: Text(
                         '$badgeCount',
-                        style: const TextStyle(fontSize: 10, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                        ),
                       ),
                       child: Icon(
                         icon,
@@ -1636,7 +1632,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Text(
                         title,
                         style: TextStyle(
-                          color: isSelected ? AppColors.primary : unselectedColor,
+                          color: isSelected
+                              ? AppColors.primary
+                              : unselectedColor,
                           fontWeight: isSelected
                               ? FontWeight.bold
                               : FontWeight.normal,
@@ -1666,7 +1664,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05)),
+          border: Border.all(
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.05),
+          ),
         ),
         child: Badge(
           isLabelVisible: badgeCount > 0,
@@ -1674,7 +1676,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             '$badgeCount',
             style: const TextStyle(fontSize: 10, color: Colors.white),
           ),
-          child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurface),
+          child: Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
       ),
     );
@@ -1688,7 +1694,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 8 : 12,
+              vertical: 8,
+            ),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(10),
@@ -1718,11 +1727,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onTap: () => ref.read(localeProvider.notifier).toggleLanguage(),
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 8 : 12,
+              vertical: 8,
+            ),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05)),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.05),
+              ),
             ),
             child: Row(
               children: [
@@ -1782,7 +1798,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 13:
         return l10n.announcementsTitle;
       case 14:
-        return Localizations.localeOf(context).languageCode == 'ar' ? 'التحكم في الصلاحيات' : 'Access Control';
+        return Localizations.localeOf(context).languageCode == 'ar'
+            ? 'التحكم في الصلاحيات'
+            : 'Access Control';
       case 15:
         return l10n.driverShifts;
       case 16:
@@ -1912,4 +1930,3 @@ class _PageSearchDialogState extends State<_PageSearchDialog> {
     );
   }
 }
-

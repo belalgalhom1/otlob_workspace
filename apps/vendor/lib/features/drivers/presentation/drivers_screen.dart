@@ -120,22 +120,29 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context)!;
     try {
-      final result =
-          await ref
-              .read(adminDriversRepositoryProvider)
-              .getDriverLocation(driverId: driver.id);
+      final result = await ref
+          .read(adminDriversRepositoryProvider)
+          .getDriverLocation(driverId: driver.id);
       final data = (result is Map) ? result : null;
       final lat = (data?['latitude'] as num?)?.toDouble();
       final lng = (data?['longitude'] as num?)?.toDouble();
       if (lat == null || lng == null || !mounted) {
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.driverNoLocation)),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(l10n.driverNoLocation)));
         return;
       }
       setState(() => _selectedDriver = driver);
-      _mapController.move(LatLng(lat, lng), 16);
+
+      // Move the map after the next frame so the FlutterMap widget has been
+      // rendered and the MapController is ready. Calling move() before the
+      // first paint throws: "You need to have the FlutterMap widget rendered
+      // at least once before using the MapController."
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _mapController.move(LatLng(lat, lng), 16);
+        }
+      });
+
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
@@ -150,7 +157,10 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     } catch (err) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-        SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text(ErrorUtils.translate(context, err)),
+          backgroundColor: AppColors.error,
+        ),
       );
     }
   }
@@ -187,12 +197,30 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                   isDense: true,
                 ),
                 items: [
-                  DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
-                  DropdownMenuItem(value: 'ONLINE', child: Text(AppLocalizations.of(context)!.statusOnline)),
-                  DropdownMenuItem(value: 'ON_DELIVERY', child: Text(AppLocalizations.of(context)!.statusOnDelivery)),
-                  DropdownMenuItem(value: 'OFFLINE', child: Text(AppLocalizations.of(context)!.statusOffline)),
-                  DropdownMenuItem(value: 'ON_BREAK', child: Text(AppLocalizations.of(context)!.statusOnBreak)),
-                  DropdownMenuItem(value: 'SUSPENDED', child: Text(AppLocalizations.of(context)!.statusSuspended)),
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(AppLocalizations.of(context)!.filterAll),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ONLINE',
+                    child: Text(AppLocalizations.of(context)!.statusOnline),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ON_DELIVERY',
+                    child: Text(AppLocalizations.of(context)!.statusOnDelivery),
+                  ),
+                  DropdownMenuItem(
+                    value: 'OFFLINE',
+                    child: Text(AppLocalizations.of(context)!.statusOffline),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ON_BREAK',
+                    child: Text(AppLocalizations.of(context)!.statusOnBreak),
+                  ),
+                  DropdownMenuItem(
+                    value: 'SUSPENDED',
+                    child: Text(AppLocalizations.of(context)!.statusSuspended),
+                  ),
                 ],
                 onChanged: (val) {
                   setState(() => _selectedStatus = val);
@@ -248,7 +276,9 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       ),
       data: (data) {
         if (data.drivers.isEmpty) {
-          return Center(child: Text(AppLocalizations.of(context)!.noDriversFound));
+          return Center(
+            child: Text(AppLocalizations.of(context)!.noDriversFound),
+          );
         }
 
         return Card(
@@ -293,19 +323,28 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                   }
                 },
                 child: Container(
-                  color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : null,
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.05)
+                      : null,
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: _getStatusColor(context, driver.status).withValues(alpha: 0.1),
-                        backgroundImage: avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null,
-                        child: avatarUrl == null ? Icon(
-                          LucideIcons.user,
-                          color: _getStatusColor(context, driver.status),
-                        ) : null,
+                        backgroundColor: _getStatusColor(
+                          context,
+                          driver.status,
+                        ).withValues(alpha: 0.1),
+                        backgroundImage: avatarUrl != null
+                            ? CachedNetworkImageProvider(avatarUrl)
+                            : null,
+                        child: avatarUrl == null
+                            ? Icon(
+                                LucideIcons.user,
+                                color: _getStatusColor(context, driver.status),
+                              )
+                            : null,
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -318,15 +357,23 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                 Expanded(
                                   child: Text(
                                     driver.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: _getDriverBadgeColor(driver).withValues(alpha: 0.1),
+                                    color: _getDriverBadgeColor(
+                                      driver,
+                                    ).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -346,18 +393,26 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                               overflow: TextOverflow.ellipsis,
                               text: TextSpan(
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                   fontSize: 13,
                                 ),
                                 children: [
                                   TextSpan(
-                                    text: '${AppLocalizations.of(context)!.status}: ${_translateDriverStatus(context, driver.status)} • ',
+                                    text:
+                                        '${AppLocalizations.of(context)!.status}: ${_translateDriverStatus(context, driver.status)} • ',
                                   ),
                                   TextSpan(
-                                    text: '${AppLocalizations.of(context)!.driverBalance}: ${_formatBalance(driver.walletBalance)} ${AppLocalizations.of(context)!.egp}',
+                                    text:
+                                        '${AppLocalizations.of(context)!.driverBalance}: ${_formatBalance(driver.walletBalance)} ${AppLocalizations.of(context)!.egp}',
                                     style: TextStyle(
-                                      color: driver.walletBalance < 0 ? AppColors.error : null,
-                                      fontWeight: driver.walletBalance < 0 ? FontWeight.bold : null,
+                                      color: driver.walletBalance < 0
+                                          ? AppColors.error
+                                          : null,
+                                      fontWeight: driver.walletBalance < 0
+                                          ? FontWeight.bold
+                                          : null,
                                     ),
                                   ),
                                 ],
@@ -370,120 +425,199 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                               children: [
                                 _buildActionButton(
                                   icon: LucideIcons.wallet,
-                                  label: AppLocalizations.of(context)!.actionWallet,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.actionWallet,
                                   onPressed: () {
                                     showDialog(
                                       context: context,
-                                      builder: (context) => ManualTransactionDialog(
-                                        entityId: driver.id,
-                                        isVendor: false,
-                                      ),
+                                      builder: (context) =>
+                                          ManualTransactionDialog(
+                                            entityId: driver.id,
+                                            isVendor: false,
+                                          ),
                                     ).then(
-                                      (_) => ref.read(driversProvider.notifier).refresh(),
+                                      (_) => ref
+                                          .read(driversProvider.notifier)
+                                          .refresh(),
                                     );
                                   },
                                 ),
                                 _buildActionButton(
                                   icon: LucideIcons.chartNoAxesCombined,
-                                  label: Localizations.localeOf(context).languageCode == 'ar'
+                                  label:
+                                      Localizations.localeOf(
+                                            context,
+                                          ).languageCode ==
+                                          'ar'
                                       ? 'إحصائيات'
                                       : 'Statistics',
                                   onPressed: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
-                                        builder: (_) =>
-                                            DriverStatisticsScreen(driverId: driver.id),
+                                        builder: (_) => DriverStatisticsScreen(
+                                          driverId: driver.id,
+                                        ),
                                       ),
                                     );
                                   },
                                 ),
                                 _buildActionButton(
                                   icon: LucideIcons.truck,
-                                  label: AppLocalizations.of(context)!.actionAssign,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.actionAssign,
                                   onPressed: () {
                                     showDialog(
                                       context: context,
-                                      builder: (context) => AssignOrderDialog(driver: driver),
+                                      builder: (context) =>
+                                          AssignOrderDialog(driver: driver),
                                     );
                                   },
                                 ),
                                 _buildActionButton(
                                   icon: LucideIcons.calendarClock,
-                                  label: AppLocalizations.of(context)!.actionShifts,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.actionShifts,
                                   onPressed: () {
                                     showDialog(
                                       context: context,
-                                      builder: (context) => DriverShiftsDialog(driver: driver),
+                                      builder: (context) =>
+                                          DriverShiftsDialog(driver: driver),
                                     );
                                   },
                                 ),
                                 if (_canManageDrivers) ...[
                                   _buildActionButton(
                                     icon: LucideIcons.mapPin,
-                                    label: AppLocalizations.of(context)!.actionLocation,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    )!.actionLocation,
                                     onPressed: () => _locateDriver(driver),
                                   ),
                                   _buildActionButton(
                                     icon: LucideIcons.pencil,
-                                    label: AppLocalizations.of(context)!.actionEdit,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    )!.actionEdit,
                                     onPressed: () {
                                       showDialog(
                                         context: context,
-                                        builder: (context) => DriverFormDialog(driver: driver),
+                                        builder: (context) =>
+                                            DriverFormDialog(driver: driver),
                                       );
                                     },
                                   ),
                                   if (!driver.isApproved)
                                     _buildActionButton(
                                       icon: LucideIcons.checkCircle,
-                                      label: AppLocalizations.of(context)!.actionApprove,
+                                      label: AppLocalizations.of(
+                                        context,
+                                      )!.actionApprove,
                                       iconColor: AppColors.success,
-                                      backgroundColor: AppColors.success.withValues(alpha: 0.1),
+                                      backgroundColor: AppColors.success
+                                          .withValues(alpha: 0.1),
                                       onPressed: () {
-                                        final messenger = ScaffoldMessenger.of(context);
-                                        ref.read(driversProvider.notifier).updateDriver(
-                                          driver.id,
-                                          {'isApproved': true},
-                                        ).then((_) {
-                                          if (!mounted) return;
-                                          messenger.showSnackBar(
-                                            const SnackBar(content: Text('Driver Approved')),
-                                          );
-                                        }).catchError((err) {
-                                          if (!mounted) return;
-                                          messenger.showSnackBar(
-                                            SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
-                                          );
-                                        });
+                                        final messenger = ScaffoldMessenger.of(
+                                          context,
+                                        );
+                                        ref
+                                            .read(driversProvider.notifier)
+                                            .updateDriver(driver.id, {
+                                              'isApproved': true,
+                                            })
+                                            .then((_) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Driver Approved',
+                                                  ),
+                                                ),
+                                              );
+                                            })
+                                            .catchError((err) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    ErrorUtils.translate(
+                                                      context,
+                                                      err,
+                                                    ),
+                                                  ),
+                                                  backgroundColor:
+                                                      AppColors.error,
+                                                ),
+                                              );
+                                            });
                                       },
                                     )
                                   else
                                     _buildActionButton(
-                                      icon: driver.isSuspended ? LucideIcons.checkCircle : LucideIcons.ban,
-                                      label: driver.isSuspended ? AppLocalizations.of(context)!.actionUnsuspend : AppLocalizations.of(context)!.actionSuspend,
-                                      iconColor: driver.isSuspended ? AppColors.success : AppColors.error,
-                                      backgroundColor: (driver.isSuspended ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                                      icon: driver.isSuspended
+                                          ? LucideIcons.checkCircle
+                                          : LucideIcons.ban,
+                                      label: driver.isSuspended
+                                          ? AppLocalizations.of(
+                                              context,
+                                            )!.actionUnsuspend
+                                          : AppLocalizations.of(
+                                              context,
+                                            )!.actionSuspend,
+                                      iconColor: driver.isSuspended
+                                          ? AppColors.success
+                                          : AppColors.error,
+                                      backgroundColor:
+                                          (driver.isSuspended
+                                                  ? AppColors.success
+                                                  : AppColors.error)
+                                              .withValues(alpha: 0.1),
                                       onPressed: () {
-                                        final messenger = ScaffoldMessenger.of(context);
-                                        final notifier = ref.read(driversProvider.notifier);
+                                        final messenger = ScaffoldMessenger.of(
+                                          context,
+                                        );
+                                        final notifier = ref.read(
+                                          driversProvider.notifier,
+                                        );
                                         final action = driver.isSuspended
-                                            ? notifier.unsuspendDriver(driver.id)
+                                            ? notifier.unsuspendDriver(
+                                                driver.id,
+                                              )
                                             : notifier.suspendDriver(driver.id);
-                                        
-                                        action.then((_) {
-                                          if (!mounted) return;
-                                          messenger.showSnackBar(
-                                            SnackBar(content: Text(driver.isSuspended ? 'Driver Unsuspended' : 'Driver Suspended')),
-                                          );
-                                        }).catchError((err) {
-                                          if (!mounted) return;
-                                          messenger.showSnackBar(
-                                            SnackBar(content: Text(ErrorUtils.translate(context, err)), backgroundColor: AppColors.error),
-                                          );
-                                        });
+
+                                        action
+                                            .then((_) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    driver.isSuspended
+                                                        ? 'Driver Unsuspended'
+                                                        : 'Driver Suspended',
+                                                  ),
+                                                ),
+                                              );
+                                            })
+                                            .catchError((err) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    ErrorUtils.translate(
+                                                      context,
+                                                      err,
+                                                    ),
+                                                  ),
+                                                  backgroundColor:
+                                                      AppColors.error,
+                                                ),
+                                              );
+                                            });
                                       },
                                     ),
-                                ]
+                                ],
                               ],
                             ),
                           ],
@@ -626,13 +760,19 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: backgroundColor ?? Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                color:
+                    backgroundColor ??
+                    Theme.of(
+                      context,
+                    ).colorScheme.secondaryContainer.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 18,
-                color: iconColor ?? Theme.of(context).colorScheme.onSecondaryContainer,
+                color:
+                    iconColor ??
+                    Theme.of(context).colorScheme.onSecondaryContainer,
               ),
             ),
             const SizedBox(height: 6),
@@ -649,4 +789,3 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     );
   }
 }
-

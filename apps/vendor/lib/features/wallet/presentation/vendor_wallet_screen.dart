@@ -60,11 +60,16 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(LucideIcons.alertTriangle,
-                size: 48, color: AppColors.error),
+            const Icon(
+              LucideIcons.alertTriangle,
+              size: 48,
+              color: AppColors.error,
+            ),
             const SizedBox(height: 12),
-            Text(ErrorUtils.translate(context, err),
-                style: const TextStyle(color: AppColors.error)),
+            Text(
+              ErrorUtils.translate(context, err),
+              style: const TextStyle(color: AppColors.error),
+            ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => ref.invalidate(vendorWalletDataProvider),
@@ -90,14 +95,12 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         final balanceData = data['balance'] is Map
             ? data['balance'] as Map<String, dynamic>
             : <String, dynamic>{};
-        final balance = double.tryParse(
-                (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0')
-                    .toString()) ??
+        final balance =
+            double.tryParse(
+              (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0')
+                  .toString(),
+            ) ??
             0.0;
-        final summary = data['summary'] is Map
-            ? data['summary'] as Map<String, dynamic>
-            : <String, dynamic>{};
-
         final transactions = data['transactions'] as List<dynamic>;
         final hasMore = data['hasMore'] == true;
 
@@ -109,8 +112,8 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               _buildBalanceCard(context, balance, theme),
               const SizedBox(height: 16),
               _buildFilterBar(context, notifier, theme),
-              const SizedBox(height: 16),
-              if (summary.isNotEmpty) _buildSummary(context, summary, theme),
+              const SizedBox(height: 20),
+              _buildSummary(context, data, theme),
               const SizedBox(height: 24),
               Wrap(
                 alignment: WrapAlignment.spaceBetween,
@@ -121,7 +124,9 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                   Text(
                     _isArabic ? 'المعاملات' : 'Transactions',
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Wrap(
                     spacing: 4,
@@ -129,7 +134,10 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                       if (transactions.isNotEmpty)
                         TextButton.icon(
                           onPressed: () => _exportTransactions(
-                              context, balance, transactions),
+                            context,
+                            balance,
+                            transactions,
+                          ),
                           icon: const Icon(Icons.download, size: 18),
                           label: Text(_isArabic ? 'تصدير' : 'Export'),
                         ),
@@ -137,8 +145,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  const VendorProductSalesScreen(),
+                              builder: (_) => const VendorProductSalesScreen(),
                             ),
                           );
                         },
@@ -156,8 +163,10 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                             ),
                           );
                         },
-                        icon: const Icon(LucideIcons.chartNoAxesCombined,
-                            size: 18),
+                        icon: const Icon(
+                          LucideIcons.chartNoAxesCombined,
+                          size: 18,
+                        ),
                         label: Text(_isArabic ? 'الإحصائيات' : 'Statistics'),
                       ),
                     ],
@@ -171,16 +180,21 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                     padding: const EdgeInsets.all(32.0),
                     child: Column(
                       children: [
-                        Icon(LucideIcons.receipt,
-                            size: 48,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2)),
+                        Icon(
+                          LucideIcons.receipt,
+                          size: 48,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.2,
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           _isArabic ? 'لا توجد معاملات' : 'No transactions yet',
                           style: TextStyle(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5)),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -188,7 +202,8 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                 )
               else ...[
                 ...transactions.map(
-                    (tx) => _buildTransactionCard(context, tx, theme)),
+                  (tx) => _buildTransactionCard(context, tx, theme),
+                ),
                 if (hasMore)
                   Center(
                     child: Padding(
@@ -216,14 +231,13 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     final selectedType = notifier.selectedType;
     final from = notifier.fromDate;
     final to = notifier.toDate;
-    final hasFilters =
-        selectedType != null || from != null || to != null;
+    final hasFilters = selectedType != null || from != null || to != null;
 
     final dateLabel = from == null && to == null
         ? (_isArabic ? 'كل التواريخ' : 'All dates')
         : '${from != null ? DateFormat('yyyy-MM-dd').format(from) : '...'}'
-            ' - '
-            '${to != null ? DateFormat('yyyy-MM-dd').format(to) : '...'}';
+              ' - '
+              '${to != null ? DateFormat('yyyy-MM-dd').format(to) : '...'}';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -245,8 +259,10 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -301,9 +317,14 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
 
   Widget _buildSummary(
     BuildContext context,
-    Map<String, dynamic> summary,
+    Map<String, dynamic> data,
     ThemeData theme,
   ) {
+    final summary = data['summary'] is Map
+        ? data['summary'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    if (summary.isEmpty) return const SizedBox.shrink();
+
     final credits =
         double.tryParse(summary['totalCredits']?.toString() ?? '0') ?? 0;
     final debits =
@@ -313,28 +334,24 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
 
     final cards = <Widget>[
       _summaryCard(
-        context,
         theme,
         label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
         value: '+${credits.toStringAsFixed(2)} EGP',
         color: AppColors.success,
       ),
       _summaryCard(
-        context,
         theme,
         label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
         value: '-${debits.toStringAsFixed(2)} EGP',
         color: AppColors.error,
       ),
       _summaryCard(
-        context,
         theme,
         label: _isArabic ? 'صافي التغير' : 'Net change',
         value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
         color: net >= 0 ? AppColors.success : AppColors.error,
       ),
       _summaryCard(
-        context,
         theme,
         label: _isArabic ? 'عدد المعاملات' : 'Transactions',
         value: '$count',
@@ -342,41 +359,41 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
       ),
     ];
 
+    final byType = summary['byType'];
+    final hasByType = byType is List && byType.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(spacing: 12, runSpacing: 12, children: cards),
-        if (summary['byType'] is List && (summary['byType'] as List).isNotEmpty) ...[
-          const SizedBox(height: 12),
+        if (hasByType) ...[
+          const SizedBox(height: 16),
+          Text(
+            _isArabic ? 'تفصيل حسب النوع' : 'Breakdown by type',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final entry in summary['byType'] as List)
-                Builder(
-                  builder: (context) {
-                    if (entry is! Map) return const SizedBox.shrink();
-                    final total =
-                        double.tryParse(entry['total']?.toString() ?? '0') ?? 0;
-                    return Chip(
-                      label: Text(
-                        '${_typeLabel(entry['type']?.toString() ?? '')}: '
-                        '${total >= 0 ? '+' : ''}${total.toStringAsFixed(2)} EGP',
-                        style: TextStyle(
-                          color: total >= 0
-                              ? AppColors.success
-                              : AppColors.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                      backgroundColor: theme.colorScheme.surface,
-                      side: BorderSide(
-                        color:
-                            theme.dividerColor.withValues(alpha: 0.15),
-                      ),
-                    );
-                  },
-                ),
+              for (final entry in byType)
+                if (entry is Map) ...[
+                  _typeChip(
+                    context,
+                    theme,
+                    '${_typeLabel(entry['type']?.toString() ?? '')}: '
+                    '${(double.tryParse(entry['total']?.toString() ?? '0') ?? 0).toStringAsFixed(2)} EGP',
+                    (double.tryParse(entry['total']?.toString() ?? '0') ?? 0)
+                            .isNegative
+                        ? AppColors.error
+                        : AppColors.success,
+                  ),
+                ],
             ],
           ),
         ],
@@ -385,19 +402,25 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
   }
 
   Widget _summaryCard(
-    BuildContext context,
     ThemeData theme, {
     required String label,
     required String value,
     required Color color,
   }) {
     return Container(
-      width: 180,
+      width: 170,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,8 +429,11 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
             label,
             style: TextStyle(
               fontSize: 12,
+              fontWeight: FontWeight.w500,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           Text(
@@ -417,8 +443,34 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               fontWeight: FontWeight.bold,
               color: color,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _typeChip(
+    BuildContext context,
+    ThemeData theme,
+    String label,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
@@ -442,7 +494,8 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         [
           tx['createdAt'] != null
               ? dateFormat.format(
-                  DateTime.parse(tx['createdAt'].toString()).toLocal())
+                  DateTime.parse(tx['createdAt'].toString()).toLocal(),
+                )
               : '',
           _typeLabel(tx['type']?.toString() ?? ''),
           tx['description']?.toString() ?? '',
@@ -466,14 +519,17 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
   }
 
   Widget _buildBalanceCard(
-      BuildContext context, double balance, ThemeData theme) {
+    BuildContext context,
+    double balance,
+    ThemeData theme,
+  ) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             AppColors.primary,
-            AppColors.primary.withValues(alpha: 0.8),
+            AppColors.primary.withValues(alpha: 0.85),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -481,9 +537,9 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -493,34 +549,81 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(LucideIcons.wallet,
-                    color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                _isArabic ? 'الرصيد المتاح' : 'Available Balance',
-                style: const TextStyle(
+                child: const Icon(
+                  LucideIcons.wallet,
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isArabic ? 'الرصيد المتاح' : 'Available Balance',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      balance >= 0
+                          ? (_isArabic
+                                ? 'رصيدك متاح للسحب'
+                                : 'Available for withdrawal')
+                          : (_isArabic ? 'رصيد سلبي' : 'Negative balance'),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Text(
-            '${balance.toStringAsFixed(2)} EGP',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -1,
-            ),
+          const SizedBox(height: 26),
+          Row(
+            children: [
+              Text(
+                '${balance.toStringAsFixed(2)} EGP',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -1.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  balance >= 0 ? 'EGP' : 'EGP',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -528,7 +631,10 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
   }
 
   Widget _buildTransactionCard(
-      BuildContext context, dynamic tx, ThemeData theme) {
+    BuildContext context,
+    dynamic tx,
+    ThemeData theme,
+  ) {
     final type = tx['type'] ?? 'UNKNOWN';
     final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
     final date = tx['createdAt'] != null
@@ -538,7 +644,9 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
 
     final isCredit = amount >= 0;
     final color = isCredit ? AppColors.success : AppColors.error;
-    final icon = isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight;
+    final icon = isCredit
+        ? LucideIcons.arrowDownLeft
+        : LucideIcons.arrowUpRight;
     final sign = isCredit ? '+' : '-';
 
     return Container(

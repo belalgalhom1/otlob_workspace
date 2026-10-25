@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -12,7 +12,8 @@ class AnnouncementsScreen extends ConsumerStatefulWidget {
   const AnnouncementsScreen({super.key});
 
   @override
-  ConsumerState<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
+  ConsumerState<AnnouncementsScreen> createState() =>
+      _AnnouncementsScreenState();
 }
 
 class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
@@ -37,12 +38,14 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     if (!_formKey.currentState!.validate()) return;
     final l10n = AppLocalizations.of(context)!;
 
-    final audienceLabel = {
-      'ALL': l10n.allUsersGlobal,
-      'CUSTOMERS': l10n.customersOnly,
-      'DRIVERS': l10n.driversOnly,
-      'VENDORS': l10n.vendorsOnly,
-    }[_audience] ?? _audience;
+    final audienceLabel =
+        {
+          'ALL': l10n.allUsersGlobal,
+          'CUSTOMERS': l10n.customersOnly,
+          'DRIVERS': l10n.driversOnly,
+          'VENDORS': l10n.vendorsOnly,
+        }[_audience] ??
+        _audience;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -79,22 +82,29 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final dto = DispatchAnnouncementDto((b) => b
-        ..audience = DispatchAnnouncementDtoAudienceEnum.valueOf(_audience)
-        ..title = _titleController.text.trim()
-        ..titleAr = _titleArController.text.trim()
-        ..body = _bodyController.text.trim()
-        ..bodyAr = _bodyArController.text.trim()
+      final dto = DispatchAnnouncementDto(
+        (b) => b
+          ..audience = DispatchAnnouncementDtoAudienceEnum.valueOf(_audience)
+          ..title = _titleController.text.trim()
+          ..titleAr = _titleArController.text.trim()
+          ..body = _bodyController.text.trim()
+          ..bodyAr = _bodyArController.text.trim(),
       );
 
-      await ref.read(sharedNotificationsRepositoryProvider).dispatchAnnouncement(dto);
+      await ref
+          .read(sharedNotificationsRepositoryProvider)
+          .dispatchAnnouncement(dto);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                Icon(LucideIcons.checkCircle, color: Theme.of(context).colorScheme.onSurface, size: 18),
+                Icon(
+                  LucideIcons.checkCircle,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
                 Text(AppLocalizations.of(context)!.announcementSuccess),
               ],
@@ -157,7 +167,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
@@ -175,7 +187,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                             l10n.announcementsTitle,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface,
-                              fontSize: 22,
+                              fontSize: 26,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -207,7 +219,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.04),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -221,11 +235,17 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                       // Section title
                       Row(
                         children: [
-                          const Icon(LucideIcons.settings2, size: 18, color: AppColors.primary),
+                          const Icon(
+                            LucideIcons.settings2,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             l10n.newAnnouncementTitle,
-                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -236,7 +256,11 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                       // and gets clipped).
                       Row(
                         children: [
-                          const Icon(LucideIcons.users, size: 16, color: AppColors.primary),
+                          const Icon(
+                            LucideIcons.users,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             l10n.targetAudience,
@@ -261,10 +285,22 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                           ),
                         ),
                         items: [
-                          DropdownMenuItem(value: 'ALL', child: Text(l10n.allUsersGlobal)),
-                          DropdownMenuItem(value: 'CUSTOMERS', child: Text(l10n.customersOnly)),
-                          DropdownMenuItem(value: 'DRIVERS', child: Text(l10n.driversOnly)),
-                          DropdownMenuItem(value: 'VENDORS', child: Text(l10n.vendorsOnly)),
+                          DropdownMenuItem(
+                            value: 'ALL',
+                            child: Text(l10n.allUsersGlobal),
+                          ),
+                          DropdownMenuItem(
+                            value: 'CUSTOMERS',
+                            child: Text(l10n.customersOnly),
+                          ),
+                          DropdownMenuItem(
+                            value: 'DRIVERS',
+                            child: Text(l10n.driversOnly),
+                          ),
+                          DropdownMenuItem(
+                            value: 'VENDORS',
+                            child: Text(l10n.vendorsOnly),
+                          ),
                         ],
                         onChanged: (val) => setState(() => _audience = val!),
                       ),
@@ -273,7 +309,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                       // Language columns
                       if (isMobile) ...[
                         _buildLanguageSection(
-                          context, l10n,
+                          context,
+                          l10n,
                           label: l10n.english,
                           icon: LucideIcons.languages,
                           titleController: _titleController,
@@ -285,7 +322,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                         ),
                         const SizedBox(height: 20),
                         _buildLanguageSection(
-                          context, l10n,
+                          context,
+                          l10n,
                           label: l10n.arabic,
                           icon: LucideIcons.type,
                           titleController: _titleArController,
@@ -301,7 +339,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                           children: [
                             Expanded(
                               child: _buildLanguageSection(
-                                context, l10n,
+                                context,
+                                l10n,
                                 label: l10n.english,
                                 icon: LucideIcons.languages,
                                 titleController: _titleController,
@@ -315,7 +354,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                             const SizedBox(width: 20),
                             Expanded(
                               child: _buildLanguageSection(
-                                context, l10n,
+                                context,
+                                l10n,
                                 label: l10n.arabic,
                                 icon: LucideIcons.type,
                                 titleController: _titleArController,
@@ -339,7 +379,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -351,14 +393,18 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                     strokeWidth: 2,
                                   ),
                                 )
                               : const Icon(LucideIcons.send, size: 18),
                           label: Flexible(
                             child: Text(
-                              _isLoading ? l10n.sending : l10n.broadcastAnnouncement,
+                              _isLoading
+                                  ? l10n.sending
+                                  : l10n.broadcastAnnouncement,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

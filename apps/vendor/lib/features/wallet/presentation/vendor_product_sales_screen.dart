@@ -89,9 +89,7 @@ class _VendorProductSalesScreenState
           title: Text(_isArabic ? 'المنتجات المباعة' : 'Products Sold'),
         ),
         body: Center(
-          child: Text(
-            _isArabic ? 'لم يتم اختيار متجر' : 'No vendor selected.',
-          ),
+          child: Text(_isArabic ? 'لم يتم اختيار متجر' : 'No vendor selected.'),
         ),
       );
     }
@@ -129,10 +127,10 @@ class _VendorProductSalesScreenState
               onPressed: _exporting
                   ? null
                   : () => _export(
-                        data['totals'] is Map
-                            ? data['totals'] as Map<String, dynamic>
-                            : const <String, dynamic>{},
-                      ),
+                      data['totals'] is Map
+                          ? data['totals'] as Map<String, dynamic>
+                          : const <String, dynamic>{},
+                    ),
               icon: _exporting
                   ? const SizedBox(
                       width: 18,
@@ -149,8 +147,11 @@ class _VendorProductSalesScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(LucideIcons.alertTriangle,
-                  color: AppColors.error, size: 48),
+              const Icon(
+                LucideIcons.alertTriangle,
+                color: AppColors.error,
+                size: 48,
+              ),
               const SizedBox(height: 12),
               Text(
                 _isArabic
@@ -203,7 +204,9 @@ class _VendorProductSalesScreenState
                     Text(
                       _isArabic ? 'المنتجات' : 'Products',
                       style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       _isArabic
@@ -211,8 +214,9 @@ class _VendorProductSalesScreenState
                           : '${_int(totals['productCount'])} products',
                       style: TextStyle(
                         fontSize: 13,
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                     ),
                   ],
@@ -227,8 +231,9 @@ class _VendorProductSalesScreenState
                           Icon(
                             LucideIcons.packageSearch,
                             size: 48,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.2,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Text(
@@ -236,8 +241,9 @@ class _VendorProductSalesScreenState
                                 ? 'لا توجد مبيعات في هذه الفترة'
                                 : 'No sales in this period',
                             style: TextStyle(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                           ),
                         ],
@@ -266,8 +272,7 @@ class _VendorProductSalesScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton.outlined(
-              onPressed:
-                  currentPage > 1 ? () => setState(() => _page--) : null,
+              onPressed: currentPage > 1 ? () => setState(() => _page--) : null,
               tooltip: _isArabic ? 'السابق' : 'Previous',
               icon: const Icon(LucideIcons.chevronLeft, size: 18),
             ),
@@ -284,8 +289,9 @@ class _VendorProductSalesScreenState
               ),
             ),
             IconButton.outlined(
-              onPressed:
-                  currentPage < totalPages ? () => setState(() => _page++) : null,
+              onPressed: currentPage < totalPages
+                  ? () => setState(() => _page++)
+                  : null,
               tooltip: _isArabic ? 'التالي' : 'Next',
               icon: const Icon(LucideIcons.chevronRight, size: 18),
             ),
@@ -299,10 +305,11 @@ class _VendorProductSalesScreenState
     final dateLabel = _from == null && _to == null
         ? (_isArabic ? 'كل التواريخ' : 'All dates')
         : '${_from != null ? DateFormat('yyyy-MM-dd').format(_from!) : '...'}'
-            ' - '
-            '${_to != null ? DateFormat('yyyy-MM-dd').format(_to!) : '...'}';
+              ' - '
+              '${_to != null ? DateFormat('yyyy-MM-dd').format(_to!) : '...'}';
 
-    final hasFilters = _from != null ||
+    final hasFilters =
+        _from != null ||
         _to != null ||
         _search != null ||
         _sortBy != 'revenue' ||
@@ -342,8 +349,10 @@ class _VendorProductSalesScreenState
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               onSubmitted: (value) {
                 final trimmed = value.trim();
@@ -383,8 +392,10 @@ class _VendorProductSalesScreenState
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -450,36 +461,42 @@ class _VendorProductSalesScreenState
     final cards = <Widget>[
       _statCard(
         theme,
+        icon: LucideIcons.package,
         label: _isArabic ? 'المنتجات' : 'Products',
         value: '${_int(totals['productCount'])}',
         color: AppColors.primary,
       ),
       _statCard(
         theme,
+        icon: LucideIcons.shoppingBag,
         label: _isArabic ? 'الوحدات المباعة' : 'Units sold',
         value: '${_int(totals['quantitySold'])}',
         color: AppColors.info,
       ),
       _statCard(
         theme,
+        icon: LucideIcons.shoppingCart,
         label: _isArabic ? 'الطلبات' : 'Orders',
         value: '${_int(totals['ordersCount'])}',
         color: AppColors.warning,
       ),
       _statCard(
         theme,
+        icon: LucideIcons.dollarSign,
         label: _isArabic ? 'إجمالي الإيرادات' : 'Gross revenue',
         value: _money(totals['grossRevenue']),
         color: AppColors.success,
       ),
       _statCard(
         theme,
+        icon: LucideIcons.percent,
         label: _isArabic ? 'العمولة' : 'Commission',
         value: _money(totals['commission']),
         color: AppColors.error,
       ),
       _statCard(
         theme,
+        icon: LucideIcons.trendingUp,
         label: _isArabic ? 'صافي الربح' : 'Net profit',
         value: _money(totals['netRevenue']),
         color: AppColors.success,
@@ -491,35 +508,59 @@ class _VendorProductSalesScreenState
 
   Widget _statCard(
     ThemeData theme, {
+    required IconData icon,
     required String label,
     required String value,
     required Color color,
   }) {
     return Container(
-      width: 180,
-      padding: const EdgeInsets.all(16),
+      width: 175,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(height: 14),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontWeight: FontWeight.w500,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
               color: color,
+              letterSpacing: -0.5,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -136,9 +136,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             widget.vendorName,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ],
@@ -211,11 +209,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 ).colorScheme.onSurface.withValues(alpha: 0.05),
               ),
             ),
-            child: const Icon(
-              LucideIcons.mapPin,
-              size: 48,
-              
-            ),
+            child: const Icon(LucideIcons.mapPin, size: 48),
           ),
           const SizedBox(height: 24),
           Text(
@@ -229,11 +223,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
           const SizedBox(height: 8),
           Text(
             AppLocalizations.of(context)!.noBranchesDescription,
-            style: TextStyle(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface,
-            ),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             textAlign: TextAlign.center,
           ),
         ],
@@ -289,10 +279,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
         ),
         child: Text(
           isAr ? 'يتبع المتجر' : 'Inherits Vendor',
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: Colors.grey, fontSize: 11),
         ),
       );
     }
@@ -369,9 +356,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
               branch['address'] ??
                   AppLocalizations.of(context)!.noAddressProvided,
               style: TextStyle(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
               ),
             ),
@@ -381,18 +366,11 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   children: [
-                    const Icon(
-                      LucideIcons.phone,
-                      size: 12,
-                      
-                    ),
+                    const Icon(LucideIcons.phone, size: 12),
                     const SizedBox(width: 4),
                     Text(
                       branch['phoneNumber'],
-                      style: const TextStyle(
-                        
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
@@ -405,9 +383,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
             _buildActionItem(
               context: context,
               icon: LucideIcons.edit3,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
               label: AppLocalizations.of(context)!.edit,
               onPressed: () => _showAddBranchDialog(branch: branch),
             ),
@@ -452,9 +428,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
@@ -488,8 +462,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
             for (int i = 0, j = n - 1; i < n; j = i++) {
               final xi = points[i].latitude, yi = points[i].longitude;
               final xj = points[j].latitude, yj = points[j].longitude;
-              final intersect = ((yi > point.longitude) != (yj > point.longitude)) &&
-                  (point.latitude < (xj - xi) * (point.longitude - yi) / (yj - yi) + xi);
+              final intersect =
+                  ((yi > point.longitude) != (yj > point.longitude)) &&
+                  (point.latitude <
+                      (xj - xi) * (point.longitude - yi) / (yj - yi) + xi);
               if (intersect) inside = !inside;
             }
             if (inside && id != null) return id;
@@ -600,14 +576,15 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.15),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.15),
                               ),
                             ),
                             child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -615,63 +592,74 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 LucideIcons.map,
                                 color: selectedLat != null
                                     ? AppColors.success
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.5),
+                                    : Theme.of(context).colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
                               ),
                               title: Text(
                                 selectedLat != null
-                                    ? AppLocalizations.of(context)!.locationSelected
-                                    : AppLocalizations.of(context)!.pickLocation,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            subtitle: selectedLat != null
-                                ? Text(
-                                    '${selectedLat!.toStringAsFixed(4)}, ${selectedLng!.toStringAsFixed(4)}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.6),
-                                      fontSize: 12,
-                                    ),
-                                  )
-                                : null,
-                            trailing: const Icon(LucideIcons.chevronRight),
-                            onTap: () async {
-                              final zones =
-                                  ref.read(zoneProvider).asData?.value.zones ??
-                                      [];
-                              final result = await Navigator.push<LatLng>(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => LocationPickerMap(
-                                    initialLocation:
-                                        selectedLat != null && selectedLng != null
-                                            ? LatLng(selectedLat!, selectedLng!)
-                                            : null,
-                                    zones: zones,
-                                  ),
+                                    ? AppLocalizations.of(
+                                        context,
+                                      )!.locationSelected
+                                    : AppLocalizations.of(
+                                        context,
+                                      )!.pickLocation,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
-                              );
-                              if (result != null) {
-                                setState(() {
-                                  selectedLat = result.latitude;
-                                  selectedLng = result.longitude;
-                                  final matchedZone =
-                                      _findMatchingZoneId(result, zones);
-                                  if (matchedZone != null) {
-                                    selectedZoneId = matchedZone;
-                                  }
-                                });
-                              }
-                            },
-                          ),
+                              ),
+                              subtitle: selectedLat != null
+                                  ? Text(
+                                      '${selectedLat!.toStringAsFixed(4)}, ${selectedLng!.toStringAsFixed(4)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.6),
+                                        fontSize: 12,
+                                      ),
+                                    )
+                                  : null,
+                              trailing: const Icon(LucideIcons.chevronRight),
+                              onTap: () async {
+                                final zones =
+                                    ref
+                                        .read(zoneProvider)
+                                        .asData
+                                        ?.value
+                                        .zones ??
+                                    [];
+                                final result = await Navigator.push<LatLng>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LocationPickerMap(
+                                      initialLocation:
+                                          selectedLat != null &&
+                                              selectedLng != null
+                                          ? LatLng(selectedLat!, selectedLng!)
+                                          : null,
+                                      zones: zones,
+                                    ),
+                                  ),
+                                );
+                                if (result != null) {
+                                  setState(() {
+                                    selectedLat = result.latitude;
+                                    selectedLng = result.longitude;
+                                    final matchedZone = _findMatchingZoneId(
+                                      result,
+                                      zones,
+                                    );
+                                    if (matchedZone != null) {
+                                      selectedZoneId = matchedZone;
+                                    }
+                                  });
+                                }
+                              },
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Consumer(
@@ -680,14 +668,16 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                               return zoneState.when(
                                 data: (data) {
                                   final l10n = AppLocalizations.of(context)!;
-                                  final isValidZone = selectedZoneId == null ||
+                                  final isValidZone =
+                                      selectedZoneId == null ||
                                       data.zones.any(
                                         (z) =>
                                             z['id']?.toString() ==
                                             selectedZoneId,
                                       );
-                                  final currentZoneValue =
-                                      isValidZone ? selectedZoneId : null;
+                                  final currentZoneValue = isValidZone
+                                      ? selectedZoneId
+                                      : null;
 
                                   return DropdownButtonFormField<String?>(
                                     key: ValueKey(currentZoneValue),
@@ -739,77 +729,127 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                           const SizedBox(height: 16),
                           Container(
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.5),
                               ),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    Icon(LucideIcons.handshake, size: 18, color: AppColors.primary),
+                                    Icon(
+                                      LucideIcons.handshake,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        Localizations.localeOf(context).languageCode == 'ar'
+                                        Localizations.localeOf(
+                                                  context,
+                                                ).languageCode ==
+                                                'ar'
                                             ? 'حالة التعاقد للفرع'
                                             : 'Branch Contract Status',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  Localizations.localeOf(context).languageCode == 'ar'
+                                  Localizations.localeOf(
+                                            context,
+                                          ).languageCode ==
+                                          'ar'
                                       ? 'إذا لم يتم التحديد، سيتبع الفرع حالة المتجر الرئيسية تلقائياً'
                                       : 'If unset, branch inherits the vendor contract status',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                SegmentedButton<bool?>(
-                                  segments: [
-                                    ButtonSegment<bool?>(
-                                      value: null,
-                                      label: Text(
-                                        Localizations.localeOf(context).languageCode == 'ar'
-                                            ? 'افتراضي المتجر'
-                                            : 'Inherit',
-                                        style: const TextStyle(fontSize: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: DropdownButtonFormField<bool?>(
+                                    initialValue: isContracted,
+                                    decoration: InputDecoration(
+                                      hintText:
+                                          Localizations.localeOf(
+                                                context,
+                                              ).languageCode ==
+                                              'ar'
+                                          ? 'اختر حالة التعاقد'
+                                          : 'Select contract status',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 14,
+                                          ),
                                     ),
-                                    ButtonSegment<bool?>(
-                                      value: true,
-                                      label: Text(
-                                        Localizations.localeOf(context).languageCode == 'ar'
-                                            ? 'شريك معتمد'
-                                            : 'Contracted',
-                                        style: const TextStyle(fontSize: 12),
+                                    items: [
+                                      DropdownMenuItem<bool?>(
+                                        value: null,
+                                        child: Text(
+                                          Localizations.localeOf(
+                                                    context,
+                                                  ).languageCode ==
+                                                  'ar'
+                                              ? 'افتراضي المتجر (توريث)'
+                                              : 'Inherit vendor status',
+                                        ),
                                       ),
-                                    ),
-                                    ButtonSegment<bool?>(
-                                      value: false,
-                                      label: Text(
-                                        Localizations.localeOf(context).languageCode == 'ar'
-                                            ? 'غير متعاقد'
-                                            : 'Uncontracted',
-                                        style: const TextStyle(fontSize: 12),
+                                      DropdownMenuItem<bool?>(
+                                        value: true,
+                                        child: Text(
+                                          Localizations.localeOf(
+                                                    context,
+                                                  ).languageCode ==
+                                                  'ar'
+                                              ? 'شريك معتمد'
+                                              : 'Contracted',
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                  selected: {isContracted},
-                                  onSelectionChanged: (Set<bool?> selection) {
-                                    setState(() {
-                                      isContracted = selection.first;
-                                    });
-                                  },
+                                      DropdownMenuItem<bool?>(
+                                        value: false,
+                                        child: Text(
+                                          Localizations.localeOf(
+                                                    context,
+                                                  ).languageCode ==
+                                                  'ar'
+                                              ? 'غير متعاقد'
+                                              : 'Uncontracted',
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() {
+                                        isContracted = val;
+                                      });
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -817,10 +857,14 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                           const SizedBox(height: 16),
                           _buildDialogTextField(
                             controller: commissionController,
-                            label: Localizations.localeOf(context).languageCode == 'ar'
+                            label:
+                                Localizations.localeOf(context).languageCode ==
+                                    'ar'
                                 ? 'نسبة العمولة الخاصة بالفرع (٪) (اختياري)'
                                 : 'Branch Commission Rate (%) (Optional)',
-                            hint: Localizations.localeOf(context).languageCode == 'ar'
+                            hint:
+                                Localizations.localeOf(context).languageCode ==
+                                    'ar'
                                 ? 'اتركه فارغاً ليتبع نسبة المتجر'
                                 : 'Leave empty to inherit vendor rate',
                             keyboardType: TextInputType.number,
@@ -879,9 +923,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             onPressed: () => Navigator.pop(context),
                             child: Text(
                               AppLocalizations.of(context)!.cancel,
-                              style: const TextStyle(
-                                
-                              ),
+                              style: const TextStyle(),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -889,13 +931,19 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             onPressed: () async {
                               if (nameController.text.trim().isEmpty) {
                                 setState(() {
-                                  errorMessage = AppLocalizations.of(context)!.requiredField;
+                                  errorMessage = AppLocalizations.of(
+                                    context,
+                                  )!.requiredField;
                                 });
                                 return;
                               }
-                              if (!isEdit && (selectedLat == null || selectedLng == null)) {
+                              if (!isEdit &&
+                                  (selectedLat == null ||
+                                      selectedLng == null)) {
                                 setState(() {
-                                  errorMessage = AppLocalizations.of(context)!.pickLocation;
+                                  errorMessage = AppLocalizations.of(
+                                    context,
+                                  )!.pickLocation;
                                 });
                                 return;
                               }
@@ -929,8 +977,14 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             lng: selectedLng,
                                             zoneId: selectedZoneId,
                                             isContracted: isContracted,
-                                            commissionRate: commissionController.text.trim().isNotEmpty
-                                                ? int.tryParse(commissionController.text.trim())
+                                            commissionRate:
+                                                commissionController.text
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? int.tryParse(
+                                                    commissionController.text
+                                                        .trim(),
+                                                  )
                                                 : null,
                                           ) !=
                                       null;
@@ -956,8 +1010,14 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             lng: selectedLng!,
                                             zoneId: selectedZoneId,
                                             isContracted: isContracted,
-                                            commissionRate: commissionController.text.trim().isNotEmpty
-                                                ? int.tryParse(commissionController.text.trim())
+                                            commissionRate:
+                                                commissionController.text
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? int.tryParse(
+                                                    commissionController.text
+                                                        .trim(),
+                                                  )
                                                 : null,
                                           ) !=
                                       null;
@@ -968,8 +1028,12 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                   SnackBar(
                                     content: Text(
                                       isEdit
-                                          ? AppLocalizations.of(context)!.common_success_resource_updated
-                                          : AppLocalizations.of(context)!.common_success_resource_created,
+                                          ? AppLocalizations.of(
+                                              context,
+                                            )!.common_success_resource_updated
+                                          : AppLocalizations.of(
+                                              context,
+                                            )!.common_success_resource_created,
                                     ),
                                     backgroundColor: AppColors.success,
                                   ),
@@ -1034,22 +1098,18 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
             prefixIcon: Icon(
               icon,
               size: 18,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
             contentPadding: const EdgeInsets.all(16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.15),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.15),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -1129,7 +1189,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  AppLocalizations.of(context)!.common_success_resource_deleted,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.common_success_resource_deleted,
                                 ),
                                 backgroundColor: AppColors.success,
                               ),
@@ -1139,9 +1201,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                ErrorUtils.translate(context, e),
-                              ),
+                              content: Text(ErrorUtils.translate(context, e)),
                               backgroundColor: AppColors.error,
                             ),
                           );
