@@ -28,28 +28,55 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       apps_built: ${{ steps.set-matrix.outputs.apps_built }}
     steps:
-      - name: Parse commit message for app tags
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            customer:
+              - 'apps/customer/**'
+            driver:
+              - 'apps/driver/**'
+            vendor:
+              - 'apps/vendor/**'
+            shared:
+              - 'packages/**'
+              - '.github/workflows/mobile-apps-build.yml'
+
+      - name: Determine apps to build
         id: set-matrix
         env:
-          COMMIT_MSG: ${{ github.event.head_commit.message || github.event.pull_request.title || '' }}
+          CHANGED_CUSTOMER: ${{ steps.changes.outputs.customer }}
+          CHANGED_DRIVER: ${{ steps.changes.outputs.driver }}
+          CHANGED_VENDOR: ${{ steps.changes.outputs.vendor }}
+          CHANGED_SHARED: ${{ steps.changes.outputs.shared }}
         shell: bash
         run: |
-          MSG="$COMMIT_MSG"
-          LOWER_MSG=$(echo "$MSG" | tr '[:upper:]' '[:lower:]')
+          echo "Changes detected: customer=$CHANGED_CUSTOMER, driver=$CHANGED_DRIVER, vendor=$CHANGED_VENDOR, shared=$CHANGED_SHARED"
 
           BUILD_CUSTOMER=false
           BUILD_DRIVER=false
           BUILD_VENDOR=false
 
-          if [[ "$LOWER_MSG" == *"[customer]"* ]]; then BUILD_CUSTOMER=true; fi
-          if [[ "$LOWER_MSG" == *"[driver]"* ]]; then BUILD_DRIVER=true; fi
-          if [[ "$LOWER_MSG" == *"[vendor]"* ]]; then BUILD_VENDOR=true; fi
+          CHANGED_COUNT=0
+          if [ "$CHANGED_CUSTOMER" = "true" ]; then ((CHANGED_COUNT++)); fi
+          if [ "$CHANGED_DRIVER" = "true" ]; then ((CHANGED_COUNT++)); fi
+          if [ "$CHANGED_VENDOR" = "true" ]; then ((CHANGED_COUNT++)); fi
 
-          # If no app tag is specified, build all 3 apps by default
-          if [ "$BUILD_CUSTOMER" = false ] && [ "$BUILD_DRIVER" = false ] && [ "$BUILD_VENDOR" = false ]; then
+          # If shared code changed, multiple apps changed, or 0 apps detected: build all 3 normally
+          if [ "$CHANGED_SHARED" = "true" ] || [ "$CHANGED_COUNT" -gt 1 ] || [ "$CHANGED_COUNT" -eq 0 ]; then
+            echo "Building all 3 apps ($CHANGED_COUNT apps changed, shared=$CHANGED_SHARED)."
             BUILD_CUSTOMER=true
             BUILD_DRIVER=true
             BUILD_VENDOR=true
+          else
+            echo "Exactly one app changed. Building only that app."
+            if [ "$CHANGED_CUSTOMER" = "true" ]; then BUILD_CUSTOMER=true; fi
+            if [ "$CHANGED_DRIVER" = "true" ]; then BUILD_DRIVER=true; fi
+            if [ "$CHANGED_VENDOR" = "true" ]; then BUILD_VENDOR=true; fi
           fi
 
           ITEMS=()
