@@ -246,7 +246,7 @@ jobs:
           retention-days: 7
 
   release:
-    name: Release
+    name: release
     needs: [determine-apps, build-android-apps]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
