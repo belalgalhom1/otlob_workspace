@@ -103,7 +103,8 @@ jobs:
           echo "Apps selected: ${BUILT_NAMES[*]}"
           echo "Generated matrix: $MATRIX_JSON"
           echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
-          echo "apps_built=${BUILT_NAMES[*]}" >> "$GITHUB_OUTPUT"
+          APPS_JOINED=$(IFS=", "; echo "${BUILT_NAMES[*]}")
+          echo "apps_built=$APPS_JOINED" >> "$GITHUB_OUTPUT"
 
   build-android-apps:
     name: ${{ matrix.app_job_name }}
