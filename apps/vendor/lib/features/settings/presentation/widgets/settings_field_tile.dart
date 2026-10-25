@@ -183,6 +183,17 @@ class _SettingsTextInputState extends State<_SettingsTextInput> {
     _controller = TextEditingController(text: _displayValue());
   }
 
+  @override
+  void didUpdateWidget(covariant _SettingsTextInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      final newText = _displayValue();
+      if (_controller.text != newText) {
+        _controller.text = newText;
+      }
+    }
+  }
+
   String _displayValue() {
     final raw = widget.value;
     if (raw == null) return '';

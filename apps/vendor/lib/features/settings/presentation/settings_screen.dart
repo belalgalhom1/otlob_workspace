@@ -5,10 +5,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
-import 'bloc/settings_provider.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'bloc/settings_provider.dart';
 import 'settings_schema.dart';
-import 'settings_section_screen.dart';
+import 'widgets/settings_field_tile.dart';
+import 'widgets/settings_explain_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -19,11 +20,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final Map<String, dynamic> _editedSettings = {};
-  final TextEditingController _searchController = TextEditingController();
-
   Map<String, dynamic>? _settings;
-  SettingsSection? _activeSection;
-  String _query = '';
   bool _isSaving = false;
 
   @override
@@ -32,12 +29,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(settingsProvider.notifier).fetchSettings();
     });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   bool _isSameValue(dynamic a, dynamic b) {
@@ -90,29 +81,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  bool _sectionMatches(SettingsSection section) {
-    if (_query.isEmpty) return true;
-    final q = _query.toLowerCase();
-    bool hit(String? text) => text != null && text.toLowerCase().contains(q);
-
-    if (hit(section.titleAr) ||
-        hit(section.titleEn) ||
-        hit(section.descAr) ||
-        hit(section.descEn)) {
-      return true;
-    }
-    for (final field in section.fields) {
-      if (hit(field.labelAr) ||
-          hit(field.labelEn) ||
-          hit(field.helpAr) ||
-          hit(field.helpEn) ||
-          hit(field.key)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   Future<void> _pickAndUploadImage(BuildContext context, String type) async {
     try {
       final picked = await FilePicker.pickFile(type: FileType.image);
@@ -126,6 +94,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       debugPrint('Error picking image: $e');
     }
+  }
+
+  SettingsSection? _findSection(String id) {
+    for (final s in platformSettingsSections) {
+      if (s.id == id) return s;
+    }
+    return null;
   }
 
   @override
@@ -161,142 +136,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final displaySettings = Map<String, dynamic>.from(settings)
       ..addAll(_editedSettings);
 
-    if (_activeSection != null) {
-      return SettingsSectionScreen(
-        section: _activeSection!,
-        settings: displaySettings,
-        isAr: isAr,
-        isSaving: _isSaving,
-        unsavedCount: _editedSettings.length,
-        onBack: () => setState(() => _activeSection = null),
-        onSave: _saveSettings,
-        onChanged: _onSettingChanged,
-        onPickImage: _pickAndUploadImage,
-      );
-    }
-
-    return _buildHome(context, l10n, isAr);
-  }
-
-  Widget _buildHome(
-    BuildContext context,
-    AppLocalizations l10n,
-    bool isAr,
-  ) {
-    final theme = Theme.of(context);
-    final sections =
-        platformSettingsSections.where(_sectionMatches).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(LucideIcons.settings, size: 28, color: AppColors.primary),
-            AppSpacing.hmd,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.settings,
-                    style: AppTypography.headlineMedium,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    l10n.settingsChooseSection,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_editedSettings.isNotEmpty) ...[
-              AppSpacing.hmd,
-              ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveSettings,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(LucideIcons.save, size: 18),
-                label: Text(_isSaving ? l10n.saving : l10n.save),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        TextField(
-          controller: _searchController,
-          onChanged: (v) => setState(() => _query = v.trim()),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: l10n.settingsSearchHint,
-            prefixIcon: const Icon(LucideIcons.search, size: 20),
-            suffixIcon: _query.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(LucideIcons.x, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _query = '');
-                    },
-                  ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Expanded(
-          child: sections.isEmpty
-              ? _buildNoResults(l10n)
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns = constraints.maxWidth >= 900
-                        ? 3
-                        : constraints.maxWidth >= 560
-                            ? 2
-                            : 1;
-                    return GridView.builder(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        crossAxisSpacing: AppSpacing.md,
-                        mainAxisSpacing: AppSpacing.md,
-                        mainAxisExtent: 150,
-                      ),
-                      itemCount: sections.length,
-                      itemBuilder: (context, index) =>
-                          _buildSectionCard(context, sections[index], isAr),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNoResults(AppLocalizations l10n) {
-    final theme = Theme.of(context);
-    return Center(
+    return DefaultTabController(
+      length: 7,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            LucideIcons.search,
-            size: 40,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+          _buildHeader(l10n),
+          const SizedBox(height: AppSpacing.md),
+          TabBar(
+            isScrollable: true,
+            labelColor: AppColors.primary,
+            indicatorColor: AppColors.primary,
+            tabs: [
+              Tab(text: l10n.tabAssets, icon: const Icon(LucideIcons.image)),
+              Tab(text: l10n.tabFinancials, icon: const Icon(LucideIcons.dollarSign)),
+              Tab(text: l10n.tabDelivery, icon: const Icon(LucideIcons.truck)),
+              Tab(text: l10n.tabLoyalty, icon: const Icon(LucideIcons.award)),
+              Tab(text: l10n.tabDrivers, icon: const Icon(LucideIcons.users)),
+              Tab(text: l10n.tabAppLegal, icon: const Icon(LucideIcons.smartphone)),
+              Tab(text: l10n.tabDataRetention, icon: const Icon(LucideIcons.database)),
+            ],
           ),
-          AppSpacing.vmd,
-          Text(
-            l10n.settingsNoResults,
-            style: AppTypography.bodyLarge.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          const SizedBox(height: AppSpacing.md),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildAssetsTab(context, l10n, displaySettings, isAr),
+                _buildSectionsTab([
+                  _findSection('money'),
+                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                _buildSectionsTab([
+                  _findSection('delivery'),
+                  _findSection('vehicles'),
+                  _findSection('dispatch'),
+                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                _buildSectionsTab([
+                  _findSection('loyalty'),
+                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                _buildSectionsTab([
+                  _findSection('drivers'),
+                  _findSection('breaks'),
+                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                _buildSectionsTab([
+                  _findSection('app'),
+                  _findSection('customer'),
+                  _findSection('support'),
+                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                _buildSectionsTab([
+                  _findSection('retention'),
+                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+              ],
             ),
           ),
         ],
@@ -304,70 +193,282 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionCard(
-    BuildContext context,
-    SettingsSection section,
+  Widget _buildHeader(AppLocalizations l10n) {
+    return Row(
+      children: [
+        const Icon(LucideIcons.settings, size: 28, color: AppColors.primary),
+        AppSpacing.hmd,
+        Text(
+          l10n.settings,
+          style: AppTypography.headlineMedium,
+        ),
+        const Spacer(),
+        if (_editedSettings.isNotEmpty)
+          ElevatedButton.icon(
+            onPressed: _isSaving ? null : _saveSettings,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(LucideIcons.save, size: 18),
+            label: Text(
+              _isSaving
+                  ? l10n.saving
+                  : '${l10n.save} (${_editedSettings.length})',
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSectionsTab(
+    List<SettingsSection> sections,
+    Map<String, dynamic> displaySettings,
     bool isAr,
+    AppLocalizations l10n,
   ) {
     final theme = Theme.of(context);
 
-    return Material(
-      color: theme.colorScheme.surface,
-      borderRadius: AppRadius.mdRadius,
-      child: InkWell(
-        borderRadius: AppRadius.mdRadius,
-        onTap: () => setState(() => _activeSection = section),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.mdRadius,
-            border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Column(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < sections.length; i++) ...[
+            if (i > 0) const Divider(height: 36),
+            _buildSectionBlock(sections[i], displaySettings, isAr, l10n, theme),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionBlock(
+    SettingsSection section,
+    Map<String, dynamic> displaySettings,
+    bool isAr,
+    AppLocalizations l10n,
+    ThemeData theme,
+  ) {
+    final groups = <String?, List<SettingsField>>{};
+    for (final field in section.fields) {
+      groups.putIfAbsent(field.group(isAr), () => []).add(field);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(context, section, isAr, l10n),
+        ...groups.entries.map((entry) {
+          final groupTitle = entry.key;
+          final fields = entry.value;
+
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: section.color.withValues(alpha: 0.15),
-                      borderRadius: AppRadius.smRadius,
-                    ),
-                    child: Icon(section.icon, color: section.color, size: 20),
+              if (groupTitle != null)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.md,
+                    bottom: AppSpacing.xs,
                   ),
-                  const Spacer(),
-                  Icon(
-                    isAr ? LucideIcons.chevronLeft : LucideIcons.chevronRight,
-                    size: 18,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: section.color,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      AppSpacing.hsm,
+                      Text(
+                        groupTitle,
+                        style: AppTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                section.title(isAr),
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                section.desc(isAr),
-                style: AppTypography.bodyMedium.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ...fields.map(
+                (f) => SettingsFieldTile(
+                  field: f,
+                  isAr: isAr,
+                  value: displaySettings[f.key],
+                  onChanged: (v) => _onSettingChanged(f.key, v),
+                  onPickImage: _pickAndUploadImage,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
-          ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(
+    BuildContext context,
+    SettingsSection section,
+    bool isAr,
+    AppLocalizations l10n,
+  ) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: section.color.withValues(alpha: 0.08),
+        borderRadius: AppRadius.mdRadius,
+        border: Border.all(
+          color: section.color.withValues(alpha: 0.2),
         ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: section.color.withValues(alpha: 0.18),
+              borderRadius: AppRadius.smRadius,
+            ),
+            child: Icon(section.icon, color: section.color, size: 20),
+          ),
+          AppSpacing.hmd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  section.title(isAr),
+                  style: AppTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  section.desc(isAr),
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AppSpacing.hsm,
+          OutlinedButton.icon(
+            onPressed: () => showSettingsExplanation(
+              context,
+              section: section,
+              isAr: isAr,
+            ),
+            icon: const Icon(LucideIcons.info, size: 16),
+            label: Text(l10n.settingsExplain),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: section.color,
+              side: BorderSide(color: section.color.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xs,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetsTab(
+    BuildContext context,
+    AppLocalizations l10n,
+    Map<String, dynamic> displaySettings,
+    bool isAr,
+  ) {
+    final section = _findSection('assets');
+    final fieldsByKey = <String, SettingsField>{};
+    if (section != null) {
+      for (final f in section.fields) {
+        fieldsByKey[f.key] = f;
+      }
+    }
+
+    Widget buildTile(String key) {
+      final field = fieldsByKey[key];
+      if (field == null) return const SizedBox();
+      return SettingsFieldTile(
+        field: field,
+        isAr: isAr,
+        value: displaySettings[key],
+        onChanged: (v) => _onSettingChanged(key, v),
+        onPickImage: _pickAndUploadImage,
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (section != null) _buildSectionHeader(context, section, isAr, l10n),
+          buildTile('homeCoverUrl'),
+          const Divider(height: 36),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: buildTile('bicycleIconUrl')),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: buildTile('motorcycleIconUrl')),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: buildTile('motorTricycleIconUrl')),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: buildTile('carIconUrl')),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: buildTile('vanIconUrl')),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: buildTile('truckIconUrl')),
+            ],
+          ),
+          const Divider(height: 36),
+          buildTile('deliveryBannerIconUrl'),
+          if (section != null)
+            ...section.fields
+                .where((f) => ![
+                      'homeCoverUrl',
+                      'bicycleIconUrl',
+                      'motorcycleIconUrl',
+                      'motorTricycleIconUrl',
+                      'carIconUrl',
+                      'vanIconUrl',
+                      'truckIconUrl',
+                      'deliveryBannerIconUrl',
+                    ].contains(f.key))
+                .map((f) => SettingsFieldTile(
+                      field: f,
+                      isAr: isAr,
+                      value: displaySettings[f.key],
+                      onChanged: (v) => _onSettingChanged(f.key, v),
+                      onPickImage: _pickAndUploadImage,
+                    )),
+        ],
       ),
     );
   }
