@@ -4,8 +4,9 @@ import 'package:logger/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:data/providers.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+
+import 'token_service.dart';
 
 part 'socket_service.g.dart';
 
@@ -55,12 +56,54 @@ class SocketService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('📱 App Resumed: Forcing socket reconnect if disconnected');
-      if (_socket != null && !_socket!.connected) {
-        _socket!.connect();
-      }
+      debugPrint('📱 App Resumed: Ensuring socket connection');
+      _ensureConnected();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      debugPrint('📱 App backgrounded: keeping socket alive');
+      // Don't disconnect — keep the WebSocket open so background events
+      // (payment status, order updates) keep flowing. The OS may kill it,
+      // but resume will re-establish via _ensureConnected().
     }
   }
+
+  /// Ensures the socket is connected with a valid token. Called on app resume
+  /// and whenever a consumer needs a guaranteed connection. Re-authenticates
+  /// if the token has expired so we never miss critical events (payments,
+  /// order status) while backgrounded.
+  Future<void> _ensureConnected() async {
+    if (_socket != null && _socket!.connected && _connectedToken != null) {
+      return;
+    }
+
+    final tokenService = _ref.read(tokenServiceProvider);
+    final token = await tokenService.getAccessToken();
+    if (token == null) {
+      debugPrint('⚠️ Socket: No access token available, skipping connect');
+      return;
+    }
+
+    // If token is expired, refresh first so the socket auth doesn't get
+    // rejected by the server and we miss payment/order events.
+    if (await tokenService.isAccessTokenExpired()) {
+      try {
+        final authRepo = _ref.read(sharedAuthRepositoryProvider);
+        await authRepo.refreshToken();
+      } catch (_) {}
+    }
+
+    final freshToken = await tokenService.getAccessToken();
+    if (freshToken == null) {
+      debugPrint('⚠️ Socket: No access token available after refresh, skipping connect');
+      return;
+    }
+    await initSocket(freshToken);
+  }
+
+  /// Public entry point for consumers that need a guaranteed live socket
+  /// (e.g. after coming back from background where payment events may have
+  /// been missed).
+  Future<void> ensureConnected() => _ensureConnected();
 
   Future<void> initSocket(String userToken) async {
     // Re-authing a different account (or a rotated token) must not reuse the

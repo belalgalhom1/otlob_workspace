@@ -106,9 +106,11 @@ class Splash extends _$Splash {
         return AppStartupState.suspended;
       }
 
-      // Initialize SocketService but only auto-connect if driver is online
-      final bool shouldConnect = profile['status'] != 'OFFLINE' && profile['status'] != 'SUSPENDED';
-      await ref.read(coreSocketServiceProvider).init(autoConnect: shouldConnect);
+      // Always connect the socket so the driver receives payment status,
+      // order updates, and dispatch events regardless of their online status.
+      // A driver who appears OFFLINE to customers must still get notified when
+      // a customer marks a payment as received.
+      await ref.read(coreSocketServiceProvider).init(autoConnect: true);
 
       // Initialize Push Notifications and register FCM token
       Future(() async {

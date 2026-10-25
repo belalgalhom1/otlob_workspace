@@ -113,6 +113,10 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
   // Called on every app resume.
   Future<void> _onResume() async {
+    // Ensure the socket is live so any payment / order-status events that
+    // landed while the app was backgrounded are not missed.
+    await ref.read(socketServiceProvider).ensureConnected();
+
     ref.invalidate(platformSettingsProvider);
     final orders = ref.read(ordersProvider.notifier);
     await orders.refresh();
