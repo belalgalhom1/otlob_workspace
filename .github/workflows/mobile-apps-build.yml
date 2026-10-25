@@ -21,102 +21,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  determine-apps:
-    name: Determine Apps to Build
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      apps_built: ${{ steps.set-matrix.outputs.apps_built }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Detect changed paths
-        uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            customer:
-              - 'apps/customer/**'
-            driver:
-              - 'apps/driver/**'
-            vendor:
-              - 'apps/vendor/**'
-            shared:
-              - 'packages/**'
-              - '.github/workflows/mobile-apps-build.yml'
-
-      - name: Determine apps to build
-        id: set-matrix
-        env:
-          CHANGED_CUSTOMER: ${{ steps.changes.outputs.customer }}
-          CHANGED_DRIVER: ${{ steps.changes.outputs.driver }}
-          CHANGED_VENDOR: ${{ steps.changes.outputs.vendor }}
-          CHANGED_SHARED: ${{ steps.changes.outputs.shared }}
-        shell: bash
-        run: |
-          echo "Changes detected: customer=$CHANGED_CUSTOMER, driver=$CHANGED_DRIVER, vendor=$CHANGED_VENDOR, shared=$CHANGED_SHARED"
-
-          BUILD_CUSTOMER=false
-          BUILD_DRIVER=false
-          BUILD_VENDOR=false
-
-          CHANGED_COUNT=0
-          if [ "$CHANGED_CUSTOMER" = "true" ]; then CHANGED_COUNT=$((CHANGED_COUNT + 1)); fi
-          if [ "$CHANGED_DRIVER" = "true" ]; then CHANGED_COUNT=$((CHANGED_COUNT + 1)); fi
-          if [ "$CHANGED_VENDOR" = "true" ]; then CHANGED_COUNT=$((CHANGED_COUNT + 1)); fi
-
-          # If shared code changed or 0 apps detected (e.g. root files): build all 3 normally
-          if [ "$CHANGED_SHARED" = "true" ] || [ "$CHANGED_COUNT" -eq 0 ]; then
-            echo "Shared code or general changes detected (shared=$CHANGED_SHARED). Building all 3 apps."
-            BUILD_CUSTOMER=true
-            BUILD_DRIVER=true
-            BUILD_VENDOR=true
-          else
-            # Build strictly the apps that had changes!
-            echo "Building only the changed apps ($CHANGED_COUNT app(s) modified)."
-            if [ "$CHANGED_CUSTOMER" = "true" ]; then BUILD_CUSTOMER=true; fi
-            if [ "$CHANGED_DRIVER" = "true" ]; then BUILD_DRIVER=true; fi
-            if [ "$CHANGED_VENDOR" = "true" ]; then BUILD_VENDOR=true; fi
-          fi
-
-          ITEMS=()
-          BUILT_NAMES=()
-
-          if [ "$BUILD_VENDOR" = true ]; then
-            ITEMS+=('{"app_job_name":"otlob-vendor","app_path":"apps/vendor"}')
-            BUILT_NAMES+=("Vendor")
-          fi
-          if [ "$BUILD_DRIVER" = true ]; then
-            ITEMS+=('{"app_job_name":"otlob-driver","app_path":"apps/driver"}')
-            BUILT_NAMES+=("Driver")
-          fi
-          if [ "$BUILD_CUSTOMER" = true ]; then
-            ITEMS+=('{"app_job_name":"otlob-customer","app_path":"apps/customer"}')
-            BUILT_NAMES+=("Customer")
-          fi
-
-          IFS=,
-          MATRIX_JSON="{\"include\":[${ITEMS[*]}]}"
-          unset IFS
-
-          echo "Apps selected: ${BUILT_NAMES[*]}"
-          echo "Generated matrix: $MATRIX_JSON"
-          echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
-          APPS_JOINED=$(printf ", %s" "${BUILT_NAMES[@]}")
-          APPS_JOINED="${APPS_JOINED:2}"
-          echo "apps_built=$APPS_JOINED" >> "$GITHUB_OUTPUT"
-
   build-android-apps:
     name: ${{ matrix.app_job_name }}
-    needs: determine-apps
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     strategy:
       fail-fast: false
       max-parallel: 3
-      matrix: ${{ fromJSON(needs.determine-apps.outputs.matrix) }}
+      matrix:
+        include:
+          - app_job_name: otlob-vendor
+            app_path: apps/vendor
+          - app_job_name: otlob-driver
+            app_path: apps/driver
+          - app_job_name: otlob-customer
+            app_path: apps/customer
 
     steps:
       - name: Checkout repository
@@ -249,7 +169,7 @@ jobs:
 
   release:
     name: release
-    needs: [determine-apps, build-android-apps]
+    needs: build-android-apps
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -259,7 +179,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
-          pattern: "*-apk"
+          pattern: '*-apk'
           merge-multiple: true
 
       - name: Verify APK artifacts
@@ -267,80 +187,43 @@ jobs:
         run: |
           set -euo pipefail
 
-          count=$(ls -1 release-artifacts/*.apk 2>/dev/null | wc -l)
-          if [ "$count" -eq 0 ]; then
-            echo "ERROR: No APK artifacts found in release-artifacts directory" >&2
-            exit 1
-          fi
-
-          for apk in release-artifacts/*.apk; do
+          for apk in \
+            release-artifacts/otlob-vendor.apk \
+            release-artifacts/otlob-driver.apk \
+            release-artifacts/otlob-customer.apk
+          do
             if [ ! -s "$apk" ]; then
-              echo "ERROR: Missing or empty APK: $apk" >&2
+              echo "ERROR: Missing or empty APK: $apk"
               exit 1
             fi
+
             ls -lh "$apk"
           done
 
-      - name: Publish or update GitHub release
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
+          name: "APK Build"
+          body: |
+            Automated APK release generated by GitHub Actions.
+            
+            **Branch:** `${{ github.ref_name }}`
+            **Commit:** [View commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          files: |
+            release-artifacts/otlob-vendor.apk
+            release-artifacts/otlob-driver.apk
+            release-artifacts/otlob-customer.apk
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete old automated APK releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: "apk-latest"
-          APPS_BUILT: ${{ needs.determine-apps.outputs.apps_built }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          RELEASE_TITLE="Latest APK Builds"
-
-          # Generate release notes safely with full indentation
-          printf "Automated APK release generated by GitHub Actions.\n\n" > release-notes.md
-          printf -- "- **Branch:** \`%s\`\n" "${{ github.ref_name }}" >> release-notes.md
-          printf -- "- **Commit:** [View commit](https://github.com/%s/commit/%s)\n" "${{ github.repository }}" "${{ github.sha }}" >> release-notes.md
-          printf -- "- **Updated apps:** %s\n" "$APPS_BUILT" >> release-notes.md
-          printf -- "- **Last updated:** %s\n" "$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> release-notes.md
-
-          # If the target release does not exist yet:
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG does not exist. Checking for legacy release assets to preserve..."
-
-            # If an old apk-build-* release exists, download its APKs so unbuilt apps are preserved
-            LATEST_OLD_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')
-            if [ -n "$LATEST_OLD_TAG" ] && [ "$LATEST_OLD_TAG" != "$RELEASE_TAG" ]; then
-              echo "Downloading existing assets from legacy release $LATEST_OLD_TAG..."
-              gh release download "$LATEST_OLD_TAG" --dir release-artifacts/ --pattern "*.apk" --clobber || true
-            fi
-
-            echo "Creating initial $RELEASE_TAG release..."
-            gh release create "$RELEASE_TAG" release-artifacts/*.apk \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md \
-              --latest
-          else
-            echo "Release $RELEASE_TAG exists. Updating APK assets..."
-
-            for apk in release-artifacts/*.apk; do
-              [ -f "$apk" ] || continue
-              filename=$(basename "$apk")
-
-              echo "Deleting old $filename from release $RELEASE_TAG (if present)..."
-              gh release delete-asset "$RELEASE_TAG" "$filename" --yes 2>/dev/null || true
-
-              echo "Uploading new $filename to release $RELEASE_TAG..."
-              gh release upload "$RELEASE_TAG" "$apk" --clobber
-            done
-
-            echo "Updating release description..."
-            gh release edit "$RELEASE_TAG" \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md \
-              --latest
-          fi
-
-      - name: Clean up legacy apk-build releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
+          CURRENT_TAG: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
@@ -351,6 +234,8 @@ jobs:
             --jq '.[].tagName' |
           while IFS= read -r tag; do
             [[ "$tag" == apk-build-* ]] || continue
-            echo "Deleting legacy automated APK release: $tag"
-            gh release delete "$tag" --yes --cleanup-tag || true
+            [[ "$tag" == "$CURRENT_TAG" ]] && continue
+
+            echo "Deleting old release: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
           done
