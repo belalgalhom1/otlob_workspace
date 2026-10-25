@@ -62,9 +62,9 @@ jobs:
           BUILD_VENDOR=false
 
           CHANGED_COUNT=0
-          if [ "$CHANGED_CUSTOMER" = "true" ]; then ((CHANGED_COUNT++)); fi
-          if [ "$CHANGED_DRIVER" = "true" ]; then ((CHANGED_COUNT++)); fi
-          if [ "$CHANGED_VENDOR" = "true" ]; then ((CHANGED_COUNT++)); fi
+          if [ "$CHANGED_CUSTOMER" = "true" ]; then CHANGED_COUNT=$((CHANGED_COUNT + 1)); fi
+          if [ "$CHANGED_DRIVER" = "true" ]; then CHANGED_COUNT=$((CHANGED_COUNT + 1)); fi
+          if [ "$CHANGED_VENDOR" = "true" ]; then CHANGED_COUNT=$((CHANGED_COUNT + 1)); fi
 
           # If shared code changed or 0 apps detected (e.g. root files): build all 3 normally
           if [ "$CHANGED_SHARED" = "true" ] || [ "$CHANGED_COUNT" -eq 0 ]; then
@@ -103,7 +103,8 @@ jobs:
           echo "Apps selected: ${BUILT_NAMES[*]}"
           echo "Generated matrix: $MATRIX_JSON"
           echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
-          APPS_JOINED=$(IFS=", "; echo "${BUILT_NAMES[*]}")
+          APPS_JOINED=$(printf ", %s" "${BUILT_NAMES[@]}")
+          APPS_JOINED="${APPS_JOINED:2}"
           echo "apps_built=$APPS_JOINED" >> "$GITHUB_OUTPUT"
 
   build-android-apps:
