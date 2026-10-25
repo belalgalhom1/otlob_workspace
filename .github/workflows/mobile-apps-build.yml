@@ -66,14 +66,15 @@ jobs:
           if [ "$CHANGED_DRIVER" = "true" ]; then ((CHANGED_COUNT++)); fi
           if [ "$CHANGED_VENDOR" = "true" ]; then ((CHANGED_COUNT++)); fi
 
-          # If shared code changed, multiple apps changed, or 0 apps detected: build all 3 normally
-          if [ "$CHANGED_SHARED" = "true" ] || [ "$CHANGED_COUNT" -gt 1 ] || [ "$CHANGED_COUNT" -eq 0 ]; then
-            echo "Building all 3 apps ($CHANGED_COUNT apps changed, shared=$CHANGED_SHARED)."
+          # If shared code changed or 0 apps detected (e.g. root files): build all 3 normally
+          if [ "$CHANGED_SHARED" = "true" ] || [ "$CHANGED_COUNT" -eq 0 ]; then
+            echo "Shared code or general changes detected (shared=$CHANGED_SHARED). Building all 3 apps."
             BUILD_CUSTOMER=true
             BUILD_DRIVER=true
             BUILD_VENDOR=true
           else
-            echo "Exactly one app changed. Building only that app."
+            # Build strictly the apps that had changes!
+            echo "Building only the changed apps ($CHANGED_COUNT app(s) modified)."
             if [ "$CHANGED_CUSTOMER" = "true" ]; then BUILD_CUSTOMER=true; fi
             if [ "$CHANGED_DRIVER" = "true" ]; then BUILD_DRIVER=true; fi
             if [ "$CHANGED_VENDOR" = "true" ]; then BUILD_VENDOR=true; fi
