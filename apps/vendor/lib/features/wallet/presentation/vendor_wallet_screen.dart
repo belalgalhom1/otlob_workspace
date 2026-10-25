@@ -332,40 +332,55 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     final net = double.tryParse(summary['netChange']?.toString() ?? '0') ?? 0;
     final count = summary['transactionCount'] ?? 0;
 
-    final cards = <Widget>[
-      _summaryCard(
-        theme,
-        label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
-        value: '+${credits.toStringAsFixed(2)} EGP',
-        color: AppColors.success,
-      ),
-      _summaryCard(
-        theme,
-        label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
-        value: '-${debits.toStringAsFixed(2)} EGP',
-        color: AppColors.error,
-      ),
-      _summaryCard(
-        theme,
-        label: _isArabic ? 'صافي التغير' : 'Net change',
-        value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
-        color: net >= 0 ? AppColors.success : AppColors.error,
-      ),
-      _summaryCard(
-        theme,
-        label: _isArabic ? 'عدد المعاملات' : 'Transactions',
-        value: '$count',
-        color: AppColors.primary,
-      ),
-    ];
-
     final byType = summary['byType'];
     final hasByType = byType is List && byType.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(spacing: 12, runSpacing: 12, children: cards),
+        Row(
+          children: [
+            Expanded(
+              child: _summaryCard(
+                theme,
+                label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
+                value: '+${credits.toStringAsFixed(2)} EGP',
+                color: AppColors.success,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _summaryCard(
+                theme,
+                label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
+                value: '-${debits.toStringAsFixed(2)} EGP',
+                color: AppColors.error,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _summaryCard(
+                theme,
+                label: _isArabic ? 'صافي التغير' : 'Net change',
+                value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
+                color: net >= 0 ? AppColors.success : AppColors.error,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _summaryCard(
+                theme,
+                label: _isArabic ? 'عدد المعاملات' : 'Transactions',
+                value: '$count',
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
         if (hasByType) ...[
           const SizedBox(height: 16),
           Text(
@@ -408,7 +423,6 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     required Color color,
   }) {
     return Container(
-      width: 170,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,

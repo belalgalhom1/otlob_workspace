@@ -458,52 +458,75 @@ class _VendorProductSalesScreenState
   }
 
   Widget _summary(ThemeData theme, Map<String, dynamic> totals) {
-    final cards = <Widget>[
-      _statCard(
-        theme,
-        icon: LucideIcons.package,
-        label: _isArabic ? 'المنتجات' : 'Products',
-        value: '${_int(totals['productCount'])}',
-        color: AppColors.primary,
-      ),
-      _statCard(
-        theme,
-        icon: LucideIcons.shoppingBag,
-        label: _isArabic ? 'الوحدات المباعة' : 'Units sold',
-        value: '${_int(totals['quantitySold'])}',
-        color: AppColors.info,
-      ),
-      _statCard(
-        theme,
-        icon: LucideIcons.shoppingCart,
-        label: _isArabic ? 'الطلبات' : 'Orders',
-        value: '${_int(totals['ordersCount'])}',
-        color: AppColors.warning,
-      ),
-      _statCard(
-        theme,
-        icon: LucideIcons.dollarSign,
-        label: _isArabic ? 'إجمالي الإيرادات' : 'Gross revenue',
-        value: _money(totals['grossRevenue']),
-        color: AppColors.success,
-      ),
-      _statCard(
-        theme,
-        icon: LucideIcons.percent,
-        label: _isArabic ? 'العمولة' : 'Commission',
-        value: _money(totals['commission']),
-        color: AppColors.error,
-      ),
-      _statCard(
-        theme,
-        icon: LucideIcons.trendingUp,
-        label: _isArabic ? 'صافي الربح' : 'Net profit',
-        value: _money(totals['netRevenue']),
-        color: AppColors.success,
-      ),
-    ];
+    Widget card(IconData icon, String label, String value, Color color) {
+      return Expanded(
+        child: _statCard(
+          theme,
+          icon: icon,
+          label: label,
+          value: value,
+          color: color,
+        ),
+      );
+    }
 
-    return Wrap(spacing: 12, runSpacing: 12, children: cards);
+    return Column(
+      children: [
+        Row(
+          children: [
+            card(
+              LucideIcons.package,
+              _isArabic ? 'المنتجات' : 'Products',
+              '${_int(totals['productCount'])}',
+              AppColors.primary,
+            ),
+            const SizedBox(width: 12),
+            card(
+              LucideIcons.shoppingBag,
+              _isArabic ? 'الوحدات المباعة' : 'Units sold',
+              '${_int(totals['quantitySold'])}',
+              AppColors.info,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            card(
+              LucideIcons.shoppingCart,
+              _isArabic ? 'الطلبات' : 'Orders',
+              '${_int(totals['ordersCount'])}',
+              AppColors.warning,
+            ),
+            const SizedBox(width: 12),
+            card(
+              LucideIcons.dollarSign,
+              _isArabic ? 'إجمالي الإيرادات' : 'Gross revenue',
+              _money(totals['grossRevenue']),
+              AppColors.success,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            card(
+              LucideIcons.percent,
+              _isArabic ? 'العمولة' : 'Commission',
+              _money(totals['commission']),
+              AppColors.error,
+            ),
+            const SizedBox(width: 12),
+            card(
+              LucideIcons.trendingUp,
+              _isArabic ? 'صافي الربح' : 'Net profit',
+              _money(totals['netRevenue']),
+              AppColors.success,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _statCard(
@@ -514,7 +537,6 @@ class _VendorProductSalesScreenState
     required Color color,
   }) {
     return Container(
-      width: 175,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,

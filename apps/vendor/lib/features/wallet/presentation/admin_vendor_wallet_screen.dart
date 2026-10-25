@@ -396,47 +396,66 @@ class _AdminVendorWalletScreenState
     final net = double.tryParse(summary['netChange']?.toString() ?? '0') ?? 0;
     final count = summary['transactionCount'] ?? 0;
 
-    Widget card(String label, String value, Color color) => Container(
-          width: 180,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  )),
-              const SizedBox(height: 8),
-              Text(value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  )),
-            ],
+    Widget card(String label, String value, Color color) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border:
+                  Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    )),
+                const SizedBox(height: 8),
+                Text(value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    )),
+              ],
+            ),
           ),
         );
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    return Column(
       children: [
-        card(_isArabic ? 'إجمالي الداخل' : 'Total credits',
-            '+${credits.toStringAsFixed(2)} EGP', AppColors.success),
-        card(_isArabic ? 'إجمالي الخارج' : 'Total debits',
-            '-${debits.toStringAsFixed(2)} EGP', AppColors.error),
-        card(
-            _isArabic ? 'صافي التغير' : 'Net change',
-            '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
-            net >= 0 ? AppColors.success : AppColors.error),
-        card(_isArabic ? 'عدد المعاملات' : 'Transactions', '$count',
-            AppColors.primary),
+        Row(
+          children: [
+            card(_isArabic ? 'إجمالي الداخل' : 'Total credits',
+                '+${credits.toStringAsFixed(2)} EGP', AppColors.success),
+            const SizedBox(width: 12),
+            card(_isArabic ? 'إجمالي الخارج' : 'Total debits',
+                '-${debits.toStringAsFixed(2)} EGP', AppColors.error),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            card(
+                _isArabic ? 'صافي التغير' : 'Net change',
+                '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
+                net >= 0 ? AppColors.success : AppColors.error),
+            const SizedBox(width: 12),
+            card(_isArabic ? 'عدد المعاملات' : 'Transactions', '$count',
+                AppColors.primary),
+          ],
+        ),
       ],
     );
   }
