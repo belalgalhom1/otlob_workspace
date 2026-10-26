@@ -17,6 +17,7 @@ import 'package:vendor/core/providers.dart';
 import 'widgets/driver_form_dialog.dart';
 import 'widgets/assist_requests_dialog.dart';
 import 'driver_statistics_screen.dart';
+import '../../zones/presentation/zone_provider.dart';
 
 class DriversScreen extends ConsumerStatefulWidget {
   const DriversScreen({super.key});
@@ -27,6 +28,8 @@ class DriversScreen extends ConsumerStatefulWidget {
 
 class _DriversScreenState extends ConsumerState<DriversScreen> {
   String? _selectedStatus;
+  String? _selectedZoneId;
+  List<LatLng> _selectedZonePolygon = [];
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   DriverProfile? _selectedDriver;
@@ -40,6 +43,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     // page 1; an extra call only double-fetched (or skipped to page 2).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPermissions();
+      ref.read(zoneProvider.notifier).fetchZones();
     });
   }
 
@@ -66,7 +70,65 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               ? null
               : _searchController.text.trim(),
           status: _selectedStatus,
+          zoneId: _selectedZoneId,
         );
+  }
+
+  List<LatLng> _extractPolygonPoints(dynamic boundary) {
+    if (boundary is! Map) return [];
+    final coordinates = boundary['coordinates'];
+    if (coordinates is! List || coordinates.isEmpty) return [];
+    final firstRing = coordinates[0];
+    if (firstRing is! List) return [];
+    final points = <LatLng>[];
+    for (final coord in firstRing) {
+      if (coord is List && coord.length >= 2) {
+        final lng = (coord[0] as num?)?.toDouble();
+        final lat = (coord[1] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          points.add(LatLng(lat, lng));
+        }
+      }
+    }
+    return points;
+  }
+
+  LatLng _calculateCentroid(List<LatLng> points) {
+    if (points.isEmpty) return const LatLng(30.0444, 31.2357);
+    double latSum = 0;
+    double lngSum = 0;
+    for (final p in points) {
+      latSum += p.latitude;
+      lngSum += p.longitude;
+    }
+    return LatLng(latSum / points.length, lngSum / points.length);
+  }
+
+  void _onZoneSelected(String? zoneId, List<dynamic> zones) {
+    _selectedZoneId = zoneId;
+    if (zoneId == null) {
+      _selectedZonePolygon = [];
+    } else {
+      final zone = zones.firstWhere(
+        (z) => z is Map && z['id']?.toString() == zoneId,
+        orElse: () => null,
+      );
+      if (zone != null) {
+        _selectedZonePolygon = _extractPolygonPoints(zone['boundary']);
+        if (_selectedZonePolygon.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _mapController.move(
+                _calculateCentroid(_selectedZonePolygon),
+                13,
+              );
+            }
+          });
+        }
+      } else {
+        _selectedZonePolygon = [];
+      }
+    }
   }
 
   @override
@@ -166,6 +228,13 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   }
 
   Widget _buildFilters() {
+    final l10n = AppLocalizations.of(context)!;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final zones = ref.watch(zoneProvider).value?.zones ?? const [];
+    final hasActiveFilters = _searchController.text.trim().isNotEmpty ||
+        _selectedStatus != null ||
+        _selectedZoneId != null;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -181,7 +250,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.searchDrivers,
+                  labelText: l10n.searchDrivers,
                   prefixIcon: const Icon(LucideIcons.search, size: 18),
                   isDense: true,
                 ),
@@ -193,33 +262,33 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               child: DropdownButtonFormField<String?>(
                 initialValue: _selectedStatus,
                 decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context)!.status,
+                  labelText: l10n.status,
                   isDense: true,
                 ),
                 items: [
                   DropdownMenuItem(
                     value: null,
-                    child: Text(AppLocalizations.of(context)!.filterAll),
+                    child: Text(l10n.filterAll),
                   ),
                   DropdownMenuItem(
                     value: 'ONLINE',
-                    child: Text(AppLocalizations.of(context)!.statusOnline),
+                    child: Text(l10n.statusOnline),
                   ),
                   DropdownMenuItem(
                     value: 'ON_DELIVERY',
-                    child: Text(AppLocalizations.of(context)!.statusOnDelivery),
+                    child: Text(l10n.statusOnDelivery),
                   ),
                   DropdownMenuItem(
                     value: 'OFFLINE',
-                    child: Text(AppLocalizations.of(context)!.statusOffline),
+                    child: Text(l10n.statusOffline),
                   ),
                   DropdownMenuItem(
                     value: 'ON_BREAK',
-                    child: Text(AppLocalizations.of(context)!.statusOnBreak),
+                    child: Text(l10n.statusOnBreak),
                   ),
                   DropdownMenuItem(
                     value: 'SUSPENDED',
-                    child: Text(AppLocalizations.of(context)!.statusSuspended),
+                    child: Text(l10n.statusSuspended),
                   ),
                 ],
                 onChanged: (val) {
@@ -228,11 +297,60 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                 },
               ),
             ),
+            SizedBox(
+              width: 180,
+              child: DropdownButtonFormField<String?>(
+                initialValue: _selectedZoneId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: l10n.zone,
+                  isDense: true,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(l10n.allZones),
+                  ),
+                  for (final z in zones)
+                    DropdownMenuItem(
+                      value: z['id']?.toString(),
+                      child: Text(
+                        (isArabic
+                                ? (z['nameAr'] ?? z['name'])
+                                : z['name'])
+                            ?.toString() ??
+                            '',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    _onZoneSelected(val, zones);
+                  });
+                  _applyFilters();
+                },
+              ),
+            ),
             ElevatedButton.icon(
               onPressed: _applyFilters,
               icon: const Icon(LucideIcons.filter, size: 16),
-              label: Text(AppLocalizations.of(context)!.filterAction),
+              label: Text(l10n.filterAction),
             ),
+            if (hasActiveFilters)
+              OutlinedButton.icon(
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _selectedStatus = null;
+                    _selectedZoneId = null;
+                    _selectedZonePolygon = [];
+                  });
+                  _applyFilters();
+                },
+                icon: const Icon(LucideIcons.x, size: 16),
+                label: Text(l10n.resetFilters),
+              ),
             if (_canManageDrivers) ...[
               OutlinedButton.icon(
                 onPressed: () {
@@ -675,6 +793,17 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.otlob.admin',
               ),
+              if (_selectedZonePolygon.isNotEmpty)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: _selectedZonePolygon,
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderColor: AppColors.primary,
+                      borderStrokeWidth: 2,
+                    ),
+                  ],
+                ),
               MarkerLayer(markers: markers),
             ],
           );

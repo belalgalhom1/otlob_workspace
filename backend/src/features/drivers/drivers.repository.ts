@@ -127,6 +127,7 @@ export class DriversRepository {
   async findAll(filters: {
     status?: DriverStatus;
     search?: string;
+    zoneId?: string;
     page: number;
     limit: number;
   }) {
@@ -136,11 +137,121 @@ export class DriversRepository {
     const where: Prisma.DriverWhereInput = { deletedAt: null };
     if (filters.status) where.status = filters.status;
     if (filters.search) {
+      const search = filters.search.trim();
+      const matchingZones = await this.prisma.zone.findMany({
+        where: {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { nameAr: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      });
+      const matchingZoneIds = matchingZones.map((z) => z.id);
+
+      let locationDriverIds: string[] = [];
+      if (matchingZoneIds.length > 0) {
+        const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT DISTINCT d.id
+          FROM drivers d
+          JOIN zones z ON z.id IN (${Prisma.join(matchingZoneIds)})
+          WHERE d."deletedAt" IS NULL
+            AND d."lastLocation" IS NOT NULL
+            AND ST_Covers(z.boundary, d."lastLocation")
+        `;
+        locationDriverIds = rows.map((r) => r.id);
+      }
+
+      // Match driver status keywords (English & Arabic)
+      const driverStatusKeywords: Record<string, DriverStatus> = {
+        online: DriverStatus.ONLINE,
+        متصل: DriverStatus.ONLINE,
+        متاح: DriverStatus.ONLINE,
+        offline: DriverStatus.OFFLINE,
+        'غير متصل': DriverStatus.OFFLINE,
+        busy: DriverStatus.BUSY,
+        مشغول: DriverStatus.BUSY,
+        on_delivery: DriverStatus.ON_DELIVERY,
+        delivery: DriverStatus.ON_DELIVERY,
+        توصيل: DriverStatus.ON_DELIVERY,
+        on_break: DriverStatus.ON_BREAK,
+        break: DriverStatus.ON_BREAK,
+        استراحة: DriverStatus.ON_BREAK,
+        suspended: DriverStatus.SUSPENDED,
+        معلق: DriverStatus.SUSPENDED,
+        موقوف: DriverStatus.SUSPENDED,
+      };
+      const matchedDriverStatus = driverStatusKeywords[search.toLowerCase()];
+
+      // Match shift status keywords (English & Arabic)
+      const shiftStatusKeywords: Record<string, DriverShiftStatus> = {
+        scheduled: DriverShiftStatus.SCHEDULED,
+        مجدول: DriverShiftStatus.SCHEDULED,
+        active: DriverShiftStatus.ACTIVE,
+        نشط: DriverShiftStatus.ACTIVE,
+        completed: DriverShiftStatus.COMPLETED,
+        مكتمل: DriverShiftStatus.COMPLETED,
+        cancelled: DriverShiftStatus.CANCELLED,
+        ملغي: DriverShiftStatus.CANCELLED,
+        missed: DriverShiftStatus.MISSED,
+        فائت: DriverShiftStatus.MISSED,
+      };
+      const matchedShiftStatus = shiftStatusKeywords[search.toLowerCase()];
+      const isShiftGenericWord = ['shift', 'shifts', 'شفت', 'شفتات'].includes(search.toLowerCase());
+
       where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { user: { email: { contains: filters.search, mode: 'insensitive' } } },
-        { vehiclePlate: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { vehiclePlate: { contains: search, mode: 'insensitive' } },
+        ...(matchedDriverStatus ? [{ status: matchedDriverStatus }] : []),
+        {
+          shifts: {
+            some: {
+              OR: [
+                {
+                  zone: {
+                    OR: [
+                      { name: { contains: search, mode: 'insensitive' } },
+                      { nameAr: { contains: search, mode: 'insensitive' } },
+                    ],
+                  },
+                },
+                {
+                  shiftPool: {
+                    OR: [
+                      { title: { contains: search, mode: 'insensitive' } },
+                      { titleAr: { contains: search, mode: 'insensitive' } },
+                    ],
+                  },
+                },
+                ...(matchedShiftStatus ? [{ status: matchedShiftStatus }] : []),
+              ],
+            },
+          },
+        },
+        ...(isShiftGenericWord ? [{ shifts: { some: {} } }] : []),
+        ...(locationDriverIds.length > 0 ? [{ id: { in: locationDriverIds } }] : []),
       ];
+    }
+    if (filters.zoneId && filters.zoneId.trim().length > 0) {
+      const trimmedZoneId = filters.zoneId.trim();
+      const zoneRows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT DISTINCT d.id
+        FROM drivers d
+        LEFT JOIN driver_shifts s ON s."driverId" = d.id AND s."zoneId" = ${trimmedZoneId}
+        CROSS JOIN zones z
+        WHERE z.id = ${trimmedZoneId}
+          AND d."deletedAt" IS NULL
+          AND (
+            s.id IS NOT NULL
+            OR (
+              d."lastLocation" IS NOT NULL
+              AND ST_Covers(z.boundary, d."lastLocation")
+            )
+          )
+      `;
+      const zoneDriverIds = zoneRows.map((r) => r.id);
+      where.id = { in: zoneDriverIds };
     }
 
     const [drivers, total] = await Promise.all([

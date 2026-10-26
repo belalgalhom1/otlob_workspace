@@ -1146,6 +1146,7 @@ export class DriversService {
     const result = await this.driversRepository.findAll({
       status: dto.status,
       search: dto.search,
+      zoneId: dto.zoneId,
       page: dto.page ?? 1,
       limit: dto.limit ?? 20,
     });

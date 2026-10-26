@@ -22,8 +22,32 @@ class AdminDriversRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> getDrivers({int page = 1, int limit = 20, String? status, String? search}) async {
-    final response = await _api.driversControllerAdminFindAll(page: page, limit: limit, status: status, search: search);
+  Future<dynamic> getDrivers({
+    int page = 1,
+    int limit = 20,
+    String? status,
+    String? search,
+    String? zoneId,
+  }) async {
+    if (zoneId != null && zoneId.isNotEmpty && _dio != null) {
+      final response = await _dio.get(
+        '/drivers',
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (status != null && status.isNotEmpty) 'status': status,
+          if (search != null && search.isNotEmpty) 'search': search,
+          'zoneId': zoneId,
+        },
+      );
+      return ResponseParser.parse(response);
+    }
+    final response = await _api.driversControllerAdminFindAll(
+      page: page,
+      limit: limit,
+      status: status,
+      search: search,
+    );
     return ResponseParser.parse(response);
   }
 

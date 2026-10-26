@@ -41,6 +41,7 @@ class DriversState {
 class DriversNotifier extends _$DriversNotifier {
   String? _search;
   String? _status;
+  String? _zoneId;
 
   @override
   FutureOr<DriversState> build() async {
@@ -49,7 +50,7 @@ class DriversNotifier extends _$DriversNotifier {
 
   Future<DriversState> _fetchDrivers({required int page}) async {
     final repo = ref.watch(adminDriversRepositoryProvider);
-    final result = await repo.getDrivers(page: page, status: _status, search: _search);
+    final result = await repo.getDrivers(page: page, status: _status, search: _search, zoneId: _zoneId);
     
     List<DriverProfile> items = [];
     int total = 0;
@@ -93,9 +94,10 @@ class DriversNotifier extends _$DriversNotifier {
     }
   }
 
-  Future<void> filter({String? search, String? status}) async {
+  Future<void> filter({String? search, String? status, String? zoneId}) async {
     _search = search;
     _status = status;
+    _zoneId = zoneId;
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _fetchDrivers(page: 1));
   }
