@@ -81,9 +81,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final settings = ref.read(platformSettingsProvider).value;
     int? coinsToUse;
     if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-      // Coins cover the whole bill (products + delivery + fees + tax). Offer
-      // the full balance; the backend caps the discount at the grand total and
-      // only consumes the coins actually needed.
+      // Send the full balance; the backend applies coins to the grand total
+      // (products + delivery + fees + tax) and consumes only what is needed,
+      // so coins can pay for the entire order when the balance is sufficient.
       coinsToUse = coinState.currentBalance;
     }
 
@@ -355,22 +355,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final isBelowMinOrder = minOrder > 0 && subtotal < minOrder;
     final minOrderDiff = isBelowMinOrder ? (minOrder - subtotal) : 0.0;
 
-    // Delivery fee is fixed to vendor→customer distance (server estimate at checkout)
-    final total = subtotal;
-    
     final coinState = ref.watch(coinHistoryProvider);
-    double localCoinDiscount = 0;
     int? coinsToUse;
 
-    if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-      // Send the full balance; the backend applies coins to the grand total
-      // (products + delivery + fees + tax) and consumes only what is needed.
-      coinsToUse = coinState.currentBalance;
-      // Preview only — replaced by the server estimate's discount once loaded.
-      final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
-      localCoinDiscount = maxCoinDiscount > total ? total : maxCoinDiscount;
-    }
-    
     final selectedAddress = ref.watch(activeDeliveryAddressProvider);
 
     if (selectedAddress != null && !_isEstimating) {
@@ -388,8 +375,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final tax = (est != null && est['tax'] != null) ? (est['tax'] as num).toDouble() : 0.0;
     final hasEstimate = est != null;
     final estDiscount = hasEstimate ? ((est['discount'] as num?)?.toDouble() ?? 0.0) : 0.0;
-    final coinDiscount = hasEstimate ? estDiscount : localCoinDiscount;
     final totalWithFees = subtotal + deliveryFee + serviceFee + tax;
+
+    // Coins can cover the entire order (products + delivery + fees + tax).
+    // Send the full balance; the backend caps the discount at the grand total.
+    double localCoinDiscount = 0;
+    if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
+      coinsToUse = coinState.currentBalance;
+      final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
+      localCoinDiscount = maxCoinDiscount > totalWithFees ? totalWithFees : maxCoinDiscount;
+    }
+
+    final coinDiscount = hasEstimate ? estDiscount : localCoinDiscount;
     final finalTotal = hasEstimate
         ? ((est['grandTotal'] as num?)?.toDouble() ?? totalWithFees)
         : totalWithFees - coinDiscount;

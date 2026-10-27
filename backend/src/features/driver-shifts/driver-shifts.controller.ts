@@ -23,6 +23,7 @@ import {
   BookOvertimeShiftDto,
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
+  AdminBookWeeklyShiftsDto,
   JoinWaitlistDto,
 } from './dto/driver-shifts.dto';
 
@@ -66,6 +67,15 @@ export class DriverShiftsController {
   @ApiOperation({ summary: '[Admin] Force-assign a driver to a shift pool' })
   adminAssignShift(@Body() dto: AdminAssignShiftDto) {
     return this.shiftsService.adminAssignShift(dto);
+  }
+
+  @ApiStandardResponse()
+  @Post('admin/book-week')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Book a full weekly shift schedule for a driver' })
+  adminBookWeeklyShifts(@Body() dto: AdminBookWeeklyShiftsDto) {
+    return this.shiftsService.adminBookWeeklyShifts(dto);
   }
 
   @ApiStandardResponse()

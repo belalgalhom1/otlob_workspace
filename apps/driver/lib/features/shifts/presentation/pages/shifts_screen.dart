@@ -50,15 +50,13 @@ class ShiftsScreen extends ConsumerWidget {
             ],
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
-            unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+            unselectedLabelColor: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
         body: const TabBarView(
-          children: [
-            _MyShiftsTab(),
-            AvailableShiftsTab(),
-            SwapBoardTab(),
-          ],
+          children: [_MyShiftsTab(), AvailableShiftsTab(), SwapBoardTab()],
         ),
       ),
     );
@@ -251,7 +249,9 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
         return;
       }
 
-      await ref.read(driverShiftsProvider.notifier).startShift(
+      await ref
+          .read(driverShiftsProvider.notifier)
+          .startShift(
             shiftId,
             photoPath: photo.path,
             latitude: position.latitude,
@@ -261,7 +261,11 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isAr ? 'بدأت الوردية، أنت الآن متصل' : 'Shift started — you are now online'),
+            content: Text(
+              isAr
+                  ? 'بدأت الوردية، أنت الآن متصل'
+                  : 'Shift started — you are now online',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
@@ -567,7 +571,9 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                             },
                           ),
                     isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 ),
@@ -585,7 +591,12 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                     padding: const EdgeInsetsDirectional.only(end: 8),
                     child: Center(
                       child: AppFilterChip(
-                        label: _chipLabelFor(l10n, preset, _datePreset, _customRange),
+                        label: _chipLabelFor(
+                          l10n,
+                          preset,
+                          _datePreset,
+                          _customRange,
+                        ),
                         selected: _datePreset == preset,
                         onSelected: (_) => _selectPreset(preset),
                       ),
@@ -609,17 +620,24 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
           _ShiftStatusFilter.upcoming => status == 'SCHEDULED',
           _ShiftStatusFilter.active => status == 'ACTIVE',
           _ShiftStatusFilter.completed => status == 'COMPLETED',
-          _ShiftStatusFilter.missed => status == 'MISSED' || status == 'CANCELLED',
+          _ShiftStatusFilter.missed =>
+            status == 'MISSED' || status == 'CANCELLED',
           _ShiftStatusFilter.all => true,
         };
         if (!matches) return false;
       }
       if (range != null) {
         final raw = shift['startTime'] ?? shift['shiftPool']?['startTime'];
-        final date = raw == null ? null : DateTime.tryParse(raw.toString())?.toLocal();
+        final date = raw == null
+            ? null
+            : DateTime.tryParse(raw.toString())?.toLocal();
         if (date == null) return false;
         final day = DateTime(date.year, date.month, date.day);
-        final start = DateTime(range.start.year, range.start.month, range.start.day);
+        final start = DateTime(
+          range.start.year,
+          range.start.month,
+          range.start.day,
+        );
         final end = DateTime(range.end.year, range.end.month, range.end.day);
         if (day.isBefore(start) || day.isAfter(end)) return false;
       }
@@ -647,7 +665,9 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
         _buildFilterBar(l10n),
         Expanded(
           child: shiftsState.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
             error: (error, _) {
               if (error.toString().toLowerCase().contains('shifts_disabled')) {
                 return EmptyStateWidget(
@@ -684,7 +704,8 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: groups.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 16),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final group = groups[index];
                     final headerTitle = _groupTitle(group, l10n);
@@ -711,14 +732,21 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     );
   }
 
-  Widget _buildShiftItem(BuildContext context, WidgetRef ref, Map<String, dynamic> shift, AppLocalizations l10n) {
+  Widget _buildShiftItem(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> shift,
+    AppLocalizations l10n,
+  ) {
     final status = shift['status'] ?? 'UNKNOWN';
-    String startTime = shift['startTime'] ?? shift['shiftPool']?['startTime'] ?? '';
+    String startTime =
+        shift['startTime'] ?? shift['shiftPool']?['startTime'] ?? '';
     String endTime = shift['endTime'] ?? shift['shiftPool']?['endTime'] ?? '';
     String dayLabel = '';
 
     try {
-      final rawStart = shift['startTime'] ?? shift['shiftPool']?['startTime'] ?? '';
+      final rawStart =
+          shift['startTime'] ?? shift['shiftPool']?['startTime'] ?? '';
       if (rawStart.toString().isNotEmpty) {
         final d = DateTime.parse(rawStart.toString()).toLocal();
         try {
@@ -737,14 +765,25 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
       }
     } catch (_) {}
 
-    final zoneName = shift['zone']?['name'] ?? shift['shiftPool']?['zone']?['name'] ?? l10n.assignedZone;
+    final zoneName =
+        shift['zone']?['name'] ??
+        shift['shiftPool']?['zone']?['name'] ??
+        l10n.assignedZone;
     final isAr = l10n.localeName == 'ar';
     final poolData = shift['shiftPool'];
-    final poolTitleAr = poolData is Map ? poolData['titleAr']?.toString().trim() : null;
-    final poolTitleEn = poolData is Map ? poolData['title']?.toString().trim() : null;
+    final poolTitleAr = poolData is Map
+        ? poolData['titleAr']?.toString().trim()
+        : null;
+    final poolTitleEn = poolData is Map
+        ? poolData['title']?.toString().trim()
+        : null;
     final shiftTitle = isAr
-        ? ((poolTitleAr?.isNotEmpty ?? false) ? poolTitleAr! : (poolTitleEn ?? ''))
-        : ((poolTitleEn?.isNotEmpty ?? false) ? poolTitleEn! : (poolTitleAr ?? ''));
+        ? ((poolTitleAr?.isNotEmpty ?? false)
+              ? poolTitleAr!
+              : (poolTitleEn ?? ''))
+        : ((poolTitleEn?.isNotEmpty ?? false)
+              ? poolTitleEn!
+              : (poolTitleAr ?? ''));
     final heading = shiftTitle.isNotEmpty ? shiftTitle : zoneName;
 
     final isUpcoming = status == 'SCHEDULED';
@@ -777,13 +816,26 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   heading,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: isActive ? AppColors.primary.withValues(alpha: 0.2) : (isUpcoming ? AppColors.warning.withValues(alpha: 0.2) : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1)),
+                  color: isActive
+                      ? AppColors.primary.withValues(alpha: 0.2)
+                      : (isUpcoming
+                            ? AppColors.warning.withValues(alpha: 0.2)
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.1)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -791,7 +843,11 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isActive ? AppColors.primary : (isUpcoming ? AppColors.warning : Theme.of(context).colorScheme.onSurface),
+                    color: isActive
+                        ? AppColors.primary
+                        : (isUpcoming
+                              ? AppColors.warning
+                              : Theme.of(context).colorScheme.onSurface),
                   ),
                 ),
               ),
@@ -802,14 +858,23 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(LucideIcons.mapPin, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                Icon(
+                  LucideIcons.mapPin,
+                  size: 16,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     zoneName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
               ],
@@ -819,14 +884,23 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
           if (dayLabel.isNotEmpty) ...[
             Row(
               children: [
-                Icon(LucideIcons.calendarDays, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                Icon(
+                  LucideIcons.calendarDays,
+                  size: 16,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     dayLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
               ],
@@ -835,11 +909,20 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
           ],
           Row(
             children: [
-              Icon(LucideIcons.clock, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+              Icon(
+                LucideIcons.clock,
+                size: 16,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
               const SizedBox(width: 8),
               Text(
                 '$startTime - $endTime',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ],
           ),
@@ -862,9 +945,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
-                        _resolveMediaUrl(
-                          shift['startPhotoUrl'].toString(),
-                        ),
+                        _resolveMediaUrl(shift['startPhotoUrl'].toString()),
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,
@@ -872,10 +953,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                           width: 56,
                           height: 56,
                           color: Theme.of(context).dividerColor,
-                          child: const Icon(
-                            LucideIcons.imageOff,
-                            size: 20,
-                          ),
+                          child: const Icon(LucideIcons.imageOff, size: 20),
                         ),
                       ),
                     ),
@@ -907,9 +985,9 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                     onPressed: _startingShiftId != null
                         ? null
                         : () => _startShiftWithSelfie(
-                              Map<String, dynamic>.from(shift),
-                              l10n,
-                            ),
+                            Map<String, dynamic>.from(shift),
+                            l10n,
+                          ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -920,9 +998,18 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: Text(l10n.offerSwap, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
+                    child: Text(
+                      l10n.offerSwap,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -933,7 +1020,11 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
               child: TextButton.icon(
                 onPressed: () =>
                     _cancelShift(shift['id']?.toString() ?? '', l10n),
-                icon: const Icon(LucideIcons.trash2, size: 16, color: AppColors.error),
+                icon: const Icon(
+                  LucideIcons.trash2,
+                  size: 16,
+                  color: AppColors.error,
+                ),
                 label: Text(
                   l10n.cancelShift,
                   style: const TextStyle(
@@ -944,54 +1035,11 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
               ),
             ),
           ],
-          if (isActive)
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                text: l10n.endShift,
-                isLoading: _startingShiftId == shift['id']?.toString(),
-                onPressed: _startingShiftId != null
-                    ? null
-                    : () => _endShift(shift['id']?.toString() ?? '', l10n),
-              ),
-            ),
+          // Drivers cannot end/leave a shift once started. The shift
+          // runs its full duration and is auto-completed by the backend.
         ],
       ),
     );
-  }
-
-  Future<void> _endShift(String shiftId, AppLocalizations l10n) async {
-    if (shiftId.isEmpty) return;
-    final confirmed = await _confirmAction(
-      title: l10n.endShiftConfirmTitle,
-      message: l10n.endShiftConfirmMessage,
-      confirmLabel: l10n.confirmAction,
-      l10n: l10n,
-    );
-    if (confirmed != true) return;
-
-    setState(() => _startingShiftId = shiftId);
-    try {
-      await ref.read(driverShiftsProvider.notifier).endShift(shiftId);
-      ref.invalidate(driverProfileProvider);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.endShiftSuccess),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ErrorUtils.translate(context, e)),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _startingShiftId = null);
-    }
   }
 
   Future<void> _cancelShift(String shiftId, AppLocalizations l10n) async {
@@ -1059,7 +1107,9 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
       final shift = raw as Map<String, dynamic>;
       final pool = shift['shiftPool'];
       final batchId = (pool is Map ? pool['batchId'] : null)?.toString() ?? '';
-      final key = batchId.isNotEmpty ? 'batch:$batchId' : 'single:${shift['id']}';
+      final key = batchId.isNotEmpty
+          ? 'batch:$batchId'
+          : 'single:${shift['id']}';
       if (!map.containsKey(key)) {
         map[key] = <Map<String, dynamic>>[];
         order.add(key);
@@ -1074,10 +1124,10 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     if (pool is! Map) return '';
     final isAr = l10n.localeName == 'ar';
     return ((isAr ? pool['titleAr'] : pool['title']) ??
-                (isAr ? pool['title'] : pool['titleAr']) ??
-                '')
-            .toString()
-            .trim();
+            (isAr ? pool['title'] : pool['titleAr']) ??
+            '')
+        .toString()
+        .trim();
   }
 
   String _formatDate(DateTime date, String pattern) {
@@ -1125,7 +1175,11 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.calendarDays, size: 18, color: AppColors.primary),
+          const Icon(
+            LucideIcons.calendarDays,
+            size: 18,
+            color: AppColors.primary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1135,7 +1189,10 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   heading,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
                 if (span.isNotEmpty) ...[
                   const SizedBox(height: 2),
@@ -1145,7 +1202,9 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -1157,14 +1216,18 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
             Icon(
               LucideIcons.mapPin,
               size: 14,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 4),
             Text(
               zoneName,
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -1173,34 +1236,43 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     );
   }
 
-  void _showOfferSwapDialog(BuildContext context, WidgetRef ref, String shiftId, AppLocalizations l10n) {
+  void _showOfferSwapDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String shiftId,
+    AppLocalizations l10n,
+  ) {
     final reasonController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) {
-        return DialogScaffold(child: AlertDialog(
-          title: Text(l10n.offerSwap),
-          content: TextField(
-            controller: reasonController,
-            decoration: InputDecoration(
-              labelText: l10n.reasonOptional,
-              border: const OutlineInputBorder(),
+        return DialogScaffold(
+          child: AlertDialog(
+            title: Text(l10n.offerSwap),
+            content: TextField(
+              controller: reasonController,
+              decoration: InputDecoration(
+                labelText: l10n.reasonOptional,
+                border: const OutlineInputBorder(),
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.cancelAction),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  ref
+                      .read(driverShiftsProvider.notifier)
+                      .offerSwap(shiftId, reasonController.text);
+                  Navigator.pop(context);
+                },
+                child: Text(l10n.offerSwapAction),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancelAction),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(driverShiftsProvider.notifier).offerSwap(shiftId, reasonController.text);
-                Navigator.pop(context);
-              },
-              child: Text(l10n.offerSwapAction),
-            ),
-          ],
-        ));
+        );
       },
     );
   }

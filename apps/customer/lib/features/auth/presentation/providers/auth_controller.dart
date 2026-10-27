@@ -158,23 +158,42 @@ class AuthController extends _$AuthController {
   }
 
   Future<void> signInWithGoogle() async {
-    final idToken = await GoogleSignInService.getIdToken();
-    _clearUserProviders();
-    final authRepo = ref.read(sharedAuthRepositoryProvider);
-    await authRepo.socialLogin(
-      SocialLoginDto((b) => b
-        ..provider = 'GOOGLE'
-        ..idToken = idToken
-        ..app = 'customer'),
-    );
-    state = AuthStatus.authenticated;
-    ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
-    ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
+    state = AuthStatus.initial; // reset any prior error
     try {
-      final push = ref.read(pushNotificationServiceProvider);
-      await push.initialize();
-      await push.subscribeToRoleTopics('CUSTOMER');
-    } catch (_) {}
+      final idToken = await GoogleSignInService.getIdToken();
+      _clearUserProviders();
+      final authRepo = ref.read(sharedAuthRepositoryProvider);
+      await authRepo.socialLogin(
+        SocialLoginDto((b) => b
+          ..provider = 'GOOGLE'
+          ..idToken = idToken
+          ..app = 'customer'),
+      );
+      state = AuthStatus.authenticated;
+      ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
+      ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
+      try {
+        final push = ref.read(pushNotificationServiceProvider);
+        await push.initialize();
+        await push.subscribeToRoleTopics('CUSTOMER');
+      } catch (_) {}
+    } on Exception catch (e) {
+      final msg = e.toString();
+      if (msg.contains('google.sign_in.no_token')) {
+        // User cancelled — stay on login, no error shown
+        state = AuthStatus.unauthenticated;
+        return;
+      }
+      if (msg.contains('404') || msg.contains('PROFILE_NOT_FOUND')) {
+        try {
+          await ref.read(sharedAuthRepositoryProvider).logout();
+        } catch (_) {}
+        state = AuthStatus.unauthenticated;
+        return;
+      }
+      // Re-throw so the UI can show a snackbar
+      rethrow;
+    }
   }
 
   Future<void> logout() async {

@@ -186,3 +186,26 @@ export class AdminAssignShiftDto {
   @IsNotEmpty()
   driverId!: string;
 }
+
+export class AdminBookWeeklyShiftsDto {
+  @ApiProperty({ example: 'driver-id' })
+  @IsString()
+  @IsNotEmpty()
+  driverId!: string;
+
+  @ApiProperty({
+    example: [
+      'pool-id-1',
+      'pool-id-2',
+      'pool-id-3',
+      'pool-id-4',
+      'pool-id-5',
+      'pool-id-6',
+    ],
+  })
+  @IsArray()
+  @ArrayMinSize(6)
+  @ArrayMaxSize(6)
+  @IsString({ each: true })
+  shiftPoolIds!: string[];
+}

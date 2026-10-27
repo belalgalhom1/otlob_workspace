@@ -54,17 +54,23 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
 
     if (profileState.hasValue && profileState.value != null) {
       final profileData = profileState.value;
-      final data = profileData is Map && profileData.containsKey('data') && profileData['data'] is Map
+      final data =
+          profileData is Map &&
+              profileData.containsKey('data') &&
+              profileData['data'] is Map
           ? profileData['data']
           : (profileData ?? {});
-      zoneId = data['zoneId']?.toString() ?? data['zone']?['id']?.toString() ?? '';
+      zoneId =
+          data['zoneId']?.toString() ?? data['zone']?['id']?.toString() ?? '';
     }
 
     final availableState = ref.watch(availablePoolsProvider(zoneId));
     final l10n = AppLocalizations.of(context)!;
 
     if (profileState.isLoading && zoneId.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
 
     return Column(
@@ -72,7 +78,9 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
         _buildFilterBar(l10n),
         Expanded(
           child: availableState.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
             error: (error, _) {
               if (error.toString().toLowerCase().contains('shifts_disabled')) {
                 return EmptyStateWidget(
@@ -111,9 +119,15 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                     return ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: groups.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) =>
-                          _buildPoolGroup(context, ref, groups[index], l10n, zoneId),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 16),
+                      itemBuilder: (context, index) => _buildPoolGroup(
+                        context,
+                        ref,
+                        groups[index],
+                        l10n,
+                        zoneId,
+                      ),
                     );
                   },
                 ),
@@ -247,12 +261,14 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                   AppFilterChip(
                     label: l10n.sortSoonest,
                     selected: sort == _AvailableSort.soonest,
-                    onSelected: (_) => setSheet(() => sort = _AvailableSort.soonest),
+                    onSelected: (_) =>
+                        setSheet(() => sort = _AvailableSort.soonest),
                   ),
                   AppFilterChip(
                     label: l10n.sortLatest,
                     selected: sort == _AvailableSort.latest,
-                    onSelected: (_) => setSheet(() => sort = _AvailableSort.latest),
+                    onSelected: (_) =>
+                        setSheet(() => sort = _AvailableSort.latest),
                   ),
                 ],
               ),
@@ -292,7 +308,9 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                             },
                           ),
                     isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 ),
@@ -310,7 +328,12 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                     padding: const EdgeInsetsDirectional.only(end: 8),
                     child: Center(
                       child: AppFilterChip(
-                        label: _chipLabelFor(l10n, preset, _datePreset, _customRange),
+                        label: _chipLabelFor(
+                          l10n,
+                          preset,
+                          _datePreset,
+                          _customRange,
+                        ),
                         selected: _datePreset == preset,
                         onSelected: (_) => _selectPreset(preset),
                       ),
@@ -330,10 +353,16 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     return pools.map((e) => e as Map<String, dynamic>).where((pool) {
       if (range != null) {
         final raw = pool['shiftDate'] ?? pool['startTime'];
-        final date = raw == null ? null : DateTime.tryParse(raw.toString())?.toLocal();
+        final date = raw == null
+            ? null
+            : DateTime.tryParse(raw.toString())?.toLocal();
         if (date == null) return false;
         final day = DateTime(date.year, date.month, date.day);
-        final start = DateTime(range.start.year, range.start.month, range.start.day);
+        final start = DateTime(
+          range.start.year,
+          range.start.month,
+          range.start.day,
+        );
         final end = DateTime(range.end.year, range.end.month, range.end.day);
         if (day.isBefore(start) || day.isAfter(end)) return false;
       }
@@ -349,7 +378,10 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     }).toList();
   }
 
-  int _compareGroups(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
+  int _compareGroups(
+    List<Map<String, dynamic>> a,
+    List<Map<String, dynamic>> b,
+  ) {
     final aStart = _earliestStart(a);
     final bStart = _earliestStart(b);
     return _sort == _AvailableSort.soonest
@@ -366,7 +398,6 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     return earliest;
   }
 
-
   /// Pools generated in one action share a [batchId]; legacy pools each stand
   /// alone. Order is preserved from the server (soonest first).
   List<List<Map<String, dynamic>>> _groupPools(List<dynamic> pools) {
@@ -375,7 +406,9 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     for (final raw in pools) {
       final pool = raw as Map<String, dynamic>;
       final batchId = (pool['batchId'] ?? '').toString();
-      final key = batchId.isNotEmpty ? 'batch:$batchId' : 'single:${pool['id']}';
+      final key = batchId.isNotEmpty
+          ? 'batch:$batchId'
+          : 'single:${pool['id']}';
       if (!map.containsKey(key)) {
         map[key] = <Map<String, dynamic>>[];
         order.add(key);
@@ -423,7 +456,8 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
       ..sort((a, b) => '${a['startTime']}'.compareTo('${b['startTime']}'));
     final first = sorted.first;
     final zoneName = first['zone']?['name'] ?? l10n.assignedZone;
-    final title = ((isAr ? first['titleAr'] : first['title']) ??
+    final title =
+        ((isAr ? first['titleAr'] : first['title']) ??
                 (isAr ? first['title'] : first['titleAr']) ??
                 '')
             .toString()
@@ -456,11 +490,18 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                   heading,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.info.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -480,14 +521,23 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(LucideIcons.mapPin, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                Icon(
+                  LucideIcons.mapPin,
+                  size: 16,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     zoneName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
               ],
@@ -497,22 +547,78 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(LucideIcons.calendarDays, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                Icon(
+                  LucideIcons.calendarDays,
+                  size: 16,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     spanLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
               ],
             ),
           ],
           const SizedBox(height: 8),
-          ...sorted.map((pool) => _buildPoolDayRow(context, ref, pool, l10n, currentZoneId)),
+          if (isWeekly)
+            _buildWeeklyBookButton(context, ref, sorted, l10n, currentZoneId)
+          else
+            ...sorted.map(
+              (pool) =>
+                  _buildPoolDayRow(context, ref, pool, l10n, currentZoneId),
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyBookButton(
+    BuildContext context,
+    WidgetRef ref,
+    List<Map<String, dynamic>> pools,
+    AppLocalizations l10n,
+    String currentZoneId,
+  ) {
+    final poolIds = pools
+        .map((p) => p['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: poolIds.length == 6
+              ? () {
+                  ref
+                      .read(availablePoolsProvider(currentZoneId).notifier)
+                      .bookWeeklyShifts(poolIds);
+                }
+              : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          icon: const Icon(LucideIcons.calendarCheck, size: 18),
+          label: Text(
+            l10n.bookShift,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ),
       ),
     );
   }
@@ -527,9 +633,13 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     final rawStart = pool['startTime'] ?? '';
     final startDate = DateTime.tryParse(rawStart.toString())?.toLocal();
     final dayLabel = startDate == null ? '' : _format(startDate, 'EEEE, MMM d');
-    final startTime = startDate == null ? '' : DateFormat.jm().format(startDate);
+    final startTime = startDate == null
+        ? ''
+        : DateFormat.jm().format(startDate);
     final rawEnd = pool['endTime'];
-    final endDate = rawEnd == null ? null : DateTime.tryParse(rawEnd.toString())?.toLocal();
+    final endDate = rawEnd == null
+        ? null
+        : DateTime.tryParse(rawEnd.toString())?.toLocal();
     final endTime = endDate == null ? '' : DateFormat.jm().format(endDate);
     final isWeekly = pool['type'] == 'WEEKLY';
 
@@ -546,12 +656,20 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                     dayLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 const SizedBox(height: 2),
                 Text(
                   '$startTime - $endTime',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
               ],
             ),
@@ -560,9 +678,13 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
           FilledButton(
             onPressed: () {
               if (isWeekly) {
-                ref.read(availablePoolsProvider(currentZoneId).notifier).bookWeeklyShifts([pool['id']]);
+                ref
+                    .read(availablePoolsProvider(currentZoneId).notifier)
+                    .bookWeeklyShifts([pool['id']]);
               } else {
-                ref.read(availablePoolsProvider(currentZoneId).notifier).bookOvertimeShift(pool['id']);
+                ref
+                    .read(availablePoolsProvider(currentZoneId).notifier)
+                    .bookOvertimeShift(pool['id']);
               }
             },
             style: FilledButton.styleFrom(
@@ -571,9 +693,14 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: Text(l10n.bookShift, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            child: Text(
+              l10n.bookShift,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

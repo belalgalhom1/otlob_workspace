@@ -24,6 +24,7 @@ import {
   BookOvertimeShiftDto,
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
+  AdminBookWeeklyShiftsDto,
   UpdateShiftPoolDto,
   ShiftReportQueryDto,
 } from './dto/driver-shifts.dto';
@@ -437,6 +438,15 @@ export class DriverShiftsService {
     return shift;
   }
 
+  async adminBookWeeklyShifts(dto: AdminBookWeeklyShiftsDto) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: dto.driverId },
+    });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    return this.bookWeeklyShiftsForDriver(dto.driverId, dto.shiftPoolIds);
+  }
+
   // Remove a single driver from a single shift. Any shift may be removed
   // (SCHEDULED, ACTIVE, COMPLETED or MISSED). An ACTIVE driver is taken
   // offline unless they are mid-delivery, to avoid yanking them out from
@@ -619,24 +629,29 @@ export class DriverShiftsService {
   }
 
   async bookWeeklyShifts(userId: string, dto: BookWeeklyShiftsDto) {
-    await this.checkShiftsEnabled();
-
-    if (dto.shiftPoolIds.length !== 6) {
-      throw new BadRequestException(DriverErrors.INVALID_WEEKLY_SHIFTS);
-    }
-
     const driver = await this.prisma.driver.findUnique({ where: { userId } });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    const driverId = driver.id;
+    return this.bookWeeklyShiftsForDriver(driver.id, dto.shiftPoolIds);
+  }
+
+  // Shared core: book 6 weekly shift pools for a given driver. Used by both
+  // the driver-facing `bookWeeklyShifts` and the admin-facing
+  // `adminBookWeeklyShifts` endpoints so the logic is never duplicated.
+  async bookWeeklyShiftsForDriver(driverId: string, shiftPoolIds: string[]) {
+    await this.checkShiftsEnabled();
+
+    if (shiftPoolIds.length !== 6) {
+      throw new BadRequestException(DriverErrors.INVALID_WEEKLY_SHIFTS);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // Lock the shift pools to prevent race conditions during booking. The
       // IDs are bound as parameters (never string-interpolated) so a malicious
       // driver cannot inject SQL through shiftPoolIds.
-      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id IN (${Prisma.join(dto.shiftPoolIds)}) FOR UPDATE`;
+      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id IN (${Prisma.join(shiftPoolIds)}) FOR UPDATE`;
 
       const pools = await tx.shiftPool.findMany({
-        where: { id: { in: dto.shiftPoolIds } },
+        where: { id: { in: shiftPoolIds } },
         include: { _count: { select: { driverShifts: true } } },
       });
 
@@ -700,7 +715,7 @@ export class DriverShiftsService {
 
       // Booking directly supersedes any waitlist entry for these pools.
       await tx.shiftPoolWaitlist.deleteMany({
-        where: { driverId, shiftPoolId: { in: dto.shiftPoolIds } },
+        where: { driverId, shiftPoolId: { in: shiftPoolIds } },
       });
 
       return { success: true, booked: creates.length };
