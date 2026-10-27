@@ -639,9 +639,17 @@ export class OrdersMultiVendorService {
       discount = coinsToUse * (Number(settings.coinValue) || 1);
     }
 
+    // Coins apply to the whole bill (products + delivery + fees + tax), not
+    // just the products. When the requested coins exceed the bill, cap the
+    // discount at the total and only consume the coins actually needed —
+    // mirroring the single-vendor/custom checkout rule.
     const preDiscount =
       subtotal + deliveryFee + serviceFee + tax + driverBonusFee;
-    if (discount > preDiscount) discount = preDiscount;
+    if (discount > preDiscount) {
+      discount = preDiscount;
+      const coinValue = Number(settings.coinValue) || 1;
+      coinsUsed = Math.ceil(discount / coinValue);
+    }
     const grandTotal = Math.max(0, preDiscount - discount);
     const coinsEarned =
       Number(settings.amountSpentPerCoin) > 0

@@ -14,6 +14,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? deliveryCommissionRate;
   @override
+  final num? driverManagerCommissionRate;
+  @override
   final num? customOrderPlatformFee;
   @override
   final num? defaultTaxRate;
@@ -21,6 +23,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   final num? minOrderAmount;
   @override
   final num? baseDeliveryFee;
+  @override
+  final num? extraVendorDeliveryFee;
   @override
   final num? pricePerKm;
   @override
@@ -37,6 +41,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   final num? pricePerKmMotorTricycle;
   @override
   final num? maxDeliveryFee;
+  @override
+  final num? minDeliveryFee;
   @override
   final num? minDeliveryFeeBicycle;
   @override
@@ -88,7 +94,15 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? driverSearchMaxAttempts;
   @override
-  final num? fallbackOrderDistanceKm;
+  final num? driverSearchGeoCandidateLimit;
+  @override
+  final num? driverLocationFreshnessTtlSecs;
+  @override
+  final num? driverLocationPrecisionMeters;
+  @override
+  final num? groupingMaxBranchDistanceKm;
+  @override
+  final num? groupingMaxVendorCustomerDistanceKm;
   @override
   final num? autoCancelPendingMins;
   @override
@@ -96,7 +110,13 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? driverAcceptTimeoutSecs;
   @override
+  final num? assistDecisionTimeoutSecs;
+  @override
+  final num? maxNegativeDriverBalance;
+  @override
   final num? maxDispatchBatchSize;
+  @override
+  final num? maxActiveOrdersPerDriver;
   @override
   final bool? isMaintenanceMode;
   @override
@@ -146,6 +166,14 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? retentionAbandonedCartsDays;
   @override
+  final num? retentionPaymentReceiptsDays;
+  @override
+  final num? retentionShiftStartPhotosDays;
+  @override
+  final num? retentionPickupPhotosDays;
+  @override
+  final num? retentionDeliveryPhotosDays;
+  @override
   final num? retentionWalletTransactionsDays;
   @override
   final num? retentionStatisticsDays;
@@ -174,6 +202,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final bool? driverShiftsEnabled;
   @override
+  final bool? breaksEnabled;
+  @override
   final num? bronzeTierBonusPerKm;
   @override
   final num? silverTierBonusPerKm;
@@ -181,6 +211,14 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   final num? goldTierBonusPerKm;
   @override
   final num? driverSettlementOrderThreshold;
+  @override
+  final num? maxBreakMinutesPerShift;
+  @override
+  final num? maxBreaksPerShift;
+  @override
+  final num? maxSingleBreakMinutes;
+  @override
+  final num? pendingBreakExpiryMins;
 
   factory _$UpdatePlatformSettingsDto([
     void Function(UpdatePlatformSettingsDtoBuilder)? updates,
@@ -190,10 +228,12 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.currency,
     this.defaultCommissionRate,
     this.deliveryCommissionRate,
+    this.driverManagerCommissionRate,
     this.customOrderPlatformFee,
     this.defaultTaxRate,
     this.minOrderAmount,
     this.baseDeliveryFee,
+    this.extraVendorDeliveryFee,
     this.pricePerKm,
     this.pricePerKmBicycle,
     this.pricePerKmMotorcycle,
@@ -202,6 +242,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.pricePerKmTruck,
     this.pricePerKmMotorTricycle,
     this.maxDeliveryFee,
+    this.minDeliveryFee,
     this.minDeliveryFeeBicycle,
     this.maxDeliveryFeeBicycle,
     this.minDeliveryFeeMotorcycle,
@@ -227,11 +268,18 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.driverSearchRadiusStepKm,
     this.driverSearchRadiusMaxKm,
     this.driverSearchMaxAttempts,
-    this.fallbackOrderDistanceKm,
+    this.driverSearchGeoCandidateLimit,
+    this.driverLocationFreshnessTtlSecs,
+    this.driverLocationPrecisionMeters,
+    this.groupingMaxBranchDistanceKm,
+    this.groupingMaxVendorCustomerDistanceKm,
     this.autoCancelPendingMins,
     this.mobileWalletTimeoutMins,
     this.driverAcceptTimeoutSecs,
+    this.assistDecisionTimeoutSecs,
+    this.maxNegativeDriverBalance,
     this.maxDispatchBatchSize,
+    this.maxActiveOrdersPerDriver,
     this.isMaintenanceMode,
     this.androidMinVersion,
     this.androidLatestVersion,
@@ -256,6 +304,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.retentionExpiredSessionsDays,
     this.retentionAuditLogsDays,
     this.retentionAbandonedCartsDays,
+    this.retentionPaymentReceiptsDays,
+    this.retentionShiftStartPhotosDays,
+    this.retentionPickupPhotosDays,
+    this.retentionDeliveryPhotosDays,
     this.retentionWalletTransactionsDays,
     this.retentionStatisticsDays,
     this.maxKmForBicycle,
@@ -270,10 +322,15 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.highValueOrderThreshold,
     this.highValueUpfrontRate,
     this.driverShiftsEnabled,
+    this.breaksEnabled,
     this.bronzeTierBonusPerKm,
     this.silverTierBonusPerKm,
     this.goldTierBonusPerKm,
     this.driverSettlementOrderThreshold,
+    this.maxBreakMinutesPerShift,
+    this.maxBreaksPerShift,
+    this.maxSingleBreakMinutes,
+    this.pendingBreakExpiryMins,
   }) : super._();
   @override
   UpdatePlatformSettingsDto rebuild(
@@ -291,10 +348,12 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         currency == other.currency &&
         defaultCommissionRate == other.defaultCommissionRate &&
         deliveryCommissionRate == other.deliveryCommissionRate &&
+        driverManagerCommissionRate == other.driverManagerCommissionRate &&
         customOrderPlatformFee == other.customOrderPlatformFee &&
         defaultTaxRate == other.defaultTaxRate &&
         minOrderAmount == other.minOrderAmount &&
         baseDeliveryFee == other.baseDeliveryFee &&
+        extraVendorDeliveryFee == other.extraVendorDeliveryFee &&
         pricePerKm == other.pricePerKm &&
         pricePerKmBicycle == other.pricePerKmBicycle &&
         pricePerKmMotorcycle == other.pricePerKmMotorcycle &&
@@ -303,6 +362,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         pricePerKmTruck == other.pricePerKmTruck &&
         pricePerKmMotorTricycle == other.pricePerKmMotorTricycle &&
         maxDeliveryFee == other.maxDeliveryFee &&
+        minDeliveryFee == other.minDeliveryFee &&
         minDeliveryFeeBicycle == other.minDeliveryFeeBicycle &&
         maxDeliveryFeeBicycle == other.maxDeliveryFeeBicycle &&
         minDeliveryFeeMotorcycle == other.minDeliveryFeeMotorcycle &&
@@ -328,11 +388,20 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         driverSearchRadiusStepKm == other.driverSearchRadiusStepKm &&
         driverSearchRadiusMaxKm == other.driverSearchRadiusMaxKm &&
         driverSearchMaxAttempts == other.driverSearchMaxAttempts &&
-        fallbackOrderDistanceKm == other.fallbackOrderDistanceKm &&
+        driverSearchGeoCandidateLimit == other.driverSearchGeoCandidateLimit &&
+        driverLocationFreshnessTtlSecs ==
+            other.driverLocationFreshnessTtlSecs &&
+        driverLocationPrecisionMeters == other.driverLocationPrecisionMeters &&
+        groupingMaxBranchDistanceKm == other.groupingMaxBranchDistanceKm &&
+        groupingMaxVendorCustomerDistanceKm ==
+            other.groupingMaxVendorCustomerDistanceKm &&
         autoCancelPendingMins == other.autoCancelPendingMins &&
         mobileWalletTimeoutMins == other.mobileWalletTimeoutMins &&
         driverAcceptTimeoutSecs == other.driverAcceptTimeoutSecs &&
+        assistDecisionTimeoutSecs == other.assistDecisionTimeoutSecs &&
+        maxNegativeDriverBalance == other.maxNegativeDriverBalance &&
         maxDispatchBatchSize == other.maxDispatchBatchSize &&
+        maxActiveOrdersPerDriver == other.maxActiveOrdersPerDriver &&
         isMaintenanceMode == other.isMaintenanceMode &&
         androidMinVersion == other.androidMinVersion &&
         androidLatestVersion == other.androidLatestVersion &&
@@ -358,6 +427,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         retentionExpiredSessionsDays == other.retentionExpiredSessionsDays &&
         retentionAuditLogsDays == other.retentionAuditLogsDays &&
         retentionAbandonedCartsDays == other.retentionAbandonedCartsDays &&
+        retentionPaymentReceiptsDays == other.retentionPaymentReceiptsDays &&
+        retentionShiftStartPhotosDays == other.retentionShiftStartPhotosDays &&
+        retentionPickupPhotosDays == other.retentionPickupPhotosDays &&
+        retentionDeliveryPhotosDays == other.retentionDeliveryPhotosDays &&
         retentionWalletTransactionsDays ==
             other.retentionWalletTransactionsDays &&
         retentionStatisticsDays == other.retentionStatisticsDays &&
@@ -373,10 +446,16 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         highValueOrderThreshold == other.highValueOrderThreshold &&
         highValueUpfrontRate == other.highValueUpfrontRate &&
         driverShiftsEnabled == other.driverShiftsEnabled &&
+        breaksEnabled == other.breaksEnabled &&
         bronzeTierBonusPerKm == other.bronzeTierBonusPerKm &&
         silverTierBonusPerKm == other.silverTierBonusPerKm &&
         goldTierBonusPerKm == other.goldTierBonusPerKm &&
-        driverSettlementOrderThreshold == other.driverSettlementOrderThreshold;
+        driverSettlementOrderThreshold ==
+            other.driverSettlementOrderThreshold &&
+        maxBreakMinutesPerShift == other.maxBreakMinutesPerShift &&
+        maxBreaksPerShift == other.maxBreaksPerShift &&
+        maxSingleBreakMinutes == other.maxSingleBreakMinutes &&
+        pendingBreakExpiryMins == other.pendingBreakExpiryMins;
   }
 
   @override
@@ -385,10 +464,12 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, currency.hashCode);
     _$hash = $jc(_$hash, defaultCommissionRate.hashCode);
     _$hash = $jc(_$hash, deliveryCommissionRate.hashCode);
+    _$hash = $jc(_$hash, driverManagerCommissionRate.hashCode);
     _$hash = $jc(_$hash, customOrderPlatformFee.hashCode);
     _$hash = $jc(_$hash, defaultTaxRate.hashCode);
     _$hash = $jc(_$hash, minOrderAmount.hashCode);
     _$hash = $jc(_$hash, baseDeliveryFee.hashCode);
+    _$hash = $jc(_$hash, extraVendorDeliveryFee.hashCode);
     _$hash = $jc(_$hash, pricePerKm.hashCode);
     _$hash = $jc(_$hash, pricePerKmBicycle.hashCode);
     _$hash = $jc(_$hash, pricePerKmMotorcycle.hashCode);
@@ -397,6 +478,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, pricePerKmTruck.hashCode);
     _$hash = $jc(_$hash, pricePerKmMotorTricycle.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFee.hashCode);
+    _$hash = $jc(_$hash, minDeliveryFee.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeBicycle.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFeeBicycle.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeMotorcycle.hashCode);
@@ -422,11 +504,18 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, driverSearchRadiusStepKm.hashCode);
     _$hash = $jc(_$hash, driverSearchRadiusMaxKm.hashCode);
     _$hash = $jc(_$hash, driverSearchMaxAttempts.hashCode);
-    _$hash = $jc(_$hash, fallbackOrderDistanceKm.hashCode);
+    _$hash = $jc(_$hash, driverSearchGeoCandidateLimit.hashCode);
+    _$hash = $jc(_$hash, driverLocationFreshnessTtlSecs.hashCode);
+    _$hash = $jc(_$hash, driverLocationPrecisionMeters.hashCode);
+    _$hash = $jc(_$hash, groupingMaxBranchDistanceKm.hashCode);
+    _$hash = $jc(_$hash, groupingMaxVendorCustomerDistanceKm.hashCode);
     _$hash = $jc(_$hash, autoCancelPendingMins.hashCode);
     _$hash = $jc(_$hash, mobileWalletTimeoutMins.hashCode);
     _$hash = $jc(_$hash, driverAcceptTimeoutSecs.hashCode);
+    _$hash = $jc(_$hash, assistDecisionTimeoutSecs.hashCode);
+    _$hash = $jc(_$hash, maxNegativeDriverBalance.hashCode);
     _$hash = $jc(_$hash, maxDispatchBatchSize.hashCode);
+    _$hash = $jc(_$hash, maxActiveOrdersPerDriver.hashCode);
     _$hash = $jc(_$hash, isMaintenanceMode.hashCode);
     _$hash = $jc(_$hash, androidMinVersion.hashCode);
     _$hash = $jc(_$hash, androidLatestVersion.hashCode);
@@ -451,6 +540,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, retentionExpiredSessionsDays.hashCode);
     _$hash = $jc(_$hash, retentionAuditLogsDays.hashCode);
     _$hash = $jc(_$hash, retentionAbandonedCartsDays.hashCode);
+    _$hash = $jc(_$hash, retentionPaymentReceiptsDays.hashCode);
+    _$hash = $jc(_$hash, retentionShiftStartPhotosDays.hashCode);
+    _$hash = $jc(_$hash, retentionPickupPhotosDays.hashCode);
+    _$hash = $jc(_$hash, retentionDeliveryPhotosDays.hashCode);
     _$hash = $jc(_$hash, retentionWalletTransactionsDays.hashCode);
     _$hash = $jc(_$hash, retentionStatisticsDays.hashCode);
     _$hash = $jc(_$hash, maxKmForBicycle.hashCode);
@@ -465,10 +558,15 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, highValueOrderThreshold.hashCode);
     _$hash = $jc(_$hash, highValueUpfrontRate.hashCode);
     _$hash = $jc(_$hash, driverShiftsEnabled.hashCode);
+    _$hash = $jc(_$hash, breaksEnabled.hashCode);
     _$hash = $jc(_$hash, bronzeTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, silverTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, goldTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, driverSettlementOrderThreshold.hashCode);
+    _$hash = $jc(_$hash, maxBreakMinutesPerShift.hashCode);
+    _$hash = $jc(_$hash, maxBreaksPerShift.hashCode);
+    _$hash = $jc(_$hash, maxSingleBreakMinutes.hashCode);
+    _$hash = $jc(_$hash, pendingBreakExpiryMins.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -479,10 +577,12 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('currency', currency)
           ..add('defaultCommissionRate', defaultCommissionRate)
           ..add('deliveryCommissionRate', deliveryCommissionRate)
+          ..add('driverManagerCommissionRate', driverManagerCommissionRate)
           ..add('customOrderPlatformFee', customOrderPlatformFee)
           ..add('defaultTaxRate', defaultTaxRate)
           ..add('minOrderAmount', minOrderAmount)
           ..add('baseDeliveryFee', baseDeliveryFee)
+          ..add('extraVendorDeliveryFee', extraVendorDeliveryFee)
           ..add('pricePerKm', pricePerKm)
           ..add('pricePerKmBicycle', pricePerKmBicycle)
           ..add('pricePerKmMotorcycle', pricePerKmMotorcycle)
@@ -491,6 +591,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('pricePerKmTruck', pricePerKmTruck)
           ..add('pricePerKmMotorTricycle', pricePerKmMotorTricycle)
           ..add('maxDeliveryFee', maxDeliveryFee)
+          ..add('minDeliveryFee', minDeliveryFee)
           ..add('minDeliveryFeeBicycle', minDeliveryFeeBicycle)
           ..add('maxDeliveryFeeBicycle', maxDeliveryFeeBicycle)
           ..add('minDeliveryFeeMotorcycle', minDeliveryFeeMotorcycle)
@@ -516,11 +617,24 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('driverSearchRadiusStepKm', driverSearchRadiusStepKm)
           ..add('driverSearchRadiusMaxKm', driverSearchRadiusMaxKm)
           ..add('driverSearchMaxAttempts', driverSearchMaxAttempts)
-          ..add('fallbackOrderDistanceKm', fallbackOrderDistanceKm)
+          ..add('driverSearchGeoCandidateLimit', driverSearchGeoCandidateLimit)
+          ..add(
+            'driverLocationFreshnessTtlSecs',
+            driverLocationFreshnessTtlSecs,
+          )
+          ..add('driverLocationPrecisionMeters', driverLocationPrecisionMeters)
+          ..add('groupingMaxBranchDistanceKm', groupingMaxBranchDistanceKm)
+          ..add(
+            'groupingMaxVendorCustomerDistanceKm',
+            groupingMaxVendorCustomerDistanceKm,
+          )
           ..add('autoCancelPendingMins', autoCancelPendingMins)
           ..add('mobileWalletTimeoutMins', mobileWalletTimeoutMins)
           ..add('driverAcceptTimeoutSecs', driverAcceptTimeoutSecs)
+          ..add('assistDecisionTimeoutSecs', assistDecisionTimeoutSecs)
+          ..add('maxNegativeDriverBalance', maxNegativeDriverBalance)
           ..add('maxDispatchBatchSize', maxDispatchBatchSize)
+          ..add('maxActiveOrdersPerDriver', maxActiveOrdersPerDriver)
           ..add('isMaintenanceMode', isMaintenanceMode)
           ..add('androidMinVersion', androidMinVersion)
           ..add('androidLatestVersion', androidLatestVersion)
@@ -548,6 +662,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('retentionExpiredSessionsDays', retentionExpiredSessionsDays)
           ..add('retentionAuditLogsDays', retentionAuditLogsDays)
           ..add('retentionAbandonedCartsDays', retentionAbandonedCartsDays)
+          ..add('retentionPaymentReceiptsDays', retentionPaymentReceiptsDays)
+          ..add('retentionShiftStartPhotosDays', retentionShiftStartPhotosDays)
+          ..add('retentionPickupPhotosDays', retentionPickupPhotosDays)
+          ..add('retentionDeliveryPhotosDays', retentionDeliveryPhotosDays)
           ..add(
             'retentionWalletTransactionsDays',
             retentionWalletTransactionsDays,
@@ -565,13 +683,18 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('highValueOrderThreshold', highValueOrderThreshold)
           ..add('highValueUpfrontRate', highValueUpfrontRate)
           ..add('driverShiftsEnabled', driverShiftsEnabled)
+          ..add('breaksEnabled', breaksEnabled)
           ..add('bronzeTierBonusPerKm', bronzeTierBonusPerKm)
           ..add('silverTierBonusPerKm', silverTierBonusPerKm)
           ..add('goldTierBonusPerKm', goldTierBonusPerKm)
           ..add(
             'driverSettlementOrderThreshold',
             driverSettlementOrderThreshold,
-          ))
+          )
+          ..add('maxBreakMinutesPerShift', maxBreakMinutesPerShift)
+          ..add('maxBreaksPerShift', maxBreaksPerShift)
+          ..add('maxSingleBreakMinutes', maxSingleBreakMinutes)
+          ..add('pendingBreakExpiryMins', pendingBreakExpiryMins))
         .toString();
   }
 }
@@ -595,6 +718,11 @@ class UpdatePlatformSettingsDtoBuilder
   set deliveryCommissionRate(num? deliveryCommissionRate) =>
       _$this._deliveryCommissionRate = deliveryCommissionRate;
 
+  num? _driverManagerCommissionRate;
+  num? get driverManagerCommissionRate => _$this._driverManagerCommissionRate;
+  set driverManagerCommissionRate(num? driverManagerCommissionRate) =>
+      _$this._driverManagerCommissionRate = driverManagerCommissionRate;
+
   num? _customOrderPlatformFee;
   num? get customOrderPlatformFee => _$this._customOrderPlatformFee;
   set customOrderPlatformFee(num? customOrderPlatformFee) =>
@@ -614,6 +742,11 @@ class UpdatePlatformSettingsDtoBuilder
   num? get baseDeliveryFee => _$this._baseDeliveryFee;
   set baseDeliveryFee(num? baseDeliveryFee) =>
       _$this._baseDeliveryFee = baseDeliveryFee;
+
+  num? _extraVendorDeliveryFee;
+  num? get extraVendorDeliveryFee => _$this._extraVendorDeliveryFee;
+  set extraVendorDeliveryFee(num? extraVendorDeliveryFee) =>
+      _$this._extraVendorDeliveryFee = extraVendorDeliveryFee;
 
   num? _pricePerKm;
   num? get pricePerKm => _$this._pricePerKm;
@@ -653,6 +786,11 @@ class UpdatePlatformSettingsDtoBuilder
   num? get maxDeliveryFee => _$this._maxDeliveryFee;
   set maxDeliveryFee(num? maxDeliveryFee) =>
       _$this._maxDeliveryFee = maxDeliveryFee;
+
+  num? _minDeliveryFee;
+  num? get minDeliveryFee => _$this._minDeliveryFee;
+  set minDeliveryFee(num? minDeliveryFee) =>
+      _$this._minDeliveryFee = minDeliveryFee;
 
   num? _minDeliveryFeeBicycle;
   num? get minDeliveryFeeBicycle => _$this._minDeliveryFeeBicycle;
@@ -774,10 +912,36 @@ class UpdatePlatformSettingsDtoBuilder
   set driverSearchMaxAttempts(num? driverSearchMaxAttempts) =>
       _$this._driverSearchMaxAttempts = driverSearchMaxAttempts;
 
-  num? _fallbackOrderDistanceKm;
-  num? get fallbackOrderDistanceKm => _$this._fallbackOrderDistanceKm;
-  set fallbackOrderDistanceKm(num? fallbackOrderDistanceKm) =>
-      _$this._fallbackOrderDistanceKm = fallbackOrderDistanceKm;
+  num? _driverSearchGeoCandidateLimit;
+  num? get driverSearchGeoCandidateLimit =>
+      _$this._driverSearchGeoCandidateLimit;
+  set driverSearchGeoCandidateLimit(num? driverSearchGeoCandidateLimit) =>
+      _$this._driverSearchGeoCandidateLimit = driverSearchGeoCandidateLimit;
+
+  num? _driverLocationFreshnessTtlSecs;
+  num? get driverLocationFreshnessTtlSecs =>
+      _$this._driverLocationFreshnessTtlSecs;
+  set driverLocationFreshnessTtlSecs(num? driverLocationFreshnessTtlSecs) =>
+      _$this._driverLocationFreshnessTtlSecs = driverLocationFreshnessTtlSecs;
+
+  num? _driverLocationPrecisionMeters;
+  num? get driverLocationPrecisionMeters =>
+      _$this._driverLocationPrecisionMeters;
+  set driverLocationPrecisionMeters(num? driverLocationPrecisionMeters) =>
+      _$this._driverLocationPrecisionMeters = driverLocationPrecisionMeters;
+
+  num? _groupingMaxBranchDistanceKm;
+  num? get groupingMaxBranchDistanceKm => _$this._groupingMaxBranchDistanceKm;
+  set groupingMaxBranchDistanceKm(num? groupingMaxBranchDistanceKm) =>
+      _$this._groupingMaxBranchDistanceKm = groupingMaxBranchDistanceKm;
+
+  num? _groupingMaxVendorCustomerDistanceKm;
+  num? get groupingMaxVendorCustomerDistanceKm =>
+      _$this._groupingMaxVendorCustomerDistanceKm;
+  set groupingMaxVendorCustomerDistanceKm(
+    num? groupingMaxVendorCustomerDistanceKm,
+  ) => _$this._groupingMaxVendorCustomerDistanceKm =
+      groupingMaxVendorCustomerDistanceKm;
 
   num? _autoCancelPendingMins;
   num? get autoCancelPendingMins => _$this._autoCancelPendingMins;
@@ -794,10 +958,25 @@ class UpdatePlatformSettingsDtoBuilder
   set driverAcceptTimeoutSecs(num? driverAcceptTimeoutSecs) =>
       _$this._driverAcceptTimeoutSecs = driverAcceptTimeoutSecs;
 
+  num? _assistDecisionTimeoutSecs;
+  num? get assistDecisionTimeoutSecs => _$this._assistDecisionTimeoutSecs;
+  set assistDecisionTimeoutSecs(num? assistDecisionTimeoutSecs) =>
+      _$this._assistDecisionTimeoutSecs = assistDecisionTimeoutSecs;
+
+  num? _maxNegativeDriverBalance;
+  num? get maxNegativeDriverBalance => _$this._maxNegativeDriverBalance;
+  set maxNegativeDriverBalance(num? maxNegativeDriverBalance) =>
+      _$this._maxNegativeDriverBalance = maxNegativeDriverBalance;
+
   num? _maxDispatchBatchSize;
   num? get maxDispatchBatchSize => _$this._maxDispatchBatchSize;
   set maxDispatchBatchSize(num? maxDispatchBatchSize) =>
       _$this._maxDispatchBatchSize = maxDispatchBatchSize;
+
+  num? _maxActiveOrdersPerDriver;
+  num? get maxActiveOrdersPerDriver => _$this._maxActiveOrdersPerDriver;
+  set maxActiveOrdersPerDriver(num? maxActiveOrdersPerDriver) =>
+      _$this._maxActiveOrdersPerDriver = maxActiveOrdersPerDriver;
 
   bool? _isMaintenanceMode;
   bool? get isMaintenanceMode => _$this._isMaintenanceMode;
@@ -917,6 +1096,27 @@ class UpdatePlatformSettingsDtoBuilder
   set retentionAbandonedCartsDays(num? retentionAbandonedCartsDays) =>
       _$this._retentionAbandonedCartsDays = retentionAbandonedCartsDays;
 
+  num? _retentionPaymentReceiptsDays;
+  num? get retentionPaymentReceiptsDays => _$this._retentionPaymentReceiptsDays;
+  set retentionPaymentReceiptsDays(num? retentionPaymentReceiptsDays) =>
+      _$this._retentionPaymentReceiptsDays = retentionPaymentReceiptsDays;
+
+  num? _retentionShiftStartPhotosDays;
+  num? get retentionShiftStartPhotosDays =>
+      _$this._retentionShiftStartPhotosDays;
+  set retentionShiftStartPhotosDays(num? retentionShiftStartPhotosDays) =>
+      _$this._retentionShiftStartPhotosDays = retentionShiftStartPhotosDays;
+
+  num? _retentionPickupPhotosDays;
+  num? get retentionPickupPhotosDays => _$this._retentionPickupPhotosDays;
+  set retentionPickupPhotosDays(num? retentionPickupPhotosDays) =>
+      _$this._retentionPickupPhotosDays = retentionPickupPhotosDays;
+
+  num? _retentionDeliveryPhotosDays;
+  num? get retentionDeliveryPhotosDays => _$this._retentionDeliveryPhotosDays;
+  set retentionDeliveryPhotosDays(num? retentionDeliveryPhotosDays) =>
+      _$this._retentionDeliveryPhotosDays = retentionDeliveryPhotosDays;
+
   num? _retentionWalletTransactionsDays;
   num? get retentionWalletTransactionsDays =>
       _$this._retentionWalletTransactionsDays;
@@ -987,6 +1187,11 @@ class UpdatePlatformSettingsDtoBuilder
   set driverShiftsEnabled(bool? driverShiftsEnabled) =>
       _$this._driverShiftsEnabled = driverShiftsEnabled;
 
+  bool? _breaksEnabled;
+  bool? get breaksEnabled => _$this._breaksEnabled;
+  set breaksEnabled(bool? breaksEnabled) =>
+      _$this._breaksEnabled = breaksEnabled;
+
   num? _bronzeTierBonusPerKm;
   num? get bronzeTierBonusPerKm => _$this._bronzeTierBonusPerKm;
   set bronzeTierBonusPerKm(num? bronzeTierBonusPerKm) =>
@@ -1008,6 +1213,26 @@ class UpdatePlatformSettingsDtoBuilder
   set driverSettlementOrderThreshold(num? driverSettlementOrderThreshold) =>
       _$this._driverSettlementOrderThreshold = driverSettlementOrderThreshold;
 
+  num? _maxBreakMinutesPerShift;
+  num? get maxBreakMinutesPerShift => _$this._maxBreakMinutesPerShift;
+  set maxBreakMinutesPerShift(num? maxBreakMinutesPerShift) =>
+      _$this._maxBreakMinutesPerShift = maxBreakMinutesPerShift;
+
+  num? _maxBreaksPerShift;
+  num? get maxBreaksPerShift => _$this._maxBreaksPerShift;
+  set maxBreaksPerShift(num? maxBreaksPerShift) =>
+      _$this._maxBreaksPerShift = maxBreaksPerShift;
+
+  num? _maxSingleBreakMinutes;
+  num? get maxSingleBreakMinutes => _$this._maxSingleBreakMinutes;
+  set maxSingleBreakMinutes(num? maxSingleBreakMinutes) =>
+      _$this._maxSingleBreakMinutes = maxSingleBreakMinutes;
+
+  num? _pendingBreakExpiryMins;
+  num? get pendingBreakExpiryMins => _$this._pendingBreakExpiryMins;
+  set pendingBreakExpiryMins(num? pendingBreakExpiryMins) =>
+      _$this._pendingBreakExpiryMins = pendingBreakExpiryMins;
+
   UpdatePlatformSettingsDtoBuilder() {
     UpdatePlatformSettingsDto._defaults(this);
   }
@@ -1018,10 +1243,12 @@ class UpdatePlatformSettingsDtoBuilder
       _currency = $v.currency;
       _defaultCommissionRate = $v.defaultCommissionRate;
       _deliveryCommissionRate = $v.deliveryCommissionRate;
+      _driverManagerCommissionRate = $v.driverManagerCommissionRate;
       _customOrderPlatformFee = $v.customOrderPlatformFee;
       _defaultTaxRate = $v.defaultTaxRate;
       _minOrderAmount = $v.minOrderAmount;
       _baseDeliveryFee = $v.baseDeliveryFee;
+      _extraVendorDeliveryFee = $v.extraVendorDeliveryFee;
       _pricePerKm = $v.pricePerKm;
       _pricePerKmBicycle = $v.pricePerKmBicycle;
       _pricePerKmMotorcycle = $v.pricePerKmMotorcycle;
@@ -1030,6 +1257,7 @@ class UpdatePlatformSettingsDtoBuilder
       _pricePerKmTruck = $v.pricePerKmTruck;
       _pricePerKmMotorTricycle = $v.pricePerKmMotorTricycle;
       _maxDeliveryFee = $v.maxDeliveryFee;
+      _minDeliveryFee = $v.minDeliveryFee;
       _minDeliveryFeeBicycle = $v.minDeliveryFeeBicycle;
       _maxDeliveryFeeBicycle = $v.maxDeliveryFeeBicycle;
       _minDeliveryFeeMotorcycle = $v.minDeliveryFeeMotorcycle;
@@ -1055,11 +1283,19 @@ class UpdatePlatformSettingsDtoBuilder
       _driverSearchRadiusStepKm = $v.driverSearchRadiusStepKm;
       _driverSearchRadiusMaxKm = $v.driverSearchRadiusMaxKm;
       _driverSearchMaxAttempts = $v.driverSearchMaxAttempts;
-      _fallbackOrderDistanceKm = $v.fallbackOrderDistanceKm;
+      _driverSearchGeoCandidateLimit = $v.driverSearchGeoCandidateLimit;
+      _driverLocationFreshnessTtlSecs = $v.driverLocationFreshnessTtlSecs;
+      _driverLocationPrecisionMeters = $v.driverLocationPrecisionMeters;
+      _groupingMaxBranchDistanceKm = $v.groupingMaxBranchDistanceKm;
+      _groupingMaxVendorCustomerDistanceKm =
+          $v.groupingMaxVendorCustomerDistanceKm;
       _autoCancelPendingMins = $v.autoCancelPendingMins;
       _mobileWalletTimeoutMins = $v.mobileWalletTimeoutMins;
       _driverAcceptTimeoutSecs = $v.driverAcceptTimeoutSecs;
+      _assistDecisionTimeoutSecs = $v.assistDecisionTimeoutSecs;
+      _maxNegativeDriverBalance = $v.maxNegativeDriverBalance;
       _maxDispatchBatchSize = $v.maxDispatchBatchSize;
+      _maxActiveOrdersPerDriver = $v.maxActiveOrdersPerDriver;
       _isMaintenanceMode = $v.isMaintenanceMode;
       _androidMinVersion = $v.androidMinVersion;
       _androidLatestVersion = $v.androidLatestVersion;
@@ -1085,6 +1321,10 @@ class UpdatePlatformSettingsDtoBuilder
       _retentionExpiredSessionsDays = $v.retentionExpiredSessionsDays;
       _retentionAuditLogsDays = $v.retentionAuditLogsDays;
       _retentionAbandonedCartsDays = $v.retentionAbandonedCartsDays;
+      _retentionPaymentReceiptsDays = $v.retentionPaymentReceiptsDays;
+      _retentionShiftStartPhotosDays = $v.retentionShiftStartPhotosDays;
+      _retentionPickupPhotosDays = $v.retentionPickupPhotosDays;
+      _retentionDeliveryPhotosDays = $v.retentionDeliveryPhotosDays;
       _retentionWalletTransactionsDays = $v.retentionWalletTransactionsDays;
       _retentionStatisticsDays = $v.retentionStatisticsDays;
       _maxKmForBicycle = $v.maxKmForBicycle;
@@ -1099,10 +1339,15 @@ class UpdatePlatformSettingsDtoBuilder
       _highValueOrderThreshold = $v.highValueOrderThreshold;
       _highValueUpfrontRate = $v.highValueUpfrontRate;
       _driverShiftsEnabled = $v.driverShiftsEnabled;
+      _breaksEnabled = $v.breaksEnabled;
       _bronzeTierBonusPerKm = $v.bronzeTierBonusPerKm;
       _silverTierBonusPerKm = $v.silverTierBonusPerKm;
       _goldTierBonusPerKm = $v.goldTierBonusPerKm;
       _driverSettlementOrderThreshold = $v.driverSettlementOrderThreshold;
+      _maxBreakMinutesPerShift = $v.maxBreakMinutesPerShift;
+      _maxBreaksPerShift = $v.maxBreaksPerShift;
+      _maxSingleBreakMinutes = $v.maxSingleBreakMinutes;
+      _pendingBreakExpiryMins = $v.pendingBreakExpiryMins;
       _$v = null;
     }
     return this;
@@ -1128,10 +1373,12 @@ class UpdatePlatformSettingsDtoBuilder
           currency: currency,
           defaultCommissionRate: defaultCommissionRate,
           deliveryCommissionRate: deliveryCommissionRate,
+          driverManagerCommissionRate: driverManagerCommissionRate,
           customOrderPlatformFee: customOrderPlatformFee,
           defaultTaxRate: defaultTaxRate,
           minOrderAmount: minOrderAmount,
           baseDeliveryFee: baseDeliveryFee,
+          extraVendorDeliveryFee: extraVendorDeliveryFee,
           pricePerKm: pricePerKm,
           pricePerKmBicycle: pricePerKmBicycle,
           pricePerKmMotorcycle: pricePerKmMotorcycle,
@@ -1140,6 +1387,7 @@ class UpdatePlatformSettingsDtoBuilder
           pricePerKmTruck: pricePerKmTruck,
           pricePerKmMotorTricycle: pricePerKmMotorTricycle,
           maxDeliveryFee: maxDeliveryFee,
+          minDeliveryFee: minDeliveryFee,
           minDeliveryFeeBicycle: minDeliveryFeeBicycle,
           maxDeliveryFeeBicycle: maxDeliveryFeeBicycle,
           minDeliveryFeeMotorcycle: minDeliveryFeeMotorcycle,
@@ -1165,11 +1413,19 @@ class UpdatePlatformSettingsDtoBuilder
           driverSearchRadiusStepKm: driverSearchRadiusStepKm,
           driverSearchRadiusMaxKm: driverSearchRadiusMaxKm,
           driverSearchMaxAttempts: driverSearchMaxAttempts,
-          fallbackOrderDistanceKm: fallbackOrderDistanceKm,
+          driverSearchGeoCandidateLimit: driverSearchGeoCandidateLimit,
+          driverLocationFreshnessTtlSecs: driverLocationFreshnessTtlSecs,
+          driverLocationPrecisionMeters: driverLocationPrecisionMeters,
+          groupingMaxBranchDistanceKm: groupingMaxBranchDistanceKm,
+          groupingMaxVendorCustomerDistanceKm:
+              groupingMaxVendorCustomerDistanceKm,
           autoCancelPendingMins: autoCancelPendingMins,
           mobileWalletTimeoutMins: mobileWalletTimeoutMins,
           driverAcceptTimeoutSecs: driverAcceptTimeoutSecs,
+          assistDecisionTimeoutSecs: assistDecisionTimeoutSecs,
+          maxNegativeDriverBalance: maxNegativeDriverBalance,
           maxDispatchBatchSize: maxDispatchBatchSize,
+          maxActiveOrdersPerDriver: maxActiveOrdersPerDriver,
           isMaintenanceMode: isMaintenanceMode,
           androidMinVersion: androidMinVersion,
           androidLatestVersion: androidLatestVersion,
@@ -1195,6 +1451,10 @@ class UpdatePlatformSettingsDtoBuilder
           retentionExpiredSessionsDays: retentionExpiredSessionsDays,
           retentionAuditLogsDays: retentionAuditLogsDays,
           retentionAbandonedCartsDays: retentionAbandonedCartsDays,
+          retentionPaymentReceiptsDays: retentionPaymentReceiptsDays,
+          retentionShiftStartPhotosDays: retentionShiftStartPhotosDays,
+          retentionPickupPhotosDays: retentionPickupPhotosDays,
+          retentionDeliveryPhotosDays: retentionDeliveryPhotosDays,
           retentionWalletTransactionsDays: retentionWalletTransactionsDays,
           retentionStatisticsDays: retentionStatisticsDays,
           maxKmForBicycle: maxKmForBicycle,
@@ -1209,10 +1469,15 @@ class UpdatePlatformSettingsDtoBuilder
           highValueOrderThreshold: highValueOrderThreshold,
           highValueUpfrontRate: highValueUpfrontRate,
           driverShiftsEnabled: driverShiftsEnabled,
+          breaksEnabled: breaksEnabled,
           bronzeTierBonusPerKm: bronzeTierBonusPerKm,
           silverTierBonusPerKm: silverTierBonusPerKm,
           goldTierBonusPerKm: goldTierBonusPerKm,
           driverSettlementOrderThreshold: driverSettlementOrderThreshold,
+          maxBreakMinutesPerShift: maxBreakMinutesPerShift,
+          maxBreaksPerShift: maxBreaksPerShift,
+          maxSingleBreakMinutes: maxSingleBreakMinutes,
+          pendingBreakExpiryMins: pendingBreakExpiryMins,
         );
     replace(_$result);
     return _$result;

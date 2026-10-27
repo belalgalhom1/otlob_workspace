@@ -61,13 +61,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       final settings = ref.read(platformSettingsProvider).value;
       if (settings != null &&
           coinState.currentBalance >= settings.minCoinsToUse) {
-        final totalFee = _calculateTotalFee();
-        final maxDiscount = coinState.currentBalance * settings.coinValue;
-        if (maxDiscount > totalFee) {
-          coinsToUse = (totalFee / settings.coinValue).ceil();
-        } else {
-          coinsToUse = coinState.currentBalance;
-        }
+        // Coins cover the whole bill; the backend caps the discount at the
+        // grand total and only consumes the coins actually needed.
+        coinsToUse = coinState.currentBalance;
       }
     }
 
@@ -240,16 +236,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       
       int? coinsToUse;
       if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-        final est = _estimate;
-        final totalFee = (est != null && est['grandTotal'] != null)
-            ? (est['grandTotal'] as num).toDouble()
-            : _calculateTotalFee();
-        final maxDiscount = coinState.currentBalance * settings.coinValue;
-        if (maxDiscount > totalFee) {
-          coinsToUse = (totalFee / settings.coinValue).ceil();
-        } else {
-          coinsToUse = coinState.currentBalance;
-        }
+        // Same rule as the estimate: offer the full balance and let the
+        // backend cap it at the grand total (keeps placement == estimate).
+        coinsToUse = coinState.currentBalance;
       }
 
       final resultId = await ref.read(ordersProvider.notifier).placeCustomOrder(

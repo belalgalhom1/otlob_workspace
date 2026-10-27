@@ -81,15 +81,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final settings = ref.read(platformSettingsProvider).value;
     int? coinsToUse;
     if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-      final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
-      final subtotal = isMultiVendor
-          ? vendorIds.fold(0.0, (acc, vid) => acc + ref.read(cartProvider).getVendorSubtotal(vid))
-          : ref.read(cartProvider).getVendorSubtotal(vendorIds.first);
-      if (maxCoinDiscount > subtotal) {
-        coinsToUse = (subtotal / settings.coinValue).ceil();
-      } else {
-        coinsToUse = coinState.currentBalance;
-      }
+      // Coins cover the whole bill (products + delivery + fees + tax). Offer
+      // the full balance; the backend caps the discount at the grand total and
+      // only consumes the coins actually needed.
+      coinsToUse = coinState.currentBalance;
     }
 
     final vendorCartItems = isMultiVendor
@@ -368,15 +363,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     int? coinsToUse;
 
     if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
+      // Send the full balance; the backend applies coins to the grand total
+      // (products + delivery + fees + tax) and consumes only what is needed.
+      coinsToUse = coinState.currentBalance;
+      // Preview only — replaced by the server estimate's discount once loaded.
       final maxCoinDiscount = coinState.currentBalance * settings.coinValue;
-      if (maxCoinDiscount > total) {
-        // Cap — only use as many coins as needed to cover the total
-        localCoinDiscount = total;
-        coinsToUse = (total / settings.coinValue).ceil();
-      } else {
-        localCoinDiscount = maxCoinDiscount;
-        coinsToUse = coinState.currentBalance;
-      }
+      localCoinDiscount = maxCoinDiscount > total ? total : maxCoinDiscount;
     }
     
     final selectedAddress = ref.watch(activeDeliveryAddressProvider);

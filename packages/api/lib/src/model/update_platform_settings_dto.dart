@@ -14,10 +14,12 @@ part 'update_platform_settings_dto.g.dart';
 /// * [currency] 
 /// * [defaultCommissionRate] 
 /// * [deliveryCommissionRate] 
+/// * [driverManagerCommissionRate] 
 /// * [customOrderPlatformFee] 
 /// * [defaultTaxRate] 
 /// * [minOrderAmount] 
 /// * [baseDeliveryFee] 
+/// * [extraVendorDeliveryFee] - Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10.
 /// * [pricePerKm] 
 /// * [pricePerKmBicycle] 
 /// * [pricePerKmMotorcycle] 
@@ -26,6 +28,7 @@ part 'update_platform_settings_dto.g.dart';
 /// * [pricePerKmTruck] 
 /// * [pricePerKmMotorTricycle] 
 /// * [maxDeliveryFee] - Max limit on delivery fee
+/// * [minDeliveryFee] - Absolute minimum customer delivery fee in EGP. Applied after the per-vehicle min/max matrix, so a vehicle override still wins. 0 disables the global floor.
 /// * [minDeliveryFeeBicycle] 
 /// * [maxDeliveryFeeBicycle] 
 /// * [minDeliveryFeeMotorcycle] 
@@ -51,11 +54,18 @@ part 'update_platform_settings_dto.g.dart';
 /// * [driverSearchRadiusStepKm] 
 /// * [driverSearchRadiusMaxKm] 
 /// * [driverSearchMaxAttempts] 
-/// * [fallbackOrderDistanceKm] 
+/// * [driverSearchGeoCandidateLimit] - Max candidates to fetch from Redis geo-radius before SQL filtering (headroom for filters).
+/// * [driverLocationFreshnessTtlSecs] - Driver location freshness TTL in seconds (how long a position is considered live).
+/// * [driverLocationPrecisionMeters] - Location precision reduction in meters for customer-facing tracking (0 = exact).
+/// * [groupingMaxBranchDistanceKm] - Smart grouping (km): max straight-line distance between any two vendor branches that may share one delivery group.
+/// * [groupingMaxVendorCustomerDistanceKm] - Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all.
 /// * [autoCancelPendingMins] 
 /// * [mobileWalletTimeoutMins] 
 /// * [driverAcceptTimeoutSecs] 
+/// * [assistDecisionTimeoutSecs] 
+/// * [maxNegativeDriverBalance] 
 /// * [maxDispatchBatchSize] 
+/// * [maxActiveOrdersPerDriver] - Maximum active orders a driver can carry at the same time (1-10). Default 1.
 /// * [isMaintenanceMode] 
 /// * [androidMinVersion] 
 /// * [androidLatestVersion] 
@@ -80,6 +90,10 @@ part 'update_platform_settings_dto.g.dart';
 /// * [retentionExpiredSessionsDays] - Days after expiry before sessions are hard-deleted
 /// * [retentionAuditLogsDays] - Days before audit logs are hard-deleted
 /// * [retentionAbandonedCartsDays] - Days before abandoned carts are hard-deleted
+/// * [retentionPaymentReceiptsDays] - Days after an order settles before its mobile-wallet payment receipt screenshot is deleted from disk and cleared from the order (order row itself is kept)
+/// * [retentionShiftStartPhotosDays] - Days after a shift ends before its driver start-photo (selfie) is deleted from disk and cleared from the shift (shift row itself is kept)
+/// * [retentionPickupPhotosDays] - Days after an order settles before its pickup proof photo is deleted from disk and cleared from the order (order row itself is kept)
+/// * [retentionDeliveryPhotosDays] - Days after an order settles before its delivery proof photo is deleted from disk and cleared from the order (order row itself is kept)
 /// * [retentionWalletTransactionsDays] - Days before wallet transactions are hard-deleted
 /// * [retentionStatisticsDays] - Days before statistics records are hard-deleted
 /// * [maxKmForBicycle] - Max distance for bicycle dispatch
@@ -94,10 +108,15 @@ part 'update_platform_settings_dto.g.dart';
 /// * [highValueOrderThreshold] - Threshold for high value orders (e.g. 2000 = 2000 EGP). 0 to disable.
 /// * [highValueUpfrontRate] - Upfront percentage rate for high value cash orders (e.g. 20 = 20%)
 /// * [driverShiftsEnabled] - Master switch for driver shifts feature
+/// * [breaksEnabled] - Master switch for the driver break system. When off, drivers cannot request breaks and pending requests cannot be approved (admin grant still works as an override). Active breaks can always be ended.
 /// * [bronzeTierBonusPerKm] - Per-km bonus for Bronze tier drivers
 /// * [silverTierBonusPerKm] - Per-km bonus for Silver tier drivers
 /// * [goldTierBonusPerKm] - Per-km bonus for Gold tier drivers (Used at checkout)
 /// * [driverSettlementOrderThreshold] - Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
+/// * [maxBreakMinutesPerShift] - Max total break minutes allowed per shift
+/// * [maxBreaksPerShift] - Max number of breaks allowed per shift
+/// * [maxSingleBreakMinutes] - Max minutes for a single break before it is auto-ended by the system
+/// * [pendingBreakExpiryMins] - Minutes a break request stays PENDING before the system auto-rejects it
 @BuiltValue()
 abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettingsDto, UpdatePlatformSettingsDtoBuilder> {
   @BuiltValueField(wireName: r'currency')
@@ -108,6 +127,9 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
 
   @BuiltValueField(wireName: r'deliveryCommissionRate')
   num? get deliveryCommissionRate;
+
+  @BuiltValueField(wireName: r'driverManagerCommissionRate')
+  num? get driverManagerCommissionRate;
 
   @BuiltValueField(wireName: r'customOrderPlatformFee')
   num? get customOrderPlatformFee;
@@ -120,6 +142,10 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
 
   @BuiltValueField(wireName: r'baseDeliveryFee')
   num? get baseDeliveryFee;
+
+  /// Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10.
+  @BuiltValueField(wireName: r'extraVendorDeliveryFee')
+  num? get extraVendorDeliveryFee;
 
   @BuiltValueField(wireName: r'pricePerKm')
   num? get pricePerKm;
@@ -145,6 +171,10 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Max limit on delivery fee
   @BuiltValueField(wireName: r'maxDeliveryFee')
   num? get maxDeliveryFee;
+
+  /// Absolute minimum customer delivery fee in EGP. Applied after the per-vehicle min/max matrix, so a vehicle override still wins. 0 disables the global floor.
+  @BuiltValueField(wireName: r'minDeliveryFee')
+  num? get minDeliveryFee;
 
   @BuiltValueField(wireName: r'minDeliveryFeeBicycle')
   num? get minDeliveryFeeBicycle;
@@ -223,8 +253,25 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'driverSearchMaxAttempts')
   num? get driverSearchMaxAttempts;
 
-  @BuiltValueField(wireName: r'fallbackOrderDistanceKm')
-  num? get fallbackOrderDistanceKm;
+  /// Max candidates to fetch from Redis geo-radius before SQL filtering (headroom for filters).
+  @BuiltValueField(wireName: r'driverSearchGeoCandidateLimit')
+  num? get driverSearchGeoCandidateLimit;
+
+  /// Driver location freshness TTL in seconds (how long a position is considered live).
+  @BuiltValueField(wireName: r'driverLocationFreshnessTtlSecs')
+  num? get driverLocationFreshnessTtlSecs;
+
+  /// Location precision reduction in meters for customer-facing tracking (0 = exact).
+  @BuiltValueField(wireName: r'driverLocationPrecisionMeters')
+  num? get driverLocationPrecisionMeters;
+
+  /// Smart grouping (km): max straight-line distance between any two vendor branches that may share one delivery group.
+  @BuiltValueField(wireName: r'groupingMaxBranchDistanceKm')
+  num? get groupingMaxBranchDistanceKm;
+
+  /// Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all.
+  @BuiltValueField(wireName: r'groupingMaxVendorCustomerDistanceKm')
+  num? get groupingMaxVendorCustomerDistanceKm;
 
   @BuiltValueField(wireName: r'autoCancelPendingMins')
   num? get autoCancelPendingMins;
@@ -235,8 +282,18 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'driverAcceptTimeoutSecs')
   num? get driverAcceptTimeoutSecs;
 
+  @BuiltValueField(wireName: r'assistDecisionTimeoutSecs')
+  num? get assistDecisionTimeoutSecs;
+
+  @BuiltValueField(wireName: r'maxNegativeDriverBalance')
+  num? get maxNegativeDriverBalance;
+
   @BuiltValueField(wireName: r'maxDispatchBatchSize')
   num? get maxDispatchBatchSize;
+
+  /// Maximum active orders a driver can carry at the same time (1-10). Default 1.
+  @BuiltValueField(wireName: r'maxActiveOrdersPerDriver')
+  num? get maxActiveOrdersPerDriver;
 
   @BuiltValueField(wireName: r'isMaintenanceMode')
   bool? get isMaintenanceMode;
@@ -320,6 +377,22 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'retentionAbandonedCartsDays')
   num? get retentionAbandonedCartsDays;
 
+  /// Days after an order settles before its mobile-wallet payment receipt screenshot is deleted from disk and cleared from the order (order row itself is kept)
+  @BuiltValueField(wireName: r'retentionPaymentReceiptsDays')
+  num? get retentionPaymentReceiptsDays;
+
+  /// Days after a shift ends before its driver start-photo (selfie) is deleted from disk and cleared from the shift (shift row itself is kept)
+  @BuiltValueField(wireName: r'retentionShiftStartPhotosDays')
+  num? get retentionShiftStartPhotosDays;
+
+  /// Days after an order settles before its pickup proof photo is deleted from disk and cleared from the order (order row itself is kept)
+  @BuiltValueField(wireName: r'retentionPickupPhotosDays')
+  num? get retentionPickupPhotosDays;
+
+  /// Days after an order settles before its delivery proof photo is deleted from disk and cleared from the order (order row itself is kept)
+  @BuiltValueField(wireName: r'retentionDeliveryPhotosDays')
+  num? get retentionDeliveryPhotosDays;
+
   /// Days before wallet transactions are hard-deleted
   @BuiltValueField(wireName: r'retentionWalletTransactionsDays')
   num? get retentionWalletTransactionsDays;
@@ -376,6 +449,10 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'driverShiftsEnabled')
   bool? get driverShiftsEnabled;
 
+  /// Master switch for the driver break system. When off, drivers cannot request breaks and pending requests cannot be approved (admin grant still works as an override). Active breaks can always be ended.
+  @BuiltValueField(wireName: r'breaksEnabled')
+  bool? get breaksEnabled;
+
   /// Per-km bonus for Bronze tier drivers
   @BuiltValueField(wireName: r'bronzeTierBonusPerKm')
   num? get bronzeTierBonusPerKm;
@@ -391,6 +468,22 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
   @BuiltValueField(wireName: r'driverSettlementOrderThreshold')
   num? get driverSettlementOrderThreshold;
+
+  /// Max total break minutes allowed per shift
+  @BuiltValueField(wireName: r'maxBreakMinutesPerShift')
+  num? get maxBreakMinutesPerShift;
+
+  /// Max number of breaks allowed per shift
+  @BuiltValueField(wireName: r'maxBreaksPerShift')
+  num? get maxBreaksPerShift;
+
+  /// Max minutes for a single break before it is auto-ended by the system
+  @BuiltValueField(wireName: r'maxSingleBreakMinutes')
+  num? get maxSingleBreakMinutes;
+
+  /// Minutes a break request stays PENDING before the system auto-rejects it
+  @BuiltValueField(wireName: r'pendingBreakExpiryMins')
+  num? get pendingBreakExpiryMins;
 
   UpdatePlatformSettingsDto._();
 
@@ -436,6 +529,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
+    if (object.driverManagerCommissionRate != null) {
+      yield r'driverManagerCommissionRate';
+      yield serializers.serialize(
+        object.driverManagerCommissionRate,
+        specifiedType: const FullType(num),
+      );
+    }
     if (object.customOrderPlatformFee != null) {
       yield r'customOrderPlatformFee';
       yield serializers.serialize(
@@ -461,6 +561,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'baseDeliveryFee';
       yield serializers.serialize(
         object.baseDeliveryFee,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.extraVendorDeliveryFee != null) {
+      yield r'extraVendorDeliveryFee';
+      yield serializers.serialize(
+        object.extraVendorDeliveryFee,
         specifiedType: const FullType(num),
       );
     }
@@ -517,6 +624,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'maxDeliveryFee';
       yield serializers.serialize(
         object.maxDeliveryFee,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.minDeliveryFee != null) {
+      yield r'minDeliveryFee';
+      yield serializers.serialize(
+        object.minDeliveryFee,
         specifiedType: const FullType(num),
       );
     }
@@ -695,10 +809,38 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
-    if (object.fallbackOrderDistanceKm != null) {
-      yield r'fallbackOrderDistanceKm';
+    if (object.driverSearchGeoCandidateLimit != null) {
+      yield r'driverSearchGeoCandidateLimit';
       yield serializers.serialize(
-        object.fallbackOrderDistanceKm,
+        object.driverSearchGeoCandidateLimit,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.driverLocationFreshnessTtlSecs != null) {
+      yield r'driverLocationFreshnessTtlSecs';
+      yield serializers.serialize(
+        object.driverLocationFreshnessTtlSecs,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.driverLocationPrecisionMeters != null) {
+      yield r'driverLocationPrecisionMeters';
+      yield serializers.serialize(
+        object.driverLocationPrecisionMeters,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.groupingMaxBranchDistanceKm != null) {
+      yield r'groupingMaxBranchDistanceKm';
+      yield serializers.serialize(
+        object.groupingMaxBranchDistanceKm,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.groupingMaxVendorCustomerDistanceKm != null) {
+      yield r'groupingMaxVendorCustomerDistanceKm';
+      yield serializers.serialize(
+        object.groupingMaxVendorCustomerDistanceKm,
         specifiedType: const FullType(num),
       );
     }
@@ -723,10 +865,31 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
+    if (object.assistDecisionTimeoutSecs != null) {
+      yield r'assistDecisionTimeoutSecs';
+      yield serializers.serialize(
+        object.assistDecisionTimeoutSecs,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxNegativeDriverBalance != null) {
+      yield r'maxNegativeDriverBalance';
+      yield serializers.serialize(
+        object.maxNegativeDriverBalance,
+        specifiedType: const FullType(num),
+      );
+    }
     if (object.maxDispatchBatchSize != null) {
       yield r'maxDispatchBatchSize';
       yield serializers.serialize(
         object.maxDispatchBatchSize,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxActiveOrdersPerDriver != null) {
+      yield r'maxActiveOrdersPerDriver';
+      yield serializers.serialize(
+        object.maxActiveOrdersPerDriver,
         specifiedType: const FullType(num),
       );
     }
@@ -898,6 +1061,34 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
+    if (object.retentionPaymentReceiptsDays != null) {
+      yield r'retentionPaymentReceiptsDays';
+      yield serializers.serialize(
+        object.retentionPaymentReceiptsDays,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.retentionShiftStartPhotosDays != null) {
+      yield r'retentionShiftStartPhotosDays';
+      yield serializers.serialize(
+        object.retentionShiftStartPhotosDays,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.retentionPickupPhotosDays != null) {
+      yield r'retentionPickupPhotosDays';
+      yield serializers.serialize(
+        object.retentionPickupPhotosDays,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.retentionDeliveryPhotosDays != null) {
+      yield r'retentionDeliveryPhotosDays';
+      yield serializers.serialize(
+        object.retentionDeliveryPhotosDays,
+        specifiedType: const FullType(num),
+      );
+    }
     if (object.retentionWalletTransactionsDays != null) {
       yield r'retentionWalletTransactionsDays';
       yield serializers.serialize(
@@ -996,6 +1187,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(bool),
       );
     }
+    if (object.breaksEnabled != null) {
+      yield r'breaksEnabled';
+      yield serializers.serialize(
+        object.breaksEnabled,
+        specifiedType: const FullType(bool),
+      );
+    }
     if (object.bronzeTierBonusPerKm != null) {
       yield r'bronzeTierBonusPerKm';
       yield serializers.serialize(
@@ -1021,6 +1219,34 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'driverSettlementOrderThreshold';
       yield serializers.serialize(
         object.driverSettlementOrderThreshold,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxBreakMinutesPerShift != null) {
+      yield r'maxBreakMinutesPerShift';
+      yield serializers.serialize(
+        object.maxBreakMinutesPerShift,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxBreaksPerShift != null) {
+      yield r'maxBreaksPerShift';
+      yield serializers.serialize(
+        object.maxBreaksPerShift,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxSingleBreakMinutes != null) {
+      yield r'maxSingleBreakMinutes';
+      yield serializers.serialize(
+        object.maxSingleBreakMinutes,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.pendingBreakExpiryMins != null) {
+      yield r'pendingBreakExpiryMins';
+      yield serializers.serialize(
+        object.pendingBreakExpiryMins,
         specifiedType: const FullType(num),
       );
     }
@@ -1068,6 +1294,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.deliveryCommissionRate = valueDes;
           break;
+        case r'driverManagerCommissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.driverManagerCommissionRate = valueDes;
+          break;
         case r'customOrderPlatformFee':
           final valueDes = serializers.deserialize(
             value,
@@ -1095,6 +1328,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.baseDeliveryFee = valueDes;
+          break;
+        case r'extraVendorDeliveryFee':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.extraVendorDeliveryFee = valueDes;
           break;
         case r'pricePerKm':
           final valueDes = serializers.deserialize(
@@ -1151,6 +1391,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.maxDeliveryFee = valueDes;
+          break;
+        case r'minDeliveryFee':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.minDeliveryFee = valueDes;
           break;
         case r'minDeliveryFeeBicycle':
           final valueDes = serializers.deserialize(
@@ -1327,12 +1574,40 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.driverSearchMaxAttempts = valueDes;
           break;
-        case r'fallbackOrderDistanceKm':
+        case r'driverSearchGeoCandidateLimit':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.fallbackOrderDistanceKm = valueDes;
+          result.driverSearchGeoCandidateLimit = valueDes;
+          break;
+        case r'driverLocationFreshnessTtlSecs':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.driverLocationFreshnessTtlSecs = valueDes;
+          break;
+        case r'driverLocationPrecisionMeters':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.driverLocationPrecisionMeters = valueDes;
+          break;
+        case r'groupingMaxBranchDistanceKm':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.groupingMaxBranchDistanceKm = valueDes;
+          break;
+        case r'groupingMaxVendorCustomerDistanceKm':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.groupingMaxVendorCustomerDistanceKm = valueDes;
           break;
         case r'autoCancelPendingMins':
           final valueDes = serializers.deserialize(
@@ -1355,12 +1630,33 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.driverAcceptTimeoutSecs = valueDes;
           break;
+        case r'assistDecisionTimeoutSecs':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.assistDecisionTimeoutSecs = valueDes;
+          break;
+        case r'maxNegativeDriverBalance':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxNegativeDriverBalance = valueDes;
+          break;
         case r'maxDispatchBatchSize':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
           result.maxDispatchBatchSize = valueDes;
+          break;
+        case r'maxActiveOrdersPerDriver':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxActiveOrdersPerDriver = valueDes;
           break;
         case r'isMaintenanceMode':
           final valueDes = serializers.deserialize(
@@ -1530,6 +1826,34 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.retentionAbandonedCartsDays = valueDes;
           break;
+        case r'retentionPaymentReceiptsDays':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.retentionPaymentReceiptsDays = valueDes;
+          break;
+        case r'retentionShiftStartPhotosDays':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.retentionShiftStartPhotosDays = valueDes;
+          break;
+        case r'retentionPickupPhotosDays':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.retentionPickupPhotosDays = valueDes;
+          break;
+        case r'retentionDeliveryPhotosDays':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.retentionDeliveryPhotosDays = valueDes;
+          break;
         case r'retentionWalletTransactionsDays':
           final valueDes = serializers.deserialize(
             value,
@@ -1628,6 +1952,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as bool;
           result.driverShiftsEnabled = valueDes;
           break;
+        case r'breaksEnabled':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.breaksEnabled = valueDes;
+          break;
         case r'bronzeTierBonusPerKm':
           final valueDes = serializers.deserialize(
             value,
@@ -1655,6 +1986,34 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.driverSettlementOrderThreshold = valueDes;
+          break;
+        case r'maxBreakMinutesPerShift':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxBreakMinutesPerShift = valueDes;
+          break;
+        case r'maxBreaksPerShift':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxBreaksPerShift = valueDes;
+          break;
+        case r'maxSingleBreakMinutes':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxSingleBreakMinutes = valueDes;
+          break;
+        case r'pendingBreakExpiryMins':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.pendingBreakExpiryMins = valueDes;
           break;
         default:
           unhandled.add(key);

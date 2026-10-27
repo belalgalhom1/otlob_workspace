@@ -99,10 +99,12 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('currency')) b.currency = settings['currency'];
       if (settings.containsKey('defaultCommissionRate')) b.defaultCommissionRate = parseNum(settings['defaultCommissionRate']);
       if (settings.containsKey('deliveryCommissionRate')) b.deliveryCommissionRate = parseNum(settings['deliveryCommissionRate']);
+      if (settings.containsKey('driverManagerCommissionRate')) b.driverManagerCommissionRate = parseNum(settings['driverManagerCommissionRate']);
       if (settings.containsKey('customOrderPlatformFee')) b.customOrderPlatformFee = parseNum(settings['customOrderPlatformFee']);
       if (settings.containsKey('defaultTaxRate')) b.defaultTaxRate = parseNum(settings['defaultTaxRate']);
       if (settings.containsKey('minOrderAmount')) b.minOrderAmount = parseNum(settings['minOrderAmount']);
       if (settings.containsKey('baseDeliveryFee')) b.baseDeliveryFee = parseNum(settings['baseDeliveryFee']);
+      if (settings.containsKey('extraVendorDeliveryFee')) b.extraVendorDeliveryFee = parseNum(settings['extraVendorDeliveryFee']);
       if (settings.containsKey('pricePerKm')) b.pricePerKm = parseNum(settings['pricePerKm']);
       if (settings.containsKey('pricePerKmBicycle')) b.pricePerKmBicycle = parseNum(settings['pricePerKmBicycle']);
       if (settings.containsKey('pricePerKmMotorcycle')) b.pricePerKmMotorcycle = parseNum(settings['pricePerKmMotorcycle']);
@@ -133,6 +135,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('driverAcceptTimeoutSecs')) b.driverAcceptTimeoutSecs = parseNum(settings['driverAcceptTimeoutSecs']);
       if (settings.containsKey('autoCancelPendingMins')) b.autoCancelPendingMins = parseNum(settings['autoCancelPendingMins']);
       if (settings.containsKey('maxDispatchBatchSize')) b.maxDispatchBatchSize = parseNum(settings['maxDispatchBatchSize']);
+      if (settings.containsKey('maxActiveOrdersPerDriver')) b.maxActiveOrdersPerDriver = parseNum(settings['maxActiveOrdersPerDriver']);
       if (settings.containsKey('mobileWalletTimeoutMins')) b.mobileWalletTimeoutMins = parseNum(settings['mobileWalletTimeoutMins']);
       if (settings.containsKey('isMaintenanceMode')) b.isMaintenanceMode = parseBool(settings['isMaintenanceMode']);
       if (settings.containsKey('androidMinVersion')) b.androidMinVersion = settings['androidMinVersion'];
