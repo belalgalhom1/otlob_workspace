@@ -19,6 +19,15 @@ class DriverShiftsDialog extends ConsumerStatefulWidget {
   ConsumerState<DriverShiftsDialog> createState() => _DriverShiftsDialogState();
 }
 
+class _ShiftListItem {
+  final bool isWeekly;
+  final List<DriverShift> shifts;
+  _ShiftListItem.weekly(this.shifts) : isWeekly = true;
+  _ShiftListItem.standalone(DriverShift shift)
+    : isWeekly = false,
+      shifts = [shift];
+}
+
 class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
   bool _isLoading = true;
   String? _error;
@@ -246,6 +255,44 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
       );
     }
 
+    // Group shifts by batchId for weekly shifts
+    final groups = <String, List<DriverShift>>{};
+    final groupOrder = <String>[];
+    final standalone = <DriverShift>[];
+    for (final shift in _shifts) {
+      if (shift.batchId != null && shift.batchId!.isNotEmpty) {
+        if (!groups.containsKey(shift.batchId)) {
+          groups[shift.batchId!] = [];
+          groupOrder.add(shift.batchId!);
+        }
+        groups[shift.batchId!]!.add(shift);
+      } else {
+        standalone.add(shift);
+      }
+    }
+    // Sort each group by shiftDate/startTime
+    for (final key in groups.keys) {
+      groups[key]!.sort((a, b) {
+        final d = a.shiftDate.compareTo(b.shiftDate);
+        if (d != 0) return d;
+        return a.startTime.compareTo(b.startTime);
+      });
+    }
+    standalone.sort((a, b) {
+      final d = a.shiftDate.compareTo(b.shiftDate);
+      if (d != 0) return d;
+      return a.startTime.compareTo(b.startTime);
+    });
+
+    final items = <_ShiftListItem>[];
+    for (final bid in groupOrder) {
+      final list = groups[bid]!;
+      items.add(_ShiftListItem.weekly(list));
+    }
+    for (final s in standalone) {
+      items.add(_ShiftListItem.standalone(s));
+    }
+
     return Column(
       children: [
         Padding(
@@ -255,11 +302,14 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.all(24),
-            itemCount: _shifts.length,
+            itemCount: items.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final shift = _shifts[index];
-              return _buildShiftCard(context, shift);
+              final item = items[index];
+              if (item.isWeekly) {
+                return _buildWeeklyShiftCard(context, item.shifts);
+              }
+              return _buildShiftCard(context, item.shifts.first);
             },
           ),
         ),
@@ -482,6 +532,168 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         );
       }
     }
+  }
+
+  Widget _buildWeeklyShiftCard(BuildContext context, List<DriverShift> shifts) {
+    if (shifts.isEmpty) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context)!;
+    final first = shifts.first;
+    final locale = l10n.localeName;
+    final title =
+        first.localizedPoolTitle(locale) ??
+        (locale == 'ar' ? 'الوردية الأسبوعية' : 'Weekly Shift');
+    final zone = first.zoneName ?? '';
+    final dateFormat = DateFormat('EEE, dd/MM', locale);
+    final timeFormat = DateFormat('HH:mm');
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              LucideIcons.calendarRange,
+              color: AppColors.primary,
+            ),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (zone.isNotEmpty)
+                Text(
+                  zone,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              Text(
+                locale == 'ar'
+                    ? '${shifts.length} أيام'
+                    : '${shifts.length} days',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+          children: [
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            ...shifts.map((shift) {
+              final status = shift.status;
+              Color statusColor = Colors.grey;
+              String statusText = status;
+              if (status == 'ACTIVE') {
+                statusColor = Colors.green;
+                statusText = locale == 'ar' ? 'نشطة' : 'Active';
+              } else if (status == 'COMPLETED') {
+                statusColor = Colors.blue;
+                statusText = locale == 'ar' ? 'مكتملة' : 'Completed';
+              } else if (status == 'SCHEDULED') {
+                statusColor = Colors.orange;
+                statusText = locale == 'ar' ? 'مجدولة' : 'Scheduled';
+              } else if (status == 'MISSED') {
+                statusColor = Colors.red;
+                statusText = locale == 'ar' ? 'فائتة' : 'Missed';
+              } else if (status == 'CANCELLED') {
+                statusColor = Colors.grey;
+                statusText = locale == 'ar' ? 'ملغاة' : 'Cancelled';
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.02),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.05),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dateFormat.format(shift.shiftDate),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${timeFormat.format(shift.startTime)} - ${timeFormat.format(shift.endTime)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildShiftCard(BuildContext context, DriverShift shift) {

@@ -62,6 +62,9 @@ class DriverShift {
   final String id;
   final String driverId;
   final String? shiftPoolId;
+  final String? batchId;
+  final String? poolTitle;
+  final String? poolTitleAr;
   final DateTime shiftDate;
   final DateTime startTime;
   final DateTime endTime;
@@ -76,6 +79,9 @@ class DriverShift {
     required this.id,
     required this.driverId,
     this.shiftPoolId,
+    this.batchId,
+    this.poolTitle,
+    this.poolTitleAr,
     required this.shiftDate,
     required this.startTime,
     required this.endTime,
@@ -88,10 +94,14 @@ class DriverShift {
   });
 
   factory DriverShift.fromJson(Map<String, dynamic> json) {
+    final shiftPool = json['shiftPool'] as Map<String, dynamic>?;
     return DriverShift(
       id: json['id'] as String,
       driverId: json['driverId'] as String,
       shiftPoolId: json['shiftPoolId'] as String?,
+      batchId: shiftPool?['batchId'] as String? ?? json['batchId'] as String?,
+      poolTitle: shiftPool?['title'] as String? ?? json['poolTitle'] as String?,
+      poolTitleAr: shiftPool?['titleAr'] as String? ?? json['poolTitleAr'] as String?,
       shiftDate: DateTime.parse(json['shiftDate'] as String).toLocal(),
       startTime: DateTime.parse(json['startTime'] as String).toLocal(),
       endTime: DateTime.parse(json['endTime'] as String).toLocal(),
@@ -99,11 +109,21 @@ class DriverShift {
       totalEarnings: json['totalEarnings'] as num?,
       totalDeliveries: json['totalDeliveries'] as num?,
       startPhotoUrl: json['startPhotoUrl'] as String?,
-      zoneName: json['zone'] != null ? json['zone']['name'] as String? : null,
+      zoneName: json['zone'] != null
+          ? json['zone']['name'] as String?
+          : (shiftPool?['zone'] != null ? shiftPool?['zone']['name'] as String? : null),
       driver: json['driver'] != null
           ? DriverUserInfo.fromJson(json['driver'] as Map<String, dynamic>)
           : null,
     );
+  }
+
+  String? localizedPoolTitle(String languageCode) {
+    final primary = (languageCode == 'ar' ? poolTitleAr : poolTitle)?.trim();
+    if (primary != null && primary.isNotEmpty) return primary;
+    final secondary = (languageCode == 'ar' ? poolTitle : poolTitleAr)?.trim();
+    if (secondary != null && secondary.isNotEmpty) return secondary;
+    return null;
   }
 }
 

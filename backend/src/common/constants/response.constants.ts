@@ -276,6 +276,8 @@ export const DriverErrors = {
   BREAK_NOT_PENDING: 'driver.error.break_not_pending',
   BREAK_NOT_FOUND: 'driver.error.break_not_found',
   CANNOT_REMOVE_HISTORICAL_SHIFT: 'driver.error.cannot_remove_historical_shift',
+  CANNOT_LEAVE_STARTED_SHIFT: 'driver.error.cannot_leave_started_shift',
+  CANNOT_DELETE_ACTIVE_SHIFT: 'driver.error.cannot_delete_active_shift',
   CANNOT_DELETE_POOL_WITH_ASSIGNED_DRIVERS:
     'driver.error.cannot_delete_pool_with_assigned_drivers',
   // Extra-driver assistance

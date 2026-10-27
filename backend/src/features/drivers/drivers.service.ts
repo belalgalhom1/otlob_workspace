@@ -654,23 +654,8 @@ export class DriversService {
     );
     if (!shift) throw new NotFoundException(DriverErrors.SHIFT_NOT_FOUND);
 
-    if (
-      shift.status === DriverShiftStatus.ACTIVE &&
-      driver.status !== DriverStatus.ON_DELIVERY
-    ) {
-      await this.driversRepository.update(driver.id, {
-        status: DriverStatus.OFFLINE,
-      });
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_STATUS_CHANGED,
-        new DriverStatusChangedEvent(
-          driver.id,
-          driver.user.id,
-          driver.status,
-          DriverStatus.OFFLINE,
-          'Shift deleted by driver.',
-        ),
-      );
+    if (shift.status === DriverShiftStatus.ACTIVE) {
+      throw new BadRequestException(DriverErrors.CANNOT_DELETE_ACTIVE_SHIFT);
     }
 
     // Deleting a shift must not orphan break rows: settle the active break
@@ -766,6 +751,25 @@ export class DriversService {
       throw error;
     }
 
+    // Late entry is allowed but punished - if driver starts after scheduled start time,
+    // demote tier as penalty (consistent with missing shift punishment)
+    try {
+      const now = new Date();
+      if (shift.startTime && now > shift.startTime) {
+        const fullDriver = await this.driversRepository.findById(driver.id);
+        if (fullDriver) {
+          let newTier = fullDriver.tier;
+          if (newTier === 'GOLD') newTier = 'SILVER';
+          else if (newTier === 'SILVER') newTier = 'BRONZE';
+          if (newTier !== fullDriver.tier) {
+            await this.driversRepository.update(fullDriver.id, { tier: newTier });
+          }
+        }
+      }
+    } catch (e) {
+      this.logger?.error ? this.logger.error(`Failed to apply late start penalty: ${e}`) : console.error(e);
+    }
+
     // Persist the start selfie (best-effort: the shift is already started).
     await this.driversRepository
       .updateShift(shiftId, { startPhotoUrl: photoUrl })
@@ -807,19 +811,21 @@ export class DriversService {
     if (shift.status !== DriverShiftStatus.ACTIVE) {
       throw new BadRequestException(DriverErrors.SHIFT_NOT_ACTIVE);
     }
+    // Drivers must not be able to leave a shift once started.
+    throw new BadRequestException(DriverErrors.CANNOT_LEAVE_STARTED_SHIFT);
     if (driver.status === DriverStatus.ON_DELIVERY) {
       throw new BadRequestException(DriverErrors.CANNOT_END_WHILE_ON_DELIVERY);
     }
 
     // Closing the shift closes any open break so minutes are accounted,
     // and drops any unapproved request tied to this driver.
-    const openBreak = await this.driversRepository.findActiveBreak(driver.id);
-    if (openBreak) {
+    const openBreak: any = await this.driversRepository.findActiveBreak(driver.id);
+    if (openBreak && openBreak.id) {
       await this.finishBreak(openBreak.id, false);
     }
-    const pendingBreak =
+    const pendingBreak: any =
       await this.driversRepository.findPendingBreak(driver.id);
-    if (pendingBreak) {
+    if (pendingBreak && pendingBreak.id) {
       await this.driversRepository.cancelBreak(pendingBreak.id);
     }
 
@@ -848,11 +854,11 @@ export class DriversService {
     if (endedStatus && endedStatus !== DriverStatus.OFFLINE) {
       await this.driversRepository.updateStatus(driver.id, DriverStatus.OFFLINE);
       const pos = await this.locationRepository.getDriverLocation(driver.id);
-      if (pos) {
+      if (pos && (pos as any).lng != null && (pos as any).lat != null) {
         await this.driversRepository.updateLastLocation(
           driver.id,
-          pos.lng,
-          pos.lat,
+          (pos as any).lng,
+          (pos as any).lat,
         );
       }
       await this.locationRepository.removeDriverLocation(driver.id);
@@ -861,7 +867,7 @@ export class DriversService {
         new DriverStatusChangedEvent(
           driver.id,
           userId,
-          endedStatus,
+          endedStatus as any,
           DriverStatus.OFFLINE,
           'Shift ended.',
         ),
@@ -874,15 +880,15 @@ export class DriversService {
       // Must have started on time (i.e. no MISSED status or cron demotion, which is implicitly true if we are here and it was ACTIVE)
       // Check 0 rejected and 0 expired
       if (
-        updatedShift.rejectedDispatches === 0 &&
-        updatedShift.expiredDispatches === 0
+        (updatedShift as any)?.rejectedDispatches === 0 &&
+        (updatedShift as any)?.expiredDispatches === 0
       ) {
-        let newTier = fullDriver.tier;
+        let newTier = (fullDriver as any).tier;
         if (newTier === 'BRONZE') newTier = 'SILVER';
         else if (newTier === 'SILVER') newTier = 'GOLD';
 
-        if (newTier !== fullDriver.tier) {
-          await this.driversRepository.update(fullDriver.id, {
+        if (newTier !== (fullDriver as any).tier) {
+          await this.driversRepository.update((fullDriver as any).id, {
             tier: newTier,
           });
         }
