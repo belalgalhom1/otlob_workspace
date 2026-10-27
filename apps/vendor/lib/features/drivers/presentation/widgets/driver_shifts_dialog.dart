@@ -7,6 +7,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
+import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 
