@@ -110,8 +110,8 @@ class DriverShift {
       totalDeliveries: json['totalDeliveries'] as num?,
       startPhotoUrl: json['startPhotoUrl'] as String?,
       zoneName: json['zone'] != null
-          ? json['zone']['name'] as String?
-          : (shiftPool?['zone'] != null ? shiftPool?['zone']['name'] as String? : null),
+          ? (json['zone'] is Map ? (json['zone']['name'] as String?) : null)
+          : (shiftPool != null && shiftPool['zone'] != null && shiftPool['zone'] is Map ? (shiftPool['zone']['name'] as String?) : null),
       driver: json['driver'] != null
           ? DriverUserInfo.fromJson(json['driver'] as Map<String, dynamic>)
           : null,

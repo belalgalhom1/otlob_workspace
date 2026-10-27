@@ -331,7 +331,7 @@ export class OrdersService {
           items = myFulfillment.items;
         } else if (order.items) {
           items = order.items.filter(
-            (i: any) => i.fulfillmentId === myFulfillment.id || !i.fulfillmentId,
+            (i: any) => i.fulfillmentId === myFulfillment.id || i.vendorFulfillmentId === myFulfillment.id,
           );
         }
       }
@@ -355,6 +355,8 @@ export class OrdersService {
       discount: 0,
       grandTotal: vendorSubtotal,
       total: vendorSubtotal,
+      vendor: order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId)?.vendor ?? order.vendor,
+      vendorBranch: order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId)?.vendorBranch ?? order.vendorBranch,
       financials: {
         viewRole: 'VENDOR',
         storeSubtotal: vendorSubtotal,

@@ -29,6 +29,7 @@ import {
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { MessagesService } from '../chat/messages.service';
+import { DriverManagersService } from '../drivers/driver-managers.service';
 
 const CREATOR_ROLES = new Set<Role>([
   Role.CUSTOMER,
@@ -44,6 +45,7 @@ export class TicketsService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly messagesService: MessagesService,
+    private readonly driverManagersService: DriverManagersService,
   ) {}
 
   async onModuleInit() {
@@ -120,10 +122,27 @@ export class TicketsService implements OnModuleInit {
         if (order?.driverId) {
           const driver = await this.prisma.driver.findUnique({
             where: { id: order.driverId },
-            select: { userId: true },
+            select: { userId: true, id: true },
           });
           if (driver) {
-            assigneeId = driver.userId;
+            // Route to driver's assigned driver manager if exists
+            const managerWithAll = await this.prisma.driverManager.findFirst({
+              where: { manageAllDrivers: true },
+              select: { userId: true },
+            });
+            if (managerWithAll?.userId) {
+              assigneeId = managerWithAll.userId;
+            } else {
+              const assignment = await this.prisma.driverManagerAssignment.findFirst({
+                where: { driverId: driver.id },
+                include: { driverManager: { select: { userId: true } } },
+              });
+              if (assignment?.driverManager?.userId) {
+                assigneeId = assignment.driverManager.userId;
+              } else {
+                assigneeId = driver.userId;
+              }
+            }
           }
         }
       }

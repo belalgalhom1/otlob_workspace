@@ -2,11 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   WalletErrors,
   DriverErrors,
+  CommonErrors,
 } from 'src/common/constants/response.constants';
 import {
   CreateMobileWalletDto,
@@ -15,7 +17,7 @@ import {
   ProcessManualTransactionDto,
 } from './dto/wallet.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { VendorTransactionType, WalletTransactionType, Prisma } from '@prisma/client';
+import { VendorTransactionType, WalletTransactionType, Prisma, Role } from '@prisma/client';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { CommonSuccess } from 'src/common/constants/response.constants';
 import { DriverStatusChangedEvent } from 'src/common/events';
@@ -350,11 +352,24 @@ export class WalletService {
   async processDriverTransaction(
     driverId: string,
     dto: ProcessManualTransactionDto,
+    actor?: any,
   ) {
     const driver = await this.prisma.driver.findUnique({
       where: { id: driverId },
     });
     if (!driver) throw new NotFoundException(WalletErrors.DRIVER_NOT_FOUND);
+
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      const normalized = (dto.type || '').toString().toUpperCase();
+      const allowed = ['PENALTY', 'ADJUSTMENT'];
+      if (!allowed.includes(normalized)) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+      // Driver managers can only punish - cannot add money to driver wallet
+      if (dto.amount > 0) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+    }
 
     const type = this.normalizeDriverType(dto.type);
     if (

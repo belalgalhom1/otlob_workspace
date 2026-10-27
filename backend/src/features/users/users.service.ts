@@ -24,6 +24,7 @@ import {
 } from './dto/user.dto';
 import {
   CommonSuccess,
+  CommonErrors,
   UserErrors,
 } from 'src/common/constants/response.constants';
 import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
@@ -444,6 +445,39 @@ export class UsersService {
       select: { id: true, role: true },
     });
     if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
+
+    if (actor.role === Role.DRIVER_MANAGER) {
+      if (user.role !== Role.DRIVER) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+      const allowedFields = [
+        'vehicleType',
+        'vehiclePlate',
+        'licenseNumber',
+        'nationalId',
+      ] as const;
+      const dtoKeys = Object.keys(dto);
+      for (const key of dtoKeys) {
+        if (!(allowedFields as readonly string[]).includes(key)) {
+          throw new ForbiddenException(CommonErrors.FORBIDDEN);
+        }
+      }
+      const driverUpdate: any = {};
+      if ((dto as any).vehicleType !== undefined) driverUpdate.vehicleType = (dto as any).vehicleType;
+      if ((dto as any).vehiclePlate !== undefined) driverUpdate.vehiclePlate = (dto as any).vehiclePlate;
+      if ((dto as any).licenseNumber !== undefined) driverUpdate.licenseNumber = (dto as any).licenseNumber;
+      if ((dto as any).nationalId !== undefined) driverUpdate.nationalId = (dto as any).nationalId;
+      await this.prisma.driver.updateMany({
+        where: { userId },
+        data: driverUpdate,
+      });
+      this.logger.log(`Driver manager updated driver vehicle info for user ${userId}`);
+      const updatedUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: USER_SELECT,
+      });
+      return updatedUser;
+    }
 
     if (actor.role === Role.ADMIN) {
       if (user.role === Role.SUPER_ADMIN) {

@@ -337,7 +337,7 @@ export class OrdersRepository {
           },
           vendorFulfillments: {
             include: {
-              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true } },
               vendorBranch: {
                 select: {
                   id: true,
@@ -347,6 +347,19 @@ export class OrdersRepository {
                   phone: true,
                   isContracted: true,
                   commissionRate: true,
+                },
+              },
+              items: {
+                where: { rejectedAt: null },
+                select: {
+                  id: true,
+                  productId: true,
+                  productName: true,
+                  variantName: true,
+                  quantity: true,
+                  selectedUnit: true,
+                  unitPrice: true,
+                  totalPrice: true,
                 },
               },
             },

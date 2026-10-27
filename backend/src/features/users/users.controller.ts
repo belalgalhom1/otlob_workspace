@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
 import { UsersService } from './users.service';
-import { UserErrors } from 'src/common/constants/response.constants';
+import { UserErrors, CommonErrors } from 'src/common/constants/response.constants';
 import {
   UpdateUserDto,
   UpdateNotificationSettingsDto,
@@ -172,6 +172,9 @@ export class UsersController {
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: RegisterDto,
   ) {
+    if (actor.role === Role.DRIVER_MANAGER) {
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
+    }
     if (actor.role === Role.ADMIN && dto.role === Role.SUPER_ADMIN) {
       throw new ForbiddenException(UserErrors.CANNOT_CREATE_SUPER_ADMIN);
     }

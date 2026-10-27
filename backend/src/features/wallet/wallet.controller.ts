@@ -58,7 +58,7 @@ export class WalletController {
 
   @ApiStandardResponse(DriverWalletTransactionResponseDto)
   @Post('admin/drivers/:driverId/transaction')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.DRIVER_MANAGER)
   @RequirePermissions(Permission.MANAGE_FINANCE)
   @ApiOperation({
     summary: 'Manually adjust driver wallet (Payout, Penalty, etc.)',
@@ -66,8 +66,9 @@ export class WalletController {
   processDriverTransaction(
     @Param('driverId') driverId: string,
     @Body() dto: ProcessManualTransactionDto,
+    @Request() req: { user: JwtAccessPayload },
   ) {
-    return this.walletService.processDriverTransaction(driverId, dto);
+    return this.walletService.processDriverTransaction(driverId, dto, req.user);
   }
 
   // ─── Admin Endpoints ────────────────────────────────────────────────────────

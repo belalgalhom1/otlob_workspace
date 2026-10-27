@@ -1171,6 +1171,7 @@ model Driver {
   assistRequests   DriverAssistRequest[]
   assignedAssistRequests DriverAssistRequest[] @relation("AssistAssignedDriver")
   shiftWaitlist          ShiftPoolWaitlist[]
+  managerAssignment DriverManagerAssignment?
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
@@ -1272,18 +1273,34 @@ model ShiftSwapRequest {
 }
 
 model DriverManager {
-  id           String                      @id @default(uuid())
-  userId       String                      @unique
-  zoneId       String?
-  walletBalance Int                        @default(0)
-  createdAt    DateTime                    @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime                    @updatedAt @db.Timestamptz(3)
-  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  zone         Zone?                       @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  id                 String                      @id @default(uuid())
+  userId             String                      @unique
+  zoneId             String?
+  walletBalance      Int                         @default(0)
+  manageAllDrivers   Boolean                     @default(false)
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                    @updatedAt @db.Timestamptz(3)
+  user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone               Zone?                       @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   walletTransactions DriverManagerWalletTransaction[]
+  assignedDrivers    DriverManagerAssignment[]
 
   @@index([zoneId])
   @@map("driver_managers")
+}
+
+model DriverManagerAssignment {
+  id              String        @id @default(uuid())
+  driverManagerId String
+  driverId        String        @unique
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  driverManager   DriverManager @relation(fields: [driverManagerId], references: [id], onDelete: Cascade)
+  driver          Driver        @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverManagerId, driverId])
+  @@index([driverManagerId])
+  @@map("driver_manager_assignments")
 }
 
 model DriverManagerWalletTransaction {
