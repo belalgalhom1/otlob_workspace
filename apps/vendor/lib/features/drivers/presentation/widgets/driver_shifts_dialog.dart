@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -34,11 +34,13 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get('/drivers/${widget.driver.id}/shifts');
-      
+
       final data = response.data is Map ? response.data['data'] : response.data;
       if (data is List) {
-        final shifts = data.map((item) => DriverShift.fromJson(item as Map<String, dynamic>)).toList();
-        
+        final shifts = data
+            .map((item) => DriverShift.fromJson(item as Map<String, dynamic>))
+            .toList();
+
         if (mounted) {
           setState(() {
             _shifts = shifts;
@@ -67,40 +69,47 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
-    return DialogScaffold(child: Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 24,
-      ),
-      child: Container(
-        constraints: BoxConstraints(maxWidth: 600, maxHeight: size.height * 0.8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+    return DialogScaffold(
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 40,
+          vertical: 24,
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: size.height * 0.8,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.1,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.4
+                      : 0.1,
+                ),
+                blurRadius: 30,
+                offset: const Offset(0, 15),
               ),
-              blurRadius: 30,
-              offset: const Offset(0, 15),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            _buildHeader(context),
-            Expanded(
-              child: _buildContent(context),
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(child: _buildContent(context)),
+            ],
+          ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -108,13 +117,18 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary.withValues(alpha: 0.05), Colors.transparent],
+          colors: [
+            AppColors.primary.withValues(alpha: 0.05),
+            Colors.transparent,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.05),
           ),
         ),
       ),
@@ -126,7 +140,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(LucideIcons.calendarClock, color: AppColors.primary),
+            child: const Icon(
+              LucideIcons.calendarClock,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -140,13 +157,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                Text(
-                  widget.driver.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    
-                  ),
-                ),
+                Text(widget.driver.name, style: const TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -154,7 +165,9 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             onPressed: () => Navigator.pop(context),
             icon: const Icon(LucideIcons.x, size: 20),
             style: IconButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.05),
             ),
           ),
         ],
@@ -163,6 +176,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
   }
 
   Widget _buildContent(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -174,10 +188,14 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 48),
+              const Icon(
+                LucideIcons.alertTriangle,
+                color: AppColors.error,
+                size: 48,
+              ),
               const SizedBox(height: 16),
               Text(
-                  '${AppLocalizations.of(context)!.failedToLoadShifts}:\n${ErrorUtils.translate(context, _error)}',
+                '${AppLocalizations.of(context)!.failedToLoadShifts}:\n${ErrorUtils.translate(context, _error)}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.error),
               ),
@@ -204,7 +222,13 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.calendarX, size: 48, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)),
+            Icon(
+              LucideIcons.calendarX,
+              size: 48,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.2),
+            ),
             const SizedBox(height: 16),
             Text(
               AppLocalizations.of(context)!.noShiftsFound,
@@ -215,32 +239,249 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               AppLocalizations.of(context)!.driverNoScheduledShifts,
               style: const TextStyle(),
             ),
+            const SizedBox(height: 24),
+            _buildBookWeekButton(context, l10n),
           ],
         ),
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(24),
-      itemCount: _shifts.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final shift = _shifts[index];
-        return _buildShiftCard(context, shift);
-      },
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: _buildBookWeekButton(context, l10n),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(24),
+            itemCount: _shifts.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final shift = _shifts[index];
+              return _buildShiftCard(context, shift);
+            },
+          ),
+        ),
+      ],
     );
+  }
+
+  Widget _buildBookWeekButton(BuildContext context, AppLocalizations l10n) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () {
+          _showBookWeekDialog(context, l10n);
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: const Icon(LucideIcons.calendarPlus, size: 18),
+        label: Text(
+          l10n.localeName == 'ar' ? 'حجز وردية أسبوعية' : 'Book Weekly Shift',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showBookWeekDialog(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) async {
+    // Fetch available shift pools
+    final dio = ref.read(dioProvider);
+    try {
+      final response = await dio.get('/driver-shifts/admin/pools');
+      final raw = response.data is Map ? response.data['data'] : response.data;
+      final list = raw is List
+          ? raw
+          : (raw is Map && raw['items'] is List ? raw['items'] as List : null);
+      if (list == null || list.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(l10n.noAvailableShifts)));
+        }
+        return;
+      }
+
+      // Group pools by batchId
+      final groups = <String, List<Map<String, dynamic>>>{};
+      final groupOrder = <String>[];
+      for (final item in list) {
+        final pool = item as Map<String, dynamic>;
+        if (pool['type'] != 'WEEKLY') continue;
+        final batchId = (pool['batchId'] ?? pool['id'] ?? '').toString();
+        if (!groups.containsKey(batchId)) {
+          groups[batchId] = [];
+          groupOrder.add(batchId);
+        }
+        groups[batchId]!.add(pool);
+      }
+
+      if (groups.isEmpty || !context.mounted) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(l10n.noAvailableShifts)));
+        }
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => DialogScaffold(
+          child: AlertDialog(
+            title: Text(
+              l10n.localeName == 'ar'
+                  ? 'حجز وردية أسبوعية'
+                  : 'Book Weekly Shift',
+            ),
+            content: SizedBox(
+              width: 400,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: groupOrder.length,
+                itemBuilder: (ctx, idx) {
+                  final batchId = groupOrder[idx];
+                  final pools = groups[batchId]!;
+                  final title =
+                      pools.first['title']?.toString() ??
+                      pools.first['titleAr']?.toString() ??
+                      '';
+                  final zoneName =
+                      pools.first['zone']?['name']?.toString() ?? '';
+                  final spanLabel = pools.length > 1
+                      ? '${pools.length} days'
+                      : '';
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title.isNotEmpty ? title : zoneName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (spanLabel.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              spanLabel,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: () async {
+                                Navigator.pop(ctx);
+                                try {
+                                  final poolIds = pools
+                                      .map((p) => p['id']?.toString() ?? '')
+                                      .where((id) => id.isNotEmpty)
+                                      .toList();
+                                  await ref
+                                      .read(shiftPoolsProvider.notifier)
+                                      .bookWeeklyShiftsForDriver(
+                                        widget.driver.id,
+                                        poolIds,
+                                      );
+                                  await _fetchShifts();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          l10n.common_success_operation,
+                                        ),
+                                        backgroundColor: AppColors.success,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ErrorUtils.translate(context, e),
+                                        ),
+                                        backgroundColor: AppColors.error,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                              ),
+                              child: Text(
+                                l10n.bookShift,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.cancel),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorUtils.translate(context, e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildShiftCard(BuildContext context, DriverShift shift) {
     final statusColor = _getStatusColor(shift.status);
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.05),
         ),
       ),
       padding: const EdgeInsets.all(16),
@@ -250,7 +491,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -269,14 +513,21 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               if (shift.zoneName != null)
                 Text(
                   shift.zoneName!,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               const SizedBox(width: 4),
               IconButton(
                 onPressed: () => _confirmDelete(context, shift),
                 tooltip: AppLocalizations.of(context)!.deleteShift,
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(LucideIcons.trash2, size: 17, color: AppColors.error),
+                icon: const Icon(
+                  LucideIcons.trash2,
+                  size: 17,
+                  color: AppColors.error,
+                ),
               ),
             ],
           ),
@@ -287,7 +538,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(AppLocalizations.of(context)!.date, style: const TextStyle(fontSize: 12)),
+                    Text(
+                      AppLocalizations.of(context)!.date,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       DateFormat('MMM dd, yyyy').format(shift.shiftDate),
@@ -300,7 +554,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(AppLocalizations.of(context)!.time, style: const TextStyle(fontSize: 12)),
+                    Text(
+                      AppLocalizations.of(context)!.time,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '${DateFormat('hh:mm a').format(shift.startTime)} - ${DateFormat('hh:mm a').format(shift.endTime)}',
@@ -322,9 +579,16 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(LucideIcons.package, size: 14, color: AppColors.textMuted),
+                        const Icon(
+                          LucideIcons.package,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
                         const SizedBox(width: 6),
-                        Text('${shift.totalDeliveries} ${AppLocalizations.of(context)!.deliveries}', style: const TextStyle(fontSize: 13)),
+                        Text(
+                          '${shift.totalDeliveries} ${AppLocalizations.of(context)!.deliveries}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
@@ -332,23 +596,35 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(LucideIcons.coins, size: 14, color: AppColors.textMuted),
+                        const Icon(
+                          LucideIcons.coins,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
                         const SizedBox(width: 6),
-                        Text('${shift.totalEarnings} ${AppLocalizations.of(context)!.egp}', style: const TextStyle(fontSize: 13)),
+                        Text(
+                          '${shift.totalEarnings} ${AppLocalizations.of(context)!.egp}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
               ],
             ),
           ],
-          if (shift.startPhotoUrl != null && shift.startPhotoUrl!.isNotEmpty) ...[
+          if (shift.startPhotoUrl != null &&
+              shift.startPhotoUrl!.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Divider(height: 1),
             ),
             Row(
               children: [
-                const Icon(LucideIcons.camera, size: 14, color: AppColors.textMuted),
+                const Icon(
+                  LucideIcons.camera,
+                  size: 14,
+                  color: AppColors.textMuted,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   isAr ? 'صورة بدء الوردية' : 'Shift start photo',
@@ -368,19 +644,17 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   fit: BoxFit.cover,
                   placeholder: (_, _) => Container(
                     height: 180,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.05),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.05),
                     alignment: Alignment.center,
                     child: const CircularProgressIndicator(),
                   ),
                   errorWidget: (_, _, _) => Container(
                     height: 180,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.05),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.05),
                     alignment: Alignment.center,
                     child: const Icon(
                       LucideIcons.imageOff,
@@ -406,9 +680,8 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           child: CachedNetworkImage(
             imageUrl: ImageUtils.formatImageUrl(url),
             fit: BoxFit.contain,
-            placeholder: (_, _) => const Center(
-              child: CircularProgressIndicator(),
-            ),
+            placeholder: (_, _) =>
+                const Center(child: CircularProgressIndicator()),
             errorWidget: (_, _, _) => const Icon(
               LucideIcons.imageOff,
               color: AppColors.textMuted,
@@ -470,12 +743,18 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'SCHEDULED': return Colors.blue;
-      case 'ACTIVE': return AppColors.success;
-      case 'COMPLETED': return AppColors.primary;
-      case 'CANCELLED': return AppColors.error;
-      case 'MISSED': return AppColors.error;
-      default: return AppColors.textMuted;
+      case 'SCHEDULED':
+        return Colors.blue;
+      case 'ACTIVE':
+        return AppColors.success;
+      case 'COMPLETED':
+        return AppColors.primary;
+      case 'CANCELLED':
+        return AppColors.error;
+      case 'MISSED':
+        return AppColors.error;
+      default:
+        return AppColors.textMuted;
     }
   }
 }

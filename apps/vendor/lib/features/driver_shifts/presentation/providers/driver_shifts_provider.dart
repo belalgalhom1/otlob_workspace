@@ -78,4 +78,13 @@ class ShiftPools extends _$ShiftPools {
     await dio.post('/driver-shifts/admin/assign', data: request.toJson());
     await refresh();
   }
+
+  Future<void> bookWeeklyShiftsForDriver(String driverId, List<String> poolIds) async {
+    final dio = ref.read(dioProvider);
+    await dio.post('/driver-shifts/admin/book-week', data: {
+      'driverId': driverId,
+      'shiftPoolIds': poolIds,
+    });
+    await refresh();
+  }
 }
