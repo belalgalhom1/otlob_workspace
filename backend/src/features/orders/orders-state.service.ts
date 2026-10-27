@@ -686,16 +686,21 @@ export class OrdersStateService {
       throw new BadRequestException(DriverErrors.CANNOT_ASSIGN_ON_BREAK);
     }
 
-    // Never put a driver on a second live order.
-    const activeOrder = await this.prisma.order.findFirst({
+    const settings = await this.prisma.platformSetting.findUnique({
+      where: { id: 'default' },
+      select: { maxActiveOrdersPerDriver: true },
+    });
+    const maxActive = settings?.maxActiveOrdersPerDriver ?? 1;
+
+    // Never put a driver on more live orders than maxActive.
+    const activeOrdersCount = await this.prisma.order.count({
       where: {
         driverId: driver.id,
         id: { not: orderId },
         status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
       },
-      select: { id: true },
     });
-    if (activeOrder) {
+    if (activeOrdersCount >= maxActive) {
       throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
     }
 
@@ -721,6 +726,7 @@ export class OrdersStateService {
       activeShift?.id ?? null,
       actor.sub,
       nextStatus,
+      maxActive,
     );
 
     // The dispatch listener will catch ORDER_STATUS_CHANGED to DRIVER_ASSIGNED

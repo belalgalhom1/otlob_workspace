@@ -469,12 +469,14 @@ class L10nErrorHelper {
       case 'currency': return l10n.currency;
       case 'defaultCommissionRate': return l10n.defaultCommissionRate;
       case 'deliveryCommissionRate': return l10n.deliveryCommissionRate;
+      case 'driverManagerCommissionRate': return l10n.driverManagerCommissionRate;
       case 'customOrderPlatformFee': return l10n.customOrderPlatformFee;
       case 'defaultTaxRate': return l10n.defaultTaxRate;
       case 'minOrderAmount': return l10n.minOrderAmount;
       case 'highValueOrderThreshold': return l10n.highValueOrderThreshold;
       case 'highValueUpfrontRate': return l10n.highValueUpfrontRate;
       case 'baseDeliveryFee': return l10n.baseDeliveryFee;
+      case 'extraVendorDeliveryFee': return l10n.extraVendorDeliveryFee;
       case 'pricePerKm': return l10n.pricePerKm;
       case 'pricePerKmBicycle': return l10n.pricePerKmBicycle;
       case 'pricePerKmMotorcycle': return l10n.pricePerKmMotorcycle;
@@ -507,6 +509,7 @@ class L10nErrorHelper {
       case 'fallbackOrderDistanceKm': return l10n.fallbackOrderDistanceKm;
       case 'driverAcceptTimeoutSecs': return l10n.driverAcceptTimeoutSecs;
       case 'maxDispatchBatchSize': return l10n.maxDispatchBatchSize;
+      case 'maxActiveOrdersPerDriver': return l10n.maxActiveOrdersPerDriver;
       case 'maxKmForBicycle': return l10n.maxKmForBicycle;
       case 'coinValue': return l10n.coinValue;
       case 'amountSpentPerCoin': return l10n.amountSpentPerCoin;

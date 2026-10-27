@@ -462,6 +462,23 @@ export class LocationRepository {
       ? Prisma.sql`AND ds.id IS NOT NULL`
       : Prisma.empty;
 
+    const maxActiveOrders = Number(settings.maxActiveOrdersPerDriver ?? 1);
+    const driverAvailabilityCond =
+      maxActiveOrders > 1
+        ? Prisma.sql`AND (
+            d.status::text = 'ONLINE'
+            OR (
+              d.status::text = 'ON_DELIVERY'
+              AND (
+                SELECT COUNT(*)::int
+                FROM orders o
+                WHERE o."driverId" = d.id
+                  AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PICKED_UP')
+              ) < ${maxActiveOrders}
+            )
+          )`
+        : Prisma.sql`AND d.status::text = 'ONLINE'`;
+
     const rows = await this.prisma.$queryRaw<any[]>`
       SELECT
         d.id,
@@ -472,28 +489,44 @@ export class LocationRepository {
         ON ds."driverId" = d.id
         AND ds.status::text = 'ACTIVE'
       WHERE d.id IN (${Prisma.join(candidateIds)})
-        AND d.status::text = 'ONLINE'
+        ${driverAvailabilityCond}
         AND d."deletedAt" IS NULL
         AND d."hasUnpaidCommission" = false
         ${vehicleTypeCond}
         ${activeShiftCond}
     `;
 
-    const onlineDriverIds = rows.map((r) => r.id);
-    const staleDriverIds = candidateIds.filter(
-      (id) => !onlineDriverIds.includes(id),
-    );
+    const eligibleDriverIds = new Set(rows.map((r) => r.id));
+    const nonEligibleIds = candidateIds.filter((id) => !eligibleDriverIds.has(id));
 
-    // Lazy sweep: Remove drivers from Redis who are no longer online in the database
-    if (staleDriverIds.length > 0) {
-      (this.redis.zrem as any)(
-        'otlobegy:driver-locations',
-        ...staleDriverIds,
-      ).catch((err: Error) =>
-        this.logger.warn(
-          `Failed to lazy-sweep stale drivers from Redis: ${err.message}`,
-        ),
-      );
+    // Lazy sweep: Remove drivers from Redis who are truly no longer available
+    if (nonEligibleIds.length > 0) {
+      this.prisma
+        .$queryRaw<Array<{ id: string }>>`
+          SELECT d.id
+          FROM drivers d
+          WHERE d.id IN (${Prisma.join(nonEligibleIds)})
+            AND d."deletedAt" IS NULL
+            AND d."hasUnpaidCommission" = false
+            AND d.status::text IN ('ONLINE', 'ON_DELIVERY')
+        `
+        .then((stillValid) => {
+          const stillValidIds = new Set(stillValid.map((v) => v.id));
+          const trulyStale = nonEligibleIds.filter(
+            (id) => !stillValidIds.has(id),
+          );
+          if (trulyStale.length > 0) {
+            (this.redis.zrem as any)(
+              'otlobegy:driver-locations',
+              ...trulyStale,
+            ).catch((err: Error) =>
+              this.logger.warn(
+                `Failed to lazy-sweep stale drivers from Redis: ${err.message}`,
+              ),
+            );
+          }
+        })
+        .catch(() => {});
     }
 
     const results = rows.map((r) => ({

@@ -14,18 +14,28 @@ class OrderExecution extends _$OrderExecution {
     return const AsyncValue.loading();
   }
 
+  String? _selectedOrderId;
+
+  void selectOrder(String orderId) {
+    _selectedOrderId = orderId;
+    state = const AsyncValue.loading();
+    _fetchActiveOrder();
+  }
+
   Future<void> _fetchActiveOrder() async {
     try {
       final repository = ref.read(driverOrdersRepositoryProvider);
-      final response = await repository.getActiveDriverOrder();
+      final response = await repository.getActiveDriverOrder(orderId: _selectedOrderId);
       // The provider can be auto-disposed while this network call is in
       // flight (e.g. a transient ref.read with no active listener). Guard so
       // we never write state after the Ref is gone.
       if (!ref.mounted) return;
       if (response['data'] == null) {
         // No active order found, perhaps completed?
+        _selectedOrderId = null;
         state = const AsyncValue.data(null);
       } else {
+        _selectedOrderId = response['data']['id']?.toString();
         state = AsyncValue.data(response['data']);
       }
     } catch (e, st) {

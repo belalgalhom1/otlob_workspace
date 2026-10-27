@@ -601,6 +601,7 @@
   "currency": "العملة",
   "defaultCommissionRate": "نسبة العمولة الافتراضية (%)",
   "deliveryCommissionRate": "نسبة عمولة التوصيل (%)",
+  "driverManagerCommissionRate": "نسبة مدير المناديب من التوصيل (%)",
   "customOrderPlatformFee": "رسوم خدمات التوصيل المخصص",
   "defaultTaxRate": "نسبة الضريبة الافتراضية (%)",
   "minOrderAmount": "الحد الأدنى لقيمة الطلب",

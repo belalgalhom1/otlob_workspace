@@ -29,24 +29,12 @@ class AdminDriversRepository {
     String? search,
     String? zoneId,
   }) async {
-    if (zoneId != null && zoneId.isNotEmpty && _dio != null) {
-      final response = await _dio.get(
-        '/drivers',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (status != null && status.isNotEmpty) 'status': status,
-          if (search != null && search.isNotEmpty) 'search': search,
-          'zoneId': zoneId,
-        },
-      );
-      return ResponseParser.parse(response);
-    }
     final response = await _api.driversControllerAdminFindAll(
       page: page,
       limit: limit,
       status: status,
       search: search,
+      zoneId: zoneId,
     );
     return ResponseParser.parse(response);
   }

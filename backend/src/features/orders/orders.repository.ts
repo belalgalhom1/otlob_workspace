@@ -850,10 +850,19 @@ export class OrdersRepository {
       }
 
       if (driverId) {
-        await tx.driver.update({
-          where: { id: driverId },
-          data: { status: DriverStatus.ONLINE },
+        const remaining = await tx.order.count({
+          where: {
+            driverId,
+            id: { not: orderId },
+            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+          },
         });
+        if (remaining === 0) {
+          await tx.driver.update({
+            where: { id: driverId },
+            data: { status: DriverStatus.ONLINE },
+          });
+        }
       }
 
       // Restore stock consumed at checkout. Increments cannot fail (no guard
@@ -1018,24 +1027,24 @@ export class OrdersRepository {
     driverShiftId: string | null,
     actorUserId: string,
     nextStatus: OrderStatus = OrderStatus.DRIVER_ASSIGNED,
+    maxActiveOrders: number = 1,
   ) {
     await this.prisma.$transaction(async (tx) => {
       // Serialize concurrent assignments/acceptances for THE SAME driver, then
-      // enforce the single-active-order cap inside the transaction. The caller
+      // enforce the max-active-orders cap inside the transaction. The caller
       // may pre-check in a service, but only this row lock makes it airtight:
       // a driver who accepted another order between the pre-check and here is
       // detected and rejected instead of being double-booked.
       await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
 
-      const alreadyOnOrder = await tx.order.findFirst({
+      const activeCount = await tx.order.count({
         where: {
           driverId,
           id: { not: orderId },
           status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
         },
-        select: { id: true },
       });
-      if (alreadyOnOrder) {
+      if (activeCount >= maxActiveOrders) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
 
@@ -1045,12 +1054,21 @@ export class OrdersRepository {
         select: { driverId: true },
       });
 
-      // If there's an existing driver that is different, release them
+      // If there's an existing driver that is different, release them if they have no other active orders
       if (existingOrder?.driverId && existingOrder.driverId !== driverId) {
-        await tx.driver.update({
-          where: { id: existingOrder.driverId },
-          data: { status: DriverStatus.ONLINE },
+        const remaining = await tx.order.count({
+          where: {
+            driverId: existingOrder.driverId,
+            id: { not: orderId },
+            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+          },
         });
+        if (remaining === 0) {
+          await tx.driver.update({
+            where: { id: existingOrder.driverId },
+            data: { status: DriverStatus.ONLINE },
+          });
+        }
       }
 
       // Cancel any pending dispatches
@@ -1101,10 +1119,18 @@ export class OrdersRepository {
   }
 
   async freeDriver(driverId: string) {
-    return this.prisma.driver.update({
-      where: { id: driverId },
-      data: { status: DriverStatus.ONLINE },
+    const activeRemaining = await this.prisma.order.count({
+      where: {
+        driverId,
+        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+      },
     });
+    if (activeRemaining === 0) {
+      return this.prisma.driver.update({
+        where: { id: driverId },
+        data: { status: DriverStatus.ONLINE },
+      });
+    }
   }
 
   async clearCart(customerId: string, vendorId: string) {

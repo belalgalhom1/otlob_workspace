@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
@@ -253,6 +252,7 @@ class DriversApi {
   Future<Response<ApiControllerRoot200Response>> driversControllerAdminFindAll({ 
     String? status,
     String? search,
+    String? zoneId,
     num? page = 1,
     num? limit = 20,
     CancelToken? cancelToken,
@@ -284,6 +284,7 @@ class DriversApi {
     final _queryParameters = <String, dynamic>{
       if (status != null) r'status': encodeQueryParameter(_serializers, status, const FullType(String)),
       if (search != null) r'search': encodeQueryParameter(_serializers, search, const FullType(String)),
+      if (zoneId != null) r'zoneId': encodeQueryParameter(_serializers, zoneId, const FullType(String)),
       if (page != null) r'page': encodeQueryParameter(_serializers, page, const FullType(num)),
       if (limit != null) r'limit': encodeQueryParameter(_serializers, limit, const FullType(num)),
     };

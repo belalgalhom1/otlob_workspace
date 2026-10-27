@@ -15,7 +15,7 @@ class DriverOrdersRepository {
     return ResponseParser.parseList(response);
   }
 
-  Future<dynamic> getActiveDriverOrder() async {
+  Future<dynamic> getActiveDriverOrder({String? orderId}) async {
     final response = await _api.ordersControllerGetMyOrdersAsDriver(
       limit: 50,
       page: 1,
@@ -25,6 +25,13 @@ class DriverOrdersRepository {
     final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
     final dataList = (list['data'] ?? list['orders'] ?? list['items']) as List?;
     if (dataList != null) {
+      if (orderId != null) {
+        for (var order in dataList) {
+          if (order['id']?.toString() == orderId && activeStatuses.contains(order['status'])) {
+            return {'data': order};
+          }
+        }
+      }
       for (var order in dataList) {
         if (activeStatuses.contains(order['status'])) {
           return {'data': order};
@@ -32,6 +39,26 @@ class DriverOrdersRepository {
       }
     }
     return {'data': null};
+  }
+
+  Future<List<dynamic>> getActiveDriverOrders() async {
+    final response = await _api.ordersControllerGetMyOrdersAsDriver(
+      limit: 50,
+      page: 1,
+    );
+    final list = ResponseParser.parseList(response);
+    
+    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
+    final dataList = (list['data'] ?? list['orders'] ?? list['items']) as List?;
+    final activeOrders = <dynamic>[];
+    if (dataList != null) {
+      for (var order in dataList) {
+        if (activeStatuses.contains(order['status'])) {
+          activeOrders.add(order);
+        }
+      }
+    }
+    return activeOrders;
   }
 
   Future<dynamic> confirmPayment(String orderId, {required bool received}) async {

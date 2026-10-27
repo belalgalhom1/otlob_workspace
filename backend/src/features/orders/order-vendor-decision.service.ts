@@ -152,10 +152,11 @@ export class OrderVendorDecisionService {
 
     const refundAmount = items.reduce((sum, i) => sum + i.totalPrice, 0);
 
-    // Extra-vendor surcharge released when this portion leaves its delivery
-    // ("half the minimum delivery fee per extra vendor" at placement).
+    // Extra-vendor surcharge released when this portion leaves its delivery.
     const settings = await this.platformSettings.getSettings();
-    const halfMinFee = Number(settings.minDeliveryFee ?? 0) / 2;
+    const extraVendorFee = Number(
+      settings.extraVendorDeliveryFee ?? Math.round(Number(settings.minDeliveryFee ?? 0) / 2),
+    );
 
     // The customer pays commission as a service fee only for UNCONTRACTED
     // vendors, so rejecting a contracted vendor must not reduce it.
@@ -221,7 +222,7 @@ export class OrderVendorDecisionService {
             ridingGroup.deliveryGroupId,
             fulfillment.orderId,
             order.status,
-            halfMinFee,
+            extraVendorFee,
           )
         : 0;
 
@@ -494,7 +495,7 @@ export class OrderVendorDecisionService {
     deliveryGroupId: string,
     orderId: string,
     orderStatus: OrderStatus,
-    halfMinFee: number,
+    extraVendorFee: number,
   ): Promise<number> {
     const group = await tx.orderDeliveryGroup.findUnique({
       where: { id: deliveryGroupId },
@@ -532,7 +533,7 @@ export class OrderVendorDecisionService {
     }
 
     // One fewer vendor rides along — drop that vendor's extra-stop surcharge.
-    const newFee = Math.max(0, Math.round(group.deliveryFee - halfMinFee));
+    const newFee = Math.max(0, Math.round(group.deliveryFee - extraVendorFee));
     if (newFee === group.deliveryFee) return 0;
 
     await tx.orderDeliveryGroup.update({

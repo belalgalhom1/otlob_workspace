@@ -370,7 +370,8 @@ export class StatisticsService {
           select: { id: true },
         })
       : null;
-    const managerShareRate = 0.1;
+    const managerShareRate =
+      (settings.driverManagerCommissionRate ?? 10) / 100;
     const managerShare = manager
       ? Math.round(deliveryFee * managerShareRate)
       : 0;

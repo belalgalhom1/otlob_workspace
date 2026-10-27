@@ -594,9 +594,11 @@ export class OrdersMultiVendorService {
     }
 
     // Per-group fee: the group's farthest pickup to the customer (the long leg,
-    // which the customer pays for), plus half the minimum delivery fee for every
+    // which the customer pays for), plus the fixed extra delivery fee for every
     // extra vendor sharing that same trip. Groups are then summed.
-    const halfMinFee = Number(settings.minDeliveryFee ?? 0) / 2;
+    const extraVendorFee = Number(
+      settings.extraVendorDeliveryFee ?? Math.round(Number(settings.minDeliveryFee ?? 0) / 2),
+    );
     const groupFees: number[] = [];
     for (const g of grouping.groups) {
       const base = await this.platformSettings.calculateDeliveryFee(
@@ -606,7 +608,7 @@ export class OrdersMultiVendorService {
         true,
         settings,
       );
-      groupFees.push(Math.round(base + g.extraVendorCount * halfMinFee));
+      groupFees.push(Math.round(base + g.extraVendorCount * extraVendorFee));
     }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 

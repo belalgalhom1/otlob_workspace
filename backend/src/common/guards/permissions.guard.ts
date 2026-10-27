@@ -51,9 +51,6 @@ export class PermissionsGuard implements CanActivate {
       const effectivePermissions = new Set<Permission>(dbUser.permissions);
       if (user.role === Role.DRIVER_MANAGER) {
         effectivePermissions.add(Permission.MANAGE_DRIVERS);
-        effectivePermissions.add(Permission.MANAGE_ORDERS);
-        effectivePermissions.add(Permission.VIEW_FINANCIALS);
-        effectivePermissions.add(Permission.VIEW_STATISTICS);
       }
 
       const mode = this.reflector.getAllAndOverride<PermissionsMode>(

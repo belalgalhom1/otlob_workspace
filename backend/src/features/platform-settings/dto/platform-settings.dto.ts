@@ -38,6 +38,14 @@ export class UpdatePlatformSettingsDto {
 
   @ApiProperty({ example: 10, required: false })
   @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  driverManagerCommissionRate?: number;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsInt()
   @IsOptional()
   @Type(() => Number)
   customOrderPlatformFee?: number;
@@ -63,6 +71,18 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   baseDeliveryFee?: number;
+
+  @ApiProperty({
+    example: 10,
+    required: false,
+    description:
+      'Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10.',
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  extraVendorDeliveryFee?: number;
 
   @ApiProperty({ example: 2, required: false })
   @IsInt()
@@ -394,6 +414,19 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   maxDispatchBatchSize?: number;
+
+  @ApiProperty({
+    example: 1,
+    required: false,
+    description:
+      'Maximum active orders a driver can carry at the same time (1-10). Default 1.',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  @IsOptional()
+  @Type(() => Number)
+  maxActiveOrdersPerDriver?: number;
 
   // ─── Maintenance ───────────────────────────────────────────────────────────
   @ApiProperty({ example: false, required: false })

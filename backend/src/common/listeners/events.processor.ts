@@ -22,6 +22,7 @@ import {
   ORDER_JOBS,
   EVENT_JOBS,
 } from '../../infrastructure/queue/queues.constants';
+import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../features/orders/orders.constants';
 
 const WS = {
   ORDER_NEW: 'order.new',
@@ -318,7 +319,30 @@ export class EventsProcessor extends WorkerHost {
         event.newStatus === OrderStatus.DELIVERED ||
         event.newStatus === OrderStatus.CANCELLED
       ) {
-        await this.redis.del(`otlobegy:driver-active-order:${event.driverId}`);
+        const remaining = await this.prisma.order.findFirst({
+          where: {
+            driverId: event.driverId,
+            id: { not: event.orderId },
+            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+          },
+          select: {
+            id: true,
+            customerId: true,
+            customer: { select: { userId: true } },
+          },
+        });
+        if (remaining) {
+          await this.redis.set(
+            `otlobegy:driver-active-order:${event.driverId}`,
+            JSON.stringify({
+              orderId: remaining.id,
+              customerUserId: remaining.customer?.userId ?? remaining.customerId,
+            }),
+            12 * 60 * 60,
+          );
+        } else {
+          await this.redis.del(`otlobegy:driver-active-order:${event.driverId}`);
+        }
       }
     }
   }

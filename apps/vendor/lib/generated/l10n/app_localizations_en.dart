@@ -1601,6 +1601,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryCommissionRate => 'Delivery Commission Rate (%)';
 
   @override
+  String get driverManagerCommissionRate => 'Driver Manager Cut (%)';
+
+  @override
   String get customOrderPlatformFee => 'Custom Delivery Service Fee';
 
   @override
@@ -1617,6 +1620,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get baseDeliveryFee => 'Base Delivery Fee';
+
+  @override
+  String get extraVendorDeliveryFee => 'Extra Vendor Delivery Fee';
 
   @override
   String get pricePerKm => 'Price Per Km';
@@ -1713,6 +1719,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maxDispatchBatchSize => 'Max Dispatch Batch Size';
+
+  @override
+  String get maxActiveOrdersPerDriver => 'Max Active Orders Per Driver';
 
   @override
   String get maxKmForBicycle => 'Max Km For Bicycle';

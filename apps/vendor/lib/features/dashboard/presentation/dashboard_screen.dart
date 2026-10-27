@@ -76,10 +76,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (_userRole == 'SUPER_ADMIN') return true;
     if (_userPermissions.contains(requiredPermission)) return true;
     if (_userRole == 'DRIVER_MANAGER' &&
-        (requiredPermission == 'MANAGE_DRIVERS' ||
-            requiredPermission == 'MANAGE_ORDERS' ||
-            requiredPermission == 'VIEW_FINANCIALS' ||
-            requiredPermission == 'VIEW_STATISTICS')) {
+        requiredPermission == 'MANAGE_DRIVERS') {
       return true;
     }
     return false;
@@ -224,7 +221,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _selectedIndex = 0;
           }
         } else if (role == 'DRIVER_MANAGER') {
-          _selectedIndex = 0;
+          _selectedIndex = 3;
         }
       });
     }
@@ -252,12 +249,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final inboxCounts = ref.watch(inboxCountsProvider);
 
     return PopScope(
-      canPop: _selectedIndex == 0,
+      canPop: _userRole == 'DRIVER_MANAGER'
+          ? _selectedIndex == 3
+          : _selectedIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_selectedIndex != 0) {
+        final homeIndex = _userRole == 'DRIVER_MANAGER' ? 3 : 0;
+        if (_selectedIndex != homeIndex) {
           setState(() {
-            _selectedIndex = 0;
+            _selectedIndex = homeIndex;
           });
         }
       },
@@ -552,9 +552,49 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       AppLocalizations.of(context)!.walletAndFinancials,
                       isMobile,
                     ),
+                  ] else if (_userRole == 'DRIVER_MANAGER') ...[
+                    _buildMenuItem(
+                      3,
+                      LucideIcons.truck,
+                      AppLocalizations.of(context)!.drivers,
+                      isMobile,
+                    ),
+                    _buildMenuItem(
+                      15,
+                      LucideIcons.calendarClock,
+                      AppLocalizations.of(context)!.driverShifts,
+                      isMobile,
+                    ),
+                    _buildMenuItem(
+                      18,
+                      LucideIcons.coffee,
+                      AppLocalizations.of(context)!.breaks,
+                      isMobile,
+                    ),
+                    _buildMenuItem(
+                      11,
+                      LucideIcons.wallet,
+                      Localizations.localeOf(context).languageCode == 'ar'
+                          ? 'محفظة الإدارة'
+                          : 'Manager Wallet',
+                      isMobile,
+                    ),
+                    _buildMenuItem(
+                      6,
+                      LucideIcons.messageSquare,
+                      AppLocalizations.of(context)!.inbox,
+                      isMobile,
+                      badgeCount: inboxCounts.chatUnread,
+                    ),
+                    _buildMenuItem(
+                      17,
+                      LucideIcons.bell,
+                      AppLocalizations.of(context)!.notificationsTitle,
+                      isMobile,
+                      badgeCount: inboxCounts.notificationsUnread,
+                    ),
                   ] else ...[
-                    if (_hasPermission('VIEW_STATISTICS') ||
-                        _userRole == 'DRIVER_MANAGER')
+                    if (_hasPermission('VIEW_STATISTICS'))
                       _buildMenuItem(
                         0,
                         LucideIcons.layoutDashboard,
@@ -930,7 +970,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return [0, 1, 2, 5, 6, 17, 11];
     }
     if (_userRole == 'DRIVER_MANAGER') {
-      return [0, 1, 3, 15, 18, 11, 6, 17];
+      return [3, 15, 18, 11, 6, 17];
     }
     final pages = <int>[];
     void add(int index, bool visible) {
@@ -978,7 +1018,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildContent(bool isMobile, [int? index]) {
-    switch (index ?? _selectedIndex) {
+    final pageIndex = index ?? _selectedIndex;
+    if (_userRole == 'DRIVER_MANAGER' &&
+        ![3, 15, 18, 11, 6, 17].contains(pageIndex)) {
+      return const DriversScreen();
+    }
+    switch (pageIndex) {
       case 0:
         return _buildDashboardContent(isMobile);
       case 1:
@@ -1792,6 +1837,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 10:
         return l10n.promotions;
       case 11:
+        if (_userRole == 'DRIVER_MANAGER') {
+          return Localizations.localeOf(context).languageCode == 'ar'
+              ? 'محفظة الإدارة'
+              : 'Manager Wallet';
+        }
         return l10n.walletAndFinancials;
       case 12:
         return l10n.auditLogs;

@@ -147,6 +147,17 @@ const List<SettingsSection> platformSettingsSections = [
             'the rest (e.g. 20% means the driver gets 80% of the delivery fee).',
       ),
       SettingsField(
+        key: 'driverManagerCommissionRate',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة مدير المناديب من التوصيل',
+        labelEn: 'Driver Manager Cut',
+        helpAr:
+            'نسبة عمولة مدير المناديب من رسوم التوصيل لكل طلب في منطقته (مثال: 10%).',
+        helpEn:
+            'Percentage of the delivery fee credited to the driver manager for each order in their zone (e.g. 10%).',
+      ),
+      SettingsField(
         key: 'customOrderPlatformFee',
         kind: SettingsFieldKind.number,
         labelAr: 'رسوم خدمات التوصيل المخصص',
@@ -225,6 +236,14 @@ const List<SettingsSection> platformSettingsSections = [
         labelEn: 'Base Delivery Fee',
         helpAr: 'مبلغ ثابت في بداية كل مشوار قبل حساب الكيلوات.',
         helpEn: 'Fixed amount at the start of every delivery, before the kms.',
+      ),
+      SettingsField(
+        key: 'extraVendorDeliveryFee',
+        kind: SettingsFieldKind.number,
+        labelAr: 'أجرة كل متجر إضافي في نفس المشوار',
+        labelEn: 'Extra Vendor Delivery Fee',
+        helpAr: 'مبلغ ثابت يُضاف للتوصيل لكل متجر إضافي في طلبات المتاجر المتعددة.',
+        helpEn: 'Fixed delivery fee added for each additional vendor in multi-vendor orders.',
       ),
       SettingsField(
         key: 'pricePerKm',
@@ -620,6 +639,14 @@ const List<SettingsSection> platformSettingsSections = [
         labelEn: 'Max Dispatch Batch Size',
         helpAr: 'أقصى عدد مندوبين بيتم عرض الطلب عليهم في المرة الواحدة.',
         helpEn: 'Maximum number of drivers the order is offered to at once.',
+      ),
+      SettingsField(
+        key: 'maxActiveOrdersPerDriver',
+        kind: SettingsFieldKind.number,
+        labelAr: 'أقصى عدد طلبات نشطة للمندوب',
+        labelEn: 'Max Active Orders Per Driver',
+        helpAr: 'أقصى عدد طلبات يقدر المندوب الواحد يوصلها في نفس الوقت (1 - 10).',
+        helpEn: 'Maximum concurrent active orders a single driver can carry at once (1 - 10).',
       ),
     ],
   ),

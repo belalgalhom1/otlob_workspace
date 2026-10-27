@@ -14,6 +14,9 @@ export class PlatformSetting {
   deliveryCommissionRate: number = 20;
 
   @ApiProperty({ type: Number })
+  driverManagerCommissionRate: number = 10;
+
+  @ApiProperty({ type: Number })
   defaultTaxRate: number = 14;
 
   @ApiProperty({ type: Number })
@@ -21,6 +24,9 @@ export class PlatformSetting {
 
   @ApiProperty({ type: Number })
   baseDeliveryFee: number = 15;
+
+  @ApiProperty({ type: Number })
+  extraVendorDeliveryFee: number = 10;
 
   @ApiProperty({ type: Number })
   pricePerKm: number = 3;
@@ -243,6 +249,9 @@ export class PlatformSetting {
 
   @ApiProperty({ type: Number })
   maxDispatchBatchSize: number = 300;
+
+  @ApiProperty({ type: Number })
+  maxActiveOrdersPerDriver: number = 1;
 
   @ApiProperty({ type: Number })
   coinValue: number = 1;

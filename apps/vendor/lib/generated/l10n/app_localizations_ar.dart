@@ -1584,6 +1584,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deliveryCommissionRate => 'نسبة عمولة التوصيل (%)';
 
   @override
+  String get driverManagerCommissionRate => 'نسبة مدير المناديب من التوصيل (%)';
+
+  @override
   String get customOrderPlatformFee => 'رسوم خدمات التوصيل المخصص';
 
   @override
@@ -1600,6 +1603,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get baseDeliveryFee => 'رسوم التوصيل الأساسية';
+
+  @override
+  String get extraVendorDeliveryFee => 'Extra Vendor Delivery Fee';
 
   @override
   String get pricePerKm => 'السعر لكل كيلومتر';
@@ -1696,6 +1702,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get maxDispatchBatchSize => 'الحد الأقصى لحجم دفعة الإرسال';
+
+  @override
+  String get maxActiveOrdersPerDriver => 'Max Active Orders Per Driver';
 
   @override
   String get maxKmForBicycle => 'الحد الأقصى للمسافة للدراجة (كم)';

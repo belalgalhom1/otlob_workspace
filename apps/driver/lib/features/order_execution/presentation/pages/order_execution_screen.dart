@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:data/data.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/order_execution/presentation/widgets/order_details_bottom_sheet.dart';
@@ -177,6 +178,100 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     }
   }
 
+  void _showActiveOrdersBottomSheet(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(driverOrdersRepositoryProvider);
+    final activeOrders = await repo.getActiveDriverOrders();
+    if (!mounted) return;
+
+    if (activeOrders.isEmpty) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(l10n.noActiveOrder)),
+      );
+      return;
+    }
+
+    final currentOrder = ref.read(orderExecutionProvider).value;
+    final currentId = currentOrder is Map ? currentOrder['id']?.toString() : null;
+
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.listOrdered, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.localeName == 'ar'
+                            ? 'الطلبات النشطة (${activeOrders.length})'
+                            : 'Active Orders (${activeOrders.length})',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: activeOrders.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, index) {
+                      final item = activeOrders[index] as Map<String, dynamic>;
+                      final id = item['id']?.toString() ?? '';
+                      final isSelected = id == currentId;
+                      final orderNumber = item['orderNumber']?.toString() ?? (id.length >= 6 ? id.substring(0, 6) : id);
+                      final vendorName = item['vendor']?['storeName'] ?? item['type'] ?? '';
+                      final status = item['status']?.toString() ?? '';
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isSelected ? AppColors.primary : Colors.grey.shade200,
+                          foregroundColor: isSelected ? Colors.black : Colors.grey.shade700,
+                          child: Text('${index + 1}'),
+                        ),
+                        title: Text(
+                          '#$orderNumber - $vendorName',
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: Text(status),
+                        trailing: isSelected
+                            ? const Icon(LucideIcons.check, color: AppColors.primary)
+                            : null,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          if (!isSelected) {
+                            ref.read(orderExecutionProvider.notifier).selectOrder(id);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderState = ref.watch(orderExecutionProvider);
@@ -186,6 +281,13 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       appBar: AppBar(
         title: Text(l10n.activeDelivery),
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.listOrdered),
+            tooltip: l10n.localeName == 'ar' ? 'الطلبات النشطة' : 'Active Orders',
+            onPressed: () => _showActiveOrdersBottomSheet(context),
+          ),
+        ],
       ),
       body: orderState.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),

@@ -3140,6 +3140,12 @@ abstract class AppLocalizations {
   /// **'Delivery Commission Rate (%)'**
   String get deliveryCommissionRate;
 
+  /// No description provided for @driverManagerCommissionRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Manager Cut (%)'**
+  String get driverManagerCommissionRate;
+
   /// No description provided for @customOrderPlatformFee.
   ///
   /// In en, this message translates to:
@@ -3175,6 +3181,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Base Delivery Fee'**
   String get baseDeliveryFee;
+
+  /// No description provided for @extraVendorDeliveryFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra Vendor Delivery Fee'**
+  String get extraVendorDeliveryFee;
 
   /// No description provided for @pricePerKm.
   ///
@@ -3367,6 +3379,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Max Dispatch Batch Size'**
   String get maxDispatchBatchSize;
+
+  /// No description provided for @maxActiveOrdersPerDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Active Orders Per Driver'**
+  String get maxActiveOrdersPerDriver;
 
   /// No description provided for @maxKmForBicycle.
   ///

@@ -61,14 +61,14 @@ describe('PermissionsGuard', () => {
     expect(await guard.canActivate(ctx)).toBe(true);
   });
 
-  it('allows DRIVER_MANAGER for default MANAGE_ORDERS permission', async () => {
+  it('denies DRIVER_MANAGER for default MANAGE_ORDERS permission', async () => {
     reflector.getAllAndOverride
       .mockReturnValueOnce([Permission.MANAGE_ORDERS])
       .mockReturnValueOnce('all');
     prisma.user.findUnique.mockResolvedValue({ permissions: [] });
 
     const ctx = createMockContext({ sub: 'dm-1', role: Role.DRIVER_MANAGER });
-    expect(await guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   it('allows DRIVER_MANAGER for custom assigned permission', async () => {

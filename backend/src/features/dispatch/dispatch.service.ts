@@ -686,15 +686,17 @@ export class DispatchService {
       // per-order SET NX cannot serialize them — lock the driver row instead.
       await tx.$queryRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
 
-      // A driver already carrying another live order cannot take this one.
-      const activeOrder = await tx.order.findFirst({
+      const settings = await this.platformSettings.getSettings();
+      const maxActive = settings.maxActiveOrdersPerDriver ?? 1;
+
+      // A driver already carrying maxActive live orders cannot take this one.
+      const activeOrdersCount = await tx.order.count({
         where: {
           driverId,
           status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
         },
-        select: { id: true },
       });
-      if (activeOrder) {
+      if (activeOrdersCount >= maxActive) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
 
@@ -815,13 +817,19 @@ export class DispatchService {
         });
       }
 
-      // 2b. Mark the driver busy. The guarded UPDATE is the hard backstop: if
-      // the driver is already ON_DELIVERY (or suspended), nothing changes and
-      // the acceptance fails instead of creating a second active order.
+      // 2b. Mark the driver busy. When maxActive > 1, ON_DELIVERY drivers can
+      // accept additional orders up to the cap.
+      const assignableStatuses: DriverStatus[] = [
+        DriverStatus.ONLINE,
+        DriverStatus.BUSY,
+      ];
+      if (maxActive > 1) {
+        assignableStatuses.push(DriverStatus.ON_DELIVERY);
+      }
       const flipped = await tx.driver.updateMany({
         where: {
           id: driverId,
-          status: { in: DRIVER_ASSIGNABLE_STATUSES },
+          status: { in: assignableStatuses },
         },
         data: { status: DriverStatus.ON_DELIVERY },
       });
