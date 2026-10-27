@@ -7,7 +7,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
-import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 
@@ -306,9 +305,15 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           : (raw is Map && raw['items'] is List ? raw['items'] as List : null);
       if (list == null || list.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(l10n.noAvailableShifts)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.localeName == 'ar'
+                    ? 'لا توجد ورديات متاحة'
+                    : 'No available shifts',
+              ),
+            ),
+          );
         }
         return;
       }
@@ -329,9 +334,15 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
       if (groups.isEmpty || !context.mounted) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(l10n.noAvailableShifts)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.localeName == 'ar'
+                    ? 'لا توجد ورديات متاحة'
+                    : 'No available shifts',
+              ),
+            ),
+          );
         }
         return;
       }
@@ -397,12 +408,14 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                       .map((p) => p['id']?.toString() ?? '')
                                       .where((id) => id.isNotEmpty)
                                       .toList();
-                                  await ref
-                                      .read(shiftPoolsProvider.notifier)
-                                      .bookWeeklyShiftsForDriver(
-                                        widget.driver.id,
-                                        poolIds,
-                                      );
+                                  final dio = ref.read(dioProvider);
+                                  await dio.post(
+                                    '/driver-shifts/admin/book-week',
+                                    data: {
+                                      'driverId': widget.driver.id,
+                                      'shiftPoolIds': poolIds,
+                                    },
+                                  );
                                   await _fetchShifts();
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -435,7 +448,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                 ),
                               ),
                               child: Text(
-                                l10n.bookShift,
+                                l10n.localeName == 'ar' ? 'حجز' : 'Book',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
