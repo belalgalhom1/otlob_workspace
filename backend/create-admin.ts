@@ -36,7 +36,7 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash(password, 10);
   
-  const existing = await prisma.user.findFirst({ where: { email } });
+  const existing = await prisma.user.findFirst({ where: { email } as any });
   const user = existing
     ? await prisma.user.update({
         where: { id: existing.id },
