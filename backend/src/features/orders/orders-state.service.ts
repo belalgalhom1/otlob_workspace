@@ -1095,9 +1095,21 @@ export class OrdersStateService {
           );
         }
       } else if (actor.role === Role.VENDOR_MEMBER) {
-        const isMember = await this.prisma.vendorMember.findFirst({
-          where: { userId: actor.sub, vendorId: order.vendorId ?? '' },
-        });
+        // A multi-vendor order has no single order-level vendor, so membership
+        // must be resolved against every portion's vendor. Otherwise no vendor
+        // could ever cancel their side of a multi-vendor order.
+        const vendorIds = new Set<string>();
+        if (order.vendorId) vendorIds.add(order.vendorId);
+        for (const f of ((order as any).vendorFulfillments ?? []) as Array<{
+          vendorId: string;
+        }>) {
+          if (f.vendorId) vendorIds.add(f.vendorId);
+        }
+        const isMember =
+          vendorIds.size > 0 &&
+          (await this.prisma.vendorMember.findFirst({
+            where: { userId: actor.sub, vendorId: { in: [...vendorIds] } },
+          })) !== null;
         if (!isMember) {
           throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
         }
@@ -1121,10 +1133,10 @@ export class OrdersStateService {
     // side-effects (cache clear, stats, notification) reach all of them.
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId: order.id },
-      select: { primaryDriverId: true },
+      select: { primaryDriverId: true, assistDriverId: true },
     });
     const groupDriverIds = groups
-      .map((g) => g.primaryDriverId)
+      .flatMap((g) => [g.primaryDriverId, g.assistDriverId])
       .filter((id): id is string => !!id);
     const allDriverIds = Array.from(
       new Set([order.driverId, ...groupDriverIds].filter((id): id is string => !!id)),
@@ -1138,7 +1150,7 @@ export class OrdersStateService {
       order.coinsUsed,
       order.customerId,
       order.orderNumber,
-      order.driverId,
+      allDriverIds,
     );
 
     const orderWithRelations = updatedOrder as {

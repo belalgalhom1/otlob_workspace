@@ -5,10 +5,11 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersRepository, OrderItemData } from './orders.repository';
 import {
   OrderGroupingService,
@@ -61,6 +62,7 @@ export class OrdersMultiVendorService {
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
     private readonly platformSettings: PlatformSettingsService,
+    private readonly checkoutService: OrdersCheckoutService,
     private readonly ordersRepository: OrdersRepository,
     private readonly grouping: OrderGroupingService,
     private readonly eventEmitter: EventEmitter2,
@@ -116,6 +118,13 @@ export class OrdersMultiVendorService {
     const clientOrderKey = idempotencyKey?.trim() || null;
     const plan = await this.buildPlan(actor, vendorIds, dto);
 
+    // Same fast-path gate as single-vendor checkout. The authoritative re-check
+    // runs inside the transaction below (under the per-customer advisory lock),
+    // so two racing checkouts cannot both pass.
+    const activeOrderPolicy = await this.checkoutService.validateActiveOrderLimit(
+      plan.customerId,
+    );
+
     const orderId = randomUUID();
     const orderNumber = await this.ordersRepository.generateOrderNumber();
 
@@ -135,6 +144,35 @@ export class OrdersMultiVendorService {
             orderNumber: existing.orderNumber,
             created: false,
           };
+        }
+      }
+
+      // Serialize concurrent checkouts for the same customer, then re-check the
+      // active-order policy against committed rows. Mirrors
+      // OrdersRepository.createOrder so the multi-vendor path cannot bypass it.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
+      const liveActiveCount = await tx.order.count({
+        where: {
+          customerId: plan.customerId,
+          status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+        },
+      });
+      if (
+        liveActiveCount > 0 &&
+        liveActiveCount >= activeOrderPolicy.maxActive
+      ) {
+        throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
+      }
+      if (activeOrderPolicy.requirePriorDelivery && liveActiveCount > 0) {
+        const hasCompletedOrder = await tx.order.findFirst({
+          where: {
+            customerId: plan.customerId,
+            status: OrderStatus.DELIVERED,
+          },
+          select: { id: true },
+        });
+        if (!hasCompletedOrder) {
+          throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
         }
       }
 
@@ -187,6 +225,39 @@ export class OrdersMultiVendorService {
             created: false,
           };
         }
+      }
+
+      // Coins are money: deduct them inside the same transaction as the order
+      // insert and write the SPENT ledger row, exactly like the single-vendor
+      // path. Without this the discount was granted but the balance was never
+      // touched, so coins could be spent repeatedly.
+      if (plan.coinsUsed > 0) {
+        const result = await tx.customer.updateMany({
+          where: {
+            id: plan.customerId,
+            coinBalance: { gte: plan.coinsUsed },
+          },
+          data: { coinBalance: { decrement: plan.coinsUsed } },
+        });
+        if (result.count === 0) {
+          throw new BadRequestException(
+            CustomerErrors.INSUFFICIENT_COIN_BALANCE,
+          );
+        }
+        const customer = await tx.customer.findUnique({
+          where: { id: plan.customerId },
+          select: { coinBalance: true },
+        });
+        await tx.customerCoinTransaction.create({
+          data: {
+            customerId: plan.customerId,
+            orderId,
+            type: 'SPENT',
+            amount: plan.coinsUsed,
+            balanceAfter: customer!.coinBalance,
+            description: `Used coins for order ${orderNumber}`,
+          },
+        });
       }
 
       // Vendor portions — the independently fulfillable units.
@@ -656,6 +727,20 @@ export class OrdersMultiVendorService {
         ? Math.floor(grandTotal / Number(settings.amountSpentPerCoin))
         : 0;
 
+    // High-value cash-on-delivery orders require the same upfront deposit as
+    // the single-vendor path. It was hardcoded to 0 here, so multi-vendor
+    // high-value orders silently skipped the deposit.
+    let upfrontAmount = 0;
+    if (
+      dto.paymentMethod === 'CASH_ON_DELIVERY' &&
+      Number(settings.highValueOrderThreshold ?? 0) > 0 &&
+      grandTotal >= Number(settings.highValueOrderThreshold)
+    ) {
+      upfrontAmount = Math.round(
+        grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
+      );
+    }
+
     return {
       customerId: customer.id,
       zoneId: zone.id,
@@ -670,7 +755,7 @@ export class OrdersMultiVendorService {
       coinsUsed,
       coinsEarned,
       grandTotal,
-      upfrontAmount: 0,
+      upfrontAmount,
       driverBonusFee,
     };
   }

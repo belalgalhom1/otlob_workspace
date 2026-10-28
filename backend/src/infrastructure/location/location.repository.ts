@@ -463,6 +463,11 @@ export class LocationRepository {
       : Prisma.empty;
 
     const maxActiveOrders = Number(settings.maxActiveOrdersPerDriver ?? 1);
+    // A multi-vendor order is split into delivery groups, each dispatched
+    // independently. Counting only `orders.driverId` (which mirrors the first
+    // group) undercounts a driver carrying several groups and double-counts the
+    // mirrored legacy order, so work is counted per delivery + legacy orders
+    // that have no groups.
     const driverAvailabilityCond =
       maxActiveOrders > 1
         ? Prisma.sql`AND (
@@ -471,9 +476,20 @@ export class LocationRepository {
               d.status::text = 'ON_DELIVERY'
               AND (
                 SELECT COUNT(*)::int
-                FROM orders o
-                WHERE o."driverId" = d.id
-                  AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PICKED_UP')
+                FROM (
+                  SELECT g.id
+                  FROM order_delivery_groups g
+                  WHERE (g."primaryDriverId" = d.id OR g."assistDriverId" = d.id)
+                    AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
+                  UNION ALL
+                  SELECT o.id
+                  FROM orders o
+                  WHERE o."driverId" = d.id
+                    AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PICKED_UP')
+                    AND NOT EXISTS (
+                      SELECT 1 FROM order_delivery_groups og WHERE og."orderId" = o.id
+                    )
+                ) work
               ) < ${maxActiveOrders}
             )
           )`

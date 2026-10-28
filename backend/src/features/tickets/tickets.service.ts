@@ -125,20 +125,22 @@ export class TicketsService implements OnModuleInit {
             select: { userId: true, id: true },
           });
           if (driver) {
-            // Route to driver's assigned driver manager if exists
-            const managerWithAll = await this.prisma.driverManager.findFirst({
-              where: { manageAllDrivers: true },
-              select: { userId: true },
+            // Prefer the manager this driver is actually assigned to. Only fall
+            // back to a "manages all drivers" manager when there is no specific
+            // assignment, otherwise every ticket would go to that one manager.
+            const assignment = await this.prisma.driverManagerAssignment.findFirst({
+              where: { driverId: driver.id },
+              include: { driverManager: { select: { userId: true } } },
             });
-            if (managerWithAll?.userId) {
-              assigneeId = managerWithAll.userId;
+            if (assignment?.driverManager?.userId) {
+              assigneeId = assignment.driverManager.userId;
             } else {
-              const assignment = await this.prisma.driverManagerAssignment.findFirst({
-                where: { driverId: driver.id },
-                include: { driverManager: { select: { userId: true } } },
+              const managerWithAll = await this.prisma.driverManager.findFirst({
+                where: { manageAllDrivers: true },
+                select: { userId: true },
               });
-              if (assignment?.driverManager?.userId) {
-                assigneeId = assignment.driverManager.userId;
+              if (managerWithAll?.userId) {
+                assigneeId = managerWithAll.userId;
               } else {
                 assigneeId = driver.userId;
               }

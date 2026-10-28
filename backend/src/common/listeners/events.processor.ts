@@ -1,7 +1,7 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import { DispatchStatus, NotificationType, OrderStatus } from '@prisma/client';
+import { DispatchStatus, DeliveryGroupStatus, NotificationType, OrderStatus } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../../features/notifications/notifications.service';
 import { DispatchService } from '../../features/dispatch/dispatch.service';
@@ -193,6 +193,36 @@ export class EventsProcessor extends WorkerHost {
       ...event.vendorUserIds,
     ]);
     if (event.driverUserId) notifyUserIds.add(event.driverUserId);
+
+    // Multi-vendor orders hand each delivery group to its own driver (and an
+    // optional assistant). The event only carries the order-level mirror of
+    // the first group, so every assigned group driver must be resolved here or
+    // the other vendors' drivers never receive live status updates.
+    const groupDriverRows = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId: event.orderId },
+      select: {
+        primaryDriverId: true,
+        assistDriverId: true,
+        primaryDriver: { select: { userId: true } },
+        assistDriver: { select: { userId: true } },
+      },
+    });
+    const driverUserById = new Map<string, string | null>();
+    if (event.driverId) {
+      driverUserById.set(event.driverId, event.driverUserId ?? null);
+    }
+    for (const g of groupDriverRows) {
+      if (g.primaryDriverId) {
+        driverUserById.set(g.primaryDriverId, g.primaryDriver?.userId ?? null);
+      }
+      if (g.assistDriverId) {
+        driverUserById.set(g.assistDriverId, g.assistDriver?.userId ?? null);
+      }
+    }
+    for (const userId of driverUserById.values()) {
+      if (userId) notifyUserIds.add(userId);
+    }
+
     await Promise.all(
       [...notifyUserIds].map((uid) =>
         this.socketService.emitToUser(uid, WS.ORDER_STATUS, socketPayload),
@@ -298,17 +328,20 @@ export class EventsProcessor extends WorkerHost {
       );
     }
 
-    // Live Tracking Cache: maintain driver's active order in Redis
-    if (event.driverUserId && event.driverId) {
-      if (
-        event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-        event.newStatus === OrderStatus.PENDING_PAYMENT ||
-        event.newStatus === OrderStatus.PREPARING ||
-        event.newStatus === OrderStatus.READY_FOR_PICKUP ||
-        event.newStatus === OrderStatus.PICKED_UP
-      ) {
+    // Live Tracking Cache: maintain each assigned driver's active order in
+    // Redis. A multi-vendor order can have several drivers (one per delivery),
+    // so every group driver is updated, not just the order-level mirror.
+    const trackingStatuses = [
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PENDING_PAYMENT,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.PICKED_UP,
+    ];
+    for (const driverId of driverUserById.keys()) {
+      if (trackingStatuses.includes(event.newStatus)) {
         await this.redis.set(
-          `otlobegy:driver-active-order:${event.driverId}`,
+          `otlobegy:driver-active-order:${driverId}`,
           JSON.stringify({
             orderId: event.orderId,
             customerUserId: event.customerUserId,
@@ -319,31 +352,79 @@ export class EventsProcessor extends WorkerHost {
         event.newStatus === OrderStatus.DELIVERED ||
         event.newStatus === OrderStatus.CANCELLED
       ) {
-        const remaining = await this.prisma.order.findFirst({
-          where: {
-            driverId: event.driverId,
-            id: { not: event.orderId },
-            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-          },
+        await this.refreshDriverTracking(driverId, event.orderId);
+      }
+    }
+  }
+
+  /**
+   * Rebuild one driver's live-order tracking key after a delivery ended.
+   *
+   * A driver can carry more than one unit of work (another delivery group of
+   * the same multi-vendor order, or a different order), so the key is repointed
+   * at the remaining work instead of being deleted blindly — deleting it would
+   * hide a live delivery from the tracking screen.
+   */
+  private async refreshDriverTracking(driverId: string, endedOrderId: string) {
+    const remainingGroup = await this.prisma.orderDeliveryGroup.findFirst({
+      where: {
+        status: {
+          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+        },
+        OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+      },
+      select: {
+        orderId: true,
+        order: {
           select: {
-            id: true,
             customerId: true,
             customer: { select: { userId: true } },
           },
-        });
-        if (remaining) {
-          await this.redis.set(
-            `otlobegy:driver-active-order:${event.driverId}`,
-            JSON.stringify({
-              orderId: remaining.id,
-              customerUserId: remaining.customer?.userId ?? remaining.customerId,
-            }),
-            12 * 60 * 60,
-          );
-        } else {
-          await this.redis.del(`otlobegy:driver-active-order:${event.driverId}`);
-        }
-      }
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (remainingGroup) {
+      await this.redis.set(
+        `otlobegy:driver-active-order:${driverId}`,
+        JSON.stringify({
+          orderId: remainingGroup.orderId,
+          customerUserId:
+            remainingGroup.order.customer?.userId ??
+            remainingGroup.order.customerId,
+        }),
+        12 * 60 * 60,
+      );
+      return;
+    }
+
+    const remainingOrder = await this.prisma.order.findFirst({
+      where: {
+        driverId,
+        id: { not: endedOrderId },
+        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+        deliveryGroups: { none: {} },
+      },
+      select: {
+        id: true,
+        customerId: true,
+        customer: { select: { userId: true } },
+      },
+    });
+
+    if (remainingOrder) {
+      await this.redis.set(
+        `otlobegy:driver-active-order:${driverId}`,
+        JSON.stringify({
+          orderId: remainingOrder.id,
+          customerUserId:
+            remainingOrder.customer?.userId ?? remainingOrder.customerId,
+        }),
+        12 * 60 * 60,
+      );
+    } else {
+      await this.redis.del(`otlobegy:driver-active-order:${driverId}`);
     }
   }
 
@@ -360,7 +441,9 @@ export class EventsProcessor extends WorkerHost {
       : (event.driverId ? [event.driverId] : []);
 
     for (const did of allDriverIds) {
-      await this.redis.del(`otlobegy:driver-active-order:${did}`);
+      // The cancelled order's groups are already cancelled, but the driver may
+      // still be carrying another delivery, so only repoint/clear their key.
+      await this.refreshDriverTracking(did, event.orderId);
     }
 
     const notifyUserIds = new Set<string>([

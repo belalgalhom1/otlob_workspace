@@ -12,9 +12,11 @@ import {
   CustomerErrors,
 } from 'src/common/constants/response.constants';
 import {
+  DeliveryGroupStatus,
   DispatchStatus,
   DriverStatus,
   OrderStatus,
+  OrderVendorFulfillmentStatus,
   Prisma,
 } from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
@@ -202,6 +204,9 @@ const ORDER_INCLUDE = {
           selectedUnit: true,
           unitPrice: true,
           totalPrice: true,
+          specialRequest: true,
+          selectedOptions: true,
+          product: { select: { imageUrl: true } },
         },
       },
     },
@@ -355,7 +360,16 @@ export class OrdersRepository {
       and.push({
         OR: [
           { driverId: filters.driverId },
-          { deliveryGroups: { some: { primaryDriverId: filters.driverId } } },
+          {
+            deliveryGroups: {
+              some: {
+                OR: [
+                  { primaryDriverId: filters.driverId },
+                  { assistDriverId: filters.driverId },
+                ],
+              },
+            },
+          },
         ],
       });
     }
@@ -418,6 +432,9 @@ export class OrdersRepository {
                   selectedUnit: true,
                   unitPrice: true,
                   totalPrice: true,
+                  specialRequest: true,
+                  selectedOptions: true,
+                  product: { select: { imageUrl: true } },
                 },
               },
             },
@@ -431,7 +448,9 @@ export class OrdersRepository {
               id: true,
               sequence: true,
               status: true,
+              deliveryFee: true,
               primaryDriverId: true,
+              assistDriverId: true,
               items: { select: { fulfillmentId: true, sequence: true } },
             },
           },
@@ -870,7 +889,7 @@ export class OrdersRepository {
     coinsUsed: number,
     customerId: string,
     orderNumber: string,
-    driverId: string | null | undefined,
+    driverIds: string[],
   ) {
     await this.prisma.$transaction(async (tx) => {
       const updatedCount = await tx.order.updateMany({
@@ -907,13 +926,21 @@ export class OrdersRepository {
       // key make retries idempotent.
       if (coinsUsed > 0) {
         await tx.$executeRaw`SELECT id FROM customers WHERE id = ${customerId} FOR UPDATE`;
-        const alreadyRefunded = await tx.customerCoinTransaction.findFirst({
+        // A portion rejection may already have refunded part of the coins.
+        // Refund only the remainder so partial rejection + cancellation never
+        // pays the customer back twice (nor skips coins they are still owed).
+        // The ledger has a unique (orderId, type) row, so the refund is a
+        // single accumulating REFUNDED row rather than one row per event.
+        const refunded = await tx.customerCoinTransaction.aggregate({
           where: { orderId, type: 'REFUNDED' },
+          _sum: { amount: true },
         });
-        if (!alreadyRefunded) {
+        const alreadyRefunded = Number(refunded._sum.amount ?? 0);
+        const coinsToRefund = Math.max(0, coinsUsed - alreadyRefunded);
+        if (coinsToRefund > 0) {
           const customer = await tx.customer.update({
             where: { id: customerId },
-            data: { coinBalance: { increment: coinsUsed } },
+            data: { coinBalance: { increment: coinsToRefund } },
             select: { coinBalance: true },
           });
           try {
@@ -922,18 +949,48 @@ export class OrdersRepository {
                 customerId,
                 orderId,
                 type: 'REFUNDED',
-                amount: coinsUsed,
+                amount: coinsToRefund,
                 balanceAfter: customer.coinBalance,
                 description: `Refund for cancelled order ${orderNumber}`,
               },
             });
           } catch (e: any) {
+            // A concurrent cancellation refunded between our read and write.
             if (e?.code !== 'P2002') throw e;
           }
         }
       }
 
-      if (driverId) {
+      // Cancel every delivery that is not already finished, and cancel the
+      // vendor portions that were still live. Without this a cancelled order
+      // left live groups behind: their drivers stayed ON_DELIVERY and the
+      // dispatch handoff could still fan out for a cancelled order.
+      await tx.orderDeliveryGroup.updateMany({
+        where: {
+          orderId,
+          status: {
+            notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+          },
+        },
+        data: { status: DeliveryGroupStatus.CANCELLED },
+      });
+      await tx.orderVendorFulfillment.updateMany({
+        where: {
+          orderId,
+          status: {
+            in: [
+              OrderVendorFulfillmentStatus.PENDING,
+              OrderVendorFulfillmentStatus.ACCEPTED,
+            ],
+          },
+        },
+        data: { status: OrderVendorFulfillmentStatus.CANCELLED },
+      });
+
+      // Free every driver that was carrying this order — multi-vendor orders
+      // hand their groups to different drivers (primary and assistant), and a
+      // cancelled group must not leave any of them stuck ON_DELIVERY.
+      for (const driverId of driverIds) {
         const remaining = await tx.order.count({
           where: {
             driverId,
@@ -941,7 +998,16 @@ export class OrdersRepository {
             status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
           },
         });
-        if (remaining === 0) {
+        const remainingGroups = await tx.orderDeliveryGroup.count({
+          where: {
+            orderId: { not: orderId },
+            status: {
+              notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+            },
+            OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+          },
+        });
+        if (remaining === 0 && remainingGroups === 0) {
           await tx.driver.update({
             where: { id: driverId },
             data: { status: DriverStatus.ONLINE },
@@ -953,8 +1019,12 @@ export class OrdersRepository {
       // predicate), so this is safe inside the same transaction: a crash or
       // retry that re-runs cancel either restores once (first run) or no-ops
       // (idempotent early return above on already-CANCELLED).
+      //
+      // Rejected portions already had their stock restored when the vendor
+      // rejected them, so those rows must be skipped here or the stock would
+      // be credited twice.
       const cancelledItems = await tx.orderItem.findMany({
-        where: { orderId },
+        where: { orderId, rejectedAt: null },
         select: {
           productId: true,
           variantId: true,
@@ -1121,13 +1191,31 @@ export class OrdersRepository {
       // detected and rejected instead of being double-booked.
       await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
 
-      const activeCount = await tx.order.count({
-        where: {
-          driverId,
-          id: { not: orderId },
-          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-        },
-      });
+      // Count every unit of work this driver is carrying. Multi-vendor orders
+      // are split into delivery groups, and the order-level `driverId` only
+      // mirrors the first group, so counting orders alone both undercounts
+      // (other groups) and double-counts (the mirrored order). Legacy orders
+      // with no groups are counted directly.
+      const [activeGroups, activeLegacyOrders] = await Promise.all([
+        tx.orderDeliveryGroup.count({
+          where: {
+            orderId: { not: orderId },
+            status: {
+              notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+            },
+            OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+          },
+        }),
+        tx.order.count({
+          where: {
+            driverId,
+            id: { not: orderId },
+            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+            deliveryGroups: { none: {} },
+          },
+        }),
+      ]);
+      const activeCount = activeGroups + activeLegacyOrders;
       if (activeCount >= maxActiveOrders) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
@@ -1138,16 +1226,31 @@ export class OrdersRepository {
         select: { driverId: true },
       });
 
-      // If there's an existing driver that is different, release them if they have no other active orders
+      // If there's an existing driver that is different, release them if they have no other active work
       if (existingOrder?.driverId && existingOrder.driverId !== driverId) {
-        const remaining = await tx.order.count({
-          where: {
-            driverId: existingOrder.driverId,
-            id: { not: orderId },
-            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-          },
-        });
-        if (remaining === 0) {
+        const [remainingGroups, remainingOrders] = await Promise.all([
+          tx.orderDeliveryGroup.count({
+            where: {
+              orderId: { not: orderId },
+              status: {
+                notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+              },
+              OR: [
+                { primaryDriverId: existingOrder.driverId },
+                { assistDriverId: existingOrder.driverId },
+              ],
+            },
+          }),
+          tx.order.count({
+            where: {
+              driverId: existingOrder.driverId,
+              id: { not: orderId },
+              status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+              deliveryGroups: { none: {} },
+            },
+          }),
+        ]);
+        if (remainingGroups + remainingOrders === 0) {
           await tx.driver.update({
             where: { id: existingOrder.driverId },
             data: { status: DriverStatus.ONLINE },
@@ -1203,13 +1306,24 @@ export class OrdersRepository {
   }
 
   async freeDriver(driverId: string) {
-    const activeRemaining = await this.prisma.order.count({
-      where: {
-        driverId,
-        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-      },
-    });
-    if (activeRemaining === 0) {
+    const [activeGroups, activeLegacyOrders] = await Promise.all([
+      this.prisma.orderDeliveryGroup.count({
+        where: {
+          status: {
+            notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+          },
+          OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          driverId,
+          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+          deliveryGroups: { none: {} },
+        },
+      }),
+    ]);
+    if (activeGroups + activeLegacyOrders === 0) {
       return this.prisma.driver.update({
         where: { id: driverId },
         data: { status: DriverStatus.ONLINE },

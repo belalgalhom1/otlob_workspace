@@ -23,6 +23,7 @@ import { CommonSuccess } from 'src/common/constants/response.constants';
 import { DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { DriverStatus } from '@prisma/client';
+import { DriverManagersService } from '../drivers/driver-managers.service';
 
 @Injectable()
 export class WalletService {
@@ -30,6 +31,7 @@ export class WalletService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly storage: StorageService,
+    private readonly driverManagersService: DriverManagersService,
   ) {}
 
   // ─── Admin: Manage Platform Wallets ───────────────────────────────────────
@@ -360,6 +362,12 @@ export class WalletService {
     if (!driver) throw new NotFoundException(WalletErrors.DRIVER_NOT_FOUND);
 
     if (actor?.role === Role.DRIVER_MANAGER) {
+      // A driver manager may only touch the drivers assigned to them, not any
+      // driver in the platform.
+      await this.driverManagersService.assertManagesDriver(
+        actor.sub,
+        driverId,
+      );
       const normalized = (dto.type || '').toString().toUpperCase();
       const allowed = ['PENALTY', 'ADJUSTMENT'];
       if (!allowed.includes(normalized)) {

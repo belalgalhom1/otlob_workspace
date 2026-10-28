@@ -850,7 +850,7 @@ export class OrdersCheckoutService {
     return order;
   }
 
-  private async validateActiveOrderLimit(customerId: string) {
+  async validateActiveOrderLimit(customerId: string) {
     const settings = await this.platformSettings.getSettings();
 
     const policy = {

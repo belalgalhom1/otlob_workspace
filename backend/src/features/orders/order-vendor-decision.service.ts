@@ -236,8 +236,8 @@ export class OrderVendorDecisionService {
       };
     });
 
-    // Recompute money OUTSIDE the CAS so the maths uses fresh values, then write
-    // once. This keeps the single-writer invariant of the orders table.
+    // Recompute the money under the order-money advisory lock so a concurrent
+    // cancellation or second rejection cannot double-refund the same portion.
     await this.recomputeTotalsAfterRejection(
       fulfillment.orderId,
       refundAmount,
@@ -579,71 +579,181 @@ export class OrderVendorDecisionService {
       return;
     }
 
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        subtotal: true,
-        serviceFee: true,
-        tax: true,
-        deliveryFee: true,
-        driverBonusFee: true,
-        discount: true,
-        coinsUsed: true,
-        grandTotal: true,
-        upfrontAmount: true,
-      },
-    });
-    if (!order) return;
+    const settings = await this.platformSettings.getSettings();
+    const coinValue = Number(settings.coinValue) || 0;
+    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
 
-    const newSubtotal = Math.max(0, order.subtotal - rejectedAmount);
-    const newDeliveryFee = Math.max(0, order.deliveryFee + deliveryFeeDelta);
-    const newServiceFee = Math.max(0, order.serviceFee + serviceFeeDelta);
-    // Tax was charged on (subtotal + serviceFee); re-derive it from the order's
-    // own implied rate so the untouched portion keeps its original basis even if
-    // the platform rate changed since checkout.
-    const taxableBase = order.subtotal + order.serviceFee;
-    const impliedTaxRate = taxableBase > 0 ? order.tax / taxableBase : 0;
-    const newTax = Math.max(
-      0,
-      Math.round((newSubtotal + newServiceFee) * impliedTaxRate),
-    );
-    const newPreDiscount =
-      newSubtotal + newDeliveryFee + order.driverBonusFee + newServiceFee + newTax;
-    const newDiscount = Math.min(order.discount, newPreDiscount);
-    const newGrandTotal = Math.max(0, newPreDiscount - newDiscount);
-    const newUpfront =
-      order.upfrontAmount > 0
-        ? Math.min(order.upfrontAmount, newGrandTotal)
-        : order.upfrontAmount;
+    await this.prisma.$transaction(async (tx) => {
+      // Serialize every money mutation for this order (cancel, rejection,
+      // payment settlement). Without this a rejection racing a cancellation
+      // could each read the pre-change totals and refund the same money twice.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-money:' || ${orderId}::text))`;
 
-    const updated = await this.prisma.order.updateMany({
-      where: { id: orderId },
-      data: {
-        subtotal: newSubtotal,
-        deliveryFee: newDeliveryFee,
-        serviceFee: newServiceFee,
-        tax: newTax,
-        discount: newDiscount,
-        grandTotal: newGrandTotal,
-        upfrontAmount: newUpfront,
-      },
-    });
-    if (updated.count === 0) return;
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          status: true,
+          subtotal: true,
+          serviceFee: true,
+          tax: true,
+          deliveryFee: true,
+          driverBonusFee: true,
+          discount: true,
+          coinsUsed: true,
+          coinsEarned: true,
+          grandTotal: true,
+          upfrontAmount: true,
+          paymentStatus: true,
+          customerId: true,
+          orderNumber: true,
+        },
+      });
+      if (!order) return;
 
-    // Record the money movement on the order timeline so finance can audit it.
-    const parts: string[] = [];
-    if (rejectedAmount > 0) parts.push(`${rejectedAmount} EGP of food`);
-    if (deliveryFeeDelta !== 0)
-      parts.push(`${Math.abs(deliveryFeeDelta)} EGP of delivery fee`);
-    if (parts.length === 0) return;
+      const newSubtotal = Math.max(0, order.subtotal - rejectedAmount);
+      const newDeliveryFee = Math.max(0, order.deliveryFee + deliveryFeeDelta);
+      const newServiceFee = Math.max(0, order.serviceFee + serviceFeeDelta);
+      // Tax was charged on (subtotal + serviceFee); re-derive it from the order's
+      // own implied rate so the untouched portion keeps its original basis even if
+      // the platform rate changed since checkout.
+      const taxableBase = order.subtotal + order.serviceFee;
+      const impliedTaxRate = taxableBase > 0 ? order.tax / taxableBase : 0;
+      const newTax = Math.max(
+        0,
+        Math.round((newSubtotal + newServiceFee) * impliedTaxRate),
+      );
 
-    await this.prisma.orderStatusEvent.create({
-      data: {
-        orderId,
-        status: OrderStatus.PENDING,
-        note: `Vendor portion rejected — removed ${parts.join(' and ')} from the order`,
-        createdBy: 'system',
-      },
+      const oldPreDiscount =
+        order.subtotal +
+        order.deliveryFee +
+        order.driverBonusFee +
+        order.serviceFee +
+        order.tax;
+      const newPreDiscount =
+        newSubtotal +
+        newDeliveryFee +
+        order.driverBonusFee +
+        newServiceFee +
+        newTax;
+
+      // The discount was earned against the original basket, so the part that
+      // covered the rejected items must leave with them. Keeping the full
+      // discount while shrinking the subtotal would let the customer keep a
+      // discount (and the coins paid for it) on food they never received.
+      const newDiscount =
+        oldPreDiscount > 0
+          ? Math.min(
+              newPreDiscount,
+              Math.round((order.discount * newPreDiscount) / oldPreDiscount),
+            )
+          : 0;
+      const newGrandTotal = Math.max(0, newPreDiscount - newDiscount);
+      const newUpfront =
+        order.upfrontAmount > 0
+          ? Math.min(order.upfrontAmount, newGrandTotal)
+          : order.upfrontAmount;
+      // Earned coins track the money actually kept, so a rejection also claws
+      // back the coins the customer would have earned on the removed items.
+      const newCoinsEarned =
+        amountSpentPerCoin > 0
+          ? Math.floor(newGrandTotal / amountSpentPerCoin)
+          : 0;
+
+      const updated = await tx.order.updateMany({
+        where: { id: orderId },
+        data: {
+          subtotal: newSubtotal,
+          deliveryFee: newDeliveryFee,
+          serviceFee: newServiceFee,
+          tax: newTax,
+          discount: newDiscount,
+          coinsEarned: newCoinsEarned,
+          grandTotal: newGrandTotal,
+          upfrontAmount: newUpfront,
+        },
+      });
+      if (updated.count === 0) return;
+
+      // Give back the coins that paid for the discount we just released.
+      // `coinsUsed` stays as the historical amount spent; the ledger keeps a
+      // single accumulating REFUNDED row per order (unique orderId+type), and
+      // a later cancellation only refunds the remainder.
+      const discountReleased = order.discount - newDiscount;
+      const refundedAgg = await tx.customerCoinTransaction.aggregate({
+        where: { orderId, type: 'REFUNDED' },
+        _sum: { amount: true },
+      });
+      const alreadyRefunded = Number(refundedAgg._sum.amount ?? 0);
+      const coinsForReleasedDiscount =
+        coinValue > 0 ? Math.floor(discountReleased / coinValue) : 0;
+      const coinsToRefund = Math.max(
+        0,
+        Math.min(order.coinsUsed - alreadyRefunded, coinsForReleasedDiscount),
+      );
+
+      if (coinsToRefund > 0) {
+        await tx.$executeRaw`SELECT id FROM customers WHERE id = ${order.customerId} FOR UPDATE`;
+        const customer = await tx.customer.update({
+          where: { id: order.customerId },
+          data: { coinBalance: { increment: coinsToRefund } },
+          select: { coinBalance: true },
+        });
+        await tx.customerCoinTransaction.upsert({
+          where: { orderId_type: { orderId, type: 'REFUNDED' } },
+          create: {
+            customerId: order.customerId,
+            orderId,
+            type: 'REFUNDED',
+            amount: coinsToRefund,
+            balanceAfter: customer.coinBalance,
+            description: `Refund for rejected items on order ${order.orderNumber}`,
+          },
+          update: {
+            amount: { increment: coinsToRefund },
+            balanceAfter: customer.coinBalance,
+          },
+        });
+      }
+
+      // Record the money movement on the order timeline so finance can audit it.
+      const parts: string[] = [];
+      if (rejectedAmount > 0) parts.push(`${rejectedAmount} EGP of food`);
+      if (deliveryFeeDelta !== 0)
+        parts.push(`${Math.abs(deliveryFeeDelta)} EGP of delivery fee`);
+      if (parts.length > 0) {
+        await tx.orderStatusEvent.create({
+          data: {
+            orderId,
+            status: order.status,
+            note: `Vendor portion rejected — removed ${parts.join(' and ')} from the order`,
+            createdBy: 'system',
+          },
+        });
+      }
+
+      // Prepaid orders now owe the customer real money back. There is no
+      // dedicated refund model, so the obligation is written onto the order
+      // timeline for finance to settle (the notification listener also tells
+      // the customer the amount).
+      //
+      // `grandTotal` is the cash the customer paid after the coin discount, so
+      // the cash refund is simply the drop in grandTotal. The coins that paid
+      // for the released part of the discount are refunded separately above —
+      // they are a different currency and must not be deducted from the cash
+      // owed, or a prepaid customer would be short-changed by the coin value.
+      if (order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED') {
+        const cashRefundOwed = Math.max(0, order.grandTotal - newGrandTotal);
+        if (cashRefundOwed > 0) {
+          await tx.orderStatusEvent.create({
+            data: {
+              orderId,
+              status: order.status,
+              note: `Refund obligation: ${cashRefundOwed} EGP owed to customer after portion rejection (payment already ${order.paymentStatus})`,
+              createdBy: 'system',
+            },
+          });
+        }
+      }
     });
   }
 

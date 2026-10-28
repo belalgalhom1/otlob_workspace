@@ -689,14 +689,29 @@ export class DispatchService {
       const settings = await this.platformSettings.getSettings();
       const maxActive = settings.maxActiveOrdersPerDriver ?? 1;
 
-      // A driver already carrying maxActive live orders cannot take this one.
-      const activeOrdersCount = await tx.order.count({
-        where: {
-          driverId,
-          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-        },
-      });
-      if (activeOrdersCount >= maxActive) {
+      // A driver already carrying maxActive live units of work cannot take
+      // this one. Work is counted per delivery group (primary or assistant)
+      // plus legacy orders that have no groups; counting order rows alone
+      // misses a second group on the same order and double-counts the mirrored
+      // order-level driver.
+      const [activeGroupCount, activeLegacyOrderCount] = await Promise.all([
+        tx.orderDeliveryGroup.count({
+          where: {
+            status: {
+              notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+            },
+            OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+          },
+        }),
+        tx.order.count({
+          where: {
+            driverId,
+            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+            deliveryGroups: { none: {} },
+          },
+        }),
+      ]);
+      if (activeGroupCount + activeLegacyOrderCount >= maxActive) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
 

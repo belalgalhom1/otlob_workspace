@@ -35,6 +35,8 @@ import {
 } from '@prisma/client';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { DriverShiftsService } from '../driver-shifts/driver-shifts.service';
+import { DriverManagersService } from './driver-managers.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Injectable()
 export class DriversService {
@@ -48,6 +50,8 @@ export class DriversService {
     private readonly socketService: SocketService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly driverShiftsService: DriverShiftsService,
+    private readonly driverManagersService: DriverManagersService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -751,11 +755,16 @@ export class DriversService {
       throw error;
     }
 
-    // Late entry is allowed but punished - if driver starts after scheduled start time,
-    // demote tier as penalty (consistent with missing shift punishment)
+    // Late entry is allowed but punished - if driver starts more than 5 minutes
+    // after the scheduled start time, demote tier as penalty (consistent with
+    // missing shift punishment). The grace window avoids punishing a driver
+    // for normal clock skew or a slightly early/late tap at the start hour.
     try {
       const now = new Date();
-      if (shift.startTime && now > shift.startTime) {
+      const lateStartThreshold = shift.startTime
+        ? new Date(shift.startTime.getTime() + 5 * 60 * 1000)
+        : null;
+      if (lateStartThreshold && now > lateStartThreshold) {
         const fullDriver = await this.driversRepository.findById(driver.id);
         if (fullDriver) {
           let newTier = fullDriver.tier;
@@ -811,8 +820,8 @@ export class DriversService {
     if (shift.status !== DriverShiftStatus.ACTIVE) {
       throw new BadRequestException(DriverErrors.SHIFT_NOT_ACTIVE);
     }
-    // Drivers must not be able to leave a shift once started.
-    throw new BadRequestException(DriverErrors.CANNOT_LEAVE_STARTED_SHIFT);
+    // A driver on an active delivery cannot leave the shift; otherwise the
+    // shift may be ended (the UI/guard controls when that is offered).
     if (driver.status === DriverStatus.ON_DELIVERY) {
       throw new BadRequestException(DriverErrors.CANNOT_END_WHILE_ON_DELIVERY);
     }
@@ -1064,6 +1073,16 @@ export class DriversService {
   async adminUpdateDriver(driverId: string, adminId: string, dto: any) {
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    // A driver manager is not a platform admin: they may only edit drivers
+    // that are assigned to them.
+    const actor = await this.prisma.user.findUnique({
+      where: { id: adminId },
+      select: { role: true },
+    });
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(adminId, driverId);
+    }
 
     const oldValues = { ...driver };
 

@@ -1722,6 +1722,8 @@
   "driver_error_shift_not_scheduled": "الوردية دي مش مجدولة.",
   "driver_error_shift_not_active": "الوردية مش شغالة دلوقتي.",
   "driver_error_cannot_end_while_on_delivery": "مينفعش تقفل الوردية وعندك توصيلة شغالة.",
+  "driver_error_cannot_leave_started_shift": "مينفعش تسيب وردية بدأت بالفعل.",
+  "driver_error_cannot_delete_active_shift": "مينفعش تمسح وردية شغالة دلوقتي.",
   "driver_error_cannot_remove_historical_shift": "مينفعش تمسح ورديات خلصت.",
   "driver_error_cannot_delete_pool_with_assigned_drivers": "مينفعش تمسح الوردية دي لأن فيها سواقين معيّنين.",
   "driver_error_active_shift_exists": "عندك وردية شغالة بالفعل.",

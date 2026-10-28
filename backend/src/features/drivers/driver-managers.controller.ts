@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Body,
+  Param,
   Query,
   HttpCode,
   HttpStatus,
@@ -71,7 +72,7 @@ export class DriverManagersController {
   @ApiOperation({
     summary: '[Admin] Get drivers assigned to a driver manager',
   })
-  getManagerDrivers(@Query('driverManagerUserId') driverManagerUserId: string) {
-    return this.service.getManagerDrivers(driverManagerUserId);
+  getManagerDrivers(@Param('userId') userId: string) {
+    return this.service.getManagerDrivers(userId);
   }
 }

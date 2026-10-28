@@ -29,6 +29,7 @@ import {
 } from 'src/common/constants/response.constants';
 import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
+import { DriverManagersService } from '../drivers/driver-managers.service';
 
 // Fields returned for both self-service and admin reads (no password)
 const USER_SELECT = {
@@ -61,6 +62,7 @@ export class UsersService {
     private readonly storage: StorageService,
     private readonly redis: RedisService,
     private readonly socketService: SocketService,
+    private readonly driverManagersService: DriverManagersService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -450,6 +452,18 @@ export class UsersService {
       if (user.role !== Role.DRIVER) {
         throw new ForbiddenException(CommonErrors.FORBIDDEN);
       }
+      // Only the manager this driver is assigned to may edit their profile.
+      const driver = await this.prisma.driver.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (!driver) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+      await this.driverManagersService.assertManagesDriver(
+        actor.sub,
+        driver.id,
+      );
       const allowedFields = [
         'vehicleType',
         'vehiclePlate',

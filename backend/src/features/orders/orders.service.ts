@@ -189,15 +189,18 @@ export class OrdersService {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
       order.paymentMethod !== 'MOBILE_WALLET';
+    const orderPaid =
+      order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
-    const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+    let cashToCollect =
+      isPrepaid || orderPaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
 
     let isStorePrepaid =
       order.vendorBranch?.isContracted ??
       order.vendor?.isContracted ??
       false;
-    const subtotal = Number(order.subtotal ?? 0);
+    let subtotal = Number(order.subtotal ?? 0);
     let cashToPayStore = isStorePrepaid ? 0 : subtotal;
 
     const settings = await this.platformSettings.getSettings();
@@ -209,6 +212,8 @@ export class OrdersService {
     let groupPickupLocation = order.pickupLocation;
     let groupPickupAddress = order.pickupAddress;
     let projectedStatus = order.status;
+    let scopedItems = order.items;
+    let scopedFulfillments = order.vendorFulfillments;
 
     if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
       const myDriver = await this.prisma.driver.findUnique({
@@ -217,7 +222,9 @@ export class OrdersService {
       });
       if (myDriver) {
         const group = order.deliveryGroups.find(
-          (g: any) => g.primaryDriverId === myDriver.id,
+          (g: any) =>
+            g.primaryDriverId === myDriver.id ||
+            g.assistDriverId === myDriver.id,
         );
         if (group) {
           if (group.status) {
@@ -232,9 +239,21 @@ export class OrdersService {
               fulfillmentIds.has(f.id),
             );
             if (myFulfillments.length > 0) {
+              // This driver only carries this delivery: never expose another
+              // delivery's vendor portions or items on a multi-vendor order.
+              scopedFulfillments = myFulfillments;
+              if (Array.isArray(order.items)) {
+                scopedItems = order.items.filter((i: any) =>
+                  i.fulfillmentId ? fulfillmentIds.has(i.fulfillmentId) : false,
+                );
+                if (scopedItems.length === 0) scopedItems = order.items;
+              }
+
               cashToPayStore = 0;
               let allContracted = true;
+              let groupSubtotal = 0;
               for (const f of myFulfillments) {
+                groupSubtotal += Number(f.subtotal ?? 0);
                 const contracted =
                   f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
                 if (!contracted) {
@@ -243,6 +262,24 @@ export class OrdersService {
                 }
               }
               isStorePrepaid = allContracted;
+
+              // The driver collects only what this delivery is worth: its own
+              // vendors' goods plus its own delivery fee. The order-level
+              // upfront deposit is taken off the first delivery so the sum of
+              // all deliveries still equals the customer's total.
+              const firstSequence = Math.min(
+                ...order.deliveryGroups.map((g: any) => Number(g.sequence ?? 0)),
+              );
+              const isFirstGroup = Number(group.sequence ?? 0) === firstSequence;
+              cashToCollect =
+                isPrepaid || orderPaid
+                  ? 0
+                  : Math.max(
+                      0,
+                      groupSubtotal +
+                        deliveryFee -
+                        (isFirstGroup ? upfrontAmount : 0),
+                    );
 
               const firstFulfillment = myFulfillments[0];
               if (!groupVendor && firstFulfillment.vendor) {
@@ -271,6 +308,8 @@ export class OrdersService {
       vendorBranch: groupVendorBranch,
       pickupLocation: groupPickupLocation,
       pickupAddress: groupPickupAddress,
+      items: scopedItems,
+      vendorFulfillments: scopedFulfillments,
       grandTotal: cashToCollect,
       total: cashToCollect,
       serviceFee: 0,
@@ -279,7 +318,7 @@ export class OrdersService {
       financials: {
         viewRole: 'DRIVER',
         cashToCollect,
-        isPrepaid,
+        isPrepaid: isPrepaid || orderPaid,
         cashToPayStore,
         isStorePrepaid,
         driverEarnings,
@@ -391,7 +430,7 @@ export class OrdersService {
           items = myFulfillment.items;
         } else if (order.items) {
           items = order.items.filter(
-            (i: any) => i.fulfillmentId === myFulfillment.id || i.vendorFulfillmentId === myFulfillment.id,
+            (i: any) => i.fulfillmentId === myFulfillment.id,
           );
         }
       }
@@ -519,11 +558,7 @@ export class OrdersService {
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (
-      role === Role.SUPER_ADMIN ||
-      role === Role.ADMIN ||
-      role === Role.DRIVER_MANAGER
-    ) {
+    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) {
       return true;
     }
     const user = await this.prisma.user.findUnique({

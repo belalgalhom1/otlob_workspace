@@ -1722,6 +1722,8 @@
   "driver_error_shift_not_scheduled": "Shift is not in scheduled status.",
   "driver_error_shift_not_active": "Shift is not currently active.",
   "driver_error_cannot_end_while_on_delivery": "Cannot end shift while on an active delivery.",
+  "driver_error_cannot_leave_started_shift": "Cannot leave a shift that has already started.",
+  "driver_error_cannot_delete_active_shift": "Cannot delete a shift that is currently active.",
   "driver_error_cannot_remove_historical_shift": "Past shifts can no longer be deleted.",
   "driver_error_cannot_delete_pool_with_assigned_drivers": "Cannot delete a shift pool that still has assigned drivers.",
   "driver_error_active_shift_exists": "You already have an active shift.",

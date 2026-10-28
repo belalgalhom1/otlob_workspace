@@ -627,6 +627,12 @@ export class StatisticsService {
         }
       }
 
+      // `driverBonusFee` is an ORDER-level bonus, not a per-delivery-group fee:
+      // it is paid exactly once to the order's mirrored primary driver
+      // (`orders.driverId`, the first group's driver). The other groups' drivers
+      // still earn their own group delivery fee through the per-portion payout
+      // above. Keep it that way so a multi-vendor order can never pay the same
+      // bonus several times, once per delivery.
       if (driverBonusFee > 0) {
         await this.creditDriverWallet(
           client,
