@@ -317,11 +317,71 @@ export class OrdersService {
       order.vendor?.isContracted ??
       false;
 
+    // Multi-vendor orders are split into portions, and each portion has its own
+    // production state. `status` is therefore re-projected to the caller's own
+    // portion so the vendor app's tabs, counters and action buttons describe
+    // THIS vendor's work instead of the aggregate order (which may already be
+    // preparing/delivering because of another vendor).
+    let portionStatus: string | null = null;
+    let myFulfillmentId: string | null = null;
+
     if (order.vendorFulfillments && Array.isArray(order.vendorFulfillments) && vendorId) {
       const myFulfillment = order.vendorFulfillments.find(
         (f: any) => f.vendorId === vendorId,
       );
       if (myFulfillment) {
+        myFulfillmentId = myFulfillment.id ?? null;
+
+        const aggregateStatus = String(order.status ?? 'PENDING');
+        const rawPortionStatus = String(myFulfillment.status ?? 'PENDING');
+        const isDeadPortion =
+          rawPortionStatus === 'REJECTED' || rawPortionStatus === 'CANCELLED';
+
+        // The delivery that carries this portion is the authority on dispatch
+        // progress (driver assigned / payment pending / driver collected), so
+        // its state feeds the portion status too.
+        const groupForPortion = (order.deliveryGroups ?? []).find((g: any) =>
+          (g.items ?? []).some(
+            (it: any) => it.fulfillmentId === myFulfillment.id,
+          ),
+        );
+        const groupStatus = groupForPortion?.status
+          ? String(groupForPortion.status)
+          : null;
+
+        if (isDeadPortion) {
+          portionStatus = 'CANCELLED';
+        } else if (
+          myFulfillment.deliveredAt ||
+          aggregateStatus === 'DELIVERED' ||
+          groupStatus === 'DELIVERED'
+        ) {
+          portionStatus = 'DELIVERED';
+        } else if (
+          aggregateStatus === 'PICKED_UP' ||
+          groupStatus === 'PICKED_UP'
+        ) {
+          // The goods are with a driver; only this vendor's delivery matters.
+          portionStatus = 'PICKED_UP';
+        } else if (
+          myFulfillment.readyAt ||
+          groupStatus === 'READY_FOR_PICKUP'
+        ) {
+          portionStatus = 'READY_FOR_PICKUP';
+        } else if (myFulfillment.preparingAt) {
+          portionStatus = 'PREPARING';
+        } else if (
+          groupStatus === 'DRIVER_ASSIGNED' ||
+          groupStatus === 'PENDING_PAYMENT'
+        ) {
+          // A driver is committed to this delivery, so the vendor can start
+          // preparing even though the aggregate is still LOOKING_FOR_DRIVER
+          // while another delivery waits for its own driver.
+          portionStatus = groupStatus;
+        } else {
+          portionStatus = rawPortionStatus;
+        }
+
         vendorSubtotal = Number(myFulfillment.subtotal ?? 0);
         commissionRate = Number(myFulfillment.commissionRate ?? commissionRate);
         if (myFulfillment.vendorBranch?.isContracted != null) {
@@ -346,6 +406,12 @@ export class OrdersService {
 
     return {
       ...order,
+      // The caller's own portion drives the vendor-facing status; the raw
+      // aggregate stays available as `orderStatus`.
+      status: portionStatus ?? order.status,
+      orderStatus: order.status,
+      myFulfillmentId,
+      myFulfillmentStatus: portionStatus,
       items,
       subtotal: vendorSubtotal,
       deliveryFee: 0,

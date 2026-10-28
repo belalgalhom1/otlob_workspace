@@ -279,8 +279,36 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     const stuckOrders = await this.prisma.order.findMany({
       where: {
-        status: { in: [OrderStatus.LOOKING_FOR_DRIVER, OrderStatus.ACCEPTED] },
         updatedAt: { lt: cutoff },
+        OR: [
+          {
+            status: {
+              in: [OrderStatus.LOOKING_FOR_DRIVER, OrderStatus.ACCEPTED],
+            },
+          },
+          // A delivery-grouped order can already be PREPARING / READY_FOR_PICKUP
+          // because one vendor started while another delivery still waits for
+          // its own driver. Match those through the driverless group, otherwise
+          // that delivery is never retried again.
+          {
+            status: {
+              in: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP],
+            },
+            deliveryGroups: {
+              some: {
+                primaryDriverId: null,
+                status: {
+                  in: [
+                    DeliveryGroupStatus.PENDING,
+                    DeliveryGroupStatus.ACCEPTED,
+                    DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                    DeliveryGroupStatus.READY_FOR_PICKUP,
+                  ],
+                },
+              },
+            },
+          },
+        ],
       },
       select: { id: true, orderNumber: true, vendorId: true, type: true },
       take: 100, // Chunked for scalability

@@ -2467,6 +2467,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       return const SizedBox();
     }
 
+    // A multi-vendor portion is decided once (accepted or rejected). After that
+    // the only remaining vendor action is production, so the Cancel button must
+    // not offer a rejection the backend will refuse.
+    final isMultiVendorPortion = order['myFulfillmentStatus'] != null;
+    final canCancelPortion = !isMultiVendorPortion || status == 'PENDING';
+
     String mainButtonText = '';
     String nextStatus = '';
     IconData icon = LucideIcons.check;
@@ -2548,22 +2554,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           ),
           const SizedBox(width: 12),
         ],
-        Expanded(
-          flex: 1,
-          child: OutlinedButton.icon(
-            onPressed: () => _showCancelDialog(context, order['id'], isArabic),
-            icon: const Icon(LucideIcons.xCircle, size: 16),
-            label: Text(isArabic ? 'إلغاء' : 'Cancel'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.error,
-              side: const BorderSide(color: AppColors.error),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        if (canCancelPortion)
+          Expanded(
+            flex: 1,
+            child: OutlinedButton.icon(
+              onPressed: () => _showCancelDialog(context, order['id'], isArabic),
+              icon: const Icon(LucideIcons.xCircle, size: 16),
+              label: Text(isArabic ? 'إلغاء' : 'Cancel'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: const BorderSide(color: AppColors.error),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

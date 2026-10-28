@@ -1016,6 +1016,13 @@ model OrderVendorFulfillment {
   rejectionReasonAr String?
   decidedByUserId String?
   decidedAt      DateTime?                 @db.Timestamptz(3)
+  /// When THIS portion entered production. Per-portion on purpose: several
+  /// vendors can share one delivery, so one vendor starting to cook must not
+  /// make another vendor's portion look like it is being prepared.
+  preparingAt    DateTime?                 @db.Timestamptz(3)
+  /// When THIS portion was declared ready for pickup. The shared delivery
+  /// group only becomes READY_FOR_PICKUP once every live portion in it is ready.
+  readyAt        DateTime?                 @db.Timestamptz(3)
   deliveredAt    DateTime?                 @db.Timestamptz(3)
   createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)

@@ -87,6 +87,45 @@ export interface OrderFilters {
   limit?: number;
 }
 
+/**
+ * Translate an order-level status tab into the equivalent state of ONE
+ * vendor's portion.
+ *
+ * A vendor's order list must be filtered by its own portion, not by the
+ * aggregate order status: on a multi-vendor order the aggregate flips as soon
+ * as any vendor moves, so filtering on it would drop a vendor's portion from
+ * the tab that actually describes it (for example, vendor A accepts while
+ * vendor B is still deciding — the order is still PENDING, but B's portion is
+ * the only one that belongs in the "New" tab).
+ */
+function portionStatusFilter(
+  status: OrderStatus,
+): Prisma.OrderVendorFulfillmentWhereInput {
+  switch (status) {
+    case OrderStatus.PENDING:
+      return { status: 'PENDING' };
+    case OrderStatus.ACCEPTED:
+      return { status: 'ACCEPTED', preparingAt: null, readyAt: null };
+    case OrderStatus.PREPARING:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: { not: null },
+        readyAt: null,
+      };
+    case OrderStatus.READY_FOR_PICKUP:
+      return { status: 'ACCEPTED', readyAt: { not: null } };
+    case OrderStatus.DELIVERED:
+      return { status: 'ACCEPTED', deliveredAt: { not: null } };
+    case OrderStatus.CANCELLED:
+      return { status: { in: ['REJECTED', 'CANCELLED'] } };
+    default:
+      // Dispatch-driven states (LOOKING_FOR_DRIVER, DRIVER_ASSIGNED,
+      // PENDING_PAYMENT, PICKED_UP) live at the order/delivery level, while the
+      // portion keeps its own production state. Show every live portion.
+      return { status: { in: ['PENDING', 'ACCEPTED'] } };
+  }
+}
+
 const ORDER_INCLUDE = {
   customer: {
     include: {
@@ -277,7 +316,6 @@ export class OrdersRepository {
     const skip = (page - 1) * limit;
 
     const where: Prisma.OrderWhereInput = { deletedAt: null };
-    if (filters.status) where.status = filters.status;
     if (filters.customerId) where.customerId = filters.customerId;
 
     // A multi-vendor order has vendorId = NULL and only mirrors the FIRST
@@ -285,6 +323,26 @@ export class OrdersRepository {
     // hide it from every other vendor that owns a portion and every other
     // delivery's driver. Match those through the portions/groups too.
     const and: Prisma.OrderWhereInput[] = [];
+    if (filters.status) {
+      if (filters.vendorId) {
+        // Vendor tabs are portion-scoped (see portionStatusFilter).
+        and.push({
+          OR: [
+            { vendorId: filters.vendorId, status: filters.status },
+            {
+              vendorFulfillments: {
+                some: {
+                  vendorId: filters.vendorId,
+                  ...portionStatusFilter(filters.status),
+                },
+              },
+            },
+          ],
+        });
+      } else {
+        where.status = filters.status;
+      }
+    }
     if (filters.vendorId) {
       and.push({
         OR: [
@@ -362,6 +420,19 @@ export class OrdersRepository {
                   totalPrice: true,
                 },
               },
+            },
+          },
+          // The vendor projection needs to know which delivery carries each
+          // portion (driver assigned? payment pending?) to show the right
+          // per-portion status and action.
+          deliveryGroups: {
+            orderBy: { sequence: 'asc' as const },
+            select: {
+              id: true,
+              sequence: true,
+              status: true,
+              primaryDriverId: true,
+              items: { select: { fulfillmentId: true, sequence: true } },
             },
           },
           driver: {

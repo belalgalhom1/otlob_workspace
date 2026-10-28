@@ -181,6 +181,20 @@ export class OrdersStateService {
         });
         return this.ordersRepository.findById(orderId);
       }
+      if (
+        dto.status === OrderStatus.PREPARING ||
+        dto.status === OrderStatus.READY_FOR_PICKUP
+      ) {
+        return this.applyFulfillmentProductionTransition(
+          actor,
+          order,
+          matchingFulfillment,
+          dto,
+        );
+      }
+      // Anything else is not a decision a single vendor may make about a
+      // shared order (pickup/delivery belong to the driver of the delivery).
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
     if (dto.status === OrderStatus.CANCELLED) {
@@ -196,30 +210,308 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
-    // For multi-vendor orders moving to READY_FOR_PICKUP, also advance the vendor's delivery group
-    if (matchingFulfillment && dto.status === OrderStatus.READY_FOR_PICKUP) {
-      const groupItem = await this.prisma.orderDeliveryGroupItem.findFirst({
-        where: { fulfillmentId: matchingFulfillment.id },
-        select: { deliveryGroupId: true },
-      });
-      if (groupItem) {
-        await this.prisma.orderDeliveryGroup.updateMany({
-          where: {
-            id: groupItem.deliveryGroupId,
-            status: {
-              in: [
-                DeliveryGroupStatus.DRIVER_ASSIGNED,
-                DeliveryGroupStatus.PENDING_PAYMENT,
-                DeliveryGroupStatus.ACCEPTED,
-              ],
-            },
-          },
-          data: { status: DeliveryGroupStatus.READY_FOR_PICKUP },
-        });
-      }
+    return this.applyStatusTransition(actor, order, dto);
+  }
+
+  /**
+   * Move ONE vendor's portion through production without touching the
+   * aggregate order status.
+   *
+   * On a multi-vendor order the vendors work independently: each portion starts
+   * preparing on its own and becomes ready on its own. Writing `PREPARING` /
+   * `READY_FOR_PICKUP` on the order row (as the single-vendor path does) made
+   * the first vendor's tap speak for every other vendor, so the second vendor
+   * could skip preparation and its delivery could look ready before the food
+   * was. Portion timestamps keep that state private; the shared delivery group
+   * only becomes READY_FOR_PICKUP once every live portion in it is ready.
+   */
+  private async applyFulfillmentProductionTransition(
+    actor: JwtAccessPayload,
+    order: any,
+    fulfillment: {
+      id: string;
+      status: string;
+      preparingAt?: Date | null;
+      readyAt?: Date | null;
+    },
+    dto: UpdateOrderStatusDto,
+  ) {
+    if (fulfillment.status !== 'ACCEPTED') {
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
-    return this.applyStatusTransition(actor, order, dto);
+    const groupItem = await this.prisma.orderDeliveryGroupItem.findFirst({
+      where: { fulfillmentId: fulfillment.id },
+      select: { deliveryGroupId: true },
+    });
+    if (!groupItem) {
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+    }
+
+    const group = await this.prisma.orderDeliveryGroup.findUnique({
+      where: { id: groupItem.deliveryGroupId },
+      select: {
+        id: true,
+        sequence: true,
+        status: true,
+        estimatedPrepTime: true,
+      },
+    });
+    if (!group) {
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+    }
+
+    const STARTABLE: DeliveryGroupStatus[] = [
+      DeliveryGroupStatus.DRIVER_ASSIGNED,
+      DeliveryGroupStatus.PENDING_PAYMENT,
+      DeliveryGroupStatus.ACCEPTED,
+    ];
+    const ALREADY_READY: DeliveryGroupStatus[] = [
+      DeliveryGroupStatus.READY_FOR_PICKUP,
+      DeliveryGroupStatus.PICKED_UP,
+      DeliveryGroupStatus.DELIVERED,
+    ];
+
+    const wantedReady = dto.status === OrderStatus.READY_FOR_PICKUP;
+    const groupProgressed = ALREADY_READY.includes(group.status);
+
+    // Re-tapping a stage the portion already reached is a no-op, not an error:
+    // the vendor app keeps its button visible while the refetch is in flight.
+    if (wantedReady && fulfillment.readyAt) {
+      return this.ordersRepository.findById(order.id);
+    }
+    if (!wantedReady && fulfillment.preparingAt) {
+      return this.ordersRepository.findById(order.id);
+    }
+
+    if (!groupProgressed && !STARTABLE.includes(group.status)) {
+      // No driver committed to this delivery yet (still PENDING /
+      // LOOKING_FOR_DRIVER), so there is nothing to hand over.
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+    }
+
+    const data: Prisma.OrderVendorFulfillmentUpdateManyMutationInput = wantedReady
+      ? {
+          preparingAt: fulfillment.preparingAt ?? new Date(),
+          readyAt: new Date(),
+        }
+      : { preparingAt: new Date() };
+
+    const claimed = await this.prisma.orderVendorFulfillment.updateMany({
+      where: { id: fulfillment.id, status: 'ACCEPTED' },
+      data,
+    });
+    if (claimed.count === 0) {
+      throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
+    }
+
+    // Vendors sharing a delivery each estimate their own portion; the group
+    // keeps the longest estimate so the driver is never promised food early.
+    if (!wantedReady && dto.estimatedPrepTime) {
+      await this.prisma.orderDeliveryGroup.updateMany({
+        where: { id: group.id },
+        data: {
+          estimatedPrepTime: Math.max(
+            group.estimatedPrepTime ?? 0,
+            Math.round(dto.estimatedPrepTime),
+          ),
+        },
+      });
+    }
+
+    await this.prisma.orderStatusEvent.create({
+      data: {
+        orderId: order.id,
+        status: order.status,
+        note: wantedReady
+          ? `Delivery ${group.sequence}: vendor portion ready for pickup`
+          : `Delivery ${group.sequence}: vendor portion started preparing`,
+        createdBy: actor.sub,
+      },
+    });
+
+    if (wantedReady) {
+      await this.markGroupReadyIfAllPortionsReady(group.id);
+    }
+    await this.recomputeVendorReadinessStatus(actor.sub, order.id, group.id);
+
+    return this.ordersRepository.findById(order.id);
+  }
+
+  /**
+   * Re-evaluate a delivery after one of its vendor portions left it.
+   *
+   * A rejection removes its portion from the delivery group, which can leave a
+   * delivery whose only remaining portion was already declared ready. Without
+   * this re-check the group stays DRIVER_ASSIGNED and, because pickup now
+   * requires READY_FOR_PICKUP, that driver can never collect the goods. Called
+   * after the rejection transaction commits so the reads see the final rows.
+   */
+  async syncGroupReadinessAfterPortionRemoved(
+    orderId: string,
+    deliveryGroupId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    const becameReady =
+      await this.markGroupReadyIfAllPortionsReady(deliveryGroupId);
+    // The surviving portions' own production state did not change when this
+    // delivery still has work left, and re-deriving the aggregate then could
+    // walk an already-dispatched order backwards. Only a delivery that just
+    // became ready can justify moving the aggregate.
+    if (!becameReady) return;
+    await this.recomputeVendorReadinessStatus(
+      actorUserId,
+      orderId,
+      deliveryGroupId,
+    );
+  }
+
+  /**
+   * A delivery can only be handed to its driver when EVERY live vendor portion
+   * in it is ready. Vendors sharing a delivery therefore no longer race: the
+   * group flips exactly once, on the last portion to become ready.
+   */
+  private async markGroupReadyIfAllPortionsReady(groupId: string): Promise<boolean> {
+    const portions = await this.prisma.orderVendorFulfillment.findMany({
+      where: { groups: { some: { deliveryGroupId: groupId } } },
+      select: { status: true, readyAt: true },
+    });
+    const live = portions.filter(
+      (p) => p.status !== 'REJECTED' && p.status !== 'CANCELLED',
+    );
+    if (live.length === 0) return false;
+    if (!live.every((p) => p.readyAt != null)) return false;
+
+    const updated = await this.prisma.orderDeliveryGroup.updateMany({
+      where: {
+        id: groupId,
+        status: {
+          in: [
+            DeliveryGroupStatus.DRIVER_ASSIGNED,
+            DeliveryGroupStatus.PENDING_PAYMENT,
+            DeliveryGroupStatus.ACCEPTED,
+          ],
+        },
+      },
+      data: { status: DeliveryGroupStatus.READY_FOR_PICKUP },
+    });
+    return updated.count > 0;
+  }
+
+  /**
+   * Keep the customer-facing aggregate in step with per-portion production:
+   * PREPARING as soon as any portion starts cooking, READY_FOR_PICKUP only
+   * once every live delivery is ready. Never walks the aggregate backwards.
+   */
+  private async recomputeVendorReadinessStatus(
+    actorUserId: string,
+    orderId: string,
+    changedGroupId: string,
+  ) {
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId },
+      select: { id: true, status: true },
+    });
+    const active = groups.filter(
+      (g) => g.status !== DeliveryGroupStatus.CANCELLED,
+    );
+    if (active.length === 0) return;
+
+    const fresh = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        status: true,
+        customerId: true,
+        vendorId: true,
+        driverId: true,
+        customer: { select: { userId: true } },
+      },
+    });
+    if (!fresh) return;
+
+    const READY_OR_BEYOND: DeliveryGroupStatus[] = [
+      DeliveryGroupStatus.READY_FOR_PICKUP,
+      DeliveryGroupStatus.PICKED_UP,
+      DeliveryGroupStatus.DELIVERED,
+    ];
+    const allReady = active.every((g) => READY_OR_BEYOND.includes(g.status));
+    const changedGroup = groups.find((g) => g.id === changedGroupId);
+    const someoneStarted =
+      !!changedGroup && !READY_OR_BEYOND.includes(changedGroup.status);
+
+    let target: OrderStatus | null = null;
+    // Only pre-pickup aggregates may move. Once a delivery is on the road (or
+    // finished) the order must never be walked back to READY_FOR_PICKUP just
+    // because a portion marked itself ready late.
+    const PRE_READY: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.LOOKING_FOR_DRIVER,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PENDING_PAYMENT,
+    ];
+    if (
+      allReady &&
+      fresh.status !== OrderStatus.READY_FOR_PICKUP &&
+      PRE_READY.includes(fresh.status)
+    ) {
+      target = OrderStatus.READY_FOR_PICKUP;
+    } else if (
+      !allReady &&
+      someoneStarted &&
+      (fresh.status === OrderStatus.DRIVER_ASSIGNED ||
+        fresh.status === OrderStatus.PENDING_PAYMENT ||
+        fresh.status === OrderStatus.ACCEPTED)
+    ) {
+      target = OrderStatus.PREPARING;
+    }
+    if (!target) return;
+
+    const extraData: Prisma.OrderUpdateInput = {};
+    if (target === OrderStatus.READY_FOR_PICKUP) {
+      extraData.preparedAt = new Date();
+    }
+
+    try {
+      await this.ordersRepository.updateStatus(
+        orderId,
+        target,
+        actorUserId,
+        target === OrderStatus.READY_FOR_PICKUP
+          ? 'All vendor portions ready for pickup'
+          : 'Vendor portion started preparing',
+        extraData,
+        fresh.status,
+      );
+    } catch {
+      // Another writer moved the aggregate first; its value is authoritative.
+      return;
+    }
+
+    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+      orderId,
+      fresh.vendorId,
+    );
+
+    this.eventEmitter.emit(
+      EVENTS.ORDER_STATUS_CHANGED,
+      new OrderStatusChangedEvent(
+        orderId,
+        fresh.status,
+        target,
+        fresh.customerId,
+        fresh.customer?.userId ?? fresh.customerId,
+        fresh.vendorId,
+        vendorUserIds,
+        fresh.driverId,
+        null,
+        actorUserId,
+        target === OrderStatus.READY_FOR_PICKUP
+          ? 'All vendor portions ready for pickup'
+          : 'Vendor portion started preparing',
+      ),
+    );
   }
 
   async driverUpdateStatus(
@@ -260,6 +552,17 @@ export class OrdersStateService {
 
       const expected = DRIVER_ALLOWED_TRANSITIONS[group.status as OrderStatus];
       if (!expected || !expected.includes(dto.status)) {
+        throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+      }
+
+      // Same rule as the single-vendor path: the vendors must declare the
+      // delivery ready before its driver can collect it. Without this a driver
+      // could confirm pickup while the portion was still being prepared.
+      if (
+        order.type === 'STANDARD' &&
+        group.status === DeliveryGroupStatus.DRIVER_ASSIGNED &&
+        dto.status === OrderStatus.PICKED_UP
+      ) {
         throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
       }
 
@@ -882,6 +1185,35 @@ export class OrdersStateService {
   ) {
     const oldStatus = order.status as OrderStatus;
     const newStatus = dto.status;
+
+    // A manager may still move a grouped order by hand. Keep each delivery's
+    // own state in step, otherwise the "vendor must mark the delivery ready"
+    // guard would leave every driver of that order unable to collect.
+    if (newStatus === OrderStatus.READY_FOR_PICKUP) {
+      const grouped = ((order as any).deliveryGroups ?? []) as Array<{
+        id: string;
+      }>;
+      if (grouped.length > 0) {
+        const now = new Date();
+        await this.prisma.orderVendorFulfillment.updateMany({
+          where: { orderId: order.id, status: 'ACCEPTED', readyAt: null },
+          data: { preparingAt: now, readyAt: now },
+        });
+        await this.prisma.orderDeliveryGroup.updateMany({
+          where: {
+            orderId: order.id,
+            status: {
+              in: [
+                DeliveryGroupStatus.DRIVER_ASSIGNED,
+                DeliveryGroupStatus.PENDING_PAYMENT,
+                DeliveryGroupStatus.ACCEPTED,
+              ],
+            },
+          },
+          data: { status: DeliveryGroupStatus.READY_FOR_PICKUP },
+        });
+      }
+    }
 
     const extraData: Prisma.OrderUpdateInput = {};
     if (

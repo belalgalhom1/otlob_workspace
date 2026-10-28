@@ -228,7 +228,12 @@ export class OrderVendorDecisionService {
 
       await this.restoreStock(tx, items);
 
-      return { items, refundAmount, deliveryFeeDelta };
+      return {
+        items,
+        refundAmount,
+        deliveryFeeDelta,
+        ridingGroupId: ridingGroup?.deliveryGroupId ?? null,
+      };
     });
 
     // Recompute money OUTSIDE the CAS so the maths uses fresh values, then write
@@ -252,6 +257,18 @@ export class OrderVendorDecisionService {
         'All vendors rejected their portions',
       );
     } else {
+      // A rejected portion can be the last thing keeping its delivery from
+      // being ready (a sibling portion was already declared ready, and this
+      // one just left the group). Re-check before dispatch handoff: otherwise
+      // the delivery stays DRIVER_ASSIGNED and its driver can never pass the
+      // "ready for pickup" gate.
+      if (result.ridingGroupId) {
+        await this.stateService.syncGroupReadinessAfterPortionRemoved(
+          fulfillment.orderId,
+          result.ridingGroupId,
+          actor.sub,
+        );
+      }
       // A portion may have been rejected while others are already accepted and
       // none are still pending — start the driver search in that case.
       await this.maybeAdvanceToDispatch(fulfillment.orderId);
