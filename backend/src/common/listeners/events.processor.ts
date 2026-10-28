@@ -331,7 +331,7 @@ export class EventsProcessor extends WorkerHost {
     // Live Tracking Cache: maintain each assigned driver's active order in
     // Redis. A multi-vendor order can have several drivers (one per delivery),
     // so every group driver is updated, not just the order-level mirror.
-    const trackingStatuses = [
+    const trackingStatuses: OrderStatus[] = [
       OrderStatus.DRIVER_ASSIGNED,
       OrderStatus.PENDING_PAYMENT,
       OrderStatus.PREPARING,

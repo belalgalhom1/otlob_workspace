@@ -420,6 +420,7 @@ export class OrdersStateService {
     const fresh = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
+        orderNumber: true,
         status: true,
         customerId: true,
         vendorId: true,
@@ -498,6 +499,7 @@ export class OrdersStateService {
       EVENTS.ORDER_STATUS_CHANGED,
       new OrderStatusChangedEvent(
         orderId,
+        fresh.orderNumber,
         fresh.status,
         target,
         fresh.customerId,
