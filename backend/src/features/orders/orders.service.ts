@@ -235,53 +235,57 @@ export class OrdersService {
           }
           if (group.items && Array.isArray(group.items) && order.vendorFulfillments) {
             const fulfillmentIds = new Set(group.items.map((it: any) => it.fulfillmentId));
+            // This driver only carries this delivery: never expose another
+            // delivery's vendor portions or items on a multi-vendor order.
+            // Scope unconditionally — if every portion here was rejected the
+            // driver must see an empty delivery, not the whole order.
             const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
               fulfillmentIds.has(f.id),
             );
-            if (myFulfillments.length > 0) {
-              // This driver only carries this delivery: never expose another
-              // delivery's vendor portions or items on a multi-vendor order.
-              scopedFulfillments = myFulfillments;
-              if (Array.isArray(order.items)) {
-                scopedItems = order.items.filter((i: any) =>
-                  i.fulfillmentId ? fulfillmentIds.has(i.fulfillmentId) : false,
-                );
-                if (scopedItems.length === 0) scopedItems = order.items;
-              }
-
-              cashToPayStore = 0;
-              let allContracted = true;
-              let groupSubtotal = 0;
-              for (const f of myFulfillments) {
-                groupSubtotal += Number(f.subtotal ?? 0);
-                const contracted =
-                  f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
-                if (!contracted) {
-                  cashToPayStore += Number(f.subtotal ?? 0);
-                  allContracted = false;
-                }
-              }
-              isStorePrepaid = allContracted;
-
-              // The driver collects only what this delivery is worth: its own
-              // vendors' goods plus its own delivery fee. The order-level
-              // upfront deposit is taken off the first delivery so the sum of
-              // all deliveries still equals the customer's total.
-              const firstSequence = Math.min(
-                ...order.deliveryGroups.map((g: any) => Number(g.sequence ?? 0)),
+            scopedFulfillments = myFulfillments;
+            if (Array.isArray(order.items)) {
+              scopedItems = order.items.filter(
+                (i: any) =>
+                  i.rejectedAt == null &&
+                  i.fulfillmentId &&
+                  fulfillmentIds.has(i.fulfillmentId),
               );
-              const isFirstGroup = Number(group.sequence ?? 0) === firstSequence;
-              cashToCollect =
-                isPrepaid || orderPaid
-                  ? 0
-                  : Math.max(
-                      0,
-                      groupSubtotal +
-                        deliveryFee -
-                        (isFirstGroup ? upfrontAmount : 0),
-                    );
+            }
 
-              const firstFulfillment = myFulfillments[0];
+            cashToPayStore = 0;
+            let allContracted = myFulfillments.length > 0;
+            let groupSubtotal = 0;
+            for (const f of myFulfillments) {
+              groupSubtotal += Number(f.subtotal ?? 0);
+              const contracted =
+                f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              if (!contracted) {
+                cashToPayStore += Number(f.subtotal ?? 0);
+                allContracted = false;
+              }
+            }
+            isStorePrepaid = allContracted;
+
+            // The driver collects only what this delivery is worth: its own
+            // vendors' goods plus its own delivery fee. The order-level
+            // upfront deposit is taken off the first delivery so the sum of
+            // all deliveries still equals the customer's total.
+            const firstSequence = Math.min(
+              ...order.deliveryGroups.map((g: any) => Number(g.sequence ?? 0)),
+            );
+            const isFirstGroup = Number(group.sequence ?? 0) === firstSequence;
+            cashToCollect =
+              isPrepaid || orderPaid
+                ? 0
+                : Math.max(
+                    0,
+                    groupSubtotal +
+                      deliveryFee -
+                      (isFirstGroup ? upfrontAmount : 0),
+                  );
+
+            const firstFulfillment = myFulfillments[0];
+            if (firstFulfillment) {
               if (!groupVendor && firstFulfillment.vendor) {
                 groupVendor = firstFulfillment.vendor;
               }
@@ -430,7 +434,8 @@ export class OrdersService {
           items = myFulfillment.items;
         } else if (order.items) {
           items = order.items.filter(
-            (i: any) => i.fulfillmentId === myFulfillment.id,
+            (i: any) =>
+              i.rejectedAt == null && i.fulfillmentId === myFulfillment.id,
           );
         }
       }
@@ -483,6 +488,13 @@ export class OrdersService {
     const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
 
     const sanitized = { ...order };
+    // Rejected portion items are kept in the database for audit but must not
+    // reappear as part of the customer's order (totals already exclude them).
+    if (Array.isArray(sanitized.items)) {
+      sanitized.items = sanitized.items.filter(
+        (i: any) => i.rejectedAt == null,
+      );
+    }
     if (sanitized.vendor) {
       const { commissionRate, walletBalance, ...safeVendor } = sanitized.vendor;
       sanitized.vendor = safeVendor;
