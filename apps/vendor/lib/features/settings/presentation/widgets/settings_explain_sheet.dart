@@ -15,6 +15,7 @@ Future<void> showSettingsExplanation(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _SettingsExplanationSheet(section: section, isAr: isAr),
   );

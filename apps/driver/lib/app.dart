@@ -33,11 +33,17 @@ class App extends ConsumerWidget {
 
       builder: (context, child) {
         final l10n = AppLocalizations.of(context)!;
-        return LocationRequiredGate(
-          title: l10n.locationRequiredTitle,
-          message: l10n.locationRequiredMessage,
-          buttonLabel: l10n.locationRequiredButton,
-          child: child ?? const SizedBox.shrink(),
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.noScaling,
+          ),
+          child: LocationRequiredGate(
+            title: l10n.locationRequiredTitle,
+            message: l10n.locationRequiredMessage,
+            buttonLabel: l10n.locationRequiredButton,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
 

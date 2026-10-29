@@ -123,6 +123,15 @@ class OtlobAdminApp extends ConsumerWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         routerConfig: router,
+        builder: (context, child) {
+          final mediaQuery = MediaQuery.of(context);
+          return MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaler: TextScaler.noScaling,
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         localizationsDelegates: [
           ...AppLocalizations.localizationsDelegates,
           ...context.localizationDelegates,

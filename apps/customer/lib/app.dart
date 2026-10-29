@@ -34,12 +34,20 @@ class App extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: appSettings.themeMode,
 
-      builder: (context, child) => LocationRequiredGate(
-        title: context.tr('location_required_title'),
-        message: context.tr('location_required_message'),
-        buttonLabel: context.tr('location_required_button'),
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.noScaling,
+          ),
+          child: LocationRequiredGate(
+            title: context.tr('location_required_title'),
+            message: context.tr('location_required_message'),
+            buttonLabel: context.tr('location_required_button'),
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
 
       routerConfig: router,
     );

@@ -17,6 +17,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => OrderDetailsBottomSheet(order: order),
     );

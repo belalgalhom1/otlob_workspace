@@ -198,6 +198,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     if (!context.mounted) return;
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
