@@ -368,26 +368,6 @@ export class DriversRepository {
           shiftPool: {
             select: { batchId: true, title: true, titleAr: true },
           },
-          orders: {
-            where: { status: 'DELIVERED' },
-            select: {
-              id: true,
-              orderNumber: true,
-              deliveryFee: true,
-              pickedUpAt: true,
-              actualDeliveryTime: true,
-              createdAt: true,
-              driverManagerTransactions: {
-                where: { type: 'DELIVERY_SHARE' },
-                select: { amount: true },
-              },
-              driverTransactions: {
-                where: { type: 'DELIVERY_FEE' },
-                select: { amount: true },
-              },
-            },
-            orderBy: { actualDeliveryTime: 'asc' },
-          },
         },
       }),
       this.prisma.driverShift.findMany({
@@ -403,26 +383,6 @@ export class DriversRepository {
           zone: true,
           shiftPool: {
             select: { batchId: true, title: true, titleAr: true },
-          },
-          orders: {
-            where: { status: 'DELIVERED' },
-            select: {
-              id: true,
-              orderNumber: true,
-              deliveryFee: true,
-              pickedUpAt: true,
-              actualDeliveryTime: true,
-              createdAt: true,
-              driverManagerTransactions: {
-                where: { type: 'DELIVERY_SHARE' },
-                select: { amount: true },
-              },
-              driverTransactions: {
-                where: { type: 'DELIVERY_FEE' },
-                select: { amount: true },
-              },
-            },
-            orderBy: { actualDeliveryTime: 'asc' },
           },
         },
       }),
