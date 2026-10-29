@@ -428,6 +428,43 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   maxActiveOrdersPerDriver?: number;
 
+  @ApiProperty({
+    example: 50,
+    required: false,
+    description:
+      'Percentage of the delivery fee given to the driver for stacked orders beyond order 1 (0-100). Remainder goes to platform.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  stackedOrderDriverPercentage?: number;
+
+  @ApiProperty({
+    example: 2.0,
+    required: false,
+    description:
+      'Maximum straight-line distance (km) between vendor branches eligible for batch order assignment.',
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  batchMaxVendorDistanceKm?: number;
+
+  @ApiProperty({
+    example: 2.5,
+    required: false,
+    description:
+      'Maximum straight-line distance (km) between customer drop-off points eligible for batch order assignment.',
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  batchMaxCustomerDistanceKm?: number;
+
   // ─── Maintenance ───────────────────────────────────────────────────────────
   @ApiProperty({ example: false, required: false })
   @IsBoolean()

@@ -128,6 +128,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     
     final pickupName = widget.dispatchData['pickupLocationName']?.toString() ?? AppLocalizations.of(context)!.vendorFallback;
     final dropoffName = widget.dispatchData['dropoffLocationName']?.toString() ?? AppLocalizations.of(context)!.customerFallback;
+    final isStacked = widget.dispatchData['isStacked'] == true || widget.dispatchData['isStacked'] == 'true';
+    final isAr = AppLocalizations.of(context)!.localeName == 'ar';
 
     return DialogScaffold(child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -138,7 +140,36 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Icon(LucideIcons.zap, size: 48, color: AppColors.primary),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            if (isStacked) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(LucideIcons.route, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      isAr ? 'طلب مجمع إضافي في خط سيرك' : 'Batch Corridor Order',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             Text(
               AppLocalizations.of(context)!.newDeliveryRequest,
               textAlign: TextAlign.center,

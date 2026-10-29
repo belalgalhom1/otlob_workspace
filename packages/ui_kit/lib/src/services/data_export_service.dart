@@ -26,6 +26,42 @@ class ExportSection {
   });
 }
 
+class DriverSettlementOrderExportData {
+  final String orderNumber;
+  final DateTime settledAt;
+  final double subtotal;
+  final double reimbursedAmount;
+  final double collectedCash;
+  final double deliveryFee;
+  final double netAmount;
+
+  const DriverSettlementOrderExportData({
+    required this.orderNumber,
+    required this.settledAt,
+    required this.subtotal,
+    required this.reimbursedAmount,
+    required this.collectedCash,
+    required this.deliveryFee,
+    required this.netAmount,
+  });
+}
+
+class VendorSettlementOrderExportData {
+  final String orderNumber;
+  final DateTime settledAt;
+  final double subtotal;
+  final double commissionAmount;
+  final double netVendorEarnings;
+
+  const VendorSettlementOrderExportData({
+    required this.orderNumber,
+    required this.settledAt,
+    required this.subtotal,
+    required this.commissionAmount,
+    required this.netVendorEarnings,
+  });
+}
+
 class DriverShiftOrderExportData {
   final String orderNumber;
   final DateTime? pickedUpAt;
@@ -182,86 +218,175 @@ class DataExportService {
   }) async {
     final doc = pw.Document();
 
-    final font = await PdfGoogleFonts.cairoRegular();
-    final boldFont = await PdfGoogleFonts.cairoBold();
-    final direction =
-        isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr;
-    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    pw.Font font;
+    pw.Font boldFont;
+    try {
+      font = await PdfGoogleFonts.cairoRegular();
+      boldFont = await PdfGoogleFonts.cairoBold();
+    } catch (_) {
+      font = pw.Font.helvetica();
+      boldFont = pw.Font.helveticaBold();
+    }
+
+    final direction = isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
+
+    final brandPrimary = PdfColor.fromInt(0xFF0F172A); // Slate 900
+    final brandAccent = PdfColor.fromInt(0xFFE5A93C);  // Otlob Gold
+    final bgZebra = PdfColor.fromInt(0xFFF8FAFC);      // Slate 50
+    final borderColor = PdfColor.fromInt(0xFFE2E8F0);  // Slate 200
+    final cardBg = PdfColor.fromInt(0xFFF1F5F9);       // Slate 100
 
     for (var s = 0; s < sections.length; s++) {
       final section = sections[s];
+      final sectionTitle = sections.length > 1 && s > 0 ? section.title : title;
+
       doc.addPage(
         pw.MultiPage(
           pageTheme: pw.PageTheme(
             theme: pw.ThemeData.withFont(base: font, bold: boldFont),
             textDirection: direction,
-            margin: const pw.EdgeInsets.all(32),
+            margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          ),
+          footer: (pw.Context ctx) => pw.Container(
+            padding: const pw.EdgeInsets.only(top: 8),
+            decoration: pw.BoxDecoration(
+              border: pw.Border(top: pw.BorderSide(color: borderColor, width: 0.5)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  isRtl ? 'منصة اطلب - تقرير بيانات إحصائية رسمي معتمد' : 'Otlob Platform - Official Operations & Analytics Report',
+                  style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+                ),
+                pw.Text(
+                  '${isRtl ? 'صفحة' : 'Page'} ${ctx.pageNumber} / ${ctx.pagesCount}',
+                  style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+                ),
+              ],
+            ),
           ),
           build: (pw.Context context) {
             return [
-              pw.Header(
-                level: 0,
+              // 1. Executive Top Banner with Otlob Branding
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  color: brandPrimary,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text(
-                      sections.length > 1 && s > 0 ? section.title : title,
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
+                    pw.Column(
+                      crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          sectionTitle,
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          isRtl
+                              ? 'تقرير إحصائي معتمد من لوحة تحكم منصة اطلب'
+                              : 'Official certified operational export from Otlob Platform',
+                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey400),
+                        ),
+                      ],
                     ),
-                    pw.Text(
-                      dateStr,
-                      style: const pw.TextStyle(fontSize: 12),
+                    pw.Column(
+                      crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'OTLOB | اطلب',
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                            color: brandAccent,
+                          ),
+                        ),
+                        pw.Text(
+                          dateStr,
+                          style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey300),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              if (sections.length > 1 && s == 0) ...[
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  section.title,
-                  style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight: pw.FontWeight.bold,
+              pw.SizedBox(height: 12),
+
+              // 2. Summary KPI bar
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: pw.BoxDecoration(
+                  color: cardBg,
+                  borderRadius: pw.BorderRadius.circular(6),
+                  border: pw.Border.all(color: borderColor, width: 0.8),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      '${isRtl ? 'إجمالي السجلات' : 'Total Records'}: ${section.rows.length}',
+                      style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                    ),
+                    pw.Text(
+                      '${isRtl ? 'عدد الأعمدة' : 'Columns'}: ${section.headers.length}',
+                      style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                    ),
+                    pw.Text(
+                      '${isRtl ? 'حالة التقرير' : 'Status'}: ${isRtl ? 'مكتمل ومعتمد' : 'Certified Complete'}',
+                      style: pw.TextStyle(fontSize: 9.5, color: PdfColors.green800, fontWeight: pw.FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 14),
+
+              // 3. High-Quality Data Table
+              if (section.rows.isEmpty)
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(24),
+                  alignment: pw.Alignment.center,
+                  decoration: pw.BoxDecoration(
+                    color: bgZebra,
+                    borderRadius: pw.BorderRadius.circular(8),
+                    border: pw.Border.all(color: borderColor, width: 0.5),
                   ),
+                  child: pw.Text(
+                    isRtl ? 'لا توجد بيانات متاحة في هذا القسم' : 'No data records available in this section',
+                    style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
+                  ),
+                )
+              else
+                pw.TableHelper.fromTextArray(
+                  headers: section.headers,
+                  data: _toPdfRows(section.rows, section.headers.length),
+                  border: pw.TableBorder.all(color: borderColor, width: 0.5),
+                  headerStyle: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                    fontSize: 9,
+                  ),
+                  headerDecoration: pw.BoxDecoration(color: brandPrimary),
+                  headerHeight: 26,
+                  cellHeight: 22,
+                  cellStyle: const pw.TextStyle(fontSize: 8.5),
+                  rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+                  oddRowDecoration: pw.BoxDecoration(color: bgZebra),
+                  cellAlignments: {
+                    for (var i = 0; i < section.headers.length; i++)
+                      i: isRtl
+                          ? pw.Alignment.centerRight
+                          : pw.Alignment.centerLeft,
+                  },
                 ),
-              ],
-              if (sections.length > 1 && s > 0) ...[
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  title,
-                  style: const pw.TextStyle(
-                      fontSize: 12, color: PdfColors.grey600),
-                ),
-              ],
-              pw.SizedBox(height: 16),
-              pw.Text(
-                '${section.headers.length} ${section.headers.length == 1 ? 'column' : 'columns'} - ${section.rows.length} ${section.rows.length == 1 ? 'row' : 'rows'}',
-                style:
-                    const pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
-              ),
-              pw.SizedBox(height: 24),
-              pw.TableHelper.fromTextArray(
-                headers: section.headers,
-                data: _toPdfRows(section.rows, section.headers.length),
-                border:
-                    pw.TableBorder.all(color: PdfColors.grey300, width: 1),
-                headerStyle: pw.TextStyle(
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.white,
-                ),
-                headerDecoration:
-                    const pw.BoxDecoration(color: PdfColors.blueGrey800),
-                cellHeight: 30,
-                cellAlignments: {
-                  for (var i = 0; i < section.headers.length; i++)
-                    i: isRtl
-                        ? pw.Alignment.centerRight
-                        : pw.Alignment.centerLeft,
-                },
-              ),
             ];
           },
         ),
@@ -693,6 +818,299 @@ class DataExportService {
       }
       return cells.take(columnCount).toList();
     }).toList();
+  }
+
+  /// Specialized Executive PDF report for a Driver Settlement cycle
+  static Future<void> exportDriverSettlementPdfReport({
+    required BuildContext context,
+    required String driverName,
+    String? driverPhone,
+    String? zoneName,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    required double totalCollectedCash,
+    required double totalReimbursed,
+    required double totalDeliveryFees,
+    required double netBalance,
+    required List<DriverSettlementOrderExportData> orders,
+    bool isRtl = true,
+  }) async {
+    final doc = pw.Document();
+
+    pw.Font font;
+    pw.Font boldFont;
+    try {
+      font = await PdfGoogleFonts.cairoRegular();
+      boldFont = await PdfGoogleFonts.cairoBold();
+    } catch (_) {
+      font = pw.Font.helvetica();
+      boldFont = pw.Font.helveticaBold();
+    }
+    final direction = isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
+    final dateFormat = DateFormat('yyyy-MM-dd');
+
+    final brandPrimary = PdfColor.fromInt(0xFF0F172A);
+    final brandAccent = PdfColor.fromInt(0xFFE5A93C);
+    final bgZebra = PdfColor.fromInt(0xFFF8FAFC);
+    final borderColor = PdfColor.fromInt(0xFFE2E8F0);
+    final cardBg = PdfColor.fromInt(0xFFF1F5F9);
+    final currency = isRtl ? 'ج.م' : 'EGP';
+
+    doc.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+          textDirection: direction,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        ),
+        footer: (pw.Context ctx) => pw.Container(
+          padding: const pw.EdgeInsets.only(top: 8),
+          decoration: pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: borderColor, width: 0.5)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                isRtl ? 'منصة اطلب - كشف تسوية حساب السائق المعتمد' : 'Otlob Platform - Certified Driver Settlement Statement',
+                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+              ),
+              pw.Text(
+                '${isRtl ? 'صفحة' : 'Page'} ${ctx.pageNumber} / ${ctx.pagesCount}',
+                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+              ),
+            ],
+          ),
+        ),
+        build: (pw.Context context) {
+          return [
+            pw.Container(
+              decoration: pw.BoxDecoration(
+                color: brandPrimary,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        isRtl ? 'كشف تسوية حساب السائق المالي' : 'Driver Financial Settlement Statement',
+                        style: pw.TextStyle(
+                          fontSize: 16,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        isRtl ? 'بيان المبالغ المحصلة والمستردة وأجور التوصيل وصافي الحساب' : 'Summary of collections, reimbursements, delivery fees & balance',
+                        style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey400),
+                      ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'OTLOB | اطلب',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                          color: brandAccent,
+                        ),
+                      ),
+                      pw.Text(
+                        dateStr,
+                        style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey300),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 12),
+
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                color: bgZebra,
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: borderColor, width: 0.8),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        '${isRtl ? 'السائق' : 'Driver'}: $driverName',
+                        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                      ),
+                      if (driverPhone != null && driverPhone.isNotEmpty)
+                        pw.Text(
+                          '${isRtl ? 'الهاتف' : 'Phone'}: $driverPhone',
+                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                        ),
+                      if (zoneName != null && zoneName.isNotEmpty)
+                        pw.Text(
+                          '${isRtl ? 'المنطقة' : 'Zone'}: $zoneName',
+                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                        ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        '${isRtl ? 'فترة التسوية' : 'Settlement Period'}:',
+                        style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                      ),
+                      pw.Text(
+                        '${dateFormat.format(periodStart)} - ${dateFormat.format(periodEnd)}',
+                        style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 14),
+
+            pw.Row(
+              children: [
+                _buildKpiCard(
+                  title: isRtl ? 'إجمالي الطلبات' : 'Orders',
+                  value: '${orders.length}',
+                  accentColor: PdfColors.blue800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'نقدية مستردة للمتجر (+)' : 'Store Reimbursed (+)',
+                  value: '${totalReimbursed.toStringAsFixed(1)} $currency',
+                  accentColor: PdfColors.green800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'رسوم التوصيل المستحقة (+)' : 'Delivery Fees (+)',
+                  value: '${totalDeliveryFees.toStringAsFixed(1)} $currency',
+                  accentColor: brandAccent,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'نقدية محصلة من العملاء (-)' : 'Cash Collected (-)',
+                  value: '${totalCollectedCash.toStringAsFixed(1)} $currency',
+                  accentColor: PdfColors.orange800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? (netBalance <= 0 ? 'مستحق للمنصة' : 'مستحق للسائق') : 'Net Balance',
+                  value: '${netBalance.abs().toStringAsFixed(1)} $currency',
+                  accentColor: netBalance <= 0 ? PdfColors.red800 : PdfColors.green800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 18),
+
+            pw.Text(
+              isRtl ? 'تفاصيل الطلبات المشمولة في دورة التسوية' : 'Settlement Orders Breakdown',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+            ),
+            pw.SizedBox(height: 8),
+
+            if (orders.isEmpty)
+              pw.Container(
+                padding: const pw.EdgeInsets.all(24),
+                alignment: pw.Alignment.center,
+                decoration: pw.BoxDecoration(
+                  color: bgZebra,
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(color: borderColor, width: 0.5),
+                ),
+                child: pw.Text(
+                  isRtl ? 'لا توجد طلبات في هذه الدورة' : 'No orders in this settlement cycle',
+                  style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
+                ),
+              )
+            else
+              pw.TableHelper.fromTextArray(
+                headers: [
+                  isRtl ? 'رقم الطلب' : 'Order #',
+                  isRtl ? 'تاريخ التسوية' : 'Date',
+                  isRtl ? 'قيمة الطلب' : 'Subtotal',
+                  isRtl ? 'مستردات الشراء (+)' : 'Reimbursed (+)',
+                  isRtl ? 'نقدية محصلة (-)' : 'Collected (-)',
+                  isRtl ? 'رسوم التوصيل (+)' : 'Delivery (+)',
+                  isRtl ? 'الصافي' : 'Net',
+                ],
+                data: [
+                  for (final o in orders)
+                    [
+                      o.orderNumber,
+                      dateFormat.format(o.settledAt),
+                      '${o.subtotal.toStringAsFixed(1)} $currency',
+                      '${o.reimbursedAmount.toStringAsFixed(1)} $currency',
+                      '${o.collectedCash.toStringAsFixed(1)} $currency',
+                      '${o.deliveryFee.toStringAsFixed(1)} $currency',
+                      '${o.netAmount.toStringAsFixed(1)} $currency',
+                    ],
+                  [
+                    isRtl ? 'الإجمالي العام' : 'Total',
+                    '-',
+                    '-',
+                    '${totalReimbursed.toStringAsFixed(1)} $currency',
+                    '${totalCollectedCash.toStringAsFixed(1)} $currency',
+                    '${totalDeliveryFees.toStringAsFixed(1)} $currency',
+                    '${netBalance.toStringAsFixed(1)} $currency',
+                  ],
+                ],
+                border: pw.TableBorder.all(color: borderColor, width: 0.5),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  fontSize: 9,
+                ),
+                headerDecoration: pw.BoxDecoration(color: brandPrimary),
+                headerHeight: 26,
+                cellHeight: 22,
+                cellStyle: const pw.TextStyle(fontSize: 8.5),
+                rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+                oddRowDecoration: pw.BoxDecoration(color: bgZebra),
+                cellAlignments: {
+                  0: isRtl ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+                  1: pw.Alignment.center,
+                  2: pw.Alignment.center,
+                  3: pw.Alignment.center,
+                  4: pw.Alignment.center,
+                  5: pw.Alignment.center,
+                  6: pw.Alignment.center,
+                },
+              ),
+          ];
+        },
+      ),
+    );
+
+    final safeDriver = driverName.replaceAll(RegExp(r'[^\w]+'), '_');
+    final stamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'driver_settlement_${safeDriver}_$stamp.pdf',
+    );
   }
 }
 

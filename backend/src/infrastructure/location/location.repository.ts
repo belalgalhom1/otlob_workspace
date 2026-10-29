@@ -418,12 +418,14 @@ export class LocationRepository {
     excludedDriverIds: string[] = [],
     allowedVehicleTypes: string[] = [],
     requireActiveShift: boolean = false,
+    dropoffLocation?: { lng: number; lat: number } | null,
   ): Promise<
     {
       id: string;
       userId: string;
       distanceKm: number;
       activeShiftId: string | null;
+      isOnDelivery?: boolean;
     }[]
   > {
     // Bound the GEO radius scan to the nearest N candidates. The SQL filter
@@ -463,11 +465,34 @@ export class LocationRepository {
       : Prisma.empty;
 
     const maxActiveOrders = Number(settings.maxActiveOrdersPerDriver ?? 1);
-    // A multi-vendor order is split into delivery groups, each dispatched
-    // independently. Counting only `orders.driverId` (which mirrors the first
-    // group) undercounts a driver carrying several groups and double-counts the
-    // mirrored legacy order, so work is counted per delivery + legacy orders
-    // that have no groups.
+    const maxVendorMeters = Number(settings.batchMaxVendorDistanceKm ?? 2.0) * 1000;
+    const maxCustomerMeters = Number(settings.batchMaxCustomerDistanceKm ?? 2.5) * 1000;
+
+    const corridorCond = dropoffLocation
+      ? Prisma.sql`AND EXISTS (
+          SELECT 1
+          FROM orders o
+          LEFT JOIN order_delivery_groups g ON g."orderId" = o.id
+          LEFT JOIN order_delivery_group_items gi ON gi."deliveryGroupId" = g.id
+          LEFT JOIN order_vendor_fulfillments f ON f.id = gi."fulfillmentId"
+          LEFT JOIN vendor_branches b ON b.id = f."vendorBranchId"
+          WHERE (
+            (o."driverId" = d.id AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PICKED_UP'))
+            OR ((g."primaryDriverId" = d.id OR g."assistDriverId" = d.id) AND g.status::text NOT IN ('CANCELLED', 'DELIVERED'))
+          )
+          AND ST_DWithin(
+            COALESCE(b."location", o."pickupLocation")::geography,
+            ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+            ${maxVendorMeters}
+          )
+          AND ST_DWithin(
+            o."deliveryLocation"::geography,
+            ST_SetSRID(ST_MakePoint(${dropoffLocation.lng}, ${dropoffLocation.lat}), 4326)::geography,
+            ${maxCustomerMeters}
+          )
+        )`
+      : Prisma.empty;
+
     const driverAvailabilityCond =
       maxActiveOrders > 1
         ? Prisma.sql`AND (
@@ -491,6 +516,7 @@ export class LocationRepository {
                     )
                 ) work
               ) < ${maxActiveOrders}
+              ${corridorCond}
             )
           )`
         : Prisma.sql`AND d.status::text = 'ONLINE'`;
@@ -499,7 +525,8 @@ export class LocationRepository {
       SELECT
         d.id,
         d."userId",
-        ds.id AS "activeShiftId"
+        ds.id AS "activeShiftId",
+        (d.status::text = 'ON_DELIVERY') AS "isOnDelivery"
       FROM drivers d
       LEFT JOIN driver_shifts ds
         ON ds."driverId" = d.id
@@ -550,6 +577,7 @@ export class LocationRepository {
       userId: r.userId,
       distanceKm: distanceMap.get(r.id) ?? 0,
       activeShiftId: r.activeShiftId ?? null,
+      isOnDelivery: Boolean(r.isOnDelivery),
     }));
 
     results.sort((a, b) => a.distanceKm - b.distanceKm);

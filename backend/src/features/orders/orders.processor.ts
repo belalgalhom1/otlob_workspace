@@ -183,6 +183,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
           ? Number(order.vendorBranch.commissionRate)
           : (order.vendor ? Number(order.vendor.commissionRate) : 0),
       deliveryCommissionRate,
+      isStacked: (order as any).isStacked ?? false,
       isContracted:
         order.vendorBranch?.isContracted != null
           ? order.vendorBranch.isContracted

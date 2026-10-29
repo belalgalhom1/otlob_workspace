@@ -466,7 +466,8 @@ export class DriverAssistService {
     const base = settings.driverShiftsEnabled
       ? Math.max(0, primaryFee - Math.max(0, tierDiffPerKm) * routeKm)
       : primaryFee;
-    const assistFee = Math.max(0, Math.round(base * driverShare));
+    // Assisting driver gets the same delivery fee as primary driver (charged to customer)
+    const assistFee = primaryFee;
 
     await this.prisma.orderDeliveryGroup.update({
       where: { id: groupId },
@@ -983,7 +984,8 @@ export class DriverAssistService {
       const primaryFee = Number(order.deliveryFee ?? 0);
       const driverShare = 1 - Number(settings.deliveryCommissionRate ?? 20) / 100;
       const base = settings.driverShiftsEnabled ? Math.max(0, primaryFee - Math.max(0, tierDiffPerKm) * routeKm) : primaryFee;
-      const assistFee = Math.max(0, Math.round(base * driverShare));
+      // Assisting driver gets the same delivery fee as primary driver (charged to customer)
+    const assistFee = primaryFee;
 
       await tx.order.update({ where: { id: orderId }, data: { assistFee } });
 

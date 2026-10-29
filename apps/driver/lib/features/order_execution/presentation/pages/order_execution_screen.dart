@@ -245,11 +245,34 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                           foregroundColor: isSelected ? Colors.black : Colors.grey.shade700,
                           child: Text('${index + 1}'),
                         ),
-                        title: Text(
-                          '#$orderNumber - $vendorName',
-                          style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '#$orderNumber - $vendorName',
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (item['isStacked'] == true) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  l10n.localeName == 'ar' ? 'مجمع في المسار' : 'Batch',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         subtitle: Text(status),
                         trailing: isSelected

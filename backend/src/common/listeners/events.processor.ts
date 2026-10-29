@@ -532,6 +532,7 @@ export class EventsProcessor extends WorkerHost {
         expiresAt: event.expiresAt,
         pickupLocationName: event.pickupLocationName,
         dropoffLocationName: event.dropoffLocationName,
+        isStacked: event.isStacked,
       },
     );
 

@@ -252,6 +252,11 @@ export class DispatchService {
       return 'invalid';
     }
 
+    const dropoffLocation =
+      dispatchContext.deliveryLng != null && dispatchContext.deliveryLat != null
+        ? { lng: dispatchContext.deliveryLng, lat: dispatchContext.deliveryLat }
+        : null;
+
     const nearbyDrivers = await this.locationRepository.findNearbyDrivers(
       dispatchContext.lng,
       dispatchContext.lat,
@@ -259,6 +264,7 @@ export class DispatchService {
       excludeDriverIds,
       allowedVehicleTypes,
       requireActiveShift,
+      dropoffLocation,
     );
 
     if (nearbyDrivers.length === 0) {
@@ -283,18 +289,20 @@ export class DispatchService {
     const candidates = await Promise.all(
       selectedDrivers.map(async (candidate) => {
         const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
+        const isCandidateStacked = Boolean(candidate.isOnDelivery);
         const estimatedEarnings = await this.calculateEstimatedEarnings(
           totalDistanceKm,
           perKmOverride,
           settings,
           order.type === 'STANDARD',
           dispatchContext.requestedVehicleType,
+          isCandidateStacked,
         );
 
         // A grouped delivery is priced on its own fee, so the driver sees what
         // that specific delivery earns rather than the whole order's fee.
         const advertisedEarnings = group
-          ? this.earningsForGroupFee(dispatchDeliveryFee, settings)
+          ? this.earningsForGroupFee(dispatchDeliveryFee, settings, isCandidateStacked)
           : estimatedEarnings;
 
         const pickupLocationName = group
@@ -313,6 +321,7 @@ export class DispatchService {
           estimatedEarnings: advertisedEarnings,
           pickupLocationName,
           dropoffLocationName,
+          isStacked: isCandidateStacked,
         };
       }),
     );
@@ -426,6 +435,7 @@ export class DispatchService {
           expiresAt,
           candidate.pickupLocationName,
           candidate.dropoffLocationName,
+          candidate.isStacked,
         ),
       );
     }
@@ -714,6 +724,7 @@ export class DispatchService {
       if (activeGroupCount + activeLegacyOrderCount >= maxActive) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
+      const isStackedOrder = (activeGroupCount + activeLegacyOrderCount) > 0;
 
       // A driver whose shift ended between dispatch and accept must not take
       // the order �?" the shift filter only applies at dispatch time.
@@ -759,6 +770,7 @@ export class DispatchService {
           data: {
             primaryDriverId: driverId,
             primaryDriverShiftId: candidate.driverShiftId,
+            isStacked: isStackedOrder,
             status:
               nextStatus === OrderStatus.PENDING_PAYMENT
                 ? DeliveryGroupStatus.PENDING_PAYMENT
@@ -778,6 +790,7 @@ export class DispatchService {
           data: {
             driverId,
             driverShiftId: candidate.driverShiftId,
+            isStacked: isStackedOrder,
             driverAssignedAt: new Date(),
           },
         });
@@ -812,6 +825,7 @@ export class DispatchService {
           data: {
             driverId,
             driverShiftId: candidate.driverShiftId,
+            isStacked: isStackedOrder,
             status: nextStatus,
             driverAssignedAt: new Date(),
             distanceKm: totalDistanceKm,
@@ -1346,6 +1360,7 @@ export class DispatchService {
     prefetchedSettings?: any,
     isStandardOrder: boolean = true,
     vehicleType?: string | null,
+    isStacked: boolean = false,
   ): Promise<number> {
     const deliveryFee = await this.platformSettings.calculateDeliveryFee(
       distanceKm,
@@ -1357,8 +1372,9 @@ export class DispatchService {
     );
     const settings =
       prefetchedSettings ?? (await this.platformSettings.getSettings());
-    const driverCommissionRate = settings.deliveryCommissionRate ?? 20;
-    const driverShare = 1 - driverCommissionRate / 100;
+    const driverShare = isStacked
+      ? (settings.stackedOrderDriverPercentage ?? 50) / 100
+      : 1 - (settings.deliveryCommissionRate ?? 20) / 100;
 
     return Math.round(deliveryFee * driverShare);
   }
@@ -1370,9 +1386,12 @@ export class DispatchService {
    */
   private earningsForGroupFee(
     groupDeliveryFee: number,
-    settings: { deliveryCommissionRate?: number | null },
+    settings: { deliveryCommissionRate?: number | null; stackedOrderDriverPercentage?: number | null },
+    isStacked: boolean = false,
   ): number {
-    const rate = Number(settings?.deliveryCommissionRate ?? 20);
-    return Math.max(0, Math.round(groupDeliveryFee * (1 - rate / 100)));
+    const share = isStacked
+      ? (settings.stackedOrderDriverPercentage ?? 50) / 100
+      : 1 - Number(settings?.deliveryCommissionRate ?? 20) / 100;
+    return Math.max(0, Math.round(groupDeliveryFee * share));
   }
 }

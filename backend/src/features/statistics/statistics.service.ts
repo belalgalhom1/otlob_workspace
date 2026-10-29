@@ -49,6 +49,7 @@ export interface SettleOrderPayload {
   coinsEarned: number;
   coinsUsed: number;
   discount: number;
+  isStacked?: boolean;
 }
 
 @Injectable()
@@ -128,7 +129,13 @@ export class StatisticsService {
           ? bronzeBonus
           : goldBonus;
 
-    const driverShare = 1 - deliveryCommissionRate / 100;
+    const platformCommissionRate = (deliveryCommissionRate ?? 20) / 100;
+    const supervisorCommissionRate = (settings.driverManagerCommissionRate ?? 10) / 100;
+    const driverShare = Math.max(0, 1 - platformCommissionRate - supervisorCommissionRate);
+    const stackedDriverShare = Math.max(
+      0,
+      (settings.stackedOrderDriverPercentage ?? 50) / 100,
+    );
 
     interface DriverPayout {
       driverId: string;
@@ -156,6 +163,7 @@ export class StatisticsService {
         assistDriverId: true,
         assistDriverShiftId: true,
         assistCustomerApproved: true,
+        isStacked: true,
       },
       orderBy: { sequence: 'asc' },
     });
@@ -228,7 +236,9 @@ export class StatisticsService {
         if (primaryTier === 'BRONZE') bronzeDriverIds.add(primaryId);
         const routeKm = g.distanceKm ?? distanceKm;
         const primaryFee = primaryFeeFor(g.deliveryFee, routeKm, primaryTier);
-        const earnings = Math.max(0, Math.round(primaryFee * driverShare));
+        const isGroupStacked = (g as any).isStacked === true;
+        const groupShare = isGroupStacked ? stackedDriverShare : driverShare;
+        const earnings = Math.max(0, Math.round(primaryFee * groupShare));
 
         primaryPayouts.push({
           driverId: primaryId,
@@ -239,12 +249,8 @@ export class StatisticsService {
         if (g.assistDriverId) {
           const assistTier = tierById.get(g.assistDriverId) ?? 'GOLD';
           if (assistTier === 'BRONZE') bronzeDriverIds.add(g.assistDriverId!);
-          const assistAmount = assistFeeFor(
-            primaryTier,
-            assistTier,
-            primaryFee,
-            routeKm,
-          );
+          // Assist driver gets the same delivery fee as the primary driver
+          const assistAmount = earnings;
           if (assistAmount > 0) {
             assistPayouts.push({
               driverId: g.assistDriverId,
@@ -259,7 +265,9 @@ export class StatisticsService {
       // Legacy single-delivery path (single-vendor order).
       const primaryFee = primaryFeeFor(deliveryFee, distanceKm, driverTier);
       if (driverTier === 'BRONZE') bronzeDriverIds.add(driverId);
-      const earnings = Math.round(primaryFee * driverShare);
+      const isOrderStacked = payload.isStacked === true;
+      const orderShare = isOrderStacked ? stackedDriverShare : driverShare;
+      const earnings = Math.round(primaryFee * orderShare);
       primaryPayouts.push({
         driverId,
         driverShiftId,
@@ -289,12 +297,8 @@ export class StatisticsService {
         if (assistTier === 'BRONZE' && orderAssist.assistDriverId) {
           bronzeDriverIds.add(orderAssist.assistDriverId);
         }
-        const assistAmount = assistFeeFor(
-          driverTier,
-          assistTier,
-          primaryFee,
-          distanceKm,
-        );
+        // Assist driver gets the same delivery fee as the primary driver
+        const assistAmount = earnings;
         if (assistAmount > 0) {
           assistPayouts.push({
             driverId: orderAssist.assistDriverId,
@@ -364,40 +368,41 @@ export class StatisticsService {
     //  - Stats are written asynchronously via the stats queue AFTER commit, so
     //    the settlement transaction stays short (money only) and the stat
     //    workers scale independently.
-    const assignment = driverId
-      ? await this.prisma.driverManagerAssignment.findUnique({
-          where: { driverId },
-          select: { driverManagerId: true },
-        })
-      : null;
-
-    let manager = assignment
-      ? await this.prisma.driverManager.findUnique({
-          where: { id: assignment.driverManagerId },
-          select: { id: true },
-        })
-      : null;
-
-    if (!manager && zoneId) {
-      manager = await this.prisma.driverManager.findFirst({
-        where: { zoneId },
-        select: { id: true },
-      });
-    }
-
-    if (!manager) {
-      manager = await this.prisma.driverManager.findFirst({
-        where: { manageAllDrivers: true },
-        select: { id: true },
-      });
-    }
+    // Resolve Driver Manager(s) and their commission share
     const managerShareRate =
       (settings.driverManagerCommissionRate ?? 10) / 100;
-    const managerShare = manager
-      ? Math.round(deliveryFee * managerShareRate)
-      : 0;
-    const managerPenalty = manager ? 2 * bronzeDriverIds.size : 0;
-    const managerAmount = Math.max(0, managerShare - managerPenalty);
+
+    const managerPayouts = new Map<string, number>();
+
+    if (groups.length > 0) {
+      for (const g of groups) {
+        if (!g.primaryDriverId) continue;
+        const gManager = await this.resolveDriverManager(g.primaryDriverId, zoneId);
+        if (gManager) {
+          const share = Math.round(g.deliveryFee * managerShareRate);
+          if (share > 0) {
+            managerPayouts.set(
+              gManager.id,
+              (managerPayouts.get(gManager.id) ?? 0) + share,
+            );
+          }
+        }
+      }
+    } else if (driverId) {
+      const manager = await this.resolveDriverManager(driverId, zoneId);
+      if (manager) {
+        const share = Math.round(deliveryFee * managerShareRate);
+        if (share > 0) {
+          managerPayouts.set(manager.id, share);
+        }
+      }
+    }
+
+    const totalManagerShare = Array.from(managerPayouts.values()).reduce(
+      (sum, s) => sum + s,
+      0,
+    );
+    platformRevenue = Math.max(0, platformRevenue - totalManagerShare);
 
     const now = new Date();
     const periods = this.statsRepository.getPeriodsForDate(now);
@@ -444,15 +449,79 @@ export class StatisticsService {
         await client.$executeRaw`SELECT id FROM vendors WHERE id = ${vendorLockId} FOR UPDATE`;
       }
 
+      // 1. Food / Products payment reimbursement at store (CASH_HANDED_TO_VENDOR)
+      // The driver pays the vendor out of pocket at pickup.
+      // For contracted vendors, the driver subtracts the commission from product cost (subtotal - commission).
+      // For uncontracted vendors, the driver pays the full product subtotal.
+      // This amount is credited to the driver wallet as POSITIVE (+).
+      if (groups.length > 0) {
+        const items = await client.orderDeliveryGroupItem.findMany({
+          where: { deliveryGroupId: { in: groups.map((g) => g.id) } },
+          select: {
+            deliveryGroupId: true,
+            fulfillment: {
+              select: {
+                subtotal: true,
+                commissionRate: true,
+                vendor: { select: { isContracted: true } },
+                vendorBranch: { select: { isContracted: true } },
+              },
+            },
+          },
+        });
+        const cashPaidByGroup = new Map<string, number>();
+        for (const item of items) {
+          const f = item.fulfillment;
+          const branchOrVendorContracted =
+            f.vendorBranch?.isContracted != null
+              ? f.vendorBranch.isContracted
+              : (f.vendor?.isContracted ?? false);
+          const commRate = Number(f.commissionRate ?? 10) / 100;
+          const itemComm = branchOrVendorContracted ? Math.round(f.subtotal * commRate) : 0;
+          const paidToStore = Math.max(0, f.subtotal - itemComm);
+          cashPaidByGroup.set(
+            item.deliveryGroupId,
+            (cashPaidByGroup.get(item.deliveryGroupId) ?? 0) + paidToStore,
+          );
+        }
+        for (const g of groups) {
+          if (!g.primaryDriverId) continue;
+          const paidAtStore = cashPaidByGroup.get(g.id) ?? 0;
+          if (paidAtStore > 0) {
+            await this.creditDriverWallet(
+              client,
+              g.primaryDriverId,
+              paidAtStore,
+              orderId,
+              g.primaryDriverShiftId,
+              `Store food reimbursement for order ${orderNumber}`,
+              'CASH_HANDED_TO_VENDOR',
+              { skipLock: true },
+            );
+          }
+        }
+      } else {
+        const vendorCashPaid = isContracted
+          ? Math.max(0, subtotal - commission)
+          : subtotal;
+        if (vendorCashPaid > 0 && driverId) {
+          await this.creditDriverWallet(
+            client,
+            driverId,
+            vendorCashPaid,
+            orderId,
+            driverShiftId,
+            `Store food reimbursement for order ${orderNumber}`,
+            'CASH_HANDED_TO_VENDOR',
+            { skipLock: true },
+          );
+        }
+      }
+
+      // 2. Cash collected from customer upon delivery (CASH_COLLECTED)
+      // When the driver delivers and collects payment from the customer (COD / Mobile Wallet),
+      // that collected cash is debited from his wallet as NEGATIVE (-).
       if (isDriverCollected) {
-        // For contracted vendors, the driver collects grandTotal (food + delivery + fees).
-        // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket,
-        // so net cash collected on behalf of the platform is grandTotal - subtotal.
-        //
-        // A multi-vendor order has one driver PER delivery, so the cash is split
-        // across the delivered groups — debiting it all to the mirrored first
-        // driver left every other delivery's driver owing nothing while still
-        // being paid their delivery fee.
         if (groups.length > 0) {
           const collections = await this.splitCollectedCash(client, {
             groups,
@@ -464,7 +533,7 @@ export class StatisticsService {
             discount,
           });
           for (const collected of collections) {
-            if (collected.amount === 0) continue;
+            if (collected.amount <= 0) continue;
             await this.creditDriverWallet(
               client,
               collected.driverId,
@@ -476,79 +545,15 @@ export class StatisticsService {
               { skipLock: true },
             );
           }
-        } else {
-          const collectedAmount = isContracted
-            ? grandTotal
-            : Math.max(0, grandTotal - subtotal);
-
+        } else if (driverId && grandTotal > 0) {
           await this.creditDriverWallet(
             client,
             driverId,
-            -collectedAmount,
+            -grandTotal,
             orderId,
             driverShiftId,
             `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
             'CASH_COLLECTED',
-            { skipLock: true },
-          );
-        }
-      } else {
-        // Customer paid online (Card / Fawry / etc.) — no cash collected from customer.
-        // For uncontracted vendors, the driver paid food subtotal cash at pickup out of pocket.
-        // Since platform collected the money online, the platform must reimburse the driver wallet.
-        if (groups.length > 0) {
-          const items = await client.orderDeliveryGroupItem.findMany({
-            where: { deliveryGroupId: { in: groups.map((g) => g.id) } },
-            select: {
-              deliveryGroupId: true,
-              fulfillment: {
-                select: {
-                  subtotal: true,
-                  vendor: { select: { isContracted: true } },
-                  vendorBranch: { select: { isContracted: true } },
-                },
-              },
-            },
-          });
-          const cashPaidByGroup = new Map<string, number>();
-          for (const item of items) {
-            const f = item.fulfillment;
-            const branchOrVendorContracted =
-              f.vendorBranch?.isContracted != null
-                ? f.vendorBranch.isContracted
-                : (f.vendor?.isContracted ?? false);
-            if (!branchOrVendorContracted) {
-              cashPaidByGroup.set(
-                item.deliveryGroupId,
-                (cashPaidByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,
-              );
-            }
-          }
-          for (const g of groups) {
-            if (!g.primaryDriverId) continue;
-            const paidAtStore = cashPaidByGroup.get(g.id) ?? 0;
-            if (paidAtStore > 0) {
-              await this.creditDriverWallet(
-                client,
-                g.primaryDriverId,
-                paidAtStore,
-                orderId,
-                g.primaryDriverShiftId,
-                `Store food reimbursement for order ${orderNumber}`,
-                'CASH_HANDED_TO_VENDOR',
-                { skipLock: true },
-              );
-            }
-          }
-        } else if (!isContracted && subtotal > 0) {
-          await this.creditDriverWallet(
-            client,
-            driverId,
-            subtotal,
-            orderId,
-            driverShiftId,
-            `Store food reimbursement for order ${orderNumber}`,
-            'CASH_HANDED_TO_VENDOR',
             { skipLock: true },
           );
         }
@@ -589,62 +594,40 @@ export class StatisticsService {
         );
       }
 
-      if (manager && (managerShare > 0 || managerPenalty > 0)) {
-        await client.$executeRaw`SELECT id FROM driver_managers WHERE id = ${manager.id} FOR UPDATE`;
+      for (const [mgrId, share] of managerPayouts.entries()) {
+        if (share <= 0) continue;
+        await client.$executeRaw`SELECT id FROM driver_managers WHERE id = ${mgrId} FOR UPDATE`;
 
         const alreadyManagerSettled =
           await client.driverManagerWalletTransaction.findFirst({
             where: {
               orderId,
               type: 'DELIVERY_SHARE',
-              managerId: manager.id,
+              managerId: mgrId,
             },
           });
 
         if (!alreadyManagerSettled) {
           const managerRow = await client.driverManager.findUnique({
-            where: { id: manager.id },
+            where: { id: mgrId },
             select: { walletBalance: true },
           });
-          let balance = managerRow?.walletBalance ?? 0;
-
-          if (managerShare > 0) {
-            balance += managerShare;
-            await client.driverManager.update({
-              where: { id: manager.id },
-              data: { walletBalance: balance },
-            });
-            await client.driverManagerWalletTransaction.create({
-              data: {
-                managerId: manager.id,
-                orderId,
-                type: 'DELIVERY_SHARE',
-                amount: managerShare,
-                balanceAfter: balance,
-                description: `Delivery manager share for order ${orderNumber}`,
-                idempotencyKey: `${orderId}:DELIVERY_SHARE:${manager.id}`,
-              },
-            });
-          }
-
-          if (managerPenalty > 0) {
-            balance -= managerPenalty;
-            await client.driverManager.update({
-              where: { id: manager.id },
-              data: { walletBalance: balance },
-            });
-            await client.driverManagerWalletTransaction.create({
-              data: {
-                managerId: manager.id,
-                orderId,
-                type: 'BRONZE_PENALTY',
-                amount: -managerPenalty,
-                balanceAfter: balance,
-                description: `Bronze driver penalty for order ${orderNumber}`,
-                idempotencyKey: `${orderId}:BRONZE_PENALTY:${manager.id}`,
-              },
-            });
-          }
+          const balance = (managerRow?.walletBalance ?? 0) + share;
+          await client.driverManager.update({
+            where: { id: mgrId },
+            data: { walletBalance: balance },
+          });
+          await client.driverManagerWalletTransaction.create({
+            data: {
+              managerId: mgrId,
+              orderId,
+              type: 'DELIVERY_SHARE',
+              amount: share,
+              balanceAfter: balance,
+              description: `Delivery manager share for order ${orderNumber}`,
+              idempotencyKey: `${orderId}:DELIVERY_SHARE:${mgrId}`,
+            },
+          });
         }
       }
 
@@ -1514,8 +1497,7 @@ export class StatisticsService {
           : 0;
       allocated += gross;
 
-      const cashPaid = cashPaidByGroup.get(g.id) ?? 0;
-      const amount = Math.max(0, gross - cashPaid);
+      const amount = gross;
       if (amount === 0) return;
 
       const existing = byDriver.get(g.primaryDriverId);
@@ -1531,6 +1513,34 @@ export class StatisticsService {
     });
 
     return [...byDriver.values()];
+  }
+
+  private async resolveDriverManager(
+    driverId: string,
+    zoneId?: string | null,
+  ): Promise<{ id: string } | null> {
+    const assignment = await this.prisma.driverManagerAssignment.findUnique({
+      where: { driverId },
+      select: { driverManagerId: true },
+    });
+    if (assignment) {
+      const manager = await this.prisma.driverManager.findUnique({
+        where: { id: assignment.driverManagerId },
+        select: { id: true },
+      });
+      if (manager) return manager;
+    }
+    if (zoneId) {
+      const zoneManager = await this.prisma.driverManager.findFirst({
+        where: { zoneId },
+        select: { id: true },
+      });
+      if (zoneManager) return zoneManager;
+    }
+    return this.prisma.driverManager.findFirst({
+      where: { manageAllDrivers: true },
+      select: { id: true },
+    });
   }
 
   private async creditDriverWallet(

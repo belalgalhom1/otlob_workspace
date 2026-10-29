@@ -166,6 +166,7 @@ export class OrderDispatchSentEvent {
     public readonly expiresAt: Date,
     public readonly pickupLocationName?: string,
     public readonly dropoffLocationName?: string,
+    public readonly isStacked: boolean = false,
   ) {}
 }
 

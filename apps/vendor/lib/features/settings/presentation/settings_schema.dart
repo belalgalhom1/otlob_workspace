@@ -648,6 +648,39 @@ const List<SettingsSection> platformSettingsSections = [
         helpAr: 'أقصى عدد طلبات يقدر المندوب الواحد يوصلها في نفس الوقت (1 - 10).',
         helpEn: 'Maximum concurrent active orders a single driver can carry at once (1 - 10).',
       ),
+      SettingsField(
+        key: 'stackedOrderDriverPercentage',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة المندوب من الطلبات المجمعة الإضافية',
+        labelEn: 'Stacked Order Driver Cut',
+        helpAr:
+            'النسبة التي يحصل عليها المندوب من رسوم التوصيل لكل طلب إضافي بعد الطلب الأول (مثال: 50% تعني المندوب يأخذ 50% والباقي للمنصة).',
+        helpEn:
+            'Percentage of delivery fee the driver keeps on additional concurrent orders beyond order 1 (e.g. 50% means driver keeps 50% and platform retains the rest).',
+      ),
+      SettingsField(
+        key: 'batchMaxVendorDistanceKm',
+        kind: SettingsFieldKind.number,
+        suffix: 'كم',
+        labelAr: 'أقصى مسافة بين المتاجر للتجميع',
+        labelEn: 'Max Vendor Batch Distance',
+        helpAr:
+            'أقصى مسافة مسموح بها بالكيلومتر بين متاجر الاستلام لضم طلبين لنفس المندوب.',
+        helpEn:
+            'Maximum allowed distance in km between pickup stores for batching orders to the same driver.',
+      ),
+      SettingsField(
+        key: 'batchMaxCustomerDistanceKm',
+        kind: SettingsFieldKind.number,
+        suffix: 'كم',
+        labelAr: 'أقصى مسافة بين العملاء للتجميع',
+        labelEn: 'Max Customer Batch Distance',
+        helpAr:
+            'أقصى مسافة مسموح بها بالكيلومتر بين مواقع تسليم العملاء لضم طلبين لنفس المندوب.',
+        helpEn:
+            'Maximum allowed distance in km between customer drop-offs for batching orders to the same driver.',
+      ),
     ],
   ),
 

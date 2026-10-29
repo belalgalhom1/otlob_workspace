@@ -171,7 +171,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             ),
           ),
           IconButton(
-            onPressed: _shifts.isEmpty ? null : () => _exportAllShiftsPdf(context),
+            onPressed: _shifts.isEmpty ? null : () => _exportAllShiftsPdf(),
             icon: const Icon(LucideIcons.fileSpreadsheet, size: 20),
             tooltip: Localizations.localeOf(context).languageCode == 'ar'
                 ? 'تصدير تقرير الورديات الشامل (PDF)'
@@ -492,7 +492,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                     );
                                   }
                                 } catch (e) {
-                                  if (context.mounted) {
+      if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -501,7 +501,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                         backgroundColor: AppColors.error,
                                       ),
                                     );
-                                  }
+                                  
                                 }
                               },
                               style: FilledButton.styleFrom(
@@ -537,14 +537,14 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         ),
       );
     } catch (e) {
-      if (context.mounted) {
+      if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );
-      }
+      
     }
   }
 
@@ -559,6 +559,8 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     final zone = first.zoneName ?? '';
     final dateFormat = DateFormat('EEE, dd/MM', locale);
     final timeFormat = DateFormat('HH:mm');
+
+    final isAr = locale == 'ar';
 
     return Card(
       elevation: 0,
@@ -604,9 +606,9 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   ),
                 ),
               Text(
-                locale == 'ar'
-                    ? '${shifts.length} أيام'
-                    : '${shifts.length} days',
+                isAr
+                    ? '${shifts.length} أيام مسجلة'
+                    : '${shifts.length} recorded days',
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(
@@ -616,86 +618,253 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               ),
             ],
           ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: () => _exportWeeklyBatchPdf(shifts, title),
+                icon: const Icon(LucideIcons.fileSpreadsheet, size: 18, color: AppColors.primary),
+                tooltip: isAr ? 'تصدير تقرير الأسبوع (PDF)' : 'Export Week Report (PDF)',
+                visualDensity: VisualDensity.compact,
+              ),
+              const Icon(LucideIcons.chevronDown, size: 18),
+            ],
+          ),
           children: [
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isAr ? 'تقرير الأداء الإجمالي للأسبوع' : 'Weekly Aggregated Performance',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isAr
+                              ? 'إجمالي ${shifts.length} ورديات مسجلة'
+                              : 'Total ${shifts.length} scheduled shifts',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _exportWeeklyBatchPdf(shifts, title),
+                    icon: const Icon(LucideIcons.fileSpreadsheet, size: 14),
+                    label: Text(
+                      isAr ? 'تصدير الأسبوع (PDF)' : 'Export Week (PDF)',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             ...shifts.map((shift) {
               final status = shift.status;
               Color statusColor = Colors.grey;
               String statusText = status;
               if (status == 'ACTIVE') {
                 statusColor = Colors.green;
-                statusText = locale == 'ar' ? 'نشطة' : 'Active';
+                statusText = isAr ? 'نشطة' : 'Active';
               } else if (status == 'COMPLETED') {
                 statusColor = Colors.blue;
-                statusText = locale == 'ar' ? 'مكتملة' : 'Completed';
+                statusText = isAr ? 'مكتملة' : 'Completed';
               } else if (status == 'SCHEDULED') {
                 statusColor = Colors.orange;
-                statusText = locale == 'ar' ? 'مجدولة' : 'Scheduled';
+                statusText = isAr ? 'مجدولة' : 'Scheduled';
               } else if (status == 'MISSED') {
                 statusColor = Colors.red;
-                statusText = locale == 'ar' ? 'فائتة' : 'Missed';
+                statusText = isAr ? 'فائتة' : 'Missed';
               } else if (status == 'CANCELLED') {
                 statusColor = Colors.grey;
-                statusText = locale == 'ar' ? 'ملغاة' : 'Cancelled';
+                statusText = isAr ? 'ملغاة' : 'Cancelled';
               }
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
                     ).colorScheme.onSurface.withValues(alpha: 0.02),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.05),
+                      ).colorScheme.onSurface.withValues(alpha: 0.08),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              dateFormat.format(shift.shiftDate),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${timeFormat.format(shift.startTime)} - ${timeFormat.format(shift.endTime)}',
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: statusColor.withValues(alpha: 0.25)),
+                            ),
+                            child: Text(
+                              statusText,
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                color: statusColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  dateFormat.format(shift.shiftDate),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${timeFormat.format(shift.startTime)} - ${timeFormat.format(shift.endTime)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _confirmDelete(context, shift),
+                            tooltip: AppLocalizations.of(context)!.deleteShift,
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              LucideIcons.trash2,
+                              size: 16,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (shift.totalDeliveries != null || shift.totalEarnings != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (shift.totalDeliveries != null)
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.package,
+                                      size: 13,
+                                      color: AppColors.textMuted,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '${shift.totalDeliveries} ${AppLocalizations.of(context)!.deliveries}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (shift.totalEarnings != null)
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.coins,
+                                      size: 13,
+                                      color: AppColors.textMuted,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '${shift.totalEarnings} ${AppLocalizations.of(context)!.egp}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                      ],
+                      if (shift.startPhotoUrl != null && shift.startPhotoUrl!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () => _showPhoto(context, shift.startPhotoUrl!),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: CachedNetworkImage(
+                                  imageUrl: ImageUtils.formatImageUrl(shift.startPhotoUrl),
+                                  height: 38,
+                                  width: 38,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, _) => Container(
+                                    width: 38,
+                                    height: 38,
+                                    color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                                  ),
+                                  errorWidget: (_, _, _) => const Icon(LucideIcons.imageOff, size: 16),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                isAr ? 'صورة بدء الوردية (اضغط للعرض)' : 'Shift start photo (tap to view)',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              ),
+                            ],
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                      ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _exportShiftPdf(shift),
+                          icon: const Icon(LucideIcons.fileSpreadsheet, size: 15),
+                          label: Text(
+                            isAr ? 'تصدير تقرير الوردية (PDF)' : 'Export Shift Report (PDF)',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                            ),
                           ),
                         ),
                       ),
@@ -910,7 +1079,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _exportShiftPdf(context, shift),
+              onPressed: () => _exportShiftPdf(shift),
               icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
               label: Text(
                 isAr ? 'تصدير تقرير الوردية (PDF)' : 'Export Shift Report (PDF)',
@@ -983,14 +1152,14 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   );
                 }
               } catch (e) {
-                if (context.mounted) {
+      if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(ErrorUtils.translate(context, e)),
                       backgroundColor: AppColors.error,
                     ),
                   );
-                }
+                
               }
             },
             child: Text(l10n.delete),
@@ -1017,7 +1186,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     }
   }
 
-  Future<void> _exportShiftPdf(BuildContext context, DriverShift shift) async {
+  Future<void> _exportShiftPdf(DriverShift shift) async {
     final languageCode = Localizations.localeOf(context).languageCode;
     final isAr = languageCode == 'ar';
     try {
@@ -1105,18 +1274,124 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         isRtl: isAr,
       );
     } catch (e) {
-      if (context.mounted) {
+      if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isAr ? 'حدث خطأ أثناء تصدير التقرير: ' : 'Export failed: '),
             backgroundColor: AppColors.error,
           ),
         );
-      }
+      
     }
   }
 
-  Future<void> _exportAllShiftsPdf(BuildContext context) async {
+  Future<void> _exportWeeklyBatchPdf(
+    List<DriverShift> shifts,
+    String title,
+  ) async {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final isAr = languageCode == 'ar';
+    try {
+      final List<DriverShiftOrderExportData> batchOrders = [];
+      for (final s in shifts) {
+        if (s.orders.isNotEmpty) {
+          batchOrders.addAll(s.orders.map((o) => DriverShiftOrderExportData(
+            orderNumber: o.orderNumber,
+            pickedUpAt: o.pickedUpAt,
+            actualDeliveryTime: o.actualDeliveryTime,
+            deliveryFee: o.deliveryFee,
+            driverManagerCommission: o.driverManagerCommission,
+            platformProfit: o.platformProfit,
+            driverEarnings: o.driverEarnings,
+          )));
+        }
+      }
+
+      if (batchOrders.isEmpty && shifts.isNotEmpty) {
+        try {
+          final dio = ref.read(dioProvider);
+          final res = await dio.get('/orders', queryParameters: {
+            'driverId': widget.driver.id,
+            'status': 'DELIVERED',
+            'limit': 100,
+          });
+          final rawData = res.data is Map ? (res.data['data'] ?? res.data['orders']) : res.data;
+          if (rawData is List) {
+            final shiftIds = shifts.map((s) => s.id).toSet();
+            final minStart = shifts.map((s) => s.startTime).reduce((a, b) => a.isBefore(b) ? a : b).subtract(const Duration(minutes: 60));
+            final maxEnd = shifts.map((s) => s.endTime).reduce((a, b) => a.isAfter(b) ? a : b).add(const Duration(minutes: 60));
+
+            for (final item in rawData) {
+              if (item is Map<String, dynamic>) {
+                final sId = item['driverShiftId']?.toString();
+                final actDel = item['actualDeliveryTime'] != null
+                    ? DateTime.tryParse(item['actualDeliveryTime'].toString())?.toLocal()
+                    : null;
+                final inBatch = (sId != null && shiftIds.contains(sId)) ||
+                    (actDel != null && actDel.isAfter(minStart) && actDel.isBefore(maxEnd));
+
+                if (inBatch) {
+                  final delFee = ((item['deliveryFee'] as num?)?.toDouble() ?? 0.0);
+                  double mgrComm = 0.0;
+                  if (item['driverManagerTransactions'] is List) {
+                    for (final t in item['driverManagerTransactions'] as List) {
+                      if (t is Map) mgrComm += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+                    }
+                  }
+                  double drvEarn = 0.0;
+                  if (item['driverTransactions'] is List) {
+                    for (final t in item['driverTransactions'] as List) {
+                      if (t is Map) drvEarn += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+                    }
+                  }
+                  if (drvEarn == 0.0 && delFee > 0.0) drvEarn = (delFee * 0.8).roundToDouble();
+                  if (mgrComm == 0.0 && delFee > 0.0) mgrComm = (delFee * 0.1).roundToDouble();
+                  final platProfit = (delFee - drvEarn - mgrComm).clamp(0.0, double.infinity);
+
+                  batchOrders.add(DriverShiftOrderExportData(
+                    orderNumber: item['orderNumber']?.toString() ?? '',
+                    pickedUpAt: item['pickedUpAt'] != null
+                        ? DateTime.tryParse(item['pickedUpAt'].toString())?.toLocal()
+                        : null,
+                    actualDeliveryTime: actDel,
+                    deliveryFee: delFee,
+                    driverManagerCommission: mgrComm,
+                    platformProfit: platProfit,
+                    driverEarnings: drvEarn,
+                  ));
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!mounted) return;
+      await DataExportService.exportDriverShiftPdfReport(
+        context: context,
+        driverName: widget.driver.name,
+        driverPhone: widget.driver.phone,
+        zoneName: shifts.first.zoneName ?? widget.driver.zoneName,
+        shiftTitle: '$title (${shifts.length} ${isAr ? 'أيام' : 'days'})',
+        shiftDate: shifts.first.shiftDate,
+        startTime: shifts.first.startTime,
+        endTime: shifts.last.endTime,
+        orders: batchOrders,
+        isRtl: isAr,
+      );
+    } catch (e) {
+      if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isAr ? 'حدث خطأ أثناء تصدير التقرير: ' : 'Export failed: '),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      
+    }
+  }
+
+  Future<void> _exportAllShiftsPdf() async {
     final languageCode = Localizations.localeOf(context).languageCode;
     final isAr = languageCode == 'ar';
     try {
@@ -1135,6 +1410,54 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         }
       }
 
+      if (allOrders.isEmpty && _shifts.isNotEmpty) {
+        try {
+          final dio = ref.read(dioProvider);
+          final res = await dio.get('/orders', queryParameters: {
+            'driverId': widget.driver.id,
+            'status': 'DELIVERED',
+            'limit': 150,
+          });
+          final rawData = res.data is Map ? (res.data['data'] ?? res.data['orders']) : res.data;
+          if (rawData is List) {
+            for (final item in rawData) {
+              if (item is Map<String, dynamic>) {
+                final delFee = ((item['deliveryFee'] as num?)?.toDouble() ?? 0.0);
+                double mgrComm = 0.0;
+                if (item['driverManagerTransactions'] is List) {
+                  for (final t in item['driverManagerTransactions'] as List) {
+                    if (t is Map) mgrComm += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+                  }
+                }
+                double drvEarn = 0.0;
+                if (item['driverTransactions'] is List) {
+                  for (final t in item['driverTransactions'] as List) {
+                    if (t is Map) drvEarn += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+                  }
+                }
+                if (drvEarn == 0.0 && delFee > 0.0) drvEarn = (delFee * 0.8).roundToDouble();
+                if (mgrComm == 0.0 && delFee > 0.0) mgrComm = (delFee * 0.1).roundToDouble();
+                final platProfit = (delFee - drvEarn - mgrComm).clamp(0.0, double.infinity);
+
+                allOrders.add(DriverShiftOrderExportData(
+                  orderNumber: item['orderNumber']?.toString() ?? '',
+                  pickedUpAt: item['pickedUpAt'] != null
+                      ? DateTime.tryParse(item['pickedUpAt'].toString())?.toLocal()
+                      : null,
+                  actualDeliveryTime: item['actualDeliveryTime'] != null
+                      ? DateTime.tryParse(item['actualDeliveryTime'].toString())?.toLocal()
+                      : null,
+                  deliveryFee: delFee,
+                  driverManagerCommission: mgrComm,
+                  platformProfit: platProfit,
+                  driverEarnings: drvEarn,
+                ));
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       final firstDate = _shifts.isNotEmpty ? _shifts.first.shiftDate : DateTime.now();
 
       if (!mounted) return;
@@ -1143,20 +1466,20 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         driverName: widget.driver.name,
         driverPhone: widget.driver.phone,
         zoneName: widget.driver.zoneName,
-        shiftTitle: isAr ? 'تقرير كافة الورديات والطلبات' : 'All Shifts & Orders Summary',
+        shiftTitle: isAr ? 'تقرير كافة الورديات والعمليات' : 'All Shifts & Operations Summary',
         shiftDate: firstDate,
         orders: allOrders,
         isRtl: isAr,
       );
     } catch (e) {
-      if (context.mounted) {
+      if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isAr ? 'حدث خطأ أثناء تصدير التقرير: ' : 'Export failed: '),
             backgroundColor: AppColors.error,
           ),
         );
-      }
+      
     }
   }
 }

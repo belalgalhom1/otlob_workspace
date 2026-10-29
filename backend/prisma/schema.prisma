@@ -109,6 +109,9 @@ model PlatformSetting {
   customOrderPlatformFee                Int       @default(10)
   maxDispatchBatchSize                  Int       @default(20)
   maxActiveOrdersPerDriver              Int       @default(1)
+  stackedOrderDriverPercentage          Int       @default(50)
+  batchMaxVendorDistanceKm              Float     @default(2.0)
+  batchMaxCustomerDistanceKm            Float     @default(2.5)
   coinValue                             Int       @default(1)
   amountSpentPerCoin                    Int       @default(10)
   minCoinsToUse                         Int       @default(1)
@@ -867,6 +870,7 @@ model Order {
   assistFee            Int?
   assistCustomerApproved Boolean?
   assistApprovedAt     DateTime?                 @db.Timestamptz(3)
+  isStacked            Boolean                   @default(false)
   status               OrderStatus               @default(PENDING)
   paymentMethod        PaymentMethod
   paymentStatus        PaymentStatus             @default(PENDING)
@@ -937,6 +941,7 @@ model Order {
   @@index([driverId, createdAt])
   @@index([customerId, status])
   @@index([deliveryLocation], type: Gist)
+  @@index([pickupLocation], type: Gist)
   @@map("orders")
 }
 
@@ -1057,6 +1062,7 @@ model OrderDeliveryGroup {
   /// null = not yet decided, true = approved (customer pays), false = declined.
   assistCustomerApproved Boolean?
   assistApprovedAt DateTime? @db.Timestamptz(3)
+  isStacked      Boolean                   @default(false)
   assignedByUserId String?
   assignedAt     DateTime?                 @db.Timestamptz(3)
   distanceKm     Float?
