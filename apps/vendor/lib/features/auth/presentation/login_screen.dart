@@ -93,42 +93,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Gradient
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.surface,
-                    Theme.of(context).colorScheme.surface,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 16.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildThemeToggle(context),
+                const SizedBox(width: 8),
+                _buildLanguageToggle(context),
+              ],
             ),
           ),
-          SafeArea(
-            child: Align(
-              alignment: AlignmentDirectional.topEnd,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildThemeToggle(context),
-                    const SizedBox(width: 8),
-                    _buildLanguageToggle(context),
-                  ],
-                ),
-              ),
-            ),
+        ],
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.surface,
+              Theme.of(context).colorScheme.surface,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          Center(
+        ),
+        child: SafeArea(
+          child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
@@ -309,7 +308,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -351,7 +350,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final locale = ref.watch(localeProvider);
         final isArabic = locale.languageCode == 'ar';
         return InkWell(
-          onTap: () => ref.read(localeProvider.notifier).toggleLanguage(),
+          onTap: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            ref.read(localeProvider.notifier).toggleLanguage();
+          },
           borderRadius: BorderRadius.circular(10),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

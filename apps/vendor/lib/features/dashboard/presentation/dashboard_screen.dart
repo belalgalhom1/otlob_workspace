@@ -1787,7 +1787,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final locale = ref.watch(localeProvider);
         final isArabic = locale.languageCode == 'ar';
         return InkWell(
-          onTap: () => ref.read(localeProvider.notifier).toggleLanguage(),
+          onTap: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            ref.read(localeProvider.notifier).toggleLanguage();
+          },
           borderRadius: BorderRadius.circular(10),
           child: Container(
             padding: EdgeInsets.symmetric(

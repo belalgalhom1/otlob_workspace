@@ -84,7 +84,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
             child: InkWell(
-              onTap: () => ref.read(appPreferencesProvider.notifier).setLocale(isArabic ? 'en' : 'ar'),
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                ref.read(appPreferencesProvider.notifier).setLocale(isArabic ? 'en' : 'ar');
+              },
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
