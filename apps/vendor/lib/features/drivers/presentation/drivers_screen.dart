@@ -869,7 +869,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => DriverStatisticsScreen(driverId: driver.id),
+                          builder: (_) => DriverStatisticsScreen(driverId: driver.id, driverName: driver.name),
                         ),
                       );
                     },

@@ -319,6 +319,33 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ],
     ];
 
+    List<ExportSection>? sections;
+    if (config.exportSections != null && config.exportSections!.isNotEmpty) {
+      sections = config.exportSections!.map((sec) {
+        final secTitle = isArabic ? sec.titleAr : sec.titleEn;
+        final secHeaders = [
+          isArabic ? 'الفترة' : 'Period',
+          isArabic ? 'يبدأ' : 'Start',
+          isArabic ? 'ينتهي' : 'End',
+          for (final col in sec.columns) isArabic ? col.labelAr : col.labelEn,
+        ];
+        final secData = [
+          for (final row in rows)
+            [
+              row['period']?.toString() ?? '',
+              _startDate(row) != null ? dateFormat.format(_startDate(row)!) : '',
+              _endDate(row) != null ? dateFormat.format(_endDate(row)!) : '',
+              for (final col in sec.columns) col.value(row),
+            ],
+        ];
+        return ExportSection(
+          title: secTitle,
+          headers: secHeaders,
+          rows: secData,
+        );
+      }).toList();
+    }
+
     final subtitle = _customRange != null
         ? '${DateFormat('yyyy-MM-dd').format(_customRange!.start)} - '
             '${DateFormat('yyyy-MM-dd').format(_customRange!.end)}'
@@ -330,6 +357,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       context,
       title: isArabic ? config.titleAr : config.titleEn,
       subtitle: subtitle,
+      entityName: config.entityName,
+      sections: sections,
       headers: headers,
       rows: data,
       filename:
@@ -428,10 +457,10 @@ class _PeriodChip extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
             fontSize: 13,
             color: selected
-                ? Colors.white
+                ? const Color(0xFF0F172A)
                 : (isDark ? Colors.white : Colors.black87),
           ),
         ),
@@ -456,23 +485,58 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.25),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            isArabic ? 'إجماليات الفترة' : 'Period Totals',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isArabic ? 'إجماليات الفترة' : 'Period Totals',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  isArabic ? 'ملخص إحصائي' : 'Executive Summary',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           for (final item in items)
@@ -480,13 +544,15 @@ class _SummaryCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  Icon(item.icon, color: Colors.white70, size: 16),
+                  Icon(item.icon, color: AppColors.primary, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       isArabic ? item.labelAr : item.labelEn,
                       style: const TextStyle(
-                          color: Colors.white70, fontSize: 13),
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   Text(

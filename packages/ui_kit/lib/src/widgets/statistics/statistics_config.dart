@@ -26,6 +26,18 @@ class StatisticExportColumn {
   });
 }
 
+class StatisticExportSection {
+  final String titleAr;
+  final String titleEn;
+  final List<StatisticExportColumn> columns;
+
+  const StatisticExportSection({
+    required this.titleAr,
+    required this.titleEn,
+    required this.columns,
+  });
+}
+
 class StatisticsConfig {
   final String titleAr;
   final String titleEn;
@@ -42,6 +54,8 @@ class StatisticsConfig {
   final List<StatisticSummaryItem> summary;
   final List<StatisticExportColumn> exportColumns;
   final List<String> Function(dynamic row) rowDetails;
+  final String? entityName;
+  final List<StatisticExportSection>? exportSections;
 
   const StatisticsConfig({
     required this.titleAr,
@@ -55,6 +69,8 @@ class StatisticsConfig {
     required this.summary,
     required this.exportColumns,
     required this.rowDetails,
+    this.entityName,
+    this.exportSections,
   });
 }
 

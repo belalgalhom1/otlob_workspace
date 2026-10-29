@@ -107,6 +107,8 @@ class DataExportService {
     BuildContext context, {
     required String title,
     String? subtitle,
+    String? entityName,
+    List<ExportSection>? sections,
     required List<String> headers,
     required List<List<String>> rows,
     String? filename,
@@ -124,6 +126,7 @@ class DataExportService {
 
     final safeName =
         (filename ?? title).replaceAll(RegExp(r'[^\w]+'), '_');
+    final isRtl = Localizations.localeOf(context).languageCode == 'ar';
 
     try {
       switch (format) {
@@ -136,13 +139,28 @@ class DataExportService {
             filename: safeName,
           );
         case ExportFormat.pdf:
-          await exportPdf(
-            context: context,
-            title: title,
-            headers: headers,
-            rows: rows,
-            filename: safeName,
-          );
+          if (sections != null && sections.isNotEmpty) {
+            await exportSectionsPdf(
+              context: context,
+              title: title,
+              subtitle: subtitle,
+              entityName: entityName,
+              sections: sections,
+              filename: safeName,
+              isRtl: isRtl,
+            );
+          } else {
+            await exportPdf(
+              context: context,
+              title: title,
+              subtitle: subtitle,
+              entityName: entityName,
+              headers: headers,
+              rows: rows,
+              filename: safeName,
+              isRtl: isRtl,
+            );
+          }
       }
     } catch (e) {
       if (context.mounted) {
@@ -192,26 +210,73 @@ class DataExportService {
   static Future<void> exportPdf({
     required BuildContext context,
     required String title,
+    String? subtitle,
+    String? entityName,
     required List<String> headers,
     required List<List<String>> rows,
     required String filename,
     bool isRtl = true,
   }) async {
-    await exportSectionsPdf(
-      context: context,
-      title: title,
-      sections: [ExportSection(title: title, headers: headers, rows: rows)],
-      filename: filename,
-      isRtl: isRtl,
-    );
+    // If table has more than 7 columns, split into 2 readable pages
+    if (headers.length > 7) {
+      final fixedCount = headers.length >= 3 ? 3 : 1;
+      final fixedHeaders = headers.sublist(0, fixedCount);
+      final dynamicHeaders = headers.sublist(fixedCount);
+      final half = (dynamicHeaders.length / 2).ceil();
+
+      final s1Headers = [...fixedHeaders, ...dynamicHeaders.sublist(0, half)];
+      final s2Headers = [...fixedHeaders, ...dynamicHeaders.sublist(half)];
+
+      final s1Rows = rows.map((r) => [
+        ...r.sublist(0, fixedCount),
+        ...r.sublist(fixedCount, fixedCount + half),
+      ]).toList();
+
+      final s2Rows = rows.map((r) => [
+        ...r.sublist(0, fixedCount),
+        ...r.sublist(fixedCount + half),
+      ]).toList();
+
+      await exportSectionsPdf(
+        context: context,
+        title: title,
+        subtitle: subtitle,
+        entityName: entityName,
+        sections: [
+          ExportSection(
+            title: isRtl ? 'القسم الأول - البيانات الأساسية والمالية' : 'Section 1 - Financial Overview',
+            headers: s1Headers,
+            rows: s1Rows,
+          ),
+          ExportSection(
+            title: isRtl ? 'القسم الثاني - مؤشرات الأداء والتشغيل' : 'Section 2 - Operational Breakdown',
+            headers: s2Headers,
+            rows: s2Rows,
+          ),
+        ],
+        filename: filename,
+        isRtl: isRtl,
+      );
+    } else {
+      await exportSectionsPdf(
+        context: context,
+        title: title,
+        subtitle: subtitle,
+        entityName: entityName,
+        sections: [ExportSection(title: title, headers: headers, rows: rows)],
+        filename: filename,
+        isRtl: isRtl,
+      );
+    }
   }
 
   /// Multi-section PDF: every section starts on its own page, so a full
-  /// analytics report lands in one file with one page per tab.
-  // Export sections to PDF
+  /// analytics report lands in one file with one page per tab/section.
   static Future<void> exportSectionsPdf({
     required BuildContext context,
     required String title,
+    String? subtitle,
+    String? entityName,
     required List<ExportSection> sections,
     required String filename,
     bool isRtl = true,
@@ -239,7 +304,7 @@ class DataExportService {
 
     for (var s = 0; s < sections.length; s++) {
       final section = sections[s];
-      final sectionTitle = sections.length > 1 && s > 0 ? section.title : title;
+      final sectionSubtitle = sections.length > 1 ? section.title : subtitle;
 
       doc.addPage(
         pw.MultiPage(
@@ -283,18 +348,31 @@ class DataExportService {
                       crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          sectionTitle,
+                          title,
                           style: pw.TextStyle(
                             fontSize: 16,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.white,
                           ),
                         ),
+                        if (sectionSubtitle != null && sectionSubtitle.isNotEmpty) ...[
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            sectionSubtitle,
+                            style: pw.TextStyle(
+                              fontSize: 11,
+                              fontWeight: pw.FontWeight.bold,
+                              color: brandAccent,
+                            ),
+                          ),
+                        ],
                         pw.SizedBox(height: 2),
                         pw.Text(
-                          isRtl
-                              ? 'تقرير إحصائي معتمد من لوحة تحكم منصة اطلب'
-                              : 'Official certified operational export from Otlob Platform',
+                          entityName != null && entityName.isNotEmpty
+                              ? '${isRtl ? 'اسم السائق' : 'Driver'}: $entityName'
+                              : (isRtl
+                                  ? 'تقرير إحصائي معتمد من لوحة تحكم منصة اطلب'
+                                  : 'Official certified operational export from Otlob Platform'),
                           style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey400),
                         ),
                       ],
@@ -332,6 +410,11 @@ class DataExportService {
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
+                    if (entityName != null && entityName.isNotEmpty)
+                      pw.Text(
+                        '${isRtl ? 'السائق' : 'Driver'}: $entityName',
+                        style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                      ),
                     pw.Text(
                       '${isRtl ? 'إجمالي السجلات' : 'Total Records'}: ${section.rows.length}',
                       style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandPrimary),
@@ -372,19 +455,18 @@ class DataExportService {
                   headerStyle: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.white,
-                    fontSize: 9,
+                    fontSize: section.headers.length > 8 ? 7.5 : 8.5,
                   ),
                   headerDecoration: pw.BoxDecoration(color: brandPrimary),
-                  headerHeight: 26,
-                  cellHeight: 22,
-                  cellStyle: const pw.TextStyle(fontSize: 8.5),
+                  headerHeight: 28,
+                  cellHeight: 24,
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  cellStyle: pw.TextStyle(fontSize: section.headers.length > 8 ? 7.5 : 8.0),
                   rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
                   oddRowDecoration: pw.BoxDecoration(color: bgZebra),
                   cellAlignments: {
                     for (var i = 0; i < section.headers.length; i++)
-                      i: isRtl
-                          ? pw.Alignment.centerRight
-                          : pw.Alignment.centerLeft,
+                      i: pw.Alignment.center,
                   },
                 ),
             ];
