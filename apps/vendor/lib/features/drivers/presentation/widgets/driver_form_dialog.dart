@@ -122,13 +122,13 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
 
       if (widget.driver == null) {
         await ref.read(driversProvider.notifier).createDriver(payload);
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.common_success_operation)));
           Navigator.of(context).pop();
         }
       } else {
         await ref.read(driversProvider.notifier).updateDriver(widget.driver!.id, payload);
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.common_success_operation)));
           Navigator.of(context).pop();
         }
@@ -268,11 +268,15 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
                     color: AppColors.primary,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    isNew ? l10n.createNewUser : l10n.editUserProfile,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      isNew ? l10n.createNewUser : l10n.editUserProfile,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

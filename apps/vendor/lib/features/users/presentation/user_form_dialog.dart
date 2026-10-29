@@ -168,13 +168,17 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                     color: AppColors.primary,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    widget.user == null
-                        ? AppLocalizations.of(context)!.createNewUser
-                        : AppLocalizations.of(context)!.editUserProfile,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      widget.user == null
+                          ? AppLocalizations.of(context)!.createNewUser
+                          : AppLocalizations.of(context)!.editUserProfile,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
