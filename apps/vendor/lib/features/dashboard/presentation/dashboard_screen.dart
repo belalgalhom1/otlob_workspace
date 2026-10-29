@@ -292,8 +292,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       context,
                                     ).colorScheme.onSurface,
                                   ),
-                                  onPressed: () =>
-                                      _scaffoldKey.currentState?.openDrawer(),
+                                  onPressed: () {
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  _scaffoldKey.currentState?.openDrawer();
+                                },
                                 ),
                               if (isMobile) const SizedBox(width: 8),
                               Expanded(
@@ -643,7 +645,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           19,
                           LucideIcons.userCheck,
                           Localizations.localeOf(context).languageCode == 'ar'
-                              ? 'مديرو المناديب'
+                              ? 'مسؤولو السائقين'
                               : 'Driver Managers',
                           isMobile,
                         ),
@@ -797,7 +799,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         translatedRole = l10n.driver;
       } else if (_userRole == 'DRIVER_MANAGER') {
         translatedRole = Localizations.localeOf(context).languageCode == 'ar'
-            ? 'مدير مناديب'
+            ? 'مسؤول سائقين'
             : 'Driver Manager';
       } else if (_userRole == 'CUSTOMER') {
         translatedRole = l10n.customer;
@@ -935,7 +937,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     0: 'لوحة',
     1: 'طلب',
     2: 'متجر',
-    3: 'مندوب',
+    3: 'سائق',
     4: 'مستخدم',
     5: 'تذكرة',
     6: 'وارد',
@@ -1089,7 +1091,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 18:
         return const DriverBreaksScreen();
       case 19:
-        return const DriverManagersScreen();
+        return const DriverManagersScreen(isEmbedded: true);
       default:
         return _buildComingSoon();
     }
@@ -1622,6 +1624,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       child: InkWell(
         onTap: () {
+          FocusManager.instance.primaryFocus?.unfocus();
           setState(() => _selectedIndex = index);
           if (isMobile) _scaffoldKey.currentState?.closeDrawer();
         },
@@ -1719,8 +1722,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     bool isMobile = false,
     int badgeCount = 0,
   }) {
-    return InkWell(
-      onTap: onTap,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          FocusManager.instance.primaryFocus?.unfocus();
+          onTap?.call();
+        },
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.all(8),
@@ -1746,15 +1754,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildThemeToggle({bool isMobile = false}) {
     return Consumer(
       builder: (context, ref, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        return InkWell(
-          onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              ref.read(themeProvider.notifier).toggleTheme();
+            },
           borderRadius: BorderRadius.circular(10),
           child: Container(
             padding: EdgeInsets.symmetric(
@@ -1776,7 +1789,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               color: Colors.amber,
             ),
           ),
-        );
+        ));
       },
     );
   }
@@ -1786,7 +1799,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       builder: (context, ref, child) {
         final locale = ref.watch(localeProvider);
         final isArabic = locale.languageCode == 'ar';
-        return InkWell(
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
           onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
             ref.read(localeProvider.notifier).toggleLanguage();
@@ -1827,7 +1842,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }
@@ -1882,7 +1897,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return l10n.breaks;
       case 19:
         return Localizations.localeOf(context).languageCode == 'ar'
-            ? 'مديرو المناديب'
+            ? 'مسؤولو السائقين'
             : 'Driver Managers';
       default:
         return l10n.dashboard;

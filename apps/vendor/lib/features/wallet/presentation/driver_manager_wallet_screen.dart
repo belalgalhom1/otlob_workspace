@@ -157,7 +157,7 @@ class _DriverManagerWalletScreenState
                         const Icon(LucideIcons.wallet, color: Colors.white70, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          _isAr ? 'محفظة مدير المناديب' : 'Driver Manager Wallet',
+                          _isAr ? 'محفظة مسؤول السائقين' : 'Driver Manager Wallet',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w600,

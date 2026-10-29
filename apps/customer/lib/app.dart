@@ -44,7 +44,13 @@ class App extends ConsumerWidget {
             title: context.tr('location_required_title'),
             message: context.tr('location_required_message'),
             buttonLabel: context.tr('location_required_button'),
-            child: child ?? const SizedBox.shrink(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

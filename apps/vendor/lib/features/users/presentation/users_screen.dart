@@ -317,7 +317,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                           ),
                           const SizedBox(width: 8),
                           _buildFilterChip(
-                            label: Localizations.localeOf(context).languageCode == 'ar' ? 'مدير مناديب' : 'Driver Manager',
+                            label: Localizations.localeOf(context).languageCode == 'ar' ? 'مسؤول سائقين' : 'Driver Manager',
                             isSelected: _selectedRole == 'DRIVER_MANAGER',
                             onSelected: (selected) {
                               setState(
@@ -762,7 +762,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     } else if (role == 'DRIVER') {
       displayRole = AppLocalizations.of(context)!.driver;
     } else if (role == 'DRIVER_MANAGER') {
-      displayRole = Localizations.localeOf(context).languageCode == 'ar' ? 'مدير مناديب' : 'Driver Manager';
+      displayRole = Localizations.localeOf(context).languageCode == 'ar' ? 'مسؤول سائقين' : 'Driver Manager';
       color = Colors.teal;
     } else if (role == 'CUSTOMER') {
       displayRole = AppLocalizations.of(context)!.customer;

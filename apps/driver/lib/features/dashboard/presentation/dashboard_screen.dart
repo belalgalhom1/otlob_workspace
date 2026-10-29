@@ -83,7 +83,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
-            child: InkWell(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
                 ref.read(appPreferencesProvider.notifier).setLocale(isArabic ? 'en' : 'ar');
@@ -116,7 +118,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
           ),
           IconButton(
             icon: Badge(
@@ -128,6 +130,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: const Icon(LucideIcons.bell),
             ),
             onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
               context.push('/notifications');
             },
           ),
@@ -137,6 +140,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
+          FocusManager.instance.primaryFocus?.unfocus();
           setState(() {
             _selectedIndex = index;
           });

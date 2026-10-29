@@ -16,6 +16,8 @@ class DriverProfile {
   final Map<String, dynamic>? driverManager;
 
   String? get driverManagerName => driverManager?['name']?.toString();
+  String? get phone => user is Map ? user['phone']?.toString() : null;
+  String? get zoneName => (user is Map && user['zone'] is Map) ? user['zone']['name']?.toString() : null;
   String? get driverManagerUserId => driverManager?['userId']?.toString();
 
   DriverProfile({

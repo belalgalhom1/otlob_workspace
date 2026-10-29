@@ -26,6 +26,26 @@ class ExportSection {
   });
 }
 
+class DriverShiftOrderExportData {
+  final String orderNumber;
+  final DateTime? pickedUpAt;
+  final DateTime? actualDeliveryTime;
+  final double deliveryFee;
+  final double driverManagerCommission;
+  final double platformProfit;
+  final double driverEarnings;
+
+  const DriverShiftOrderExportData({
+    required this.orderNumber,
+    this.pickedUpAt,
+    this.actualDeliveryTime,
+    required this.deliveryFee,
+    required this.driverManagerCommission,
+    required this.platformProfit,
+    required this.driverEarnings,
+  });
+}
+
 class DataExportService {
   static String buildCsvContent(
     List<String> headers,
@@ -152,6 +172,7 @@ class DataExportService {
 
   /// Multi-section PDF: every section starts on its own page, so a full
   /// analytics report lands in one file with one page per tab.
+  // Export sections to PDF
   static Future<void> exportSectionsPdf({
     required BuildContext context,
     required String title,
@@ -256,6 +277,369 @@ class DataExportService {
 
   /// Combined single-file CSV for multiple sections (blank line + titled
   /// header row per section) so "everything" also ships as one file.
+  /// Specialized Executive PDF report for a Driver Shift with all individual
+  /// orders, driver manager commission, delivery fee, platform profit,
+  /// pickup/delivery times, and executive KPI summary cards.
+  static Future<void> exportDriverShiftPdfReport({
+    required BuildContext context,
+    required String driverName,
+    String? driverPhone,
+    String? zoneName,
+    required String shiftTitle,
+    required DateTime shiftDate,
+    DateTime? startTime,
+    DateTime? endTime,
+    required List<DriverShiftOrderExportData> orders,
+    bool isRtl = true,
+  }) async {
+    final doc = pw.Document();
+
+    pw.Font font;
+    pw.Font boldFont;
+    try {
+      font = await PdfGoogleFonts.cairoRegular();
+      boldFont = await PdfGoogleFonts.cairoBold();
+    } catch (_) {
+      font = pw.Font.helvetica();
+      boldFont = pw.Font.helveticaBold();
+    }
+    final direction = isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
+    final shiftDateStr = DateFormat('yyyy-MM-dd').format(shiftDate);
+    final timeFormat = DateFormat('hh:mm a');
+
+    // Totals calculations
+    final totalDeliveryFees = orders.fold<double>(0.0, (s, o) => s + o.deliveryFee);
+    final totalManagerCommission = orders.fold<double>(0.0, (s, o) => s + o.driverManagerCommission);
+    final totalPlatformProfit = orders.fold<double>(0.0, (s, o) => s + o.platformProfit);
+    final totalDriverEarnings = orders.fold<double>(0.0, (s, o) => s + o.driverEarnings);
+    final orderCount = orders.length;
+
+    final brandPrimary = PdfColor.fromInt(0xFF0F172A); // Dark Slate
+    final brandAccent = PdfColor.fromInt(0xFFE5A93C);  // Otlob Gold
+    final bgZebra = PdfColor.fromInt(0xFFF8FAFC);
+    final borderColor = PdfColor.fromInt(0xFFE2E8F0);
+    final cardBg = PdfColor.fromInt(0xFFF1F5F9);
+
+    final currency = isRtl ? 'ج.م' : 'EGP';
+
+    doc.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+          textDirection: direction,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        ),
+        footer: (pw.Context ctx) => pw.Container(
+          padding: const pw.EdgeInsets.only(top: 8),
+          decoration: pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: borderColor, width: 0.5)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                isRtl ? 'منصة اطلب - تقرير أداء الوردية وإحصائيات العمليات' : 'Otlob Platform - Driver Shift Performance Report',
+                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+              ),
+              pw.Text(
+                '${isRtl ? 'صفحة' : 'Page'} ${ctx.pageNumber} / ${ctx.pagesCount}',
+                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600),
+              ),
+            ],
+          ),
+        ),
+        build: (pw.Context context) {
+          return [
+            // 1. Top Executive Banner
+            pw.Container(
+              decoration: pw.BoxDecoration(
+                color: brandPrimary,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        isRtl ? 'تقرير أداء الوردية وحسابات التوصيل' : 'Shift Performance & Delivery Report',
+                        style: pw.TextStyle(
+                          fontSize: 16,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        isRtl ? 'تفاصيل الطلبات، العمولات، وأرباح المنصة ومسؤول السائقين' : 'Order details, commissions, platform profits & driver earnings',
+                        style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey400),
+                      ),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'OTLOB | اطلب',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                          color: brandAccent,
+                        ),
+                      ),
+                      pw.Text(
+                        dateStr,
+                        style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey300),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 12),
+
+            // 2. Driver & Shift Info Card
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                color: bgZebra,
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: borderColor, width: 0.8),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  // Driver Info
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        '${isRtl ? 'السائق' : 'Driver'}: $driverName',
+                        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                      ),
+                      if (driverPhone != null && driverPhone.isNotEmpty)
+                        pw.Text(
+                          '${isRtl ? 'الهاتف' : 'Phone'}: $driverPhone',
+                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                        ),
+                      if (zoneName != null && zoneName.isNotEmpty)
+                        pw.Text(
+                          '${isRtl ? 'النطاق / المنطقة' : 'Zone'}: $zoneName',
+                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                        ),
+                    ],
+                  ),
+                  // Shift Info
+                  pw.Column(
+                    crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        '${isRtl ? 'الوردية' : 'Shift'}: $shiftTitle',
+                        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                      ),
+                      pw.Text(
+                        '${isRtl ? 'التاريخ' : 'Date'}: $shiftDateStr',
+                        style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                      ),
+                      if (startTime != null && endTime != null)
+                        pw.Text(
+                          '${isRtl ? 'الفترة' : 'Hours'}: ${timeFormat.format(startTime)} - ${timeFormat.format(endTime)}',
+                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 14),
+
+            // 3. Metric KPI Cards (5 Cards in a Row)
+            pw.Row(
+              children: [
+                _buildKpiCard(
+                  title: isRtl ? 'إجمالي الطلبات' : 'Orders',
+                  value: '$orderCount',
+                  accentColor: PdfColors.blue800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'رسوم التوصيل' : 'Delivery Fees',
+                  value: '${totalDeliveryFees.toStringAsFixed(1)} $currency',
+                  accentColor: brandPrimary,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'مسؤول السائقين' : 'Manager Cut',
+                  value: '${totalManagerCommission.toStringAsFixed(1)} $currency',
+                  accentColor: PdfColors.purple800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'أرباح المنصة' : 'Platform Profit',
+                  value: '${totalPlatformProfit.toStringAsFixed(1)} $currency',
+                  accentColor: PdfColors.green800,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+                pw.SizedBox(width: 6),
+                _buildKpiCard(
+                  title: isRtl ? 'مستحقات السائق' : 'Driver Earnings',
+                  value: '${totalDriverEarnings.toStringAsFixed(1)} $currency',
+                  accentColor: brandAccent,
+                  bgColor: cardBg,
+                  borderColor: borderColor,
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 18),
+
+            // 4. Section Title
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  isRtl ? 'بيان الطلبات المكتملة أثناء الوردية' : 'Completed Shift Orders Breakdown',
+                  style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                ),
+                pw.Text(
+                  '${orders.length} ${isRtl ? 'طلب مسلّم' : 'Delivered Orders'}',
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 8),
+
+            // 5. Orders Breakdown Table
+            if (orders.isEmpty)
+              pw.Container(
+                padding: const pw.EdgeInsets.all(24),
+                alignment: pw.Alignment.center,
+                decoration: pw.BoxDecoration(
+                  color: bgZebra,
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(color: borderColor, width: 0.5),
+                ),
+                child: pw.Text(
+                  isRtl ? 'لم يتم تسليم أي طلبات خلال هذه الوردية' : 'No delivered orders recorded in this shift',
+                  style: pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
+                ),
+              )
+            else
+              pw.TableHelper.fromTextArray(
+                headers: [
+                  isRtl ? 'رقم الطلب' : 'Order #',
+                  isRtl ? 'الاستلام' : 'Pickup',
+                  isRtl ? 'التسليم' : 'Delivered',
+                  isRtl ? 'رسوم التوصيل' : 'Delivery Fee',
+                  isRtl ? 'مسؤول السائقين' : 'Manager Share',
+                  isRtl ? 'أرباح المنصة' : 'Platform',
+                  isRtl ? 'أرباح السائق' : 'Driver',
+                ],
+                data: [
+                  for (final o in orders)
+                    [
+                      o.orderNumber,
+                      o.pickedUpAt != null ? timeFormat.format(o.pickedUpAt!) : '-',
+                      o.actualDeliveryTime != null ? timeFormat.format(o.actualDeliveryTime!) : '-',
+                      '${o.deliveryFee.toStringAsFixed(1)} $currency',
+                      '${o.driverManagerCommission.toStringAsFixed(1)} $currency',
+                      '${o.platformProfit.toStringAsFixed(1)} $currency',
+                      '${o.driverEarnings.toStringAsFixed(1)} $currency',
+                    ],
+                  // Totals Row
+                  [
+                    isRtl ? 'الإجمالي العام' : 'Total',
+                    '-',
+                    '-',
+                    '${totalDeliveryFees.toStringAsFixed(1)} $currency',
+                    '${totalManagerCommission.toStringAsFixed(1)} $currency',
+                    '${totalPlatformProfit.toStringAsFixed(1)} $currency',
+                    '${totalDriverEarnings.toStringAsFixed(1)} $currency',
+                  ],
+                ],
+                border: pw.TableBorder.all(color: borderColor, width: 0.5),
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                  fontSize: 9,
+                ),
+                headerDecoration: pw.BoxDecoration(color: brandPrimary),
+                headerHeight: 26,
+                cellHeight: 22,
+                cellStyle: const pw.TextStyle(fontSize: 8.5),
+                rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+                oddRowDecoration: pw.BoxDecoration(color: bgZebra),
+                cellAlignments: {
+                  0: isRtl ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+                  1: pw.Alignment.center,
+                  2: pw.Alignment.center,
+                  3: pw.Alignment.center,
+                  4: pw.Alignment.center,
+                  5: pw.Alignment.center,
+                  6: pw.Alignment.center,
+                },
+              ),
+          ];
+        },
+      ),
+    );
+
+    final safeDriver = driverName.replaceAll(RegExp(r'[^\w]+'), '_');
+    final stamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'shift_report_${safeDriver}_$stamp.pdf',
+    );
+  }
+
+  static pw.Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required PdfColor accentColor,
+    required PdfColor bgColor,
+    required PdfColor borderColor,
+  }) {
+    return pw.Expanded(
+      child: pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: pw.BoxDecoration(
+          color: bgColor,
+          borderRadius: pw.BorderRadius.circular(6),
+          border: pw.Border.all(color: borderColor, width: 0.8),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              title,
+              style: pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700),
+              maxLines: 1,
+            ),
+            pw.SizedBox(height: 3),
+            pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 10.5,
+                fontWeight: pw.FontWeight.bold,
+                color: accentColor,
+              ),
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   static String buildMultiCsvContent(List<ExportSection> sections) {
     final buffer = StringBuffer('\uFEFF');
     for (var s = 0; s < sections.length; s++) {

@@ -128,7 +128,9 @@ export class StatisticsService {
           ? bronzeBonus
           : goldBonus;
 
-    const driverShare = 1 - deliveryCommissionRate / 100;
+    const platformCommissionRate = (deliveryCommissionRate ?? 20) / 100;
+    const supervisorCommissionRate = (settings.driverManagerCommissionRate ?? 10) / 100;
+    const driverShare = Math.max(0, 1 - platformCommissionRate - supervisorCommissionRate);
 
     interface DriverPayout {
       driverId: string;
@@ -364,40 +366,41 @@ export class StatisticsService {
     //  - Stats are written asynchronously via the stats queue AFTER commit, so
     //    the settlement transaction stays short (money only) and the stat
     //    workers scale independently.
-    const assignment = driverId
-      ? await this.prisma.driverManagerAssignment.findUnique({
-          where: { driverId },
-          select: { driverManagerId: true },
-        })
-      : null;
-
-    let manager = assignment
-      ? await this.prisma.driverManager.findUnique({
-          where: { id: assignment.driverManagerId },
-          select: { id: true },
-        })
-      : null;
-
-    if (!manager && zoneId) {
-      manager = await this.prisma.driverManager.findFirst({
-        where: { zoneId },
-        select: { id: true },
-      });
-    }
-
-    if (!manager) {
-      manager = await this.prisma.driverManager.findFirst({
-        where: { manageAllDrivers: true },
-        select: { id: true },
-      });
-    }
+    // Resolve Driver Manager(s) and their commission share
     const managerShareRate =
       (settings.driverManagerCommissionRate ?? 10) / 100;
-    const managerShare = manager
-      ? Math.round(deliveryFee * managerShareRate)
-      : 0;
-    const managerPenalty = manager ? 2 * bronzeDriverIds.size : 0;
-    const managerAmount = Math.max(0, managerShare - managerPenalty);
+
+    const managerPayouts = new Map<string, number>();
+
+    if (groups.length > 0) {
+      for (const g of groups) {
+        if (!g.primaryDriverId) continue;
+        const gManager = await this.resolveDriverManager(g.primaryDriverId, zoneId);
+        if (gManager) {
+          const share = Math.round(g.deliveryFee * managerShareRate);
+          if (share > 0) {
+            managerPayouts.set(
+              gManager.id,
+              (managerPayouts.get(gManager.id) ?? 0) + share,
+            );
+          }
+        }
+      }
+    } else if (driverId) {
+      const manager = await this.resolveDriverManager(driverId, zoneId);
+      if (manager) {
+        const share = Math.round(deliveryFee * managerShareRate);
+        if (share > 0) {
+          managerPayouts.set(manager.id, share);
+        }
+      }
+    }
+
+    const totalManagerShare = Array.from(managerPayouts.values()).reduce(
+      (sum, s) => sum + s,
+      0,
+    );
+    platformRevenue = Math.max(0, platformRevenue - totalManagerShare);
 
     const now = new Date();
     const periods = this.statsRepository.getPeriodsForDate(now);

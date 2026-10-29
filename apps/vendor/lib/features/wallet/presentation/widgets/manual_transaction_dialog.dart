@@ -144,7 +144,7 @@ class _ManualTransactionDialogState
             decoration: InputDecoration(
               labelText: l10n.transactionType,
               helperText: _isDriverManager
-                  ? (isAr ? 'مدير المناديب مصرح له بخصم الجزاءات فقط' : 'Driver managers may only apply penalties')
+                  ? (isAr ? 'مسؤول السائقين مصرح له بخصم الجزاءات فقط' : 'Driver managers may only apply penalties')
                   : null,
             ),
           ),

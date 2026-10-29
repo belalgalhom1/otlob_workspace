@@ -156,10 +156,10 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
       child: DropdownButtonFormField<String?>(
         initialValue: _selectedDriverManagerUserId,
         decoration: InputDecoration(
-          labelText: isAr ? 'مدير المندوب' : 'Driver Manager',
+          labelText: isAr ? 'مسؤول السائقين' : 'Driver Manager',
           prefixIcon: const Icon(LucideIcons.userCheck),
           helperText: isAr
-              ? 'تحديد مدير المندوب لتوجيه العمولات والمتابعة'
+              ? 'تحديد مسؤول السائقين لتوجيه العمولات والمتابعة'
               : 'Select driver manager for commissions and oversight',
         ),
         items: [

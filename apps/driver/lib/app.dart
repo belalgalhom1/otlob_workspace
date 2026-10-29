@@ -42,7 +42,13 @@ class App extends ConsumerWidget {
             title: l10n.locationRequiredTitle,
             message: l10n.locationRequiredMessage,
             buttonLabel: l10n.locationRequiredButton,
-            child: child ?? const SizedBox.shrink(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

@@ -454,7 +454,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           children: [
             ListTile(
               leading: const Icon(LucideIcons.truck, color: Colors.blue),
-              title: Text(isAr ? 'التوصيل والمناديب' : 'Delivery'),
+              title: Text(isAr ? 'التوصيل ومسؤولو السائقين' : 'Delivery'),
               onTap: () => Navigator.pop(ctx, 'DELIVERY'),
             ),
             ListTile(

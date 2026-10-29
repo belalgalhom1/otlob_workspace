@@ -1,3 +1,5 @@
+import 'package:url_launcher/url_launcher.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'driver_managers_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -132,6 +134,18 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     }
   }
 
+  Future<void> _callDriver(String? phone) async {
+    if (phone == null || phone.trim().isEmpty) return;
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (digits.isEmpty) return;
+    final uri = Uri(scheme: 'tel', path: digits);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(driversProvider);
@@ -142,15 +156,15 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
 
         return Column(
           children: [
-            _buildFilters(),
-            const SizedBox(height: 16),
+            _buildFilters(isMobile),
+            const SizedBox(height: 14),
             Expanded(
               child: isMobile
-                  ? _buildList(state)
+                  ? _buildList(state, isMobile)
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(flex: 1, child: _buildList(state)),
+                        Expanded(flex: 1, child: _buildList(state, isMobile)),
                         const SizedBox(width: 16),
                         Expanded(flex: 2, child: _buildMap(context, state)),
                       ],
@@ -196,10 +210,6 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       }
       setState(() => _selectedDriver = driver);
 
-      // Move the map after the next frame so the FlutterMap widget has been
-      // rendered and the MapController is ready. Calling move() before the
-      // first paint throws: "You need to have the FlutterMap widget rendered
-      // at least once before using the MapController."
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _mapController.move(LatLng(lat, lng), 16);
@@ -228,160 +238,45 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     }
   }
 
-  Widget _buildFilters() {
+  Widget _buildFilters(bool isMobile) {
     final l10n = AppLocalizations.of(context)!;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final zones = ref.watch(zoneProvider).value?.zones ?? const [];
     final hasActiveFilters = _searchController.text.trim().isNotEmpty ||
         _selectedStatus != null ||
         _selectedZoneId != null;
+    final theme = Theme.of(context);
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          children: [
-            SizedBox(
-              width: 250,
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: l10n.searchDrivers,
-                  prefixIcon: const Icon(LucideIcons.search, size: 18),
-                  isDense: true,
-                ),
-                onSubmitted: (_) => _applyFilters(),
-              ),
-            ),
-            SizedBox(
-              width: 150,
-              child: DropdownButtonFormField<String?>(
-                initialValue: _selectedStatus,
-                decoration: InputDecoration(
-                  labelText: l10n.status,
-                  isDense: true,
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: null,
-                    child: Text(l10n.filterAll),
-                  ),
-                  DropdownMenuItem(
-                    value: 'ONLINE',
-                    child: Text(l10n.statusOnline),
-                  ),
-                  DropdownMenuItem(
-                    value: 'ON_DELIVERY',
-                    child: Text(l10n.statusOnDelivery),
-                  ),
-                  DropdownMenuItem(
-                    value: 'OFFLINE',
-                    child: Text(l10n.statusOffline),
-                  ),
-                  DropdownMenuItem(
-                    value: 'ON_BREAK',
-                    child: Text(l10n.statusOnBreak),
-                  ),
-                  DropdownMenuItem(
-                    value: 'SUSPENDED',
-                    child: Text(l10n.statusSuspended),
-                  ),
-                ],
-                onChanged: (val) {
-                  setState(() => _selectedStatus = val);
-                  _applyFilters();
-                },
-              ),
-            ),
-            SizedBox(
-              width: 180,
-              child: DropdownButtonFormField<String?>(
-                initialValue: _selectedZoneId,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: l10n.zone,
-                  isDense: true,
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: null,
-                    child: Text(l10n.allZones),
-                  ),
-                  for (final z in zones)
-                    DropdownMenuItem(
-                      value: z['id']?.toString(),
-                      child: Text(
-                        (isArabic
-                                ? (z['nameAr'] ?? z['name'])
-                                : z['name'])
-                            ?.toString() ??
-                            '',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _onZoneSelected(val, zones);
-                  });
-                  _applyFilters();
-                },
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: _applyFilters,
-              icon: const Icon(LucideIcons.filter, size: 16),
-              label: Text(l10n.filterAction),
-            ),
-            if (hasActiveFilters)
-              OutlinedButton.icon(
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {
-                    _selectedStatus = null;
-                    _selectedZoneId = null;
-                    _selectedZonePolygon = [];
-                  });
-                  _applyFilters();
-                },
-                icon: const Icon(LucideIcons.x, size: 16),
-                label: Text(l10n.resetFilters),
-              ),
-            if (_canManageDrivers) ...[
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const DriverManagersScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(LucideIcons.userCheck, size: 16),
-                label: Text(
-                  AppLocalizations.of(context)!.localeName == 'ar'
-                      ? 'مديرو المناديب'
-                      : 'Driver Managers',
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 16,
+        vertical: isMobile ? 12 : 14,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Dashboard Search Bar + Primary 'Add Driver' Button
+          Row(
+            children: [
+              Expanded(
+                child: DashboardSearchBar(
+                  controller: _searchController,
+                  hintText: l10n.searchDrivers,
+                  onChanged: (val) => _applyFilters(),
+                  onClear: () {
+                    _searchController.clear();
+                    _applyFilters();
+                  },
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const AssistRequestsDialog(),
-                  );
-                },
-                icon: const Icon(LucideIcons.users, size: 16),
-                label: Text(
-                  AppLocalizations.of(context)!.localeName == 'ar'
-                      ? 'طلبات المساعدة'
-                      : 'Assist Requests',
-                ),
-              ),
+              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: () {
                   showDialog(
@@ -389,17 +284,249 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                     builder: (context) => const DriverFormDialog(),
                   );
                 },
-                icon: const Icon(LucideIcons.plus, size: 16),
-                label: Text(AppLocalizations.of(context)!.createNewUser),
+                icon: const Icon(LucideIcons.userPlus, size: 16),
+                label: Text(
+                  isMobile
+                      ? (isArabic ? 'سائق جديد' : 'New')
+                      : l10n.createNewUser,
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 12 : 16,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+
+          // Row 2: Status Filter Chips & Zone Selector & Auxiliary Action Buttons
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildStatusChip(null, l10n.filterAll),
+                _buildStatusChip('ONLINE', l10n.statusOnline, color: AppColors.success),
+                _buildStatusChip('ON_DELIVERY', l10n.statusOnDelivery, color: Colors.blue),
+                _buildStatusChip('ON_BREAK', l10n.statusOnBreak, color: AppColors.warning),
+                _buildStatusChip('OFFLINE', l10n.statusOffline, color: Colors.grey),
+                _buildStatusChip('SUSPENDED', l10n.statusSuspended, color: AppColors.error),
+
+                const SizedBox(width: 8),
+                Container(
+                  height: 24,
+                  width: 1,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                ),
+                const SizedBox(width: 8),
+
+                _buildZoneDropdown(zones, isArabic, l10n),
+
+                if (_canManageDrivers) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const DriverManagersScreen(isEmbedded: false),
+                        ),
+                      );
+                    },
+                    icon: const Icon(LucideIcons.userCheck, size: 14),
+                    label: Text(
+                      isArabic ? 'مسؤولو السائقين' : 'Driver Managers',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const AssistRequestsDialog(),
+                      );
+                    },
+                    icon: const Icon(LucideIcons.lifeBuoy, size: 14),
+                    label: Text(
+                      isArabic ? 'طلبات المساعدة' : 'Assist Requests',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+
+                if (hasActiveFilters) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _selectedStatus = null;
+                        _selectedZoneId = null;
+                        _selectedZonePolygon = [];
+                      });
+                      _applyFilters();
+                    },
+                    icon: const Icon(LucideIcons.x, size: 14, color: AppColors.error),
+                    label: Text(
+                      l10n.resetFilters,
+                      style: const TextStyle(fontSize: 12, color: AppColors.error),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String? status, String label, {Color? color}) {
+    final isSelected = _selectedStatus == status;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 6.0),
+      child: FilterChip(
+        selected: isSelected,
+        showCheckmark: false,
+        avatar: color != null
+            ? Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              )
+            : null,
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected
+                ? (isDark ? Colors.black : Colors.white)
+                : theme.colorScheme.onSurface,
+          ),
+        ),
+        backgroundColor: isDark
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+            : const Color(0xFFF1F3F5),
+        selectedColor: AppColors.primary,
+        side: BorderSide(
+          color: isSelected
+              ? AppColors.primary
+              : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        onSelected: (_) {
+          setState(() => _selectedStatus = status);
+          _applyFilters();
+        },
+      ),
+    );
+  }
+
+  Widget _buildZoneDropdown(
+    List<dynamic> zones,
+    bool isArabic,
+    AppLocalizations l10n,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+            : const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _selectedZoneId != null
+              ? AppColors.primary
+              : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: _selectedZoneId,
+          icon: const Icon(LucideIcons.chevronDown, size: 14),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: _selectedZoneId != null ? FontWeight.bold : FontWeight.w500,
+            color: theme.colorScheme.onSurface,
+          ),
+          hint: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.mapPin, size: 13, color: AppColors.primary),
+              const SizedBox(width: 4),
+              Text(
+                l10n.allZones,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          items: [
+            DropdownMenuItem(
+              value: null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.mapPin, size: 13, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(l10n.allZones, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            for (final z in zones)
+              DropdownMenuItem(
+                value: z['id']?.toString(),
+                child: Text(
+                  (isArabic ? (z['nameAr'] ?? z['name']) : z['name'])?.toString() ?? '',
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
           ],
+          onChanged: (val) {
+            setState(() {
+              _onZoneSelected(val, zones);
+            });
+            _applyFilters();
+          },
         ),
       ),
     );
   }
 
-  Widget _buildList(AsyncValue<DriversState> state) {
+  Widget _buildList(AsyncValue<DriversState> state, bool isMobile) {
+    final l10n = AppLocalizations.of(context)!;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
     return state.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(
@@ -411,377 +538,532 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       data: (data) {
         if (data.drivers.isEmpty) {
           return Center(
-            child: Text(AppLocalizations.of(context)!.noDriversFound),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.truck,
+                  size: 48,
+                  color: Colors.grey.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.noDriversFound,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
           );
         }
 
-        return Card(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        return ListView.separated(
+          controller: _scrollController,
+          itemCount: data.drivers.length + (data.hasMore ? 1 : 0),
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            if (index == data.drivers.length) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final driver = data.drivers[index];
+            return _buildDriverCard(driver, isArabic, l10n, isMobile);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDriverCard(
+    DriverProfile driver,
+    bool isArabic,
+    AppLocalizations l10n,
+    bool isMobile,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isSelected = _selectedDriver?.id == driver.id;
+
+    final avatarPath = driver.avatar;
+    final resolvedAvatar = (avatarPath == null || avatarPath.isEmpty)
+        ? ''
+        : ImageUtils.formatImageUrl(avatarPath);
+    final avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
+    final statusColor = _getStatusColor(context, driver.status);
+
+    return InkWell(
+      onTap: () {
+        setState(() => _selectedDriver = driver);
+        if (driver.location != null) {
+          _mapController.move(
+            LatLng(driver.location![1], driver.location![0]),
+            15,
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : theme.colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.06),
+            width: isSelected ? 1.5 : 1.0,
           ),
-          child: ListView.separated(
-            controller: _scrollController,
-            itemCount: data.drivers.length + (data.hasMore ? 1 : 0),
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              if (index == data.drivers.length) {
-                return const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              final driver = data.drivers[index];
-              final isSelected = _selectedDriver?.id == driver.id;
-
-              // Never hardcode the API host (breaks on non-prod backends)
-              // and never assume a leading slash or relative path.
-              final avatarPath = driver.avatar;
-              final resolvedAvatar = (avatarPath == null || avatarPath.isEmpty)
-                  ? ''
-                  : ImageUtils.formatImageUrl(avatarPath);
-              final avatarUrl = resolvedAvatar.isEmpty ? null : resolvedAvatar;
-
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedDriver = driver;
-                  });
-                  if (driver.location != null) {
-                    _mapController.move(
-                      LatLng(driver.location![1], driver.location![0]),
-                      15,
-                    );
-                  }
-                },
-                child: Container(
-                  color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.05)
-                      : null,
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: EdgeInsets.all(isMobile ? 14 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: Avatar with Status Indicator + Name & Phone + Status Badges
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: statusColor.withValues(alpha: 0.12),
+                      backgroundImage: avatarUrl != null
+                          ? CachedNetworkImageProvider(avatarUrl)
+                          : null,
+                      child: avatarUrl == null
+                          ? Icon(LucideIcons.user, color: statusColor, size: 24)
+                          : null,
+                    ),
+                    PositionedDirectional(
+                      end: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 13,
+                        height: 13,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.colorScheme.surface,
+                            width: 2.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: _getStatusColor(
-                          context,
-                          driver.status,
-                        ).withValues(alpha: 0.1),
-                        backgroundImage: avatarUrl != null
-                            ? CachedNetworkImageProvider(avatarUrl)
-                            : null,
-                        child: avatarUrl == null
-                            ? Icon(
-                                LucideIcons.user,
-                                color: _getStatusColor(context, driver.status),
-                              )
-                            : null,
+                      Text(
+                        driver.name.isNotEmpty
+                            ? driver.name
+                            : (isArabic ? 'سائق' : 'Driver'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      const SizedBox(height: 3),
+                      if (driver.phone != null && driver.phone!.isNotEmpty)
+                        InkWell(
+                          onTap: () => _callDriver(driver.phone),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Expanded(
+                                const Icon(
+                                  LucideIcons.phone,
+                                  size: 13,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 5),
+                                Directionality(
+                                  textDirection: TextDirection.ltr,
                                   child: Text(
-                                    driver.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getDriverBadgeColor(
-                                      driver,
-                                    ).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _getDriverBadgeText(context, driver),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: _getDriverBadgeColor(driver),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            RichText(
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              text: TextSpan(
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                  fontSize: 13,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text:
-                                        '${AppLocalizations.of(context)!.status}: ${_translateDriverStatus(context, driver.status)} • ',
-                                  ),
-                                  TextSpan(
-                                    text:
-                                        '${AppLocalizations.of(context)!.driverBalance}: ${_formatBalance(driver.walletBalance)} ${AppLocalizations.of(context)!.egp}',
-                                    style: TextStyle(
-                                      color: driver.walletBalance < 0
-                                          ? AppColors.error
-                                          : null,
-                                      fontWeight: driver.walletBalance < 0
-                                          ? FontWeight.bold
-                                          : null,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (driver.driverManagerName != null) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(LucideIcons.userCheck, size: 14, color: AppColors.primary),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${AppLocalizations.of(context)!.localeName == "ar" ? "المدير" : "Manager"}: ${driver.driverManagerName}',
+                                    driver.phone!,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.primary,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 0,
-                              runSpacing: 4,
-                              children: [
-                                _buildActionButton(
-                                  icon: LucideIcons.wallet,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.actionWallet,
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) =>
-                                          ManualTransactionDialog(
-                                            entityId: driver.id,
-                                            isVendor: false,
-                                          ),
-                                    ).then(
-                                      (_) => ref
-                                          .read(driversProvider.notifier)
-                                          .refresh(),
-                                    );
-                                  },
                                 ),
-                                _buildActionButton(
-                                  icon: LucideIcons.chartNoAxesCombined,
-                                  label:
-                                      Localizations.localeOf(
-                                            context,
-                                          ).languageCode ==
-                                          'ar'
-                                      ? 'إحصائيات'
-                                      : 'Statistics',
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => DriverStatisticsScreen(
-                                          driverId: driver.id,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                _buildActionButton(
-                                  icon: LucideIcons.truck,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.actionAssign,
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) =>
-                                          AssignOrderDialog(driver: driver),
-                                    );
-                                  },
-                                ),
-                                _buildActionButton(
-                                  icon: LucideIcons.calendarClock,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.actionShifts,
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) =>
-                                          DriverShiftsDialog(driver: driver),
-                                    );
-                                  },
-                                ),
-                                if (_canManageDrivers) ...[
-                                  _buildActionButton(
-                                    icon: LucideIcons.mapPin,
-                                    label: AppLocalizations.of(
-                                      context,
-                                    )!.actionLocation,
-                                    onPressed: () => _locateDriver(driver),
-                                  ),
-                                  _buildActionButton(
-                                    icon: LucideIcons.pencil,
-                                    label: AppLocalizations.of(
-                                      context,
-                                    )!.actionEdit,
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) =>
-                                            DriverFormDialog(driver: driver),
-                                      );
-                                    },
-                                  ),
-                                  if (!driver.isApproved)
-                                    _buildActionButton(
-                                      icon: LucideIcons.checkCircle,
-                                      label: AppLocalizations.of(
-                                        context,
-                                      )!.actionApprove,
-                                      iconColor: AppColors.success,
-                                      backgroundColor: AppColors.success
-                                          .withValues(alpha: 0.1),
-                                      onPressed: () {
-                                        final messenger = ScaffoldMessenger.of(
-                                          context,
-                                        );
-                                        ref
-                                            .read(driversProvider.notifier)
-                                            .updateDriver(driver.id, {
-                                              'isApproved': true,
-                                            })
-                                            .then((_) {
-                                              if (!mounted) return;
-                                              messenger.showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Driver Approved',
-                                                  ),
-                                                ),
-                                              );
-                                            })
-                                            .catchError((err) {
-                                              if (!mounted) return;
-                                              messenger.showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    ErrorUtils.translate(
-                                                      context,
-                                                      err,
-                                                    ),
-                                                  ),
-                                                  backgroundColor:
-                                                      AppColors.error,
-                                                ),
-                                              );
-                                            });
-                                      },
-                                    )
-                                  else
-                                    _buildActionButton(
-                                      icon: driver.isSuspended
-                                          ? LucideIcons.checkCircle
-                                          : LucideIcons.ban,
-                                      label: driver.isSuspended
-                                          ? AppLocalizations.of(
-                                              context,
-                                            )!.actionUnsuspend
-                                          : AppLocalizations.of(
-                                              context,
-                                            )!.actionSuspend,
-                                      iconColor: driver.isSuspended
-                                          ? AppColors.success
-                                          : AppColors.error,
-                                      backgroundColor:
-                                          (driver.isSuspended
-                                                  ? AppColors.success
-                                                  : AppColors.error)
-                                              .withValues(alpha: 0.1),
-                                      onPressed: () {
-                                        final messenger = ScaffoldMessenger.of(
-                                          context,
-                                        );
-                                        final notifier = ref.read(
-                                          driversProvider.notifier,
-                                        );
-                                        final action = driver.isSuspended
-                                            ? notifier.unsuspendDriver(
-                                                driver.id,
-                                              )
-                                            : notifier.suspendDriver(driver.id);
-
-                                        action
-                                            .then((_) {
-                                              if (!mounted) return;
-                                              messenger.showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    driver.isSuspended
-                                                        ? 'Driver Unsuspended'
-                                                        : 'Driver Suspended',
-                                                  ),
-                                                ),
-                                              );
-                                            })
-                                            .catchError((err) {
-                                              if (!mounted) return;
-                                              messenger.showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    ErrorUtils.translate(
-                                                      context,
-                                                      err,
-                                                    ),
-                                                  ),
-                                                  backgroundColor:
-                                                      AppColors.error,
-                                                ),
-                                              );
-                                            });
-                                      },
-                                    ),
-                                ],
                               ],
                             ),
-                          ],
+                          ),
+                        )
+                      else
+                        Text(
+                          'ID: ${driver.id.substring(0, driver.id.length > 8 ? 8 : driver.id.length)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Status Pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _translateDriverStatus(context, driver.status),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Approval Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _getDriverBadgeColor(driver).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _getDriverBadgeText(context, driver),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _getDriverBadgeColor(driver),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Row 2: Contextual tags (Zone, Manager, Vehicle)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (driver.zoneName != null && driver.zoneName!.isNotEmpty)
+                  _buildTagPill(
+                    icon: LucideIcons.mapPin,
+                    label: driver.zoneName!,
+                    color: Colors.teal,
+                  ),
+                if (driver.driverManagerName != null && driver.driverManagerName!.isNotEmpty)
+                  _buildTagPill(
+                    icon: LucideIcons.userCheck,
+                    label: '${isArabic ? "مسؤول السائقين" : "Manager"}: ${driver.driverManagerName}',
+                    color: AppColors.primary,
+                  ),
+                if ((driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ||
+                    (driver.vehicleType != null && driver.vehicleType!.isNotEmpty))
+                  _buildTagPill(
+                    icon: LucideIcons.bike,
+                    label: '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'.trim(),
+                    color: Colors.blueGrey,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Row 3: Financial & Wallet Snapshot Box
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? theme.colorScheme.onSurface.withValues(alpha: 0.03)
+                    : const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.onSurface.withValues(alpha: isDark ? 0.06 : 0.04),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        driver.walletBalance < 0
+                            ? LucideIcons.alertTriangle
+                            : LucideIcons.wallet,
+                        size: 15,
+                        color: driver.walletBalance < 0
+                            ? AppColors.error
+                            : AppColors.success,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        driver.walletBalance < 0
+                            ? (isArabic ? 'المديونية المستحقة: ' : 'Owed Debt: ')
+                            : (isArabic ? 'رصيد المحفظة: ' : 'Wallet Balance: '),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
                   ),
-                ),
-              );
-            },
+                  Text(
+                    '${_formatBalance(driver.walletBalance.abs())} ${l10n.egp}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: driver.walletBalance < 0
+                          ? AppColors.error
+                          : AppColors.success,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Row 4: Elegant Horizontal Action Strip (All actions in 1 smooth scrolling line)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildActionPill(
+                    icon: LucideIcons.wallet,
+                    label: l10n.actionWallet,
+                    color: AppColors.primary,
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => ManualTransactionDialog(
+                          entityId: driver.id,
+                          isVendor: false,
+                        ),
+                      ).then((_) => ref.read(driversProvider.notifier).refresh());
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionPill(
+                    icon: LucideIcons.barChart3,
+                    label: isArabic ? 'إحصائيات' : 'Statistics',
+                    color: Colors.indigoAccent,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DriverStatisticsScreen(driverId: driver.id),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionPill(
+                    icon: LucideIcons.truck,
+                    label: l10n.actionAssign,
+                    color: Colors.blue,
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AssignOrderDialog(driver: driver),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionPill(
+                    icon: LucideIcons.calendarClock,
+                    label: l10n.actionShifts,
+                    color: Colors.purpleAccent,
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => DriverShiftsDialog(driver: driver),
+                      );
+                    },
+                  ),
+                  if (_canManageDrivers) ...[
+                    const SizedBox(width: 8),
+                    _buildActionPill(
+                      icon: LucideIcons.mapPin,
+                      label: l10n.actionLocation,
+                      color: Colors.teal,
+                      onTap: () => _locateDriver(driver),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionPill(
+                      icon: LucideIcons.pencil,
+                      label: l10n.actionEdit,
+                      color: Colors.grey,
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => DriverFormDialog(driver: driver),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    if (!driver.isApproved)
+                      _buildActionPill(
+                        icon: LucideIcons.checkCircle,
+                        label: l10n.actionApprove,
+                        color: AppColors.success,
+                        bg: AppColors.success.withValues(alpha: 0.12),
+                        onTap: () {
+                          final messenger = ScaffoldMessenger.of(context);
+                          ref.read(driversProvider.notifier).updateDriver(driver.id, {
+                            'isApproved': true,
+                          }).then((_) {
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              const SnackBar(content: Text('Driver Approved')),
+                            );
+                          }).catchError((err) {
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(ErrorUtils.translate(context, err)),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          });
+                        },
+                      )
+                    else
+                      _buildActionPill(
+                        icon: driver.isSuspended ? LucideIcons.checkCircle : LucideIcons.ban,
+                        label: driver.isSuspended
+                            ? l10n.actionUnsuspend
+                            : l10n.actionSuspend,
+                        color: driver.isSuspended ? AppColors.success : AppColors.error,
+                        bg: (driver.isSuspended ? AppColors.success : AppColors.error)
+                            .withValues(alpha: 0.12),
+                        onTap: () {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final notifier = ref.read(driversProvider.notifier);
+                          final action = driver.isSuspended
+                              ? notifier.unsuspendDriver(driver.id)
+                              : notifier.suspendDriver(driver.id);
+                          action.then((_) {
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  driver.isSuspended
+                                      ? 'Driver Unsuspended'
+                                      : 'Driver Suspended',
+                                ),
+                              ),
+                            );
+                          }).catchError((err) {
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(ErrorUtils.translate(context, err)),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagPill({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionPill({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+    Color? bg,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final effectiveColor = color ?? theme.colorScheme.onSurface;
+    final effectiveBg = bg ?? (isDark
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.06)
+        : const Color(0xFFF1F3F5));
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: effectiveBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: (color ?? theme.colorScheme.onSurface).withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: effectiveColor),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: effectiveColor,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -901,53 +1183,5 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       default:
         return status;
     }
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    Color? iconColor,
-    Color? backgroundColor,
-  }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 70,
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 2.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color:
-                    backgroundColor ??
-                    Theme.of(
-                      context,
-                    ).colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 18,
-                color:
-                    iconColor ??
-                    Theme.of(context).colorScheme.onSecondaryContainer,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

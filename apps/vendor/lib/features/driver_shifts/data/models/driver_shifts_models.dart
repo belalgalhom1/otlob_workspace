@@ -74,6 +74,7 @@ class DriverShift {
   final num? totalDeliveries;
   final String? zoneName;
   final String? startPhotoUrl;
+  final List<DriverShiftOrder> orders;
 
   const DriverShift({
     required this.id,
@@ -91,6 +92,7 @@ class DriverShift {
     this.totalDeliveries,
     this.zoneName,
     this.startPhotoUrl,
+    this.orders = const [],
   });
 
   factory DriverShift.fromJson(Map<String, dynamic> json) {
@@ -109,6 +111,12 @@ class DriverShift {
       totalEarnings: json['totalEarnings'] as num?,
       totalDeliveries: json['totalDeliveries'] as num?,
       startPhotoUrl: json['startPhotoUrl'] as String?,
+      orders: (json['orders'] is List)
+          ? (json['orders'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((o) => DriverShiftOrder.fromJson(o))
+              .toList()
+          : const [],
       zoneName: json['zone'] != null
           ? (json['zone'] is Map ? (json['zone']['name'] as String?) : null)
           : (shiftPool != null && shiftPool['zone'] != null && shiftPool['zone'] is Map ? (shiftPool['zone']['name'] as String?) : null),
@@ -198,6 +206,66 @@ class GenerateShiftPoolsRequest {
         if (title != null && title!.isNotEmpty) 'title': title,
         if (titleAr != null && titleAr!.isNotEmpty) 'titleAr': titleAr,
       };
+}
+
+class DriverShiftOrder {
+  final String id;
+  final String orderNumber;
+  final double deliveryFee;
+  final DateTime? pickedUpAt;
+  final DateTime? actualDeliveryTime;
+  final double driverManagerCommission;
+  final double driverEarnings;
+  final double platformProfit;
+
+  const DriverShiftOrder({
+    required this.id,
+    required this.orderNumber,
+    required this.deliveryFee,
+    this.pickedUpAt,
+    this.actualDeliveryTime,
+    required this.driverManagerCommission,
+    required this.driverEarnings,
+    required this.platformProfit,
+  });
+
+  factory DriverShiftOrder.fromJson(Map<String, dynamic> json) {
+    final delFee = ((json['deliveryFee'] as num?)?.toDouble() ?? 0.0);
+    double mgrComm = 0.0;
+    if (json['driverManagerTransactions'] is List) {
+      for (final t in json['driverManagerTransactions'] as List) {
+        if (t is Map) {
+          mgrComm += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+        }
+      }
+    }
+    double drvEarn = 0.0;
+    if (json['driverTransactions'] is List) {
+      for (final t in json['driverTransactions'] as List) {
+        if (t is Map) {
+          drvEarn += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+        }
+      }
+    }
+    if (drvEarn == 0.0 && delFee > 0.0) {
+      drvEarn = (delFee * 0.8).roundToDouble();
+    }
+    if (mgrComm == 0.0 && delFee > 0.0) {
+      mgrComm = (delFee * 0.1).roundToDouble();
+    }
+    final platProfit = (delFee - drvEarn - mgrComm).clamp(0.0, double.infinity);
+
+    return DriverShiftOrder(
+      id: json['id']?.toString() ?? '',
+      orderNumber: json['orderNumber']?.toString() ?? '',
+      deliveryFee: delFee,
+      pickedUpAt: json['pickedUpAt'] != null ? DateTime.tryParse(json['pickedUpAt'].toString())?.toLocal() : null,
+      actualDeliveryTime: json['actualDeliveryTime'] != null ? DateTime.tryParse(json['actualDeliveryTime'].toString())?.toLocal() : null,
+      driverManagerCommission: mgrComm,
+      driverEarnings: drvEarn,
+      platformProfit: platProfit,
+    );
+  }
 }
 
 class AdminAssignShiftRequest {

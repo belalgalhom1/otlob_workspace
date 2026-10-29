@@ -1,3 +1,4 @@
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -11,7 +12,8 @@ const Color _neutral500 = Color(0xFF6B7280);
 const Color _neutral400 = Color(0xFF9CA3AF);
 
 class DriverManagersScreen extends ConsumerStatefulWidget {
-  const DriverManagersScreen({super.key});
+  final bool isEmbedded;
+  const DriverManagersScreen({super.key, this.isEmbedded = true});
 
   @override
   ConsumerState<DriverManagersScreen> createState() => _DriverManagersScreenState();
@@ -22,6 +24,13 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
   String? _error;
   List<dynamic> _managers = [];
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -71,144 +80,134 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
       return name.contains(q) || email.contains(q) || phone.contains(q);
     }).toList();
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final isStandalone = !widget.isEmbedded;
+
+    final contentWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.isEmbedded) ...[
+          Row(
             children: [
-              // Top Header
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isAr ? 'مديرو المناديب' : 'Driver Managers',
-                          style: (isMobile ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _isAr
-                              ? 'إدارة وتعيين السائقين لمديري المناديب ومتابعة محافظهم وعمولاتهم'
-                              : 'Assign drivers to managers, oversee scopes, and track manager wallets',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: _neutral500,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: _isLoading ? null : _loadManagers,
-                    icon: const Icon(LucideIcons.refreshCw, size: 20),
-                    tooltip: _isAr ? 'تحديث' : 'Refresh',
-                    style: IconButton.styleFrom(
-                      backgroundColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Search Bar & Filter Bar
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(LucideIcons.search, size: 18),
-                            hintText: _isAr ? 'بحث بالاسم، البريد أو الهاتف...' : 'Search by name, email, or phone...',
-                            isDense: true,
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                      if (_searchQuery.isNotEmpty)
-                        IconButton(
-                          onPressed: () => setState(() => _searchQuery = ''),
-                          icon: const Icon(LucideIcons.x, size: 16),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Content Area
               Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 36),
-                                const SizedBox(height: 12),
-                                Text(ErrorUtils.translate(context, _error)),
-                                const SizedBox(height: 12),
-                                FilledButton.icon(
-                                  onPressed: _loadManagers,
-                                  icon: const Icon(LucideIcons.refreshCw, size: 16),
-                                  label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : filteredManagers.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(LucideIcons.users, size: 48, color: _neutral400),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      _isAr ? 'لا يوجد مديرو مناديب مسجلون' : 'No driver managers found',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _isAr
-                                          ? 'يمكنك إضافة مدير مناديب جديد من قسم إدارة المستخدمين'
-                                          : 'You can create a driver manager account from Users management',
-                                      style: const TextStyle(color: _neutral500),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: filteredManagers.length,
-                                separatorBuilder: (_, index) => const SizedBox(height: 16),
-                                itemBuilder: (ctx, idx) {
-                                  final m = filteredManagers[idx];
-                                  return _buildManagerCard(m, theme, isDark);
-                                },
-                              ),
+                child: Text(
+                  _isAr
+                      ? 'إدارة وتعيين السائقين لمسؤولي السائقين ومتابعة محافظهم وعمولاتهم'
+                      : 'Assign drivers to managers, oversee scopes, and track manager wallets',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: _isLoading ? null : _loadManagers,
+                icon: const Icon(LucideIcons.refreshCw, size: 18),
+                tooltip: _isAr ? 'تحديث' : 'Refresh',
               ),
             ],
           ),
+          const SizedBox(height: 12),
+        ],
+
+        // Modern Dashboard Search Bar
+        DashboardSearchBar(
+          controller: _searchController,
+          hintText: _isAr ? 'بحث بالاسم، البريد أو الهاتف...' : 'Search by name, email, or phone...',
+          onChanged: (v) => setState(() => _searchQuery = v.trim()),
+          onClear: () {
+            _searchController.clear();
+            setState(() => _searchQuery = '');
+          },
         ),
-      ),
+        const SizedBox(height: 16),
+
+        // Content Area
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 36),
+                          const SizedBox(height: 12),
+                          Text(ErrorUtils.translate(context, _error)),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: _loadManagers,
+                            icon: const Icon(LucideIcons.refreshCw, size: 16),
+                            label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredManagers.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(LucideIcons.users, size: 48, color: _neutral400),
+                              const SizedBox(height: 12),
+                              Text(
+                                _isAr ? 'لا يوجد مسؤولو سائقين مسجلون' : 'No driver managers found',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isAr
+                                    ? 'يمكنك إضافة مسؤول سائقين جديد من قسم إدارة المستخدمين'
+                                    : 'You can create a driver manager account from Users management',
+                                style: const TextStyle(color: _neutral500),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: filteredManagers.length,
+                          separatorBuilder: (_, index) => const SizedBox(height: 16),
+                          itemBuilder: (ctx, idx) {
+                            final m = filteredManagers[idx];
+                            return _buildManagerCard(m, theme, isDark);
+                          },
+                        ),
+        ),
+      ],
     );
+
+    if (isStandalone) {
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: AppBar(
+          backgroundColor: theme.colorScheme.surface,
+          elevation: 0,
+          title: Text(
+            _isAr ? 'مسؤولو السائقين' : 'Driver Managers',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          actions: [
+            IconButton(
+              onPressed: _isLoading ? null : _loadManagers,
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              tooltip: _isAr ? 'تحديث' : 'Refresh',
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 24,
+            vertical: 12,
+          ),
+          child: contentWidget,
+        ),
+      );
+    }
+
+    return contentWidget;
   }
 
   Widget _buildManagerCard(dynamic m, ThemeData theme, bool isDark) {
@@ -228,6 +227,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
 
     return Card(
       elevation: 0,
+      color: isDark ? const Color(0xFF262626) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
@@ -252,7 +252,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name.isEmpty ? (_isAr ? 'مدير مناديب' : 'Driver Manager') : name,
+                        name.isEmpty ? (_isAr ? 'مسؤول سائقين' : 'Driver Manager') : name,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -407,7 +407,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isAr ? 'محفظة العمولة للمدير' : 'Manager Commission Wallet',
+                          _isAr ? 'محفظة عمولة مسؤول السائقين' : 'Driver Manager Commission Wallet',
                           style: const TextStyle(fontSize: 12, color: _neutral500),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

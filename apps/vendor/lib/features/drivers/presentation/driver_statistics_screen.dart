@@ -45,6 +45,58 @@ class DriverStatisticsScreen extends ConsumerWidget {
                 '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalEarnings'])).toStringAsFixed(2)} EGP',
           ),
           StatisticSummaryItem(
+            labelAr: 'رسوم التوصيل',
+            labelEn: 'Delivery Fees',
+            icon: Icons.local_shipping_outlined,
+            value: (rows) {
+              final total = rows.fold<double>(0, (s, r) {
+                final del = r['deliveryFee'] != null
+                    ? StatisticsFormat.numOf(r['deliveryFee'])
+                    : StatisticsFormat.numOf(r['totalEarnings']) * 1.25;
+                return s + del;
+              });
+              return '${total.toStringAsFixed(2)} EGP';
+            },
+          ),
+          StatisticSummaryItem(
+            labelAr: 'مسؤول السائقين',
+            labelEn: 'Manager Cut',
+            icon: Icons.badge_outlined,
+            value: (rows) {
+              final total = rows.fold<double>(0, (s, r) {
+                final del = r['deliveryFee'] != null
+                    ? StatisticsFormat.numOf(r['deliveryFee'])
+                    : StatisticsFormat.numOf(r['totalEarnings']) * 1.25;
+                final mgr = r['driverManagerCommission'] != null
+                    ? StatisticsFormat.numOf(r['driverManagerCommission'])
+                    : del * 0.1;
+                return s + mgr;
+              });
+              return '${total.toStringAsFixed(2)} EGP';
+            },
+          ),
+          StatisticSummaryItem(
+            labelAr: 'أرباح المنصة',
+            labelEn: 'Platform Profit',
+            icon: Icons.account_balance_outlined,
+            value: (rows) {
+              final total = rows.fold<double>(0, (s, r) {
+                final earn = StatisticsFormat.numOf(r['totalEarnings']);
+                final del = r['deliveryFee'] != null
+                    ? StatisticsFormat.numOf(r['deliveryFee'])
+                    : earn * 1.25;
+                final mgr = r['driverManagerCommission'] != null
+                    ? StatisticsFormat.numOf(r['driverManagerCommission'])
+                    : del * 0.1;
+                final plat = r['platformProfit'] != null
+                    ? StatisticsFormat.numOf(r['platformProfit'])
+                    : (del - earn - mgr).clamp(0.0, double.infinity);
+                return s + plat;
+              });
+              return '${total.toStringAsFixed(2)} EGP';
+            },
+          ),
+          StatisticSummaryItem(
             labelAr: 'إجمالي الطلبات',
             labelEn: 'Total Orders',
             icon: Icons.shopping_bag_outlined,
@@ -79,6 +131,46 @@ class DriverStatisticsScreen extends ConsumerWidget {
             labelEn: 'Earnings',
             value: (row) =>
                 StatisticsFormat.numOf(row['totalEarnings']).toStringAsFixed(2),
+          ),
+          StatisticExportColumn(
+            labelAr: 'رسوم التوصيل',
+            labelEn: 'Delivery Fee',
+            value: (row) {
+              final del = row['deliveryFee'] != null
+                  ? StatisticsFormat.numOf(row['deliveryFee'])
+                  : StatisticsFormat.numOf(row['totalEarnings']) * 1.25;
+              return del.toStringAsFixed(2);
+            },
+          ),
+          StatisticExportColumn(
+            labelAr: 'نسبة مسؤول السائقين',
+            labelEn: 'Manager Share',
+            value: (row) {
+              final del = row['deliveryFee'] != null
+                  ? StatisticsFormat.numOf(row['deliveryFee'])
+                  : StatisticsFormat.numOf(row['totalEarnings']) * 1.25;
+              final mgr = row['driverManagerCommission'] != null
+                  ? StatisticsFormat.numOf(row['driverManagerCommission'])
+                  : del * 0.1;
+              return mgr.toStringAsFixed(2);
+            },
+          ),
+          StatisticExportColumn(
+            labelAr: 'أرباح المنصة',
+            labelEn: 'Platform Profit',
+            value: (row) {
+              final earn = StatisticsFormat.numOf(row['totalEarnings']);
+              final del = row['deliveryFee'] != null
+                  ? StatisticsFormat.numOf(row['deliveryFee'])
+                  : earn * 1.25;
+              final mgr = row['driverManagerCommission'] != null
+                  ? StatisticsFormat.numOf(row['driverManagerCommission'])
+                  : del * 0.1;
+              final plat = row['platformProfit'] != null
+                  ? StatisticsFormat.numOf(row['platformProfit'])
+                  : (del - earn - mgr).clamp(0.0, double.infinity);
+              return plat.toStringAsFixed(2);
+            },
           ),
           StatisticExportColumn(
             labelAr: 'الطلبات',

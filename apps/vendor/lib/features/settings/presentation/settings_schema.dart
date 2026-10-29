@@ -150,10 +150,10 @@ const List<SettingsSection> platformSettingsSections = [
         key: 'driverManagerCommissionRate',
         kind: SettingsFieldKind.number,
         suffix: '%',
-        labelAr: 'نسبة مدير المناديب من التوصيل',
+        labelAr: 'نسبة مسؤول السائقين من التوصيل',
         labelEn: 'Driver Manager Cut',
         helpAr:
-            'نسبة عمولة مدير المناديب من رسوم التوصيل لكل طلب في منطقته (مثال: 10%).',
+            'نسبة عمولة مسؤول السائقين من رسوم التوصيل لكل طلب في منطقته (مثال: 10%).',
         helpEn:
             'Percentage of the delivery fee credited to the driver manager for each order in their zone (e.g. 10%).',
       ),

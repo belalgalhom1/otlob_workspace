@@ -129,7 +129,13 @@ class OtlobAdminApp extends ConsumerWidget {
             data: mediaQuery.copyWith(
               textScaler: TextScaler.noScaling,
             ),
-            child: child ?? const SizedBox.shrink(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              child: child ?? const SizedBox.shrink(),
+            ),
           );
         },
         localizationsDelegates: [

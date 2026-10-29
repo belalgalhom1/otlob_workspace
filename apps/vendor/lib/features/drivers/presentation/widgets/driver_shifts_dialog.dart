@@ -171,6 +171,20 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             ),
           ),
           IconButton(
+            onPressed: _shifts.isEmpty ? null : () => _exportAllShiftsPdf(context),
+            icon: const Icon(LucideIcons.fileSpreadsheet, size: 20),
+            tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                ? 'تصدير تقرير الورديات الشامل (PDF)'
+                : 'Export Shifts Report (PDF)',
+            style: IconButton.styleFrom(
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(LucideIcons.x, size: 20),
             style: IconButton.styleFrom(
@@ -698,7 +712,8 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
   Widget _buildShiftCard(BuildContext context, DriverShift shift) {
     final statusColor = _getStatusColor(shift.status);
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final isAr = languageCode == 'ar';
 
     return Container(
       decoration: BoxDecoration(
@@ -891,6 +906,24 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               ),
             ),
           ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _exportShiftPdf(context, shift),
+              icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
+              label: Text(
+                isAr ? 'تصدير تقرير الوردية (PDF)' : 'Export Shift Report (PDF)',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -981,6 +1014,149 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         return AppColors.error;
       default:
         return AppColors.textMuted;
+    }
+  }
+
+  Future<void> _exportShiftPdf(BuildContext context, DriverShift shift) async {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final isAr = languageCode == 'ar';
+    try {
+      List<DriverShiftOrderExportData> ordersData = [];
+
+      if (shift.orders.isNotEmpty) {
+        ordersData = shift.orders.map((o) => DriverShiftOrderExportData(
+          orderNumber: o.orderNumber,
+          pickedUpAt: o.pickedUpAt,
+          actualDeliveryTime: o.actualDeliveryTime,
+          deliveryFee: o.deliveryFee,
+          driverManagerCommission: o.driverManagerCommission,
+          platformProfit: o.platformProfit,
+          driverEarnings: o.driverEarnings,
+        )).toList();
+      } else {
+        try {
+          final dio = ref.read(dioProvider);
+          final res = await dio.get('/orders', queryParameters: {
+            'driverId': widget.driver.id,
+            'status': 'DELIVERED',
+            'limit': 50,
+          });
+          final rawData = res.data is Map ? (res.data['data'] ?? res.data['orders']) : res.data;
+          if (rawData is List) {
+            for (final item in rawData) {
+              if (item is Map<String, dynamic>) {
+                final sId = item['driverShiftId']?.toString();
+                final actDel = item['actualDeliveryTime'] != null
+                    ? DateTime.tryParse(item['actualDeliveryTime'].toString())?.toLocal()
+                    : null;
+                final isSameShift = sId == shift.id ||
+                    (actDel != null &&
+                        actDel.isAfter(shift.startTime.subtract(const Duration(minutes: 30))) &&
+                        actDel.isBefore(shift.endTime.add(const Duration(minutes: 60))));
+
+                if (isSameShift) {
+                  final delFee = ((item['deliveryFee'] as num?)?.toDouble() ?? 0.0);
+                  double mgrComm = 0.0;
+                  if (item['driverManagerTransactions'] is List) {
+                    for (final t in item['driverManagerTransactions'] as List) {
+                      if (t is Map) mgrComm += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+                    }
+                  }
+                  double drvEarn = 0.0;
+                  if (item['driverTransactions'] is List) {
+                    for (final t in item['driverTransactions'] as List) {
+                      if (t is Map) drvEarn += ((t['amount'] as num?)?.toDouble() ?? 0.0);
+                    }
+                  }
+                  if (drvEarn == 0.0 && delFee > 0.0) drvEarn = (delFee * 0.8).roundToDouble();
+                  if (mgrComm == 0.0 && delFee > 0.0) mgrComm = (delFee * 0.1).roundToDouble();
+                  final platProfit = (delFee - drvEarn - mgrComm).clamp(0.0, double.infinity);
+
+                  ordersData.add(DriverShiftOrderExportData(
+                    orderNumber: item['orderNumber']?.toString() ?? '',
+                    pickedUpAt: item['pickedUpAt'] != null
+                        ? DateTime.tryParse(item['pickedUpAt'].toString())?.toLocal()
+                        : null,
+                    actualDeliveryTime: actDel,
+                    deliveryFee: delFee,
+                    driverManagerCommission: mgrComm,
+                    platformProfit: platProfit,
+                    driverEarnings: drvEarn,
+                  ));
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!mounted) return;
+      await DataExportService.exportDriverShiftPdfReport(
+        context: context,
+        driverName: widget.driver.name,
+        driverPhone: widget.driver.phone,
+        zoneName: shift.zoneName ?? widget.driver.zoneName,
+        shiftTitle: shift.localizedPoolTitle(languageCode) ??
+            (isAr ? 'وردية توصيل' : 'Delivery Shift'),
+        shiftDate: shift.shiftDate,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        orders: ordersData,
+        isRtl: isAr,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isAr ? 'حدث خطأ أثناء تصدير التقرير: ' : 'Export failed: '),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportAllShiftsPdf(BuildContext context) async {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final isAr = languageCode == 'ar';
+    try {
+      final List<DriverShiftOrderExportData> allOrders = [];
+      for (final shift in _shifts) {
+        if (shift.orders.isNotEmpty) {
+          allOrders.addAll(shift.orders.map((o) => DriverShiftOrderExportData(
+            orderNumber: o.orderNumber,
+            pickedUpAt: o.pickedUpAt,
+            actualDeliveryTime: o.actualDeliveryTime,
+            deliveryFee: o.deliveryFee,
+            driverManagerCommission: o.driverManagerCommission,
+            platformProfit: o.platformProfit,
+            driverEarnings: o.driverEarnings,
+          )));
+        }
+      }
+
+      final firstDate = _shifts.isNotEmpty ? _shifts.first.shiftDate : DateTime.now();
+
+      if (!mounted) return;
+      await DataExportService.exportDriverShiftPdfReport(
+        context: context,
+        driverName: widget.driver.name,
+        driverPhone: widget.driver.phone,
+        zoneName: widget.driver.zoneName,
+        shiftTitle: isAr ? 'تقرير كافة الورديات والطلبات' : 'All Shifts & Orders Summary',
+        shiftDate: firstDate,
+        orders: allOrders,
+        isRtl: isAr,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isAr ? 'حدث خطأ أثناء تصدير التقرير: ' : 'Export failed: '),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 }

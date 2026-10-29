@@ -263,7 +263,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       builder: (context, ref, child) {
         final prefs = ref.watch(appPreferencesProvider);
         final isDark = prefs.themeMode == ThemeMode.dark;
-        return InkWell(
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
           onTap: () => ref.read(appPreferencesProvider.notifier).toggleTheme(),
           borderRadius: BorderRadius.circular(10),
           child: Container(
@@ -285,7 +287,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               color: Colors.amber,
             ),
           ),
-        );
+        ));
       },
     );
   }
@@ -295,7 +297,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       builder: (context, ref, child) {
         final prefs = ref.watch(appPreferencesProvider);
         final isArabic = prefs.locale.languageCode == 'ar';
-        return InkWell(
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
           onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
             ref.read(appPreferencesProvider.notifier).setLocale(isArabic ? 'en' : 'ar');
@@ -330,7 +334,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }

@@ -317,7 +317,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Consumer(
       builder: (context, ref, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        return InkWell(
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
           onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
           borderRadius: BorderRadius.circular(10),
           child: Container(
@@ -339,7 +341,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               color: Colors.amber,
             ),
           ),
-        );
+        ));
       },
     );
   }
@@ -349,7 +351,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       builder: (context, ref, child) {
         final locale = ref.watch(localeProvider);
         final isArabic = locale.languageCode == 'ar';
-        return InkWell(
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
           onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
             ref.read(localeProvider.notifier).toggleLanguage();
@@ -384,7 +388,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }
