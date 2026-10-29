@@ -242,6 +242,15 @@ export class OrdersService {
             const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
               fulfillmentIds.has(f.id),
             );
+            myFulfillments.sort((a, b) => {
+              const seqA = group.items.find((it: any) => it.fulfillmentId === a.id)?.sequence ?? 0;
+              const seqB = group.items.find((it: any) => it.fulfillmentId === b.id)?.sequence ?? 0;
+              return seqA - seqB;
+            });
+            for (const f of myFulfillments) {
+              f.isContracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              f.cashToPay = f.isContracted ? 0 : Number(f.subtotal ?? 0);
+            }
             scopedFulfillments = myFulfillments;
             if (Array.isArray(order.items)) {
               scopedItems = order.items.filter(
@@ -257,8 +266,7 @@ export class OrdersService {
             let groupSubtotal = 0;
             for (const f of myFulfillments) {
               groupSubtotal += Number(f.subtotal ?? 0);
-              const contracted =
-                f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              const contracted = f.isContracted;
               if (!contracted) {
                 cashToPayStore += Number(f.subtotal ?? 0);
                 allContracted = false;
@@ -326,6 +334,31 @@ export class OrdersService {
         cashToPayStore,
         isStorePrepaid,
         driverEarnings,
+        storePayments: (scopedFulfillments && scopedFulfillments.length > 0)
+          ? scopedFulfillments.map((f: any) => {
+              const contracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              return {
+                fulfillmentId: f.id,
+                vendorId: f.vendorId,
+                vendorName: f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
+                branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
+                address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
+                phone: f.vendorBranch?.phone ?? f.vendor?.phone ?? f.vendor?.user?.phone ?? '',
+                subtotal: Number(f.subtotal ?? 0),
+                isContracted: contracted,
+                cashToPay: contracted ? 0 : Number(f.subtotal ?? 0),
+              };
+            })
+          : [{
+              vendorId: order.vendorId,
+              vendorName: order.vendor?.storeNameAr ?? order.vendor?.storeName ?? order.vendor?.name ?? 'Store',
+              branchName: order.vendorBranch?.nameAr ?? order.vendorBranch?.name ?? '',
+              address: order.vendorBranch?.address ?? order.vendor?.address ?? '',
+              phone: order.vendorBranch?.phone ?? order.vendor?.phone ?? order.vendor?.user?.phone ?? '',
+              subtotal: subtotal,
+              isContracted: isStorePrepaid,
+              cashToPay: cashToPayStore,
+            }],
       },
     };
   }

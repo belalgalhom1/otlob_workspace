@@ -216,19 +216,16 @@ class DriverStatisticsScreen extends ConsumerWidget {
                     '${StatisticsFormat.numOf(row['onlineHours']).toStringAsFixed(1)} h',
               ),
               StatisticExportColumn(
-                labelAr: 'مقبولة',
-                labelEn: 'Accepted',
-                value: (row) => '${StatisticsFormat.intOf(row['dispatchesAccepted'])}',
+                labelAr: 'القبول (مقبول/مستلم)',
+                labelEn: 'Acceptance Rate',
+                value: (row) =>
+                    '${acceptance(row)}% (${StatisticsFormat.intOf(row['dispatchesAccepted'])}/${StatisticsFormat.intOf(row['totalDispatchesReceived'])})',
               ),
               StatisticExportColumn(
-                labelAr: 'مرفوضة',
-                labelEn: 'Rejected',
-                value: (row) => '${StatisticsFormat.intOf(row['dispatchesRejected'])}',
-              ),
-              StatisticExportColumn(
-                labelAr: 'منتهية',
-                labelEn: 'Expired',
-                value: (row) => '${StatisticsFormat.intOf(row['dispatchesExpired'])}',
+                labelAr: 'مرفوضة / منتهية',
+                labelEn: 'Rejected / Expired',
+                value: (row) =>
+                    '${StatisticsFormat.intOf(row['dispatchesRejected'])} / ${StatisticsFormat.intOf(row['dispatchesExpired'])}',
               ),
             ],
           ),

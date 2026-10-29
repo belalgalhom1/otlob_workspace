@@ -302,9 +302,46 @@ class DataExportService {
     final borderColor = PdfColor.fromInt(0xFFE2E8F0);  // Slate 200
     final cardBg = PdfColor.fromInt(0xFFF1F5F9);       // Slate 100
 
-    for (var s = 0; s < sections.length; s++) {
-      final section = sections[s];
-      final sectionSubtitle = sections.length > 1 ? section.title : subtitle;
+    // Prevent crushed/broken text: if any section has > 7 columns, split into parts
+    final normalizedSections = <ExportSection>[];
+    for (final sec in sections) {
+      if (sec.headers.length > 7) {
+        final fixedCount = sec.headers.length >= 3 ? 3 : 1;
+        final fixedHeaders = sec.headers.sublist(0, fixedCount);
+        final dynamicHeaders = sec.headers.sublist(fixedCount);
+        final half = (dynamicHeaders.length / 2).ceil();
+
+        final s1Headers = [...fixedHeaders, ...dynamicHeaders.sublist(0, half)];
+        final s2Headers = [...fixedHeaders, ...dynamicHeaders.sublist(half)];
+
+        final s1Rows = sec.rows.map((r) => [
+          ...r.sublist(0, fixedCount),
+          ...r.sublist(fixedCount, fixedCount + half),
+        ]).toList();
+
+        final s2Rows = sec.rows.map((r) => [
+          ...r.sublist(0, fixedCount),
+          ...r.sublist(fixedCount + half),
+        ]).toList();
+
+        normalizedSections.add(ExportSection(
+          title: '${sec.title} (${isRtl ? 'الجزء 1' : 'Part 1'})',
+          headers: s1Headers,
+          rows: s1Rows,
+        ));
+        normalizedSections.add(ExportSection(
+          title: '${sec.title} (${isRtl ? 'الجزء 2' : 'Part 2'})',
+          headers: s2Headers,
+          rows: s2Rows,
+        ));
+      } else {
+        normalizedSections.add(sec);
+      }
+    }
+
+    for (var s = 0; s < normalizedSections.length; s++) {
+      final section = normalizedSections[s];
+      final sectionSubtitle = normalizedSections.length > 1 ? section.title : subtitle;
 
       doc.addPage(
         pw.MultiPage(
@@ -367,13 +404,30 @@ class DataExportService {
                           ),
                         ],
                         pw.SizedBox(height: 2),
+                        if (entityName != null && entityName.isNotEmpty) ...[
+                          pw.SizedBox(height: 3),
+                          pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: pw.BoxDecoration(
+                              color: brandAccent,
+                              borderRadius: pw.BorderRadius.circular(4),
+                            ),
+                            child: pw.Text(
+                              '${isRtl ? 'السائق' : 'Driver'}: $entityName',
+                              style: pw.TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: pw.FontWeight.bold,
+                                color: brandPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                        pw.SizedBox(height: 2),
                         pw.Text(
-                          entityName != null && entityName.isNotEmpty
-                              ? '${isRtl ? 'اسم السائق' : 'Driver'}: $entityName'
-                              : (isRtl
-                                  ? 'تقرير إحصائي معتمد من لوحة تحكم منصة اطلب'
-                                  : 'Official certified operational export from Otlob Platform'),
-                          style: pw.TextStyle(fontSize: 9.5, color: PdfColors.grey400),
+                          isRtl
+                              ? 'تقرير إحصائي معتمد من لوحة تحكم منصة اطلب'
+                              : 'Official certified operational export from Otlob Platform',
+                          style: pw.TextStyle(fontSize: 8.5, color: PdfColors.grey400),
                         ),
                       ],
                     ),

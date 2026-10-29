@@ -170,49 +170,171 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               const SizedBox(height: 32),
               
               // Vendor Details / Pickup Details
-              Text(
-                (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') 
-                    ? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location') 
-                    : (l10n.localeName == 'ar' ? 'المتجر (الاستلام)' : 'Store (Pickup)'),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE') ...[
-                _buildInfoRow(
-                  context, 
-                  LucideIcons.mapPin, 
-                  (order['pickupAddress'] != null && order['pickupAddress'].toString().isNotEmpty)
-                      ? order['pickupAddress'].toString()
-                      : (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location'),
-                ),
-              ] else ...[
-                _buildInfoRow(context, LucideIcons.store, vendor['storeName'] ?? vendor['name'] ?? l10n.vendorFallback),
-                () {
-                  final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
-                  final String? branchName = branch == null
-                      ? null
-                      : (l10n.localeName == 'ar'
-                          ? (branch['nameAr']?.toString() ?? branch['name']?.toString())
-                          : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
-                  final dynamic branchAddress = branch != null ? branch['address'] : order['pickupAddress'];
-                  return Column(
-                    children: [
-                      if (branchName != null && branchName.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _buildInfoRow(context, LucideIcons.mapPin, branchName),
+              () {
+                final isCustomOrRide = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+                final List<dynamic> fulfillments = (order['vendorFulfillments'] as List?) ?? [];
+                final bool isMultiVendor = !isCustomOrRide && fulfillments.length > 1;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      isCustomOrRide
+                          ? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location')
+                          : (isMultiVendor
+                              ? (l10n.localeName == 'ar' ? 'محطات استلام المتاجر (${fulfillments.length} متاجر)' : 'Store Pickup Stops (${fulfillments.length} Stores)')
+                              : (l10n.localeName == 'ar' ? 'المتجر (الاستلام)' : 'Store (Pickup)')),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (isCustomOrRide) ...[
+                      _buildInfoRow(
+                        context,
+                        LucideIcons.mapPin,
+                        (order['pickupAddress'] != null && order['pickupAddress'].toString().isNotEmpty)
+                            ? order['pickupAddress'].toString()
+                            : (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location'),
+                      ),
+                    ] else if (isMultiVendor) ...[
+                      for (var i = 0; i < fulfillments.length; i++) ...[
+                        () {
+                          final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+                          final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                          final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
+                          final vName = (fVendor['storeName'] ?? fVendor['name'] ?? 'Store ${i + 1}').toString();
+                          final bName = l10n.localeName == 'ar'
+                              ? (fBranch['nameAr'] ?? fBranch['name'] ?? '').toString()
+                              : (fBranch['name'] ?? fBranch['nameAr'] ?? '').toString();
+                          final address = (fBranch['address'] ?? f['pickupAddress'] ?? '').toString();
+                          final phone = (fBranch['phone'] ?? fVendor['phone'] ?? '').toString();
+                          final isContracted = f['isContracted'] == true ||
+                              fBranch['isContracted'] == true ||
+                              fVendor['isContracted'] == true;
+                          final double cashToPay = double.tryParse(f['cashToPay']?.toString() ?? '0') ??
+                              (isContracted ? 0.0 : (double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0));
+                          final isPickedUp = f['status'] == 'PICKED_UP';
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isPickedUp
+                                    ? AppColors.success.withValues(alpha: 0.5)
+                                    : Theme.of(context).dividerColor.withValues(alpha: 0.2),
+                                width: isPickedUp ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Flexible(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: isPickedUp
+                                              ? AppColors.success.withValues(alpha: 0.15)
+                                              : AppColors.primary.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          l10n.localeName == 'ar'
+                                              ? 'المحطة ${i + 1} من ${fulfillments.length}${isPickedUp ? ' (تم الاستلام ✓)' : ''}'
+                                              : 'Stop ${i + 1} of ${fulfillments.length}${isPickedUp ? ' (Picked Up ✓)' : ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isPickedUp ? AppColors.success : AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isContracted
+                                            ? AppColors.success.withValues(alpha: 0.1)
+                                            : AppColors.warning.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        isContracted
+                                            ? (l10n.localeName == 'ar' ? 'شريك: ادفع 0' : 'Partner: Pay 0')
+                                            : (l10n.localeName == 'ar'
+                                                ? 'ادفع: ${cashToPay.toStringAsFixed(0)} $currency'
+                                                : 'Pay: ${cashToPay.toStringAsFixed(0)} $currency'),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isContracted ? AppColors.success : AppColors.warning,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                _buildInfoRow(
+                                  context,
+                                  LucideIcons.store,
+                                  bName.isNotEmpty ? '$vName ($bName)' : vName,
+                                ),
+                                if (address.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(context, LucideIcons.mapPin, address),
+                                ],
+                                if (phone.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(
+                                    context,
+                                    LucideIcons.phone,
+                                    phone,
+                                    onTap: () => _callPhone(context, phone),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }(),
                       ],
-                      if (branchAddress != null && branchAddress.toString().isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _buildInfoRow(context, LucideIcons.map, branchAddress.toString()),
-                      ],
+                    ] else ...[
+                      _buildInfoRow(context, LucideIcons.store, vendor['storeName'] ?? vendor['name'] ?? l10n.vendorFallback),
+                      () {
+                        final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
+                        final String? branchName = branch == null
+                            ? null
+                            : (l10n.localeName == 'ar'
+                                ? (branch['nameAr']?.toString() ?? branch['name']?.toString())
+                                : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
+                        final dynamic branchAddress = branch != null ? branch['address'] : order['pickupAddress'];
+                        return Column(
+                          children: [
+                            if (branchName != null && branchName.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              _buildInfoRow(context, LucideIcons.mapPin, branchName),
+                            ],
+                            if (branchAddress != null && branchAddress.toString().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              _buildInfoRow(context, LucideIcons.map, branchAddress.toString()),
+                            ],
+                          ],
+                        );
+                      }(),
                     ],
-                  );
-                }(),
-              ],
+                  ],
+                );
+              }(),
 
               const SizedBox(height: 24),
 
@@ -301,60 +423,123 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (items.isEmpty) ...[
-                if (order['itemDetails'] != null && order['itemDetails'].toString().isNotEmpty)
-                  _buildInfoRow(context, LucideIcons.package, order['itemDetails'].toString())
-                else if (order['specialRequest'] != null && order['specialRequest'].toString().isNotEmpty)
-                  _buildInfoRow(context, LucideIcons.fileText, order['specialRequest'].toString())
-                else
-                  Text(l10n.localeName == 'ar' ? 'لا توجد تفاصيل إضافية' : 'No additional details')
-              ]
-              else
-                ...items.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
+              () {
+                final List<dynamic> fulfillments = (order['vendorFulfillments'] as List?) ?? [];
+                final bool isMultiVendor = fulfillments.length > 1;
+
+                Widget buildSingleItem(dynamic item) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${item['quantity'] ?? 1}x',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        child: Text(
-                          '${item['quantity'] ?? 1}x',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item['productName'] ?? item['product']?['name'] ?? item['menuItem']?['name'] ?? 'Item',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
-                            ),
-                            if (item['customizations'] != null)
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                item['customizations'].toString(),
-                                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                                item['productName'] ?? item['product']?['name'] ?? item['menuItem']?['name'] ?? 'Item',
+                                style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
                               ),
-                            for (final opt in ((item['selectedOptions'] as List?) ?? []))
-                              if ((opt['optionName']?.toString().isNotEmpty ?? false))
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} $currency)' : ''}',
-                                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
-                                  ),
+                              if (item['customizations'] != null)
+                                Text(
+                                  item['customizations'].toString(),
+                                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                                 ),
-                          ],
+                              for (final opt in ((item['selectedOptions'] as List?) ?? []))
+                                if ((opt['optionName']?.toString().isNotEmpty ?? false))
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} $currency)' : ''}',
+                                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                                    ),
+                                  ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (items.isEmpty) {
+                  if (order['itemDetails'] != null && order['itemDetails'].toString().isNotEmpty) {
+                    return _buildInfoRow(context, LucideIcons.package, order['itemDetails'].toString());
+                  } else if (order['specialRequest'] != null && order['specialRequest'].toString().isNotEmpty) {
+                    return _buildInfoRow(context, LucideIcons.fileText, order['specialRequest'].toString());
+                  } else {
+                    return Text(l10n.localeName == 'ar' ? 'لا توجد تفاصيل إضافية' : 'No additional details');
+                  }
+                }
+
+                if (isMultiVendor) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < fulfillments.length; i++) ...[
+                        () {
+                          final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+                          final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                          final vName = (fVendor['storeName'] ?? fVendor['name'] ?? 'Store ${i + 1}').toString();
+                          final fItems = (f['items'] as List?) ?? [];
+                          if (fItems.isEmpty) return const SizedBox.shrink();
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).dividerColor.withValues(alpha: 0.04),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(LucideIcons.store, size: 16, color: AppColors.primary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        l10n.localeName == 'ar'
+                                            ? 'منتجات المحطة ${i + 1} ($vName)'
+                                            : 'Stop ${i + 1} Items ($vName)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ...fItems.map(buildSingleItem),
+                              ],
+                            ),
+                          );
+                        }(),
+                      ],
                     ],
-                  ),
-                )),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: items.map(buildSingleItem).toList(),
+                );
+              }(),
                 
               const SizedBox(height: 24),
               const Divider(),
@@ -443,62 +628,163 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     const SizedBox(height: 10),
 
                     // 2. Store Pickup Payment Instruction Card
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isStorePrepaid
-                            ? Colors.grey.withValues(alpha: 0.08)
-                            : AppColors.warning.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isStorePrepaid
-                              ? Colors.grey.withValues(alpha: 0.2)
-                              : AppColors.warning.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isStorePrepaid ? LucideIcons.store : LucideIcons.badgeDollarSign,
-                            color: isStorePrepaid ? Colors.grey : AppColors.warning,
-                            size: 20,
+                    () {
+                      final storePayments = (financials?['storePayments'] as List?) ?? [];
+                      if (storePayments.length > 1) {
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: cashToPayStore <= 0
+                                ? Colors.grey.withValues(alpha: 0.08)
+                                : AppColors.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: cashToPayStore <= 0
+                                  ? Colors.grey.withValues(alpha: 0.2)
+                                  : AppColors.warning.withValues(alpha: 0.4),
+                            ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isStorePrepaid
-                                      ? (isAr ? 'متجر شريك معتمد: لا تدفع كاش في المتجر (0 $currency)' : 'Partner Store: Pay 0 $currency at store')
-                                      : (isAr ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPayStore.toStringAsFixed(2)} $currency' : 'Uncontracted: Pay store in cash: ${cashToPayStore.toStringAsFixed(2)} $currency'),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: isStorePrepaid
-                                        ? Theme.of(context).colorScheme.onSurface
-                                        : AppColors.warning,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    cashToPayStore <= 0 ? LucideIcons.store : LucideIcons.badgeDollarSign,
+                                    color: cashToPayStore <= 0 ? Colors.grey : AppColors.warning,
+                                    size: 20,
                                   ),
-                                ),
-                                if (!isStorePrepaid && isPrepaid) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    isAr
-                                        ? 'الطلب مدفوع إلكترونياً — سيتم استرداد المبلغ لمحفظتك فور التسليم'
-                                        : 'Paid online — Cash will be reimbursed to your wallet upon delivery',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      isAr ? 'محطات دفع المتاجر (${storePayments.length} متاجر)' : 'Store Payments (${storePayments.length} Stores)',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: cashToPayStore <= 0
+                                            ? Theme.of(context).colorScheme.onSurface
+                                            : AppColors.warning,
+                                      ),
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 10),
+                              for (var i = 0; i < storePayments.length; i++) ...[
+                                () {
+                                  final sp = storePayments[i] is Map ? storePayments[i] as Map : {};
+                                  final vName = (sp['vendorName'] ?? 'Store ${i + 1}').toString();
+                                  final isContracted = sp['isContracted'] == true;
+                                  final payAmt = double.tryParse(sp['cashToPay']?.toString() ?? '0') ?? 0.0;
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '• $vName (${isContracted ? (isAr ? 'شريك معتمد' : 'Partner') : (isAr ? 'غير متعاقد' : 'Uncontracted')}):',
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                        Text(
+                                          isContracted
+                                              ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency (No Cash)')
+                                              : '${payAmt.toStringAsFixed(2)} $currency',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isContracted ? AppColors.success : AppColors.warning,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }(),
                               ],
-                            ),
+                              const Divider(),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    isAr ? 'إجمالي المطلوب دفعه للمتاجر:' : 'Total Cash to Stores:',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    cashToPayStore <= 0
+                                        ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency')
+                                        : '${cashToPayStore.toStringAsFixed(2)} $currency',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: cashToPayStore <= 0 ? AppColors.success : AppColors.warning,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        );
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isStorePrepaid
+                              ? Colors.grey.withValues(alpha: 0.08)
+                              : AppColors.warning.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isStorePrepaid
+                                ? Colors.grey.withValues(alpha: 0.2)
+                                : AppColors.warning.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isStorePrepaid ? LucideIcons.store : LucideIcons.badgeDollarSign,
+                              color: isStorePrepaid ? Colors.grey : AppColors.warning,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isStorePrepaid
+                                        ? (isAr ? 'متجر شريك معتمد: لا تدفع كاش في المتجر (0 $currency)' : 'Partner Store: Pay 0 $currency at store')
+                                        : (isAr ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPayStore.toStringAsFixed(2)} $currency' : 'Uncontracted: Pay store in cash: ${cashToPayStore.toStringAsFixed(2)} $currency'),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isStorePrepaid
+                                          ? Theme.of(context).colorScheme.onSurface
+                                          : AppColors.warning,
+                                    ),
+                                  ),
+                                  if (!isStorePrepaid && isPrepaid) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      isAr
+                                          ? 'الطلب مدفوع إلكترونياً — سيتم استرداد المبلغ لمحفظتك فور التسليم'
+                                          : 'Paid online — Cash will be reimbursed to your wallet upon delivery',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }(),
                     const SizedBox(height: 10),
 
                     // 3. Driver Delivery Earnings Card
