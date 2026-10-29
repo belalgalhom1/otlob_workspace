@@ -2543,6 +2543,7 @@ class DriversApi {
   /// Admin broadcasts assist offer to nearest drivers
   Future<Response<ApiControllerRoot200Response>> driversControllerOfferAssistToNearest({ 
     required String requestId,
+    String? limit,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -2569,9 +2570,14 @@ class DriversApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (limit != null) r'limit': encodeQueryParameter(_serializers, limit, const FullType(String)),
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
