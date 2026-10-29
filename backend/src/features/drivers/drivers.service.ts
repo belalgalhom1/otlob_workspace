@@ -1,3 +1,4 @@
+import type { JwtAccessPayload } from "../../common/interfaces/jwt-payload.interface";
 import {
   Injectable,
   NotFoundException,
@@ -1056,6 +1057,31 @@ export class DriversService {
       await this.driversRepository.update(driver.id, updateData);
     }
 
+    if (dto.driverManagerUserId) {
+      let dm = await this.prisma.driverManager.findUnique({
+        where: { userId: dto.driverManagerUserId },
+      });
+      if (!dm) {
+        const dmUser = await this.prisma.user.findUnique({
+          where: { id: dto.driverManagerUserId },
+          select: { role: true },
+        });
+        if (dmUser?.role === Role.DRIVER_MANAGER) {
+          dm = await this.prisma.driverManager.create({
+            data: { userId: dto.driverManagerUserId },
+          });
+        }
+      }
+      if (dm) {
+        await this.prisma.driverManagerAssignment.create({
+          data: {
+            driverManagerId: dm.id,
+            driverId: driver.id,
+          },
+        });
+      }
+    }
+
     // Log the action
     await this.logAdminAction(
       adminId,
@@ -1123,6 +1149,41 @@ export class DriversService {
       }
     }
 
+    if (dto.driverManagerUserId !== undefined) {
+      if (!dto.driverManagerUserId) {
+        await this.prisma.driverManagerAssignment.deleteMany({
+          where: { driverId },
+        });
+      } else {
+        let dm = await this.prisma.driverManager.findUnique({
+          where: { userId: dto.driverManagerUserId },
+        });
+        if (!dm) {
+          const dmUser = await this.prisma.user.findUnique({
+            where: { id: dto.driverManagerUserId },
+            select: { role: true },
+          });
+          if (dmUser?.role === Role.DRIVER_MANAGER) {
+            dm = await this.prisma.driverManager.create({
+              data: { userId: dto.driverManagerUserId },
+            });
+          }
+        }
+        if (dm) {
+          await this.prisma.driverManagerAssignment.upsert({
+            where: { driverId },
+            create: {
+              driverId,
+              driverManagerId: dm.id,
+            },
+            update: {
+              driverManagerId: dm.id,
+            },
+          });
+        }
+      }
+    }
+
     await this.driversRepository.update(driverId, updateData);
 
     // Log the action
@@ -1167,11 +1228,17 @@ export class DriversService {
     }
   }
 
-  async adminFindAll(dto: QueryDriversDto) {
+  async adminFindAll(dto: QueryDriversDto, actor?: JwtAccessPayload) {
+    let allowedDriverIds: string[] | undefined;
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      allowedDriverIds = await this.driverManagersService.getManagedDriverIds(actor.sub);
+    }
+
     const result = await this.driversRepository.findAll({
       status: dto.status,
       search: dto.search,
       zoneId: dto.zoneId,
+      driverIds: allowedDriverIds,
       page: dto.page ?? 1,
       limit: dto.limit ?? 20,
     });
@@ -1185,10 +1252,18 @@ export class DriversService {
     return {
       ...result,
       drivers: (result.drivers as any[]).map((d) => {
-        const { lastLocation, ...rest } = d;
+        const { lastLocation, managerAssignment, ...rest } = d;
         const loc = liveMap.get(d.id) ?? persistedMap.get(d.id) ?? null;
         return {
           ...rest,
+          driverManager: managerAssignment?.driverManager
+            ? {
+                id: managerAssignment.driverManager.id,
+                userId: managerAssignment.driverManager.userId,
+                name: managerAssignment.driverManager.user?.name,
+                phone: managerAssignment.driverManager.user?.phone,
+              }
+            : null,
           location: loc ? [loc.lng, loc.lat] : null,
           locationIsLive: liveMap.has(d.id),
         };

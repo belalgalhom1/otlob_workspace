@@ -38,7 +38,19 @@ export class ReviewsProcessor extends WorkerHost {
 
     if (vendorId) {
       const agg = await this.prisma.orderReview.aggregate({
-        where: { vendorId, vendorRating: { not: null } },
+        where: {
+          OR: [
+            { vendorId },
+            {
+              order: {
+                vendorFulfillments: {
+                  some: { vendorId },
+                },
+              },
+            },
+          ],
+          vendorRating: { not: null },
+        },
         _avg: { vendorRating: true },
         _count: { _all: true },
       });
@@ -58,7 +70,19 @@ export class ReviewsProcessor extends WorkerHost {
 
     if (driverId) {
       const agg = await this.prisma.orderReview.aggregate({
-        where: { driverId, driverRating: { not: null } },
+        where: {
+          OR: [
+            { driverId },
+            {
+              order: {
+                deliveryGroups: {
+                  some: { primaryDriverId: driverId },
+                },
+              },
+            },
+          ],
+          driverRating: { not: null },
+        },
         _avg: { driverRating: true },
         _count: { _all: true },
       });

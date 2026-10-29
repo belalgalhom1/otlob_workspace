@@ -213,6 +213,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
   final AdminUpdateDriverDtoStatusEnum? status;
   @override
   final bool? isApproved;
+  @override
+  final JsonObject? driverManagerUserId;
 
   factory _$AdminUpdateDriverDto([
     void Function(AdminUpdateDriverDtoBuilder)? updates,
@@ -226,6 +228,7 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
     this.vehiclePlate,
     this.status,
     this.isApproved,
+    this.driverManagerUserId,
   }) : super._();
   @override
   AdminUpdateDriverDto rebuild(
@@ -246,7 +249,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
         vehicleType == other.vehicleType &&
         vehiclePlate == other.vehiclePlate &&
         status == other.status &&
-        isApproved == other.isApproved;
+        isApproved == other.isApproved &&
+        driverManagerUserId == other.driverManagerUserId;
   }
 
   @override
@@ -259,6 +263,7 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
     _$hash = $jc(_$hash, vehiclePlate.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, isApproved.hashCode);
+    _$hash = $jc(_$hash, driverManagerUserId.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -272,7 +277,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
           ..add('vehicleType', vehicleType)
           ..add('vehiclePlate', vehiclePlate)
           ..add('status', status)
-          ..add('isApproved', isApproved))
+          ..add('isApproved', isApproved)
+          ..add('driverManagerUserId', driverManagerUserId))
         .toString();
   }
 }
@@ -311,6 +317,11 @@ class AdminUpdateDriverDtoBuilder
   bool? get isApproved => _$this._isApproved;
   set isApproved(bool? isApproved) => _$this._isApproved = isApproved;
 
+  JsonObject? _driverManagerUserId;
+  JsonObject? get driverManagerUserId => _$this._driverManagerUserId;
+  set driverManagerUserId(JsonObject? driverManagerUserId) =>
+      _$this._driverManagerUserId = driverManagerUserId;
+
   AdminUpdateDriverDtoBuilder() {
     AdminUpdateDriverDto._defaults(this);
   }
@@ -325,6 +336,7 @@ class AdminUpdateDriverDtoBuilder
       _vehiclePlate = $v.vehiclePlate;
       _status = $v.status;
       _isApproved = $v.isApproved;
+      _driverManagerUserId = $v.driverManagerUserId;
       _$v = null;
     }
     return this;
@@ -354,6 +366,7 @@ class AdminUpdateDriverDtoBuilder
           vehiclePlate: vehiclePlate,
           status: status,
           isApproved: isApproved,
+          driverManagerUserId: driverManagerUserId,
         );
     replace(_$result);
     return _$result;

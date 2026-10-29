@@ -324,21 +324,46 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       vendorLng = double.tryParse((vendorData['longitude'] ?? 0.0).toString()) ?? 0.0;
     }
 
-    if (vendorLat == 0.0 && vendorLng == 0.0 && order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) {
+    final List<Map<String, dynamic>> pickupStops = [];
+    if (order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) {
       for (final f in (order['vendorFulfillments'] as List)) {
         if (f is Map && f['vendorBranch'] is Map) {
           final branch = f['vendorBranch'] as Map;
+          double bLng = 0.0;
+          double bLat = 0.0;
           if (branch['location'] is List && (branch['location'] as List).length > 1) {
-            vendorLng = double.tryParse(branch['location'][0].toString()) ?? 0.0;
-            vendorLat = double.tryParse(branch['location'][1].toString()) ?? 0.0;
-            if (vendorLat != 0.0 || vendorLng != 0.0) break;
+            bLng = double.tryParse(branch['location'][0].toString()) ?? 0.0;
+            bLat = double.tryParse(branch['location'][1].toString()) ?? 0.0;
           } else if (branch['lng'] != null && branch['lat'] != null) {
-            vendorLng = double.tryParse(branch['lng'].toString()) ?? 0.0;
-            vendorLat = double.tryParse(branch['lat'].toString()) ?? 0.0;
-            if (vendorLat != 0.0 || vendorLng != 0.0) break;
+            bLng = double.tryParse(branch['lng'].toString()) ?? 0.0;
+            bLat = double.tryParse(branch['lat'].toString()) ?? 0.0;
+          }
+          if (bLat != 0.0 && bLng != 0.0) {
+            final v = f['vendor'] is Map ? f['vendor'] as Map : {};
+            final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
+            final branchName = (branch['nameAr'] ?? branch['name'] ?? '').toString();
+            pickupStops.add({
+              'lat': bLat,
+              'lng': bLng,
+              'name': branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
+              'status': f['status']?.toString() ?? 'PENDING',
+            });
+            if (vendorLat == 0.0 && vendorLng == 0.0) {
+              vendorLat = bLat;
+              vendorLng = bLng;
+            }
           }
         }
       }
+    }
+
+    if (pickupStops.isEmpty && vendorLat != 0.0 && vendorLng != 0.0) {
+      pickupStops.add({
+        'lat': vendorLat,
+        'lng': vendorLng,
+        'name': (vendorData is Map ? (vendorData['storeNameAr'] ?? vendorData['storeName'] ?? vendorData['name']) : 'Store').toString(),
+        'status': order['status'] ?? 'PENDING',
+      });
     }
     
     final dl = order['deliveryLocation'];
@@ -358,20 +383,13 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final status = order['status'] ?? '';
     final isCashOnDelivery = order['paymentMethod'] == 'CASH_ON_DELIVERY';
     final isMobileWallet = order['paymentMethod'] == 'MOBILE_WALLET';
+    final isDelivering = status == 'PICKED_UP' || status == 'PENDING_PAYMENT';
     
     LatLng? targetLocation;
-    if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP' || status == 'PREPARING') {
-      final lat = double.tryParse(vendorLat.toString());
-      final lng = double.tryParse(vendorLng.toString());
-      if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
-        targetLocation = LatLng(lat, lng);
-      }
-    } else if (status == 'PICKED_UP' || status == 'PENDING_PAYMENT') {
-      final lat = double.tryParse(customerLat.toString());
-      final lng = double.tryParse(customerLng.toString());
-      if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
-        targetLocation = LatLng(lat, lng);
-      }
+    if (!isDelivering && pickupStops.isNotEmpty) {
+      targetLocation = LatLng(pickupStops.first['lat'] as double, pickupStops.first['lng'] as double);
+    } else if (isDelivering && customerLat != 0.0 && customerLng != 0.0) {
+      targetLocation = LatLng(customerLat, customerLng);
     }
 
     final List<Marker> markers = [];
@@ -383,24 +401,103 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         ),
       );
     }
-    if (targetLocation != null && targetLocation.latitude != 0) {
-      markers.add(
-        Marker(
-          point: targetLocation,
-          child: Icon(
-            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT') ? LucideIcons.mapPin : LucideIcons.store, 
-            color: AppColors.primary, 
-            size: 32,
+
+    if (isDelivering) {
+      if (customerLat != 0.0 && customerLng != 0.0) {
+        markers.add(
+          Marker(
+            point: LatLng(customerLat, customerLng),
+            child: const Icon(
+              LucideIcons.mapPin,
+              color: Colors.red,
+              size: 34,
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } else {
+      for (int i = 0; i < pickupStops.length; i++) {
+        final stop = pickupStops[i];
+        final stopLat = stop['lat'] as double;
+        final stopLng = stop['lng'] as double;
+        final stopName = stop['name'] as String;
+        final isMultiple = pickupStops.length > 1;
+
+        markers.add(
+          Marker(
+            point: LatLng(stopLat, stopLng),
+            width: isMultiple ? 90 : 36,
+            height: isMultiple ? 48 : 36,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(LucideIcons.store, color: Colors.black, size: 16),
+                    ),
+                    if (isMultiple)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 6,
+                          backgroundColor: Colors.black,
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (isMultiple)
+                  Container(
+                    margin: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      stopName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 8),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }
     }
 
-    // Determine Polyline (just a straight line for now until routing API is integrated)
+    // Determine Polyline
     final List<LatLng> polylinePoints = [];
-    if (_currentPosition != null && targetLocation != null && targetLocation.latitude != 0) {
+    if (_currentPosition != null) {
       polylinePoints.add(LatLng(_currentPosition!.latitude, _currentPosition!.longitude));
-      polylinePoints.add(targetLocation);
+      if (isDelivering) {
+        if (customerLat != 0.0 && customerLng != 0.0) {
+          polylinePoints.add(LatLng(customerLat, customerLng));
+        }
+      } else {
+        for (final stop in pickupStops) {
+          polylinePoints.add(LatLng(stop['lat'] as double, stop['lng'] as double));
+        }
+      }
     }
 
     return Stack(

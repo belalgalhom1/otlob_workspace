@@ -126,15 +126,13 @@ class VendorNotifier extends _$VendorNotifier {
       }
       b.categoryId = data['categoryId'] ?? '';
       final variants = (data['variants'] as List? ?? []);
+      b.hasVariants = variants.isNotEmpty;
       if (variants.isNotEmpty) {
-        b.hasVariants = true;
         b.variants.replace(_buildVariantDtos(variants));
-      } else {
-        b.hasVariants = false;
-        final optionGroups = (data['optionGroups'] as List? ?? []);
-        if (optionGroups.isNotEmpty) {
-          b.optionGroups.replace(_buildOptionGroupDtos(optionGroups));
-        }
+      }
+      final optionGroups = (data['optionGroups'] as List? ?? []);
+      if (optionGroups.isNotEmpty) {
+        b.optionGroups.replace(_buildOptionGroupDtos(optionGroups));
       }
     });
 

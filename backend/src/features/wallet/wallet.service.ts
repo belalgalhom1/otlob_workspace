@@ -369,14 +369,21 @@ export class WalletService {
         driverId,
       );
       const normalized = (dto.type || '').toString().toUpperCase();
-      const allowed = ['PENALTY', 'ADJUSTMENT'];
-      if (!allowed.includes(normalized)) {
+      // Driver managers cannot adjust wallets - they can ONLY penalize / punish (deduct from wallet)
+      if (normalized !== 'PENALTY') {
         throw new ForbiddenException(CommonErrors.FORBIDDEN);
       }
-      // Driver managers can only punish - cannot add money to driver wallet
-      if (dto.amount > 0) {
-        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      if (dto.amount === 0) {
+        throw new BadRequestException('Penalty amount must be greater than zero');
       }
+      // Force deduction (minus from wallet)
+      dto.amount = -Math.abs(dto.amount);
+    } else if ((dto.type || '').toString().toUpperCase() === 'PENALTY') {
+      if (dto.amount === 0) {
+        throw new BadRequestException('Penalty amount must be greater than zero');
+      }
+      // Penalties are always deductions
+      dto.amount = -Math.abs(dto.amount);
     }
 
     const type = this.normalizeDriverType(dto.type);

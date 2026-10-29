@@ -128,8 +128,8 @@ class AdminDriversRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> offerAssistToNearest(String requestId) async {
-    final response = await _api.driversControllerOfferAssistToNearest(requestId: requestId);
+  Future<dynamic> offerAssistToNearest(String requestId, {String limit = '5'}) async {
+    final response = await _api.driversControllerOfferAssistToNearest(requestId: requestId, limit: limit);
     return ResponseParser.parse(response);
   }
 
@@ -144,6 +144,43 @@ class AdminDriversRepository {
     final response = await _dio.get('/driver-managers/me/transactions', queryParameters: {
       'page': page,
       'limit': limit,
+    });
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> listDriverManagers() async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.get('/driver-managers');
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> getDriverManagerDetails(String userId) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.get('/driver-managers/$userId');
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> assignDriversToManager({
+    required String driverManagerUserId,
+    List<String>? driverIds,
+    bool? manageAllDrivers,
+  }) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.post('/driver-managers/assign', data: {
+      'driverManagerUserId': driverManagerUserId,
+      'driverIds': ?driverIds,
+      'manageAllDrivers': ?manageAllDrivers,
+    });
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> unassignDriversFromManager({
+    required String driverManagerUserId,
+    required List<String> driverIds,
+  }) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.post('/driver-managers/$driverManagerUserId/unassign', data: {
+      'driverIds': driverIds,
     });
     return ResponseParser.parse(response);
   }

@@ -364,12 +364,33 @@ export class StatisticsService {
     //  - Stats are written asynchronously via the stats queue AFTER commit, so
     //    the settlement transaction stays short (money only) and the stat
     //    workers scale independently.
-    const manager = zoneId
-      ? await this.prisma.driverManager.findFirst({
-          where: { zoneId },
+    const assignment = driverId
+      ? await this.prisma.driverManagerAssignment.findUnique({
+          where: { driverId },
+          select: { driverManagerId: true },
+        })
+      : null;
+
+    let manager = assignment
+      ? await this.prisma.driverManager.findUnique({
+          where: { id: assignment.driverManagerId },
           select: { id: true },
         })
       : null;
+
+    if (!manager && zoneId) {
+      manager = await this.prisma.driverManager.findFirst({
+        where: { zoneId },
+        select: { id: true },
+      });
+    }
+
+    if (!manager) {
+      manager = await this.prisma.driverManager.findFirst({
+        where: { manageAllDrivers: true },
+        select: { id: true },
+      });
+    }
     const managerShareRate =
       (settings.driverManagerCommissionRate ?? 10) / 100;
     const managerShare = manager

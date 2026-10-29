@@ -300,8 +300,11 @@ export class DriversController {
   @Get()
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] List all drivers' })
-  adminFindAll(@Query() dto: QueryDriversDto) {
-    return this.driversService.adminFindAll(dto);
+  adminFindAll(
+    @Query() dto: QueryDriversDto,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminFindAll(dto, actor);
   }
 
   // NOTE: static `breaks/*` routes must stay BEFORE `:driverId` param routes.

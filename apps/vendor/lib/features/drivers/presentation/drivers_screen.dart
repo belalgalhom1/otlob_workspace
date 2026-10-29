@@ -1,3 +1,4 @@
+import 'driver_managers_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -354,6 +355,21 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
             if (_canManageDrivers) ...[
               OutlinedButton.icon(
                 onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DriverManagersScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(LucideIcons.userCheck, size: 16),
+                label: Text(
+                  AppLocalizations.of(context)!.localeName == 'ar'
+                      ? 'مديرو المناديب'
+                      : 'Driver Managers',
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
                   showDialog(
                     context: context,
                     builder: (context) => const AssistRequestsDialog(),
@@ -536,6 +552,23 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                                 ],
                               ),
                             ),
+                            if (driver.driverManagerName != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(LucideIcons.userCheck, size: 14, color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${AppLocalizations.of(context)!.localeName == "ar" ? "المدير" : "Manager"}: ${driver.driverManagerName}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             Wrap(
                               spacing: 0,

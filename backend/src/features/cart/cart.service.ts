@@ -735,9 +735,10 @@ export class CartService {
     variantId?: string,
   ) {
     // Collect all valid option IDs for this product/variant
-    const groups = variantId
+    const variantGroups = variantId
       ? (product.variants.find((v) => v.id === variantId)?.optionGroups ?? [])
-      : product.optionGroups;
+      : [];
+    const groups = [...(product.optionGroups ?? []), ...variantGroups];
 
     const validOptionIds = new Set<string>(
       groups.flatMap((g) => g.options.map((o) => o.id)),

@@ -17,6 +17,26 @@ export class DriversRepository {
   async findById(driverId: string) {
     return this.prisma.driver.findUnique({
       where: { id: driverId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatar: true,
+          },
+        },
+        managerAssignment: {
+          include: {
+            driverManager: {
+              include: {
+                user: { select: { id: true, name: true, email: true, phone: true } },
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -128,6 +148,7 @@ export class DriversRepository {
     status?: DriverStatus;
     search?: string;
     zoneId?: string;
+    driverIds?: string[];
     page: number;
     limit: number;
   }) {
@@ -254,6 +275,15 @@ export class DriversRepository {
       where.id = { in: zoneDriverIds };
     }
 
+    if (filters.driverIds) {
+      if (where.id && (where.id as any).in) {
+        const allowedSet = new Set(filters.driverIds);
+        where.id = { in: (where.id as any).in.filter((id: string) => allowedSet.has(id)) };
+      } else {
+        where.id = { in: filters.driverIds };
+      }
+    }
+
     const [drivers, total] = await Promise.all([
       this.prisma.driver.findMany({
         where,
@@ -262,6 +292,15 @@ export class DriversRepository {
         take: limit,
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
+          managerAssignment: {
+            include: {
+              driverManager: {
+                include: {
+                  user: { select: { id: true, name: true, email: true, phone: true } },
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.driver.count({ where }),

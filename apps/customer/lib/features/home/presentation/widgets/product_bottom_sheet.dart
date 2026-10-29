@@ -43,21 +43,36 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     _selectedUnit = widget.initialUnit;
     
     final variants = widget.item['variants'] as List<dynamic>? ?? [];
-    if (widget.item['hasVariants'] == true && variants.isNotEmpty) {
+    final bool hasVariants = (widget.item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
+    if (hasVariants) {
       _selectedVariant = variants.first as Map<String, dynamic>;
     }
     
     final productOptionGroups = widget.item['optionGroups'] as List<dynamic>? ?? [];
     for (final group in productOptionGroups) {
       final gId = group['id']?.toString() ?? '';
-      _selectedOptions[gId] = [];
+      final isRequired = group['isRequired'] == true;
+      final maxSelect = (group['maxSelect'] as num?)?.toInt() ?? int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+      final options = group['options'] as List<dynamic>? ?? [];
+      if (isRequired && maxSelect == 1 && options.isNotEmpty) {
+        _selectedOptions[gId] = [options.first as Map<String, dynamic>];
+      } else {
+        _selectedOptions[gId] = [];
+      }
     }
 
     if (_selectedVariant != null) {
       final variantOptionGroups = _selectedVariant!['optionGroups'] as List<dynamic>? ?? [];
       for (final group in variantOptionGroups) {
         final gId = group['id']?.toString() ?? '';
-        _selectedOptions[gId] = [];
+        final isRequired = group['isRequired'] == true;
+        final maxSelect = (group['maxSelect'] as num?)?.toInt() ?? int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+        final options = group['options'] as List<dynamic>? ?? [];
+        if (isRequired && maxSelect == 1 && options.isNotEmpty) {
+          _selectedOptions[gId] = [options.first as Map<String, dynamic>];
+        } else {
+          _selectedOptions[gId] = [];
+        }
       }
     }
   }
@@ -71,9 +86,10 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
 
   void _toggleOption(Map<String, dynamic> group, Map<String, dynamic> option) {
     final groupId = group['id']?.toString() ?? '';
-    final maxSelect = group['maxSelect'] is int 
-        ? group['maxSelect'] as int 
-        : int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+    final isRequired = group['isRequired'] == true;
+    final maxSelect = (group['maxSelect'] as num?)?.toInt() ?? 
+        int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+    final safeMax = maxSelect <= 0 ? 1 : maxSelect;
     final list = List<Map<String, dynamic>>.from(_selectedOptions[groupId] ?? []);
     final optId = option['id']?.toString() ?? '';
     
@@ -81,17 +97,16 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     
     setState(() {
       if (isSelected) {
-        final isRequired = group['isRequired'] == true;
-        if (maxSelect == 1 && isRequired) {
+        if (safeMax == 1 && isRequired) {
           return;
         }
         list.removeWhere((o) => o['id']?.toString() == optId);
       } else {
-        if (maxSelect == 1) {
+        if (safeMax == 1) {
           list.clear();
           list.add(option);
         } else {
-          if (list.length < maxSelect) {
+          if (list.length < safeMax) {
             list.add(option);
           } else {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -100,8 +115,8 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
               SnackBar(
                 content: Text(
                   isAr 
-                    ? 'الحد الأقصى للاختيار هو $maxSelect' 
-                    : 'Maximum selection is $maxSelect',
+                    ? 'الحد الأقصى للاختيار هو $safeMax' 
+                    : 'Maximum selection is $safeMax',
                 ),
                 duration: const Duration(seconds: 1),
                 behavior: SnackBarBehavior.floating,
@@ -218,17 +233,20 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
         : item['description'] as String? ?? '';
 
     final variants = item['variants'] as List<dynamic>? ?? [];
+    final bool hasVariants = (item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
     final productOptionGroups = item['optionGroups'] as List<dynamic>? ?? [];
     final variantOptionGroups = _selectedVariant?['optionGroups'] as List<dynamic>? ?? [];
     final optionGroups = [...productOptionGroups, ...variantOptionGroups];
 
     // Check if required options are met
     bool requiredMet = true;
+    if (hasVariants && _selectedVariant == null) {
+      requiredMet = false;
+    }
     for (final group in optionGroups) {
       if (group['isRequired'] == true) {
-        final minSelect = group['minSelect'] is int 
-            ? group['minSelect'] as int 
-            : int.tryParse(group['minSelect']?.toString() ?? '1') ?? 1;
+        final minSelect = (group['minSelect'] as num?)?.toInt() ?? 
+            int.tryParse(group['minSelect']?.toString() ?? '1') ?? 1;
         final gId = group['id']?.toString() ?? '';
         final count = _selectedOptions[gId]?.length ?? 0;
         if (count < (minSelect > 0 ? minSelect : 1)) {
@@ -430,7 +448,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                     ),
                   ],
 
-                  if (item['hasVariants'] == true && variants.isNotEmpty) ...[
+                  if (hasVariants) ...[
                     const SizedBox(height: 24),
                     Text(
                       s.selectVariant,
@@ -449,70 +467,121 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                       final vDiscountPct = hasVDiscount 
                           ? (((originalVPrice - effectiveVPrice) / originalVPrice) * 100).round()
                           : 0;
+                      final vId = v['id']?.toString() ?? '';
+                      final isVSelected = _selectedVariant?['id']?.toString() == vId;
 
-                      return RadioListTile<String>(
-                        title: Text(vName),
-                        subtitle: Row(
-                          children: [
-                            Text(
-                              '${effectiveVPrice.toStringAsFixed(effectiveVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: hasVDiscount ? AppColors.primary : null,
-                              ),
-                            ),
-                            if (hasVDiscount) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '${originalVPrice.toStringAsFixed(originalVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.white54 : Colors.grey.shade500,
-                                  decoration: TextDecoration.lineThrough,
+                      void selectVariant() {
+                        setState(() {
+                          _selectedVariant = v as Map<String, dynamic>;
+                          // Keep product-level option group selections intact, only reset variant option groups
+                          final productGroupIds = (widget.item['optionGroups'] as List<dynamic>? ?? [])
+                              .map((g) => g['id']?.toString() ?? '')
+                              .toSet();
+                          _selectedOptions.removeWhere((groupId, _) => !productGroupIds.contains(groupId));
+                          final vOptionGroups = v['optionGroups'] as List<dynamic>? ?? [];
+                          for (final g in vOptionGroups) {
+                            final gId = g['id']?.toString() ?? '';
+                            final isRequired = g['isRequired'] == true;
+                            final maxSelect = (g['maxSelect'] as num?)?.toInt() ?? int.tryParse(g['maxSelect']?.toString() ?? '1') ?? 1;
+                            final options = g['options'] as List<dynamic>? ?? [];
+                            if (isRequired && maxSelect == 1 && options.isNotEmpty) {
+                              _selectedOptions[gId] = [options.first as Map<String, dynamic>];
+                            } else {
+                              _selectedOptions[gId] = [];
+                            }
+                          }
+                        });
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: isVSelected
+                              ? AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.08)
+                              : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isVSelected
+                                ? AppColors.primary
+                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
+                            width: isVSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: selectVariant,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Row(
+                              children: [
+                                Radio<String>(
+                                  value: vId,
+                                  groupValue: _selectedVariant?['id']?.toString(),
+                                  activeColor: AppColors.primary,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  onChanged: (_) => selectVariant(),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.red.shade200, width: 0.5),
-                                ),
-                                child: Text(
-                                  '-$vDiscountPct%',
-                                  style: TextStyle(
-                                    color: Colors.red.shade700,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        vName,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: isVSelected ? FontWeight.bold : FontWeight.w600,
+                                          color: isDark ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${effectiveVPrice.toStringAsFixed(effectiveVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: hasVDiscount ? AppColors.primary : (isDark ? Colors.white70 : Colors.grey.shade700),
+                                            ),
+                                          ),
+                                          if (hasVDiscount) ...[
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${originalVPrice.toStringAsFixed(originalVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark ? Colors.white54 : Colors.grey.shade500,
+                                                decoration: TextDecoration.lineThrough,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.shade50,
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                              ),
+                                              child: Text(
+                                                '-$vDiscountPct%',
+                                                style: TextStyle(
+                                                  color: Colors.red.shade700,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                            ],
-                          ],
+                              ],
+                            ),
+                          ),
                         ),
-                        value: v['id'],
-                        groupValue: _selectedVariant?['id'],
-                        activeColor: AppColors.primary,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedVariant = v as Map<String, dynamic>;
-                            // Reset selected options so selections made for a
-                            // previous variant don't leak into this one.
-                            _selectedOptions.clear();
-                            final productGroups = widget.item['optionGroups'] as List<dynamic>? ?? [];
-                            for (final g in productGroups) {
-                              final gId = g['id']?.toString() ?? '';
-                              _selectedOptions[gId] = [];
-                            }
-                            final vOptionGroups = v['optionGroups'] as List<dynamic>? ?? [];
-                            for (final g in vOptionGroups) {
-                              final gId = g['id']?.toString() ?? '';
-                              _selectedOptions[gId] = [];
-                            }
-                          });
-                        },
                       );
                     }),
                   ],
@@ -623,29 +692,69 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                               final optId = opt['id']?.toString() ?? '';
                               final isSelected = (_selectedOptions[gId] ?? []).any((o) => o['id']?.toString() == optId);
                               
-                              if (maxSelect == 1) {
-                                return RadioListTile<String>(
-                                  title: Text(oName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                                  subtitle: oPrice > 0 ? Text('+${oPrice.toStringAsFixed(2)} ${s.egp}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)) : null,
-                                  value: optId,
-                                  groupValue: (_selectedOptions[gId]?.isNotEmpty ?? false)
-                                      ? _selectedOptions[gId]!.first['id']?.toString()
-                                      : null,
-                                  activeColor: AppColors.primary,
-                                  contentPadding: EdgeInsets.zero,
-                                  onChanged: (_) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
-                                );
-                              }
-
-                              return CheckboxListTile(
-                                title: Text(oName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                                subtitle: oPrice > 0 ? Text('+${oPrice.toStringAsFixed(2)} ${s.egp}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)) : null,
-                                value: isSelected,
-                                activeColor: AppColors.primary,
-                                checkColor: Colors.black,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity: ListTileControlAffinity.leading,
-                                onChanged: (val) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppColors.primary.withValues(alpha: isDark ? 0.12 : 0.06)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppColors.primary.withValues(alpha: 0.6)
+                                        : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        if (maxSelect == 1)
+                                          Radio<String>(
+                                            value: optId,
+                                            groupValue: (_selectedOptions[gId]?.isNotEmpty ?? false)
+                                                ? _selectedOptions[gId]!.first['id']?.toString()
+                                                : null,
+                                            activeColor: AppColors.primary,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            onChanged: (_) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                                          )
+                                        else
+                                          Checkbox(
+                                            value: isSelected,
+                                            activeColor: AppColors.primary,
+                                            checkColor: Colors.black,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            onChanged: (_) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                                          ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            oName,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                              color: isDark ? Colors.white : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        if (oPrice > 0)
+                                          Text(
+                                            '+${oPrice.toStringAsFixed(2)} ${s.egp}',
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               );
                             }),
                           ],

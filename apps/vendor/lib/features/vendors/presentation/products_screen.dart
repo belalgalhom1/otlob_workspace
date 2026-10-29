@@ -559,15 +559,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
                   b.categoryId = result['categoryId'] ?? '';
                   final variants = (result['variants'] as List? ?? []);
+                  b.hasVariants = variants.isNotEmpty;
                   if (variants.isNotEmpty) {
-                    b.hasVariants = true;
                     b.variants.replace(_buildVariantDtos(variants));
-                  } else {
-                    b.hasVariants = false;
-                    final optionGroups = (result['optionGroups'] as List? ?? []);
-                    if (optionGroups.isNotEmpty) {
-                      b.optionGroups.replace(_buildOptionGroupDtos(optionGroups));
-                    }
+                  }
+                  final optionGroups = (result['optionGroups'] as List? ?? []);
+                  if (optionGroups.isNotEmpty) {
+                    b.optionGroups.replace(_buildOptionGroupDtos(optionGroups));
                   }
                 }),
                 branchAvailabilityMode:

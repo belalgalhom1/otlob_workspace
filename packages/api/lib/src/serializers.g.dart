@@ -29,6 +29,7 @@ Serializers _$serializers =
           ..add(AppVersionCheckDto.serializer)
           ..add(AppVersionCheckDtoPlatformEnum.serializer)
           ..add(AssignAssistDriverDto.serializer)
+          ..add(AssignDriversToManagerDto.serializer)
           ..add(AuditActionType.serializer)
           ..add(AuditLogResponseDto.serializer)
           ..add(AuditLogsControllerFindAll200Response.serializer)
@@ -158,6 +159,7 @@ Serializers _$serializers =
           ..add(TicketPriority.serializer)
           ..add(TicketStatus.serializer)
           ..add(TopUpStatus.serializer)
+          ..add(UnassignDriversFromManagerDto.serializer)
           ..add(UpdateAddressDto.serializer)
           ..add(UpdateCartItemDto.serializer)
           ..add(UpdateDriverProfileDto.serializer)
@@ -338,6 +340,14 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(ReviewDto)]),
             () => ListBuilder<ReviewDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(String)]),

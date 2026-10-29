@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -23,13 +24,14 @@ part 'admin_create_driver_dto.g.dart';
 /// * [status] 
 /// * [tier] 
 /// * [isApproved] 
+/// * [driverManagerUserId] - Driver Manager User ID to assign to this driver
 @BuiltValue()
 abstract class AdminCreateDriverDto implements Built<AdminCreateDriverDto, AdminCreateDriverDtoBuilder> {
   @BuiltValueField(wireName: r'email')
   String get email;
 
   @BuiltValueField(wireName: r'phone')
-  String? get phone;
+  String get phone;
 
   @BuiltValueField(wireName: r'password')
   String get password;
@@ -60,6 +62,10 @@ abstract class AdminCreateDriverDto implements Built<AdminCreateDriverDto, Admin
   @BuiltValueField(wireName: r'isApproved')
   bool? get isApproved;
 
+  /// Driver Manager User ID to assign to this driver
+  @BuiltValueField(wireName: r'driverManagerUserId')
+  JsonObject? get driverManagerUserId;
+
   AdminCreateDriverDto._();
 
   factory AdminCreateDriverDto([void updates(AdminCreateDriverDtoBuilder b)]) = _$AdminCreateDriverDto;
@@ -89,13 +95,11 @@ class _$AdminCreateDriverDtoSerializer implements PrimitiveSerializer<AdminCreat
       object.email,
       specifiedType: const FullType(String),
     );
-    if (object.phone != null) {
-      yield r'phone';
-      yield serializers.serialize(
-        object.phone,
-        specifiedType: const FullType(String),
-      );
-    }
+    yield r'phone';
+    yield serializers.serialize(
+      object.phone,
+      specifiedType: const FullType(String),
+    );
     yield r'password';
     yield serializers.serialize(
       object.password,
@@ -151,6 +155,13 @@ class _$AdminCreateDriverDtoSerializer implements PrimitiveSerializer<AdminCreat
       yield serializers.serialize(
         object.isApproved,
         specifiedType: const FullType(bool),
+      );
+    }
+    if (object.driverManagerUserId != null) {
+      yield r'driverManagerUserId';
+      yield serializers.serialize(
+        object.driverManagerUserId,
+        specifiedType: const FullType.nullable(JsonObject),
       );
     }
   }
@@ -252,6 +263,14 @@ class _$AdminCreateDriverDtoSerializer implements PrimitiveSerializer<AdminCreat
             specifiedType: const FullType(bool),
           ) as bool;
           result.isApproved = valueDes;
+          break;
+        case r'driverManagerUserId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(JsonObject),
+          ) as JsonObject?;
+          if (valueDes == null) continue;
+          result.driverManagerUserId = valueDes;
           break;
         default:
           unhandled.add(key);

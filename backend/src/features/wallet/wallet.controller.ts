@@ -59,7 +59,7 @@ export class WalletController {
   @ApiStandardResponse(DriverWalletTransactionResponseDto)
   @Post('admin/drivers/:driverId/transaction')
   @Roles(Role.ADMIN, Role.DRIVER_MANAGER)
-  @RequirePermissions(Permission.MANAGE_FINANCE)
+  @RequirePermissions(Permission.MANAGE_FINANCE, Permission.MANAGE_DRIVERS, { mode: 'any' })
   @ApiOperation({
     summary: 'Manually adjust driver wallet (Payout, Penalty, etc.)',
   })

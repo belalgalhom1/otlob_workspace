@@ -37,7 +37,15 @@ export class ReviewsService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId, customerId: customer.id },
-      include: { review: true },
+      include: {
+        review: true,
+        vendorFulfillments: {
+          select: { vendorId: true, status: true },
+        },
+        deliveryGroups: {
+          select: { primaryDriverId: true },
+        },
+      },
     });
 
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
@@ -48,23 +56,51 @@ export class ReviewsService {
       throw new BadRequestException(ReviewErrors.ALREADY_RATED);
     }
 
+    const acceptedVendorIds = (order.vendorFulfillments ?? [])
+      .filter((f) => f.status === 'ACCEPTED')
+      .map((f) => f.vendorId);
+
+    const groupDriverIds = (order.deliveryGroups ?? [])
+      .map((g) => g.primaryDriverId)
+      .filter(Boolean);
+
+    const effectiveVendorId = order.vendorId ?? (acceptedVendorIds.length > 0 ? acceptedVendorIds[0] : null);
+    const effectiveDriverId = order.driverId ?? (groupDriverIds.length > 0 ? groupDriverIds[0] : null);
+
     await this.prisma.orderReview.create({
       data: {
         orderId,
         customerId: customer.id,
-        vendorId: order.vendorId,
-        driverId: order.driverId,
+        vendorId: effectiveVendorId,
+        driverId: effectiveDriverId,
         vendorRating: dto.vendorRating,
         driverRating: dto.driverRating,
         comment: dto.comment,
       },
     });
 
-    // Emit event so the listener can update aggregates safely
-    this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
-      vendorId: order.vendorId,
-      driverId: order.driverId,
-    });
+    // Emit event so the listener can update aggregates safely for all participating vendors and drivers
+    const allVendorIds = Array.from(
+      new Set([order.vendorId, ...acceptedVendorIds].filter(Boolean)),
+    );
+
+    const allDriverIds = Array.from(
+      new Set([order.driverId, ...groupDriverIds].filter(Boolean)),
+    );
+
+    for (const vId of allVendorIds) {
+      this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
+        vendorId: vId,
+        driverId: null,
+      });
+    }
+
+    for (const dId of allDriverIds) {
+      this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
+        vendorId: null,
+        driverId: dId,
+      });
+    }
   }
 
   async getVendorReviews(
@@ -73,9 +109,23 @@ export class ReviewsService {
     limit: number = 20,
   ) {
     const skip = (page - 1) * limit;
+    const whereClause = {
+      OR: [
+        { vendorId },
+        {
+          order: {
+            vendorFulfillments: {
+              some: { vendorId },
+            },
+          },
+        },
+      ],
+      vendorRating: { not: null },
+    };
+
     const [data, total] = await Promise.all([
       this.prisma.orderReview.findMany({
-        where: { vendorId, vendorRating: { not: null } },
+        where: whereClause,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -92,7 +142,7 @@ export class ReviewsService {
         },
       }),
       this.prisma.orderReview.count({
-        where: { vendorId, vendorRating: { not: null } },
+        where: whereClause,
       }),
     ]);
 
@@ -128,9 +178,23 @@ export class ReviewsService {
     limit: number = 20,
   ) {
     const skip = (page - 1) * limit;
+    const whereClause = {
+      OR: [
+        { driverId },
+        {
+          order: {
+            deliveryGroups: {
+              some: { primaryDriverId: driverId },
+            },
+          },
+        },
+      ],
+      driverRating: { not: null },
+    };
+
     const [data, total] = await Promise.all([
       this.prisma.orderReview.findMany({
-        where: { driverId, driverRating: { not: null } },
+        where: whereClause,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -147,7 +211,7 @@ export class ReviewsService {
         },
       }),
       this.prisma.orderReview.count({
-        where: { driverId, driverRating: { not: null } },
+        where: whereClause,
       }),
     ]);
 

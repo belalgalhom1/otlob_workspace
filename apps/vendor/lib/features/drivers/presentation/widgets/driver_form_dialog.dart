@@ -1,3 +1,4 @@
+import 'package:data/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -35,6 +36,8 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
   final _vehiclePlateController = TextEditingController();
   bool _isApproved = true;
   bool _isLoading = false;
+  String? _selectedDriverManagerUserId;
+  List<dynamic> _driverManagers = [];
 
   @override
   void initState() {
@@ -52,7 +55,21 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         _emailController.text = widget.driver!.user['email'] ?? '';
         _phoneController.text = widget.driver!.user['phone'] ?? '';
       }
+      _selectedDriverManagerUserId = widget.driver!.driverManagerUserId;
     }
+    _loadManagers();
+  }
+
+  Future<void> _loadManagers() async {
+    try {
+      final repo = ref.read(adminDriversRepositoryProvider);
+      final res = await repo.listDriverManagers();
+      if (res is List && mounted) {
+        setState(() {
+          _driverManagers = res;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -100,6 +117,7 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         if (vehicleType.isNotEmpty) 'vehicleType': vehicleType,
         if (vehiclePlate.isNotEmpty) 'vehiclePlate': vehiclePlate,
         'isApproved': _isApproved,
+        'driverManagerUserId': _selectedDriverManagerUserId,
       };
 
       if (widget.driver == null) {
@@ -129,6 +147,40 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Widget _buildDriverManagerDropdown() {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<String?>(
+        initialValue: _selectedDriverManagerUserId,
+        decoration: InputDecoration(
+          labelText: isAr ? 'مدير المندوب' : 'Driver Manager',
+          prefixIcon: const Icon(LucideIcons.userCheck),
+          helperText: isAr
+              ? 'تحديد مدير المندوب لتوجيه العمولات والمتابعة'
+              : 'Select driver manager for commissions and oversight',
+        ),
+        items: [
+          DropdownMenuItem<String?>(
+            value: null,
+            child: Text(isAr ? 'بدون مدير (غير معين)' : 'None (Unassigned)'),
+          ),
+          ..._driverManagers.map((m) {
+            final uid = (m['userId'] ?? '').toString();
+            final name = (m['name'] ?? '').toString();
+            final phone = (m['phone'] ?? '').toString();
+            final label = phone.isNotEmpty ? '$name ($phone)' : name;
+            return DropdownMenuItem<String?>(
+              value: uid,
+              child: Text(label),
+            );
+          }),
+        ],
+        onChanged: (val) => setState(() => _selectedDriverManagerUserId = val),
+      ),
+    );
   }
 
   Widget _buildField(String label, IconData icon, TextEditingController controller, [String? hint, bool isPassword = false]) {
@@ -235,6 +287,7 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
               _buildField(l10n.licenseNumber, LucideIcons.fileText, _licenseNumberController),
               _buildVehicleTypeDropdown(l10n.vehicleType, LucideIcons.car),
               _buildField(l10n.vehiclePlate, LucideIcons.hash, _vehiclePlateController),
+              _buildDriverManagerDropdown(),
               SwitchListTile(
                 title: Text(l10n.driverApprovedTitle),
                 subtitle: Text(l10n.driverApprovedSubtitle),

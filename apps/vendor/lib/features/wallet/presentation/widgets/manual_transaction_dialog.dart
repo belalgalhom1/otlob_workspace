@@ -30,11 +30,29 @@ class _ManualTransactionDialogState
   String _type = 'PAYOUT';
   bool _submitting = false;
   String? _error;
+  bool _isDriverManager = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkRole();
+  }
+
+  Future<void> _checkRole() async {
+    final authRepo = ref.read(sharedAuthRepositoryProvider);
+    final role = await authRepo.getUserRole();
+    if (role == 'DRIVER_MANAGER' && mounted) {
+      setState(() {
+        _isDriverManager = true;
+        _type = 'PENALTY';
+      });
+    }
+  }
 
   Future<void> _process() async {
     final l10n = AppLocalizations.of(context)!;
     final amount = double.tryParse(_amountController.text.trim());
-    if (amount == null || amount % 1 != 0) {
+    if (amount == null || amount % 1 != 0 || amount <= 0) {
       setState(() {
         _submitting = false;
         _error = l10n.failedWithError(l10n.invalidAmount);
@@ -80,46 +98,65 @@ class _ManualTransactionDialogState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     
     String getTranslatedType(String type) {
       switch (type) {
         case 'PAYOUT': return l10n.payout;
         case 'REFUND': return l10n.refund;
         case 'TOP_UP': return l10n.topUp;
-        case 'PENALTY': return l10n.penalty;
+        case 'PENALTY': return isAr ? 'جزاء / عقوبة' : l10n.penalty;
         case 'CASH_COLLECTION': return l10n.cashCollection;
         default: return type;
       }
     }
 
+    final availableTypes = _isDriverManager
+        ? ['PENALTY']
+        : [
+            'PAYOUT',
+            'REFUND',
+            'TOP_UP',
+            'PENALTY',
+            'CASH_COLLECTION',
+          ];
+
+    final title = _isDriverManager
+        ? (isAr ? 'تطبيق جزاء / عقوبة على السائق' : 'Apply Driver Penalty')
+        : (widget.isVendor ? l10n.adjustWalletVendor : l10n.adjustWalletDriver);
+
     return DialogScaffold(child: AlertDialog(
-      title: Text(widget.isVendor ? l10n.adjustWalletVendor : l10n.adjustWalletDriver),
+      title: Text(title),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
             initialValue: _type,
             isExpanded: true,
-            items: [
-              'PAYOUT',
-              'REFUND',
-              'TOP_UP',
-              'PENALTY',
-              'CASH_COLLECTION',
-            ].map((t) => DropdownMenuItem(
+            items: availableTypes.map((t) => DropdownMenuItem(
               value: t, 
               child: Text(
                 getTranslatedType(t),
                 overflow: TextOverflow.ellipsis,
               )
             )).toList(),
-            onChanged: (v) => setState(() => _type = v!),
-            decoration: InputDecoration(labelText: l10n.transactionType),
+            onChanged: _isDriverManager ? null : (v) => setState(() => _type = v!),
+            decoration: InputDecoration(
+              labelText: l10n.transactionType,
+              helperText: _isDriverManager
+                  ? (isAr ? 'مدير المناديب مصرح له بخصم الجزاءات فقط' : 'Driver managers may only apply penalties')
+                  : null,
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _amountController,
-            decoration: InputDecoration(labelText: l10n.amount),
+            decoration: InputDecoration(
+              labelText: l10n.amount,
+              helperText: _type == 'PENALTY'
+                  ? (isAr ? 'سيتم خصم هذا المبلغ من محفظة السائق' : 'This amount will be deducted from driver wallet')
+                  : null,
+            ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
@@ -163,4 +200,3 @@ class _ManualTransactionDialogState
     ));
   }
 }
-

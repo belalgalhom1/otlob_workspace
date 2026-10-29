@@ -16,12 +16,28 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { Role, Permission } from '@prisma/client';
 import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { DriverManagersService } from './driver-managers.service';
+import {
+  AssignDriversToManagerDto,
+  UnassignDriversFromManagerDto,
+} from './dto/driver-manager.dto';
 
 @ApiTags('Driver Managers')
 @ApiBearerAuth()
 @Controller('driver-managers')
 export class DriverManagersController {
   constructor(private readonly service: DriverManagersService) {}
+
+  @ApiStandardResponse()
+  @Get()
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] List all driver managers with assigned driver counts',
+  })
+  listManagers() {
+    return this.service.listManagers();
+  }
 
   @ApiStandardResponse()
   @Get('me/wallet')
@@ -47,21 +63,42 @@ export class DriverManagersController {
 
   @ApiStandardResponse()
   @Post('assign')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[Super Admin] Assign drivers to a driver manager (all or specific). Each driver can be assigned to only one manager.',
+    summary:
+      '[Admin] Assign drivers to a driver manager (all or specific). Each driver can be assigned to only one manager.',
   })
-  assignDrivers(
-    @Body()
-    body: {
-      driverManagerUserId: string;
-      driverIds?: string[];
-      manageAllDrivers?: boolean;
-    },
-  ) {
+  assignDrivers(@Body() body: AssignDriversToManagerDto) {
     return this.service.assignDrivers(body);
+  }
+
+  @ApiStandardResponse()
+  @Get(':userId')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Get driver manager details and assigned drivers',
+  })
+  getManagerDetails(@Param('userId') userId: string) {
+    return this.service.getManagerDetails(userId);
+  }
+
+  @ApiStandardResponse()
+  @Post(':userId/unassign')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Unassign specific drivers from a driver manager',
+  })
+  unassignDrivers(
+    @Param('userId') userId: string,
+    @Body() body: UnassignDriversFromManagerDto,
+  ) {
+    return this.service.unassignDrivers(userId, body.driverIds);
   }
 
   @ApiStandardResponse()

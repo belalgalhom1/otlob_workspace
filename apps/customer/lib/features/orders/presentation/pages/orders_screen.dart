@@ -785,6 +785,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               final product = i['product'] as Map<String, dynamic>?;
               final productImgUrl = product?['imageUrl'] as String?;
               final productName = i['productName'] ?? i['name'] ?? '';
+              final bool isRejected = i['rejectedAt'] != null;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -815,13 +816,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${i['quantity']}x $productName',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${i['quantity']}x $productName',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isRejected
+                                        ? Colors.grey
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                    decoration: isRejected ? TextDecoration.lineThrough : null,
+                                  ),
+                                ),
+                              ),
+                              if (isRejected) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    s.isArabic ? 'ملغي / مسترجع' : 'Cancelled',
+                                    style: const TextStyle(fontSize: 9, color: Colors.red, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           for (final opt in ((i['selectedOptions'] as List?) ?? []))
                             if ((opt is Map) && (opt['optionName']?.toString().isNotEmpty ?? false))
@@ -843,7 +867,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white60 : Colors.grey.shade700,
+                        color: isRejected ? Colors.grey : (isDark ? Colors.white60 : Colors.grey.shade700),
+                        decoration: isRejected ? TextDecoration.lineThrough : null,
                       ),
                     ),
                   ],

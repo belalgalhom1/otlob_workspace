@@ -18,6 +18,7 @@ import 'package:api/src/api/customers_api.dart';
 import 'package:api/src/api/devices_push_notifications_api.dart';
 import 'package:api/src/api/driver_shifts_api.dart';
 import 'package:api/src/api/drivers_api.dart';
+import 'package:api/src/api/driver_managers_api.dart';
 import 'package:api/src/api/health_system_api.dart';
 import 'package:api/src/api/inbox_summary_counts_api.dart';
 import 'package:api/src/api/logistics_zones_api.dart';
@@ -185,6 +186,10 @@ class Api {
   /// by doing that all interceptors will not be executed
   DriversApi getDriversApi() {
     return DriversApi(dio, serializers);
+  }
+
+  DriverManagersApi getDriverManagersApi() {
+    return DriverManagersApi(dio, serializers);
   }
 
   /// Get HealthSystemApi instance, base route and serializer can be overridden by a given but be careful,

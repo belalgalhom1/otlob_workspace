@@ -202,7 +202,7 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
   @override
   final String email;
   @override
-  final String? phone;
+  final String phone;
   @override
   final String password;
   @override
@@ -221,6 +221,8 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
   final String? tier;
   @override
   final bool? isApproved;
+  @override
+  final JsonObject? driverManagerUserId;
 
   factory _$AdminCreateDriverDto([
     void Function(AdminCreateDriverDtoBuilder)? updates,
@@ -228,7 +230,7 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
 
   _$AdminCreateDriverDto._({
     required this.email,
-    this.phone,
+    required this.phone,
     required this.password,
     required this.name,
     this.nationalId,
@@ -238,6 +240,7 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
     this.status,
     this.tier,
     this.isApproved,
+    this.driverManagerUserId,
   }) : super._();
   @override
   AdminCreateDriverDto rebuild(
@@ -262,7 +265,8 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
         vehiclePlate == other.vehiclePlate &&
         status == other.status &&
         tier == other.tier &&
-        isApproved == other.isApproved;
+        isApproved == other.isApproved &&
+        driverManagerUserId == other.driverManagerUserId;
   }
 
   @override
@@ -279,6 +283,7 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, tier.hashCode);
     _$hash = $jc(_$hash, isApproved.hashCode);
+    _$hash = $jc(_$hash, driverManagerUserId.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -296,7 +301,8 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
           ..add('vehiclePlate', vehiclePlate)
           ..add('status', status)
           ..add('tier', tier)
-          ..add('isApproved', isApproved))
+          ..add('isApproved', isApproved)
+          ..add('driverManagerUserId', driverManagerUserId))
         .toString();
   }
 }
@@ -351,6 +357,11 @@ class AdminCreateDriverDtoBuilder
   bool? get isApproved => _$this._isApproved;
   set isApproved(bool? isApproved) => _$this._isApproved = isApproved;
 
+  JsonObject? _driverManagerUserId;
+  JsonObject? get driverManagerUserId => _$this._driverManagerUserId;
+  set driverManagerUserId(JsonObject? driverManagerUserId) =>
+      _$this._driverManagerUserId = driverManagerUserId;
+
   AdminCreateDriverDtoBuilder() {
     AdminCreateDriverDto._defaults(this);
   }
@@ -369,6 +380,7 @@ class AdminCreateDriverDtoBuilder
       _status = $v.status;
       _tier = $v.tier;
       _isApproved = $v.isApproved;
+      _driverManagerUserId = $v.driverManagerUserId;
       _$v = null;
     }
     return this;
@@ -396,7 +408,11 @@ class AdminCreateDriverDtoBuilder
             r'AdminCreateDriverDto',
             'email',
           ),
-          phone: phone,
+          phone: BuiltValueNullFieldError.checkNotNull(
+            phone,
+            r'AdminCreateDriverDto',
+            'phone',
+          ),
           password: BuiltValueNullFieldError.checkNotNull(
             password,
             r'AdminCreateDriverDto',
@@ -418,6 +434,7 @@ class AdminCreateDriverDtoBuilder
           status: status,
           tier: tier,
           isApproved: isApproved,
+          driverManagerUserId: driverManagerUserId,
         );
     replace(_$result);
     return _$result;

@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -19,6 +20,7 @@ part 'admin_update_driver_dto.g.dart';
 /// * [vehiclePlate] 
 /// * [status] 
 /// * [isApproved] 
+/// * [driverManagerUserId] - Driver Manager User ID to assign to this driver (or null to unassign)
 @BuiltValue()
 abstract class AdminUpdateDriverDto implements Built<AdminUpdateDriverDto, AdminUpdateDriverDtoBuilder> {
   @BuiltValueField(wireName: r'name')
@@ -43,6 +45,10 @@ abstract class AdminUpdateDriverDto implements Built<AdminUpdateDriverDto, Admin
 
   @BuiltValueField(wireName: r'isApproved')
   bool? get isApproved;
+
+  /// Driver Manager User ID to assign to this driver (or null to unassign)
+  @BuiltValueField(wireName: r'driverManagerUserId')
+  JsonObject? get driverManagerUserId;
 
   AdminUpdateDriverDto._();
 
@@ -116,6 +122,13 @@ class _$AdminUpdateDriverDtoSerializer implements PrimitiveSerializer<AdminUpdat
         specifiedType: const FullType(bool),
       );
     }
+    if (object.driverManagerUserId != null) {
+      yield r'driverManagerUserId';
+      yield serializers.serialize(
+        object.driverManagerUserId,
+        specifiedType: const FullType.nullable(JsonObject),
+      );
+    }
   }
 
   @override
@@ -187,6 +200,14 @@ class _$AdminUpdateDriverDtoSerializer implements PrimitiveSerializer<AdminUpdat
             specifiedType: const FullType(bool),
           ) as bool;
           result.isApproved = valueDes;
+          break;
+        case r'driverManagerUserId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(JsonObject),
+          ) as JsonObject?;
+          if (valueDes == null) continue;
+          result.driverManagerUserId = valueDes;
           break;
         default:
           unhandled.add(key);

@@ -13,6 +13,10 @@ class DriverProfile {
   final double walletBalance;
   final List<double>? location; // [longitude, latitude]
   final dynamic user; // Include nested user data if joined
+  final Map<String, dynamic>? driverManager;
+
+  String? get driverManagerName => driverManager?['name']?.toString();
+  String? get driverManagerUserId => driverManager?['userId']?.toString();
 
   DriverProfile({
     required this.id,
@@ -29,6 +33,7 @@ class DriverProfile {
     required this.walletBalance,
     this.location,
     this.user,
+    this.driverManager,
   });
 
   factory DriverProfile.fromJson(Map<String, dynamic> json) {
@@ -75,6 +80,7 @@ class DriverProfile {
       walletBalance: _toDouble(json['walletBalance']),
       location: _toLocation(json['location']),
       user: rawUser,
+      driverManager: json['driverManager'] is Map ? Map<String, dynamic>.from(json['driverManager']) : null,
     );
   }
 }

@@ -217,7 +217,7 @@ export class ProductsService implements OnModuleInit {
           nameAr: dto.nameAr ?? null,
           description: dto.description ?? null,
           descriptionAr: dto.descriptionAr ?? null,
-          hasVariants: dto.hasVariants ?? false,
+          hasVariants: (dto.hasVariants ?? false) || Boolean(dto.variants?.length),
           basePrice: dto.basePrice ?? null,
           comparePrice: dto.comparePrice ?? null,
           sku,
@@ -241,12 +241,12 @@ export class ProductsService implements OnModuleInit {
       }
 
       // Create option groups + options for simple products
-      if (!dto.hasVariants && dto.optionGroups?.length) {
+      if (dto.optionGroups?.length) {
         await this.createOptionGroups(tx, created.id, null, dto.optionGroups);
       }
 
       // Create variants + their option groups
-      if (dto.hasVariants && dto.variants?.length) {
+      if (dto.variants?.length) {
         for (const variantDto of dto.variants) {
           await this.createVariantWithOptions(tx, created.id, variantDto);
         }

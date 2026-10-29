@@ -13,6 +13,7 @@ import {
   MaxLength,
   IsIn,
   IsBoolean,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DriverStatus, DriverBreakReason, VehicleType } from '@prisma/client';
@@ -244,6 +245,16 @@ export class AdminCreateDriverDto {
   @IsBoolean()
   @IsOptional()
   isApproved?: boolean;
+
+  @ApiProperty({
+    example: 'a0000000-0000-0000-0000-000000000001',
+    description: 'Driver Manager User ID to assign to this driver',
+    required: false,
+    nullable: true,
+  })
+  @IsUUID()
+  @IsOptional()
+  driverManagerUserId?: string | null;
 }
 
 export class AdminUpdateDriverDto {
@@ -282,4 +293,14 @@ export class AdminUpdateDriverDto {
   @IsBoolean()
   @IsOptional()
   isApproved?: boolean;
+
+  @ApiProperty({
+    example: 'a0000000-0000-0000-0000-000000000001',
+    description: 'Driver Manager User ID to assign to this driver (or null to unassign)',
+    required: false,
+    nullable: true,
+  })
+  @IsUUID()
+  @IsOptional()
+  driverManagerUserId?: string | null;
 }

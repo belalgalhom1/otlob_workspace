@@ -24,6 +24,8 @@ import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/admin_assign_shift_dto.dart';
 import 'package:api/src/model/admin_create_driver_dto.dart';
 import 'package:api/src/model/admin_update_driver_dto.dart';
+import 'package:api/src/model/assign_drivers_to_manager_dto.dart';
+import 'package:api/src/model/unassign_drivers_from_manager_dto.dart';
 import 'package:api/src/model/admin_update_user_dto.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/api_response_dto.dart';
@@ -187,6 +189,8 @@ part 'serializers.g.dart';
   AdminAssignShiftDto,
   AdminCreateDriverDto,
   AdminUpdateDriverDto,
+  AssignDriversToManagerDto,
+  UnassignDriversFromManagerDto,
   AdminUpdateUserDto,
   ApiControllerRoot200Response,
   ApiResponseDto,$ApiResponseDto,

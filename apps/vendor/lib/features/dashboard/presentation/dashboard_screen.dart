@@ -13,6 +13,7 @@ import 'package:vendor/features/orders/presentation/orders_screen.dart';
 import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:vendor/features/orders/presentation/orders_provider.dart';
 import 'package:vendor/features/drivers/presentation/drivers_screen.dart';
+import 'package:vendor/features/drivers/presentation/driver_managers_screen.dart';
 import 'package:vendor/features/drivers/data/driver_providers.dart';
 import 'package:vendor/features/tickets/presentation/tickets_screen.dart';
 import 'package:vendor/features/tickets/presentation/ticket_provider.dart';
@@ -353,7 +354,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   /// NOTE: 18 (DriverBreaksScreen) must stay here — its Column uses
   /// Expanded(TabBarView), which throws (blank page in release) inside a
   /// scroll view with unbounded height.
-  static const _noScrollIndices = {3, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18};
+  static const _noScrollIndices = {3, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19};
 
   Widget _buildIndexedStack(bool isMobile) {
     Widget wrapForIndex(int index, Widget child) {
@@ -637,6 +638,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         AppLocalizations.of(context)!.drivers,
                         isMobile,
                       ),
+                      if (_userRole != 'DRIVER_MANAGER')
+                        _buildMenuItem(
+                          19,
+                          LucideIcons.userCheck,
+                          Localizations.localeOf(context).languageCode == 'ar'
+                              ? 'مديرو المناديب'
+                              : 'Driver Managers',
+                          isMobile,
+                        ),
                       _buildMenuItem(
                         15,
                         LucideIcons.calendarClock,
@@ -918,6 +928,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     16: 'ANL',
     17: 'NTF',
     18: 'BRK',
+    19: 'DVM',
   };
 
   static const _pageCodesAr = <int, String>{
@@ -940,6 +951,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     16: 'تحليلات',
     17: 'إشعار',
     18: 'استراحة',
+    19: 'مدر',
   };
 
   static const _pageIcons = <int, IconData>{
@@ -962,6 +974,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     16: LucideIcons.barChart3,
     17: LucideIcons.bell,
     18: LucideIcons.coffee,
+    19: LucideIcons.userCheck,
   };
 
   /// Pages visible to the current user, mirroring the sidebar gates.
@@ -983,6 +996,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     add(2, _hasPermission('MANAGE_VENDORS'));
     add(9, _hasPermission('MANAGE_VENDORS'));
     add(3, _hasPermission('MANAGE_DRIVERS'));
+    if (_userRole != 'DRIVER_MANAGER') {
+      add(19, _hasPermission('MANAGE_DRIVERS') || _userRole == 'SUPER_ADMIN');
+    }
     add(15, _hasPermission('MANAGE_DRIVERS'));
     add(18, _hasPermission('MANAGE_DRIVERS'));
     add(4, _hasPermission('MANAGE_USERS'));
@@ -1072,6 +1088,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return const NotificationsScreen();
       case 18:
         return const DriverBreaksScreen();
+      case 19:
+        return const DriverManagersScreen();
       default:
         return _buildComingSoon();
     }
@@ -1859,6 +1877,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return l10n.notificationsTitle;
       case 18:
         return l10n.breaks;
+      case 19:
+        return Localizations.localeOf(context).languageCode == 'ar'
+            ? 'مديرو المناديب'
+            : 'Driver Managers';
       default:
         return l10n.dashboard;
     }

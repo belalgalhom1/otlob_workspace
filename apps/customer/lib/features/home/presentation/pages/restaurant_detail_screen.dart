@@ -653,7 +653,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     final bool tracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
     final int? itemStock = item['stock'] == null ? null : int.tryParse(item['stock'].toString());
     final List<dynamic> menuVariants = item['variants'] as List? ?? [];
-    final bool hasMenuVariants = item['hasVariants'] == true && menuVariants.isNotEmpty;
+    final bool hasMenuVariants = (item['hasVariants'] == true || menuVariants.isNotEmpty) && menuVariants.isNotEmpty;
     // Subtract what's already in the cart: the menu snapshot goes stale the
     // moment the first unit is added, and the backend rejects over-stock at
     // checkout. Per-variant lines are gated inside the bottom sheet.
@@ -760,7 +760,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     final price = (item['price'] as num?)?.toDouble() ?? 0.0;
                     final comparePrice = (item['comparePrice'] as num?)?.toDouble();
                     final hasDiscount = comparePrice != null && comparePrice > price;
-                    final hasVariants = item['hasVariants'] == true && (item['variants'] as List?)?.isNotEmpty == true;
+                    final hasVariants = (item['hasVariants'] == true || (item['variants'] as List?)?.isNotEmpty == true) && (item['variants'] as List?)?.isNotEmpty == true;
                     final prefix = hasVariants ? (s.isArabic ? 'يبدأ من ' : 'From ') : '';
                     final priceStr = price.toStringAsFixed(price % 1 == 0 ? 0 : 2);
                     final compareStr = hasDiscount
@@ -817,7 +817,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                               return;
                             }
 
-                            final hasVariants = (item['hasVariants'] == true && (item['variants'] as List?)?.isNotEmpty == true);
+                            final hasVariants = (item['hasVariants'] == true || (item['variants'] as List?)?.isNotEmpty == true) && (item['variants'] as List?)?.isNotEmpty == true;
                             final hasOptionGroups = (item['optionGroups'] as List?)?.isNotEmpty == true;
                             final hasVariantsWithOptions = (item['variants'] as List?)?.any((v) => (v['optionGroups'] as List?)?.isNotEmpty == true) ?? false;
                             final isPharmacyWithStrips = isPharmacy && item['sellByStrip'] == true && item['stripsPerPackage'] != null;
