@@ -4,14 +4,13 @@
 
 import 'dart:async';
 
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
-import 'package:openapi/src/api_util.dart';
-import 'package:openapi/src/model/api_controller_root200_response.dart';
-import 'package:openapi/src/model/assign_drivers_to_manager_dto.dart';
-import 'package:openapi/src/model/unassign_drivers_from_manager_dto.dart';
+import 'package:api/src/api_util.dart';
+import 'package:api/src/model/api_controller_root200_response.dart';
+import 'package:api/src/model/assign_drivers_to_manager_dto.dart';
+import 'package:api/src/model/unassign_drivers_from_manager_dto.dart';
 
 class DriverManagersApi {
 
