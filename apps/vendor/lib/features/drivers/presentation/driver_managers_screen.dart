@@ -60,6 +60,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final filteredManagers = _managers.where((m) {
       if (_searchQuery.isEmpty) return true;
@@ -72,136 +73,148 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Header
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Header
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isAr ? 'مديرو المناديب' : 'Driver Managers',
+                          style: (isMobile ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _isAr
+                              ? 'إدارة وتعيين السائقين لمديري المناديب ومتابعة محافظهم وعمولاتهم'
+                              : 'Assign drivers to managers, oversee scopes, and track manager wallets',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _neutral500,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: _isLoading ? null : _loadManagers,
+                    icon: const Icon(LucideIcons.refreshCw, size: 20),
+                    tooltip: _isAr ? 'تحديث' : 'Refresh',
+                    style: IconButton.styleFrom(
+                      backgroundColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Search Bar & Filter Bar
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
                     children: [
-                      Text(
-                        _isAr ? 'مديرو المناديب' : 'Driver Managers',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: TextField(
+                          onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(LucideIcons.search, size: 18),
+                            hintText: _isAr ? 'بحث بالاسم، البريد أو الهاتف...' : 'Search by name, email, or phone...',
+                            isDense: true,
+                            border: InputBorder.none,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _isAr
-                            ? 'إدارة وتعيين السائقين لمديري المناديب ومتابعة محافظهم وعمولاتهم'
-                            : 'Assign drivers to managers, oversee scopes, and track manager wallets',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _neutral500,
+                      if (_searchQuery.isNotEmpty)
+                        IconButton(
+                          onPressed: () => setState(() => _searchQuery = ''),
+                          icon: const Icon(LucideIcons.x, size: 16),
                         ),
-                      ),
                     ],
                   ),
                 ),
-                IconButton.filledTonal(
-                  onPressed: _isLoading ? null : _loadManagers,
-                  icon: const Icon(LucideIcons.refreshCw, size: 18),
-                  tooltip: _isAr ? 'تحديث' : 'Refresh',
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Search Bar & Filter Bar
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(LucideIcons.search, size: 18),
-                          hintText: _isAr ? 'بحث بالاسم، البريد أو الهاتف...' : 'Search by name, email, or phone...',
-                          isDense: true,
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                    if (_searchQuery.isNotEmpty)
-                      IconButton(
-                        onPressed: () => setState(() => _searchQuery = ''),
-                        icon: const Icon(LucideIcons.x, size: 16),
-                      ),
-                  ],
-                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Content Area
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 36),
-                              const SizedBox(height: 12),
-                              Text(ErrorUtils.translate(context, _error)),
-                              const SizedBox(height: 12),
-                              FilledButton.icon(
-                                onPressed: _loadManagers,
-                                icon: const Icon(LucideIcons.refreshCw, size: 16),
-                                label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
-                              ),
-                            ],
-                          ),
-                        )
-                      : filteredManagers.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(LucideIcons.users, size: 48, color: _neutral400),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _isAr ? 'لا يوجد مديرو مناديب مسجلون' : 'No driver managers found',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _isAr
-                                        ? 'يمكنك إضافة مدير مناديب جديد من قسم إدارة المستخدمين'
-                                        : 'You can create a driver manager account from Users management',
-                                    style: const TextStyle(color: _neutral500),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.separated(
-                              itemCount: filteredManagers.length,
-                              separatorBuilder: (_, index) => const SizedBox(height: 16),
-                              itemBuilder: (ctx, idx) {
-                                final m = filteredManagers[idx];
-                                return _buildManagerCard(m, theme, isDark);
-                              },
+              // Content Area
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 36),
+                                const SizedBox(height: 12),
+                                Text(ErrorUtils.translate(context, _error)),
+                                const SizedBox(height: 12),
+                                FilledButton.icon(
+                                  onPressed: _loadManagers,
+                                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                                  label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
+                                ),
+                              ],
                             ),
-            ),
-          ],
+                          )
+                        : filteredManagers.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(LucideIcons.users, size: 48, color: _neutral400),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _isAr ? 'لا يوجد مديرو مناديب مسجلون' : 'No driver managers found',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _isAr
+                                          ? 'يمكنك إضافة مدير مناديب جديد من قسم إدارة المستخدمين'
+                                          : 'You can create a driver manager account from Users management',
+                                      style: const TextStyle(color: _neutral500),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filteredManagers.length,
+                                separatorBuilder: (_, index) => const SizedBox(height: 16),
+                                itemBuilder: (ctx, idx) {
+                                  final m = filteredManagers[idx];
+                                  return _buildManagerCard(m, theme, isDark);
+                                },
+                              ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildManagerCard(dynamic m, ThemeData theme, bool isDark) {
-    final name = (m['name'] ?? '').toString();
-    final email = (m['email'] ?? '').toString();
-    final phone = (m['phone'] ?? '').toString();
+    final name = (m['name'] ?? '').toString().trim();
+    final email = (m['email'] ?? '').toString().trim();
+    final phone = (m['phone'] ?? '').toString().trim();
     final userId = (m['userId'] ?? '').toString();
     final walletBalance = (m['walletBalance'] as num?)?.toDouble() ?? 0.0;
     final manageAll = m['manageAllDrivers'] == true;
@@ -211,164 +224,252 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
         ? (_isAr ? (m['zone']['nameAr'] ?? m['zone']['name']) : m['zone']['name'])
         : null;
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+        side: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(isMobile ? 16 : 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Row with Manager info, Wallet, and Status
+            // 1. Top Section: Avatar + Name + Badges
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 CircleAvatar(
-                  radius: 26,
+                  radius: 22,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                  child: const Icon(LucideIcons.userCheck, color: AppColors.primary, size: 28),
+                  child: const Icon(LucideIcons.userCheck, color: AppColors.primary, size: 22),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Text(
+                        name.isEmpty ? (_isAr ? 'مدير مناديب' : 'Driver Manager') : name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
                         children: [
-                          Flexible(
-                            child: Text(
-                              name.isEmpty ? (_isAr ? 'مدير مناديب' : 'Driver Manager') : name,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           if (manageAll)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.green.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                               ),
                               child: Text(
                                 _isAr ? 'يدير جميع السائقين' : 'Manages All Drivers',
                                 style: const TextStyle(
                                   color: Colors.green,
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             )
                           else
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AppColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                               ),
                               child: Text(
-                                _isAr ? '$assignedCount سائق معين' : '$assignedCount Assigned Drivers',
+                                _isAr ? '$assignedCount سائق معين' : '$assignedCount Assigned',
                                 style: const TextStyle(
                                   color: AppColors.primary,
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                          if (zoneName != null) ...[
-                            const SizedBox(width: 8),
+                          if (zoneName != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.orange.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                               ),
                               child: Text(
                                 zoneName,
-                                style: const TextStyle(color: Colors.orange, fontSize: 12),
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ],
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 4,
-                        children: [
-                          if (email.isNotEmpty)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(LucideIcons.mail, size: 14, color: _neutral500),
-                                const SizedBox(width: 4),
-                                Text(email, style: const TextStyle(color: _neutral500, fontSize: 13)),
-                              ],
-                            ),
-                          if (phone.isNotEmpty)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(LucideIcons.phone, size: 14, color: _neutral500),
-                                const SizedBox(width: 4),
-                                Text(phone, style: const TextStyle(color: _neutral500, fontSize: 13)),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Wallet preview card
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _isAr ? 'محفظة العمولة' : 'Commission Wallet',
-                        style: const TextStyle(fontSize: 12, color: _neutral500),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${walletBalance.toStringAsFixed(1)} ${_isAr ? 'ج.م' : 'EGP'}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
 
-            // Drivers list preview / Chips
+            // 2. Contact details (if any)
+            if (email.isNotEmpty || phone.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    if (email.isNotEmpty)
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.mail, size: 14, color: _neutral400),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              email,
+                              style: TextStyle(
+                                color: isDark ? Colors.white70 : _neutral500,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (email.isNotEmpty && phone.isNotEmpty) const SizedBox(height: 6),
+                    if (phone.isNotEmpty)
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.phone, size: 14, color: _neutral400),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Align(
+                                alignment: _isAr ? Alignment.centerRight : Alignment.centerLeft,
+                                child: Text(
+                                  phone,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white70 : _neutral500,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 12),
+
+            // 3. Dedicated Financial & Metric Card (Full Width - Zero Collisions)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(LucideIcons.wallet, size: 20, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isAr ? 'محفظة العمولة للمدير' : 'Manager Commission Wallet',
+                          style: const TextStyle(fontSize: 12, color: _neutral500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${walletBalance.toStringAsFixed(1)} ${_isAr ? 'ج.م' : 'EGP'}',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+
+            // 4. Drivers List Preview / Chips
+            Text(
+              _isAr ? 'السائقون المعينون' : 'Assigned Drivers',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+
             if (manageAll)
-              Text(
-                _isAr
-                    ? 'هذا المدير لديه صلاحية إدارة كامل أسطول السائقين بالمنصة تلقائياً.'
-                    : 'This manager automatically oversees the entire driver fleet on the platform.',
-                style: const TextStyle(color: _neutral500, fontSize: 13),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.checkCircle2, color: Colors.green, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _isAr
+                            ? 'هذا المدير لديه صلاحية إدارة كامل أسطول السائقين بالمنصة تلقائياً.'
+                            : 'This manager automatically oversees the entire driver fleet on the platform.',
+                        style: const TextStyle(color: Colors.green, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
               )
             else if (assignedDrivers.isEmpty)
-              Text(
-                _isAr ? 'لم يتم تعيين أي سائقين لهذا المدير بعد.' : 'No drivers assigned to this manager yet.',
-                style: const TextStyle(color: _neutral500, fontSize: 13, fontStyle: FontStyle.italic),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  _isAr ? 'لم يتم تعيين أي سائقين لهذا المدير بعد.' : 'No drivers assigned to this manager yet.',
+                  style: const TextStyle(color: _neutral500, fontSize: 13, fontStyle: FontStyle.italic),
+                ),
               )
             else
               Wrap(
@@ -384,13 +485,15 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                   if (dStatus == 'ON_BREAK') statusColor = Colors.orange;
 
                   return Chip(
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     avatar: CircleAvatar(
-                      radius: 5,
+                      radius: 4,
                       backgroundColor: statusColor,
                     ),
                     label: Text(
                       dName.isEmpty ? (_isAr ? 'سائق' : 'Driver') : dName,
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 12),
                     ),
                     deleteIcon: const Icon(LucideIcons.x, size: 14),
                     onDeleted: () => _confirmUnassignDriver(userId, driverId, dName),
@@ -398,18 +501,23 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                 }).toList(),
               ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
+            // 5. Action Buttons (Full width on mobile, right aligned on desktop)
+            SizedBox(
+              width: isMobile ? double.infinity : null,
+              child: Align(
+                alignment: isMobile ? Alignment.center : Alignment.centerRight,
+                child: OutlinedButton.icon(
                   onPressed: () => _openAssignDriversDialog(m),
                   icon: const Icon(LucideIcons.userPlus, size: 16),
                   label: Text(_isAr ? 'تعيين / تعديل السائقين' : 'Assign / Edit Drivers'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: isMobile ? const Size(double.infinity, 44) : null,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -586,12 +694,15 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
           (d.vehiclePlate ?? '').toLowerCase().contains(q);
     }).toList();
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 650, maxHeight: 750),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -611,13 +722,17 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                           _isAr
                               ? 'تعيين السائقين للمدير: ${widget.managerName}'
                               : 'Assign Drivers to: ${widget.managerName}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 16 : 18),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           _isAr
                               ? 'حدد السائقين الذين يتبعون هذا المدير للحصول على العمولات وإدارة الحسابات'
                               : 'Select drivers under this manager to route commissions and management',
                           style: const TextStyle(color: _neutral500, fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

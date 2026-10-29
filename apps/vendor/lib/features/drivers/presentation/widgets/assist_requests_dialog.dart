@@ -373,18 +373,24 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Row(
-                                              children: [
-                                                const Icon(LucideIcons.package, size: 16, color: AppColors.primary),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  orderNumber.isNotEmpty ? '#$orderNumber' : 'Order',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                                ),
-                                              ],
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  const Icon(LucideIcons.package, size: 16, color: AppColors.primary),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      orderNumber.isNotEmpty ? '#$orderNumber' : 'Order',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               decoration: BoxDecoration(

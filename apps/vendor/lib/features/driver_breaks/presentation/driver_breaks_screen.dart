@@ -236,6 +236,8 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         '${_reasonLabel(l10n, item['reason']?.toString())} • ${_formatTime(item['createdAt']?.toString())}',
