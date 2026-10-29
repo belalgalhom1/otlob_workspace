@@ -361,3 +361,89 @@ When assisting with or debugging Flutter builds (lutter build apk, ppbundle, e
 - Be aware that the host machine has limited physical memory (~3.7GB available).
 - Ensure ndroid/gradle.properties uses conservative JVM arguments to prevent OOM kills (e.g., org.gradle.jvmargs=-Xmx2G -XX:MaxMetaspaceSize=1G -XX:ReservedCodeCacheSize=512m).
 - If a build fails with a "daemon disappeared" or JVM crash log, instruct the user to run ./gradlew --stop to kill zombie daemons before retrying.
+
+
+---
+
+# Mandatory Professional UI/UX and Visual Quality Standards
+
+Treat visual quality as a core requirement, not an optional enhancement. Every new feature, screen, component, dashboard section, table, chart, dialog, and PDF report must look polished, consistent, modern, and production-ready.
+
+Work with the mindset of a senior UI/UX designer and senior Flutter engineer. Do not simply make the feature functional; make it feel like a professionally designed commercial product.
+
+### 1. Visual Hierarchy and Composition
+- Establish a clear visual hierarchy so users can immediately distinguish page titles, section headings, important metrics, supporting information, and secondary actions.
+- Use balanced layouts, consistent alignment, intentional whitespace, and predictable content grouping.
+- Avoid crowded screens, oversized empty spaces, unnecessary decoration, and inconsistent component sizing.
+- Make important financial figures and operational alerts easy to identify without making the interface visually noisy.
+- Ensure that every element has a clear purpose and contributes to usability.
+
+### 2. Spacing, Typography, and Letter Spacing
+- Apply a consistent spacing system across the entire feature, including page margins, card padding, gaps between sections, spacing between text and icons, and distances between interactive elements.
+- Pay close attention to typography: font family, font size, font weight, line height, letter spacing, text alignment, and text wrapping.
+- Use letter spacing intentionally and sparingly. Do not apply arbitrary spacing between Arabic letters, because it can damage Arabic typography and readability.
+- Ensure Arabic text is properly shaped and connected, with correct RTL direction and natural word spacing.
+- Prevent clipped text, awkward line breaks, inconsistent baselines, overlapping labels, and misaligned numbers.
+- Use tabular or consistently aligned numerals for financial figures where supported.
+
+### 3. Icons and Interactive Elements
+- Use a consistent icon library and visual style throughout the interface.
+- Keep icon sizes, stroke weights, alignment, and spacing consistent.
+- Ensure icons are properly centered and aligned with their labels.
+- Maintain comfortable spacing between icons, text, buttons, and adjacent components.
+- Avoid mixing unrelated icon styles, using random emoji as interface icons, or adding decorative icons without a clear purpose.
+- Use clear labels for actions that might otherwise be ambiguous.
+- Ensure buttons, dropdowns, filters, tables, dialogs, and export controls have consistent sizing and interaction states.
+
+### 4. Design System Consistency
+- Inspect and reuse the project's existing theme, colors, typography, spacing conventions, reusable components, and design tokens before introducing anything new.
+- Follow the existing brand identity and color palette rather than inventing an unrelated visual style.
+- Reuse shared components where appropriate and create reusable components for genuinely repeated patterns.
+- Maintain consistent corner radii, borders, shadows, card treatments, and elevation.
+- Use color meaningfully for financial states, warnings, success, and errors, while preserving sufficient contrast and accessibility.
+- Avoid excessive gradients, shadows, borders, animations, or decorative effects.
+- Do not redesign unrelated parts of the application merely to complete this task.
+
+### 5. Professional Dashboard and Data Visualization
+- Design KPI cards, charts, financial summaries, filters, and tables as a cohesive analytics experience.
+- Choose appropriate chart types for the data and provide readable labels, legends, units, and tooltips where useful.
+- Avoid misleading scales, unnecessary chart decoration, overcrowded labels, and colors that are difficult to distinguish.
+- Make financial values, commission status, outstanding debt, earnings, and payouts visually distinct without confusing their meanings.
+- Ensure tables have consistent row heights, column alignment, readable headers, clear totals, and usable horizontal or responsive layouts.
+- Provide polished loading, empty, error, and permission-denied states.
+- Do not display fake data, placeholder metrics, or decorative charts that imply information the backend does not provide.
+
+### 6. Premium PDF Report Design
+- Apply the same design discipline to exported PDF reports as to the application interface.
+- Create a refined document layout with a clear hierarchy, balanced margins, consistent typography, professional tables, and well-organized financial summaries.
+- Maintain consistent spacing between sections, headings, charts, tables, and explanatory notes.
+- Ensure that Arabic letters remain connected and correctly aligned, and that mixed Arabic and English content renders correctly.
+- Prevent clipped columns, overlapping text, awkward page breaks, orphaned headings, and unreadable transaction tables.
+- Repeat table headers across pages where needed, align financial values consistently, and keep totals visually clear.
+- Ensure the PDF remains professional when printed, not just when viewed on a screen.
+
+### 7. Responsive Layout and Accessibility
+- Verify that layouts work at the screen sizes and window widths supported by the existing application.
+- Prevent overflow, broken layouts, clipped buttons, and overlapping content.
+- Respect RTL and LTR direction wherever applicable.
+- Maintain readable contrast, practical touch targets, and clear interaction feedback.
+- Support long Arabic and English names, large currency amounts, and different date formats without breaking the layout.
+
+### 8. Required Visual Review Before Completion
+Do not finish immediately after writing the code.
+
+After implementation:
+1. Run the application or the relevant screen using the available development environment.
+2. Inspect the actual rendered interface and exported PDF whenever the environment allows it.
+3. Review spacing, alignment, typography, icon consistency, text overflow, chart readability, and overall visual balance.
+4. Fix visible design defects rather than leaving them for the user.
+5. Test different data lengths, empty states, loading states, error states, and RTL rendering.
+6. Run the relevant formatting, analysis, tests, and build checks.
+7. If visual inspection is not possible, clearly state that limitation instead of claiming that the interface was visually verified.
+
+### Definition of Done (UI/UX)
+The feature is complete only when both its functionality and its visual quality are acceptable.
+
+The result must feel like a coherent, premium, production-ready application designed by an experienced product team—not a collection of quickly assembled widgets.
+
+Prioritize clarity, consistency, spacing, typography, alignment, usability, and financial accuracy over unnecessary visual effects. Preserve the existing architecture and design system, and avoid unrelated refactoring.
