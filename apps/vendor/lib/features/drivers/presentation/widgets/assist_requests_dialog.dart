@@ -213,7 +213,7 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
           height: 350,
           child: ListView.separated(
             itemCount: drivers.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (ctx, i) {
               final d = drivers[i];
               return ListTile(
@@ -343,7 +343,7 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                             )
                           : ListView.separated(
                               itemCount: _requests.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              separatorBuilder: (_, _) => const SizedBox(height: 12),
                               itemBuilder: (context, i) {
                                 final item = _requests[i] as Map<String, dynamic>;
                                 final id = item['id']?.toString() ?? '';
