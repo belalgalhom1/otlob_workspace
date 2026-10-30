@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,14 +52,16 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   }
 
   Future<void> _launchMapsNavigation(double lat, double lng) async {
-    if (lat == 0 || lng == 0) return;
-    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    await MapNavigationLauncher.launchNavigation(
+      latitude: lat,
+      longitude: lng,
+      context: context,
+    );
   }
   final MapController _mapController = MapController();
   Position? _currentPosition;
+  StreamSubscription<Position>? _positionStreamSub;
+  RoadSpeedLimit? _roadSpeedLimit;
   bool _isMapReady = false;
   XFile? _pickupPhoto;
   XFile? _deliveryPhoto;
@@ -171,7 +175,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    _initLocationTracking();
     // NOTE: ref.listen must stay here (not in build) — listening during
     // build re-subscribes on every rebuild and throws in debug builds.
     ref.listen<AsyncValue<dynamic>>(
@@ -182,8 +186,37 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
   @override
   void dispose() {
+    _positionStreamSub?.cancel();
     _mapController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initLocationTracking() async {
+    await _getCurrentLocation();
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      _positionStreamSub?.cancel();
+      _positionStreamSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen((pos) {
+        if (!mounted) return;
+        setState(() {
+          _currentPosition = pos;
+        });
+        SpeedLimitService.instance.getSpeedLimit(pos.latitude, pos.longitude).then((limit) {
+          if (mounted && limit != null) {
+            setState(() => _roadSpeedLimit = limit);
+          }
+        });
+      });
+    } catch (_) {}
   }
 
   Future<void> _getCurrentLocation() async {
@@ -199,6 +232,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       if (mounted) {
         setState(() {
           _currentPosition = pos;
+        });
+        SpeedLimitService.instance.getSpeedLimit(pos.latitude, pos.longitude).then((limit) {
+          if (mounted && limit != null) {
+            setState(() => _roadSpeedLimit = limit);
+          }
         });
         if (_isMapReady) {
           _mapController.move(LatLng(pos.latitude, pos.longitude), 14);
@@ -511,7 +549,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       markers.add(
         Marker(
           point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-          child: const Icon(LucideIcons.navigation, color: Colors.blue, size: 32),
+          width: 44,
+          height: 44,
+          child: NavigationLocationMarker(
+            heading: _currentPosition!.heading.isFinite && _currentPosition!.heading > 0
+                ? _currentPosition!.heading
+                : null,
+            color: AppColors.primary,
+          ),
         ),
       );
     }
@@ -521,10 +566,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         markers.add(
           Marker(
             point: LatLng(customerLat, customerLng),
-            child: const Icon(
-              LucideIcons.mapPin,
-              color: Colors.red,
-              size: 34,
+            width: 42,
+            height: 42,
+            child: const NavigationPinMarker(
+              icon: LucideIcons.mapPin,
+              pinColor: Color(0xFFEF4444),
             ),
           ),
         );
@@ -662,24 +708,34 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             },
           ),
           children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            const AppMapTileLayer(
               userAgentPackageName: 'com.otlobegy.driver',
             ),
             if (polylinePoints.isNotEmpty)
               PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: polylinePoints,
-                    strokeWidth: 4.0,
-                    color: AppColors.primary,
-                  ),
-                ],
+                polylines: NavigationRoutePolylines.build(
+                  points: polylinePoints,
+                  foregroundColor: AppColors.primary,
+                ),
               ),
             MarkerLayer(markers: markers),
           ],
         ),
         
+        // Speed Limit Sign (Overpass OSM Maxspeed)
+        if (_roadSpeedLimit != null)
+          Positioned(
+            top: 16,
+            left: 16,
+            child: SpeedLimitSign(
+              speedLimit: _roadSpeedLimit!.speed,
+              unit: _roadSpeedLimit!.unit,
+              currentSpeed: _currentPosition != null && _currentPosition!.speed > 0
+                  ? _currentPosition!.speed * 3.6
+                  : null,
+            ),
+          ),
+
         // Floating Center Map Button
         Positioned(
           top: 16,
@@ -875,9 +931,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           if (isDelivering) {
-                            _launchMapsNavigation(customerLat, customerLng);
+                            final lat = customerLat != 0.0 ? customerLat : (targetLocation?.latitude ?? 0.0);
+                            final lng = customerLng != 0.0 ? customerLng : (targetLocation?.longitude ?? 0.0);
+                            _launchMapsNavigation(lat, lng);
                           } else if (currentStop != null) {
-                            _launchMapsNavigation(currentStop['lat'] as double, currentStop['lng'] as double);
+                            final sLat = (currentStop['lat'] as num?)?.toDouble() ?? 0.0;
+                            final sLng = (currentStop['lng'] as num?)?.toDouble() ?? 0.0;
+                            final lat = sLat != 0.0 ? sLat : (targetLocation?.latitude ?? 0.0);
+                            final lng = sLng != 0.0 ? sLng : (targetLocation?.longitude ?? 0.0);
+                            _launchMapsNavigation(lat, lng);
+                          } else if (targetLocation != null) {
+                            _launchMapsNavigation(targetLocation.latitude, targetLocation.longitude);
                           }
                         },
                         icon: const Icon(LucideIcons.navigation, size: 16),
@@ -885,7 +949,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.blue,
                           side: const BorderSide(color: Colors.blue),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                          visualDensity: VisualDensity.compact,
                         ),
                       ),
                     ),
@@ -1240,23 +1305,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   }
 
   Widget _buildActionButton(BuildContext context, String status, bool isCashOnDelivery, bool isMobileWallet, LatLng? targetLocation, AppLocalizations l10n, Map<String, dynamic> order, [List<Map<String, dynamic>> pickupStops = const []]) {
-    bool isWithinGeofence = true;
-    if (_currentPosition != null && targetLocation != null && targetLocation.latitude != 0.0 && targetLocation.longitude != 0.0) {
-      final distanceInMeters = Geolocator.distanceBetween(
-        _currentPosition!.latitude, 
-        _currentPosition!.longitude, 
-        targetLocation.latitude, 
-        targetLocation.longitude,
-      );
-      final accuracy = _currentPosition!.accuracy.isFinite && _currentPosition!.accuracy > 0
-          ? _currentPosition!.accuracy
-          : 0.0;
-      final allowedRadius = 500.0 + accuracy;
-      if (distanceInMeters > allowedRadius) {
-        isWithinGeofence = false;
-      }
-    }
-
     void showErr(Object e) {
       if (context.mounted) {
         final message = ErrorUtils.translate(context, e);
@@ -1265,15 +1313,62 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     }
 
     Future<void> handleAction(Future<void> Function() action) async {
-      if (!isWithinGeofence) {
+      // 1. Fetch fresh GPS fix at the exact moment of button press
+      Position? freshPos = _currentPosition;
+      try {
+        freshPos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        if (mounted) {
+          setState(() => _currentPosition = freshPos);
+        }
+      } catch (_) {
+        freshPos ??= await Geolocator.getLastKnownPosition();
+      }
+
+      bool withinFence = true;
+      double? calculatedDistance;
+      if (freshPos != null && targetLocation != null && targetLocation.latitude != 0.0 && targetLocation.longitude != 0.0) {
+        final d1 = Geolocator.distanceBetween(
+          freshPos.latitude,
+          freshPos.longitude,
+          targetLocation.latitude,
+          targetLocation.longitude,
+        );
+        final d2 = Geolocator.distanceBetween(
+          freshPos.latitude,
+          freshPos.longitude,
+          targetLocation.longitude,
+          targetLocation.latitude,
+        );
+        calculatedDistance = math.min(d1, d2);
+        final accuracy = (freshPos.accuracy.isFinite && freshPos.accuracy > 0)
+            ? freshPos.accuracy
+            : 30.0;
+        final allowedRadius = math.max(1500.0, 500.0 + accuracy * 2);
+        if (calculatedDistance > allowedRadius) {
+          withinFence = false;
+        }
+      }
+
+      if (!withinFence && context.mounted) {
+        final isAr = l10n.localeName == 'ar';
+        final distKm = calculatedDistance != null ? (calculatedDistance / 1000).toStringAsFixed(1) : '';
+        final distMsg = distKm.isNotEmpty
+            ? (isAr ? 'أنت على بعد تقريبي $distKm كم من الموقع المحدد. هل تريد المتابعة وتأكيد العملية؟' : 'You appear to be approximately $distKm km from the target location. Do you wish to continue anyway?')
+            : (isAr ? 'أنت بعيد جدا عن الموقع. هل تريد المتابعة؟' : 'You are far from the location. Continue anyway?');
+
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text(l10n.localeName == 'ar' ? 'تأكيد المسافة' : 'Distance Override'),
-            content: Text(l10n.localeName == 'ar' ? 'أنت بعيد جدا عن الموقع. هل تريد المتابعة؟' : 'You are far from the location. Continue anyway?'),
+            title: Text(isAr ? 'تأكيد المسافة' : 'Distance Override'),
+            content: Text(distMsg),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.localeName == 'ar' ? 'إلغاء' : 'Cancel')),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.localeName == 'ar' ? 'متابعة' : 'Continue')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(isAr ? 'إلغاء' : 'Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(isAr ? 'متابعة' : 'Continue')),
             ],
           ),
         );

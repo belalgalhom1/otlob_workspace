@@ -13,6 +13,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_map: ^8.3.0
+  latlong2: ^0.10.1
+  url_launcher: ^6.3.2
+
   skeletonizer: ^2.1.3
   pinput: ^6.0.2
   timeago: ^3.7.1

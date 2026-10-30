@@ -33,3 +33,10 @@ export 'src/widgets/location_required_gate.dart';
 
 export 'src/services/data_export_service.dart';
 
+
+export 'src/widgets/map/app_map_tiles.dart';
+export 'src/widgets/map/speed_limit_sign.dart';
+export 'src/widgets/map/navigation_route_polyline.dart';
+export 'src/widgets/map/navigation_map_launcher.dart';
+export 'src/widgets/map/speed_limit_service.dart';
+export 'src/widgets/map/navigation_markers.dart';

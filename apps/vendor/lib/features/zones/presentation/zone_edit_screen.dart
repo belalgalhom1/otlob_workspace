@@ -245,10 +245,7 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
             },
           ),
           children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.otlob.vendor',
-            ),
+            const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
             if (_polygonPoints.isNotEmpty)
               PolygonLayer(
                 polygons: <Polygon<Object>>[

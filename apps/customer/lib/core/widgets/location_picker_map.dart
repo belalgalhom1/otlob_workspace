@@ -1,3 +1,4 @@
+import 'package:ui_kit/ui_kit.dart' hide AppColors;
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -250,10 +251,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
               onTap: _onTap,
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.otlob.customer',
-              ),
+              const AppMapTileLayer(userAgentPackageName: 'com.otlob.customer'),
               if (_selectedLocation != null)
                 MarkerLayer(
                   markers: [

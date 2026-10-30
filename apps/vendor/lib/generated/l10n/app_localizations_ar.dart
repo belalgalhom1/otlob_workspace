@@ -1584,7 +1584,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get deliveryCommissionRate => 'نسبة عمولة التوصيل (%)';
 
   @override
-  String get driverManagerCommissionRate => 'نسبة مسؤول السائقين من التوصيل (%)';
+  String get driverManagerCommissionRate =>
+      'نسبة مسؤول السائقين من التوصيل (%)';
 
   @override
   String get customOrderPlatformFee => 'رسوم خدمات التوصيل المخصص';

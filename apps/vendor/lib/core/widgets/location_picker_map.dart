@@ -1,3 +1,4 @@
+import 'package:ui_kit/ui_kit.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -291,10 +292,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
               onTap: _onTap,
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.otlob.admin',
-              ),
+              const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
               if (_parsedZones.isNotEmpty)
                 PolygonLayer(
                   polygons: _parsedZones.map((z) {

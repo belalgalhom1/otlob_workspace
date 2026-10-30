@@ -2326,11 +2326,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           initialZoom: 15,
                         ),
                         children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.otlob.admin',
-                          ),
+                          const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
                           MarkerLayer(markers: markers),
                         ],
                       ),

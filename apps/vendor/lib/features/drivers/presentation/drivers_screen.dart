@@ -1104,10 +1104,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               initialZoom: 12,
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.otlob.admin',
-              ),
+              const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
               if (_selectedZonePolygon.isNotEmpty)
                 PolygonLayer(
                   polygons: [

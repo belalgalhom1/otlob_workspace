@@ -43,7 +43,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
-  bool _breakStatusSynced = false;
 
   @override
   Widget build(BuildContext context) {
@@ -611,7 +610,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _buildStatusCard(currentStatus, isOnline, l10n),
                 if (showBreaks) ...[
                   const SizedBox(height: 24),
-                  _buildBreakSection(currentStatus, l10n),
+                  _buildBreakNavigationCard(currentStatus, l10n),
                 ],
                 const SizedBox(height: 24),
                 _buildStatsRow(data, currency, l10n),
@@ -782,448 +781,106 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  String _breakReasonLabel(AppLocalizations l10n, String? reason) {
-    switch ((reason ?? '').toUpperCase()) {
-      case 'PRAYER':
-        return l10n.breakReasonPrayer;
-      case 'MEAL':
-        return l10n.breakReasonMeal;
-      case 'PERSONAL':
-        return l10n.breakReasonPersonal;
-      case 'OTHER':
-        return l10n.breakReasonOther;
-      case 'REST':
-      default:
-        return l10n.breakReasonRest;
-    }
-  }
-
-  String _breakStatusLabel(AppLocalizations l10n, String? status) {
-    switch ((status ?? '').toUpperCase()) {
-      case 'PENDING':
-        return l10n.breakStatusPending;
-      case 'APPROVED':
-        return l10n.breakStatusApproved;
-      case 'REJECTED':
-        return l10n.breakStatusRejected;
-      case 'CANCELLED':
-        return l10n.breakStatusCancelled;
-      case 'ENDED':
-        return l10n.breakStatusEnded;
-      default:
-        return status?.toString() ?? '';
-    }
-  }
-
-  String _formatBreakTime(String? iso) {
-    if (iso == null || iso.isEmpty) return '';
-    final parsed = DateTime.tryParse(iso)?.toLocal();
-    if (parsed == null) return '';
-    final hh = parsed.hour.toString().padLeft(2, '0');
-    final mm = parsed.minute.toString().padLeft(2, '0');
-    return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')} $hh:$mm';
-  }
-
-  Future<void> _runBreakAction(
-    Future<void> Function() action,
-  ) async {
-    try {
-      await action();
-      if (mounted) {
-        ref.invalidate(driverProfileProvider);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ErrorUtils.translate(context, e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildBreakSection(String currentStatus, AppLocalizations l10n) {
+  Widget _buildBreakNavigationCard(String currentStatus, AppLocalizations l10n) {
     final breaksAsync = ref.watch(breaksOverviewProvider);
-    return breaksAsync.when(
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: CircularProgressIndicator(),
-        ),
-      ),
-      error: (e, _) => OutlinedButton.icon(
-        onPressed: () => ref.invalidate(breaksOverviewProvider),
-        icon: const Icon(LucideIcons.refreshCw, size: 16),
-        label: Text(l10n.retry),
-      ),
-      data: (overview) {
-        // The break overview is fresher than the cached profile: if they
-        // disagree about ON_BREAK (approved/ended elsewhere), re-pull the
-        // profile once so the status card, tracking, and dispatch sweep
-        // follow the server truth.
-        final mismatch =
-            (overview.active != null) != (currentStatus == 'ON_BREAK');
-        if (mismatch && !_breakStatusSynced) {
-          _breakStatusSynced = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ref.read(driverProfileProvider.notifier).fetchProfile();
-            }
-          });
-        } else if (!mismatch) {
-          _breakStatusSynced = false;
-        }
+    final overview = breaksAsync.value;
+    final bool onBreak = currentStatus == 'ON_BREAK' || overview?.active != null;
+    final bool hasPending = overview?.pending != null;
+    final isAr = l10n.localeName == 'ar';
 
-        final active = overview.active;
-        if (active != null || currentStatus == 'ON_BREAK') {
-          return _buildActiveBreakCard(active, l10n);
-        }
-        final pending = overview.pending;
-        if (pending != null) {
-          return _buildPendingBreakCard(pending, l10n);
-        }
-        if (currentStatus != 'ONLINE') return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final Color cardBg = onBreak
+        ? Colors.amber.shade700.withValues(alpha: 0.12)
+        : Theme.of(context).colorScheme.surface;
+    final Color borderCol = onBreak
+        ? Colors.amber.shade700
+        : Theme.of(context).dividerColor.withValues(alpha: 0.3);
+
+    return InkWell(
+      onTap: () => context.push('/breaks'),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderCol, width: onBreak ? 1.5 : 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            OutlinedButton.icon(
-              onPressed: () => _showRequestBreakSheet(l10n),
-              icon: const Icon(LucideIcons.coffee, size: 18),
-              label: Text(l10n.takeBreak),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: onBreak
+                    ? Colors.amber.shade700
+                    : AppColors.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                LucideIcons.coffee,
+                color: onBreak ? Colors.white : AppColors.primary,
+                size: 20,
               ),
             ),
-            if (overview.recent.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(
-                l10n.breakHistory,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...overview.recent
-                  .take(5)
-                  .map((b) => _buildBreakHistoryRow(b, l10n)),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildActiveBreakCard(
-    Map<String, dynamic>? active,
-    AppLocalizations l10n,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade700.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade700, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(LucideIcons.coffee, color: Colors.amber, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  l10n.activeBreak,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade700,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _breakReasonLabel(l10n, active?['reason']?.toString()),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if ((active?['startedAt']?.toString().isNotEmpty ?? false)) ...[
-            const SizedBox(height: 8),
-            Text(
-              _formatBreakTime(active?['startedAt']?.toString()),
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-          if ((active?['note']?.toString().isNotEmpty ?? false)) ...[
-            const SizedBox(height: 6),
-            Text(
-              active!['note'].toString(),
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: PrimaryButton(
-              text: l10n.endBreak,
-              onPressed: () => _runBreakAction(
-                () => ref.read(breakActionsProvider.notifier).end(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPendingBreakCard(
-    Map<String, dynamic> pending,
-    AppLocalizations l10n,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(LucideIcons.hourglass, color: Colors.amber, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  l10n.breakRequestPending,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${_breakReasonLabel(l10n, pending['reason']?.toString())} • ${l10n.breakRequestPendingSubtitle}',
-            style: TextStyle(
-              fontSize: 13,
-              color:
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _runBreakAction(
-                () => ref.read(breakActionsProvider.notifier).cancel(),
-              ),
-              child: Text(l10n.cancelBreakRequest),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBreakHistoryRow(
-    Map<String, dynamic> item,
-    AppLocalizations l10n,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          const Icon(LucideIcons.coffee, size: 16, color: Colors.grey),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _breakReasonLabel(l10n, item['reason']?.toString()),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  _formatBreakTime(item['startedAt']?.toString()),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            _breakStatusLabel(l10n, item['status']?.toString()),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: (item['status']?.toString() ?? '') == 'REJECTED'
-                  ? AppColors.error
-                  : Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRequestBreakSheet(AppLocalizations l10n) {
-    String reason = 'REST';
-    final minutesController = TextEditingController();
-    final noteController = TextEditingController();
-    bool submitting = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                l10n.requestBreak,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: reason,
-                decoration: InputDecoration(
-                  labelText: l10n.breakReason,
-                  border: const OutlineInputBorder(),
-                ),
-                items: const ['PRAYER', 'MEAL', 'REST', 'PERSONAL', 'OTHER']
-                    .map(
-                      (r) => DropdownMenuItem(
-                        value: r,
-                        child: Text(_breakReasonLabel(l10n, r)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        onBreak
+                            ? (isAr ? 'أنت في فترة استراحة' : 'You are on break')
+                            : (hasPending
+                                ? (isAr ? 'طلب استراحة قيد الانتظار' : 'Break request pending')
+                                : (isAr ? 'إدارة استراحات السائق' : 'Driver Breaks')),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: onBreak ? (Theme.of(context).brightness == Brightness.dark ? Colors.amber.shade300 : Colors.amber.shade900) : null,
+                        ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setSheetState(() => reason = v);
-                },
+                      if (hasPending && !onBreak) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade700,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isAr ? 'معلق' : 'Pending',
+                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    onBreak
+                        ? (isAr ? 'اضغط لإدارة أو إنهاء الاستراحة' : 'Tap to manage or end break')
+                        : (isAr ? 'طلب استراحة وعرض السجل السابق' : 'Request break and view history'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: minutesController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: l10n.breakMinutes,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: noteController,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: l10n.breakNote,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 52,
-                child: PrimaryButton(
-                  text: l10n.requestBreak,
-                  onPressed: submitting
-                      ? null
-                      : () async {
-                          setSheetState(() => submitting = true);
-                          try {
-                            final minutes = int.tryParse(
-                              minutesController.text.trim(),
-                            );
-                            await ref
-                                .read(breakActionsProvider.notifier)
-                                .start(
-                                  reason: reason,
-                                  note: noteController.text.trim().isEmpty
-                                      ? null
-                                      : noteController.text.trim(),
-                                  requestedMinutes: minutes,
-                                );
-                            if (ctx.mounted) Navigator.of(ctx).pop();
-                          } catch (e) {
-                            setSheetState(() => submitting = false);
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    ErrorUtils.translate(ctx, e),
-                                  ),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                ),
-              ),
-            ],
-          ),
+            ),
+            const AppAdaptiveChevron(size: 18),
+          ],
         ),
       ),
-    ).whenComplete(() {
-      minutesController.dispose();
-      noteController.dispose();
-    });
+    );
   }
 
   Widget _buildStatsRow(Map<dynamic, dynamic> data, String currency, AppLocalizations l10n) {

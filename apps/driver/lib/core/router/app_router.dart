@@ -18,6 +18,7 @@ import 'package:driver/features/splash/presentation/pages/update_required_screen
 import 'package:driver/features/profile/presentation/pages/vehicle_screen.dart';
 import 'package:driver/features/orders/presentation/pages/deliveries_history_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
+import 'package:driver/features/breaks/presentation/pages/driver_breaks_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -112,6 +113,10 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/wallet',
         builder: (context, state) => const WalletScreen(),
+      ),
+      GoRoute(
+        path: '/breaks',
+        builder: (context, state) => const DriverBreaksScreen(),
       ),
     ],
   );

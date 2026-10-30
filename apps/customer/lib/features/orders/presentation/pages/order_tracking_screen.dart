@@ -1,3 +1,4 @@
+import 'package:ui_kit/ui_kit.dart' hide AppColors;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/services/token_service.dart';
 
 import 'dart:async';
+import 'dart:math' as math;
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
 import 'package:data/providers.dart';
@@ -71,7 +73,26 @@ class OrderTrackingScreen extends ConsumerStatefulWidget {
       _OrderTrackingScreenState();
 }
 
-class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
+class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _driverMoveController;
+  LatLng? _driverAnimStart;
+  LatLng? _driverAnimTarget;
+  double _driverHeading = 0.0;
+  bool _isDriverWalking = false;
+  DateTime? _lastCameraMove;
+  LatLng? get _currentDriverLocation {
+    if (_driverAnimStart != null && _driverAnimTarget != null && _driverMoveController.isAnimating) {
+      final t = _driverMoveController.value;
+      final curLat = _driverAnimStart!.latitude +
+          (_driverAnimTarget!.latitude - _driverAnimStart!.latitude) * t;
+      final curLng = _driverAnimStart!.longitude +
+          (_driverAnimTarget!.longitude - _driverAnimStart!.longitude) * t;
+      return LatLng(curLat, curLng);
+    }
+    return _driverLocation;
+  }
+
   final MapController _mapController = MapController();
   LatLng? _driverLocation;
   LatLng? _initialMapCenter;
@@ -115,6 +136,34 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   @override
   void initState() {
     super.initState();
+    _driverMoveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _driverMoveController.addListener(() {
+      // Throttle camera movement to prevent excessive map redraws on budget devices
+      if (_followDriver && _driverAnimTarget != null) {
+        final now = DateTime.now();
+        if (_lastCameraMove == null || now.difference(_lastCameraMove!).inMilliseconds > 350) {
+          _lastCameraMove = now;
+          final pos = _currentDriverLocation;
+          if (pos != null) {
+            _mapController.move(pos, 15.0);
+          }
+        }
+      }
+    });
+    _driverMoveController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() {
+          _isDriverWalking = false;
+          _driverLocation = _driverAnimTarget ?? _driverLocation;
+        });
+        if (_followDriver && _driverLocation != null) {
+          _mapController.move(_driverLocation!, 15.0);
+        }
+      }
+    });
     _initTracking();
   }
 
@@ -248,6 +297,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
   @override
   void dispose() {
+    _driverMoveController.dispose();
     _statusSub?.cancel();
     _driverLocSub?.cancel();
     _connectSub?.cancel();
@@ -334,18 +384,43 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         Timer(const Duration(milliseconds: 300), _applyDriverLocation);
   }
 
+  double _calculateBearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * (math.pi / 180.0);
+    final lon1 = start.longitude * (math.pi / 180.0);
+    final lat2 = end.latitude * (math.pi / 180.0);
+    final lon2 = end.longitude * (math.pi / 180.0);
+    final dLon = lon2 - lon1;
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = math.atan2(y, x) * (180.0 / math.pi);
+    return (brng + 360.0) % 360.0;
+  }
+
   void _applyDriverLocation() {
     _driverRenderTimer = null;
     final target = _pendingDriverLocation;
     _pendingDriverLocation = null;
     if (target == null || !mounted) return;
 
-    setState(() {
-      _driverLocation = target;
-    });
-    if (_followDriver) {
-      _mapController.move(target, 15.0);
+    if (_driverLocation == null) {
+      setState(() {
+        _driverLocation = target;
+      });
+      if (_followDriver) {
+        _mapController.move(target, 15.0);
+      }
+      return;
     }
+
+    final dist = const Distance().as(LengthUnit.Meter, _driverLocation!, target);
+    if (dist < 1.0) return;
+
+    _driverHeading = _calculateBearing(_driverLocation!, target);
+    _driverAnimStart = _driverLocation;
+    _driverAnimTarget = target;
+    _isDriverWalking = true;
+    _driverMoveController.forward(from: 0.0);
   }
 
   void _toggleFollow() {
@@ -403,10 +478,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                 },
               ),
               children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.otlob.customer',
-                ),
+                const AppMapTileLayer(userAgentPackageName: 'com.otlob.customer'),
                 if (_driverLocation != null && _initialMapCenter != null)
                   PolylineLayer(
                     polylines: [
@@ -432,21 +504,30 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       ),
                     ],
                   ),
-                if (_driverLocation != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _driverLocation!,
-                        width: 40,
-                        height: 40,
-                        child: const Icon(
-                          Icons.directions_car,
-                          color: AppColors.primary,
-                          size: 40,
+                AnimatedBuilder(
+                  animation: _driverMoveController,
+                  builder: (context, _) {
+                    final pos = _currentDriverLocation;
+                    if (pos == null) return const SizedBox.shrink();
+                    return MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: pos,
+                          width: 68,
+                          height: 68,
+                          child: RepaintBoundary(
+                            child: LiveWalkingDriverMarker(
+                              heading: _driverHeading,
+                              isWalking: _isDriverWalking,
+                              color: AppColors.primary,
+                              label: s.isArabic ? 'الكابتن' : 'Driver',
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
           Positioned(
