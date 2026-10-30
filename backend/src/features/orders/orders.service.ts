@@ -239,7 +239,8 @@ export class OrdersService {
           const anyPendingPayment = myGroups.some((g: any) => g.status === 'PENDING_PAYMENT');
           const allDelivered = myGroups.every((g: any) => g.status === 'DELIVERED');
           const allPickedUp = myGroups.every((g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED');
-          const allReady = myGroups.every((g: any) => g.status === 'READY_FOR_PICKUP' || g.status === 'PICKED_UP' || g.status === 'DELIVERED');
+          const somePickedUp = myGroups.some((g: any) => g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP');
+          const allReady = myGroups.every((g: any) => g.status === 'READY_FOR_PICKUP' || g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP' || g.status === 'DELIVERED');
 
           if (anyPendingPayment) {
             projectedStatus = 'PENDING_PAYMENT';
@@ -247,6 +248,8 @@ export class OrdersService {
             projectedStatus = 'DELIVERED';
           } else if (allPickedUp) {
             projectedStatus = 'PICKED_UP';
+          } else if (somePickedUp) {
+            projectedStatus = 'PARTIALLY_PICKED_UP';
           } else if (allReady) {
             projectedStatus = 'READY_FOR_PICKUP';
           } else if (myGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')) {
@@ -484,6 +487,8 @@ export class OrdersService {
         ) {
           portionStatus = 'DELIVERED';
         } else if (
+          myFulfillment.pickedUpAt ||
+          myFulfillment.status === 'PICKED_UP' ||
           aggregateStatus === 'PICKED_UP' ||
           groupStatus === 'PICKED_UP'
         ) {

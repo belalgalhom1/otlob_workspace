@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **tracksStock** | **bool** |  | 
 **isActive** | **bool** |  | 
 **isFeatured** | **bool** |  | 
+**branchAvailabilityMode** | **String** |  | [default to 'ALL']
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
@@ -37,6 +38,7 @@ Name | Type | Description | Notes
 **variants** | [**BuiltList&lt;ProductVariant&gt;**](ProductVariant.md) |  | [optional] 
 **promotions** | [**BuiltList&lt;Promotion&gt;**](Promotion.md) |  | [optional] 
 **offers** | [**BuiltList&lt;Offer&gt;**](Offer.md) |  | [optional] 
+**branchAvailability** | [**BuiltList&lt;ProductBranchAvailability&gt;**](ProductBranchAvailability.md) |  | [optional] 
 **category** | [**MenuCategory**](MenuCategory.md) |  | [optional] 
 **vendor** | [**Vendor**](Vendor.md) |  | [optional] 
 

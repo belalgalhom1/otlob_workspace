@@ -3,7 +3,6 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -15,8 +14,6 @@ part 'update_driver_profile_dto.g.dart';
 /// * [name] 
 /// * [nationalId] 
 /// * [licenseNumber] 
-/// * [vehicleType] 
-/// * [vehiclePlate] 
 @BuiltValue()
 abstract class UpdateDriverProfileDto implements Built<UpdateDriverProfileDto, UpdateDriverProfileDtoBuilder> {
   @BuiltValueField(wireName: r'name')
@@ -27,13 +24,6 @@ abstract class UpdateDriverProfileDto implements Built<UpdateDriverProfileDto, U
 
   @BuiltValueField(wireName: r'licenseNumber')
   String? get licenseNumber;
-
-  @BuiltValueField(wireName: r'vehicleType')
-  UpdateDriverProfileDtoVehicleTypeEnum? get vehicleType;
-  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  VAN,  TRUCK,  MOTOR_TRICYCLE,  };
-
-  @BuiltValueField(wireName: r'vehiclePlate')
-  String? get vehiclePlate;
 
   UpdateDriverProfileDto._();
 
@@ -76,20 +66,6 @@ class _$UpdateDriverProfileDtoSerializer implements PrimitiveSerializer<UpdateDr
       yield r'licenseNumber';
       yield serializers.serialize(
         object.licenseNumber,
-        specifiedType: const FullType(String),
-      );
-    }
-    if (object.vehicleType != null) {
-      yield r'vehicleType';
-      yield serializers.serialize(
-        object.vehicleType,
-        specifiedType: const FullType(UpdateDriverProfileDtoVehicleTypeEnum),
-      );
-    }
-    if (object.vehiclePlate != null) {
-      yield r'vehiclePlate';
-      yield serializers.serialize(
-        object.vehiclePlate,
         specifiedType: const FullType(String),
       );
     }
@@ -137,20 +113,6 @@ class _$UpdateDriverProfileDtoSerializer implements PrimitiveSerializer<UpdateDr
           ) as String;
           result.licenseNumber = valueDes;
           break;
-        case r'vehicleType':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(UpdateDriverProfileDtoVehicleTypeEnum),
-          ) as UpdateDriverProfileDtoVehicleTypeEnum;
-          result.vehicleType = valueDes;
-          break;
-        case r'vehiclePlate':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.vehiclePlate = valueDes;
-          break;
         default:
           unhandled.add(key);
           unhandled.add(value);
@@ -178,28 +140,5 @@ class _$UpdateDriverProfileDtoSerializer implements PrimitiveSerializer<UpdateDr
     );
     return result.build();
   }
-}
-
-class UpdateDriverProfileDtoVehicleTypeEnum extends EnumClass {
-
-  @BuiltValueEnumConst(wireName: r'BICYCLE')
-  static const UpdateDriverProfileDtoVehicleTypeEnum BICYCLE = _$updateDriverProfileDtoVehicleTypeEnum_BICYCLE;
-  @BuiltValueEnumConst(wireName: r'MOTORCYCLE')
-  static const UpdateDriverProfileDtoVehicleTypeEnum MOTORCYCLE = _$updateDriverProfileDtoVehicleTypeEnum_MOTORCYCLE;
-  @BuiltValueEnumConst(wireName: r'CAR')
-  static const UpdateDriverProfileDtoVehicleTypeEnum CAR = _$updateDriverProfileDtoVehicleTypeEnum_CAR;
-  @BuiltValueEnumConst(wireName: r'VAN')
-  static const UpdateDriverProfileDtoVehicleTypeEnum VAN = _$updateDriverProfileDtoVehicleTypeEnum_VAN;
-  @BuiltValueEnumConst(wireName: r'TRUCK')
-  static const UpdateDriverProfileDtoVehicleTypeEnum TRUCK = _$updateDriverProfileDtoVehicleTypeEnum_TRUCK;
-  @BuiltValueEnumConst(wireName: r'MOTOR_TRICYCLE')
-  static const UpdateDriverProfileDtoVehicleTypeEnum MOTOR_TRICYCLE = _$updateDriverProfileDtoVehicleTypeEnum_MOTOR_TRICYCLE;
-
-  static Serializer<UpdateDriverProfileDtoVehicleTypeEnum> get serializer => _$updateDriverProfileDtoVehicleTypeEnumSerializer;
-
-  const UpdateDriverProfileDtoVehicleTypeEnum._(String name): super(name);
-
-  static BuiltSet<UpdateDriverProfileDtoVehicleTypeEnum> get values => _$updateDriverProfileDtoVehicleTypeEnumValues;
-  static UpdateDriverProfileDtoVehicleTypeEnum valueOf(String name) => _$updateDriverProfileDtoVehicleTypeEnumValueOf(name);
 }
 

@@ -18,10 +18,12 @@ Method | HTTP request | Description
 [**usersControllerAdminRevokeAllSessions**](UsersApi.md#userscontrolleradminrevokeallsessions) | **DELETE** /users/{userId}/sessions | [Admin] Revoke all sessions for a user (force logout)
 [**usersControllerAdminUnban**](UsersApi.md#userscontrolleradminunban) | **POST** /users/{userId}/unban | [Admin] Unban a user
 [**usersControllerAdminUpdate**](UsersApi.md#userscontrolleradminupdate) | **PATCH** /users/{userId} | [Admin] Update a user — name, email, phone, role, title, permissions, verification flags
+[**usersControllerChangeEmail**](UsersApi.md#userscontrollerchangeemail) | **POST** /users/me/change-email | Change my email (requires current password)
 [**usersControllerChangePassword**](UsersApi.md#userscontrollerchangepassword) | **POST** /users/me/change-password | Change my password
 [**usersControllerDeleteAccount**](UsersApi.md#userscontrollerdeleteaccount) | **DELETE** /users/me | Delete my account
 [**usersControllerGetNotificationSettings**](UsersApi.md#userscontrollergetnotificationsettings) | **GET** /users/me/notification-settings | Get my notification settings
 [**usersControllerGetUser**](UsersApi.md#userscontrollergetuser) | **GET** /users/me | Get my profile
+[**usersControllerSetPassword**](UsersApi.md#userscontrollersetpassword) | **POST** /users/me/set-password | Set a password for social-only accounts (no password yet)
 [**usersControllerUpdateNotificationSettings**](UsersApi.md#userscontrollerupdatenotificationsettings) | **PATCH** /users/me/notification-settings | Update my notification settings
 [**usersControllerUpdateUser**](UsersApi.md#userscontrollerupdateuser) | **PATCH** /users/me | Update my profile (name, email, phone, language)
 [**usersControllerUploadAvatar**](UsersApi.md#userscontrolleruploadavatar) | **POST** /users/me/avatar | Upload my avatar
@@ -410,6 +412,47 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **usersControllerChangeEmail**
+> ApiControllerRoot200Response usersControllerChangeEmail(changeEmailDto)
+
+Change my email (requires current password)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getUsersApi();
+final ChangeEmailDto changeEmailDto = ; // ChangeEmailDto | 
+
+try {
+    final response = api.usersControllerChangeEmail(changeEmailDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling UsersApi->usersControllerChangeEmail: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **changeEmailDto** | [**ChangeEmailDto**](ChangeEmailDto.md)|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **usersControllerChangePassword**
 > ApiControllerRoot200Response usersControllerChangePassword(changePasswordDto)
 
@@ -558,6 +601,47 @@ This endpoint does not need any parameter.
 ### HTTP request headers
 
  - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **usersControllerSetPassword**
+> ApiControllerRoot200Response usersControllerSetPassword(setPasswordDto)
+
+Set a password for social-only accounts (no password yet)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getUsersApi();
+final SetPasswordDto setPasswordDto = ; // SetPasswordDto | 
+
+try {
+    final response = api.usersControllerSetPassword(setPasswordDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling UsersApi->usersControllerSetPassword: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **setPasswordDto** | [**SetPasswordDto**](SetPasswordDto.md)|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

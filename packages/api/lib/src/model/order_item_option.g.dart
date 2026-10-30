@@ -16,6 +16,8 @@ class _$OrderItemOption extends OrderItemOption {
   @override
   final String optionName;
   @override
+  final String? groupName;
+  @override
   final num priceAdded;
 
   factory _$OrderItemOption([void Function(OrderItemOptionBuilder)? updates]) =>
@@ -26,6 +28,7 @@ class _$OrderItemOption extends OrderItemOption {
     required this.orderItemId,
     this.optionId,
     required this.optionName,
+    this.groupName,
     required this.priceAdded,
   }) : super._();
   @override
@@ -43,6 +46,7 @@ class _$OrderItemOption extends OrderItemOption {
         orderItemId == other.orderItemId &&
         optionId == other.optionId &&
         optionName == other.optionName &&
+        groupName == other.groupName &&
         priceAdded == other.priceAdded;
   }
 
@@ -53,6 +57,7 @@ class _$OrderItemOption extends OrderItemOption {
     _$hash = $jc(_$hash, orderItemId.hashCode);
     _$hash = $jc(_$hash, optionId.hashCode);
     _$hash = $jc(_$hash, optionName.hashCode);
+    _$hash = $jc(_$hash, groupName.hashCode);
     _$hash = $jc(_$hash, priceAdded.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -65,6 +70,7 @@ class _$OrderItemOption extends OrderItemOption {
           ..add('orderItemId', orderItemId)
           ..add('optionId', optionId)
           ..add('optionName', optionName)
+          ..add('groupName', groupName)
           ..add('priceAdded', priceAdded))
         .toString();
   }
@@ -90,6 +96,10 @@ class OrderItemOptionBuilder
   String? get optionName => _$this._optionName;
   set optionName(String? optionName) => _$this._optionName = optionName;
 
+  String? _groupName;
+  String? get groupName => _$this._groupName;
+  set groupName(String? groupName) => _$this._groupName = groupName;
+
   num? _priceAdded;
   num? get priceAdded => _$this._priceAdded;
   set priceAdded(num? priceAdded) => _$this._priceAdded = priceAdded;
@@ -105,6 +115,7 @@ class OrderItemOptionBuilder
       _orderItemId = $v.orderItemId;
       _optionId = $v.optionId;
       _optionName = $v.optionName;
+      _groupName = $v.groupName;
       _priceAdded = $v.priceAdded;
       _$v = null;
     }
@@ -144,6 +155,7 @@ class OrderItemOptionBuilder
             r'OrderItemOption',
             'optionName',
           ),
+          groupName: groupName,
           priceAdded: BuiltValueNullFieldError.checkNotNull(
             priceAdded,
             r'OrderItemOption',

@@ -21,6 +21,7 @@ part 'driver_shift.g.dart';
 /// * [endTime] 
 /// * [actualStart] 
 /// * [actualEnd] 
+/// * [startPhotoUrl] 
 /// * [status] 
 /// * [breakMinutes] 
 /// * [totalEarnings] 
@@ -57,6 +58,9 @@ abstract class DriverShift implements Built<DriverShift, DriverShiftBuilder> {
 
   @BuiltValueField(wireName: r'actualEnd')
   DateTime? get actualEnd;
+
+  @BuiltValueField(wireName: r'startPhotoUrl')
+  String? get startPhotoUrl;
 
   @BuiltValueField(wireName: r'status')
   DriverShiftStatus get status;
@@ -157,6 +161,13 @@ class _$DriverShiftSerializer implements PrimitiveSerializer<DriverShift> {
       yield serializers.serialize(
         object.actualEnd,
         specifiedType: const FullType(DateTime),
+      );
+    }
+    if (object.startPhotoUrl != null) {
+      yield r'startPhotoUrl';
+      yield serializers.serialize(
+        object.startPhotoUrl,
+        specifiedType: const FullType(String),
       );
     }
     yield r'status';
@@ -290,6 +301,13 @@ class _$DriverShiftSerializer implements PrimitiveSerializer<DriverShift> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.actualEnd = valueDes;
+          break;
+        case r'startPhotoUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.startPhotoUrl = valueDes;
           break;
         case r'status':
           final valueDes = serializers.deserialize(

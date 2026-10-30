@@ -131,7 +131,7 @@ class Orders extends _$Orders {
   static const _activeStatuses = {
     'PENDING', 'ACCEPTED', 'PREPARING',
     'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT',
-    'READY_FOR_PICKUP', 'PICKED_UP',
+    'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP',
   };
 
   static const _pastStatuses = {'DELIVERED', 'CANCELLED'};
@@ -572,9 +572,9 @@ class Orders extends _$Orders {
     try {
       final dto = PlaceMultiVendorOrderDto((b) => b
         ..vendorIds = ListBuilder<String>(vendorIds)
-        ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? 'MOBILE_WALLET' : 'CASH_ON_DELIVERY'
+        ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? PlaceMultiVendorOrderDtoPaymentMethodEnum.MOBILE_WALLET : PlaceMultiVendorOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
         ..deliveryAddress = address
-        ..deliveryLocation = ListBuilder<num>(location.length >= 2 ? [location[0], location[1]] : [0.0, 0.0])
+        ..deliveryLocation = ListBuilder<String>(location.length >= 2 ? [location[0].toString(), location[1].toString()] : ['0.0', '0.0'])
         ..coinsToUse = coinsToUse
       );
       final result = await repository.estimateMultiVendor(dto);
@@ -601,9 +601,9 @@ class Orders extends _$Orders {
     try {
       final dto = PlaceMultiVendorOrderDto((b) => b
         ..vendorIds = ListBuilder<String>(vendorIds)
-        ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? 'MOBILE_WALLET' : 'CASH_ON_DELIVERY'
+        ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? PlaceMultiVendorOrderDtoPaymentMethodEnum.MOBILE_WALLET : PlaceMultiVendorOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
         ..deliveryAddress = address
-        ..deliveryLocation = ListBuilder<num>(location.length >= 2 ? [location[0], location[1]] : [0.0, 0.0])
+        ..deliveryLocation = ListBuilder<String>(location.length >= 2 ? [location[0].toString(), location[1].toString()] : ['0.0', '0.0'])
         ..specialRequest = specialRequest
         ..coinsToUse = coinsToUse
       );

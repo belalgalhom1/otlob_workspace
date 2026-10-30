@@ -16,6 +16,7 @@ Name | Type | Description | Notes
 **customPrice** | **num** |  | [optional] 
 **customImageUrl** | **String** |  | [optional] 
 **quantity** | **num** |  | 
+**selectedUnit** | **String** |  | 
 **specialRequest** | **String** |  | [optional] 
 **optionHash** | **String** |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 

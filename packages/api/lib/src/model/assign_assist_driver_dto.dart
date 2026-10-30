@@ -11,9 +11,10 @@ part 'assign_assist_driver_dto.g.dart';
 /// AssignAssistDriverDto
 ///
 /// Properties:
-/// * [driverId] - Driver to assign as the assisting driver.
+/// * [driverId] - Driver to assign as the assisting driver. The primary driver is kept.
 @BuiltValue()
 abstract class AssignAssistDriverDto implements Built<AssignAssistDriverDto, AssignAssistDriverDtoBuilder> {
+  /// Driver to assign as the assisting driver. The primary driver is kept.
   @BuiltValueField(wireName: r'driverId')
   String get driverId;
 
@@ -56,6 +57,33 @@ class _$AssignAssistDriverDtoSerializer implements PrimitiveSerializer<AssignAss
     return _serializeProperties(serializers, object, specifiedType: specifiedType).toList();
   }
 
+  void _deserializeProperties(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+    required List<Object?> serializedList,
+    required AssignAssistDriverDtoBuilder result,
+    required List<Object?> unhandled,
+  }) {
+    for (var i = 0; i < serializedList.length; i += 2) {
+      final key = serializedList[i] as String;
+      final value = serializedList[i + 1];
+      switch (key) {
+        case r'driverId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.driverId = valueDes;
+          break;
+        default:
+          unhandled.add(key);
+          unhandled.add(value);
+          break;
+      }
+    }
+  }
+
   @override
   AssignAssistDriverDto deserialize(
     Serializers serializers,
@@ -64,18 +92,16 @@ class _$AssignAssistDriverDtoSerializer implements PrimitiveSerializer<AssignAss
   }) {
     final result = AssignAssistDriverDtoBuilder();
     final serializedList = (serialized as Iterable<Object?>).toList();
-    for (var i = 0; i < serializedList.length; i += 2) {
-      final key = serializedList[i] as String;
-      final value = serializedList[i + 1];
-      switch (key) {
-        case r'driverId':
-          result.driverId = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          break;
-      }
-    }
+    final unhandled = <Object?>[];
+    _deserializeProperties(
+      serializers,
+      serialized,
+      specifiedType: specifiedType,
+      serializedList: serializedList,
+      unhandled: unhandled,
+      result: result,
+    );
     return result.build();
   }
 }
+

@@ -477,7 +477,7 @@ export class LocationRepository {
           LEFT JOIN order_vendor_fulfillments f ON f.id = gi."fulfillmentId"
           LEFT JOIN vendor_branches b ON b.id = f."vendorBranchId"
           WHERE (
-            (o."driverId" = d.id AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PICKED_UP'))
+            (o."driverId" = d.id AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PARTIALLY_PICKED_UP', 'PICKED_UP'))
             OR ((g."primaryDriverId" = d.id OR g."assistDriverId" = d.id) AND g.status::text NOT IN ('CANCELLED', 'DELIVERED'))
           )
           AND ST_DWithin(
@@ -510,7 +510,7 @@ export class LocationRepository {
                   SELECT o.id
                   FROM orders o
                   WHERE o."driverId" = d.id
-                    AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PICKED_UP')
+                    AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PARTIALLY_PICKED_UP', 'PICKED_UP')
                     AND NOT EXISTS (
                       SELECT 1 FROM order_delivery_groups og WHERE og."orderId" = o.id
                     )

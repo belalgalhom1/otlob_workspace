@@ -14,6 +14,8 @@ Name | Type | Description | Notes
 **address** | **String** |  | 
 **phone** | **String** |  | [optional] 
 **isOpen** | **bool** |  | 
+**isContracted** | **bool** |  | [optional] 
+**commissionRate** | **num** |  | [optional] 
 **vendorId** | **String** |  | 
 **zoneId** | **String** |  | 
 **createdAt** | [**DateTime**](DateTime.md) |  | 

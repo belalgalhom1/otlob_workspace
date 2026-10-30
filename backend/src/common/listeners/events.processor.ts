@@ -323,7 +323,7 @@ export class EventsProcessor extends WorkerHost {
       );
     }
 
-    if (event.newStatus === OrderStatus.PICKED_UP) {
+    if (event.newStatus === OrderStatus.PICKED_UP || event.newStatus === OrderStatus.PARTIALLY_PICKED_UP) {
       await this.ordersQueue.add(
         ORDER_JOBS.DELIVERY_WATCHDOG,
         { orderId: event.orderId, orderNumber: event.orderNumber },
@@ -339,6 +339,7 @@ export class EventsProcessor extends WorkerHost {
       OrderStatus.PENDING_PAYMENT,
       OrderStatus.PREPARING,
       OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.PARTIALLY_PICKED_UP,
       OrderStatus.PICKED_UP,
     ];
     for (const driverId of driverUserById.keys()) {

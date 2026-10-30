@@ -6,15 +6,82 @@ part of 'place_multi_vendor_order_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const PlaceMultiVendorOrderDtoPaymentMethodEnum
+_$placeMultiVendorOrderDtoPaymentMethodEnum_CASH_ON_DELIVERY =
+    const PlaceMultiVendorOrderDtoPaymentMethodEnum._('CASH_ON_DELIVERY');
+const PlaceMultiVendorOrderDtoPaymentMethodEnum
+_$placeMultiVendorOrderDtoPaymentMethodEnum_MOBILE_WALLET =
+    const PlaceMultiVendorOrderDtoPaymentMethodEnum._('MOBILE_WALLET');
+
+PlaceMultiVendorOrderDtoPaymentMethodEnum
+_$placeMultiVendorOrderDtoPaymentMethodEnumValueOf(String name) {
+  switch (name) {
+    case 'CASH_ON_DELIVERY':
+      return _$placeMultiVendorOrderDtoPaymentMethodEnum_CASH_ON_DELIVERY;
+    case 'MOBILE_WALLET':
+      return _$placeMultiVendorOrderDtoPaymentMethodEnum_MOBILE_WALLET;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<PlaceMultiVendorOrderDtoPaymentMethodEnum>
+_$placeMultiVendorOrderDtoPaymentMethodEnumValues =
+    BuiltSet<PlaceMultiVendorOrderDtoPaymentMethodEnum>(
+      const <PlaceMultiVendorOrderDtoPaymentMethodEnum>[
+        _$placeMultiVendorOrderDtoPaymentMethodEnum_CASH_ON_DELIVERY,
+        _$placeMultiVendorOrderDtoPaymentMethodEnum_MOBILE_WALLET,
+      ],
+    );
+
+Serializer<PlaceMultiVendorOrderDtoPaymentMethodEnum>
+_$placeMultiVendorOrderDtoPaymentMethodEnumSerializer =
+    _$PlaceMultiVendorOrderDtoPaymentMethodEnumSerializer();
+
+class _$PlaceMultiVendorOrderDtoPaymentMethodEnumSerializer
+    implements PrimitiveSerializer<PlaceMultiVendorOrderDtoPaymentMethodEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'CASH_ON_DELIVERY': 'CASH_ON_DELIVERY',
+    'MOBILE_WALLET': 'MOBILE_WALLET',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'CASH_ON_DELIVERY': 'CASH_ON_DELIVERY',
+    'MOBILE_WALLET': 'MOBILE_WALLET',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[
+    PlaceMultiVendorOrderDtoPaymentMethodEnum,
+  ];
+  @override
+  final String wireName = 'PlaceMultiVendorOrderDtoPaymentMethodEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    PlaceMultiVendorOrderDtoPaymentMethodEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  PlaceMultiVendorOrderDtoPaymentMethodEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => PlaceMultiVendorOrderDtoPaymentMethodEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$PlaceMultiVendorOrderDto extends PlaceMultiVendorOrderDto {
   @override
   final BuiltList<String> vendorIds;
   @override
-  final String paymentMethod;
+  final PlaceMultiVendorOrderDtoPaymentMethodEnum paymentMethod;
   @override
   final String deliveryAddress;
   @override
-  final BuiltList<num> deliveryLocation;
+  final BuiltList<String> deliveryLocation;
   @override
   final String? specialRequest;
   @override
@@ -90,9 +157,10 @@ class PlaceMultiVendorOrderDtoBuilder
   set vendorIds(ListBuilder<String>? vendorIds) =>
       _$this._vendorIds = vendorIds;
 
-  String? _paymentMethod;
-  String? get paymentMethod => _$this._paymentMethod;
-  set paymentMethod(String? paymentMethod) =>
+  PlaceMultiVendorOrderDtoPaymentMethodEnum? _paymentMethod;
+  PlaceMultiVendorOrderDtoPaymentMethodEnum? get paymentMethod =>
+      _$this._paymentMethod;
+  set paymentMethod(PlaceMultiVendorOrderDtoPaymentMethodEnum? paymentMethod) =>
       _$this._paymentMethod = paymentMethod;
 
   String? _deliveryAddress;
@@ -100,10 +168,10 @@ class PlaceMultiVendorOrderDtoBuilder
   set deliveryAddress(String? deliveryAddress) =>
       _$this._deliveryAddress = deliveryAddress;
 
-  ListBuilder<num>? _deliveryLocation;
-  ListBuilder<num> get deliveryLocation =>
-      _$this._deliveryLocation ??= ListBuilder<num>();
-  set deliveryLocation(ListBuilder<num>? deliveryLocation) =>
+  ListBuilder<String>? _deliveryLocation;
+  ListBuilder<String> get deliveryLocation =>
+      _$this._deliveryLocation ??= ListBuilder<String>();
+  set deliveryLocation(ListBuilder<String>? deliveryLocation) =>
       _$this._deliveryLocation = deliveryLocation;
 
   String? _specialRequest;

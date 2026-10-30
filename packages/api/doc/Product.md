@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **tracksStock** | **bool** |  | 
 **isActive** | **bool** |  | 
 **isFeatured** | **bool** |  | 
+**branchAvailabilityMode** | **String** |  | [default to 'ALL']
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 

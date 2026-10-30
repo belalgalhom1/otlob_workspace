@@ -165,9 +165,9 @@ class AuthController extends _$AuthController {
       final authRepo = ref.read(sharedAuthRepositoryProvider);
       await authRepo.socialLogin(
         SocialLoginDto((b) => b
-          ..provider = 'GOOGLE'
+          ..provider = SocialLoginDtoProviderEnum.GOOGLE
           ..idToken = idToken
-          ..app = 'customer'),
+          ..app = SocialLoginDtoAppEnum.customer),
       );
       state = AuthStatus.authenticated;
       ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));

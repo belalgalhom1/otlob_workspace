@@ -1,10 +1,12 @@
 import 'package:api/api.dart';
+import 'package:dio/dio.dart';
 import '../shared/response_parser.dart';
 
 class DriverOrdersRepository {
   final OrdersApi _api;
   final DriversApi? _driversApi;
-  DriverOrdersRepository(this._api, {DriversApi? driversApi}) : _driversApi = driversApi;
+  final Dio? _dio;
+  DriverOrdersRepository(this._api, {DriversApi? driversApi, Dio? dio}) : _driversApi = driversApi, _dio = dio;
 
   Future<dynamic> getMyOrders({String? status, num? limit = 20, num? page = 1}) async {
     final response = await _api.ordersControllerGetMyOrdersAsDriver(
@@ -22,7 +24,7 @@ class DriverOrdersRepository {
     );
     final list = ResponseParser.parseList(response);
     
-    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
+    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP', 'PREPARING'];
     final dataList = (list['data'] ?? list['orders'] ?? list['items']) as List?;
     if (dataList != null) {
       if (orderId != null) {
@@ -48,7 +50,7 @@ class DriverOrdersRepository {
     );
     final list = ResponseParser.parseList(response);
     
-    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'PREPARING'];
+    final activeStatuses = ['LOOKING_FOR_DRIVER', 'ACCEPTED', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP', 'PREPARING'];
     final dataList = (list['data'] ?? list['orders'] ?? list['items']) as List?;
     final activeOrders = <dynamic>[];
     if (dataList != null) {
@@ -88,7 +90,7 @@ class DriverOrdersRepository {
   Future<dynamic> requestAssistOrder(String orderId, {required String reason, String? note}) async {
     if (_driversApi == null) throw Exception("DriversApi required for assist operations");
     final dto = RequestAssistDriverDto((b) => b
-      ..reason = reason
+      ..reason = RequestAssistDriverDtoReasonEnum.valueOf(reason)
       ..note = note
     );
     final response = await _driversApi.driversControllerRequestAssistOrder(
@@ -117,10 +119,16 @@ class DriverOrdersRepository {
   }
 
   Future<dynamic> respondToAssistOffer(String requestId, {required bool accept}) async {
+    if (_dio != null) {
+      final response = await _dio.post(
+        '/drivers/assist/$requestId/offer/respond',
+        data: {'accept': accept},
+      );
+      return ResponseParser.parse(response);
+    }
     if (_driversApi == null) throw Exception("DriversApi required for assist operations");
     final response = await _driversApi.driversControllerRespondToAssistOffer(
       requestId: requestId,
-      accept: accept,
     );
     return ResponseParser.parse(response);
   }

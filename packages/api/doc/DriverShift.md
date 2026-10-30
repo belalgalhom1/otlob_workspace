@@ -17,6 +17,7 @@ Name | Type | Description | Notes
 **endTime** | [**DateTime**](DateTime.md) |  | 
 **actualStart** | [**DateTime**](DateTime.md) |  | [optional] 
 **actualEnd** | [**DateTime**](DateTime.md) |  | [optional] 
+**startPhotoUrl** | **String** |  | [optional] 
 **status** | [**DriverShiftStatus**](DriverShiftStatus.md) |  | 
 **breakMinutes** | **num** |  | [optional] 
 **totalEarnings** | **num** |  | [optional] 

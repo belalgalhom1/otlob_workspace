@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -30,6 +31,7 @@ part 'product.g.dart';
 /// * [tracksStock] 
 /// * [isActive] 
 /// * [isFeatured] 
+/// * [branchAvailabilityMode] 
 /// * [deletedAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
@@ -92,6 +94,10 @@ abstract class Product implements Built<Product, ProductBuilder> {
   @BuiltValueField(wireName: r'isFeatured')
   bool get isFeatured;
 
+  @BuiltValueField(wireName: r'branchAvailabilityMode')
+  ProductBranchAvailabilityModeEnum get branchAvailabilityMode;
+  // enum branchAvailabilityModeEnum {  ALL,  SPECIFIC,  };
+
   @BuiltValueField(wireName: r'deletedAt')
   DateTime? get deletedAt;
 
@@ -106,7 +112,8 @@ abstract class Product implements Built<Product, ProductBuilder> {
   factory Product([void updates(ProductBuilder b)]) = _$Product;
 
   @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(ProductBuilder b) => b;
+  static void _defaults(ProductBuilder b) => b
+      ..branchAvailabilityMode = ProductBranchAvailabilityModeEnum.valueOf('ALL');
 
   @BuiltValueSerializer(custom: true)
   static Serializer<Product> get serializer => _$ProductSerializer();
@@ -238,6 +245,11 @@ class _$ProductSerializer implements PrimitiveSerializer<Product> {
     yield serializers.serialize(
       object.isFeatured,
       specifiedType: const FullType(bool),
+    );
+    yield r'branchAvailabilityMode';
+    yield serializers.serialize(
+      object.branchAvailabilityMode,
+      specifiedType: const FullType(ProductBranchAvailabilityModeEnum),
     );
     if (object.deletedAt != null) {
       yield r'deletedAt';
@@ -412,6 +424,13 @@ class _$ProductSerializer implements PrimitiveSerializer<Product> {
           ) as bool;
           result.isFeatured = valueDes;
           break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(ProductBranchAvailabilityModeEnum),
+          ) as ProductBranchAvailabilityModeEnum;
+          result.branchAvailabilityMode = valueDes;
+          break;
         case r'deletedAt':
           final valueDes = serializers.deserialize(
             value,
@@ -460,5 +479,20 @@ class _$ProductSerializer implements PrimitiveSerializer<Product> {
     );
     return result.build();
   }
+}
+
+class ProductBranchAvailabilityModeEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'ALL')
+  static const ProductBranchAvailabilityModeEnum ALL = _$productBranchAvailabilityModeEnum_ALL;
+  @BuiltValueEnumConst(wireName: r'SPECIFIC')
+  static const ProductBranchAvailabilityModeEnum SPECIFIC = _$productBranchAvailabilityModeEnum_SPECIFIC;
+
+  static Serializer<ProductBranchAvailabilityModeEnum> get serializer => _$productBranchAvailabilityModeEnumSerializer;
+
+  const ProductBranchAvailabilityModeEnum._(String name): super(name);
+
+  static BuiltSet<ProductBranchAvailabilityModeEnum> get values => _$productBranchAvailabilityModeEnumValues;
+  static ProductBranchAvailabilityModeEnum valueOf(String name) => _$productBranchAvailabilityModeEnumValueOf(name);
 }
 

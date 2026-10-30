@@ -228,7 +228,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerFindOne**
-> ApiControllerRoot200Response vendorsControllerFindOne(vendorId)
+> ApiControllerRoot200Response vendorsControllerFindOne(vendorId, branchId)
 
 Get a specific vendor by ID
 
@@ -238,9 +238,10 @@ import 'package:api/api.dart';
 
 final api = Api().getVendorsCoreManagementApi();
 final String vendorId = vendorId_example; // String | 
+final String branchId = branchId_example; // String | Optional branch UUID to filter menu for a specific branch
 
 try {
-    final response = api.vendorsControllerFindOne(vendorId);
+    final response = api.vendorsControllerFindOne(vendorId, branchId);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsCoreManagementApi->vendorsControllerFindOne: $e\n');
@@ -252,6 +253,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **vendorId** | **String**|  | 
+ **branchId** | **String**| Optional branch UUID to filter menu for a specific branch | [optional] 
 
 ### Return type
 

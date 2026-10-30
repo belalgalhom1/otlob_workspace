@@ -1,6 +1,6 @@
 import 'package:api/api.dart';
-import 'package:dio/dio.dart';
 import 'package:built_value/json_object.dart';
+import 'package:dio/dio.dart';
 import 'response_parser.dart';
 
 class SharedChatRepository {
@@ -110,7 +110,7 @@ class SharedChatRepository {
 
   Future<dynamic> deleteMessage(String conversationId, String messageId) async {
     final response = await _messagesApi.messagesControllerDelete(
-      conversationId: conversationId,
+      conversationId: JsonObject(conversationId),
       messageId: messageId,
     );
     return ResponseParser.parse(response);

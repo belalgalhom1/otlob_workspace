@@ -15,11 +15,13 @@ part 'update_order_status_dto.g.dart';
 /// * [status] 
 /// * [note] 
 /// * [estimatedPrepTime] - Estimated prep time in minutes (for ACCEPTED)
+/// * [pickupImageUrl] - Pickup proof photo URL (required when status is PICKED_UP)
+/// * [deliveryImageUrl] - Delivery proof photo URL (required when status is DELIVERED)
 @BuiltValue()
 abstract class UpdateOrderStatusDto implements Built<UpdateOrderStatusDto, UpdateOrderStatusDtoBuilder> {
   @BuiltValueField(wireName: r'status')
   UpdateOrderStatusDtoStatusEnum get status;
-  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
+  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PARTIALLY_PICKED_UP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
 
   @BuiltValueField(wireName: r'note')
   String? get note;
@@ -27,6 +29,14 @@ abstract class UpdateOrderStatusDto implements Built<UpdateOrderStatusDto, Updat
   /// Estimated prep time in minutes (for ACCEPTED)
   @BuiltValueField(wireName: r'estimatedPrepTime')
   num? get estimatedPrepTime;
+
+  /// Pickup proof photo URL (required when status is PICKED_UP)
+  @BuiltValueField(wireName: r'pickupImageUrl')
+  String? get pickupImageUrl;
+
+  /// Delivery proof photo URL (required when status is DELIVERED)
+  @BuiltValueField(wireName: r'deliveryImageUrl')
+  String? get deliveryImageUrl;
 
   UpdateOrderStatusDto._();
 
@@ -68,6 +78,20 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
       yield serializers.serialize(
         object.estimatedPrepTime,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.pickupImageUrl != null) {
+      yield r'pickupImageUrl';
+      yield serializers.serialize(
+        object.pickupImageUrl,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.deliveryImageUrl != null) {
+      yield r'deliveryImageUrl';
+      yield serializers.serialize(
+        object.deliveryImageUrl,
+        specifiedType: const FullType(String),
       );
     }
   }
@@ -113,6 +137,20 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
             specifiedType: const FullType(num),
           ) as num;
           result.estimatedPrepTime = valueDes;
+          break;
+        case r'pickupImageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.pickupImageUrl = valueDes;
+          break;
+        case r'deliveryImageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryImageUrl = valueDes;
           break;
         default:
           unhandled.add(key);
@@ -161,6 +199,8 @@ class UpdateOrderStatusDtoStatusEnum extends EnumClass {
   static const UpdateOrderStatusDtoStatusEnum PENDING_PAYMENT = _$updateOrderStatusDtoStatusEnum_PENDING_PAYMENT;
   @BuiltValueEnumConst(wireName: r'READY_FOR_PICKUP')
   static const UpdateOrderStatusDtoStatusEnum READY_FOR_PICKUP = _$updateOrderStatusDtoStatusEnum_READY_FOR_PICKUP;
+  @BuiltValueEnumConst(wireName: r'PARTIALLY_PICKED_UP')
+  static const UpdateOrderStatusDtoStatusEnum PARTIALLY_PICKED_UP = _$updateOrderStatusDtoStatusEnum_PARTIALLY_PICKED_UP;
   @BuiltValueEnumConst(wireName: r'PICKED_UP')
   static const UpdateOrderStatusDtoStatusEnum PICKED_UP = _$updateOrderStatusDtoStatusEnum_PICKED_UP;
   @BuiltValueEnumConst(wireName: r'DELIVERED')

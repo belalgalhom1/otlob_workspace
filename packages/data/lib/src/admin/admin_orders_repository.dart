@@ -12,9 +12,10 @@ class AdminOrdersRepository {
 
   Future<dynamic> ordersAdminPlaceDirectOrder(
       {required PlaceDirectOrderDto placeDirectOrderDto, String? idempotencyKey}) async {
+    final key = idempotencyKey ?? 'admin_${DateTime.now().microsecondsSinceEpoch}';
     final response = await _api.ordersControllerAdminPlaceDirectOrder(
+      idempotencyKey: key,
       placeDirectOrderDto: placeDirectOrderDto,
-      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
     );
     return ResponseParser.parse(response);
   }

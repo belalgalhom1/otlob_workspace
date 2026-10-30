@@ -19,6 +19,8 @@ part 'update_vendor_branch_dto.g.dart';
 /// * [location] 
 /// * [zoneId] 
 /// * [isOpen] 
+/// * [isContracted] - Contracted status override for this branch. If null/undefined, falls back to vendor.isContracted.
+/// * [commissionRate] - Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate.
 @BuiltValue()
 abstract class UpdateVendorBranchDto implements Built<UpdateVendorBranchDto, UpdateVendorBranchDtoBuilder> {
   @BuiltValueField(wireName: r'name')
@@ -42,9 +44,11 @@ abstract class UpdateVendorBranchDto implements Built<UpdateVendorBranchDto, Upd
   @BuiltValueField(wireName: r'isOpen')
   bool? get isOpen;
 
-    @BuiltValueField(wireName: r'isContracted')
+  /// Contracted status override for this branch. If null/undefined, falls back to vendor.isContracted.
+  @BuiltValueField(wireName: r'isContracted')
   bool? get isContracted;
 
+  /// Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate.
   @BuiltValueField(wireName: r'commissionRate')
   num? get commissionRate;
 
@@ -113,6 +117,13 @@ class _$UpdateVendorBranchDtoSerializer implements PrimitiveSerializer<UpdateVen
         specifiedType: const FullType(String),
       );
     }
+    if (object.isOpen != null) {
+      yield r'isOpen';
+      yield serializers.serialize(
+        object.isOpen,
+        specifiedType: const FullType(bool),
+      );
+    }
     if (object.isContracted != null) {
       yield r'isContracted';
       yield serializers.serialize(
@@ -125,13 +136,6 @@ class _$UpdateVendorBranchDtoSerializer implements PrimitiveSerializer<UpdateVen
       yield serializers.serialize(
         object.commissionRate,
         specifiedType: const FullType(num),
-      );
-    }
-    if (object.isOpen != null) {
-      yield r'isOpen';
-      yield serializers.serialize(
-        object.isOpen,
-        specifiedType: const FullType(bool),
       );
     }
   }

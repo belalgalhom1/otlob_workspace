@@ -101,9 +101,9 @@ class Auth extends _$Auth {
       final repository = ref.read(sharedAuthRepositoryProvider);
       await repository.socialLogin(
         SocialLoginDto((b) => b
-          ..provider = 'GOOGLE'
+          ..provider = SocialLoginDtoProviderEnum.GOOGLE
           ..idToken = idToken
-          ..app = 'driver'),
+          ..app = SocialLoginDtoAppEnum.driver),
       );
       await _finishDriverLogin(repository);
     } catch (e, st) {

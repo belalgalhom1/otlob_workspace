@@ -74,6 +74,7 @@ Class | Method | HTTP request | Description
 [*AuditLogsApi*](doc/AuditLogsApi.md) | [**auditLogsControllerFindAll**](doc/AuditLogsApi.md#auditlogscontrollerfindall) | **GET** /audit-logs | List audit logs with pagination and filters
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerConfirmVerification**](doc/AuthenticationApi.md#authcontrollerconfirmverification) | **POST** /auth/verify/confirm | Confirm verification code (OTP)
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerForgotPassword**](doc/AuthenticationApi.md#authcontrollerforgotpassword) | **POST** /auth/password/forgot | Request password reset
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerLinkSocialAccount**](doc/AuthenticationApi.md#authcontrollerlinksocialaccount) | **POST** /auth/social/link | Link a Google/Apple account to the current user
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerLogin**](doc/AuthenticationApi.md#authcontrollerlogin) | **POST** /auth/login | Login with email and password
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerLogout**](doc/AuthenticationApi.md#authcontrollerlogout) | **POST** /auth/logout | Logout from current session
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerLogoutAll**](doc/AuthenticationApi.md#authcontrollerlogoutall) | **POST** /auth/logout-all | Logout from all sessions
@@ -82,6 +83,7 @@ Class | Method | HTTP request | Description
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerResetPassword**](doc/AuthenticationApi.md#authcontrollerresetpassword) | **POST** /auth/password/reset | Reset password using code
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerSendVerification**](doc/AuthenticationApi.md#authcontrollersendverification) | **POST** /auth/verify/request | Request a verification code (OTP)
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerSocialLogin**](doc/AuthenticationApi.md#authcontrollersociallogin) | **POST** /auth/social | Login with OAuth provider (Google/Apple)
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**authControllerUnlinkSocialAccount**](doc/AuthenticationApi.md#authcontrollerunlinksocialaccount) | **DELETE** /auth/social/unlink/{provider} | Unlink a Google/Apple account from the current user
 [*CartApi*](doc/CartApi.md) | [**cartControllerAddItem**](doc/CartApi.md#cartcontrolleradditem) | **POST** /cart/{vendorId}/items | Add item to cart
 [*CartApi*](doc/CartApi.md) | [**cartControllerClearCart**](doc/CartApi.md#cartcontrollerclearcart) | **DELETE** /cart/{vendorId} | Clear entire cart for a vendor
 [*CartApi*](doc/CartApi.md) | [**cartControllerGetCart**](doc/CartApi.md#cartcontrollergetcart) | **GET** /cart/{vendorId} | Get cart for a specific vendor
@@ -119,35 +121,72 @@ Class | Method | HTTP request | Description
 [*CustomersApi*](doc/CustomersApi.md) | [**customersControllerUpdateAddress**](doc/CustomersApi.md#customerscontrollerupdateaddress) | **PATCH** /customers/me/addresses/{id} | Update an address
 [*DevicesPushNotificationsApi*](doc/DevicesPushNotificationsApi.md) | [**devicesControllerRegister**](doc/DevicesPushNotificationsApi.md#devicescontrollerregister) | **POST** /devices | Register a device for push notifications
 [*DevicesPushNotificationsApi*](doc/DevicesPushNotificationsApi.md) | [**devicesControllerRemove**](doc/DevicesPushNotificationsApi.md#devicescontrollerremove) | **DELETE** /devices/{token} | Remove a device token
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerAssignDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollerassigndrivers) | **POST** /driver-managers/assign | [Admin] Assign drivers to a driver manager (all or specific). Each driver can be assigned to only one manager.
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetManagerDetails**](doc/DriverManagersApi.md#drivermanagerscontrollergetmanagerdetails) | **GET** /driver-managers/{userId} | [Admin] Get driver manager details and assigned drivers
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetManagerDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollergetmanagerdrivers) | **GET** /driver-managers/{userId}/drivers | [Admin] Get drivers assigned to a driver manager
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetMyWallet**](doc/DriverManagersApi.md#drivermanagerscontrollergetmywallet) | **GET** /driver-managers/me/wallet | Get my driver-manager wallet
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetTransactions**](doc/DriverManagersApi.md#drivermanagerscontrollergettransactions) | **GET** /driver-managers/me/transactions | List my driver-manager wallet transactions
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerListManagers**](doc/DriverManagersApi.md#drivermanagerscontrollerlistmanagers) | **GET** /driver-managers | [Admin] List all driver managers with assigned driver counts
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerUnassignDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollerunassigndrivers) | **POST** /driver-managers/{userId}/unassign | [Admin] Unassign specific drivers from a driver manager
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAcceptSwap**](doc/DriverShiftsApi.md#drivershiftscontrolleracceptswap) | **POST** /driver-shifts/swap/{swapId}/accept | Claim someone else&#39;s shift from the swap board
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShift**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrolleradminbookweeklyshifts) | **POST** /driver-shifts/admin/book-week | [Admin] Book a full weekly shift schedule for a driver
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookOvertimeShift**](doc/DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGenerateShiftPools**](doc/DriverShiftsApi.md#drivershiftscontrollergenerateshiftpools) | **POST** /driver-shifts/admin/pools | [Admin] Generate shift pools for a date range
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGetAvailablePools**](doc/DriverShiftsApi.md#drivershiftscontrollergetavailablepools) | **GET** /driver-shifts/available | Get available shift pools for booking
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGetPoolWaitlist**](doc/DriverShiftsApi.md#drivershiftscontrollergetpoolwaitlist) | **GET** /driver-shifts/admin/pools/{poolId}/waitlist | [Admin] Get a pool waitlist (FIFO order)
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGetShiftPools**](doc/DriverShiftsApi.md#drivershiftscontrollergetshiftpools) | **GET** /driver-shifts/admin/pools | [Admin] Get shift pools
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGetSwapBoard**](doc/DriverShiftsApi.md#drivershiftscontrollergetswapboard) | **GET** /driver-shifts/swap-board | View available swaps from other drivers
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerJoinWaitlist**](doc/DriverShiftsApi.md#drivershiftscontrollerjoinwaitlist) | **POST** /driver-shifts/waitlist | Join the waitlist of a full shift pool
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerLeaveWaitlist**](doc/DriverShiftsApi.md#drivershiftscontrollerleavewaitlist) | **DELETE** /driver-shifts/waitlist/{poolId} | Leave the waitlist of a shift pool
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerOfferSwap**](doc/DriverShiftsApi.md#drivershiftscontrollerofferswap) | **POST** /driver-shifts/{shiftId}/swap | Offer a shift to the swap board
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerRemoveAllDriversFromPool**](doc/DriverShiftsApi.md#drivershiftscontrollerremovealldriversfrompool) | **DELETE** /driver-shifts/admin/pools/{poolId}/drivers | [Admin] Remove all drivers from a shift pool (keep the pool)
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerRemoveDriverFromShift**](doc/DriverShiftsApi.md#drivershiftscontrollerremovedriverfromshift) | **DELETE** /driver-shifts/admin/shifts/{shiftId} | [Admin] Remove a driver from a shift
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerTerminateShiftPool**](doc/DriverShiftsApi.md#drivershiftscontrollerterminateshiftpool) | **DELETE** /driver-shifts/admin/pools/{poolId} | [Admin] Terminate/Delete a shift pool
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminApproveBreak**](doc/DriversApi.md#driverscontrolleradminapprovebreak) | **POST** /drivers/breaks/{breakId}/approve | [Admin] Approve a break request (driver ON_BREAK)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminCreate**](doc/DriversApi.md#driverscontrolleradmincreate) | **POST** /drivers/admin | [Admin] Create a new driver directly
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminCreateShift**](doc/DriversApi.md#driverscontrolleradmincreateshift) | **POST** /drivers/{driverId}/shifts | [Admin] Create a shift for a driver
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminEndBreak**](doc/DriversApi.md#driverscontrolleradminendbreak) | **POST** /drivers/breaks/{breakId}/end | [Admin] Force-end an active break early
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminFindAll**](doc/DriversApi.md#driverscontrolleradminfindall) | **GET** /drivers | [Admin] List all drivers
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminFindOne**](doc/DriversApi.md#driverscontrolleradminfindone) | **GET** /drivers/{driverId} | [Admin] Get a driver by ID
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGetBreaks**](doc/DriversApi.md#driverscontrolleradmingetbreaks) | **GET** /drivers/{driverId}/breaks | [Admin] List recent breaks for a driver
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGetDriverLocation**](doc/DriversApi.md#driverscontrolleradmingetdriverlocation) | **GET** /drivers/{driverId}/location | [Admin] Get a driver current location
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGetPendingBreaks**](doc/DriversApi.md#driverscontrolleradmingetpendingbreaks) | **GET** /drivers/breaks/pending | [Admin] List pending break requests
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGetShifts**](doc/DriversApi.md#driverscontrolleradmingetshifts) | **GET** /drivers/{driverId}/shifts | [Admin] Get shifts for a driver
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminGrantBreak**](doc/DriversApi.md#driverscontrolleradmingrantbreak) | **POST** /drivers/{driverId}/breaks/grant | [Admin] Grant a break manually (no request needed, quota bypassed)
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminRejectBreak**](doc/DriversApi.md#driverscontrolleradminrejectbreak) | **POST** /drivers/breaks/{breakId}/reject | [Admin] Reject a break request
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminSuspend**](doc/DriversApi.md#driverscontrolleradminsuspend) | **POST** /drivers/{driverId}/suspend | [Admin] Suspend a driver
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminUnsuspend**](doc/DriversApi.md#driverscontrolleradminunsuspend) | **POST** /drivers/{driverId}/unsuspend | [Admin] Unsuspend a driver
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerAdminUpdate**](doc/DriversApi.md#driverscontrolleradminupdate) | **PATCH** /drivers/{driverId}/admin | [Admin] Update driver profile and sensitive fields
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAssignAssistDriver**](doc/DriversApi.md#driverscontrollerassignassistdriver) | **PATCH** /drivers/assist/{requestId}/assign-driver | [Admin] Assign an assisting driver, keeping the primary driver (MANAGE_ORDERS or MANAGE_DRIVERS)
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerAutoAssignAssistDriver**](doc/DriversApi.md#driverscontrollerautoassignassistdriver) | **PATCH** /drivers/assist/{requestId}/auto-assign | [Admin] Auto-assign the nearest eligible driver as the assistant
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerCancelAssistRequest**](doc/DriversApi.md#driverscontrollercancelassistrequest) | **PATCH** /drivers/assist/{requestId}/cancel | [Driver] Withdraw my own pending assistance request
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerCancelBreak**](doc/DriversApi.md#driverscontrollercancelbreak) | **POST** /drivers/me/break/cancel | Cancel my pending break request
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerCreateShift**](doc/DriversApi.md#driverscontrollercreateshift) | **POST** /drivers/me/shifts | Create a shift
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerDecideAssistRequest**](doc/DriversApi.md#driverscontrollerdecideassistrequest) | **PATCH** /drivers/assist/{requestId}/decide | [Admin] Approve or reject an assistance request
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerDeleteMyShift**](doc/DriversApi.md#driverscontrollerdeletemyshift) | **DELETE** /drivers/me/shifts/{shiftId} | Delete my shift (any status)
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerEndBreak**](doc/DriversApi.md#driverscontrollerendbreak) | **POST** /drivers/me/break/end | End the active break (pre-break status restored)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerEndShift**](doc/DriversApi.md#driverscontrollerendshift) | **POST** /drivers/me/shifts/{shiftId}/end | End a shift
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerGetActiveBreak**](doc/DriversApi.md#driverscontrollergetactivebreak) | **GET** /drivers/me/break/active | Get my active break, if any
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerGetMyBreaks**](doc/DriversApi.md#driverscontrollergetmybreaks) | **GET** /drivers/me/breaks | List my recent breaks
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetMyProfile**](doc/DriversApi.md#driverscontrollergetmyprofile) | **GET** /drivers/me | Get my driver profile
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetMyShifts**](doc/DriversApi.md#driverscontrollergetmyshifts) | **GET** /drivers/me/shifts | Get my shifts
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetWalletBalance**](doc/DriversApi.md#driverscontrollergetwalletbalance) | **GET** /drivers/me/wallet | Get wallet balance
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetWalletTransactions**](doc/DriversApi.md#driverscontrollergetwallettransactions) | **GET** /drivers/me/wallet/transactions | Get wallet transaction history
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerListAssistRequestsForOrder**](doc/DriversApi.md#driverscontrollerlistassistrequestsfororder) | **GET** /drivers/assist/order/{orderId} | [Admin] Assistance requests for one order
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerListPendingAssistRequests**](doc/DriversApi.md#driverscontrollerlistpendingassistrequests) | **GET** /drivers/assist/pending | [Admin] Pending extra-driver assistance requests
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerMyAssistRequests**](doc/DriversApi.md#driverscontrollermyassistrequests) | **GET** /drivers/assist/mine | [Driver] My assistance requests and their status
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerOfferAssistToNearest**](doc/DriversApi.md#driverscontrollerofferassisttonearest) | **PATCH** /drivers/assist/{requestId}/offer-nearest | [Admin] Auto-offer the assist to the top-N nearest eligible drivers
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerPendingAssistOffers**](doc/DriversApi.md#driverscontrollerpendingassistoffers) | **GET** /drivers/assist/offers/pending | [Driver] Pending assist offers (HTTP fallback when socket is down)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerRegister**](doc/DriversApi.md#driverscontrollerregister) | **POST** /drivers/register | Register as a driver (creates driver profile, upgrades role)
-[*DriversApi*](doc/DriversApi.md) | [**driversControllerStartShift**](doc/DriversApi.md#driverscontrollerstartshift) | **POST** /drivers/me/shifts/{shiftId}/start | Start a shift
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerRequestAssist**](doc/DriversApi.md#driverscontrollerrequestassist) | **POST** /drivers/assist/{orderId}/groups/{deliveryGroupId}/request | [Driver] Request an additional driver for a delivery I am assigned to
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerRequestAssistOrder**](doc/DriversApi.md#driverscontrollerrequestassistorder) | **POST** /drivers/assist/order/{orderId}/request | [Driver] Request an additional driver for a single-vendor order I am assigned to
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerRespondToAssistOffer**](doc/DriversApi.md#driverscontrollerrespondtoassistoffer) | **POST** /drivers/assist/{requestId}/offer/respond | [Driver] Accept or decline an assist offer
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerStartBreak**](doc/DriversApi.md#driverscontrollerstartbreak) | **POST** /drivers/me/break/start | Request a break (pending admin approval)
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerStartShift**](doc/DriversApi.md#driverscontrollerstartshift) | **POST** /drivers/me/shifts/{shiftId}/start | Start a shift (selfie required, must be inside the shift zone, flips ONLINE)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerUpdateProfile**](doc/DriversApi.md#driverscontrollerupdateprofile) | **PATCH** /drivers/me | Update my driver profile
-[*DriversApi*](doc/DriversApi.md) | [**driversControllerUpdateStatus**](doc/DriversApi.md#driverscontrollerupdatestatus) | **PATCH** /drivers/me/status | Update driver status (ONLINE / OFFLINE / ON_BREAK)
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerUpdateStatus**](doc/DriversApi.md#driverscontrollerupdatestatus) | **PATCH** /drivers/me/status | Update driver status (ONLINE / OFFLINE)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerUploadAvatar**](doc/DriversApi.md#driverscontrolleruploadavatar) | **POST** /drivers/me/avatar | Upload driver avatar
 [*HealthSystemApi*](doc/HealthSystemApi.md) | [**apiControllerRoot**](doc/HealthSystemApi.md#apicontrollerroot) | **GET** / | API Health Check
 [*InboxSummaryCountsApi*](doc/InboxSummaryCountsApi.md) | [**inboxControllerGetCounts**](doc/InboxSummaryCountsApi.md#inboxcontrollergetcounts) | **GET** /inbox/counts | Get unread counts for chat and notifications
@@ -171,22 +210,34 @@ Class | Method | HTTP request | Description
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerFindAllActive**](doc/OffersApi.md#offerscontrollerfindallactive) | **GET** /offers | Get all active product offers
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerRemove**](doc/OffersApi.md#offerscontrollerremove) | **DELETE** /offers/admin/{id} | Delete product offer
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerUpdate**](doc/OffersApi.md#offerscontrollerupdate) | **PATCH** /offers/admin/{id} | Update product offer
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAcceptFulfillment**](doc/OrdersApi.md#orderscontrolleracceptfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/accept | [Vendor] Accept ONLY my portion — other vendors are unaffected
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminFindAll**](doc/OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminForceAssignDriver**](doc/OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminPlaceDirectOrder**](doc/OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCancelOrder**](doc/OrdersApi.md#orderscontrollercancelorder) | **POST** /orders/{orderId}/cancel | Cancel an order (customer or vendor)
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCustomerMarkPaid**](doc/OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCustomerMarkPaid**](doc/OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid with receipt
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDecideAssist**](doc/OrdersApi.md#orderscontrollerdecideassist) | **POST** /orders/{orderId}/delivery-groups/{deliveryGroupId}/assist/decision | [Customer] Approve or decline an assisted delivery (and its fee)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDecideAssistOrder**](doc/OrdersApi.md#orderscontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-vendor order)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmDelivery**](doc/OrdersApi.md#orderscontrollerdriverconfirmdelivery) | **POST** /orders/driver/{orderId}/delivery | Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmFulfillmentPickup**](doc/OrdersApi.md#orderscontrollerdriverconfirmfulfillmentpickup) | **POST** /orders/driver/{orderId}/fulfillment/{fulfillmentId}/pickup | Driver confirms pickup for a specific vendor fulfillment stop with photo
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPayment**](doc/OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPickup**](doc/OrdersApi.md#orderscontrollerdriverconfirmpickup) | **POST** /orders/driver/{orderId}/pickup | Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverUpdateStatus**](doc/OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateCustomOrder**](doc/OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateMultiVendor**](doc/OrdersApi.md#orderscontrollerestimatemultivendor) | **POST** /orders/multi-vendor/fee-estimate | Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateOrder**](doc/OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyDispatches**](doc/OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsCustomer**](doc/OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsDriver**](doc/OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetOne**](doc/OrdersApi.md#orderscontrollergetone) | **GET** /orders/{orderId} | Get a single order (customer/driver/vendor/admin)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetVendorOrders**](doc/OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerListOrderDecisions**](doc/OrdersApi.md#orderscontrollerlistorderdecisions) | **GET** /orders/vendor-decisions/order/{orderId} | [Admin] Vendor portions and their states for an order
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerListVendorDecisions**](doc/OrdersApi.md#orderscontrollerlistvendordecisions) | **GET** /orders/vendor-decisions/vendor/{vendorId} | [Vendor] All my portions for one vendor
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerMyPendingDecisions**](doc/OrdersApi.md#orderscontrollermypendingdecisions) | **GET** /orders/vendor-decisions/pending | [Vendor] My vendor portions awaiting my accept/reject decision
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerPlaceCustomOrder**](doc/OrdersApi.md#orderscontrollerplacecustomorder) | **POST** /orders/custom | Place a custom delivery or ride order
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerPlaceMultiVendorOrder**](doc/OrdersApi.md#orderscontrollerplacemultivendororder) | **POST** /orders/multi-vendor | Place one order containing multiple vendors, grouped into deliveries
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerPlaceOrder**](doc/OrdersApi.md#orderscontrollerplaceorder) | **POST** /orders | Place a new order from active cart
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRejectFulfillment**](doc/OrdersApi.md#orderscontrollerrejectfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/reject | [Vendor] Reject only my portion with an auditable reason; the customer is notified and the totals are adjusted
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRespondToDispatch**](doc/OrdersApi.md#orderscontrollerrespondtodispatch) | **POST** /orders/driver/dispatches/{dispatchId}/respond | Accept or reject a dispatch request
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerVendorUpdateStatus**](doc/OrdersApi.md#orderscontrollervendorupdatestatus) | **PATCH** /orders/vendor/{orderId}/status | Vendor updates order status
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerCheckVersion**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrollercheckversion) | **POST** /platform-settings/app-version-check | Check if app version is supported
@@ -197,6 +248,7 @@ Class | Method | HTTP request | Description
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerUploadDeliveryBannerIcon**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrolleruploaddeliverybannericon) | **POST** /platform-settings/delivery-banner-icon | Upload delivery banner icon
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerUploadHomeCover**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadhomecover) | **POST** /platform-settings/home-cover | Upload home cover image
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerUploadMotorcycleIcon**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadmotorcycleicon) | **POST** /platform-settings/motorcycle-icon | Upload motorcycle icon
+[*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerUploadVehicleIcon**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadvehicleicon) | **POST** /platform-settings/vehicle-icon/{vehicleType} | Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerCreate**](doc/PromotionsApi.md#promotionscontrollercreate) | **POST** /promotions/admin | 
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerFindAll**](doc/PromotionsApi.md#promotionscontrollerfindall) | **GET** /promotions/admin | Get all promotions (Admin)
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerFindAllActive**](doc/PromotionsApi.md#promotionscontrollerfindallactive) | **GET** /promotions | Get all active promotions for customer app
@@ -216,6 +268,7 @@ Class | Method | HTTP request | Description
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetTopDrivers**](doc/StatisticsApi.md#statisticscontrollergettopdrivers) | **GET** /statistics/analytics/drivers | [Admin] Get top drivers leaderboard
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetTopProducts**](doc/StatisticsApi.md#statisticscontrollergettopproducts) | **GET** /statistics/analytics/products | [Admin] Get top products leaderboard
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetTopVendors**](doc/StatisticsApi.md#statisticscontrollergettopvendors) | **GET** /statistics/analytics/vendors | [Admin] Get top vendors leaderboard
+[*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetVendorProductSales**](doc/StatisticsApi.md#statisticscontrollergetvendorproductsales) | **GET** /statistics/vendors/{vendorId}/products | Get product-level sales and profit for a vendor (member or admin)
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetVendorStats**](doc/StatisticsApi.md#statisticscontrollergetvendorstats) | **GET** /statistics/vendors/{vendorId} | Get vendor statistics (member or admin)
 [*SupportTicketsApi*](doc/SupportTicketsApi.md) | [**ticketsControllerCreate**](doc/SupportTicketsApi.md#ticketscontrollercreate) | **POST** /tickets | Create a new support ticket
 [*SupportTicketsApi*](doc/SupportTicketsApi.md) | [**ticketsControllerGetOne**](doc/SupportTicketsApi.md#ticketscontrollergetone) | **GET** /tickets/{id} | Get a specific support ticket by ID
@@ -231,10 +284,12 @@ Class | Method | HTTP request | Description
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerAdminRevokeAllSessions**](doc/UsersApi.md#userscontrolleradminrevokeallsessions) | **DELETE** /users/{userId}/sessions | [Admin] Revoke all sessions for a user (force logout)
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerAdminUnban**](doc/UsersApi.md#userscontrolleradminunban) | **POST** /users/{userId}/unban | [Admin] Unban a user
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerAdminUpdate**](doc/UsersApi.md#userscontrolleradminupdate) | **PATCH** /users/{userId} | [Admin] Update a user — name, email, phone, role, title, permissions, verification flags
+[*UsersApi*](doc/UsersApi.md) | [**usersControllerChangeEmail**](doc/UsersApi.md#userscontrollerchangeemail) | **POST** /users/me/change-email | Change my email (requires current password)
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerChangePassword**](doc/UsersApi.md#userscontrollerchangepassword) | **POST** /users/me/change-password | Change my password
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerDeleteAccount**](doc/UsersApi.md#userscontrollerdeleteaccount) | **DELETE** /users/me | Delete my account
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerGetNotificationSettings**](doc/UsersApi.md#userscontrollergetnotificationsettings) | **GET** /users/me/notification-settings | Get my notification settings
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerGetUser**](doc/UsersApi.md#userscontrollergetuser) | **GET** /users/me | Get my profile
+[*UsersApi*](doc/UsersApi.md) | [**usersControllerSetPassword**](doc/UsersApi.md#userscontrollersetpassword) | **POST** /users/me/set-password | Set a password for social-only accounts (no password yet)
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerUpdateNotificationSettings**](doc/UsersApi.md#userscontrollerupdatenotificationsettings) | **PATCH** /users/me/notification-settings | Update my notification settings
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerUpdateUser**](doc/UsersApi.md#userscontrollerupdateuser) | **PATCH** /users/me | Update my profile (name, email, phone, language)
 [*UsersApi*](doc/UsersApi.md) | [**usersControllerUploadAvatar**](doc/UsersApi.md#userscontrolleruploadavatar) | **POST** /users/me/avatar | Upload my avatar
@@ -302,9 +357,11 @@ Class | Method | HTTP request | Description
 [*VendorsVerticalsCategoriesApi*](doc/VendorsVerticalsCategoriesApi.md) | [**vendorVerticalsControllerUpdate**](doc/VendorsVerticalsCategoriesApi.md#vendorverticalscontrollerupdate) | **PATCH** /vendor-verticals/{id} | Update a vendor vertical (Admin)
 [*VendorsVerticalsCategoriesApi*](doc/VendorsVerticalsCategoriesApi.md) | [**vendorVerticalsControllerUploadIcon**](doc/VendorsVerticalsCategoriesApi.md#vendorverticalscontrolleruploadicon) | **POST** /vendor-verticals/admin/{id}/icon | Upload vertical icon image
 [*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerAdminGetBalance**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrolleradmingetbalance) | **GET** /vendors/{vendorId}/wallet/admin/balance | Get any vendor&#39;s wallet balance (Admin)
+[*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerAdminGetSummary**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrolleradmingetsummary) | **GET** /vendors/{vendorId}/wallet/admin/summary | Get any vendor&#39;s wallet summary statistics (Admin)
 [*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerAdminListTransactions**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrolleradminlisttransactions) | **GET** /vendors/{vendorId}/wallet/admin/transactions | List any vendor&#39;s wallet transactions (Admin)
-[*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerGetBalance**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrollergetbalance) | **GET** /vendors/{vendorId}/wallet/balance | Get vendor wallet balance (Member)
-[*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerListTransactions**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrollerlisttransactions) | **GET** /vendors/{vendorId}/wallet/transactions | List vendor wallet transactions (Member)
+[*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerGetBalance**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrollergetbalance) | **GET** /vendors/{vendorId}/wallet/balance | Get the vendor&#39;s wallet balance (any member)
+[*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerGetSummary**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrollergetsummary) | **GET** /vendors/{vendorId}/wallet/summary | Get the vendor&#39;s wallet summary (any member)
+[*VendorsWalletTransactionsApi*](doc/VendorsWalletTransactionsApi.md) | [**vendorWalletControllerListTransactions**](doc/VendorsWalletTransactionsApi.md#vendorwalletcontrollerlisttransactions) | **GET** /vendors/{vendorId}/wallet/transactions | List the vendor&#39;s wallet transactions (any member)
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerAddDriverWallet**](doc/WalletFinancialsApi.md#walletcontrolleradddriverwallet) | **POST** /wallet/driver | Add personal driver wallet for receiving money from customers
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerCreatePlatformWallet**](doc/WalletFinancialsApi.md#walletcontrollercreateplatformwallet) | **POST** /wallet/platform | Add a new platform receiving wallet
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerGetActivePlatformWallets**](doc/WalletFinancialsApi.md#walletcontrollergetactiveplatformwallets) | **GET** /wallet/platform | Get active platform wallets to send money to
@@ -328,12 +385,15 @@ Class | Method | HTTP request | Description
  - [AddVendorMemberDto](doc/AddVendorMemberDto.md)
  - [AdminAssignDriverDto](doc/AdminAssignDriverDto.md)
  - [AdminAssignShiftDto](doc/AdminAssignShiftDto.md)
+ - [AdminBookWeeklyShiftsDto](doc/AdminBookWeeklyShiftsDto.md)
  - [AdminCreateDriverDto](doc/AdminCreateDriverDto.md)
  - [AdminUpdateDriverDto](doc/AdminUpdateDriverDto.md)
  - [AdminUpdateUserDto](doc/AdminUpdateUserDto.md)
  - [ApiControllerRoot200Response](doc/ApiControllerRoot200Response.md)
  - [ApiResponseDto](doc/ApiResponseDto.md)
  - [AppVersionCheckDto](doc/AppVersionCheckDto.md)
+ - [AssignAssistDriverDto](doc/AssignAssistDriverDto.md)
+ - [AssignDriversToManagerDto](doc/AssignDriversToManagerDto.md)
  - [AuditActionType](doc/AuditActionType.md)
  - [AuditLogResponseDto](doc/AuditLogResponseDto.md)
  - [AuditLogsControllerFindAll200Response](doc/AuditLogsControllerFindAll200Response.md)
@@ -342,6 +402,7 @@ Class | Method | HTTP request | Description
  - [BookWeeklyShiftsDto](doc/BookWeeklyShiftsDto.md)
  - [CartItem](doc/CartItem.md)
  - [CartItemOption](doc/CartItemOption.md)
+ - [ChangeEmailDto](doc/ChangeEmailDto.md)
  - [ChangePasswordDto](doc/ChangePasswordDto.md)
  - [CheckLocationDto](doc/CheckLocationDto.md)
  - [ConfirmPaymentDto](doc/ConfirmPaymentDto.md)
@@ -366,18 +427,27 @@ Class | Method | HTTP request | Description
  - [CreateWalletTopUpDto](doc/CreateWalletTopUpDto.md)
  - [CreateZoneDto](doc/CreateZoneDto.md)
  - [Customer](doc/Customer.md)
+ - [DecideAssistRequestDto](doc/DecideAssistRequestDto.md)
+ - [DeliveryGroupStatus](doc/DeliveryGroupStatus.md)
  - [DispatchAnnouncementDto](doc/DispatchAnnouncementDto.md)
  - [DispatchStatus](doc/DispatchStatus.md)
  - [Driver](doc/Driver.md)
+ - [DriverBreak](doc/DriverBreak.md)
+ - [DriverBreakReason](doc/DriverBreakReason.md)
+ - [DriverBreakStatus](doc/DriverBreakStatus.md)
  - [DriverShift](doc/DriverShift.md)
  - [DriverShiftStatus](doc/DriverShiftStatus.md)
  - [DriverStatus](doc/DriverStatus.md)
  - [DriverTier](doc/DriverTier.md)
  - [DriverWalletTransaction](doc/DriverWalletTransaction.md)
  - [DriverWalletTransactionResponseDto](doc/DriverWalletTransactionResponseDto.md)
+ - [DriversControllerGetMyBreaks200Response](doc/DriversControllerGetMyBreaks200Response.md)
+ - [DriversControllerMyAssistRequests200Response](doc/DriversControllerMyAssistRequests200Response.md)
+ - [DriversControllerStartBreak200Response](doc/DriversControllerStartBreak200Response.md)
  - [FavoriteProduct](doc/FavoriteProduct.md)
  - [ForgotPasswordDto](doc/ForgotPasswordDto.md)
  - [GenerateShiftPoolsDto](doc/GenerateShiftPoolsDto.md)
+ - [JoinWaitlistDto](doc/JoinWaitlistDto.md)
  - [Language](doc/Language.md)
  - [LoginDto](doc/LoginDto.md)
  - [LogoutDto](doc/LogoutDto.md)
@@ -388,6 +458,7 @@ Class | Method | HTTP request | Description
  - [MobileWalletResponseDto](doc/MobileWalletResponseDto.md)
  - [Offer](doc/Offer.md)
  - [Order](doc/Order.md)
+ - [OrderDeliveryGroup](doc/OrderDeliveryGroup.md)
  - [OrderDispatch](doc/OrderDispatch.md)
  - [OrderFeeEstimateDto](doc/OrderFeeEstimateDto.md)
  - [OrderItem](doc/OrderItem.md)
@@ -396,6 +467,8 @@ Class | Method | HTTP request | Description
  - [OrderStatus](doc/OrderStatus.md)
  - [OrderStatusEvent](doc/OrderStatusEvent.md)
  - [OrderType](doc/OrderType.md)
+ - [OrderVendorFulfillment](doc/OrderVendorFulfillment.md)
+ - [OrderVendorFulfillmentStatus](doc/OrderVendorFulfillmentStatus.md)
  - [OrdersControllerEstimateCustomOrder200Response](doc/OrdersControllerEstimateCustomOrder200Response.md)
  - [OrdersControllerPlaceOrder200Response](doc/OrdersControllerPlaceOrder200Response.md)
  - [PaginatedReviewsResponseDto](doc/PaginatedReviewsResponseDto.md)
@@ -405,9 +478,11 @@ Class | Method | HTTP request | Description
  - [Permission](doc/Permission.md)
  - [PlaceCustomOrderDto](doc/PlaceCustomOrderDto.md)
  - [PlaceDirectOrderDto](doc/PlaceDirectOrderDto.md)
+ - [PlaceMultiVendorOrderDto](doc/PlaceMultiVendorOrderDto.md)
  - [PlaceOrderDto](doc/PlaceOrderDto.md)
  - [ProcessManualTransactionDto](doc/ProcessManualTransactionDto.md)
  - [Product](doc/Product.md)
+ - [ProductBranchAvailability](doc/ProductBranchAvailability.md)
  - [ProductOption](doc/ProductOption.md)
  - [ProductOptionGroup](doc/ProductOptionGroup.md)
  - [ProductOptionGroupResponseDto](doc/ProductOptionGroupResponseDto.md)
@@ -424,7 +499,9 @@ Class | Method | HTTP request | Description
  - [RegisterDeviceDto](doc/RegisterDeviceDto.md)
  - [RegisterDriverDto](doc/RegisterDriverDto.md)
  - [RegisterDto](doc/RegisterDto.md)
+ - [RejectVendorFulfillmentDto](doc/RejectVendorFulfillmentDto.md)
  - [ReorderCategoriesDto](doc/ReorderCategoriesDto.md)
+ - [RequestAssistDriverDto](doc/RequestAssistDriverDto.md)
  - [ResetPasswordDto](doc/ResetPasswordDto.md)
  - [RespondToDispatchDto](doc/RespondToDispatchDto.md)
  - [ReviewCustomerDto](doc/ReviewCustomerDto.md)
@@ -437,12 +514,15 @@ Class | Method | HTTP request | Description
  - [SendMessageDto](doc/SendMessageDto.md)
  - [SendOtpDto](doc/SendOtpDto.md)
  - [Session](doc/Session.md)
+ - [SetPasswordDto](doc/SetPasswordDto.md)
  - [SocialLoginDto](doc/SocialLoginDto.md)
+ - [StartBreakDto](doc/StartBreakDto.md)
  - [SupportTicket](doc/SupportTicket.md)
  - [TicketCategory](doc/TicketCategory.md)
  - [TicketPriority](doc/TicketPriority.md)
  - [TicketStatus](doc/TicketStatus.md)
  - [TopUpStatus](doc/TopUpStatus.md)
+ - [UnassignDriversFromManagerDto](doc/UnassignDriversFromManagerDto.md)
  - [UpdateAddressDto](doc/UpdateAddressDto.md)
  - [UpdateCartItemDto](doc/UpdateCartItemDto.md)
  - [UpdateDriverProfileDto](doc/UpdateDriverProfileDto.md)

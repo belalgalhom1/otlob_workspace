@@ -28,6 +28,10 @@ class _$Vendor extends Vendor {
   @override
   final String? taxId;
   @override
+  final num rating;
+  @override
+  final num ratingCount;
+  @override
   final num commissionRate;
   @override
   final VendorStatus status;
@@ -39,6 +43,8 @@ class _$Vendor extends Vendor {
   final JsonObject? workingHours;
   @override
   final bool isScheduleActive;
+  @override
+  final bool is24Hours;
   @override
   final String verticalId;
   @override
@@ -62,12 +68,15 @@ class _$Vendor extends Vendor {
     this.coverImage,
     this.phone,
     this.taxId,
+    required this.rating,
+    required this.ratingCount,
     required this.commissionRate,
     required this.status,
     required this.walletBalance,
     required this.isContracted,
     this.workingHours,
     required this.isScheduleActive,
+    required this.is24Hours,
     required this.verticalId,
     this.deletedAt,
     required this.createdAt,
@@ -94,12 +103,15 @@ class _$Vendor extends Vendor {
         coverImage == other.coverImage &&
         phone == other.phone &&
         taxId == other.taxId &&
+        rating == other.rating &&
+        ratingCount == other.ratingCount &&
         commissionRate == other.commissionRate &&
         status == other.status &&
         walletBalance == other.walletBalance &&
         isContracted == other.isContracted &&
         workingHours == other.workingHours &&
         isScheduleActive == other.isScheduleActive &&
+        is24Hours == other.is24Hours &&
         verticalId == other.verticalId &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
@@ -119,12 +131,15 @@ class _$Vendor extends Vendor {
     _$hash = $jc(_$hash, coverImage.hashCode);
     _$hash = $jc(_$hash, phone.hashCode);
     _$hash = $jc(_$hash, taxId.hashCode);
+    _$hash = $jc(_$hash, rating.hashCode);
+    _$hash = $jc(_$hash, ratingCount.hashCode);
     _$hash = $jc(_$hash, commissionRate.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, walletBalance.hashCode);
     _$hash = $jc(_$hash, isContracted.hashCode);
     _$hash = $jc(_$hash, workingHours.hashCode);
     _$hash = $jc(_$hash, isScheduleActive.hashCode);
+    _$hash = $jc(_$hash, is24Hours.hashCode);
     _$hash = $jc(_$hash, verticalId.hashCode);
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
@@ -146,12 +161,15 @@ class _$Vendor extends Vendor {
           ..add('coverImage', coverImage)
           ..add('phone', phone)
           ..add('taxId', taxId)
+          ..add('rating', rating)
+          ..add('ratingCount', ratingCount)
           ..add('commissionRate', commissionRate)
           ..add('status', status)
           ..add('walletBalance', walletBalance)
           ..add('isContracted', isContracted)
           ..add('workingHours', workingHours)
           ..add('isScheduleActive', isScheduleActive)
+          ..add('is24Hours', is24Hours)
           ..add('verticalId', verticalId)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
@@ -204,6 +222,14 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
   String? get taxId => _$this._taxId;
   set taxId(String? taxId) => _$this._taxId = taxId;
 
+  num? _rating;
+  num? get rating => _$this._rating;
+  set rating(num? rating) => _$this._rating = rating;
+
+  num? _ratingCount;
+  num? get ratingCount => _$this._ratingCount;
+  set ratingCount(num? ratingCount) => _$this._ratingCount = ratingCount;
+
   num? _commissionRate;
   num? get commissionRate => _$this._commissionRate;
   set commissionRate(num? commissionRate) =>
@@ -231,6 +257,10 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
   bool? get isScheduleActive => _$this._isScheduleActive;
   set isScheduleActive(bool? isScheduleActive) =>
       _$this._isScheduleActive = isScheduleActive;
+
+  bool? _is24Hours;
+  bool? get is24Hours => _$this._is24Hours;
+  set is24Hours(bool? is24Hours) => _$this._is24Hours = is24Hours;
 
   String? _verticalId;
   String? get verticalId => _$this._verticalId;
@@ -265,12 +295,15 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
       _coverImage = $v.coverImage;
       _phone = $v.phone;
       _taxId = $v.taxId;
+      _rating = $v.rating;
+      _ratingCount = $v.ratingCount;
       _commissionRate = $v.commissionRate;
       _status = $v.status;
       _walletBalance = $v.walletBalance;
       _isContracted = $v.isContracted;
       _workingHours = $v.workingHours;
       _isScheduleActive = $v.isScheduleActive;
+      _is24Hours = $v.is24Hours;
       _verticalId = $v.verticalId;
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
@@ -311,6 +344,16 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
           coverImage: coverImage,
           phone: phone,
           taxId: taxId,
+          rating: BuiltValueNullFieldError.checkNotNull(
+            rating,
+            r'Vendor',
+            'rating',
+          ),
+          ratingCount: BuiltValueNullFieldError.checkNotNull(
+            ratingCount,
+            r'Vendor',
+            'ratingCount',
+          ),
           commissionRate: BuiltValueNullFieldError.checkNotNull(
             commissionRate,
             r'Vendor',
@@ -336,6 +379,11 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
             isScheduleActive,
             r'Vendor',
             'isScheduleActive',
+          ),
+          is24Hours: BuiltValueNullFieldError.checkNotNull(
+            is24Hours,
+            r'Vendor',
+            'is24Hours',
           ),
           verticalId: BuiltValueNullFieldError.checkNotNull(
             verticalId,

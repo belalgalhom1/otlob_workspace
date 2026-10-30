@@ -106,7 +106,8 @@ class AdminDriversRepository {
   }
 
   Future<dynamic> decideAssistRequest(String requestId, {required String status}) async {
-    final dto = DecideAssistRequestDto((b) => b..status = status);
+    final statusEnum = DecideAssistRequestDtoStatusEnum.valueOf(status.toUpperCase());
+    final dto = DecideAssistRequestDto((b) => b..status = statusEnum);
     final response = await _api.driversControllerDecideAssistRequest(
       requestId: requestId,
       decideAssistRequestDto: dto,

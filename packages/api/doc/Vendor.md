@@ -18,12 +18,15 @@ Name | Type | Description | Notes
 **coverImage** | **String** |  | [optional] 
 **phone** | **String** |  | [optional] 
 **taxId** | **String** |  | [optional] 
+**rating** | **num** |  | 
+**ratingCount** | **num** |  | 
 **commissionRate** | **num** |  | 
 **status** | [**VendorStatus**](VendorStatus.md) |  | 
 **walletBalance** | **num** |  | 
 **isContracted** | **bool** |  | 
 **workingHours** | [**JsonObject**](.md) |  | [optional] 
 **isScheduleActive** | **bool** |  | 
+**is24Hours** | **bool** |  | 
 **verticalId** | **String** |  | 
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 

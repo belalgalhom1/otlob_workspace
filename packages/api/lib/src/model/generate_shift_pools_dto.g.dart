@@ -19,6 +19,10 @@ class _$GenerateShiftPoolsDto extends GenerateShiftPoolsDto {
   final num maxDrivers;
   @override
   final String? zoneId;
+  @override
+  final String? title;
+  @override
+  final String? titleAr;
 
   factory _$GenerateShiftPoolsDto([
     void Function(GenerateShiftPoolsDtoBuilder)? updates,
@@ -31,6 +35,8 @@ class _$GenerateShiftPoolsDto extends GenerateShiftPoolsDto {
     required this.endTime,
     required this.maxDrivers,
     this.zoneId,
+    this.title,
+    this.titleAr,
   }) : super._();
   @override
   GenerateShiftPoolsDto rebuild(
@@ -50,7 +56,9 @@ class _$GenerateShiftPoolsDto extends GenerateShiftPoolsDto {
         startTime == other.startTime &&
         endTime == other.endTime &&
         maxDrivers == other.maxDrivers &&
-        zoneId == other.zoneId;
+        zoneId == other.zoneId &&
+        title == other.title &&
+        titleAr == other.titleAr;
   }
 
   @override
@@ -62,6 +70,8 @@ class _$GenerateShiftPoolsDto extends GenerateShiftPoolsDto {
     _$hash = $jc(_$hash, endTime.hashCode);
     _$hash = $jc(_$hash, maxDrivers.hashCode);
     _$hash = $jc(_$hash, zoneId.hashCode);
+    _$hash = $jc(_$hash, title.hashCode);
+    _$hash = $jc(_$hash, titleAr.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -74,7 +84,9 @@ class _$GenerateShiftPoolsDto extends GenerateShiftPoolsDto {
           ..add('startTime', startTime)
           ..add('endTime', endTime)
           ..add('maxDrivers', maxDrivers)
-          ..add('zoneId', zoneId))
+          ..add('zoneId', zoneId)
+          ..add('title', title)
+          ..add('titleAr', titleAr))
         .toString();
   }
 }
@@ -107,6 +119,14 @@ class GenerateShiftPoolsDtoBuilder
   String? get zoneId => _$this._zoneId;
   set zoneId(String? zoneId) => _$this._zoneId = zoneId;
 
+  String? _title;
+  String? get title => _$this._title;
+  set title(String? title) => _$this._title = title;
+
+  String? _titleAr;
+  String? get titleAr => _$this._titleAr;
+  set titleAr(String? titleAr) => _$this._titleAr = titleAr;
+
   GenerateShiftPoolsDtoBuilder() {
     GenerateShiftPoolsDto._defaults(this);
   }
@@ -120,6 +140,8 @@ class GenerateShiftPoolsDtoBuilder
       _endTime = $v.endTime;
       _maxDrivers = $v.maxDrivers;
       _zoneId = $v.zoneId;
+      _title = $v.title;
+      _titleAr = $v.titleAr;
       _$v = null;
     }
     return this;
@@ -168,6 +190,8 @@ class GenerateShiftPoolsDtoBuilder
             'maxDrivers',
           ),
           zoneId: zoneId,
+          title: title,
+          titleAr: titleAr,
         );
     replace(_$result);
     return _$result;

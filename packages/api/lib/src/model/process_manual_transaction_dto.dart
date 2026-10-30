@@ -15,6 +15,7 @@ part 'process_manual_transaction_dto.g.dart';
 /// * [type] - Type of transaction
 /// * [description] 
 /// * [referenceId] 
+/// * [idempotencyKey] 
 @BuiltValue()
 abstract class ProcessManualTransactionDto implements Built<ProcessManualTransactionDto, ProcessManualTransactionDtoBuilder> {
   /// Positive or negative amount
@@ -30,6 +31,9 @@ abstract class ProcessManualTransactionDto implements Built<ProcessManualTransac
 
   @BuiltValueField(wireName: r'referenceId')
   String? get referenceId;
+
+  @BuiltValueField(wireName: r'idempotencyKey')
+  String? get idempotencyKey;
 
   ProcessManualTransactionDto._();
 
@@ -75,6 +79,13 @@ class _$ProcessManualTransactionDtoSerializer implements PrimitiveSerializer<Pro
       yield r'referenceId';
       yield serializers.serialize(
         object.referenceId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.idempotencyKey != null) {
+      yield r'idempotencyKey';
+      yield serializers.serialize(
+        object.idempotencyKey,
         specifiedType: const FullType(String),
       );
     }
@@ -128,6 +139,13 @@ class _$ProcessManualTransactionDtoSerializer implements PrimitiveSerializer<Pro
             specifiedType: const FullType(String),
           ) as String;
           result.referenceId = valueDes;
+          break;
+        case r'idempotencyKey':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.idempotencyKey = valueDes;
           break;
         default:
           unhandled.add(key);

@@ -12,6 +12,7 @@ enum SocketEvent {
   /// Orders
   orderNew('order.new'),
   orderStatus('order.status'),
+  orderFulfillmentUpdated('order.fulfillment_updated'),
   orderCancelled('order.cancelled'),
   
   /// Dispatch

@@ -545,7 +545,7 @@ export class DriversRepository {
     return this.prisma.order.findFirst({
       where: {
         driverId,
-        status: { in: ['DRIVER_ASSIGNED', 'PICKED_UP'] },
+        status: { in: ['DRIVER_ASSIGNED', 'PARTIALLY_PICKED_UP', 'PICKED_UP'] },
       },
       select: {
         id: true,

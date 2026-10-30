@@ -267,6 +267,7 @@ class _$AdminUpdateUserDtoRoleEnumSerializer
   static const Map<String, Object> _toWire = const <String, Object>{
     'CUSTOMER': 'CUSTOMER',
     'DRIVER': 'DRIVER',
+    'DRIVER_MANAGER': 'DRIVER_MANAGER',
     'VENDOR_MEMBER': 'VENDOR_MEMBER',
     'ADMIN': 'ADMIN',
     'SUPER_ADMIN': 'SUPER_ADMIN',
@@ -274,6 +275,7 @@ class _$AdminUpdateUserDtoRoleEnumSerializer
   static const Map<Object, String> _fromWire = const <Object, String>{
     'CUSTOMER': 'CUSTOMER',
     'DRIVER': 'DRIVER',
+    'DRIVER_MANAGER': 'DRIVER_MANAGER',
     'VENDOR_MEMBER': 'VENDOR_MEMBER',
     'ADMIN': 'ADMIN',
     'SUPER_ADMIN': 'SUPER_ADMIN',

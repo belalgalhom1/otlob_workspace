@@ -32,7 +32,11 @@ class _$Driver extends Driver {
   @override
   final num rating;
   @override
+  final num ratingCount;
+  @override
   final num totalOrders;
+  @override
+  final num ordersSinceSettlement;
   @override
   final num walletBalance;
   @override
@@ -68,7 +72,9 @@ class _$Driver extends Driver {
     required this.status,
     this.lastLocationUpdate,
     required this.rating,
+    required this.ratingCount,
     required this.totalOrders,
+    required this.ordersSinceSettlement,
     required this.walletBalance,
     required this.hasUnpaidCommission,
     required this.version,
@@ -102,7 +108,9 @@ class _$Driver extends Driver {
         status == other.status &&
         lastLocationUpdate == other.lastLocationUpdate &&
         rating == other.rating &&
+        ratingCount == other.ratingCount &&
         totalOrders == other.totalOrders &&
+        ordersSinceSettlement == other.ordersSinceSettlement &&
         walletBalance == other.walletBalance &&
         hasUnpaidCommission == other.hasUnpaidCommission &&
         version == other.version &&
@@ -129,7 +137,9 @@ class _$Driver extends Driver {
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, lastLocationUpdate.hashCode);
     _$hash = $jc(_$hash, rating.hashCode);
+    _$hash = $jc(_$hash, ratingCount.hashCode);
     _$hash = $jc(_$hash, totalOrders.hashCode);
+    _$hash = $jc(_$hash, ordersSinceSettlement.hashCode);
     _$hash = $jc(_$hash, walletBalance.hashCode);
     _$hash = $jc(_$hash, hasUnpaidCommission.hashCode);
     _$hash = $jc(_$hash, version.hashCode);
@@ -158,7 +168,9 @@ class _$Driver extends Driver {
           ..add('status', status)
           ..add('lastLocationUpdate', lastLocationUpdate)
           ..add('rating', rating)
+          ..add('ratingCount', ratingCount)
           ..add('totalOrders', totalOrders)
+          ..add('ordersSinceSettlement', ordersSinceSettlement)
           ..add('walletBalance', walletBalance)
           ..add('hasUnpaidCommission', hasUnpaidCommission)
           ..add('version', version)
@@ -226,9 +238,18 @@ class DriverBuilder implements Builder<Driver, DriverBuilder> {
   num? get rating => _$this._rating;
   set rating(num? rating) => _$this._rating = rating;
 
+  num? _ratingCount;
+  num? get ratingCount => _$this._ratingCount;
+  set ratingCount(num? ratingCount) => _$this._ratingCount = ratingCount;
+
   num? _totalOrders;
   num? get totalOrders => _$this._totalOrders;
   set totalOrders(num? totalOrders) => _$this._totalOrders = totalOrders;
+
+  num? _ordersSinceSettlement;
+  num? get ordersSinceSettlement => _$this._ordersSinceSettlement;
+  set ordersSinceSettlement(num? ordersSinceSettlement) =>
+      _$this._ordersSinceSettlement = ordersSinceSettlement;
 
   num? _walletBalance;
   num? get walletBalance => _$this._walletBalance;
@@ -287,7 +308,9 @@ class DriverBuilder implements Builder<Driver, DriverBuilder> {
       _status = $v.status;
       _lastLocationUpdate = $v.lastLocationUpdate;
       _rating = $v.rating;
+      _ratingCount = $v.ratingCount;
       _totalOrders = $v.totalOrders;
+      _ordersSinceSettlement = $v.ordersSinceSettlement;
       _walletBalance = $v.walletBalance;
       _hasUnpaidCommission = $v.hasUnpaidCommission;
       _version = $v.version;
@@ -347,10 +370,20 @@ class DriverBuilder implements Builder<Driver, DriverBuilder> {
             r'Driver',
             'rating',
           ),
+          ratingCount: BuiltValueNullFieldError.checkNotNull(
+            ratingCount,
+            r'Driver',
+            'ratingCount',
+          ),
           totalOrders: BuiltValueNullFieldError.checkNotNull(
             totalOrders,
             r'Driver',
             'totalOrders',
+          ),
+          ordersSinceSettlement: BuiltValueNullFieldError.checkNotNull(
+            ordersSinceSettlement,
+            r'Driver',
+            'ordersSinceSettlement',
           ),
           walletBalance: BuiltValueNullFieldError.checkNotNull(
             walletBalance,

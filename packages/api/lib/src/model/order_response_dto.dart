@@ -6,10 +6,12 @@
 import 'package:api/src/model/driver_wallet_transaction.dart';
 import 'package:api/src/model/customer.dart';
 import 'package:api/src/model/driver_shift.dart';
+import 'package:api/src/model/order_delivery_group.dart';
 import 'package:api/src/model/vendor.dart';
 import 'package:api/src/model/zone.dart';
 import 'package:api/src/model/payment_method.dart';
 import 'package:api/src/model/order_dispatch.dart';
+import 'package:api/src/model/order_vendor_fulfillment.dart';
 import 'package:api/src/model/order_item.dart';
 import 'package:api/src/model/vehicle_type.dart';
 import 'package:built_collection/built_collection.dart';
@@ -21,6 +23,7 @@ import 'package:api/src/model/vendor_branch.dart';
 import 'package:api/src/model/driver.dart';
 import 'package:api/src/model/support_ticket.dart';
 import 'package:api/src/model/payment_status.dart';
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -31,6 +34,7 @@ part 'order_response_dto.g.dart';
 /// Properties:
 /// * [id] 
 /// * [orderNumber] 
+/// * [clientOrderKey] 
 /// * [type] 
 /// * [customerId] 
 /// * [vendorId] 
@@ -65,6 +69,9 @@ part 'order_response_dto.g.dart';
 /// * [preparedAt] 
 /// * [driverAssignedAt] 
 /// * [pickedUpAt] 
+/// * [pickupImageUrl] 
+/// * [deliveryImageUrl] 
+/// * [paymentReceiptUrl] 
 /// * [actualDeliveryTime] 
 /// * [driverTransactions] 
 /// * [dispatches] 
@@ -78,6 +85,9 @@ part 'order_response_dto.g.dart';
 /// * [zone] 
 /// * [supportTickets] 
 /// * [vendorTransactions] 
+/// * [vendorFulfillments] 
+/// * [deliveryGroups] 
+/// * [fulfillmentSummary] 
 @BuiltValue()
 abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponseDtoBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -85,6 +95,9 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
 
   @BuiltValueField(wireName: r'orderNumber')
   String get orderNumber;
+
+  @BuiltValueField(wireName: r'clientOrderKey')
+  String? get clientOrderKey;
 
   @BuiltValueField(wireName: r'type')
   OrderType get type;
@@ -110,7 +123,7 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
 
   @BuiltValueField(wireName: r'status')
   OrderStatus get status;
-  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
+  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PARTIALLY_PICKED_UP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
 
   @BuiltValueField(wireName: r'paymentMethod')
   PaymentMethod get paymentMethod;
@@ -193,6 +206,15 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
   @BuiltValueField(wireName: r'pickedUpAt')
   DateTime? get pickedUpAt;
 
+  @BuiltValueField(wireName: r'pickupImageUrl')
+  String? get pickupImageUrl;
+
+  @BuiltValueField(wireName: r'deliveryImageUrl')
+  String? get deliveryImageUrl;
+
+  @BuiltValueField(wireName: r'paymentReceiptUrl')
+  String? get paymentReceiptUrl;
+
   @BuiltValueField(wireName: r'actualDeliveryTime')
   DateTime? get actualDeliveryTime;
 
@@ -232,6 +254,15 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
   @BuiltValueField(wireName: r'vendorTransactions')
   BuiltList<VendorWalletTransaction>? get vendorTransactions;
 
+  @BuiltValueField(wireName: r'vendorFulfillments')
+  BuiltList<OrderVendorFulfillment>? get vendorFulfillments;
+
+  @BuiltValueField(wireName: r'deliveryGroups')
+  BuiltList<OrderDeliveryGroup>? get deliveryGroups;
+
+  @BuiltValueField(wireName: r'fulfillmentSummary')
+  JsonObject? get fulfillmentSummary;
+
   OrderResponseDto._();
 
   factory OrderResponseDto([void updates(OrderResponseDtoBuilder b)]) = _$OrderResponseDto;
@@ -265,6 +296,13 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
       object.orderNumber,
       specifiedType: const FullType(String),
     );
+    if (object.clientOrderKey != null) {
+      yield r'clientOrderKey';
+      yield serializers.serialize(
+        object.clientOrderKey,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'type';
     yield serializers.serialize(
       object.type,
@@ -467,6 +505,27 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
         specifiedType: const FullType(DateTime),
       );
     }
+    if (object.pickupImageUrl != null) {
+      yield r'pickupImageUrl';
+      yield serializers.serialize(
+        object.pickupImageUrl,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.deliveryImageUrl != null) {
+      yield r'deliveryImageUrl';
+      yield serializers.serialize(
+        object.deliveryImageUrl,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.paymentReceiptUrl != null) {
+      yield r'paymentReceiptUrl';
+      yield serializers.serialize(
+        object.paymentReceiptUrl,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.actualDeliveryTime != null) {
       yield r'actualDeliveryTime';
       yield serializers.serialize(
@@ -558,6 +617,27 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
         specifiedType: const FullType(BuiltList, [FullType(VendorWalletTransaction)]),
       );
     }
+    if (object.vendorFulfillments != null) {
+      yield r'vendorFulfillments';
+      yield serializers.serialize(
+        object.vendorFulfillments,
+        specifiedType: const FullType(BuiltList, [FullType(OrderVendorFulfillment)]),
+      );
+    }
+    if (object.deliveryGroups != null) {
+      yield r'deliveryGroups';
+      yield serializers.serialize(
+        object.deliveryGroups,
+        specifiedType: const FullType(BuiltList, [FullType(OrderDeliveryGroup)]),
+      );
+    }
+    if (object.fulfillmentSummary != null) {
+      yield r'fulfillmentSummary';
+      yield serializers.serialize(
+        object.fulfillmentSummary,
+        specifiedType: const FullType(JsonObject),
+      );
+    }
   }
 
   @override
@@ -594,6 +674,13 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
             specifiedType: const FullType(String),
           ) as String;
           result.orderNumber = valueDes;
+          break;
+        case r'clientOrderKey':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.clientOrderKey = valueDes;
           break;
         case r'type':
           final valueDes = serializers.deserialize(
@@ -833,6 +920,27 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
           ) as DateTime;
           result.pickedUpAt = valueDes;
           break;
+        case r'pickupImageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.pickupImageUrl = valueDes;
+          break;
+        case r'deliveryImageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryImageUrl = valueDes;
+          break;
+        case r'paymentReceiptUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.paymentReceiptUrl = valueDes;
+          break;
         case r'actualDeliveryTime':
           final valueDes = serializers.deserialize(
             value,
@@ -923,6 +1031,27 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
             specifiedType: const FullType(BuiltList, [FullType(VendorWalletTransaction)]),
           ) as BuiltList<VendorWalletTransaction>;
           result.vendorTransactions.replace(valueDes);
+          break;
+        case r'vendorFulfillments':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(OrderVendorFulfillment)]),
+          ) as BuiltList<OrderVendorFulfillment>;
+          result.vendorFulfillments.replace(valueDes);
+          break;
+        case r'deliveryGroups':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(OrderDeliveryGroup)]),
+          ) as BuiltList<OrderDeliveryGroup>;
+          result.deliveryGroups.replace(valueDes);
+          break;
+        case r'fulfillmentSummary':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
+          result.fulfillmentSummary = valueDes;
           break;
         default:
           unhandled.add(key);

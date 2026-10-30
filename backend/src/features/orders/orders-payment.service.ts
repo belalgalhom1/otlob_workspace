@@ -124,6 +124,7 @@ export class OrdersPaymentService {
         status: DeliveryGroupStatus;
         primaryDriverId: string | null;
         pickedUpAt: Date | null;
+        items?: any[];
       }>)
     ).filter(Boolean);
 
@@ -160,19 +161,30 @@ export class OrdersPaymentService {
       // delivery still waiting on payment all leave PENDING_PAYMENT together.
       // Each group returns to the state it held before the payment detour
       // (PICKED_UP if it had already been picked up, else DRIVER_ASSIGNED).
-      const nextStatus = (order as any).pickedUpAt
+      const fulfillments = (order as any).vendorFulfillments ?? [];
+      const hasAnyPickup = Boolean((order as any).pickedUpAt) || fulfillments.some((f: any) => Boolean(f.pickedUpAt));
+      const allPickedUp = Boolean((order as any).pickedUpAt) || (fulfillments.length > 0 && fulfillments.every((f: any) => Boolean(f.pickedUpAt) || f.status === 'REJECTED' || f.status === 'CANCELLED'));
+
+      const nextStatus = allPickedUp
         ? OrderStatus.PICKED_UP
-        : OrderStatus.DRIVER_ASSIGNED;
+        : (hasAnyPickup ? OrderStatus.PARTIALLY_PICKED_UP : OrderStatus.DRIVER_ASSIGNED);
 
       await this.prisma.$transaction(async (tx) => {
         for (const g of groups) {
           if (g.status !== DeliveryGroupStatus.PENDING_PAYMENT) continue;
+          const groupFulfillmentIds = new Set((g.items ?? []).map((it: any) => it.fulfillmentId));
+          const groupFulfillments = fulfillments.filter((f: any) => groupFulfillmentIds.has(f.id));
+          const groupHasPickup = Boolean(g.pickedUpAt) || groupFulfillments.some((f: any) => Boolean(f.pickedUpAt));
+          const groupAllPickedUp = Boolean(g.pickedUpAt) || (groupFulfillments.length > 0 && groupFulfillments.every((f: any) => Boolean(f.pickedUpAt) || f.status === 'REJECTED' || f.status === 'CANCELLED'));
+
+          const groupNextStatus = groupAllPickedUp
+            ? DeliveryGroupStatus.PICKED_UP
+            : (groupHasPickup ? DeliveryGroupStatus.PARTIALLY_PICKED_UP : DeliveryGroupStatus.DRIVER_ASSIGNED);
+
           await tx.orderDeliveryGroup.updateMany({
             where: { id: g.id, status: DeliveryGroupStatus.PENDING_PAYMENT },
             data: {
-              status: g.pickedUpAt
-                ? DeliveryGroupStatus.PICKED_UP
-                : DeliveryGroupStatus.DRIVER_ASSIGNED,
+              status: groupNextStatus,
             },
           });
         }

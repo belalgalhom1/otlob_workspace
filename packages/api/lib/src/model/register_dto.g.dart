@@ -85,6 +85,7 @@ class _$RegisterDtoRoleEnumSerializer
   static const Map<String, Object> _toWire = const <String, Object>{
     'CUSTOMER': 'CUSTOMER',
     'DRIVER': 'DRIVER',
+    'DRIVER_MANAGER': 'DRIVER_MANAGER',
     'VENDOR_MEMBER': 'VENDOR_MEMBER',
     'ADMIN': 'ADMIN',
     'SUPER_ADMIN': 'SUPER_ADMIN',
@@ -92,6 +93,7 @@ class _$RegisterDtoRoleEnumSerializer
   static const Map<Object, String> _fromWire = const <Object, String>{
     'CUSTOMER': 'CUSTOMER',
     'DRIVER': 'DRIVER',
+    'DRIVER_MANAGER': 'DRIVER_MANAGER',
     'VENDOR_MEMBER': 'VENDOR_MEMBER',
     'ADMIN': 'ADMIN',
     'SUPER_ADMIN': 'SUPER_ADMIN',
@@ -162,7 +164,7 @@ class _$RegisterDto extends RegisterDto {
   @override
   final String name;
   @override
-  final String? phone;
+  final String phone;
   @override
   final RegisterDtoRoleEnum? role;
   @override
@@ -177,7 +179,7 @@ class _$RegisterDto extends RegisterDto {
     required this.email,
     required this.password,
     required this.name,
-    this.phone,
+    required this.phone,
     this.role,
     this.vendorId,
     this.vendorRole,
@@ -313,7 +315,11 @@ class RegisterDtoBuilder implements Builder<RegisterDto, RegisterDtoBuilder> {
             r'RegisterDto',
             'name',
           ),
-          phone: phone,
+          phone: BuiltValueNullFieldError.checkNotNull(
+            phone,
+            r'RegisterDto',
+            'phone',
+          ),
           role: role,
           vendorId: vendorId,
           vendorRole: vendorRole,

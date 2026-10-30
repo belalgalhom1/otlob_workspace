@@ -1389,7 +1389,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         text: l10n.localeName == 'ar' ? 'جاري تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
         onPressed: null,
       );
-    } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') {
+    } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP' || status == 'PARTIALLY_PICKED_UP') {
       final isCustomOrRide =
           order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
       if (!isCustomOrRide && status == 'DRIVER_ASSIGNED') {

@@ -24,6 +24,8 @@ class _$CartItem extends CartItem {
   @override
   final num quantity;
   @override
+  final String selectedUnit;
+  @override
   final String? specialRequest;
   @override
   final String? optionHash;
@@ -44,6 +46,7 @@ class _$CartItem extends CartItem {
     this.customPrice,
     this.customImageUrl,
     required this.quantity,
+    required this.selectedUnit,
     this.specialRequest,
     this.optionHash,
     required this.createdAt,
@@ -68,6 +71,7 @@ class _$CartItem extends CartItem {
         customPrice == other.customPrice &&
         customImageUrl == other.customImageUrl &&
         quantity == other.quantity &&
+        selectedUnit == other.selectedUnit &&
         specialRequest == other.specialRequest &&
         optionHash == other.optionHash &&
         createdAt == other.createdAt &&
@@ -85,6 +89,7 @@ class _$CartItem extends CartItem {
     _$hash = $jc(_$hash, customPrice.hashCode);
     _$hash = $jc(_$hash, customImageUrl.hashCode);
     _$hash = $jc(_$hash, quantity.hashCode);
+    _$hash = $jc(_$hash, selectedUnit.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
     _$hash = $jc(_$hash, optionHash.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
@@ -104,6 +109,7 @@ class _$CartItem extends CartItem {
           ..add('customPrice', customPrice)
           ..add('customImageUrl', customImageUrl)
           ..add('quantity', quantity)
+          ..add('selectedUnit', selectedUnit)
           ..add('specialRequest', specialRequest)
           ..add('optionHash', optionHash)
           ..add('createdAt', createdAt)
@@ -148,6 +154,10 @@ class CartItemBuilder implements Builder<CartItem, CartItemBuilder> {
   num? get quantity => _$this._quantity;
   set quantity(num? quantity) => _$this._quantity = quantity;
 
+  String? _selectedUnit;
+  String? get selectedUnit => _$this._selectedUnit;
+  set selectedUnit(String? selectedUnit) => _$this._selectedUnit = selectedUnit;
+
   String? _specialRequest;
   String? get specialRequest => _$this._specialRequest;
   set specialRequest(String? specialRequest) =>
@@ -180,6 +190,7 @@ class CartItemBuilder implements Builder<CartItem, CartItemBuilder> {
       _customPrice = $v.customPrice;
       _customImageUrl = $v.customImageUrl;
       _quantity = $v.quantity;
+      _selectedUnit = $v.selectedUnit;
       _specialRequest = $v.specialRequest;
       _optionHash = $v.optionHash;
       _createdAt = $v.createdAt;
@@ -221,6 +232,11 @@ class CartItemBuilder implements Builder<CartItem, CartItemBuilder> {
             quantity,
             r'CartItem',
             'quantity',
+          ),
+          selectedUnit: BuiltValueNullFieldError.checkNotNull(
+            selectedUnit,
+            r'CartItem',
+            'selectedUnit',
           ),
           specialRequest: specialRequest,
           optionHash: optionHash,

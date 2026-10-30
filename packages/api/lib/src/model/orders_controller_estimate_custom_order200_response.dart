@@ -1,10 +1,9 @@
-﻿//
+//
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
 // ignore_for_file: unused_element
 import 'package:api/src/model/api_response_dto.dart';
-import 'package:api/src/model/order_fee_estimate_dto.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/json_object.dart';
@@ -51,15 +50,15 @@ class _$OrdersControllerEstimateCustomOrder200ResponseSerializer implements Prim
       object.data,
       specifiedType: const FullType.nullable(JsonObject),
     );
-    yield r'success';
-    yield serializers.serialize(
-      object.success,
-      specifiedType: const FullType(bool),
-    );
     yield r'message';
     yield serializers.serialize(
       object.message,
       specifiedType: const FullType(String),
+    );
+    yield r'success';
+    yield serializers.serialize(
+      object.success,
+      specifiedType: const FullType(bool),
     );
     yield r'errors';
     yield object.errors == null ? null : serializers.serialize(
@@ -107,19 +106,19 @@ class _$OrdersControllerEstimateCustomOrder200ResponseSerializer implements Prim
           if (valueDes == null) continue;
           result.data = valueDes;
           break;
-        case r'success':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.success = valueDes;
-          break;
         case r'message':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(String),
           ) as String;
           result.message = valueDes;
+          break;
+        case r'success':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.success = valueDes;
           break;
         case r'errors':
           final valueDes = serializers.deserialize(

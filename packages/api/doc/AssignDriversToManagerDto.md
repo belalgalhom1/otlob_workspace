@@ -1,8 +1,8 @@
-# openapi.model.AssignDriversToManagerDto
+# api.model.AssignDriversToManagerDto
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties

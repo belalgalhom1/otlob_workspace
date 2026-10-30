@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
@@ -528,6 +527,7 @@ class VendorsMenuCategoriesApi {
   /// Parameters:
   /// * [vendorId] 
   /// * [activeOnly] 
+  /// * [branchId] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -540,6 +540,7 @@ class VendorsMenuCategoriesApi {
   Future<Response<ApiControllerRoot200Response>> menuCategoriesControllerFindAll({ 
     required String vendorId,
     bool? activeOnly,
+    String? branchId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -562,6 +563,7 @@ class VendorsMenuCategoriesApi {
 
     final _queryParameters = <String, dynamic>{
       if (activeOnly != null) r'activeOnly': encodeQueryParameter(_serializers, activeOnly, const FullType(bool)),
+      if (branchId != null) r'branchId': encodeQueryParameter(_serializers, branchId, const FullType(String)),
     };
 
     final _response = await _dio.request<Object>(

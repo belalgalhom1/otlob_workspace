@@ -1,8 +1,8 @@
-# openapi.model.UnassignDriversFromManagerDto
+# api.model.UnassignDriversFromManagerDto
 
 ## Load the model package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 ## Properties

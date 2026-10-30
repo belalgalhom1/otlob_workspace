@@ -22,6 +22,8 @@ Name | Type | Description | Notes
 **isFeatured** | **bool** |  | [optional] 
 **sellByStrip** | **bool** |  | [optional] 
 **stripsPerPackage** | **num** |  | [optional] 
+**branchAvailabilityMode** | **String** | ALL includes every current and future branch. SPECIFIC uses branchIds. | [optional] 
+**branchIds** | **BuiltList&lt;String&gt;** | Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch. | [optional] 
 **version** | **num** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

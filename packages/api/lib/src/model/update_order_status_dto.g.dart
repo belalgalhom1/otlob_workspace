@@ -29,6 +29,9 @@ const UpdateOrderStatusDtoStatusEnum
 _$updateOrderStatusDtoStatusEnum_READY_FOR_PICKUP =
     const UpdateOrderStatusDtoStatusEnum._('READY_FOR_PICKUP');
 const UpdateOrderStatusDtoStatusEnum
+_$updateOrderStatusDtoStatusEnum_PARTIALLY_PICKED_UP =
+    const UpdateOrderStatusDtoStatusEnum._('PARTIALLY_PICKED_UP');
+const UpdateOrderStatusDtoStatusEnum
 _$updateOrderStatusDtoStatusEnum_PICKED_UP =
     const UpdateOrderStatusDtoStatusEnum._('PICKED_UP');
 const UpdateOrderStatusDtoStatusEnum
@@ -58,6 +61,8 @@ UpdateOrderStatusDtoStatusEnum _$updateOrderStatusDtoStatusEnumValueOf(
       return _$updateOrderStatusDtoStatusEnum_PENDING_PAYMENT;
     case 'READY_FOR_PICKUP':
       return _$updateOrderStatusDtoStatusEnum_READY_FOR_PICKUP;
+    case 'PARTIALLY_PICKED_UP':
+      return _$updateOrderStatusDtoStatusEnum_PARTIALLY_PICKED_UP;
     case 'PICKED_UP':
       return _$updateOrderStatusDtoStatusEnum_PICKED_UP;
     case 'DELIVERED':
@@ -81,6 +86,7 @@ _$updateOrderStatusDtoStatusEnumValues =
         _$updateOrderStatusDtoStatusEnum_DRIVER_ASSIGNED,
         _$updateOrderStatusDtoStatusEnum_PENDING_PAYMENT,
         _$updateOrderStatusDtoStatusEnum_READY_FOR_PICKUP,
+        _$updateOrderStatusDtoStatusEnum_PARTIALLY_PICKED_UP,
         _$updateOrderStatusDtoStatusEnum_PICKED_UP,
         _$updateOrderStatusDtoStatusEnum_DELIVERED,
         _$updateOrderStatusDtoStatusEnum_CANCELLED,
@@ -102,6 +108,7 @@ class _$UpdateOrderStatusDtoStatusEnumSerializer
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',
+    'PARTIALLY_PICKED_UP': 'PARTIALLY_PICKED_UP',
     'PICKED_UP': 'PICKED_UP',
     'DELIVERED': 'DELIVERED',
     'CANCELLED': 'CANCELLED',
@@ -115,6 +122,7 @@ class _$UpdateOrderStatusDtoStatusEnumSerializer
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',
+    'PARTIALLY_PICKED_UP': 'PARTIALLY_PICKED_UP',
     'PICKED_UP': 'PICKED_UP',
     'DELIVERED': 'DELIVERED',
     'CANCELLED': 'CANCELLED',
@@ -149,6 +157,10 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
   final String? note;
   @override
   final num? estimatedPrepTime;
+  @override
+  final String? pickupImageUrl;
+  @override
+  final String? deliveryImageUrl;
 
   factory _$UpdateOrderStatusDto([
     void Function(UpdateOrderStatusDtoBuilder)? updates,
@@ -158,6 +170,8 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
     required this.status,
     this.note,
     this.estimatedPrepTime,
+    this.pickupImageUrl,
+    this.deliveryImageUrl,
   }) : super._();
   @override
   UpdateOrderStatusDto rebuild(
@@ -174,7 +188,9 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
     return other is UpdateOrderStatusDto &&
         status == other.status &&
         note == other.note &&
-        estimatedPrepTime == other.estimatedPrepTime;
+        estimatedPrepTime == other.estimatedPrepTime &&
+        pickupImageUrl == other.pickupImageUrl &&
+        deliveryImageUrl == other.deliveryImageUrl;
   }
 
   @override
@@ -183,6 +199,8 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, note.hashCode);
     _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
+    _$hash = $jc(_$hash, pickupImageUrl.hashCode);
+    _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -192,7 +210,9 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
     return (newBuiltValueToStringHelper(r'UpdateOrderStatusDto')
           ..add('status', status)
           ..add('note', note)
-          ..add('estimatedPrepTime', estimatedPrepTime))
+          ..add('estimatedPrepTime', estimatedPrepTime)
+          ..add('pickupImageUrl', pickupImageUrl)
+          ..add('deliveryImageUrl', deliveryImageUrl))
         .toString();
   }
 }
@@ -214,6 +234,16 @@ class UpdateOrderStatusDtoBuilder
   set estimatedPrepTime(num? estimatedPrepTime) =>
       _$this._estimatedPrepTime = estimatedPrepTime;
 
+  String? _pickupImageUrl;
+  String? get pickupImageUrl => _$this._pickupImageUrl;
+  set pickupImageUrl(String? pickupImageUrl) =>
+      _$this._pickupImageUrl = pickupImageUrl;
+
+  String? _deliveryImageUrl;
+  String? get deliveryImageUrl => _$this._deliveryImageUrl;
+  set deliveryImageUrl(String? deliveryImageUrl) =>
+      _$this._deliveryImageUrl = deliveryImageUrl;
+
   UpdateOrderStatusDtoBuilder() {
     UpdateOrderStatusDto._defaults(this);
   }
@@ -224,6 +254,8 @@ class UpdateOrderStatusDtoBuilder
       _status = $v.status;
       _note = $v.note;
       _estimatedPrepTime = $v.estimatedPrepTime;
+      _pickupImageUrl = $v.pickupImageUrl;
+      _deliveryImageUrl = $v.deliveryImageUrl;
       _$v = null;
     }
     return this;
@@ -253,6 +285,8 @@ class UpdateOrderStatusDtoBuilder
           ),
           note: note,
           estimatedPrepTime: estimatedPrepTime,
+          pickupImageUrl: pickupImageUrl,
+          deliveryImageUrl: deliveryImageUrl,
         );
     replace(_$result);
     return _$result;

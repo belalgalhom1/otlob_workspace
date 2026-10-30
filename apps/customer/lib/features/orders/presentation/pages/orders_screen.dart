@@ -38,6 +38,7 @@ String _translateStatus(String status, bool isArabic) {
     case 'DRIVER_ASSIGNED': return isArabic ? 'تم تعيين المندوب' : 'Driver Assigned';
     case 'PENDING_PAYMENT': return isArabic ? 'في انتظار الدفع' : 'Pending Payment';
     case 'READY_FOR_PICKUP': return isArabic ? 'جاهز للاستلام' : 'Ready for Pickup';
+    case 'PARTIALLY_PICKED_UP': return isArabic ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
     case 'PICKED_UP': return isArabic ? 'تم الاستلام من المتجر' : 'Picked Up';
     case 'IN_TRANSIT':
     case 'ARRIVING': return isArabic ? 'في الطريق' : 'On the Way';
@@ -240,7 +241,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         status == 'PENDING_PAYMENT' ||
         status == 'READY_FOR_PICKUP') {
       currentStep = 1;
-    } else if (status == 'PICKED_UP' || 
+    } else if (status == 'PARTIALLY_PICKED_UP' ||
+               status == 'PICKED_UP' || 
                status == 'IN_TRANSIT' || 
                status == 'ARRIVING') {
       currentStep = 2;

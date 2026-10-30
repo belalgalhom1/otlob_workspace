@@ -11,7 +11,7 @@ Name | Type | Description | Notes
 **email** | **String** |  | 
 **password** | **String** |  | 
 **name** | **String** |  | 
-**phone** | **String** |  | [optional] 
+**phone** | **String** |  | 
 **role** | **String** |  | [optional] 
 **vendorId** | **String** |  | [optional] 
 **vendorRole** | **String** |  | [optional] 

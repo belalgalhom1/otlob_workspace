@@ -38,7 +38,8 @@ abstract class AddCartItemDto implements Built<AddCartItemDto, AddCartItemDtoBui
   String? get specialRequest;
 
   @BuiltValueField(wireName: r'selectedUnit')
-  String? get selectedUnit;
+  AddCartItemDtoSelectedUnitEnum? get selectedUnit;
+  // enum selectedUnitEnum {  package,  strip,  };
 
   @BuiltValueField(wireName: r'offerMessageId')
   String? get offerMessageId;
@@ -50,7 +51,7 @@ abstract class AddCartItemDto implements Built<AddCartItemDto, AddCartItemDtoBui
   @BuiltValueHook(initializeBuilder: true)
   static void _defaults(AddCartItemDtoBuilder b) => b
       ..quantity = 1
-      ..selectedUnit = 'package';
+      ..selectedUnit = AddCartItemDtoSelectedUnitEnum.valueOf('package');
 
   @BuiltValueSerializer(custom: true)
   static Serializer<AddCartItemDto> get serializer => _$AddCartItemDtoSerializer();
@@ -105,7 +106,7 @@ class _$AddCartItemDtoSerializer implements PrimitiveSerializer<AddCartItemDto> 
       yield r'selectedUnit';
       yield serializers.serialize(
         object.selectedUnit,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(AddCartItemDtoSelectedUnitEnum),
       );
     }
     if (object.offerMessageId != null) {
@@ -176,8 +177,8 @@ class _$AddCartItemDtoSerializer implements PrimitiveSerializer<AddCartItemDto> 
         case r'selectedUnit':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(AddCartItemDtoSelectedUnitEnum),
+          ) as AddCartItemDtoSelectedUnitEnum;
           result.selectedUnit = valueDes;
           break;
         case r'offerMessageId':
@@ -214,5 +215,20 @@ class _$AddCartItemDtoSerializer implements PrimitiveSerializer<AddCartItemDto> 
     );
     return result.build();
   }
+}
+
+class AddCartItemDtoSelectedUnitEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'package')
+  static const AddCartItemDtoSelectedUnitEnum package = _$addCartItemDtoSelectedUnitEnum_package;
+  @BuiltValueEnumConst(wireName: r'strip')
+  static const AddCartItemDtoSelectedUnitEnum strip = _$addCartItemDtoSelectedUnitEnum_strip;
+
+  static Serializer<AddCartItemDtoSelectedUnitEnum> get serializer => _$addCartItemDtoSelectedUnitEnumSerializer;
+
+  const AddCartItemDtoSelectedUnitEnum._(String name): super(name);
+
+  static BuiltSet<AddCartItemDtoSelectedUnitEnum> get values => _$addCartItemDtoSelectedUnitEnumValues;
+  static AddCartItemDtoSelectedUnitEnum valueOf(String name) => _$addCartItemDtoSelectedUnitEnumValueOf(name);
 }
 

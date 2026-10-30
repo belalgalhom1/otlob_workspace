@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
@@ -858,6 +857,7 @@ class VendorsProductsApi {
   /// * [isActive] 
   /// * [isFeatured] 
   /// * [search] 
+  /// * [branchId] - When provided, only products available at this vendor branch are returned.
   /// * [page] 
   /// * [limit] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
@@ -875,6 +875,7 @@ class VendorsProductsApi {
     bool? isActive,
     bool? isFeatured,
     String? search,
+    String? branchId,
     num? page = 1,
     num? limit = 20,
     CancelToken? cancelToken,
@@ -902,6 +903,7 @@ class VendorsProductsApi {
       if (isActive != null) r'isActive': encodeQueryParameter(_serializers, isActive, const FullType(bool)),
       if (isFeatured != null) r'isFeatured': encodeQueryParameter(_serializers, isFeatured, const FullType(bool)),
       if (search != null) r'search': encodeQueryParameter(_serializers, search, const FullType(String)),
+      if (branchId != null) r'branchId': encodeQueryParameter(_serializers, branchId, const FullType(String)),
       if (page != null) r'page': encodeQueryParameter(_serializers, page, const FullType(num)),
       if (limit != null) r'limit': encodeQueryParameter(_serializers, limit, const FullType(num)),
     };

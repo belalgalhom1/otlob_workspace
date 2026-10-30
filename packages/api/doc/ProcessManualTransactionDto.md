@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **type** | **String** | Type of transaction | 
 **description** | **String** |  | [optional] 
 **referenceId** | **String** |  | [optional] 
+**idempotencyKey** | **String** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

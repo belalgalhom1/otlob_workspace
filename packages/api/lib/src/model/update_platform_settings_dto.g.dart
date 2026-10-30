@@ -118,6 +118,12 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? maxActiveOrdersPerDriver;
   @override
+  final num? stackedOrderDriverPercentage;
+  @override
+  final num? batchMaxVendorDistanceKm;
+  @override
+  final num? batchMaxCustomerDistanceKm;
+  @override
   final bool? isMaintenanceMode;
   @override
   final String? androidMinVersion;
@@ -280,6 +286,9 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.maxNegativeDriverBalance,
     this.maxDispatchBatchSize,
     this.maxActiveOrdersPerDriver,
+    this.stackedOrderDriverPercentage,
+    this.batchMaxVendorDistanceKm,
+    this.batchMaxCustomerDistanceKm,
     this.isMaintenanceMode,
     this.androidMinVersion,
     this.androidLatestVersion,
@@ -402,6 +411,9 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         maxNegativeDriverBalance == other.maxNegativeDriverBalance &&
         maxDispatchBatchSize == other.maxDispatchBatchSize &&
         maxActiveOrdersPerDriver == other.maxActiveOrdersPerDriver &&
+        stackedOrderDriverPercentage == other.stackedOrderDriverPercentage &&
+        batchMaxVendorDistanceKm == other.batchMaxVendorDistanceKm &&
+        batchMaxCustomerDistanceKm == other.batchMaxCustomerDistanceKm &&
         isMaintenanceMode == other.isMaintenanceMode &&
         androidMinVersion == other.androidMinVersion &&
         androidLatestVersion == other.androidLatestVersion &&
@@ -516,6 +528,9 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, maxNegativeDriverBalance.hashCode);
     _$hash = $jc(_$hash, maxDispatchBatchSize.hashCode);
     _$hash = $jc(_$hash, maxActiveOrdersPerDriver.hashCode);
+    _$hash = $jc(_$hash, stackedOrderDriverPercentage.hashCode);
+    _$hash = $jc(_$hash, batchMaxVendorDistanceKm.hashCode);
+    _$hash = $jc(_$hash, batchMaxCustomerDistanceKm.hashCode);
     _$hash = $jc(_$hash, isMaintenanceMode.hashCode);
     _$hash = $jc(_$hash, androidMinVersion.hashCode);
     _$hash = $jc(_$hash, androidLatestVersion.hashCode);
@@ -635,6 +650,9 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('maxNegativeDriverBalance', maxNegativeDriverBalance)
           ..add('maxDispatchBatchSize', maxDispatchBatchSize)
           ..add('maxActiveOrdersPerDriver', maxActiveOrdersPerDriver)
+          ..add('stackedOrderDriverPercentage', stackedOrderDriverPercentage)
+          ..add('batchMaxVendorDistanceKm', batchMaxVendorDistanceKm)
+          ..add('batchMaxCustomerDistanceKm', batchMaxCustomerDistanceKm)
           ..add('isMaintenanceMode', isMaintenanceMode)
           ..add('androidMinVersion', androidMinVersion)
           ..add('androidLatestVersion', androidLatestVersion)
@@ -978,6 +996,21 @@ class UpdatePlatformSettingsDtoBuilder
   set maxActiveOrdersPerDriver(num? maxActiveOrdersPerDriver) =>
       _$this._maxActiveOrdersPerDriver = maxActiveOrdersPerDriver;
 
+  num? _stackedOrderDriverPercentage;
+  num? get stackedOrderDriverPercentage => _$this._stackedOrderDriverPercentage;
+  set stackedOrderDriverPercentage(num? stackedOrderDriverPercentage) =>
+      _$this._stackedOrderDriverPercentage = stackedOrderDriverPercentage;
+
+  num? _batchMaxVendorDistanceKm;
+  num? get batchMaxVendorDistanceKm => _$this._batchMaxVendorDistanceKm;
+  set batchMaxVendorDistanceKm(num? batchMaxVendorDistanceKm) =>
+      _$this._batchMaxVendorDistanceKm = batchMaxVendorDistanceKm;
+
+  num? _batchMaxCustomerDistanceKm;
+  num? get batchMaxCustomerDistanceKm => _$this._batchMaxCustomerDistanceKm;
+  set batchMaxCustomerDistanceKm(num? batchMaxCustomerDistanceKm) =>
+      _$this._batchMaxCustomerDistanceKm = batchMaxCustomerDistanceKm;
+
   bool? _isMaintenanceMode;
   bool? get isMaintenanceMode => _$this._isMaintenanceMode;
   set isMaintenanceMode(bool? isMaintenanceMode) =>
@@ -1296,6 +1329,9 @@ class UpdatePlatformSettingsDtoBuilder
       _maxNegativeDriverBalance = $v.maxNegativeDriverBalance;
       _maxDispatchBatchSize = $v.maxDispatchBatchSize;
       _maxActiveOrdersPerDriver = $v.maxActiveOrdersPerDriver;
+      _stackedOrderDriverPercentage = $v.stackedOrderDriverPercentage;
+      _batchMaxVendorDistanceKm = $v.batchMaxVendorDistanceKm;
+      _batchMaxCustomerDistanceKm = $v.batchMaxCustomerDistanceKm;
       _isMaintenanceMode = $v.isMaintenanceMode;
       _androidMinVersion = $v.androidMinVersion;
       _androidLatestVersion = $v.androidLatestVersion;
@@ -1426,6 +1462,9 @@ class UpdatePlatformSettingsDtoBuilder
           maxNegativeDriverBalance: maxNegativeDriverBalance,
           maxDispatchBatchSize: maxDispatchBatchSize,
           maxActiveOrdersPerDriver: maxActiveOrdersPerDriver,
+          stackedOrderDriverPercentage: stackedOrderDriverPercentage,
+          batchMaxVendorDistanceKm: batchMaxVendorDistanceKm,
+          batchMaxCustomerDistanceKm: batchMaxCustomerDistanceKm,
           isMaintenanceMode: isMaintenanceMode,
           androidMinVersion: androidMinVersion,
           androidLatestVersion: androidLatestVersion,

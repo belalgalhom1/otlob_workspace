@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -11,11 +12,13 @@ part 'decide_assist_request_dto.g.dart';
 /// DecideAssistRequestDto
 ///
 /// Properties:
-/// * [status] - Support decision on the assistance request: APPROVED or REJECTED
+/// * [status] - Support decision on the assistance request
 @BuiltValue()
 abstract class DecideAssistRequestDto implements Built<DecideAssistRequestDto, DecideAssistRequestDtoBuilder> {
+  /// Support decision on the assistance request
   @BuiltValueField(wireName: r'status')
-  String get status;
+  DecideAssistRequestDtoStatusEnum get status;
+  // enum statusEnum {  APPROVED,  REJECTED,  };
 
   DecideAssistRequestDto._();
 
@@ -43,7 +46,7 @@ class _$DecideAssistRequestDtoSerializer implements PrimitiveSerializer<DecideAs
     yield r'status';
     yield serializers.serialize(
       object.status,
-      specifiedType: const FullType(String),
+      specifiedType: const FullType(DecideAssistRequestDtoStatusEnum),
     );
   }
 
@@ -56,6 +59,33 @@ class _$DecideAssistRequestDtoSerializer implements PrimitiveSerializer<DecideAs
     return _serializeProperties(serializers, object, specifiedType: specifiedType).toList();
   }
 
+  void _deserializeProperties(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+    required List<Object?> serializedList,
+    required DecideAssistRequestDtoBuilder result,
+    required List<Object?> unhandled,
+  }) {
+    for (var i = 0; i < serializedList.length; i += 2) {
+      final key = serializedList[i] as String;
+      final value = serializedList[i + 1];
+      switch (key) {
+        case r'status':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DecideAssistRequestDtoStatusEnum),
+          ) as DecideAssistRequestDtoStatusEnum;
+          result.status = valueDes;
+          break;
+        default:
+          unhandled.add(key);
+          unhandled.add(value);
+          break;
+      }
+    }
+  }
+
   @override
   DecideAssistRequestDto deserialize(
     Serializers serializers,
@@ -64,18 +94,33 @@ class _$DecideAssistRequestDtoSerializer implements PrimitiveSerializer<DecideAs
   }) {
     final result = DecideAssistRequestDtoBuilder();
     final serializedList = (serialized as Iterable<Object?>).toList();
-    for (var i = 0; i < serializedList.length; i += 2) {
-      final key = serializedList[i] as String;
-      final value = serializedList[i + 1];
-      switch (key) {
-        case r'status':
-          result.status = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          break;
-      }
-    }
+    final unhandled = <Object?>[];
+    _deserializeProperties(
+      serializers,
+      serialized,
+      specifiedType: specifiedType,
+      serializedList: serializedList,
+      unhandled: unhandled,
+      result: result,
+    );
     return result.build();
   }
 }
+
+class DecideAssistRequestDtoStatusEnum extends EnumClass {
+
+  /// Support decision on the assistance request
+  @BuiltValueEnumConst(wireName: r'APPROVED')
+  static const DecideAssistRequestDtoStatusEnum APPROVED = _$decideAssistRequestDtoStatusEnum_APPROVED;
+  /// Support decision on the assistance request
+  @BuiltValueEnumConst(wireName: r'REJECTED')
+  static const DecideAssistRequestDtoStatusEnum REJECTED = _$decideAssistRequestDtoStatusEnum_REJECTED;
+
+  static Serializer<DecideAssistRequestDtoStatusEnum> get serializer => _$decideAssistRequestDtoStatusEnumSerializer;
+
+  const DecideAssistRequestDtoStatusEnum._(String name): super(name);
+
+  static BuiltSet<DecideAssistRequestDtoStatusEnum> get values => _$decideAssistRequestDtoStatusEnumValues;
+  static DecideAssistRequestDtoStatusEnum valueOf(String name) => _$decideAssistRequestDtoStatusEnumValueOf(name);
+}
+

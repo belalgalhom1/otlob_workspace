@@ -89,6 +89,7 @@ const NON_CANCELLABLE: OrderStatus[] = [
   OrderStatus.DELIVERED,
   OrderStatus.CANCELLED,
   OrderStatus.PICKED_UP,
+  OrderStatus.PARTIALLY_PICKED_UP,
 ];
 import { forwardRef, Inject } from '@nestjs/common';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
@@ -172,7 +173,7 @@ export class OrdersStateService {
     // For multi-vendor orders, accept / cancel are per-fulfillment decisions
     if (matchingFulfillment) {
       if (dto.status === OrderStatus.ACCEPTED) {
-        if (matchingFulfillment.status === 'ACCEPTED') {
+        if (matchingFulfillment.status !== 'PENDING') {
           return this.ordersRepository.findById(orderId);
         }
         await this.vendorDecisionService.accept(actor, matchingFulfillment.id);
@@ -272,6 +273,7 @@ export class OrdersStateService {
     ];
     const ALREADY_READY: DeliveryGroupStatus[] = [
       DeliveryGroupStatus.READY_FOR_PICKUP,
+      DeliveryGroupStatus.PARTIALLY_PICKED_UP,
       DeliveryGroupStatus.PICKED_UP,
       DeliveryGroupStatus.DELIVERED,
     ];
@@ -294,15 +296,27 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
+    const targetStatus = wantedReady
+      ? OrderVendorFulfillmentStatus.READY_FOR_PICKUP
+      : OrderVendorFulfillmentStatus.PREPARING;
+
+    const allowedPriorStatuses = wantedReady
+      ? [OrderVendorFulfillmentStatus.ACCEPTED, OrderVendorFulfillmentStatus.PREPARING]
+      : [OrderVendorFulfillmentStatus.ACCEPTED];
+
     const data: Prisma.OrderVendorFulfillmentUpdateManyMutationInput = wantedReady
       ? {
+          status: targetStatus,
           preparingAt: fulfillment.preparingAt ?? new Date(),
           readyAt: new Date(),
         }
-      : { preparingAt: new Date() };
+      : {
+          status: targetStatus,
+          preparingAt: new Date(),
+        };
 
     const claimed = await this.prisma.orderVendorFulfillment.updateMany({
-      where: { id: fulfillment.id, status: 'ACCEPTED' },
+      where: { id: fulfillment.id, status: { in: allowedPriorStatuses } },
       data,
     });
     if (claimed.count === 0) {
@@ -436,6 +450,7 @@ export class OrdersStateService {
 
     const READY_OR_BEYOND: DeliveryGroupStatus[] = [
       DeliveryGroupStatus.READY_FOR_PICKUP,
+      DeliveryGroupStatus.PARTIALLY_PICKED_UP,
       DeliveryGroupStatus.PICKED_UP,
       DeliveryGroupStatus.DELIVERED,
     ];
@@ -732,6 +747,7 @@ export class OrdersStateService {
       await this.prisma.orderVendorFulfillment.update({
         where: { id: fulfillmentId },
         data: {
+          status: OrderVendorFulfillmentStatus.PICKED_UP,
           pickedUpAt: now,
           pickupImageUrl: imageUrl,
           pickedUpByDriverId: driver.id,
@@ -762,7 +778,55 @@ export class OrdersStateService {
             },
           });
           await this.recomputeGroupedOrderStatus(actor, order);
+
+          const fresh = await this.ordersRepository.findById(orderId);
+          const customerUid = (fresh as any).customer?.user?.id ?? (fresh as any).customer?.userId ?? fresh.customerId;
+          const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+            orderId,
+            fresh.vendorId,
+          );
+          const totalStops = remaining.filter((it) => it.fulfillment && it.fulfillment.status !== 'REJECTED' && it.fulfillment.status !== 'CANCELLED').length;
+          const fulfillmentSummary = {
+            totalStops,
+            completedStops: totalStops,
+            currentStopSequence: totalStops,
+            currentStopBranchName: null,
+            isFullyCollected: true,
+          };
+
+          this.eventEmitter.emit(
+            EVENTS.ORDER_FULFILLMENT_UPDATED,
+            new OrderFulfillmentUpdatedEvent(
+              orderId,
+              fresh.orderNumber,
+              fulfillmentId,
+              customerUid,
+              vendorUserIds,
+              [actor.sub],
+              OrderVendorFulfillmentStatus.PICKED_UP,
+              now,
+              imageUrl,
+              fresh.status,
+              fulfillmentSummary,
+              actor.sub,
+            ),
+          );
         } else {
+          await this.prisma.orderDeliveryGroup.update({
+            where: { id: groupItem.deliveryGroupId },
+            data: {
+              status: DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+            },
+          });
+          await this.ordersRepository.updateStatus(
+            orderId,
+            OrderStatus.PARTIALLY_PICKED_UP,
+            actor.sub,
+            `Driver picked up fulfillment stop ${fulfillmentId}`,
+            {},
+            order.status,
+          );
+
           const fresh = await this.ordersRepository.findById(orderId);
           const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
             orderId,
@@ -826,16 +890,17 @@ export class OrdersStateService {
         });
       }
 
+      const finalOrder = await this.ordersRepository.findById(orderId);
       await this.prisma.orderStatusEvent.create({
         data: {
           orderId,
-          status: order.status,
+          status: finalOrder.status,
           note: `Driver picked up fulfillment stop ${fulfillmentId}`,
           createdBy: actor.sub,
         },
       });
 
-      return this.ordersRepository.findById(orderId);
+      return finalOrder;
     } catch (error) {
       await this.storage.delete(imageUrl);
       throw error;
@@ -1005,17 +1070,31 @@ export class OrdersStateService {
         g.status === DeliveryGroupStatus.PICKED_UP ||
         g.status === DeliveryGroupStatus.DELIVERED,
     );
+    const somePickedUp = active.some(
+      (g) =>
+        g.status === DeliveryGroupStatus.PICKED_UP ||
+        g.status === DeliveryGroupStatus.PARTIALLY_PICKED_UP ||
+        g.status === DeliveryGroupStatus.DELIVERED,
+    );
 
     let target: OrderStatus | null = null;
-    if (allDelivered) target = OrderStatus.DELIVERED;
-    else if (allPickedUp && fresh.status !== OrderStatus.PICKED_UP) {
+    if (allDelivered) {
+      target = OrderStatus.DELIVERED;
+    } else if (allPickedUp && fresh.status !== OrderStatus.PICKED_UP) {
       target = OrderStatus.PICKED_UP;
+    } else if (
+      somePickedUp &&
+      fresh.status !== OrderStatus.PARTIALLY_PICKED_UP &&
+      fresh.status !== OrderStatus.PICKED_UP &&
+      fresh.status !== OrderStatus.DELIVERED
+    ) {
+      target = OrderStatus.PARTIALLY_PICKED_UP;
     }
     if (!target || fresh.status === target) return;
 
     // Only ever move forward.
     const allowedFrom: Record<string, OrderStatus[]> = {
-      [OrderStatus.PICKED_UP]: [
+      [OrderStatus.PARTIALLY_PICKED_UP]: [
         OrderStatus.DRIVER_ASSIGNED,
         OrderStatus.PENDING_PAYMENT,
         OrderStatus.PREPARING,
@@ -1023,7 +1102,16 @@ export class OrdersStateService {
         OrderStatus.ACCEPTED,
         OrderStatus.LOOKING_FOR_DRIVER,
       ],
-      [OrderStatus.DELIVERED]: [OrderStatus.PICKED_UP],
+      [OrderStatus.PICKED_UP]: [
+        OrderStatus.DRIVER_ASSIGNED,
+        OrderStatus.PENDING_PAYMENT,
+        OrderStatus.PREPARING,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.ACCEPTED,
+        OrderStatus.LOOKING_FOR_DRIVER,
+        OrderStatus.PARTIALLY_PICKED_UP,
+      ],
+      [OrderStatus.DELIVERED]: [OrderStatus.PICKED_UP, OrderStatus.PARTIALLY_PICKED_UP],
     };
     if (!(allowedFrom[target] ?? []).includes(fresh.status)) {
       return;

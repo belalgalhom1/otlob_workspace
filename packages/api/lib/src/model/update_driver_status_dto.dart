@@ -12,12 +12,13 @@ part 'update_driver_status_dto.g.dart';
 /// UpdateDriverStatusDto
 ///
 /// Properties:
-/// * [status] 
+/// * [status] - Deprecated: online status is fully shift-driven (shift start flips ONLINE, shift end flips OFFLINE). Manual flips are rejected.
 @BuiltValue()
 abstract class UpdateDriverStatusDto implements Built<UpdateDriverStatusDto, UpdateDriverStatusDtoBuilder> {
+  /// Deprecated: online status is fully shift-driven (shift start flips ONLINE, shift end flips OFFLINE). Manual flips are rejected.
   @BuiltValueField(wireName: r'status')
   UpdateDriverStatusDtoStatusEnum get status;
-  // enum statusEnum {  ONLINE,  OFFLINE,  ON_BREAK,  };
+  // enum statusEnum {  ONLINE,  OFFLINE,  };
 
   UpdateDriverStatusDto._();
 
@@ -108,12 +109,12 @@ class _$UpdateDriverStatusDtoSerializer implements PrimitiveSerializer<UpdateDri
 
 class UpdateDriverStatusDtoStatusEnum extends EnumClass {
 
+  /// Deprecated: online status is fully shift-driven (shift start flips ONLINE, shift end flips OFFLINE). Manual flips are rejected.
   @BuiltValueEnumConst(wireName: r'ONLINE')
   static const UpdateDriverStatusDtoStatusEnum ONLINE = _$updateDriverStatusDtoStatusEnum_ONLINE;
+  /// Deprecated: online status is fully shift-driven (shift start flips ONLINE, shift end flips OFFLINE). Manual flips are rejected.
   @BuiltValueEnumConst(wireName: r'OFFLINE')
   static const UpdateDriverStatusDtoStatusEnum OFFLINE = _$updateDriverStatusDtoStatusEnum_OFFLINE;
-  @BuiltValueEnumConst(wireName: r'ON_BREAK')
-  static const UpdateDriverStatusDtoStatusEnum ON_BREAK = _$updateDriverStatusDtoStatusEnum_ON_BREAK;
 
   static Serializer<UpdateDriverStatusDtoStatusEnum> get serializer => _$updateDriverStatusDtoStatusEnumSerializer;
 

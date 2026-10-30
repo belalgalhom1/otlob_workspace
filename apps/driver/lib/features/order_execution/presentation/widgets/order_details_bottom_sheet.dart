@@ -217,7 +217,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               false;
                           final double cashToPay = double.tryParse(f['cashToPay']?.toString() ?? '0') ??
                               (isContracted ? 0.0 : (double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0));
-                          final isPickedUp = f['status'] == 'PICKED_UP';
+                          final isPickedUp = f['status'] == 'PICKED_UP' || f['pickedUpAt'] != null;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 14),

@@ -168,6 +168,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   }
 
   StreamSubscription<void>? _connectSub;
+  StreamSubscription<dynamic>? _fulfillmentSub;
 
   Future<void> _initTracking() async {
     final socket = ref.read(socketServiceProvider);
@@ -241,6 +242,34 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       });
 
       // onEvent uses broadcast streams that survive socket reconnects/re-auth.
+      _fulfillmentSub?.cancel();
+      _fulfillmentSub = socket.onEvent('order.fulfillment_updated').listen((data) {
+        if (data != null && data['orderId'] == widget.orderId && mounted) {
+          setState(() {
+            if (_orderDetails != null) {
+              final fulfillments = _orderDetails!['vendorFulfillments'];
+              if (fulfillments is List) {
+                for (var f in fulfillments) {
+                  if (f is Map && f['id'] == data['fulfillmentId']) {
+                    f['status'] = data['status'];
+                    if (data['pickedUpAt'] != null) {
+                      f['pickedUpAt'] = data['pickedUpAt'];
+                    }
+                  }
+                }
+              }
+              if (data['fulfillmentSummary'] != null) {
+                _orderDetails!['fulfillmentSummary'] = data['fulfillmentSummary'];
+              }
+            }
+            final incomingOrderStatus = data['orderStatus'] ?? data['parentStatus'] ?? data['newStatus'];
+            if (incomingOrderStatus != null) {
+              _orderStatus = incomingOrderStatus.toString();
+            }
+          });
+        }
+      });
+
       _statusSub?.cancel();
       _statusSub = socket.onEvent('order.status').listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
@@ -474,7 +503,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
         final branchName = (b['nameAr'] ?? b['name'] ?? '').toString();
         final fStatus = f['status']?.toString() ?? 'PENDING';
-        final isPickedUp = fStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
+        final isPickedUp = fStatus == 'PICKED_UP' || f['pickedUpAt'] != null || _orderStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
 
         stops.add({
           'index': i + 1,

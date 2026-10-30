@@ -17,6 +17,7 @@ Name | Type | Description | Notes
 **iconUrl** | **String** |  | [optional] 
 **sortOrder** | **num** |  | 
 **isActive** | **bool** |  | 
+**branchAvailabilityMode** | **String** |  | [default to 'ALL']
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
 

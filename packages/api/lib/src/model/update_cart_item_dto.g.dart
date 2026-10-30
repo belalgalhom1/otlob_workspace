@@ -6,6 +6,72 @@ part of 'update_cart_item_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const UpdateCartItemDtoSelectedUnitEnum
+_$updateCartItemDtoSelectedUnitEnum_package =
+    const UpdateCartItemDtoSelectedUnitEnum._('package');
+const UpdateCartItemDtoSelectedUnitEnum
+_$updateCartItemDtoSelectedUnitEnum_strip =
+    const UpdateCartItemDtoSelectedUnitEnum._('strip');
+
+UpdateCartItemDtoSelectedUnitEnum _$updateCartItemDtoSelectedUnitEnumValueOf(
+  String name,
+) {
+  switch (name) {
+    case 'package':
+      return _$updateCartItemDtoSelectedUnitEnum_package;
+    case 'strip':
+      return _$updateCartItemDtoSelectedUnitEnum_strip;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<UpdateCartItemDtoSelectedUnitEnum>
+_$updateCartItemDtoSelectedUnitEnumValues =
+    BuiltSet<UpdateCartItemDtoSelectedUnitEnum>(
+      const <UpdateCartItemDtoSelectedUnitEnum>[
+        _$updateCartItemDtoSelectedUnitEnum_package,
+        _$updateCartItemDtoSelectedUnitEnum_strip,
+      ],
+    );
+
+Serializer<UpdateCartItemDtoSelectedUnitEnum>
+_$updateCartItemDtoSelectedUnitEnumSerializer =
+    _$UpdateCartItemDtoSelectedUnitEnumSerializer();
+
+class _$UpdateCartItemDtoSelectedUnitEnumSerializer
+    implements PrimitiveSerializer<UpdateCartItemDtoSelectedUnitEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'package': 'package',
+    'strip': 'strip',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'package': 'package',
+    'strip': 'strip',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[UpdateCartItemDtoSelectedUnitEnum];
+  @override
+  final String wireName = 'UpdateCartItemDtoSelectedUnitEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    UpdateCartItemDtoSelectedUnitEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  UpdateCartItemDtoSelectedUnitEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => UpdateCartItemDtoSelectedUnitEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$UpdateCartItemDto extends UpdateCartItemDto {
   @override
   final num quantity;
@@ -13,6 +79,8 @@ class _$UpdateCartItemDto extends UpdateCartItemDto {
   final BuiltList<String>? optionIds;
   @override
   final String? specialRequest;
+  @override
+  final UpdateCartItemDtoSelectedUnitEnum? selectedUnit;
 
   factory _$UpdateCartItemDto([
     void Function(UpdateCartItemDtoBuilder)? updates,
@@ -22,6 +90,7 @@ class _$UpdateCartItemDto extends UpdateCartItemDto {
     required this.quantity,
     this.optionIds,
     this.specialRequest,
+    this.selectedUnit,
   }) : super._();
   @override
   UpdateCartItemDto rebuild(void Function(UpdateCartItemDtoBuilder) updates) =>
@@ -37,7 +106,8 @@ class _$UpdateCartItemDto extends UpdateCartItemDto {
     return other is UpdateCartItemDto &&
         quantity == other.quantity &&
         optionIds == other.optionIds &&
-        specialRequest == other.specialRequest;
+        specialRequest == other.specialRequest &&
+        selectedUnit == other.selectedUnit;
   }
 
   @override
@@ -46,6 +116,7 @@ class _$UpdateCartItemDto extends UpdateCartItemDto {
     _$hash = $jc(_$hash, quantity.hashCode);
     _$hash = $jc(_$hash, optionIds.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
+    _$hash = $jc(_$hash, selectedUnit.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -55,7 +126,8 @@ class _$UpdateCartItemDto extends UpdateCartItemDto {
     return (newBuiltValueToStringHelper(r'UpdateCartItemDto')
           ..add('quantity', quantity)
           ..add('optionIds', optionIds)
-          ..add('specialRequest', specialRequest))
+          ..add('specialRequest', specialRequest)
+          ..add('selectedUnit', selectedUnit))
         .toString();
   }
 }
@@ -79,6 +151,11 @@ class UpdateCartItemDtoBuilder
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
+  UpdateCartItemDtoSelectedUnitEnum? _selectedUnit;
+  UpdateCartItemDtoSelectedUnitEnum? get selectedUnit => _$this._selectedUnit;
+  set selectedUnit(UpdateCartItemDtoSelectedUnitEnum? selectedUnit) =>
+      _$this._selectedUnit = selectedUnit;
+
   UpdateCartItemDtoBuilder() {
     UpdateCartItemDto._defaults(this);
   }
@@ -89,6 +166,7 @@ class UpdateCartItemDtoBuilder
       _quantity = $v.quantity;
       _optionIds = $v.optionIds?.toBuilder();
       _specialRequest = $v.specialRequest;
+      _selectedUnit = $v.selectedUnit;
       _$v = null;
     }
     return this;
@@ -120,6 +198,7 @@ class UpdateCartItemDtoBuilder
             ),
             optionIds: _optionIds?.build(),
             specialRequest: specialRequest,
+            selectedUnit: selectedUnit,
           );
     } catch (_) {
       late String _$failedField;

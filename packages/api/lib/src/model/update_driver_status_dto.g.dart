@@ -11,9 +11,6 @@ const UpdateDriverStatusDtoStatusEnum _$updateDriverStatusDtoStatusEnum_ONLINE =
 const UpdateDriverStatusDtoStatusEnum
 _$updateDriverStatusDtoStatusEnum_OFFLINE =
     const UpdateDriverStatusDtoStatusEnum._('OFFLINE');
-const UpdateDriverStatusDtoStatusEnum
-_$updateDriverStatusDtoStatusEnum_ON_BREAK =
-    const UpdateDriverStatusDtoStatusEnum._('ON_BREAK');
 
 UpdateDriverStatusDtoStatusEnum _$updateDriverStatusDtoStatusEnumValueOf(
   String name,
@@ -23,8 +20,6 @@ UpdateDriverStatusDtoStatusEnum _$updateDriverStatusDtoStatusEnumValueOf(
       return _$updateDriverStatusDtoStatusEnum_ONLINE;
     case 'OFFLINE':
       return _$updateDriverStatusDtoStatusEnum_OFFLINE;
-    case 'ON_BREAK':
-      return _$updateDriverStatusDtoStatusEnum_ON_BREAK;
     default:
       throw ArgumentError(name);
   }
@@ -36,7 +31,6 @@ _$updateDriverStatusDtoStatusEnumValues =
       const <UpdateDriverStatusDtoStatusEnum>[
         _$updateDriverStatusDtoStatusEnum_ONLINE,
         _$updateDriverStatusDtoStatusEnum_OFFLINE,
-        _$updateDriverStatusDtoStatusEnum_ON_BREAK,
       ],
     );
 
@@ -49,12 +43,10 @@ class _$UpdateDriverStatusDtoStatusEnumSerializer
   static const Map<String, Object> _toWire = const <String, Object>{
     'ONLINE': 'ONLINE',
     'OFFLINE': 'OFFLINE',
-    'ON_BREAK': 'ON_BREAK',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'ONLINE': 'ONLINE',
     'OFFLINE': 'OFFLINE',
-    'ON_BREAK': 'ON_BREAK',
   };
 
   @override

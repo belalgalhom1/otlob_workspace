@@ -18,6 +18,9 @@ const OrderStatus _$LOOKING_FOR_DRIVER = const OrderStatus._(
 const OrderStatus _$DRIVER_ASSIGNED = const OrderStatus._('DRIVER_ASSIGNED');
 const OrderStatus _$PENDING_PAYMENT = const OrderStatus._('PENDING_PAYMENT');
 const OrderStatus _$READY_FOR_PICKUP = const OrderStatus._('READY_FOR_PICKUP');
+const OrderStatus _$PARTIALLY_PICKED_UP = const OrderStatus._(
+  'PARTIALLY_PICKED_UP',
+);
 const OrderStatus _$PICKED_UP = const OrderStatus._('PICKED_UP');
 const OrderStatus _$DELIVERED = const OrderStatus._('DELIVERED');
 const OrderStatus _$CANCELLED = const OrderStatus._('CANCELLED');
@@ -40,6 +43,8 @@ OrderStatus _$valueOf(String name) {
       return _$PENDING_PAYMENT;
     case 'READY_FOR_PICKUP':
       return _$READY_FOR_PICKUP;
+    case 'PARTIALLY_PICKED_UP':
+      return _$PARTIALLY_PICKED_UP;
     case 'PICKED_UP':
       return _$PICKED_UP;
     case 'DELIVERED':
@@ -61,6 +66,7 @@ final BuiltSet<OrderStatus> _$values =
       _$DRIVER_ASSIGNED,
       _$PENDING_PAYMENT,
       _$READY_FOR_PICKUP,
+      _$PARTIALLY_PICKED_UP,
       _$PICKED_UP,
       _$DELIVERED,
       _$CANCELLED,
@@ -76,6 +82,7 @@ class _$OrderStatusMeta {
   OrderStatus get DRIVER_ASSIGNED => _$DRIVER_ASSIGNED;
   OrderStatus get PENDING_PAYMENT => _$PENDING_PAYMENT;
   OrderStatus get READY_FOR_PICKUP => _$READY_FOR_PICKUP;
+  OrderStatus get PARTIALLY_PICKED_UP => _$PARTIALLY_PICKED_UP;
   OrderStatus get PICKED_UP => _$PICKED_UP;
   OrderStatus get DELIVERED => _$DELIVERED;
   OrderStatus get CANCELLED => _$CANCELLED;
@@ -100,6 +107,7 @@ class _$OrderStatusSerializer implements PrimitiveSerializer<OrderStatus> {
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',
+    'PARTIALLY_PICKED_UP': 'PARTIALLY_PICKED_UP',
     'PICKED_UP': 'PICKED_UP',
     'DELIVERED': 'DELIVERED',
     'CANCELLED': 'CANCELLED',
@@ -113,6 +121,7 @@ class _$OrderStatusSerializer implements PrimitiveSerializer<OrderStatus> {
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
     'READY_FOR_PICKUP': 'READY_FOR_PICKUP',
+    'PARTIALLY_PICKED_UP': 'PARTIALLY_PICKED_UP',
     'PICKED_UP': 'PICKED_UP',
     'DELIVERED': 'DELIVERED',
     'CANCELLED': 'CANCELLED',

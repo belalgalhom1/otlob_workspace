@@ -40,7 +40,7 @@ final customerVendorsRepositoryProvider = Provider<CustomerVendorsRepository>((r
 final customerZonesRepositoryProvider = Provider<CustomerZonesRepository>((ref) => CustomerZonesRepository(ref.watch(apiClientProvider).getLogisticsZonesApi()));
 final driverBreaksRepositoryProvider = Provider<DriverBreaksRepository>((ref) => DriverBreaksRepository(dio: ref.watch(dioProvider)));
 final driverDispatchRepositoryProvider = Provider<DriverDispatchRepository>((ref) => DriverDispatchRepository(ref.watch(apiClientProvider).getOrdersApi()));
-final driverOrdersRepositoryProvider = Provider<DriverOrdersRepository>((ref) => DriverOrdersRepository(ref.watch(apiClientProvider).getOrdersApi(), driversApi: ref.watch(apiClientProvider).getDriversApi()));
+final driverOrdersRepositoryProvider = Provider<DriverOrdersRepository>((ref) => DriverOrdersRepository(ref.watch(apiClientProvider).getOrdersApi(), driversApi: ref.watch(apiClientProvider).getDriversApi(), dio: ref.watch(dioProvider)));
 final driverProfileRepositoryProvider = Provider<DriverProfileRepository>((ref) => DriverProfileRepository(ref.watch(apiClientProvider).getDriversApi()));
 final driverShiftsRepositoryProvider = Provider<DriverShiftsRepository>((ref) => DriverShiftsRepository(ref.watch(apiClientProvider).getDriverShiftsApi(), ref.watch(apiClientProvider).getDriversApi(), dio: ref.watch(dioProvider)));
 final driverStatisticsRepositoryProvider = Provider<DriverStatisticsRepository>((ref) => DriverStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));

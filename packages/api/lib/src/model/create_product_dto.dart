@@ -29,6 +29,8 @@ part 'create_product_dto.g.dart';
 /// * [isFeatured] 
 /// * [sellByStrip] 
 /// * [stripsPerPackage] 
+/// * [branchAvailabilityMode] - ALL includes every current and future branch. SPECIFIC uses branchIds.
+/// * [branchIds] - Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.
 /// * [optionGroups] 
 /// * [variants] 
 @BuiltValue()
@@ -78,17 +80,20 @@ abstract class CreateProductDto implements Built<CreateProductDto, CreateProduct
   @BuiltValueField(wireName: r'stripsPerPackage')
   num? get stripsPerPackage;
 
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueField(wireName: r'branchAvailabilityMode')
+  CreateProductDtoBranchAvailabilityModeEnum? get branchAvailabilityMode;
+  // enum branchAvailabilityModeEnum {  ALL,  SPECIFIC,  };
+
+  /// Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.
+  @BuiltValueField(wireName: r'branchIds')
+  BuiltList<String>? get branchIds;
+
   @BuiltValueField(wireName: r'optionGroups')
   BuiltList<CreateOptionGroupDto>? get optionGroups;
 
   @BuiltValueField(wireName: r'variants')
   BuiltList<CreateProductVariantDto>? get variants;
-
-    @BuiltValueField(wireName: r'branchAvailabilityMode')
-  String? get branchAvailabilityMode;
-
-  @BuiltValueField(wireName: r'branchIds')
-  BuiltList<String>? get branchIds;
 
   CreateProductDto._();
 
@@ -101,7 +106,8 @@ abstract class CreateProductDto implements Built<CreateProductDto, CreateProduct
       ..tracksStock = true
       ..isActive = true
       ..isFeatured = false
-      ..sellByStrip = false;
+      ..sellByStrip = false
+      ..branchAvailabilityMode = CreateProductDtoBranchAvailabilityModeEnum.valueOf('ALL');
 
   @BuiltValueSerializer(custom: true)
   static Serializer<CreateProductDto> get serializer => _$CreateProductDtoSerializer();
@@ -222,18 +228,11 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
         specifiedType: const FullType(num),
       );
     }
-    if (object.optionGroups != null) {
-      yield r'optionGroups';
-      yield serializers.serialize(
-        object.optionGroups,
-        specifiedType: const FullType(BuiltList, [FullType(CreateOptionGroupDto)]),
-      );
-    }
     if (object.branchAvailabilityMode != null) {
       yield r'branchAvailabilityMode';
       yield serializers.serialize(
         object.branchAvailabilityMode,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(CreateProductDtoBranchAvailabilityModeEnum),
       );
     }
     if (object.branchIds != null) {
@@ -241,6 +240,13 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
       yield serializers.serialize(
         object.branchIds,
         specifiedType: const FullType(BuiltList, [FullType(String)]),
+      );
+    }
+    if (object.optionGroups != null) {
+      yield r'optionGroups';
+      yield serializers.serialize(
+        object.optionGroups,
+        specifiedType: const FullType(BuiltList, [FullType(CreateOptionGroupDto)]),
       );
     }
     if (object.variants != null) {
@@ -378,6 +384,20 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
           ) as num;
           result.stripsPerPackage = valueDes;
           break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(CreateProductDtoBranchAvailabilityModeEnum),
+          ) as CreateProductDtoBranchAvailabilityModeEnum;
+          result.branchAvailabilityMode = valueDes;
+          break;
+        case r'branchIds':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(String)]),
+          ) as BuiltList<String>;
+          result.branchIds.replace(valueDes);
+          break;
         case r'optionGroups':
           final valueDes = serializers.deserialize(
             value,
@@ -391,20 +411,6 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
             specifiedType: const FullType(BuiltList, [FullType(CreateProductVariantDto)]),
           ) as BuiltList<CreateProductVariantDto>;
           result.variants.replace(valueDes);
-          break;
-        case r'branchAvailabilityMode':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.branchAvailabilityMode = valueDes;
-          break;
-        case r'branchIds':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(BuiltList, [FullType(String)]),
-          ) as BuiltList<String>;
-          result.branchIds.replace(valueDes);
           break;
         default:
           unhandled.add(key);
@@ -433,5 +439,22 @@ class _$CreateProductDtoSerializer implements PrimitiveSerializer<CreateProductD
     );
     return result.build();
   }
+}
+
+class CreateProductDtoBranchAvailabilityModeEnum extends EnumClass {
+
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueEnumConst(wireName: r'ALL')
+  static const CreateProductDtoBranchAvailabilityModeEnum ALL = _$createProductDtoBranchAvailabilityModeEnum_ALL;
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueEnumConst(wireName: r'SPECIFIC')
+  static const CreateProductDtoBranchAvailabilityModeEnum SPECIFIC = _$createProductDtoBranchAvailabilityModeEnum_SPECIFIC;
+
+  static Serializer<CreateProductDtoBranchAvailabilityModeEnum> get serializer => _$createProductDtoBranchAvailabilityModeEnumSerializer;
+
+  const CreateProductDtoBranchAvailabilityModeEnum._(String name): super(name);
+
+  static BuiltSet<CreateProductDtoBranchAvailabilityModeEnum> get values => _$createProductDtoBranchAvailabilityModeEnumValues;
+  static CreateProductDtoBranchAvailabilityModeEnum valueOf(String name) => _$createProductDtoBranchAvailabilityModeEnumValueOf(name);
 }
 

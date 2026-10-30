@@ -6,6 +6,73 @@ part of 'create_product_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const CreateProductDtoBranchAvailabilityModeEnum
+_$createProductDtoBranchAvailabilityModeEnum_ALL =
+    const CreateProductDtoBranchAvailabilityModeEnum._('ALL');
+const CreateProductDtoBranchAvailabilityModeEnum
+_$createProductDtoBranchAvailabilityModeEnum_SPECIFIC =
+    const CreateProductDtoBranchAvailabilityModeEnum._('SPECIFIC');
+
+CreateProductDtoBranchAvailabilityModeEnum
+_$createProductDtoBranchAvailabilityModeEnumValueOf(String name) {
+  switch (name) {
+    case 'ALL':
+      return _$createProductDtoBranchAvailabilityModeEnum_ALL;
+    case 'SPECIFIC':
+      return _$createProductDtoBranchAvailabilityModeEnum_SPECIFIC;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<CreateProductDtoBranchAvailabilityModeEnum>
+_$createProductDtoBranchAvailabilityModeEnumValues =
+    BuiltSet<CreateProductDtoBranchAvailabilityModeEnum>(
+      const <CreateProductDtoBranchAvailabilityModeEnum>[
+        _$createProductDtoBranchAvailabilityModeEnum_ALL,
+        _$createProductDtoBranchAvailabilityModeEnum_SPECIFIC,
+      ],
+    );
+
+Serializer<CreateProductDtoBranchAvailabilityModeEnum>
+_$createProductDtoBranchAvailabilityModeEnumSerializer =
+    _$CreateProductDtoBranchAvailabilityModeEnumSerializer();
+
+class _$CreateProductDtoBranchAvailabilityModeEnumSerializer
+    implements PrimitiveSerializer<CreateProductDtoBranchAvailabilityModeEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[
+    CreateProductDtoBranchAvailabilityModeEnum,
+  ];
+  @override
+  final String wireName = 'CreateProductDtoBranchAvailabilityModeEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    CreateProductDtoBranchAvailabilityModeEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  CreateProductDtoBranchAvailabilityModeEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => CreateProductDtoBranchAvailabilityModeEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$CreateProductDto extends CreateProductDto {
   @override
   final String? categoryId;
@@ -38,13 +105,13 @@ class _$CreateProductDto extends CreateProductDto {
   @override
   final num? stripsPerPackage;
   @override
+  final CreateProductDtoBranchAvailabilityModeEnum? branchAvailabilityMode;
+  @override
+  final BuiltList<String>? branchIds;
+  @override
   final BuiltList<CreateOptionGroupDto>? optionGroups;
   @override
   final BuiltList<CreateProductVariantDto>? variants;
-  @override
-  final String? branchAvailabilityMode;
-  @override
-  final BuiltList<String>? branchIds;
 
   factory _$CreateProductDto([
     void Function(CreateProductDtoBuilder)? updates,
@@ -66,10 +133,10 @@ class _$CreateProductDto extends CreateProductDto {
     this.isFeatured,
     this.sellByStrip,
     this.stripsPerPackage,
-    this.optionGroups,
-    this.variants,
     this.branchAvailabilityMode,
     this.branchIds,
+    this.optionGroups,
+    this.variants,
   }) : super._();
   @override
   CreateProductDto rebuild(void Function(CreateProductDtoBuilder) updates) =>
@@ -98,10 +165,10 @@ class _$CreateProductDto extends CreateProductDto {
         isFeatured == other.isFeatured &&
         sellByStrip == other.sellByStrip &&
         stripsPerPackage == other.stripsPerPackage &&
-        optionGroups == other.optionGroups &&
-        variants == other.variants &&
         branchAvailabilityMode == other.branchAvailabilityMode &&
-        branchIds == other.branchIds;
+        branchIds == other.branchIds &&
+        optionGroups == other.optionGroups &&
+        variants == other.variants;
   }
 
   @override
@@ -122,10 +189,10 @@ class _$CreateProductDto extends CreateProductDto {
     _$hash = $jc(_$hash, isFeatured.hashCode);
     _$hash = $jc(_$hash, sellByStrip.hashCode);
     _$hash = $jc(_$hash, stripsPerPackage.hashCode);
-    _$hash = $jc(_$hash, optionGroups.hashCode);
-    _$hash = $jc(_$hash, variants.hashCode);
     _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
     _$hash = $jc(_$hash, branchIds.hashCode);
+    _$hash = $jc(_$hash, optionGroups.hashCode);
+    _$hash = $jc(_$hash, variants.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -148,10 +215,10 @@ class _$CreateProductDto extends CreateProductDto {
           ..add('isFeatured', isFeatured)
           ..add('sellByStrip', sellByStrip)
           ..add('stripsPerPackage', stripsPerPackage)
-          ..add('optionGroups', optionGroups)
-          ..add('variants', variants)
           ..add('branchAvailabilityMode', branchAvailabilityMode)
-          ..add('branchIds', branchIds))
+          ..add('branchIds', branchIds)
+          ..add('optionGroups', optionGroups)
+          ..add('variants', variants))
         .toString();
   }
 }
@@ -222,6 +289,19 @@ class CreateProductDtoBuilder
   set stripsPerPackage(num? stripsPerPackage) =>
       _$this._stripsPerPackage = stripsPerPackage;
 
+  CreateProductDtoBranchAvailabilityModeEnum? _branchAvailabilityMode;
+  CreateProductDtoBranchAvailabilityModeEnum? get branchAvailabilityMode =>
+      _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(
+    CreateProductDtoBranchAvailabilityModeEnum? branchAvailabilityMode,
+  ) => _$this._branchAvailabilityMode = branchAvailabilityMode;
+
+  ListBuilder<String>? _branchIds;
+  ListBuilder<String> get branchIds =>
+      _$this._branchIds ??= ListBuilder<String>();
+  set branchIds(ListBuilder<String>? branchIds) =>
+      _$this._branchIds = branchIds;
+
   ListBuilder<CreateOptionGroupDto>? _optionGroups;
   ListBuilder<CreateOptionGroupDto> get optionGroups =>
       _$this._optionGroups ??= ListBuilder<CreateOptionGroupDto>();
@@ -233,17 +313,6 @@ class CreateProductDtoBuilder
       _$this._variants ??= ListBuilder<CreateProductVariantDto>();
   set variants(ListBuilder<CreateProductVariantDto>? variants) =>
       _$this._variants = variants;
-
-  String? _branchAvailabilityMode;
-  String? get branchAvailabilityMode => _$this._branchAvailabilityMode;
-  set branchAvailabilityMode(String? branchAvailabilityMode) =>
-      _$this._branchAvailabilityMode = branchAvailabilityMode;
-
-  ListBuilder<String>? _branchIds;
-  ListBuilder<String> get branchIds =>
-      _$this._branchIds ??= ListBuilder<String>();
-  set branchIds(ListBuilder<String>? branchIds) =>
-      _$this._branchIds = branchIds;
 
   CreateProductDtoBuilder() {
     CreateProductDto._defaults(this);
@@ -267,10 +336,10 @@ class CreateProductDtoBuilder
       _isFeatured = $v.isFeatured;
       _sellByStrip = $v.sellByStrip;
       _stripsPerPackage = $v.stripsPerPackage;
-      _optionGroups = $v.optionGroups?.toBuilder();
-      _variants = $v.variants?.toBuilder();
       _branchAvailabilityMode = $v.branchAvailabilityMode;
       _branchIds = $v.branchIds?.toBuilder();
+      _optionGroups = $v.optionGroups?.toBuilder();
+      _variants = $v.variants?.toBuilder();
       _$v = null;
     }
     return this;
@@ -314,21 +383,20 @@ class CreateProductDtoBuilder
             isFeatured: isFeatured,
             sellByStrip: sellByStrip,
             stripsPerPackage: stripsPerPackage,
-            optionGroups: _optionGroups?.build(),
-            variants: _variants?.build(),
             branchAvailabilityMode: branchAvailabilityMode,
             branchIds: _branchIds?.build(),
+            optionGroups: _optionGroups?.build(),
+            variants: _variants?.build(),
           );
     } catch (_) {
       late String _$failedField;
       try {
+        _$failedField = 'branchIds';
+        _branchIds?.build();
         _$failedField = 'optionGroups';
         _optionGroups?.build();
         _$failedField = 'variants';
         _variants?.build();
-
-        _$failedField = 'branchIds';
-        _branchIds?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
           r'CreateProductDto',

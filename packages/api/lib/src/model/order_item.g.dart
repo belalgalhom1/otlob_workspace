@@ -27,6 +27,10 @@ class _$OrderItem extends OrderItem {
   final num totalPrice;
   @override
   final String? specialRequest;
+  @override
+  final String? selectedUnit;
+  @override
+  final num? baseUnitPrice;
 
   factory _$OrderItem([void Function(OrderItemBuilder)? updates]) =>
       (OrderItemBuilder()..update(updates))._build();
@@ -42,6 +46,8 @@ class _$OrderItem extends OrderItem {
     required this.quantity,
     required this.totalPrice,
     this.specialRequest,
+    this.selectedUnit,
+    this.baseUnitPrice,
   }) : super._();
   @override
   OrderItem rebuild(void Function(OrderItemBuilder) updates) =>
@@ -63,7 +69,9 @@ class _$OrderItem extends OrderItem {
         unitPrice == other.unitPrice &&
         quantity == other.quantity &&
         totalPrice == other.totalPrice &&
-        specialRequest == other.specialRequest;
+        specialRequest == other.specialRequest &&
+        selectedUnit == other.selectedUnit &&
+        baseUnitPrice == other.baseUnitPrice;
   }
 
   @override
@@ -79,6 +87,8 @@ class _$OrderItem extends OrderItem {
     _$hash = $jc(_$hash, quantity.hashCode);
     _$hash = $jc(_$hash, totalPrice.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
+    _$hash = $jc(_$hash, selectedUnit.hashCode);
+    _$hash = $jc(_$hash, baseUnitPrice.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -95,7 +105,9 @@ class _$OrderItem extends OrderItem {
           ..add('unitPrice', unitPrice)
           ..add('quantity', quantity)
           ..add('totalPrice', totalPrice)
-          ..add('specialRequest', specialRequest))
+          ..add('specialRequest', specialRequest)
+          ..add('selectedUnit', selectedUnit)
+          ..add('baseUnitPrice', baseUnitPrice))
         .toString();
   }
 }
@@ -144,6 +156,15 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
+  String? _selectedUnit;
+  String? get selectedUnit => _$this._selectedUnit;
+  set selectedUnit(String? selectedUnit) => _$this._selectedUnit = selectedUnit;
+
+  num? _baseUnitPrice;
+  num? get baseUnitPrice => _$this._baseUnitPrice;
+  set baseUnitPrice(num? baseUnitPrice) =>
+      _$this._baseUnitPrice = baseUnitPrice;
+
   OrderItemBuilder() {
     OrderItem._defaults(this);
   }
@@ -161,6 +182,8 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
       _quantity = $v.quantity;
       _totalPrice = $v.totalPrice;
       _specialRequest = $v.specialRequest;
+      _selectedUnit = $v.selectedUnit;
+      _baseUnitPrice = $v.baseUnitPrice;
       _$v = null;
     }
     return this;
@@ -213,6 +236,8 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
             'totalPrice',
           ),
           specialRequest: specialRequest,
+          selectedUnit: selectedUnit,
+          baseUnitPrice: baseUnitPrice,
         );
     replace(_$result);
     return _$result;

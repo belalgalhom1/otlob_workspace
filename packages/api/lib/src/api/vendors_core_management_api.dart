@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
@@ -429,6 +428,7 @@ class VendorsCoreManagementApi {
   ///
   /// Parameters:
   /// * [vendorId] 
+  /// * [branchId] - Optional branch UUID to filter menu for a specific branch
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -440,6 +440,7 @@ class VendorsCoreManagementApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> vendorsControllerFindOne({ 
     required String vendorId,
+    String? branchId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -460,9 +461,14 @@ class VendorsCoreManagementApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (branchId != null) r'branchId': encodeQueryParameter(_serializers, branchId, const FullType(String)),
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,

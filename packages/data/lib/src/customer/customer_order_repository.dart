@@ -34,9 +34,10 @@ class CustomerOrderRepository {
 
   Future<dynamic> placeCustomOrder(PlaceCustomOrderDto placeCustomOrderDto,
       {String? idempotencyKey}) async {
+    final key = idempotencyKey ?? 'order_${DateTime.now().microsecondsSinceEpoch}';
     final response = await _api.ordersControllerPlaceCustomOrder(
+      idempotencyKey: key,
       placeCustomOrderDto: placeCustomOrderDto,
-      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
     );
     return ResponseParser.parse(response);
   }
@@ -49,9 +50,10 @@ class CustomerOrderRepository {
   }
 
   Future<dynamic> placeOrder(PlaceOrderDto dto, {String? idempotencyKey}) async {
+    final key = idempotencyKey ?? 'order_${DateTime.now().microsecondsSinceEpoch}';
     final response = await _api.ordersControllerPlaceOrder(
+      idempotencyKey: key,
       placeOrderDto: dto,
-      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
     );
     return ResponseParser.parse(response);
   }
@@ -80,9 +82,10 @@ class CustomerOrderRepository {
   }
 
   Future<dynamic> placeMultiVendorOrder(PlaceMultiVendorOrderDto dto, {String? idempotencyKey}) async {
+    final key = idempotencyKey ?? 'mvo_${DateTime.now().microsecondsSinceEpoch}';
     final response = await _api.ordersControllerPlaceMultiVendorOrder(
+      idempotencyKey: key,
       placeMultiVendorOrderDto: dto,
-      headers: idempotencyKey == null ? null : {'idempotency-key': idempotencyKey},
     );
     return ResponseParser.parse(response);
   }
@@ -95,11 +98,17 @@ class CustomerOrderRepository {
   }
 
   Future<dynamic> decideAssistOrder(String orderId, {required bool approved, String? deliveryGroupId}) async {
-    final response = await _api.ordersControllerDecideAssistOrder(
-      orderId: orderId,
-      approved: approved,
-      deliveryGroupId: deliveryGroupId,
-    );
+    final client = dio;
+    if (client != null) {
+      final path = deliveryGroupId != null
+          ? '/orders/$orderId/delivery-groups/$deliveryGroupId/assist/decision'
+          : '/orders/$orderId/assist/decision';
+      final response = await client.post(path, data: {'approved': approved});
+      return ResponseParser.parse(response);
+    }
+    final response = deliveryGroupId != null
+        ? await _api.ordersControllerDecideAssist(orderId: orderId, deliveryGroupId: deliveryGroupId)
+        : await _api.ordersControllerDecideAssistOrder(orderId: orderId);
     return ResponseParser.parse(response);
   }
 }

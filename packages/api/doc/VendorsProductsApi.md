@@ -389,7 +389,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerFindAll**
-> ApiControllerRoot200Response productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, page, limit)
+> ApiControllerRoot200Response productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, branchId, page, limit)
 
 List all products for a vendor
 
@@ -403,11 +403,12 @@ final String categoryId = 550e8400-e29b-41d4-a716-446655440000; // String |
 final bool isActive = true; // bool | 
 final bool isFeatured = false; // bool | 
 final String search = burger; // String | 
+final String branchId = 550e8400-e29b-41d4-a716-446655440001; // String | When provided, only products available at this vendor branch are returned.
 final num page = 1; // num | 
 final num limit = 20; // num | 
 
 try {
-    final response = api.productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, page, limit);
+    final response = api.productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, branchId, page, limit);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsProductsApi->productsControllerFindAll: $e\n');
@@ -423,6 +424,7 @@ Name | Type | Description  | Notes
  **isActive** | **bool**|  | [optional] 
  **isFeatured** | **bool**|  | [optional] 
  **search** | **String**|  | [optional] 
+ **branchId** | **String**| When provided, only products available at this vendor branch are returned. | [optional] 
  **page** | **num**|  | [optional] [default to 1]
  **limit** | **num**|  | [optional] [default to 20]
 

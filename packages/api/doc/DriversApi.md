@@ -1,8 +1,8 @@
-# openapi.api.DriversApi
+# api.api.DriversApi
 
 ## Load the API package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 All URIs are relative to *http://localhost*
@@ -62,9 +62,9 @@ Method | HTTP request | Description
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String breakId = breakId_example; // String | 
 
 try {
@@ -103,9 +103,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final AdminCreateDriverDto adminCreateDriverDto = ; // AdminCreateDriverDto | 
 
 try {
@@ -144,9 +144,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 final CreateDriverShiftDto createDriverShiftDto = ; // CreateDriverShiftDto | 
 
@@ -187,9 +187,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String breakId = breakId_example; // String | 
 
 try {
@@ -228,9 +228,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String status = status_example; // String | 
 final String search = ahmed; // String | 
 final String zoneId = 550e8400-e29b-41d4-a716-446655440000; // String | 
@@ -277,9 +277,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 
 try {
@@ -318,9 +318,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 
 try {
@@ -359,9 +359,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 
 try {
@@ -400,9 +400,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerAdminGetPendingBreaks();
@@ -437,9 +437,9 @@ This endpoint does not need any parameter.
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 
 try {
@@ -478,9 +478,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 final StartBreakDto startBreakDto = ; // StartBreakDto | 
 
@@ -521,9 +521,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String breakId = breakId_example; // String | 
 
 try {
@@ -562,9 +562,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 
 try {
@@ -603,9 +603,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 
 try {
@@ -644,9 +644,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String driverId = driverId_example; // String | 
 final AdminUpdateDriverDto adminUpdateDriverDto = ; // AdminUpdateDriverDto | 
 
@@ -687,9 +687,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
 final AssignAssistDriverDto assignAssistDriverDto = ; // AssignAssistDriverDto | 
 
@@ -730,9 +730,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
 
 try {
@@ -771,9 +771,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
 
 try {
@@ -812,9 +812,9 @@ Cancel my pending break request
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerCancelBreak();
@@ -849,9 +849,9 @@ Create a shift
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final CreateDriverShiftDto createDriverShiftDto = ; // CreateDriverShiftDto | 
 
 try {
@@ -890,9 +890,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
 final DecideAssistRequestDto decideAssistRequestDto = ; // DecideAssistRequestDto | 
 
@@ -933,9 +933,9 @@ Delete my shift (any status)
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String shiftId = shiftId_example; // String | 
 
 try {
@@ -974,9 +974,9 @@ End the active break (pre-break status restored)
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerEndBreak();
@@ -1011,9 +1011,9 @@ End a shift
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String shiftId = shiftId_example; // String | 
 
 try {
@@ -1052,9 +1052,9 @@ Get my active break, if any
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerGetActiveBreak();
@@ -1089,9 +1089,9 @@ List my recent breaks
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerGetMyBreaks();
@@ -1126,9 +1126,9 @@ Get my driver profile
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerGetMyProfile();
@@ -1163,9 +1163,9 @@ Get my shifts
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerGetMyShifts();
@@ -1200,9 +1200,9 @@ Get wallet balance
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerGetWalletBalance();
@@ -1237,9 +1237,9 @@ Get wallet transaction history
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final num page = 1; // num | 
 final num limit = 20; // num | 
 
@@ -1280,9 +1280,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String orderId = orderId_example; // String | 
 
 try {
@@ -1321,9 +1321,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerListPendingAssistRequests();
@@ -1358,9 +1358,9 @@ This endpoint does not need any parameter.
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerMyAssistRequests();
@@ -1395,9 +1395,9 @@ This endpoint does not need any parameter.
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
 final String limit = limit_example; // String | 
 
@@ -1438,9 +1438,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 
 try {
     final response = api.driversControllerPendingAssistOffers();
@@ -1475,9 +1475,9 @@ Register as a driver (creates driver profile, upgrades role)
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final RegisterDriverDto registerDriverDto = ; // RegisterDriverDto | 
 
 try {
@@ -1516,9 +1516,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String orderId = orderId_example; // String | 
 final String deliveryGroupId = deliveryGroupId_example; // String | 
 final RequestAssistDriverDto requestAssistDriverDto = ; // RequestAssistDriverDto | 
@@ -1561,9 +1561,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String orderId = orderId_example; // String | 
 final RequestAssistDriverDto requestAssistDriverDto = ; // RequestAssistDriverDto | 
 
@@ -1604,9 +1604,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
 
 try {
@@ -1645,9 +1645,9 @@ Request a break (pending admin approval)
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final StartBreakDto startBreakDto = ; // StartBreakDto | 
 
 try {
@@ -1686,9 +1686,9 @@ Start a shift (selfie required, must be inside the shift zone, flips ONLINE)
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final String shiftId = shiftId_example; // String | 
 final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
 
@@ -1729,9 +1729,9 @@ Update my driver profile
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final UpdateDriverProfileDto updateDriverProfileDto = ; // UpdateDriverProfileDto | 
 
 try {
@@ -1770,9 +1770,9 @@ Update driver status (ONLINE / OFFLINE)
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final UpdateDriverStatusDto updateDriverStatusDto = ; // UpdateDriverStatusDto | 
 
 try {
@@ -1811,9 +1811,9 @@ Upload driver avatar
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriversApi();
+final api = Api().getDriversApi();
 final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
 
 try {

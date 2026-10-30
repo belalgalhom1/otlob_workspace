@@ -89,9 +89,9 @@ class AuthNotifier extends _$AuthNotifier {
       final repository = ref.read(sharedAuthRepositoryProvider);
       final response = await repository.socialLogin(
         SocialLoginDto((b) => b
-          ..provider = 'GOOGLE'
+          ..provider = SocialLoginDtoProviderEnum.GOOGLE
           ..idToken = idToken
-          ..app = 'vendor'),
+          ..app = SocialLoginDtoAppEnum.vendor),
       );
       if (response != null && response['access_token'] != null) {
         await _finishVendorLogin(repository);

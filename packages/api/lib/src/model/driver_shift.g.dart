@@ -26,6 +26,8 @@ class _$DriverShift extends DriverShift {
   @override
   final DateTime? actualEnd;
   @override
+  final String? startPhotoUrl;
+  @override
   final DriverShiftStatus status;
   @override
   final num? breakMinutes;
@@ -55,6 +57,7 @@ class _$DriverShift extends DriverShift {
     required this.endTime,
     this.actualStart,
     this.actualEnd,
+    this.startPhotoUrl,
     required this.status,
     this.breakMinutes,
     this.totalEarnings,
@@ -84,6 +87,7 @@ class _$DriverShift extends DriverShift {
         endTime == other.endTime &&
         actualStart == other.actualStart &&
         actualEnd == other.actualEnd &&
+        startPhotoUrl == other.startPhotoUrl &&
         status == other.status &&
         breakMinutes == other.breakMinutes &&
         totalEarnings == other.totalEarnings &&
@@ -106,6 +110,7 @@ class _$DriverShift extends DriverShift {
     _$hash = $jc(_$hash, endTime.hashCode);
     _$hash = $jc(_$hash, actualStart.hashCode);
     _$hash = $jc(_$hash, actualEnd.hashCode);
+    _$hash = $jc(_$hash, startPhotoUrl.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, breakMinutes.hashCode);
     _$hash = $jc(_$hash, totalEarnings.hashCode);
@@ -130,6 +135,7 @@ class _$DriverShift extends DriverShift {
           ..add('endTime', endTime)
           ..add('actualStart', actualStart)
           ..add('actualEnd', actualEnd)
+          ..add('startPhotoUrl', startPhotoUrl)
           ..add('status', status)
           ..add('breakMinutes', breakMinutes)
           ..add('totalEarnings', totalEarnings)
@@ -180,6 +186,11 @@ class DriverShiftBuilder implements Builder<DriverShift, DriverShiftBuilder> {
   DateTime? _actualEnd;
   DateTime? get actualEnd => _$this._actualEnd;
   set actualEnd(DateTime? actualEnd) => _$this._actualEnd = actualEnd;
+
+  String? _startPhotoUrl;
+  String? get startPhotoUrl => _$this._startPhotoUrl;
+  set startPhotoUrl(String? startPhotoUrl) =>
+      _$this._startPhotoUrl = startPhotoUrl;
 
   DriverShiftStatus? _status;
   DriverShiftStatus? get status => _$this._status;
@@ -233,6 +244,7 @@ class DriverShiftBuilder implements Builder<DriverShift, DriverShiftBuilder> {
       _endTime = $v.endTime;
       _actualStart = $v.actualStart;
       _actualEnd = $v.actualEnd;
+      _startPhotoUrl = $v.startPhotoUrl;
       _status = $v.status;
       _breakMinutes = $v.breakMinutes;
       _totalEarnings = $v.totalEarnings;
@@ -288,6 +300,7 @@ class DriverShiftBuilder implements Builder<DriverShift, DriverShiftBuilder> {
           ),
           actualStart: actualStart,
           actualEnd: actualEnd,
+          startPhotoUrl: startPhotoUrl,
           status: BuiltValueNullFieldError.checkNotNull(
             status,
             r'DriverShift',

@@ -15,6 +15,7 @@ part 'order_item_option.g.dart';
 /// * [orderItemId] 
 /// * [optionId] 
 /// * [optionName] 
+/// * [groupName] 
 /// * [priceAdded] 
 @BuiltValue()
 abstract class OrderItemOption implements Built<OrderItemOption, OrderItemOptionBuilder> {
@@ -29,6 +30,9 @@ abstract class OrderItemOption implements Built<OrderItemOption, OrderItemOption
 
   @BuiltValueField(wireName: r'optionName')
   String get optionName;
+
+  @BuiltValueField(wireName: r'groupName')
+  String? get groupName;
 
   @BuiltValueField(wireName: r'priceAdded')
   num get priceAdded;
@@ -78,6 +82,13 @@ class _$OrderItemOptionSerializer implements PrimitiveSerializer<OrderItemOption
       object.optionName,
       specifiedType: const FullType(String),
     );
+    if (object.groupName != null) {
+      yield r'groupName';
+      yield serializers.serialize(
+        object.groupName,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'priceAdded';
     yield serializers.serialize(
       object.priceAdded,
@@ -133,6 +144,13 @@ class _$OrderItemOptionSerializer implements PrimitiveSerializer<OrderItemOption
             specifiedType: const FullType(String),
           ) as String;
           result.optionName = valueDes;
+          break;
+        case r'groupName':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.groupName = valueDes;
           break;
         case r'priceAdded':
           final valueDes = serializers.deserialize(

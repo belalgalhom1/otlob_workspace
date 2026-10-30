@@ -20,7 +20,9 @@ Name | Type | Description | Notes
 **status** | [**DriverStatus**](DriverStatus.md) |  | 
 **lastLocationUpdate** | [**DateTime**](DateTime.md) |  | [optional] 
 **rating** | **num** |  | 
+**ratingCount** | **num** |  | 
 **totalOrders** | **num** |  | 
+**ordersSinceSettlement** | **num** |  | 
 **walletBalance** | **num** |  | 
 **hasUnpaidCommission** | **bool** |  | 
 **version** | **num** |  | 

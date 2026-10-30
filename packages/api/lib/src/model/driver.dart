@@ -26,7 +26,9 @@ part 'driver.g.dart';
 /// * [status] 
 /// * [lastLocationUpdate] 
 /// * [rating] 
+/// * [ratingCount] 
 /// * [totalOrders] 
+/// * [ordersSinceSettlement] 
 /// * [walletBalance] 
 /// * [hasUnpaidCommission] 
 /// * [version] 
@@ -77,8 +79,14 @@ abstract class Driver implements Built<Driver, DriverBuilder> {
   @BuiltValueField(wireName: r'rating')
   num get rating;
 
+  @BuiltValueField(wireName: r'ratingCount')
+  num get ratingCount;
+
   @BuiltValueField(wireName: r'totalOrders')
   num get totalOrders;
+
+  @BuiltValueField(wireName: r'ordersSinceSettlement')
+  num get ordersSinceSettlement;
 
   @BuiltValueField(wireName: r'walletBalance')
   num get walletBalance;
@@ -200,9 +208,19 @@ class _$DriverSerializer implements PrimitiveSerializer<Driver> {
       object.rating,
       specifiedType: const FullType(num),
     );
+    yield r'ratingCount';
+    yield serializers.serialize(
+      object.ratingCount,
+      specifiedType: const FullType(num),
+    );
     yield r'totalOrders';
     yield serializers.serialize(
       object.totalOrders,
+      specifiedType: const FullType(num),
+    );
+    yield r'ordersSinceSettlement';
+    yield serializers.serialize(
+      object.ordersSinceSettlement,
       specifiedType: const FullType(num),
     );
     yield r'walletBalance';
@@ -363,12 +381,26 @@ class _$DriverSerializer implements PrimitiveSerializer<Driver> {
           ) as num;
           result.rating = valueDes;
           break;
+        case r'ratingCount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.ratingCount = valueDes;
+          break;
         case r'totalOrders':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
           result.totalOrders = valueDes;
+          break;
+        case r'ordersSinceSettlement':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.ordersSinceSettlement = valueDes;
           break;
         case r'walletBalance':
           final valueDes = serializers.deserialize(

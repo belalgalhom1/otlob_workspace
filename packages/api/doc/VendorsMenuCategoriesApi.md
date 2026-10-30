@@ -242,7 +242,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **menuCategoriesControllerFindAll**
-> ApiControllerRoot200Response menuCategoriesControllerFindAll(vendorId, activeOnly)
+> ApiControllerRoot200Response menuCategoriesControllerFindAll(vendorId, activeOnly, branchId)
 
 List all menu categories for a vendor
 
@@ -253,9 +253,10 @@ import 'package:api/api.dart';
 final api = Api().getVendorsMenuCategoriesApi();
 final String vendorId = vendorId_example; // String | 
 final bool activeOnly = true; // bool | 
+final String branchId = branchId_example; // String | 
 
 try {
-    final response = api.menuCategoriesControllerFindAll(vendorId, activeOnly);
+    final response = api.menuCategoriesControllerFindAll(vendorId, activeOnly, branchId);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsMenuCategoriesApi->menuCategoriesControllerFindAll: $e\n');
@@ -268,6 +269,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **vendorId** | **String**|  | 
  **activeOnly** | **bool**|  | [optional] 
+ **branchId** | **String**|  | [optional] 
 
 ### Return type
 

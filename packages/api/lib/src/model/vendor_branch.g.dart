@@ -20,6 +20,10 @@ class _$VendorBranch extends VendorBranch {
   @override
   final bool isOpen;
   @override
+  final bool? isContracted;
+  @override
+  final num? commissionRate;
+  @override
   final String vendorId;
   @override
   final String zoneId;
@@ -38,6 +42,8 @@ class _$VendorBranch extends VendorBranch {
     required this.address,
     this.phone,
     required this.isOpen,
+    this.isContracted,
+    this.commissionRate,
     required this.vendorId,
     required this.zoneId,
     required this.createdAt,
@@ -60,6 +66,8 @@ class _$VendorBranch extends VendorBranch {
         address == other.address &&
         phone == other.phone &&
         isOpen == other.isOpen &&
+        isContracted == other.isContracted &&
+        commissionRate == other.commissionRate &&
         vendorId == other.vendorId &&
         zoneId == other.zoneId &&
         createdAt == other.createdAt &&
@@ -75,6 +83,8 @@ class _$VendorBranch extends VendorBranch {
     _$hash = $jc(_$hash, address.hashCode);
     _$hash = $jc(_$hash, phone.hashCode);
     _$hash = $jc(_$hash, isOpen.hashCode);
+    _$hash = $jc(_$hash, isContracted.hashCode);
+    _$hash = $jc(_$hash, commissionRate.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
     _$hash = $jc(_$hash, zoneId.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
@@ -92,6 +102,8 @@ class _$VendorBranch extends VendorBranch {
           ..add('address', address)
           ..add('phone', phone)
           ..add('isOpen', isOpen)
+          ..add('isContracted', isContracted)
+          ..add('commissionRate', commissionRate)
           ..add('vendorId', vendorId)
           ..add('zoneId', zoneId)
           ..add('createdAt', createdAt)
@@ -128,6 +140,15 @@ class VendorBranchBuilder
   bool? get isOpen => _$this._isOpen;
   set isOpen(bool? isOpen) => _$this._isOpen = isOpen;
 
+  bool? _isContracted;
+  bool? get isContracted => _$this._isContracted;
+  set isContracted(bool? isContracted) => _$this._isContracted = isContracted;
+
+  num? _commissionRate;
+  num? get commissionRate => _$this._commissionRate;
+  set commissionRate(num? commissionRate) =>
+      _$this._commissionRate = commissionRate;
+
   String? _vendorId;
   String? get vendorId => _$this._vendorId;
   set vendorId(String? vendorId) => _$this._vendorId = vendorId;
@@ -157,6 +178,8 @@ class VendorBranchBuilder
       _address = $v.address;
       _phone = $v.phone;
       _isOpen = $v.isOpen;
+      _isContracted = $v.isContracted;
+      _commissionRate = $v.commissionRate;
       _vendorId = $v.vendorId;
       _zoneId = $v.zoneId;
       _createdAt = $v.createdAt;
@@ -201,6 +224,8 @@ class VendorBranchBuilder
             r'VendorBranch',
             'isOpen',
           ),
+          isContracted: isContracted,
+          commissionRate: commissionRate,
           vendorId: BuiltValueNullFieldError.checkNotNull(
             vendorId,
             r'VendorBranch',

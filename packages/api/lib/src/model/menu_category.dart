@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -20,6 +21,7 @@ part 'menu_category.g.dart';
 /// * [iconUrl] 
 /// * [sortOrder] 
 /// * [isActive] 
+/// * [branchAvailabilityMode] 
 /// * [createdAt] 
 /// * [updatedAt] 
 @BuiltValue()
@@ -51,6 +53,10 @@ abstract class MenuCategory implements Built<MenuCategory, MenuCategoryBuilder> 
   @BuiltValueField(wireName: r'isActive')
   bool get isActive;
 
+  @BuiltValueField(wireName: r'branchAvailabilityMode')
+  MenuCategoryBranchAvailabilityModeEnum get branchAvailabilityMode;
+  // enum branchAvailabilityModeEnum {  ALL,  SPECIFIC,  };
+
   @BuiltValueField(wireName: r'createdAt')
   DateTime get createdAt;
 
@@ -62,7 +68,8 @@ abstract class MenuCategory implements Built<MenuCategory, MenuCategoryBuilder> 
   factory MenuCategory([void updates(MenuCategoryBuilder b)]) = _$MenuCategory;
 
   @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(MenuCategoryBuilder b) => b;
+  static void _defaults(MenuCategoryBuilder b) => b
+      ..branchAvailabilityMode = MenuCategoryBranchAvailabilityModeEnum.valueOf('ALL');
 
   @BuiltValueSerializer(custom: true)
   static Serializer<MenuCategory> get serializer => _$MenuCategorySerializer();
@@ -132,6 +139,11 @@ class _$MenuCategorySerializer implements PrimitiveSerializer<MenuCategory> {
     yield serializers.serialize(
       object.isActive,
       specifiedType: const FullType(bool),
+    );
+    yield r'branchAvailabilityMode';
+    yield serializers.serialize(
+      object.branchAvailabilityMode,
+      specifiedType: const FullType(MenuCategoryBranchAvailabilityModeEnum),
     );
     yield r'createdAt';
     yield serializers.serialize(
@@ -229,6 +241,13 @@ class _$MenuCategorySerializer implements PrimitiveSerializer<MenuCategory> {
           ) as bool;
           result.isActive = valueDes;
           break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(MenuCategoryBranchAvailabilityModeEnum),
+          ) as MenuCategoryBranchAvailabilityModeEnum;
+          result.branchAvailabilityMode = valueDes;
+          break;
         case r'createdAt':
           final valueDes = serializers.deserialize(
             value,
@@ -270,5 +289,20 @@ class _$MenuCategorySerializer implements PrimitiveSerializer<MenuCategory> {
     );
     return result.build();
   }
+}
+
+class MenuCategoryBranchAvailabilityModeEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'ALL')
+  static const MenuCategoryBranchAvailabilityModeEnum ALL = _$menuCategoryBranchAvailabilityModeEnum_ALL;
+  @BuiltValueEnumConst(wireName: r'SPECIFIC')
+  static const MenuCategoryBranchAvailabilityModeEnum SPECIFIC = _$menuCategoryBranchAvailabilityModeEnum_SPECIFIC;
+
+  static Serializer<MenuCategoryBranchAvailabilityModeEnum> get serializer => _$menuCategoryBranchAvailabilityModeEnumSerializer;
+
+  const MenuCategoryBranchAvailabilityModeEnum._(String name): super(name);
+
+  static BuiltSet<MenuCategoryBranchAvailabilityModeEnum> get values => _$menuCategoryBranchAvailabilityModeEnumValues;
+  static MenuCategoryBranchAvailabilityModeEnum valueOf(String name) => _$menuCategoryBranchAvailabilityModeEnumValueOf(name);
 }
 

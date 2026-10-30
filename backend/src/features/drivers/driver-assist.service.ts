@@ -866,7 +866,7 @@ export class DriverAssistService {
     if (order.status === 'CANCELLED' || order.status === 'DELIVERED') {
       throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
     }
-    if (order.status === 'PICKED_UP') {
+    if (order.status === 'PICKED_UP' || order.status === 'PARTIALLY_PICKED_UP') {
       throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED);
     }
     if (order.assistDriverId) {
@@ -946,7 +946,7 @@ export class DriverAssistService {
       }
 
       const busy = await tx.order.findFirst({
-        where: { driverId: candidate.id, status: { in: ['DRIVER_ASSIGNED','PREPARING','READY_FOR_PICKUP','PICKED_UP'] } },
+        where: { driverId: candidate.id, status: { in: ['DRIVER_ASSIGNED','PREPARING','READY_FOR_PICKUP','PARTIALLY_PICKED_UP','PICKED_UP'] } },
         select: { id: true },
       });
       if (busy) throw new ConflictException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
@@ -1319,7 +1319,7 @@ export class DriverAssistService {
 
     const busyOrderDrivers = await this.prisma.order.findMany({
       where: {
-        status: { in: ['DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PICKED_UP'] },
+        status: { in: ['DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP'] },
         driverId: { not: null },
       },
       select: { driverId: true },

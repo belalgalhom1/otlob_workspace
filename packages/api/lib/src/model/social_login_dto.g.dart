@@ -6,9 +6,131 @@ part of 'social_login_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const SocialLoginDtoProviderEnum _$socialLoginDtoProviderEnum_GOOGLE =
+    const SocialLoginDtoProviderEnum._('GOOGLE');
+const SocialLoginDtoProviderEnum _$socialLoginDtoProviderEnum_APPLE =
+    const SocialLoginDtoProviderEnum._('APPLE');
+
+SocialLoginDtoProviderEnum _$socialLoginDtoProviderEnumValueOf(String name) {
+  switch (name) {
+    case 'GOOGLE':
+      return _$socialLoginDtoProviderEnum_GOOGLE;
+    case 'APPLE':
+      return _$socialLoginDtoProviderEnum_APPLE;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<SocialLoginDtoProviderEnum> _$socialLoginDtoProviderEnumValues =
+    BuiltSet<SocialLoginDtoProviderEnum>(const <SocialLoginDtoProviderEnum>[
+      _$socialLoginDtoProviderEnum_GOOGLE,
+      _$socialLoginDtoProviderEnum_APPLE,
+    ]);
+
+const SocialLoginDtoAppEnum _$socialLoginDtoAppEnum_customer =
+    const SocialLoginDtoAppEnum._('customer');
+const SocialLoginDtoAppEnum _$socialLoginDtoAppEnum_driver =
+    const SocialLoginDtoAppEnum._('driver');
+const SocialLoginDtoAppEnum _$socialLoginDtoAppEnum_vendor =
+    const SocialLoginDtoAppEnum._('vendor');
+
+SocialLoginDtoAppEnum _$socialLoginDtoAppEnumValueOf(String name) {
+  switch (name) {
+    case 'customer':
+      return _$socialLoginDtoAppEnum_customer;
+    case 'driver':
+      return _$socialLoginDtoAppEnum_driver;
+    case 'vendor':
+      return _$socialLoginDtoAppEnum_vendor;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<SocialLoginDtoAppEnum> _$socialLoginDtoAppEnumValues =
+    BuiltSet<SocialLoginDtoAppEnum>(const <SocialLoginDtoAppEnum>[
+      _$socialLoginDtoAppEnum_customer,
+      _$socialLoginDtoAppEnum_driver,
+      _$socialLoginDtoAppEnum_vendor,
+    ]);
+
+Serializer<SocialLoginDtoProviderEnum> _$socialLoginDtoProviderEnumSerializer =
+    _$SocialLoginDtoProviderEnumSerializer();
+Serializer<SocialLoginDtoAppEnum> _$socialLoginDtoAppEnumSerializer =
+    _$SocialLoginDtoAppEnumSerializer();
+
+class _$SocialLoginDtoProviderEnumSerializer
+    implements PrimitiveSerializer<SocialLoginDtoProviderEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'GOOGLE': 'GOOGLE',
+    'APPLE': 'APPLE',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'GOOGLE': 'GOOGLE',
+    'APPLE': 'APPLE',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[SocialLoginDtoProviderEnum];
+  @override
+  final String wireName = 'SocialLoginDtoProviderEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    SocialLoginDtoProviderEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  SocialLoginDtoProviderEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => SocialLoginDtoProviderEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
+class _$SocialLoginDtoAppEnumSerializer
+    implements PrimitiveSerializer<SocialLoginDtoAppEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'customer': 'customer',
+    'driver': 'driver',
+    'vendor': 'vendor',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'customer': 'customer',
+    'driver': 'driver',
+    'vendor': 'vendor',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[SocialLoginDtoAppEnum];
+  @override
+  final String wireName = 'SocialLoginDtoAppEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    SocialLoginDtoAppEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  SocialLoginDtoAppEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => SocialLoginDtoAppEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$SocialLoginDto extends SocialLoginDto {
   @override
-  final String provider;
+  final SocialLoginDtoProviderEnum provider;
   @override
   final String? providerAccountId;
   @override
@@ -18,7 +140,7 @@ class _$SocialLoginDto extends SocialLoginDto {
   @override
   final String? name;
   @override
-  final String? app;
+  final SocialLoginDtoAppEnum app;
 
   factory _$SocialLoginDto([void Function(SocialLoginDtoBuilder)? updates]) =>
       (SocialLoginDtoBuilder()..update(updates))._build();
@@ -29,7 +151,7 @@ class _$SocialLoginDto extends SocialLoginDto {
     required this.idToken,
     this.email,
     this.name,
-    this.app,
+    required this.app,
   }) : super._();
   @override
   SocialLoginDto rebuild(void Function(SocialLoginDtoBuilder) updates) =>
@@ -80,9 +202,10 @@ class SocialLoginDtoBuilder
     implements Builder<SocialLoginDto, SocialLoginDtoBuilder> {
   _$SocialLoginDto? _$v;
 
-  String? _provider;
-  String? get provider => _$this._provider;
-  set provider(String? provider) => _$this._provider = provider;
+  SocialLoginDtoProviderEnum? _provider;
+  SocialLoginDtoProviderEnum? get provider => _$this._provider;
+  set provider(SocialLoginDtoProviderEnum? provider) =>
+      _$this._provider = provider;
 
   String? _providerAccountId;
   String? get providerAccountId => _$this._providerAccountId;
@@ -101,9 +224,9 @@ class SocialLoginDtoBuilder
   String? get name => _$this._name;
   set name(String? name) => _$this._name = name;
 
-  String? _app;
-  String? get app => _$this._app;
-  set app(String? app) => _$this._app = app;
+  SocialLoginDtoAppEnum? _app;
+  SocialLoginDtoAppEnum? get app => _$this._app;
+  set app(SocialLoginDtoAppEnum? app) => _$this._app = app;
 
   SocialLoginDtoBuilder() {
     SocialLoginDto._defaults(this);
@@ -153,7 +276,11 @@ class SocialLoginDtoBuilder
           ),
           email: email,
           name: name,
-          app: app,
+          app: BuiltValueNullFieldError.checkNotNull(
+            app,
+            r'SocialLoginDto',
+            'app',
+          ),
         );
     replace(_$result);
     return _$result;

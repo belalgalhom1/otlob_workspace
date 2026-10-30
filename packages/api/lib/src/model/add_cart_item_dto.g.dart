@@ -6,6 +6,70 @@ part of 'add_cart_item_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const AddCartItemDtoSelectedUnitEnum _$addCartItemDtoSelectedUnitEnum_package =
+    const AddCartItemDtoSelectedUnitEnum._('package');
+const AddCartItemDtoSelectedUnitEnum _$addCartItemDtoSelectedUnitEnum_strip =
+    const AddCartItemDtoSelectedUnitEnum._('strip');
+
+AddCartItemDtoSelectedUnitEnum _$addCartItemDtoSelectedUnitEnumValueOf(
+  String name,
+) {
+  switch (name) {
+    case 'package':
+      return _$addCartItemDtoSelectedUnitEnum_package;
+    case 'strip':
+      return _$addCartItemDtoSelectedUnitEnum_strip;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<AddCartItemDtoSelectedUnitEnum>
+_$addCartItemDtoSelectedUnitEnumValues =
+    BuiltSet<AddCartItemDtoSelectedUnitEnum>(
+      const <AddCartItemDtoSelectedUnitEnum>[
+        _$addCartItemDtoSelectedUnitEnum_package,
+        _$addCartItemDtoSelectedUnitEnum_strip,
+      ],
+    );
+
+Serializer<AddCartItemDtoSelectedUnitEnum>
+_$addCartItemDtoSelectedUnitEnumSerializer =
+    _$AddCartItemDtoSelectedUnitEnumSerializer();
+
+class _$AddCartItemDtoSelectedUnitEnumSerializer
+    implements PrimitiveSerializer<AddCartItemDtoSelectedUnitEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'package': 'package',
+    'strip': 'strip',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'package': 'package',
+    'strip': 'strip',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[AddCartItemDtoSelectedUnitEnum];
+  @override
+  final String wireName = 'AddCartItemDtoSelectedUnitEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    AddCartItemDtoSelectedUnitEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  AddCartItemDtoSelectedUnitEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => AddCartItemDtoSelectedUnitEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$AddCartItemDto extends AddCartItemDto {
   @override
   final String? productId;
@@ -18,7 +82,7 @@ class _$AddCartItemDto extends AddCartItemDto {
   @override
   final String? specialRequest;
   @override
-  final String? selectedUnit;
+  final AddCartItemDtoSelectedUnitEnum? selectedUnit;
   @override
   final String? offerMessageId;
 
@@ -109,9 +173,10 @@ class AddCartItemDtoBuilder
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
-  String? _selectedUnit;
-  String? get selectedUnit => _$this._selectedUnit;
-  set selectedUnit(String? selectedUnit) => _$this._selectedUnit = selectedUnit;
+  AddCartItemDtoSelectedUnitEnum? _selectedUnit;
+  AddCartItemDtoSelectedUnitEnum? get selectedUnit => _$this._selectedUnit;
+  set selectedUnit(AddCartItemDtoSelectedUnitEnum? selectedUnit) =>
+      _$this._selectedUnit = selectedUnit;
 
   String? _offerMessageId;
   String? get offerMessageId => _$this._offerMessageId;

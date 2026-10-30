@@ -15,6 +15,8 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
   final String? description;
   @override
   final String? referenceId;
+  @override
+  final String? idempotencyKey;
 
   factory _$ProcessManualTransactionDto([
     void Function(ProcessManualTransactionDtoBuilder)? updates,
@@ -25,6 +27,7 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
     required this.type,
     this.description,
     this.referenceId,
+    this.idempotencyKey,
   }) : super._();
   @override
   ProcessManualTransactionDto rebuild(
@@ -42,7 +45,8 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
         amount == other.amount &&
         type == other.type &&
         description == other.description &&
-        referenceId == other.referenceId;
+        referenceId == other.referenceId &&
+        idempotencyKey == other.idempotencyKey;
   }
 
   @override
@@ -52,6 +56,7 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, description.hashCode);
     _$hash = $jc(_$hash, referenceId.hashCode);
+    _$hash = $jc(_$hash, idempotencyKey.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -62,7 +67,8 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
           ..add('amount', amount)
           ..add('type', type)
           ..add('description', description)
-          ..add('referenceId', referenceId))
+          ..add('referenceId', referenceId)
+          ..add('idempotencyKey', idempotencyKey))
         .toString();
   }
 }
@@ -91,6 +97,11 @@ class ProcessManualTransactionDtoBuilder
   String? get referenceId => _$this._referenceId;
   set referenceId(String? referenceId) => _$this._referenceId = referenceId;
 
+  String? _idempotencyKey;
+  String? get idempotencyKey => _$this._idempotencyKey;
+  set idempotencyKey(String? idempotencyKey) =>
+      _$this._idempotencyKey = idempotencyKey;
+
   ProcessManualTransactionDtoBuilder() {
     ProcessManualTransactionDto._defaults(this);
   }
@@ -102,6 +113,7 @@ class ProcessManualTransactionDtoBuilder
       _type = $v.type;
       _description = $v.description;
       _referenceId = $v.referenceId;
+      _idempotencyKey = $v.idempotencyKey;
       _$v = null;
     }
     return this;
@@ -136,6 +148,7 @@ class ProcessManualTransactionDtoBuilder
           ),
           description: description,
           referenceId: referenceId,
+          idempotencyKey: idempotencyKey,
         );
     replace(_$result);
     return _$result;

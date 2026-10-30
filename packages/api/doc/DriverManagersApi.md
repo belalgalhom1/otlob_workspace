@@ -1,8 +1,8 @@
-# openapi.api.DriverManagersApi
+# api.api.DriverManagersApi
 
 ## Load the API package
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 ```
 
 All URIs are relative to *http://localhost*
@@ -25,9 +25,9 @@ Method | HTTP request | Description
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 final AssignDriversToManagerDto assignDriversToManagerDto = ; // AssignDriversToManagerDto | 
 
 try {
@@ -66,9 +66,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 final String userId = userId_example; // String | 
 
 try {
@@ -107,9 +107,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 final String userId = userId_example; // String | 
 
 try {
@@ -148,9 +148,9 @@ Get my driver-manager wallet
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 
 try {
     final response = api.driverManagersControllerGetMyWallet();
@@ -185,9 +185,9 @@ List my driver-manager wallet transactions
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 final num page = 8.14; // num | 
 final num limit = 8.14; // num | 
 
@@ -228,9 +228,9 @@ Name | Type | Description  | Notes
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 
 try {
     final response = api.driverManagersControllerListManagers();
@@ -265,9 +265,9 @@ This endpoint does not need any parameter.
 
 ### Example
 ```dart
-import 'package:openapi/api.dart';
+import 'package:api/api.dart';
 
-final api = Openapi().getDriverManagersApi();
+final api = Api().getDriverManagersApi();
 final String userId = userId_example; // String | 
 final UnassignDriversFromManagerDto unassignDriversFromManagerDto = ; // UnassignDriversFromManagerDto | 
 

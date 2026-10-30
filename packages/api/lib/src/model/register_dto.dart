@@ -31,11 +31,11 @@ abstract class RegisterDto implements Built<RegisterDto, RegisterDtoBuilder> {
   String get name;
 
   @BuiltValueField(wireName: r'phone')
-  String? get phone;
+  String get phone;
 
   @BuiltValueField(wireName: r'role')
   RegisterDtoRoleEnum? get role;
-  // enum roleEnum {  CUSTOMER,  DRIVER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
+  // enum roleEnum {  CUSTOMER,  DRIVER,  DRIVER_MANAGER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
 
   @BuiltValueField(wireName: r'vendorId')
   String? get vendorId;
@@ -82,13 +82,11 @@ class _$RegisterDtoSerializer implements PrimitiveSerializer<RegisterDto> {
       object.name,
       specifiedType: const FullType(String),
     );
-    if (object.phone != null) {
-      yield r'phone';
-      yield serializers.serialize(
-        object.phone,
-        specifiedType: const FullType(String),
-      );
-    }
+    yield r'phone';
+    yield serializers.serialize(
+      object.phone,
+      specifiedType: const FullType(String),
+    );
     if (object.role != null) {
       yield r'role';
       yield serializers.serialize(
@@ -217,6 +215,7 @@ class RegisterDtoRoleEnum extends EnumClass {
   static const RegisterDtoRoleEnum CUSTOMER = _$registerDtoRoleEnum_CUSTOMER;
   @BuiltValueEnumConst(wireName: r'DRIVER')
   static const RegisterDtoRoleEnum DRIVER = _$registerDtoRoleEnum_DRIVER;
+  @BuiltValueEnumConst(wireName: r'DRIVER_MANAGER')
   static const RegisterDtoRoleEnum DRIVER_MANAGER = _$registerDtoRoleEnum_DRIVER_MANAGER;
   @BuiltValueEnumConst(wireName: r'VENDOR_MEMBER')
   static const RegisterDtoRoleEnum VENDOR_MEMBER = _$registerDtoRoleEnum_VENDOR_MEMBER;

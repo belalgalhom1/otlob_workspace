@@ -12,26 +12,28 @@ part 'place_multi_vendor_order_dto.g.dart';
 /// PlaceMultiVendorOrderDto
 ///
 /// Properties:
-/// * [vendorIds] - Vendors being checked out together (2 or more)
-/// * [paymentMethod] - CASH_ON_DELIVERY or MOBILE_WALLET
-/// * [deliveryAddress]
+/// * [vendorIds] - Vendors being checked out together. Requires 2 or more — use the single-vendor endpoint for one.
+/// * [paymentMethod] 
+/// * [deliveryAddress] 
 /// * [deliveryLocation] - [longitude, latitude]
-/// * [specialRequest]
-/// * [coinsToUse]
+/// * [specialRequest] 
+/// * [coinsToUse] 
 @BuiltValue()
 abstract class PlaceMultiVendorOrderDto implements Built<PlaceMultiVendorOrderDto, PlaceMultiVendorOrderDtoBuilder> {
+  /// Vendors being checked out together. Requires 2 or more — use the single-vendor endpoint for one.
   @BuiltValueField(wireName: r'vendorIds')
   BuiltList<String> get vendorIds;
 
   @BuiltValueField(wireName: r'paymentMethod')
-  String get paymentMethod;
+  PlaceMultiVendorOrderDtoPaymentMethodEnum get paymentMethod;
+  // enum paymentMethodEnum {  CASH_ON_DELIVERY,  MOBILE_WALLET,  };
 
   @BuiltValueField(wireName: r'deliveryAddress')
   String get deliveryAddress;
 
   /// [longitude, latitude]
   @BuiltValueField(wireName: r'deliveryLocation')
-  BuiltList<num> get deliveryLocation;
+  BuiltList<String> get deliveryLocation;
 
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
@@ -70,7 +72,7 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
     yield r'paymentMethod';
     yield serializers.serialize(
       object.paymentMethod,
-      specifiedType: const FullType(String),
+      specifiedType: const FullType(PlaceMultiVendorOrderDtoPaymentMethodEnum),
     );
     yield r'deliveryAddress';
     yield serializers.serialize(
@@ -80,7 +82,7 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
     yield r'deliveryLocation';
     yield serializers.serialize(
       object.deliveryLocation,
-      specifiedType: const FullType(BuiltList, [FullType(num)]),
+      specifiedType: const FullType(BuiltList, [FullType(String)]),
     );
     if (object.specialRequest != null) {
       yield r'specialRequest';
@@ -129,8 +131,8 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
         case r'paymentMethod':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(PlaceMultiVendorOrderDtoPaymentMethodEnum),
+          ) as PlaceMultiVendorOrderDtoPaymentMethodEnum;
           result.paymentMethod = valueDes;
           break;
         case r'deliveryAddress':
@@ -143,8 +145,8 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
         case r'deliveryLocation':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(BuiltList, [FullType(num)]),
-          ) as BuiltList<num>;
+            specifiedType: const FullType(BuiltList, [FullType(String)]),
+          ) as BuiltList<String>;
           result.deliveryLocation.replace(valueDes);
           break;
         case r'specialRequest':
@@ -189,3 +191,19 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
     return result.build();
   }
 }
+
+class PlaceMultiVendorOrderDtoPaymentMethodEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'CASH_ON_DELIVERY')
+  static const PlaceMultiVendorOrderDtoPaymentMethodEnum CASH_ON_DELIVERY = _$placeMultiVendorOrderDtoPaymentMethodEnum_CASH_ON_DELIVERY;
+  @BuiltValueEnumConst(wireName: r'MOBILE_WALLET')
+  static const PlaceMultiVendorOrderDtoPaymentMethodEnum MOBILE_WALLET = _$placeMultiVendorOrderDtoPaymentMethodEnum_MOBILE_WALLET;
+
+  static Serializer<PlaceMultiVendorOrderDtoPaymentMethodEnum> get serializer => _$placeMultiVendorOrderDtoPaymentMethodEnumSerializer;
+
+  const PlaceMultiVendorOrderDtoPaymentMethodEnum._(String name): super(name);
+
+  static BuiltSet<PlaceMultiVendorOrderDtoPaymentMethodEnum> get values => _$placeMultiVendorOrderDtoPaymentMethodEnumValues;
+  static PlaceMultiVendorOrderDtoPaymentMethodEnum valueOf(String name) => _$placeMultiVendorOrderDtoPaymentMethodEnumValueOf(name);
+}
+

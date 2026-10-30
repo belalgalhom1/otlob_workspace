@@ -815,6 +815,7 @@ export class AuthService {
                   in: [
                     OrderStatus.DRIVER_ASSIGNED,
                     OrderStatus.READY_FOR_PICKUP,
+                    OrderStatus.PARTIALLY_PICKED_UP,
                     OrderStatus.PICKED_UP,
                   ],
                 },
@@ -882,6 +883,7 @@ export class AuthService {
                   in: [
                     OrderStatus.DRIVER_ASSIGNED,
                     OrderStatus.READY_FOR_PICKUP,
+                    OrderStatus.PARTIALLY_PICKED_UP,
                     OrderStatus.PICKED_UP,
                   ],
                 },

@@ -17,6 +17,8 @@ part 'generate_shift_pools_dto.g.dart';
 /// * [endTime] 
 /// * [maxDrivers] 
 /// * [zoneId] 
+/// * [title] 
+/// * [titleAr] 
 @BuiltValue()
 abstract class GenerateShiftPoolsDto implements Built<GenerateShiftPoolsDto, GenerateShiftPoolsDtoBuilder> {
   @BuiltValueField(wireName: r'startDate')
@@ -36,6 +38,12 @@ abstract class GenerateShiftPoolsDto implements Built<GenerateShiftPoolsDto, Gen
 
   @BuiltValueField(wireName: r'zoneId')
   String? get zoneId;
+
+  @BuiltValueField(wireName: r'title')
+  String? get title;
+
+  @BuiltValueField(wireName: r'titleAr')
+  String? get titleAr;
 
   GenerateShiftPoolsDto._();
 
@@ -89,6 +97,20 @@ class _$GenerateShiftPoolsDtoSerializer implements PrimitiveSerializer<GenerateS
       yield r'zoneId';
       yield serializers.serialize(
         object.zoneId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.title != null) {
+      yield r'title';
+      yield serializers.serialize(
+        object.title,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.titleAr != null) {
+      yield r'titleAr';
+      yield serializers.serialize(
+        object.titleAr,
         specifiedType: const FullType(String),
       );
     }
@@ -156,6 +178,20 @@ class _$GenerateShiftPoolsDtoSerializer implements PrimitiveSerializer<GenerateS
             specifiedType: const FullType(String),
           ) as String;
           result.zoneId = valueDes;
+          break;
+        case r'title':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.title = valueDes;
+          break;
+        case r'titleAr':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.titleAr = valueDes;
           break;
         default:
           unhandled.add(key);

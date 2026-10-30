@@ -1,9 +1,9 @@
-import 'package:built_collection/built_collection.dart';
 //
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -19,6 +19,8 @@ part 'create_menu_category_dto.g.dart';
 /// * [sortOrder] 
 /// * [isActive] 
 /// * [iconUrl] 
+/// * [branchAvailabilityMode] - ALL includes every current and future branch. SPECIFIC uses branchIds.
+/// * [branchIds] - Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.
 @BuiltValue()
 abstract class CreateMenuCategoryDto implements Built<CreateMenuCategoryDto, CreateMenuCategoryDtoBuilder> {
   @BuiltValueField(wireName: r'name')
@@ -42,9 +44,12 @@ abstract class CreateMenuCategoryDto implements Built<CreateMenuCategoryDto, Cre
   @BuiltValueField(wireName: r'iconUrl')
   String? get iconUrl;
 
-    @BuiltValueField(wireName: r'branchAvailabilityMode')
-  String? get branchAvailabilityMode;
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueField(wireName: r'branchAvailabilityMode')
+  CreateMenuCategoryDtoBranchAvailabilityModeEnum? get branchAvailabilityMode;
+  // enum branchAvailabilityModeEnum {  ALL,  SPECIFIC,  };
 
+  /// Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.
   @BuiltValueField(wireName: r'branchIds')
   BuiltList<String>? get branchIds;
 
@@ -55,7 +60,8 @@ abstract class CreateMenuCategoryDto implements Built<CreateMenuCategoryDto, Cre
   @BuiltValueHook(initializeBuilder: true)
   static void _defaults(CreateMenuCategoryDtoBuilder b) => b
       ..sortOrder = 0
-      ..isActive = true;
+      ..isActive = true
+      ..branchAvailabilityMode = CreateMenuCategoryDtoBranchAvailabilityModeEnum.valueOf('ALL');
 
   @BuiltValueSerializer(custom: true)
   static Serializer<CreateMenuCategoryDto> get serializer => _$CreateMenuCategoryDtoSerializer();
@@ -113,11 +119,18 @@ class _$CreateMenuCategoryDtoSerializer implements PrimitiveSerializer<CreateMen
         specifiedType: const FullType(bool),
       );
     }
+    if (object.iconUrl != null) {
+      yield r'iconUrl';
+      yield serializers.serialize(
+        object.iconUrl,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.branchAvailabilityMode != null) {
       yield r'branchAvailabilityMode';
       yield serializers.serialize(
         object.branchAvailabilityMode,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(CreateMenuCategoryDtoBranchAvailabilityModeEnum),
       );
     }
     if (object.branchIds != null) {
@@ -125,13 +138,6 @@ class _$CreateMenuCategoryDtoSerializer implements PrimitiveSerializer<CreateMen
       yield serializers.serialize(
         object.branchIds,
         specifiedType: const FullType(BuiltList, [FullType(String)]),
-      );
-    }
-    if (object.iconUrl != null) {
-      yield r'iconUrl';
-      yield serializers.serialize(
-        object.iconUrl,
-        specifiedType: const FullType(String),
       );
     }
   }
@@ -209,8 +215,8 @@ class _$CreateMenuCategoryDtoSerializer implements PrimitiveSerializer<CreateMen
         case r'branchAvailabilityMode':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(CreateMenuCategoryDtoBranchAvailabilityModeEnum),
+          ) as CreateMenuCategoryDtoBranchAvailabilityModeEnum;
           result.branchAvailabilityMode = valueDes;
           break;
         case r'branchIds':
@@ -247,5 +253,22 @@ class _$CreateMenuCategoryDtoSerializer implements PrimitiveSerializer<CreateMen
     );
     return result.build();
   }
+}
+
+class CreateMenuCategoryDtoBranchAvailabilityModeEnum extends EnumClass {
+
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueEnumConst(wireName: r'ALL')
+  static const CreateMenuCategoryDtoBranchAvailabilityModeEnum ALL = _$createMenuCategoryDtoBranchAvailabilityModeEnum_ALL;
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueEnumConst(wireName: r'SPECIFIC')
+  static const CreateMenuCategoryDtoBranchAvailabilityModeEnum SPECIFIC = _$createMenuCategoryDtoBranchAvailabilityModeEnum_SPECIFIC;
+
+  static Serializer<CreateMenuCategoryDtoBranchAvailabilityModeEnum> get serializer => _$createMenuCategoryDtoBranchAvailabilityModeEnumSerializer;
+
+  const CreateMenuCategoryDtoBranchAvailabilityModeEnum._(String name): super(name);
+
+  static BuiltSet<CreateMenuCategoryDtoBranchAvailabilityModeEnum> get values => _$createMenuCategoryDtoBranchAvailabilityModeEnumValues;
+  static CreateMenuCategoryDtoBranchAvailabilityModeEnum valueOf(String name) => _$createMenuCategoryDtoBranchAvailabilityModeEnumValueOf(name);
 }
 

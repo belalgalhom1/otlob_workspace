@@ -1,9 +1,9 @@
-import 'package:built_collection/built_collection.dart';
 //
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -27,6 +27,8 @@ part 'update_product_dto.g.dart';
 /// * [isFeatured] 
 /// * [sellByStrip] 
 /// * [stripsPerPackage] 
+/// * [branchAvailabilityMode] - ALL includes every current and future branch. SPECIFIC uses branchIds.
+/// * [branchIds] - Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.
 /// * [version] 
 @BuiltValue()
 abstract class UpdateProductDto implements Built<UpdateProductDto, UpdateProductDtoBuilder> {
@@ -72,14 +74,17 @@ abstract class UpdateProductDto implements Built<UpdateProductDto, UpdateProduct
   @BuiltValueField(wireName: r'stripsPerPackage')
   num? get stripsPerPackage;
 
-  @BuiltValueField(wireName: r'version')
-  num? get version;
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueField(wireName: r'branchAvailabilityMode')
+  UpdateProductDtoBranchAvailabilityModeEnum? get branchAvailabilityMode;
+  // enum branchAvailabilityModeEnum {  ALL,  SPECIFIC,  };
 
-    @BuiltValueField(wireName: r'branchAvailabilityMode')
-  String? get branchAvailabilityMode;
-
+  /// Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch.
   @BuiltValueField(wireName: r'branchIds')
   BuiltList<String>? get branchIds;
+
+  @BuiltValueField(wireName: r'version')
+  num? get version;
 
   UpdateProductDto._();
 
@@ -206,7 +211,7 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
       yield r'branchAvailabilityMode';
       yield serializers.serialize(
         object.branchAvailabilityMode,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(UpdateProductDtoBranchAvailabilityModeEnum),
       );
     }
     if (object.branchIds != null) {
@@ -345,18 +350,11 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
           ) as num;
           result.stripsPerPackage = valueDes;
           break;
-        case r'version':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.version = valueDes;
-          break;
         case r'branchAvailabilityMode':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(UpdateProductDtoBranchAvailabilityModeEnum),
+          ) as UpdateProductDtoBranchAvailabilityModeEnum;
           result.branchAvailabilityMode = valueDes;
           break;
         case r'branchIds':
@@ -365,6 +363,13 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
             specifiedType: const FullType(BuiltList, [FullType(String)]),
           ) as BuiltList<String>;
           result.branchIds.replace(valueDes);
+          break;
+        case r'version':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.version = valueDes;
           break;
         default:
           unhandled.add(key);
@@ -393,5 +398,22 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
     );
     return result.build();
   }
+}
+
+class UpdateProductDtoBranchAvailabilityModeEnum extends EnumClass {
+
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueEnumConst(wireName: r'ALL')
+  static const UpdateProductDtoBranchAvailabilityModeEnum ALL = _$updateProductDtoBranchAvailabilityModeEnum_ALL;
+  /// ALL includes every current and future branch. SPECIFIC uses branchIds.
+  @BuiltValueEnumConst(wireName: r'SPECIFIC')
+  static const UpdateProductDtoBranchAvailabilityModeEnum SPECIFIC = _$updateProductDtoBranchAvailabilityModeEnum_SPECIFIC;
+
+  static Serializer<UpdateProductDtoBranchAvailabilityModeEnum> get serializer => _$updateProductDtoBranchAvailabilityModeEnumSerializer;
+
+  const UpdateProductDtoBranchAvailabilityModeEnum._(String name): super(name);
+
+  static BuiltSet<UpdateProductDtoBranchAvailabilityModeEnum> get values => _$updateProductDtoBranchAvailabilityModeEnumValues;
+  static UpdateProductDtoBranchAvailabilityModeEnum valueOf(String name) => _$updateProductDtoBranchAvailabilityModeEnumValueOf(name);
 }
 

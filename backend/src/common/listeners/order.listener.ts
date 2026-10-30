@@ -226,6 +226,7 @@ export class OrderListener {
       pickedUpAt: event.pickedUpAt,
       pickupImageUrl: event.pickupImageUrl,
       parentStatus: event.parentStatus,
+      orderStatus: event.parentStatus,
       fulfillmentSummary: event.fulfillmentSummary,
     };
 

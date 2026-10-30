@@ -17,6 +17,8 @@ part 'vendor_branch.g.dart';
 /// * [address] 
 /// * [phone] 
 /// * [isOpen] 
+/// * [isContracted] 
+/// * [commissionRate] 
 /// * [vendorId] 
 /// * [zoneId] 
 /// * [createdAt] 
@@ -40,6 +42,12 @@ abstract class VendorBranch implements Built<VendorBranch, VendorBranchBuilder> 
 
   @BuiltValueField(wireName: r'isOpen')
   bool get isOpen;
+
+  @BuiltValueField(wireName: r'isContracted')
+  bool? get isContracted;
+
+  @BuiltValueField(wireName: r'commissionRate')
+  num? get commissionRate;
 
   @BuiltValueField(wireName: r'vendorId')
   String get vendorId;
@@ -110,6 +118,20 @@ class _$VendorBranchSerializer implements PrimitiveSerializer<VendorBranch> {
       object.isOpen,
       specifiedType: const FullType(bool),
     );
+    if (object.isContracted != null) {
+      yield r'isContracted';
+      yield serializers.serialize(
+        object.isContracted,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.commissionRate != null) {
+      yield r'commissionRate';
+      yield serializers.serialize(
+        object.commissionRate,
+        specifiedType: const FullType(num),
+      );
+    }
     yield r'vendorId';
     yield serializers.serialize(
       object.vendorId,
@@ -194,6 +216,20 @@ class _$VendorBranchSerializer implements PrimitiveSerializer<VendorBranch> {
             specifiedType: const FullType(bool),
           ) as bool;
           result.isOpen = valueDes;
+          break;
+        case r'isContracted':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isContracted = valueDes;
+          break;
+        case r'commissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.commissionRate = valueDes;
           break;
         case r'vendorId':
           final valueDes = serializers.deserialize(

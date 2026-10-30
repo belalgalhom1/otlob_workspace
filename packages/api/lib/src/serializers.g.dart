@@ -10,10 +10,12 @@ Serializers _$serializers =
     (Serializers().toBuilder()
           ..add($ApiResponseDto.serializer)
           ..add(AddCartItemDto.serializer)
+          ..add(AddCartItemDtoSelectedUnitEnum.serializer)
           ..add(AddVendorMemberDto.serializer)
           ..add(AddVendorMemberDtoRoleEnum.serializer)
           ..add(AdminAssignDriverDto.serializer)
           ..add(AdminAssignShiftDto.serializer)
+          ..add(AdminBookWeeklyShiftsDto.serializer)
           ..add(AdminCreateDriverDto.serializer)
           ..add(AdminCreateDriverDtoStatusEnum.serializer)
           ..add(AdminCreateDriverDtoVehicleTypeEnum.serializer)
@@ -38,6 +40,7 @@ Serializers _$serializers =
           ..add(BookWeeklyShiftsDto.serializer)
           ..add(CartItem.serializer)
           ..add(CartItemOption.serializer)
+          ..add(ChangeEmailDto.serializer)
           ..add(ChangePasswordDto.serializer)
           ..add(CheckLocationDto.serializer)
           ..add(ConfirmPaymentDto.serializer)
@@ -45,12 +48,14 @@ Serializers _$serializers =
           ..add(CreateDirectConversationDto.serializer)
           ..add(CreateDriverShiftDto.serializer)
           ..add(CreateMenuCategoryDto.serializer)
+          ..add(CreateMenuCategoryDtoBranchAvailabilityModeEnum.serializer)
           ..add(CreateMobileWalletDto.serializer)
           ..add(CreateMobileWalletDtoTypeEnum.serializer)
           ..add(CreateOfferDto.serializer)
           ..add(CreateOptionGroupDto.serializer)
           ..add(CreateOrderConversationDto.serializer)
           ..add(CreateProductDto.serializer)
+          ..add(CreateProductDtoBranchAvailabilityModeEnum.serializer)
           ..add(CreateProductOptionDto.serializer)
           ..add(CreateProductVariantDto.serializer)
           ..add(CreateReviewDto.serializer)
@@ -66,30 +71,41 @@ Serializers _$serializers =
           ..add(CreateZoneDto.serializer)
           ..add(Customer.serializer)
           ..add(DecideAssistRequestDto.serializer)
+          ..add(DecideAssistRequestDtoStatusEnum.serializer)
+          ..add(DeliveryGroupStatus.serializer)
           ..add(DispatchAnnouncementDto.serializer)
           ..add(DispatchAnnouncementDtoAudienceEnum.serializer)
           ..add(DispatchAnnouncementDtoTypeEnum.serializer)
           ..add(DispatchStatus.serializer)
           ..add(Driver.serializer)
+          ..add(DriverBreak.serializer)
+          ..add(DriverBreakReason.serializer)
+          ..add(DriverBreakStatus.serializer)
           ..add(DriverShift.serializer)
           ..add(DriverShiftStatus.serializer)
           ..add(DriverStatus.serializer)
           ..add(DriverTier.serializer)
           ..add(DriverWalletTransaction.serializer)
           ..add(DriverWalletTransactionResponseDto.serializer)
+          ..add(DriversControllerGetMyBreaks200Response.serializer)
+          ..add(DriversControllerMyAssistRequests200Response.serializer)
+          ..add(DriversControllerStartBreak200Response.serializer)
           ..add(FavoriteProduct.serializer)
           ..add(ForgotPasswordDto.serializer)
           ..add(GenerateShiftPoolsDto.serializer)
+          ..add(JoinWaitlistDto.serializer)
           ..add(Language.serializer)
           ..add(LoginDto.serializer)
           ..add(LogoutDto.serializer)
           ..add(MarkNotificationsReadDto.serializer)
           ..add(MarkReadDto.serializer)
           ..add(MenuCategory.serializer)
+          ..add(MenuCategoryBranchAvailabilityModeEnum.serializer)
           ..add(MobileWallet.serializer)
           ..add(MobileWalletResponseDto.serializer)
           ..add(Offer.serializer)
           ..add(Order.serializer)
+          ..add(OrderDeliveryGroup.serializer)
           ..add(OrderDispatch.serializer)
           ..add(OrderFeeEstimateDto.serializer)
           ..add(OrderItem.serializer)
@@ -98,6 +114,8 @@ Serializers _$serializers =
           ..add(OrderStatus.serializer)
           ..add(OrderStatusEvent.serializer)
           ..add(OrderType.serializer)
+          ..add(OrderVendorFulfillment.serializer)
+          ..add(OrderVendorFulfillmentStatus.serializer)
           ..add(OrdersControllerEstimateCustomOrder200Response.serializer)
           ..add(OrdersControllerPlaceOrder200Response.serializer)
           ..add(PaginatedReviewsResponseDto.serializer)
@@ -112,15 +130,19 @@ Serializers _$serializers =
           ..add(PlaceDirectOrderDto.serializer)
           ..add(PlaceDirectOrderDtoPaymentMethodEnum.serializer)
           ..add(PlaceMultiVendorOrderDto.serializer)
+          ..add(PlaceMultiVendorOrderDtoPaymentMethodEnum.serializer)
           ..add(PlaceOrderDto.serializer)
           ..add(PlaceOrderDtoPaymentMethodEnum.serializer)
           ..add(ProcessManualTransactionDto.serializer)
           ..add(Product.serializer)
+          ..add(ProductBranchAvailability.serializer)
+          ..add(ProductBranchAvailabilityModeEnum.serializer)
           ..add(ProductOption.serializer)
           ..add(ProductOptionGroup.serializer)
           ..add(ProductOptionGroupResponseDto.serializer)
           ..add(ProductOptionResponseDto.serializer)
           ..add(ProductResponseDto.serializer)
+          ..add(ProductResponseDtoBranchAvailabilityModeEnum.serializer)
           ..add(ProductVariant.serializer)
           ..add(ProductVariantResponseDto.serializer)
           ..add(ProductsControllerCreate200Response.serializer)
@@ -136,8 +158,11 @@ Serializers _$serializers =
           ..add(RegisterDto.serializer)
           ..add(RegisterDtoRoleEnum.serializer)
           ..add(RegisterDtoVendorRoleEnum.serializer)
+          ..add(RejectVendorFulfillmentDto.serializer)
+          ..add(RejectVendorFulfillmentDtoCodeEnum.serializer)
           ..add(ReorderCategoriesDto.serializer)
           ..add(RequestAssistDriverDto.serializer)
+          ..add(RequestAssistDriverDtoReasonEnum.serializer)
           ..add(ResetPasswordDto.serializer)
           ..add(RespondToDispatchDto.serializer)
           ..add(RespondToDispatchDtoResponseEnum.serializer)
@@ -153,7 +178,12 @@ Serializers _$serializers =
           ..add(SendOtpDto.serializer)
           ..add(SendOtpDtoMethodEnum.serializer)
           ..add(Session.serializer)
+          ..add(SetPasswordDto.serializer)
           ..add(SocialLoginDto.serializer)
+          ..add(SocialLoginDtoAppEnum.serializer)
+          ..add(SocialLoginDtoProviderEnum.serializer)
+          ..add(StartBreakDto.serializer)
+          ..add(StartBreakDtoReasonEnum.serializer)
           ..add(SupportTicket.serializer)
           ..add(TicketCategory.serializer)
           ..add(TicketPriority.serializer)
@@ -162,11 +192,12 @@ Serializers _$serializers =
           ..add(UnassignDriversFromManagerDto.serializer)
           ..add(UpdateAddressDto.serializer)
           ..add(UpdateCartItemDto.serializer)
+          ..add(UpdateCartItemDtoSelectedUnitEnum.serializer)
           ..add(UpdateDriverProfileDto.serializer)
-          ..add(UpdateDriverProfileDtoVehicleTypeEnum.serializer)
           ..add(UpdateDriverStatusDto.serializer)
           ..add(UpdateDriverStatusDtoStatusEnum.serializer)
           ..add(UpdateMenuCategoryDto.serializer)
+          ..add(UpdateMenuCategoryDtoBranchAvailabilityModeEnum.serializer)
           ..add(UpdateNotificationSettingsDto.serializer)
           ..add(UpdateOfferDto.serializer)
           ..add(UpdateOptionGroupDto.serializer)
@@ -174,6 +205,7 @@ Serializers _$serializers =
           ..add(UpdateOrderStatusDtoStatusEnum.serializer)
           ..add(UpdatePlatformSettingsDto.serializer)
           ..add(UpdateProductDto.serializer)
+          ..add(UpdateProductDtoBranchAvailabilityModeEnum.serializer)
           ..add(UpdateProductOptionDto.serializer)
           ..add(UpdateProductVariantDto.serializer)
           ..add(UpdatePromotionDto.serializer)
@@ -248,6 +280,12 @@ Serializers _$serializers =
             () => ListBuilder<Offer>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(ProductBranchAvailability),
+            ]),
+            () => ListBuilder<ProductBranchAvailability>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(CartItem)]),
             () => ListBuilder<CartItem>(),
           )
@@ -278,22 +316,6 @@ Serializers _$serializers =
               const FullType(CreateOptionGroupDto),
             ]),
             () => ListBuilder<CreateOptionGroupDto>(),
-          )
-          ..addBuilderFactory(
-            const FullType(BuiltList, const [
-              const FullType(CreateOptionGroupDto),
-            ]),
-            () => ListBuilder<CreateOptionGroupDto>(),
-          )
-          ..addBuilderFactory(
-            const FullType(BuiltList, const [
-              const FullType(CreateProductVariantDto),
-            ]),
-            () => ListBuilder<CreateProductVariantDto>(),
-          )
-          ..addBuilderFactory(
-            const FullType(BuiltList, const [const FullType(String)]),
-            () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [
@@ -328,6 +350,22 @@ Serializers _$serializers =
               const FullType(VendorWalletTransaction),
             ]),
             () => ListBuilder<VendorWalletTransaction>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(OrderVendorFulfillment),
+            ]),
+            () => ListBuilder<OrderVendorFulfillment>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(OrderDeliveryGroup),
+            ]),
+            () => ListBuilder<OrderDeliveryGroup>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(OrderItem)]),
+            () => ListBuilder<OrderItem>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(Permission)]),
@@ -406,8 +444,28 @@ Serializers _$serializers =
             () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
-            const FullType(BuiltList, const [const FullType(num)]),
-            () => ListBuilder<num>(),
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(CreateOptionGroupDto),
+            ]),
+            () => ListBuilder<CreateOptionGroupDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(CreateProductVariantDto),
+            ]),
+            () => ListBuilder<CreateProductVariantDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [
@@ -438,6 +496,27 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(num)]),
             () => ListBuilder<num>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltMap, const [

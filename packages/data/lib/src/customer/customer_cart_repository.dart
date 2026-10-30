@@ -27,7 +27,7 @@ class CustomerCartRepository {
   }) async {
     final builder = AddCartItemDtoBuilder()..quantity = quantity;
     if (productId != null) builder.productId = productId;
-    if (selectedUnit != null) builder.selectedUnit = selectedUnit;
+    if (selectedUnit != null) builder.selectedUnit = AddCartItemDtoSelectedUnitEnum.valueOf(selectedUnit);
     if (variantId != null) builder.variantId = variantId;
     if (optionIds != null && optionIds.isNotEmpty) {
       builder.optionIds.replace(optionIds);

@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **quantity** | **num** |  | 
 **optionIds** | **BuiltList&lt;String&gt;** |  | [optional] 
 **specialRequest** | **String** |  | [optional] 
+**selectedUnit** | **String** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

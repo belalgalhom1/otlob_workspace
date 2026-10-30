@@ -6,9 +6,107 @@ part of 'request_assist_driver_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const RequestAssistDriverDtoReasonEnum
+_$requestAssistDriverDtoReasonEnum_TOO_LARGE =
+    const RequestAssistDriverDtoReasonEnum._('TOO_LARGE');
+const RequestAssistDriverDtoReasonEnum
+_$requestAssistDriverDtoReasonEnum_TOO_HEAVY =
+    const RequestAssistDriverDtoReasonEnum._('TOO_HEAVY');
+const RequestAssistDriverDtoReasonEnum
+_$requestAssistDriverDtoReasonEnum_MULTI_STOP_COMPLEXITY =
+    const RequestAssistDriverDtoReasonEnum._('MULTI_STOP_COMPLEXITY');
+const RequestAssistDriverDtoReasonEnum
+_$requestAssistDriverDtoReasonEnum_LONG_DISTANCE =
+    const RequestAssistDriverDtoReasonEnum._('LONG_DISTANCE');
+const RequestAssistDriverDtoReasonEnum
+_$requestAssistDriverDtoReasonEnum_ACCESS_RESTRICTED =
+    const RequestAssistDriverDtoReasonEnum._('ACCESS_RESTRICTED');
+const RequestAssistDriverDtoReasonEnum
+_$requestAssistDriverDtoReasonEnum_OTHER =
+    const RequestAssistDriverDtoReasonEnum._('OTHER');
+
+RequestAssistDriverDtoReasonEnum _$requestAssistDriverDtoReasonEnumValueOf(
+  String name,
+) {
+  switch (name) {
+    case 'TOO_LARGE':
+      return _$requestAssistDriverDtoReasonEnum_TOO_LARGE;
+    case 'TOO_HEAVY':
+      return _$requestAssistDriverDtoReasonEnum_TOO_HEAVY;
+    case 'MULTI_STOP_COMPLEXITY':
+      return _$requestAssistDriverDtoReasonEnum_MULTI_STOP_COMPLEXITY;
+    case 'LONG_DISTANCE':
+      return _$requestAssistDriverDtoReasonEnum_LONG_DISTANCE;
+    case 'ACCESS_RESTRICTED':
+      return _$requestAssistDriverDtoReasonEnum_ACCESS_RESTRICTED;
+    case 'OTHER':
+      return _$requestAssistDriverDtoReasonEnum_OTHER;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<RequestAssistDriverDtoReasonEnum>
+_$requestAssistDriverDtoReasonEnumValues =
+    BuiltSet<RequestAssistDriverDtoReasonEnum>(
+      const <RequestAssistDriverDtoReasonEnum>[
+        _$requestAssistDriverDtoReasonEnum_TOO_LARGE,
+        _$requestAssistDriverDtoReasonEnum_TOO_HEAVY,
+        _$requestAssistDriverDtoReasonEnum_MULTI_STOP_COMPLEXITY,
+        _$requestAssistDriverDtoReasonEnum_LONG_DISTANCE,
+        _$requestAssistDriverDtoReasonEnum_ACCESS_RESTRICTED,
+        _$requestAssistDriverDtoReasonEnum_OTHER,
+      ],
+    );
+
+Serializer<RequestAssistDriverDtoReasonEnum>
+_$requestAssistDriverDtoReasonEnumSerializer =
+    _$RequestAssistDriverDtoReasonEnumSerializer();
+
+class _$RequestAssistDriverDtoReasonEnumSerializer
+    implements PrimitiveSerializer<RequestAssistDriverDtoReasonEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'TOO_LARGE': 'TOO_LARGE',
+    'TOO_HEAVY': 'TOO_HEAVY',
+    'MULTI_STOP_COMPLEXITY': 'MULTI_STOP_COMPLEXITY',
+    'LONG_DISTANCE': 'LONG_DISTANCE',
+    'ACCESS_RESTRICTED': 'ACCESS_RESTRICTED',
+    'OTHER': 'OTHER',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'TOO_LARGE': 'TOO_LARGE',
+    'TOO_HEAVY': 'TOO_HEAVY',
+    'MULTI_STOP_COMPLEXITY': 'MULTI_STOP_COMPLEXITY',
+    'LONG_DISTANCE': 'LONG_DISTANCE',
+    'ACCESS_RESTRICTED': 'ACCESS_RESTRICTED',
+    'OTHER': 'OTHER',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[RequestAssistDriverDtoReasonEnum];
+  @override
+  final String wireName = 'RequestAssistDriverDtoReasonEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    RequestAssistDriverDtoReasonEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  RequestAssistDriverDtoReasonEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => RequestAssistDriverDtoReasonEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$RequestAssistDriverDto extends RequestAssistDriverDto {
   @override
-  final String reason;
+  final RequestAssistDriverDtoReasonEnum reason;
   @override
   final String? note;
 
@@ -56,9 +154,10 @@ class RequestAssistDriverDtoBuilder
     implements Builder<RequestAssistDriverDto, RequestAssistDriverDtoBuilder> {
   _$RequestAssistDriverDto? _$v;
 
-  String? _reason;
-  String? get reason => _$this._reason;
-  set reason(String? reason) => _$this._reason = reason;
+  RequestAssistDriverDtoReasonEnum? _reason;
+  RequestAssistDriverDtoReasonEnum? get reason => _$this._reason;
+  set reason(RequestAssistDriverDtoReasonEnum? reason) =>
+      _$this._reason = reason;
 
   String? _note;
   String? get note => _$this._note;

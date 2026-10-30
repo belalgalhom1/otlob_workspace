@@ -53,7 +53,7 @@ abstract class User implements Built<User, UserBuilder> {
 
   @BuiltValueField(wireName: r'role')
   Role get role;
-  // enum roleEnum {  CUSTOMER,  DRIVER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
+  // enum roleEnum {  CUSTOMER,  DRIVER,  DRIVER_MANAGER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
 
   @BuiltValueField(wireName: r'title')
   String? get title;

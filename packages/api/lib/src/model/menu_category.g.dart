@@ -6,6 +6,73 @@ part of 'menu_category.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const MenuCategoryBranchAvailabilityModeEnum
+_$menuCategoryBranchAvailabilityModeEnum_ALL =
+    const MenuCategoryBranchAvailabilityModeEnum._('ALL');
+const MenuCategoryBranchAvailabilityModeEnum
+_$menuCategoryBranchAvailabilityModeEnum_SPECIFIC =
+    const MenuCategoryBranchAvailabilityModeEnum._('SPECIFIC');
+
+MenuCategoryBranchAvailabilityModeEnum
+_$menuCategoryBranchAvailabilityModeEnumValueOf(String name) {
+  switch (name) {
+    case 'ALL':
+      return _$menuCategoryBranchAvailabilityModeEnum_ALL;
+    case 'SPECIFIC':
+      return _$menuCategoryBranchAvailabilityModeEnum_SPECIFIC;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<MenuCategoryBranchAvailabilityModeEnum>
+_$menuCategoryBranchAvailabilityModeEnumValues =
+    BuiltSet<MenuCategoryBranchAvailabilityModeEnum>(
+      const <MenuCategoryBranchAvailabilityModeEnum>[
+        _$menuCategoryBranchAvailabilityModeEnum_ALL,
+        _$menuCategoryBranchAvailabilityModeEnum_SPECIFIC,
+      ],
+    );
+
+Serializer<MenuCategoryBranchAvailabilityModeEnum>
+_$menuCategoryBranchAvailabilityModeEnumSerializer =
+    _$MenuCategoryBranchAvailabilityModeEnumSerializer();
+
+class _$MenuCategoryBranchAvailabilityModeEnumSerializer
+    implements PrimitiveSerializer<MenuCategoryBranchAvailabilityModeEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[
+    MenuCategoryBranchAvailabilityModeEnum,
+  ];
+  @override
+  final String wireName = 'MenuCategoryBranchAvailabilityModeEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    MenuCategoryBranchAvailabilityModeEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  MenuCategoryBranchAvailabilityModeEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => MenuCategoryBranchAvailabilityModeEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$MenuCategory extends MenuCategory {
   @override
   final String id;
@@ -26,6 +93,8 @@ class _$MenuCategory extends MenuCategory {
   @override
   final bool isActive;
   @override
+  final MenuCategoryBranchAvailabilityModeEnum branchAvailabilityMode;
+  @override
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
@@ -43,6 +112,7 @@ class _$MenuCategory extends MenuCategory {
     this.iconUrl,
     required this.sortOrder,
     required this.isActive,
+    required this.branchAvailabilityMode,
     required this.createdAt,
     required this.updatedAt,
   }) : super._();
@@ -66,6 +136,7 @@ class _$MenuCategory extends MenuCategory {
         iconUrl == other.iconUrl &&
         sortOrder == other.sortOrder &&
         isActive == other.isActive &&
+        branchAvailabilityMode == other.branchAvailabilityMode &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt;
   }
@@ -82,6 +153,7 @@ class _$MenuCategory extends MenuCategory {
     _$hash = $jc(_$hash, iconUrl.hashCode);
     _$hash = $jc(_$hash, sortOrder.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
+    _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
     _$hash = $jf(_$hash);
@@ -100,6 +172,7 @@ class _$MenuCategory extends MenuCategory {
           ..add('iconUrl', iconUrl)
           ..add('sortOrder', sortOrder)
           ..add('isActive', isActive)
+          ..add('branchAvailabilityMode', branchAvailabilityMode)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt))
         .toString();
@@ -147,6 +220,13 @@ class MenuCategoryBuilder
   bool? get isActive => _$this._isActive;
   set isActive(bool? isActive) => _$this._isActive = isActive;
 
+  MenuCategoryBranchAvailabilityModeEnum? _branchAvailabilityMode;
+  MenuCategoryBranchAvailabilityModeEnum? get branchAvailabilityMode =>
+      _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(
+    MenuCategoryBranchAvailabilityModeEnum? branchAvailabilityMode,
+  ) => _$this._branchAvailabilityMode = branchAvailabilityMode;
+
   DateTime? _createdAt;
   DateTime? get createdAt => _$this._createdAt;
   set createdAt(DateTime? createdAt) => _$this._createdAt = createdAt;
@@ -171,6 +251,7 @@ class MenuCategoryBuilder
       _iconUrl = $v.iconUrl;
       _sortOrder = $v.sortOrder;
       _isActive = $v.isActive;
+      _branchAvailabilityMode = $v.branchAvailabilityMode;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
       _$v = null;
@@ -219,6 +300,11 @@ class MenuCategoryBuilder
             isActive,
             r'MenuCategory',
             'isActive',
+          ),
+          branchAvailabilityMode: BuiltValueNullFieldError.checkNotNull(
+            branchAvailabilityMode,
+            r'MenuCategory',
+            'branchAvailabilityMode',
           ),
           createdAt: BuiltValueNullFieldError.checkNotNull(
             createdAt,

@@ -6,6 +6,74 @@ part of 'create_menu_category_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const CreateMenuCategoryDtoBranchAvailabilityModeEnum
+_$createMenuCategoryDtoBranchAvailabilityModeEnum_ALL =
+    const CreateMenuCategoryDtoBranchAvailabilityModeEnum._('ALL');
+const CreateMenuCategoryDtoBranchAvailabilityModeEnum
+_$createMenuCategoryDtoBranchAvailabilityModeEnum_SPECIFIC =
+    const CreateMenuCategoryDtoBranchAvailabilityModeEnum._('SPECIFIC');
+
+CreateMenuCategoryDtoBranchAvailabilityModeEnum
+_$createMenuCategoryDtoBranchAvailabilityModeEnumValueOf(String name) {
+  switch (name) {
+    case 'ALL':
+      return _$createMenuCategoryDtoBranchAvailabilityModeEnum_ALL;
+    case 'SPECIFIC':
+      return _$createMenuCategoryDtoBranchAvailabilityModeEnum_SPECIFIC;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<CreateMenuCategoryDtoBranchAvailabilityModeEnum>
+_$createMenuCategoryDtoBranchAvailabilityModeEnumValues =
+    BuiltSet<CreateMenuCategoryDtoBranchAvailabilityModeEnum>(
+      const <CreateMenuCategoryDtoBranchAvailabilityModeEnum>[
+        _$createMenuCategoryDtoBranchAvailabilityModeEnum_ALL,
+        _$createMenuCategoryDtoBranchAvailabilityModeEnum_SPECIFIC,
+      ],
+    );
+
+Serializer<CreateMenuCategoryDtoBranchAvailabilityModeEnum>
+_$createMenuCategoryDtoBranchAvailabilityModeEnumSerializer =
+    _$CreateMenuCategoryDtoBranchAvailabilityModeEnumSerializer();
+
+class _$CreateMenuCategoryDtoBranchAvailabilityModeEnumSerializer
+    implements
+        PrimitiveSerializer<CreateMenuCategoryDtoBranchAvailabilityModeEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[
+    CreateMenuCategoryDtoBranchAvailabilityModeEnum,
+  ];
+  @override
+  final String wireName = 'CreateMenuCategoryDtoBranchAvailabilityModeEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    CreateMenuCategoryDtoBranchAvailabilityModeEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  CreateMenuCategoryDtoBranchAvailabilityModeEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => CreateMenuCategoryDtoBranchAvailabilityModeEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
   @override
   final String name;
@@ -22,7 +90,7 @@ class _$CreateMenuCategoryDto extends CreateMenuCategoryDto {
   @override
   final String? iconUrl;
   @override
-  final String? branchAvailabilityMode;
+  final CreateMenuCategoryDtoBranchAvailabilityModeEnum? branchAvailabilityMode;
   @override
   final BuiltList<String>? branchIds;
 
@@ -130,10 +198,12 @@ class CreateMenuCategoryDtoBuilder
   String? get iconUrl => _$this._iconUrl;
   set iconUrl(String? iconUrl) => _$this._iconUrl = iconUrl;
 
-  String? _branchAvailabilityMode;
-  String? get branchAvailabilityMode => _$this._branchAvailabilityMode;
-  set branchAvailabilityMode(String? branchAvailabilityMode) =>
-      _$this._branchAvailabilityMode = branchAvailabilityMode;
+  CreateMenuCategoryDtoBranchAvailabilityModeEnum? _branchAvailabilityMode;
+  CreateMenuCategoryDtoBranchAvailabilityModeEnum? get branchAvailabilityMode =>
+      _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(
+    CreateMenuCategoryDtoBranchAvailabilityModeEnum? branchAvailabilityMode,
+  ) => _$this._branchAvailabilityMode = branchAvailabilityMode;
 
   ListBuilder<String>? _branchIds;
   ListBuilder<String> get branchIds =>

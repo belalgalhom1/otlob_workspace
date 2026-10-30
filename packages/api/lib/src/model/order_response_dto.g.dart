@@ -12,6 +12,8 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final String orderNumber;
   @override
+  final String? clientOrderKey;
+  @override
   final OrderType type;
   @override
   final String customerId;
@@ -80,6 +82,12 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final DateTime? pickedUpAt;
   @override
+  final String? pickupImageUrl;
+  @override
+  final String? deliveryImageUrl;
+  @override
+  final String? paymentReceiptUrl;
+  @override
   final DateTime? actualDeliveryTime;
   @override
   final BuiltList<DriverWalletTransaction>? driverTransactions;
@@ -105,6 +113,12 @@ class _$OrderResponseDto extends OrderResponseDto {
   final BuiltList<SupportTicket>? supportTickets;
   @override
   final BuiltList<VendorWalletTransaction>? vendorTransactions;
+  @override
+  final BuiltList<OrderVendorFulfillment>? vendorFulfillments;
+  @override
+  final BuiltList<OrderDeliveryGroup>? deliveryGroups;
+  @override
+  final JsonObject? fulfillmentSummary;
 
   factory _$OrderResponseDto([
     void Function(OrderResponseDtoBuilder)? updates,
@@ -113,6 +127,7 @@ class _$OrderResponseDto extends OrderResponseDto {
   _$OrderResponseDto._({
     required this.id,
     required this.orderNumber,
+    this.clientOrderKey,
     required this.type,
     required this.customerId,
     this.vendorId,
@@ -147,6 +162,9 @@ class _$OrderResponseDto extends OrderResponseDto {
     this.preparedAt,
     this.driverAssignedAt,
     this.pickedUpAt,
+    this.pickupImageUrl,
+    this.deliveryImageUrl,
+    this.paymentReceiptUrl,
     this.actualDeliveryTime,
     this.driverTransactions,
     this.dispatches,
@@ -160,6 +178,9 @@ class _$OrderResponseDto extends OrderResponseDto {
     this.zone,
     this.supportTickets,
     this.vendorTransactions,
+    this.vendorFulfillments,
+    this.deliveryGroups,
+    this.fulfillmentSummary,
   }) : super._();
   @override
   OrderResponseDto rebuild(void Function(OrderResponseDtoBuilder) updates) =>
@@ -175,6 +196,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     return other is OrderResponseDto &&
         id == other.id &&
         orderNumber == other.orderNumber &&
+        clientOrderKey == other.clientOrderKey &&
         type == other.type &&
         customerId == other.customerId &&
         vendorId == other.vendorId &&
@@ -209,6 +231,9 @@ class _$OrderResponseDto extends OrderResponseDto {
         preparedAt == other.preparedAt &&
         driverAssignedAt == other.driverAssignedAt &&
         pickedUpAt == other.pickedUpAt &&
+        pickupImageUrl == other.pickupImageUrl &&
+        deliveryImageUrl == other.deliveryImageUrl &&
+        paymentReceiptUrl == other.paymentReceiptUrl &&
         actualDeliveryTime == other.actualDeliveryTime &&
         driverTransactions == other.driverTransactions &&
         dispatches == other.dispatches &&
@@ -221,7 +246,10 @@ class _$OrderResponseDto extends OrderResponseDto {
         vendorBranch == other.vendorBranch &&
         zone == other.zone &&
         supportTickets == other.supportTickets &&
-        vendorTransactions == other.vendorTransactions;
+        vendorTransactions == other.vendorTransactions &&
+        vendorFulfillments == other.vendorFulfillments &&
+        deliveryGroups == other.deliveryGroups &&
+        fulfillmentSummary == other.fulfillmentSummary;
   }
 
   @override
@@ -229,6 +257,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, orderNumber.hashCode);
+    _$hash = $jc(_$hash, clientOrderKey.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, customerId.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
@@ -263,6 +292,9 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, preparedAt.hashCode);
     _$hash = $jc(_$hash, driverAssignedAt.hashCode);
     _$hash = $jc(_$hash, pickedUpAt.hashCode);
+    _$hash = $jc(_$hash, pickupImageUrl.hashCode);
+    _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
+    _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
     _$hash = $jc(_$hash, driverTransactions.hashCode);
     _$hash = $jc(_$hash, dispatches.hashCode);
@@ -276,6 +308,9 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, zone.hashCode);
     _$hash = $jc(_$hash, supportTickets.hashCode);
     _$hash = $jc(_$hash, vendorTransactions.hashCode);
+    _$hash = $jc(_$hash, vendorFulfillments.hashCode);
+    _$hash = $jc(_$hash, deliveryGroups.hashCode);
+    _$hash = $jc(_$hash, fulfillmentSummary.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -285,6 +320,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     return (newBuiltValueToStringHelper(r'OrderResponseDto')
           ..add('id', id)
           ..add('orderNumber', orderNumber)
+          ..add('clientOrderKey', clientOrderKey)
           ..add('type', type)
           ..add('customerId', customerId)
           ..add('vendorId', vendorId)
@@ -319,6 +355,9 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('preparedAt', preparedAt)
           ..add('driverAssignedAt', driverAssignedAt)
           ..add('pickedUpAt', pickedUpAt)
+          ..add('pickupImageUrl', pickupImageUrl)
+          ..add('deliveryImageUrl', deliveryImageUrl)
+          ..add('paymentReceiptUrl', paymentReceiptUrl)
           ..add('actualDeliveryTime', actualDeliveryTime)
           ..add('driverTransactions', driverTransactions)
           ..add('dispatches', dispatches)
@@ -331,7 +370,10 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('vendorBranch', vendorBranch)
           ..add('zone', zone)
           ..add('supportTickets', supportTickets)
-          ..add('vendorTransactions', vendorTransactions))
+          ..add('vendorTransactions', vendorTransactions)
+          ..add('vendorFulfillments', vendorFulfillments)
+          ..add('deliveryGroups', deliveryGroups)
+          ..add('fulfillmentSummary', fulfillmentSummary))
         .toString();
   }
 }
@@ -347,6 +389,11 @@ class OrderResponseDtoBuilder
   String? _orderNumber;
   String? get orderNumber => _$this._orderNumber;
   set orderNumber(String? orderNumber) => _$this._orderNumber = orderNumber;
+
+  String? _clientOrderKey;
+  String? get clientOrderKey => _$this._clientOrderKey;
+  set clientOrderKey(String? clientOrderKey) =>
+      _$this._clientOrderKey = clientOrderKey;
 
   OrderType? _type;
   OrderType? get type => _$this._type;
@@ -496,6 +543,21 @@ class OrderResponseDtoBuilder
   DateTime? get pickedUpAt => _$this._pickedUpAt;
   set pickedUpAt(DateTime? pickedUpAt) => _$this._pickedUpAt = pickedUpAt;
 
+  String? _pickupImageUrl;
+  String? get pickupImageUrl => _$this._pickupImageUrl;
+  set pickupImageUrl(String? pickupImageUrl) =>
+      _$this._pickupImageUrl = pickupImageUrl;
+
+  String? _deliveryImageUrl;
+  String? get deliveryImageUrl => _$this._deliveryImageUrl;
+  set deliveryImageUrl(String? deliveryImageUrl) =>
+      _$this._deliveryImageUrl = deliveryImageUrl;
+
+  String? _paymentReceiptUrl;
+  String? get paymentReceiptUrl => _$this._paymentReceiptUrl;
+  set paymentReceiptUrl(String? paymentReceiptUrl) =>
+      _$this._paymentReceiptUrl = paymentReceiptUrl;
+
   DateTime? _actualDeliveryTime;
   DateTime? get actualDeliveryTime => _$this._actualDeliveryTime;
   set actualDeliveryTime(DateTime? actualDeliveryTime) =>
@@ -566,6 +628,24 @@ class OrderResponseDtoBuilder
     ListBuilder<VendorWalletTransaction>? vendorTransactions,
   ) => _$this._vendorTransactions = vendorTransactions;
 
+  ListBuilder<OrderVendorFulfillment>? _vendorFulfillments;
+  ListBuilder<OrderVendorFulfillment> get vendorFulfillments =>
+      _$this._vendorFulfillments ??= ListBuilder<OrderVendorFulfillment>();
+  set vendorFulfillments(
+    ListBuilder<OrderVendorFulfillment>? vendorFulfillments,
+  ) => _$this._vendorFulfillments = vendorFulfillments;
+
+  ListBuilder<OrderDeliveryGroup>? _deliveryGroups;
+  ListBuilder<OrderDeliveryGroup> get deliveryGroups =>
+      _$this._deliveryGroups ??= ListBuilder<OrderDeliveryGroup>();
+  set deliveryGroups(ListBuilder<OrderDeliveryGroup>? deliveryGroups) =>
+      _$this._deliveryGroups = deliveryGroups;
+
+  JsonObject? _fulfillmentSummary;
+  JsonObject? get fulfillmentSummary => _$this._fulfillmentSummary;
+  set fulfillmentSummary(JsonObject? fulfillmentSummary) =>
+      _$this._fulfillmentSummary = fulfillmentSummary;
+
   OrderResponseDtoBuilder() {
     OrderResponseDto._defaults(this);
   }
@@ -575,6 +655,7 @@ class OrderResponseDtoBuilder
     if ($v != null) {
       _id = $v.id;
       _orderNumber = $v.orderNumber;
+      _clientOrderKey = $v.clientOrderKey;
       _type = $v.type;
       _customerId = $v.customerId;
       _vendorId = $v.vendorId;
@@ -609,6 +690,9 @@ class OrderResponseDtoBuilder
       _preparedAt = $v.preparedAt;
       _driverAssignedAt = $v.driverAssignedAt;
       _pickedUpAt = $v.pickedUpAt;
+      _pickupImageUrl = $v.pickupImageUrl;
+      _deliveryImageUrl = $v.deliveryImageUrl;
+      _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
       _driverTransactions = $v.driverTransactions?.toBuilder();
       _dispatches = $v.dispatches?.toBuilder();
@@ -622,6 +706,9 @@ class OrderResponseDtoBuilder
       _zone = $v.zone?.toBuilder();
       _supportTickets = $v.supportTickets?.toBuilder();
       _vendorTransactions = $v.vendorTransactions?.toBuilder();
+      _vendorFulfillments = $v.vendorFulfillments?.toBuilder();
+      _deliveryGroups = $v.deliveryGroups?.toBuilder();
+      _fulfillmentSummary = $v.fulfillmentSummary;
       _$v = null;
     }
     return this;
@@ -656,6 +743,7 @@ class OrderResponseDtoBuilder
               r'OrderResponseDto',
               'orderNumber',
             ),
+            clientOrderKey: clientOrderKey,
             type: BuiltValueNullFieldError.checkNotNull(
               type,
               r'OrderResponseDto',
@@ -762,6 +850,9 @@ class OrderResponseDtoBuilder
             preparedAt: preparedAt,
             driverAssignedAt: driverAssignedAt,
             pickedUpAt: pickedUpAt,
+            pickupImageUrl: pickupImageUrl,
+            deliveryImageUrl: deliveryImageUrl,
+            paymentReceiptUrl: paymentReceiptUrl,
             actualDeliveryTime: actualDeliveryTime,
             driverTransactions: _driverTransactions?.build(),
             dispatches: _dispatches?.build(),
@@ -775,6 +866,9 @@ class OrderResponseDtoBuilder
             zone: _zone?.build(),
             supportTickets: _supportTickets?.build(),
             vendorTransactions: _vendorTransactions?.build(),
+            vendorFulfillments: _vendorFulfillments?.build(),
+            deliveryGroups: _deliveryGroups?.build(),
+            fulfillmentSummary: fulfillmentSummary,
           );
     } catch (_) {
       late String _$failedField;
@@ -803,6 +897,10 @@ class OrderResponseDtoBuilder
         _supportTickets?.build();
         _$failedField = 'vendorTransactions';
         _vendorTransactions?.build();
+        _$failedField = 'vendorFulfillments';
+        _vendorFulfillments?.build();
+        _$failedField = 'deliveryGroups';
+        _deliveryGroups?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
           r'OrderResponseDto',

@@ -6,9 +6,75 @@ part of 'decide_assist_request_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const DecideAssistRequestDtoStatusEnum
+_$decideAssistRequestDtoStatusEnum_APPROVED =
+    const DecideAssistRequestDtoStatusEnum._('APPROVED');
+const DecideAssistRequestDtoStatusEnum
+_$decideAssistRequestDtoStatusEnum_REJECTED =
+    const DecideAssistRequestDtoStatusEnum._('REJECTED');
+
+DecideAssistRequestDtoStatusEnum _$decideAssistRequestDtoStatusEnumValueOf(
+  String name,
+) {
+  switch (name) {
+    case 'APPROVED':
+      return _$decideAssistRequestDtoStatusEnum_APPROVED;
+    case 'REJECTED':
+      return _$decideAssistRequestDtoStatusEnum_REJECTED;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<DecideAssistRequestDtoStatusEnum>
+_$decideAssistRequestDtoStatusEnumValues =
+    BuiltSet<DecideAssistRequestDtoStatusEnum>(
+      const <DecideAssistRequestDtoStatusEnum>[
+        _$decideAssistRequestDtoStatusEnum_APPROVED,
+        _$decideAssistRequestDtoStatusEnum_REJECTED,
+      ],
+    );
+
+Serializer<DecideAssistRequestDtoStatusEnum>
+_$decideAssistRequestDtoStatusEnumSerializer =
+    _$DecideAssistRequestDtoStatusEnumSerializer();
+
+class _$DecideAssistRequestDtoStatusEnumSerializer
+    implements PrimitiveSerializer<DecideAssistRequestDtoStatusEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'APPROVED': 'APPROVED',
+    'REJECTED': 'REJECTED',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'APPROVED': 'APPROVED',
+    'REJECTED': 'REJECTED',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[DecideAssistRequestDtoStatusEnum];
+  @override
+  final String wireName = 'DecideAssistRequestDtoStatusEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    DecideAssistRequestDtoStatusEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  DecideAssistRequestDtoStatusEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => DecideAssistRequestDtoStatusEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$DecideAssistRequestDto extends DecideAssistRequestDto {
   @override
-  final String status;
+  final DecideAssistRequestDtoStatusEnum status;
 
   factory _$DecideAssistRequestDto([
     void Function(DecideAssistRequestDtoBuilder)? updates,
@@ -50,9 +116,10 @@ class DecideAssistRequestDtoBuilder
     implements Builder<DecideAssistRequestDto, DecideAssistRequestDtoBuilder> {
   _$DecideAssistRequestDto? _$v;
 
-  String? _status;
-  String? get status => _$this._status;
-  set status(String? status) => _$this._status = status;
+  DecideAssistRequestDtoStatusEnum? _status;
+  DecideAssistRequestDtoStatusEnum? get status => _$this._status;
+  set status(DecideAssistRequestDtoStatusEnum? status) =>
+      _$this._status = status;
 
   DecideAssistRequestDtoBuilder() {
     DecideAssistRequestDto._defaults(this);

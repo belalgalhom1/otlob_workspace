@@ -27,6 +27,8 @@ class OrderStatus extends EnumClass {
   static const OrderStatus PENDING_PAYMENT = _$PENDING_PAYMENT;
   @BuiltValueEnumConst(wireName: r'READY_FOR_PICKUP')
   static const OrderStatus READY_FOR_PICKUP = _$READY_FOR_PICKUP;
+  @BuiltValueEnumConst(wireName: r'PARTIALLY_PICKED_UP')
+  static const OrderStatus PARTIALLY_PICKED_UP = _$PARTIALLY_PICKED_UP;
   @BuiltValueEnumConst(wireName: r'PICKED_UP')
   static const OrderStatus PICKED_UP = _$PICKED_UP;
   @BuiltValueEnumConst(wireName: r'DELIVERED')

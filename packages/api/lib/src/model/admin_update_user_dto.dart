@@ -43,7 +43,7 @@ abstract class AdminUpdateUserDto implements Built<AdminUpdateUserDto, AdminUpda
 
   @BuiltValueField(wireName: r'role')
   AdminUpdateUserDtoRoleEnum? get role;
-  // enum roleEnum {  CUSTOMER,  DRIVER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
+  // enum roleEnum {  CUSTOMER,  DRIVER,  DRIVER_MANAGER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
 
   @BuiltValueField(wireName: r'title')
   String? get title;
@@ -367,6 +367,7 @@ class AdminUpdateUserDtoRoleEnum extends EnumClass {
   static const AdminUpdateUserDtoRoleEnum CUSTOMER = _$adminUpdateUserDtoRoleEnum_CUSTOMER;
   @BuiltValueEnumConst(wireName: r'DRIVER')
   static const AdminUpdateUserDtoRoleEnum DRIVER = _$adminUpdateUserDtoRoleEnum_DRIVER;
+  @BuiltValueEnumConst(wireName: r'DRIVER_MANAGER')
   static const AdminUpdateUserDtoRoleEnum DRIVER_MANAGER = _$adminUpdateUserDtoRoleEnum_DRIVER_MANAGER;
   @BuiltValueEnumConst(wireName: r'VENDOR_MEMBER')
   static const AdminUpdateUserDtoRoleEnum VENDOR_MEMBER = _$adminUpdateUserDtoRoleEnum_VENDOR_MEMBER;

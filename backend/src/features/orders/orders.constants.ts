@@ -9,5 +9,6 @@ export const DRIVER_ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PREPARING,
   OrderStatus.READY_FOR_PICKUP,
   OrderStatus.PENDING_PAYMENT,
+  OrderStatus.PARTIALLY_PICKED_UP,
   OrderStatus.PICKED_UP,
 ];

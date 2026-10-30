@@ -5,6 +5,7 @@
 // ignore_for_file: unused_element
 import 'package:api/src/model/offer.dart';
 import 'package:api/src/model/cart_item.dart';
+import 'package:api/src/model/product_branch_availability.dart';
 import 'package:api/src/model/vendor.dart';
 import 'package:api/src/model/order_item.dart';
 import 'package:built_collection/built_collection.dart';
@@ -40,6 +41,7 @@ part 'product_response_dto.g.dart';
 /// * [tracksStock] 
 /// * [isActive] 
 /// * [isFeatured] 
+/// * [branchAvailabilityMode] 
 /// * [deletedAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
@@ -50,6 +52,7 @@ part 'product_response_dto.g.dart';
 /// * [variants] 
 /// * [promotions] 
 /// * [offers] 
+/// * [branchAvailability] 
 /// * [category] 
 /// * [vendor] 
 @BuiltValue()
@@ -111,6 +114,10 @@ abstract class ProductResponseDto implements Built<ProductResponseDto, ProductRe
   @BuiltValueField(wireName: r'isFeatured')
   bool get isFeatured;
 
+  @BuiltValueField(wireName: r'branchAvailabilityMode')
+  ProductResponseDtoBranchAvailabilityModeEnum get branchAvailabilityMode;
+  // enum branchAvailabilityModeEnum {  ALL,  SPECIFIC,  };
+
   @BuiltValueField(wireName: r'deletedAt')
   DateTime? get deletedAt;
 
@@ -141,6 +148,9 @@ abstract class ProductResponseDto implements Built<ProductResponseDto, ProductRe
   @BuiltValueField(wireName: r'offers')
   BuiltList<Offer>? get offers;
 
+  @BuiltValueField(wireName: r'branchAvailability')
+  BuiltList<ProductBranchAvailability>? get branchAvailability;
+
   @BuiltValueField(wireName: r'category')
   MenuCategory? get category;
 
@@ -152,7 +162,8 @@ abstract class ProductResponseDto implements Built<ProductResponseDto, ProductRe
   factory ProductResponseDto([void updates(ProductResponseDtoBuilder b)]) = _$ProductResponseDto;
 
   @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(ProductResponseDtoBuilder b) => b;
+  static void _defaults(ProductResponseDtoBuilder b) => b
+      ..branchAvailabilityMode = ProductResponseDtoBranchAvailabilityModeEnum.valueOf('ALL');
 
   @BuiltValueSerializer(custom: true)
   static Serializer<ProductResponseDto> get serializer => _$ProductResponseDtoSerializer();
@@ -285,6 +296,11 @@ class _$ProductResponseDtoSerializer implements PrimitiveSerializer<ProductRespo
       object.isFeatured,
       specifiedType: const FullType(bool),
     );
+    yield r'branchAvailabilityMode';
+    yield serializers.serialize(
+      object.branchAvailabilityMode,
+      specifiedType: const FullType(ProductResponseDtoBranchAvailabilityModeEnum),
+    );
     if (object.deletedAt != null) {
       yield r'deletedAt';
       yield serializers.serialize(
@@ -349,6 +365,13 @@ class _$ProductResponseDtoSerializer implements PrimitiveSerializer<ProductRespo
       yield serializers.serialize(
         object.offers,
         specifiedType: const FullType(BuiltList, [FullType(Offer)]),
+      );
+    }
+    if (object.branchAvailability != null) {
+      yield r'branchAvailability';
+      yield serializers.serialize(
+        object.branchAvailability,
+        specifiedType: const FullType(BuiltList, [FullType(ProductBranchAvailability)]),
       );
     }
     if (object.category != null) {
@@ -521,6 +544,13 @@ class _$ProductResponseDtoSerializer implements PrimitiveSerializer<ProductRespo
           ) as bool;
           result.isFeatured = valueDes;
           break;
+        case r'branchAvailabilityMode':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(ProductResponseDtoBranchAvailabilityModeEnum),
+          ) as ProductResponseDtoBranchAvailabilityModeEnum;
+          result.branchAvailabilityMode = valueDes;
+          break;
         case r'deletedAt':
           final valueDes = serializers.deserialize(
             value,
@@ -591,6 +621,13 @@ class _$ProductResponseDtoSerializer implements PrimitiveSerializer<ProductRespo
           ) as BuiltList<Offer>;
           result.offers.replace(valueDes);
           break;
+        case r'branchAvailability':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(ProductBranchAvailability)]),
+          ) as BuiltList<ProductBranchAvailability>;
+          result.branchAvailability.replace(valueDes);
+          break;
         case r'category':
           final valueDes = serializers.deserialize(
             value,
@@ -632,5 +669,20 @@ class _$ProductResponseDtoSerializer implements PrimitiveSerializer<ProductRespo
     );
     return result.build();
   }
+}
+
+class ProductResponseDtoBranchAvailabilityModeEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'ALL')
+  static const ProductResponseDtoBranchAvailabilityModeEnum ALL = _$productResponseDtoBranchAvailabilityModeEnum_ALL;
+  @BuiltValueEnumConst(wireName: r'SPECIFIC')
+  static const ProductResponseDtoBranchAvailabilityModeEnum SPECIFIC = _$productResponseDtoBranchAvailabilityModeEnum_SPECIFIC;
+
+  static Serializer<ProductResponseDtoBranchAvailabilityModeEnum> get serializer => _$productResponseDtoBranchAvailabilityModeEnumSerializer;
+
+  const ProductResponseDtoBranchAvailabilityModeEnum._(String name): super(name);
+
+  static BuiltSet<ProductResponseDtoBranchAvailabilityModeEnum> get values => _$productResponseDtoBranchAvailabilityModeEnumValues;
+  static ProductResponseDtoBranchAvailabilityModeEnum valueOf(String name) => _$productResponseDtoBranchAvailabilityModeEnumValueOf(name);
 }
 

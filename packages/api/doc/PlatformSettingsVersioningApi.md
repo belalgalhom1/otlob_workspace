@@ -17,6 +17,7 @@ Method | HTTP request | Description
 [**platformSettingsControllerUploadDeliveryBannerIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploaddeliverybannericon) | **POST** /platform-settings/delivery-banner-icon | Upload delivery banner icon
 [**platformSettingsControllerUploadHomeCover**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadhomecover) | **POST** /platform-settings/home-cover | Upload home cover image
 [**platformSettingsControllerUploadMotorcycleIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadmotorcycleicon) | **POST** /platform-settings/motorcycle-icon | Upload motorcycle icon
+[**platformSettingsControllerUploadVehicleIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadvehicleicon) | **POST** /platform-settings/vehicle-icon/{vehicleType} | Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)
 
 
 # **platformSettingsControllerCheckVersion**
@@ -322,6 +323,49 @@ try {
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
+ **file** | **MultipartFile**|  | [optional] 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **platformSettingsControllerUploadVehicleIcon**
+> ApiControllerRoot200Response platformSettingsControllerUploadVehicleIcon(vehicleType, file)
+
+Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getPlatformSettingsVersioningApi();
+final String vehicleType = vehicleType_example; // String | 
+final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
+
+try {
+    final response = api.platformSettingsControllerUploadVehicleIcon(vehicleType, file);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling PlatformSettingsVersioningApi->platformSettingsControllerUploadVehicleIcon: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **vehicleType** | **String**|  | 
  **file** | **MultipartFile**|  | [optional] 
 
 ### Return type

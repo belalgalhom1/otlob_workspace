@@ -23,6 +23,8 @@ Name | Type | Description | Notes
 **isFeatured** | **bool** |  | [optional] [default to false]
 **sellByStrip** | **bool** |  | [optional] [default to false]
 **stripsPerPackage** | **num** |  | [optional] 
+**branchAvailabilityMode** | **String** | ALL includes every current and future branch. SPECIFIC uses branchIds. | [optional] [default to 'ALL']
+**branchIds** | **BuiltList&lt;String&gt;** | Branch IDs when branchAvailabilityMode is SPECIFIC. One ID means one branch. | [optional] 
 **optionGroups** | [**BuiltList&lt;CreateOptionGroupDto&gt;**](CreateOptionGroupDto.md) |  | [optional] 
 **variants** | [**BuiltList&lt;CreateProductVariantDto&gt;**](CreateProductVariantDto.md) |  | [optional] 
 

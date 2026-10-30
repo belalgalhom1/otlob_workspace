@@ -18,6 +18,7 @@ part 'order.g.dart';
 /// Properties:
 /// * [id] 
 /// * [orderNumber] 
+/// * [clientOrderKey] 
 /// * [type] 
 /// * [customerId] 
 /// * [vendorId] 
@@ -52,6 +53,9 @@ part 'order.g.dart';
 /// * [preparedAt] 
 /// * [driverAssignedAt] 
 /// * [pickedUpAt] 
+/// * [pickupImageUrl] 
+/// * [deliveryImageUrl] 
+/// * [paymentReceiptUrl] 
 /// * [actualDeliveryTime] 
 @BuiltValue()
 abstract class Order implements Built<Order, OrderBuilder> {
@@ -60,6 +64,9 @@ abstract class Order implements Built<Order, OrderBuilder> {
 
   @BuiltValueField(wireName: r'orderNumber')
   String get orderNumber;
+
+  @BuiltValueField(wireName: r'clientOrderKey')
+  String? get clientOrderKey;
 
   @BuiltValueField(wireName: r'type')
   OrderType get type;
@@ -85,7 +92,7 @@ abstract class Order implements Built<Order, OrderBuilder> {
 
   @BuiltValueField(wireName: r'status')
   OrderStatus get status;
-  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
+  // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PARTIALLY_PICKED_UP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
 
   @BuiltValueField(wireName: r'paymentMethod')
   PaymentMethod get paymentMethod;
@@ -168,6 +175,15 @@ abstract class Order implements Built<Order, OrderBuilder> {
   @BuiltValueField(wireName: r'pickedUpAt')
   DateTime? get pickedUpAt;
 
+  @BuiltValueField(wireName: r'pickupImageUrl')
+  String? get pickupImageUrl;
+
+  @BuiltValueField(wireName: r'deliveryImageUrl')
+  String? get deliveryImageUrl;
+
+  @BuiltValueField(wireName: r'paymentReceiptUrl')
+  String? get paymentReceiptUrl;
+
   @BuiltValueField(wireName: r'actualDeliveryTime')
   DateTime? get actualDeliveryTime;
 
@@ -204,6 +220,13 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       object.orderNumber,
       specifiedType: const FullType(String),
     );
+    if (object.clientOrderKey != null) {
+      yield r'clientOrderKey';
+      yield serializers.serialize(
+        object.clientOrderKey,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'type';
     yield serializers.serialize(
       object.type,
@@ -406,6 +429,27 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
         specifiedType: const FullType(DateTime),
       );
     }
+    if (object.pickupImageUrl != null) {
+      yield r'pickupImageUrl';
+      yield serializers.serialize(
+        object.pickupImageUrl,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.deliveryImageUrl != null) {
+      yield r'deliveryImageUrl';
+      yield serializers.serialize(
+        object.deliveryImageUrl,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.paymentReceiptUrl != null) {
+      yield r'paymentReceiptUrl';
+      yield serializers.serialize(
+        object.paymentReceiptUrl,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.actualDeliveryTime != null) {
       yield r'actualDeliveryTime';
       yield serializers.serialize(
@@ -449,6 +493,13 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(String),
           ) as String;
           result.orderNumber = valueDes;
+          break;
+        case r'clientOrderKey':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.clientOrderKey = valueDes;
           break;
         case r'type':
           final valueDes = serializers.deserialize(
@@ -687,6 +738,27 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.pickedUpAt = valueDes;
+          break;
+        case r'pickupImageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.pickupImageUrl = valueDes;
+          break;
+        case r'deliveryImageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryImageUrl = valueDes;
+          break;
+        case r'paymentReceiptUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.paymentReceiptUrl = valueDes;
           break;
         case r'actualDeliveryTime':
           final valueDes = serializers.deserialize(

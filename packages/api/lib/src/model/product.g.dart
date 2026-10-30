@@ -6,6 +6,72 @@ part of 'product.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const ProductBranchAvailabilityModeEnum
+_$productBranchAvailabilityModeEnum_ALL =
+    const ProductBranchAvailabilityModeEnum._('ALL');
+const ProductBranchAvailabilityModeEnum
+_$productBranchAvailabilityModeEnum_SPECIFIC =
+    const ProductBranchAvailabilityModeEnum._('SPECIFIC');
+
+ProductBranchAvailabilityModeEnum _$productBranchAvailabilityModeEnumValueOf(
+  String name,
+) {
+  switch (name) {
+    case 'ALL':
+      return _$productBranchAvailabilityModeEnum_ALL;
+    case 'SPECIFIC':
+      return _$productBranchAvailabilityModeEnum_SPECIFIC;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<ProductBranchAvailabilityModeEnum>
+_$productBranchAvailabilityModeEnumValues =
+    BuiltSet<ProductBranchAvailabilityModeEnum>(
+      const <ProductBranchAvailabilityModeEnum>[
+        _$productBranchAvailabilityModeEnum_ALL,
+        _$productBranchAvailabilityModeEnum_SPECIFIC,
+      ],
+    );
+
+Serializer<ProductBranchAvailabilityModeEnum>
+_$productBranchAvailabilityModeEnumSerializer =
+    _$ProductBranchAvailabilityModeEnumSerializer();
+
+class _$ProductBranchAvailabilityModeEnumSerializer
+    implements PrimitiveSerializer<ProductBranchAvailabilityModeEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[ProductBranchAvailabilityModeEnum];
+  @override
+  final String wireName = 'ProductBranchAvailabilityModeEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    ProductBranchAvailabilityModeEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  ProductBranchAvailabilityModeEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => ProductBranchAvailabilityModeEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$Product extends Product {
   @override
   final String id;
@@ -46,6 +112,8 @@ class _$Product extends Product {
   @override
   final bool isFeatured;
   @override
+  final ProductBranchAvailabilityModeEnum branchAvailabilityMode;
+  @override
   final DateTime? deletedAt;
   @override
   final DateTime createdAt;
@@ -75,6 +143,7 @@ class _$Product extends Product {
     required this.tracksStock,
     required this.isActive,
     required this.isFeatured,
+    required this.branchAvailabilityMode,
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -109,6 +178,7 @@ class _$Product extends Product {
         tracksStock == other.tracksStock &&
         isActive == other.isActive &&
         isFeatured == other.isFeatured &&
+        branchAvailabilityMode == other.branchAvailabilityMode &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt;
@@ -136,6 +206,7 @@ class _$Product extends Product {
     _$hash = $jc(_$hash, tracksStock.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, isFeatured.hashCode);
+    _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
@@ -165,6 +236,7 @@ class _$Product extends Product {
           ..add('tracksStock', tracksStock)
           ..add('isActive', isActive)
           ..add('isFeatured', isFeatured)
+          ..add('branchAvailabilityMode', branchAvailabilityMode)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt))
@@ -253,6 +325,13 @@ class ProductBuilder implements Builder<Product, ProductBuilder> {
   bool? get isFeatured => _$this._isFeatured;
   set isFeatured(bool? isFeatured) => _$this._isFeatured = isFeatured;
 
+  ProductBranchAvailabilityModeEnum? _branchAvailabilityMode;
+  ProductBranchAvailabilityModeEnum? get branchAvailabilityMode =>
+      _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(
+    ProductBranchAvailabilityModeEnum? branchAvailabilityMode,
+  ) => _$this._branchAvailabilityMode = branchAvailabilityMode;
+
   DateTime? _deletedAt;
   DateTime? get deletedAt => _$this._deletedAt;
   set deletedAt(DateTime? deletedAt) => _$this._deletedAt = deletedAt;
@@ -291,6 +370,7 @@ class ProductBuilder implements Builder<Product, ProductBuilder> {
       _tracksStock = $v.tracksStock;
       _isActive = $v.isActive;
       _isFeatured = $v.isFeatured;
+      _branchAvailabilityMode = $v.branchAvailabilityMode;
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
@@ -362,6 +442,11 @@ class ProductBuilder implements Builder<Product, ProductBuilder> {
             isFeatured,
             r'Product',
             'isFeatured',
+          ),
+          branchAvailabilityMode: BuiltValueNullFieldError.checkNotNull(
+            branchAvailabilityMode,
+            r'Product',
+            'branchAvailabilityMode',
           ),
           deletedAt: deletedAt,
           createdAt: BuiltValueNullFieldError.checkNotNull(

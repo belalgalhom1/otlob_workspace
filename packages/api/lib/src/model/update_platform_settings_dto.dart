@@ -66,6 +66,9 @@ part 'update_platform_settings_dto.g.dart';
 /// * [maxNegativeDriverBalance] 
 /// * [maxDispatchBatchSize] 
 /// * [maxActiveOrdersPerDriver] - Maximum active orders a driver can carry at the same time (1-10). Default 1.
+/// * [stackedOrderDriverPercentage] - Percentage of the delivery fee given to the driver for stacked orders beyond order 1 (0-100). Remainder goes to platform.
+/// * [batchMaxVendorDistanceKm] - Maximum straight-line distance (km) between vendor branches eligible for batch order assignment.
+/// * [batchMaxCustomerDistanceKm] - Maximum straight-line distance (km) between customer drop-off points eligible for batch order assignment.
 /// * [isMaintenanceMode] 
 /// * [androidMinVersion] 
 /// * [androidLatestVersion] 
@@ -294,6 +297,18 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Maximum active orders a driver can carry at the same time (1-10). Default 1.
   @BuiltValueField(wireName: r'maxActiveOrdersPerDriver')
   num? get maxActiveOrdersPerDriver;
+
+  /// Percentage of the delivery fee given to the driver for stacked orders beyond order 1 (0-100). Remainder goes to platform.
+  @BuiltValueField(wireName: r'stackedOrderDriverPercentage')
+  num? get stackedOrderDriverPercentage;
+
+  /// Maximum straight-line distance (km) between vendor branches eligible for batch order assignment.
+  @BuiltValueField(wireName: r'batchMaxVendorDistanceKm')
+  num? get batchMaxVendorDistanceKm;
+
+  /// Maximum straight-line distance (km) between customer drop-off points eligible for batch order assignment.
+  @BuiltValueField(wireName: r'batchMaxCustomerDistanceKm')
+  num? get batchMaxCustomerDistanceKm;
 
   @BuiltValueField(wireName: r'isMaintenanceMode')
   bool? get isMaintenanceMode;
@@ -890,6 +905,27 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'maxActiveOrdersPerDriver';
       yield serializers.serialize(
         object.maxActiveOrdersPerDriver,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.stackedOrderDriverPercentage != null) {
+      yield r'stackedOrderDriverPercentage';
+      yield serializers.serialize(
+        object.stackedOrderDriverPercentage,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.batchMaxVendorDistanceKm != null) {
+      yield r'batchMaxVendorDistanceKm';
+      yield serializers.serialize(
+        object.batchMaxVendorDistanceKm,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.batchMaxCustomerDistanceKm != null) {
+      yield r'batchMaxCustomerDistanceKm';
+      yield serializers.serialize(
+        object.batchMaxCustomerDistanceKm,
         specifiedType: const FullType(num),
       );
     }
@@ -1657,6 +1693,27 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.maxActiveOrdersPerDriver = valueDes;
+          break;
+        case r'stackedOrderDriverPercentage':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.stackedOrderDriverPercentage = valueDes;
+          break;
+        case r'batchMaxVendorDistanceKm':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.batchMaxVendorDistanceKm = valueDes;
+          break;
+        case r'batchMaxCustomerDistanceKm':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.batchMaxCustomerDistanceKm = valueDes;
           break;
         case r'isMaintenanceMode':
           final valueDes = serializers.deserialize(

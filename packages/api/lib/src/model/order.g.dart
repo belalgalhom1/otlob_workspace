@@ -12,6 +12,8 @@ class _$Order extends Order {
   @override
   final String orderNumber;
   @override
+  final String? clientOrderKey;
+  @override
   final OrderType type;
   @override
   final String customerId;
@@ -80,6 +82,12 @@ class _$Order extends Order {
   @override
   final DateTime? pickedUpAt;
   @override
+  final String? pickupImageUrl;
+  @override
+  final String? deliveryImageUrl;
+  @override
+  final String? paymentReceiptUrl;
+  @override
   final DateTime? actualDeliveryTime;
 
   factory _$Order([void Function(OrderBuilder)? updates]) =>
@@ -88,6 +96,7 @@ class _$Order extends Order {
   _$Order._({
     required this.id,
     required this.orderNumber,
+    this.clientOrderKey,
     required this.type,
     required this.customerId,
     this.vendorId,
@@ -122,6 +131,9 @@ class _$Order extends Order {
     this.preparedAt,
     this.driverAssignedAt,
     this.pickedUpAt,
+    this.pickupImageUrl,
+    this.deliveryImageUrl,
+    this.paymentReceiptUrl,
     this.actualDeliveryTime,
   }) : super._();
   @override
@@ -137,6 +149,7 @@ class _$Order extends Order {
     return other is Order &&
         id == other.id &&
         orderNumber == other.orderNumber &&
+        clientOrderKey == other.clientOrderKey &&
         type == other.type &&
         customerId == other.customerId &&
         vendorId == other.vendorId &&
@@ -171,6 +184,9 @@ class _$Order extends Order {
         preparedAt == other.preparedAt &&
         driverAssignedAt == other.driverAssignedAt &&
         pickedUpAt == other.pickedUpAt &&
+        pickupImageUrl == other.pickupImageUrl &&
+        deliveryImageUrl == other.deliveryImageUrl &&
+        paymentReceiptUrl == other.paymentReceiptUrl &&
         actualDeliveryTime == other.actualDeliveryTime;
   }
 
@@ -179,6 +195,7 @@ class _$Order extends Order {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, orderNumber.hashCode);
+    _$hash = $jc(_$hash, clientOrderKey.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, customerId.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
@@ -213,6 +230,9 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, preparedAt.hashCode);
     _$hash = $jc(_$hash, driverAssignedAt.hashCode);
     _$hash = $jc(_$hash, pickedUpAt.hashCode);
+    _$hash = $jc(_$hash, pickupImageUrl.hashCode);
+    _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
+    _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -223,6 +243,7 @@ class _$Order extends Order {
     return (newBuiltValueToStringHelper(r'Order')
           ..add('id', id)
           ..add('orderNumber', orderNumber)
+          ..add('clientOrderKey', clientOrderKey)
           ..add('type', type)
           ..add('customerId', customerId)
           ..add('vendorId', vendorId)
@@ -257,6 +278,9 @@ class _$Order extends Order {
           ..add('preparedAt', preparedAt)
           ..add('driverAssignedAt', driverAssignedAt)
           ..add('pickedUpAt', pickedUpAt)
+          ..add('pickupImageUrl', pickupImageUrl)
+          ..add('deliveryImageUrl', deliveryImageUrl)
+          ..add('paymentReceiptUrl', paymentReceiptUrl)
           ..add('actualDeliveryTime', actualDeliveryTime))
         .toString();
   }
@@ -272,6 +296,11 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   String? _orderNumber;
   String? get orderNumber => _$this._orderNumber;
   set orderNumber(String? orderNumber) => _$this._orderNumber = orderNumber;
+
+  String? _clientOrderKey;
+  String? get clientOrderKey => _$this._clientOrderKey;
+  set clientOrderKey(String? clientOrderKey) =>
+      _$this._clientOrderKey = clientOrderKey;
 
   OrderType? _type;
   OrderType? get type => _$this._type;
@@ -421,6 +450,21 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   DateTime? get pickedUpAt => _$this._pickedUpAt;
   set pickedUpAt(DateTime? pickedUpAt) => _$this._pickedUpAt = pickedUpAt;
 
+  String? _pickupImageUrl;
+  String? get pickupImageUrl => _$this._pickupImageUrl;
+  set pickupImageUrl(String? pickupImageUrl) =>
+      _$this._pickupImageUrl = pickupImageUrl;
+
+  String? _deliveryImageUrl;
+  String? get deliveryImageUrl => _$this._deliveryImageUrl;
+  set deliveryImageUrl(String? deliveryImageUrl) =>
+      _$this._deliveryImageUrl = deliveryImageUrl;
+
+  String? _paymentReceiptUrl;
+  String? get paymentReceiptUrl => _$this._paymentReceiptUrl;
+  set paymentReceiptUrl(String? paymentReceiptUrl) =>
+      _$this._paymentReceiptUrl = paymentReceiptUrl;
+
   DateTime? _actualDeliveryTime;
   DateTime? get actualDeliveryTime => _$this._actualDeliveryTime;
   set actualDeliveryTime(DateTime? actualDeliveryTime) =>
@@ -435,6 +479,7 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
     if ($v != null) {
       _id = $v.id;
       _orderNumber = $v.orderNumber;
+      _clientOrderKey = $v.clientOrderKey;
       _type = $v.type;
       _customerId = $v.customerId;
       _vendorId = $v.vendorId;
@@ -469,6 +514,9 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _preparedAt = $v.preparedAt;
       _driverAssignedAt = $v.driverAssignedAt;
       _pickedUpAt = $v.pickedUpAt;
+      _pickupImageUrl = $v.pickupImageUrl;
+      _deliveryImageUrl = $v.deliveryImageUrl;
+      _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
       _$v = null;
     }
@@ -498,6 +546,7 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
             r'Order',
             'orderNumber',
           ),
+          clientOrderKey: clientOrderKey,
           type: BuiltValueNullFieldError.checkNotNull(type, r'Order', 'type'),
           customerId: BuiltValueNullFieldError.checkNotNull(
             customerId,
@@ -596,6 +645,9 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
           preparedAt: preparedAt,
           driverAssignedAt: driverAssignedAt,
           pickedUpAt: pickedUpAt,
+          pickupImageUrl: pickupImageUrl,
+          deliveryImageUrl: deliveryImageUrl,
+          paymentReceiptUrl: paymentReceiptUrl,
           actualDeliveryTime: actualDeliveryTime,
         );
     replace(_$result);

@@ -6,6 +6,73 @@ part of 'update_product_dto.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
+const UpdateProductDtoBranchAvailabilityModeEnum
+_$updateProductDtoBranchAvailabilityModeEnum_ALL =
+    const UpdateProductDtoBranchAvailabilityModeEnum._('ALL');
+const UpdateProductDtoBranchAvailabilityModeEnum
+_$updateProductDtoBranchAvailabilityModeEnum_SPECIFIC =
+    const UpdateProductDtoBranchAvailabilityModeEnum._('SPECIFIC');
+
+UpdateProductDtoBranchAvailabilityModeEnum
+_$updateProductDtoBranchAvailabilityModeEnumValueOf(String name) {
+  switch (name) {
+    case 'ALL':
+      return _$updateProductDtoBranchAvailabilityModeEnum_ALL;
+    case 'SPECIFIC':
+      return _$updateProductDtoBranchAvailabilityModeEnum_SPECIFIC;
+    default:
+      throw ArgumentError(name);
+  }
+}
+
+final BuiltSet<UpdateProductDtoBranchAvailabilityModeEnum>
+_$updateProductDtoBranchAvailabilityModeEnumValues =
+    BuiltSet<UpdateProductDtoBranchAvailabilityModeEnum>(
+      const <UpdateProductDtoBranchAvailabilityModeEnum>[
+        _$updateProductDtoBranchAvailabilityModeEnum_ALL,
+        _$updateProductDtoBranchAvailabilityModeEnum_SPECIFIC,
+      ],
+    );
+
+Serializer<UpdateProductDtoBranchAvailabilityModeEnum>
+_$updateProductDtoBranchAvailabilityModeEnumSerializer =
+    _$UpdateProductDtoBranchAvailabilityModeEnumSerializer();
+
+class _$UpdateProductDtoBranchAvailabilityModeEnumSerializer
+    implements PrimitiveSerializer<UpdateProductDtoBranchAvailabilityModeEnum> {
+  static const Map<String, Object> _toWire = const <String, Object>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+  static const Map<Object, String> _fromWire = const <Object, String>{
+    'ALL': 'ALL',
+    'SPECIFIC': 'SPECIFIC',
+  };
+
+  @override
+  final Iterable<Type> types = const <Type>[
+    UpdateProductDtoBranchAvailabilityModeEnum,
+  ];
+  @override
+  final String wireName = 'UpdateProductDtoBranchAvailabilityModeEnum';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    UpdateProductDtoBranchAvailabilityModeEnum object, {
+    FullType specifiedType = FullType.unspecified,
+  }) => _toWire[object.name] ?? object.name;
+
+  @override
+  UpdateProductDtoBranchAvailabilityModeEnum deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) => UpdateProductDtoBranchAvailabilityModeEnum.valueOf(
+    _fromWire[serialized] ?? (serialized is String ? serialized : ''),
+  );
+}
+
 class _$UpdateProductDto extends UpdateProductDto {
   @override
   final JsonObject? categoryId;
@@ -36,11 +103,11 @@ class _$UpdateProductDto extends UpdateProductDto {
   @override
   final num? stripsPerPackage;
   @override
-  final num? version;
-  @override
-  final String? branchAvailabilityMode;
+  final UpdateProductDtoBranchAvailabilityModeEnum? branchAvailabilityMode;
   @override
   final BuiltList<String>? branchIds;
+  @override
+  final num? version;
 
   factory _$UpdateProductDto([
     void Function(UpdateProductDtoBuilder)? updates,
@@ -61,9 +128,9 @@ class _$UpdateProductDto extends UpdateProductDto {
     this.isFeatured,
     this.sellByStrip,
     this.stripsPerPackage,
-    this.version,
     this.branchAvailabilityMode,
     this.branchIds,
+    this.version,
   }) : super._();
   @override
   UpdateProductDto rebuild(void Function(UpdateProductDtoBuilder) updates) =>
@@ -91,9 +158,9 @@ class _$UpdateProductDto extends UpdateProductDto {
         isFeatured == other.isFeatured &&
         sellByStrip == other.sellByStrip &&
         stripsPerPackage == other.stripsPerPackage &&
-        version == other.version &&
         branchAvailabilityMode == other.branchAvailabilityMode &&
-        branchIds == other.branchIds;
+        branchIds == other.branchIds &&
+        version == other.version;
   }
 
   @override
@@ -113,9 +180,9 @@ class _$UpdateProductDto extends UpdateProductDto {
     _$hash = $jc(_$hash, isFeatured.hashCode);
     _$hash = $jc(_$hash, sellByStrip.hashCode);
     _$hash = $jc(_$hash, stripsPerPackage.hashCode);
-    _$hash = $jc(_$hash, version.hashCode);
     _$hash = $jc(_$hash, branchAvailabilityMode.hashCode);
     _$hash = $jc(_$hash, branchIds.hashCode);
+    _$hash = $jc(_$hash, version.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -137,9 +204,9 @@ class _$UpdateProductDto extends UpdateProductDto {
           ..add('isFeatured', isFeatured)
           ..add('sellByStrip', sellByStrip)
           ..add('stripsPerPackage', stripsPerPackage)
-          ..add('version', version)
           ..add('branchAvailabilityMode', branchAvailabilityMode)
-          ..add('branchIds', branchIds))
+          ..add('branchIds', branchIds)
+          ..add('version', version))
         .toString();
   }
 }
@@ -206,20 +273,22 @@ class UpdateProductDtoBuilder
   set stripsPerPackage(num? stripsPerPackage) =>
       _$this._stripsPerPackage = stripsPerPackage;
 
-  num? _version;
-  num? get version => _$this._version;
-  set version(num? version) => _$this._version = version;
-
-  String? _branchAvailabilityMode;
-  String? get branchAvailabilityMode => _$this._branchAvailabilityMode;
-  set branchAvailabilityMode(String? branchAvailabilityMode) =>
-      _$this._branchAvailabilityMode = branchAvailabilityMode;
+  UpdateProductDtoBranchAvailabilityModeEnum? _branchAvailabilityMode;
+  UpdateProductDtoBranchAvailabilityModeEnum? get branchAvailabilityMode =>
+      _$this._branchAvailabilityMode;
+  set branchAvailabilityMode(
+    UpdateProductDtoBranchAvailabilityModeEnum? branchAvailabilityMode,
+  ) => _$this._branchAvailabilityMode = branchAvailabilityMode;
 
   ListBuilder<String>? _branchIds;
   ListBuilder<String> get branchIds =>
       _$this._branchIds ??= ListBuilder<String>();
   set branchIds(ListBuilder<String>? branchIds) =>
       _$this._branchIds = branchIds;
+
+  num? _version;
+  num? get version => _$this._version;
+  set version(num? version) => _$this._version = version;
 
   UpdateProductDtoBuilder() {
     UpdateProductDto._defaults(this);
@@ -242,9 +311,9 @@ class UpdateProductDtoBuilder
       _isFeatured = $v.isFeatured;
       _sellByStrip = $v.sellByStrip;
       _stripsPerPackage = $v.stripsPerPackage;
-      _version = $v.version;
       _branchAvailabilityMode = $v.branchAvailabilityMode;
       _branchIds = $v.branchIds?.toBuilder();
+      _version = $v.version;
       _$v = null;
     }
     return this;
@@ -283,9 +352,9 @@ class UpdateProductDtoBuilder
             isFeatured: isFeatured,
             sellByStrip: sellByStrip,
             stripsPerPackage: stripsPerPackage,
-            version: version,
             branchAvailabilityMode: branchAvailabilityMode,
             branchIds: _branchIds?.build(),
+            version: version,
           );
     } catch (_) {
       late String _$failedField;

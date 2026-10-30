@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
 **orderNumber** | **String** |  | 
+**clientOrderKey** | **String** |  | [optional] 
 **type** | [**OrderType**](OrderType.md) |  | 
 **customerId** | **String** |  | 
 **vendorId** | **String** |  | [optional] 
@@ -44,6 +45,9 @@ Name | Type | Description | Notes
 **preparedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **driverAssignedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **pickedUpAt** | [**DateTime**](DateTime.md) |  | [optional] 
+**pickupImageUrl** | **String** |  | [optional] 
+**deliveryImageUrl** | **String** |  | [optional] 
+**paymentReceiptUrl** | **String** |  | [optional] 
 **actualDeliveryTime** | [**DateTime**](DateTime.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

@@ -21,6 +21,8 @@ part 'order_item.g.dart';
 /// * [quantity] 
 /// * [totalPrice] 
 /// * [specialRequest] 
+/// * [selectedUnit] 
+/// * [baseUnitPrice] 
 @BuiltValue()
 abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -52,6 +54,12 @@ abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
 
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
+
+  @BuiltValueField(wireName: r'selectedUnit')
+  String? get selectedUnit;
+
+  @BuiltValueField(wireName: r'baseUnitPrice')
+  num? get baseUnitPrice;
 
   OrderItem._();
 
@@ -132,6 +140,20 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
       yield serializers.serialize(
         object.specialRequest,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.selectedUnit != null) {
+      yield r'selectedUnit';
+      yield serializers.serialize(
+        object.selectedUnit,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.baseUnitPrice != null) {
+      yield r'baseUnitPrice';
+      yield serializers.serialize(
+        object.baseUnitPrice,
+        specifiedType: const FullType(num),
       );
     }
   }
@@ -226,6 +248,20 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
             specifiedType: const FullType(String),
           ) as String;
           result.specialRequest = valueDes;
+          break;
+        case r'selectedUnit':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.selectedUnit = valueDes;
+          break;
+        case r'baseUnitPrice':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.baseUnitPrice = valueDes;
           break;
         default:
           unhandled.add(key);

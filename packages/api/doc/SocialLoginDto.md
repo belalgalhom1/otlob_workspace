@@ -13,7 +13,7 @@ Name | Type | Description | Notes
 **idToken** | **String** |  | 
 **email** | **String** |  | [optional] 
 **name** | **String** |  | [optional] 
-**app** | **String** |  | [optional] 
+**app** | **String** |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

@@ -19,6 +19,7 @@ part 'cart_item.g.dart';
 /// * [customPrice] 
 /// * [customImageUrl] 
 /// * [quantity] 
+/// * [selectedUnit] 
 /// * [specialRequest] 
 /// * [optionHash] 
 /// * [createdAt] 
@@ -48,6 +49,9 @@ abstract class CartItem implements Built<CartItem, CartItemBuilder> {
 
   @BuiltValueField(wireName: r'quantity')
   num get quantity;
+
+  @BuiltValueField(wireName: r'selectedUnit')
+  String get selectedUnit;
 
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
@@ -133,6 +137,11 @@ class _$CartItemSerializer implements PrimitiveSerializer<CartItem> {
     yield serializers.serialize(
       object.quantity,
       specifiedType: const FullType(num),
+    );
+    yield r'selectedUnit';
+    yield serializers.serialize(
+      object.selectedUnit,
+      specifiedType: const FullType(String),
     );
     if (object.specialRequest != null) {
       yield r'specialRequest';
@@ -236,6 +245,13 @@ class _$CartItemSerializer implements PrimitiveSerializer<CartItem> {
             specifiedType: const FullType(num),
           ) as num;
           result.quantity = valueDes;
+          break;
+        case r'selectedUnit':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.selectedUnit = valueDes;
           break;
         case r'specialRequest':
           final valueDes = serializers.deserialize(

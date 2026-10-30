@@ -11,6 +11,7 @@ Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**authControllerConfirmVerification**](AuthenticationApi.md#authcontrollerconfirmverification) | **POST** /auth/verify/confirm | Confirm verification code (OTP)
 [**authControllerForgotPassword**](AuthenticationApi.md#authcontrollerforgotpassword) | **POST** /auth/password/forgot | Request password reset
+[**authControllerLinkSocialAccount**](AuthenticationApi.md#authcontrollerlinksocialaccount) | **POST** /auth/social/link | Link a Google/Apple account to the current user
 [**authControllerLogin**](AuthenticationApi.md#authcontrollerlogin) | **POST** /auth/login | Login with email and password
 [**authControllerLogout**](AuthenticationApi.md#authcontrollerlogout) | **POST** /auth/logout | Logout from current session
 [**authControllerLogoutAll**](AuthenticationApi.md#authcontrollerlogoutall) | **POST** /auth/logout-all | Logout from all sessions
@@ -19,6 +20,7 @@ Method | HTTP request | Description
 [**authControllerResetPassword**](AuthenticationApi.md#authcontrollerresetpassword) | **POST** /auth/password/reset | Reset password using code
 [**authControllerSendVerification**](AuthenticationApi.md#authcontrollersendverification) | **POST** /auth/verify/request | Request a verification code (OTP)
 [**authControllerSocialLogin**](AuthenticationApi.md#authcontrollersociallogin) | **POST** /auth/social | Login with OAuth provider (Google/Apple)
+[**authControllerUnlinkSocialAccount**](AuthenticationApi.md#authcontrollerunlinksocialaccount) | **DELETE** /auth/social/unlink/{provider} | Unlink a Google/Apple account from the current user
 
 
 # **authControllerConfirmVerification**
@@ -95,6 +97,47 @@ Name | Type | Description  | Notes
 ### Authorization
 
 No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **authControllerLinkSocialAccount**
+> ApiControllerRoot200Response authControllerLinkSocialAccount(socialLoginDto)
+
+Link a Google/Apple account to the current user
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getAuthenticationApi();
+final SocialLoginDto socialLoginDto = ; // SocialLoginDto | 
+
+try {
+    final response = api.authControllerLinkSocialAccount(socialLoginDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling AuthenticationApi->authControllerLinkSocialAccount: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **socialLoginDto** | [**SocialLoginDto**](SocialLoginDto.md)|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
 
 ### HTTP request headers
 
@@ -419,6 +462,47 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **authControllerUnlinkSocialAccount**
+> ApiControllerRoot200Response authControllerUnlinkSocialAccount(provider)
+
+Unlink a Google/Apple account from the current user
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getAuthenticationApi();
+final String provider = provider_example; // String | 
+
+try {
+    final response = api.authControllerUnlinkSocialAccount(provider);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling AuthenticationApi->authControllerUnlinkSocialAccount: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **provider** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
