@@ -30,6 +30,13 @@ class AppMapTileLayer extends StatelessWidget {
   final double maxZoom;
   final double minZoom;
 
+  /// Optional CARTO API key. When omitted or empty, clean OpenStreetMap tiles
+  /// are served to avoid the "API KEY REQUIRED" watermark.
+  final String? apiKey;
+
+  /// Global default CARTO API key configured across all applications.
+  static String? defaultCartoApiKey = 'cb1_4ypn_1_415291f018422807fa2ba7a8';
+
   const AppMapTileLayer({
     super.key,
     this.style = AppMapStyle.auto,
@@ -37,6 +44,7 @@ class AppMapTileLayer extends StatelessWidget {
     this.tileProvider,
     this.maxZoom = 20.0,
     this.minZoom = 2.0,
+    this.apiKey,
   });
 
   @override
@@ -46,22 +54,36 @@ class AppMapTileLayer extends StatelessWidget {
         ? (isDark ? AppMapStyle.navigationDark : AppMapStyle.navigationLight)
         : style;
 
+    final resolvedKey = apiKey ?? defaultCartoApiKey;
+    final hasKey = resolvedKey != null && resolvedKey.trim().isNotEmpty;
+    final keyQuery = hasKey ? '?key=${resolvedKey.trim()}' : '';
+
     final String urlTemplate;
     final List<String> subdomains;
 
     switch (effectiveStyle) {
       case AppMapStyle.navigationDark:
-        // CartoDB Dark Matter Navigation (Premium Dark Vector-Raster Style)
-        urlTemplate =
-            'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png';
-        subdomains = const ['a', 'b', 'c', 'd'];
+        // Use CartoDB Dark Matter only if an API key is present; otherwise
+        // fallback to standard OpenStreetMap to prevent the watermark.
+        if (hasKey) {
+          urlTemplate =
+              'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png$keyQuery';
+          subdomains = const ['a', 'b', 'c', 'd'];
+        } else {
+          urlTemplate = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+          subdomains = const [];
+        }
         break;
 
       case AppMapStyle.navigationLight:
-        // CartoDB Voyager Navigation (Modern Vector-Raster Navigation Style)
-        urlTemplate =
-            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-        subdomains = const ['a', 'b', 'c', 'd'];
+        if (hasKey) {
+          urlTemplate =
+              'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png$keyQuery';
+          subdomains = const ['a', 'b', 'c', 'd'];
+        } else {
+          urlTemplate = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+          subdomains = const [];
+        }
         break;
 
       case AppMapStyle.standard:

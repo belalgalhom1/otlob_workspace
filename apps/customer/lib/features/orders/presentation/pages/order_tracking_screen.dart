@@ -444,10 +444,104 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return '${(meters / 1000).toStringAsFixed(1)} ${s.isArabic ? 'كم' : 'km'}';
   }
 
+  List<Map<String, dynamic>> _extractStoreStops() {
+    final List<Map<String, dynamic>> stops = [];
+    if (_orderDetails == null) return stops;
+
+    final fulfillments = _orderDetails!['vendorFulfillments'];
+    if (fulfillments is List && fulfillments.isNotEmpty) {
+      for (int i = 0; i < fulfillments.length; i++) {
+        final f = fulfillments[i];
+        if (f is! Map) continue;
+        final v = f['vendor'] is Map ? f['vendor'] as Map : {};
+        final b = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
+
+        double sLat = 0.0;
+        double sLng = 0.0;
+        if (b['location'] is List && (b['location'] as List).length > 1) {
+          sLng = double.tryParse(b['location'][0].toString()) ?? 0.0;
+          sLat = double.tryParse(b['location'][1].toString()) ?? 0.0;
+        } else if (b['lat'] != null && b['lng'] != null) {
+          sLat = double.tryParse(b['lat'].toString()) ?? 0.0;
+          sLng = double.tryParse(b['lng'].toString()) ?? 0.0;
+        } else if (v['latitude'] != null && v['longitude'] != null) {
+          sLat = double.tryParse(v['latitude'].toString()) ?? 0.0;
+          sLng = double.tryParse(v['longitude'].toString()) ?? 0.0;
+        }
+
+        if (sLat == 0.0 || sLng == 0.0) continue;
+
+        final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
+        final branchName = (b['nameAr'] ?? b['name'] ?? '').toString();
+        final fStatus = f['status']?.toString() ?? 'PENDING';
+        final isPickedUp = fStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
+
+        stops.add({
+          'index': i + 1,
+          'name': branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
+          'storeName': storeName,
+          'lat': sLat,
+          'lng': sLng,
+          'status': fStatus,
+          'isPickedUp': isPickedUp,
+        });
+      }
+    } else {
+      final v = _orderDetails!['vendor'] is Map ? _orderDetails!['vendor'] as Map : {};
+      final b = _orderDetails!['vendorBranch'] is Map ? _orderDetails!['vendorBranch'] as Map : {};
+      final pickupLoc = _orderDetails!['pickupLocation'];
+
+      double sLat = 0.0;
+      double sLng = 0.0;
+      if (pickupLoc is List && pickupLoc.length > 1) {
+        sLng = double.tryParse(pickupLoc[0].toString()) ?? 0.0;
+        sLat = double.tryParse(pickupLoc[1].toString()) ?? 0.0;
+      } else if (b['lat'] != null && b['lng'] != null) {
+        sLat = double.tryParse(b['lat'].toString()) ?? 0.0;
+        sLng = double.tryParse(b['lng'].toString()) ?? 0.0;
+      } else if (v['latitude'] != null && v['longitude'] != null) {
+        sLat = double.tryParse(v['latitude'].toString()) ?? 0.0;
+        sLng = double.tryParse(v['longitude'].toString()) ?? 0.0;
+      }
+
+      if (sLat != 0.0 && sLng != 0.0) {
+        final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
+        final isPickedUp = _orderStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
+        stops.add({
+          'index': 1,
+          'name': storeName,
+          'storeName': storeName,
+          'lat': sLat,
+          'lng': sLng,
+          'status': _orderStatus,
+          'isPickedUp': isPickedUp,
+        });
+      }
+    }
+    return stops;
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final storeStops = _extractStoreStops();
+    final isMultipleStores = storeStops.length > 1;
+    final destPos = _deliveryLocation ?? _initialMapCenter;
+
+    // Build the dynamic sequential trip polyline
+    final List<LatLng> tripPath = [];
+    if (_driverLocation != null) {
+      tripPath.add(_driverLocation!);
+    }
+    for (final stop in storeStops) {
+      if (stop['isPickedUp'] != true) {
+        tripPath.add(LatLng(stop['lat'] as double, stop['lng'] as double));
+      }
+    }
+    if (destPos != null) {
+      tripPath.add(destPos);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -479,27 +573,170 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               ),
               children: [
                 const AppMapTileLayer(userAgentPackageName: 'com.otlob.customer'),
-                if (_driverLocation != null && _initialMapCenter != null)
+                if (tripPath.length >= 2)
                   PolylineLayer(
                     polylines: [
                       Polyline(
-                        points: [_driverLocation!, _initialMapCenter!],
+                        points: tripPath,
                         color: AppColors.primary,
                         strokeWidth: 4.0,
                       ),
                     ],
                   ),
-                if (_initialMapCenter != null)
+
+                // 1. Store Pickup Stops Markers
+                if (storeStops.isNotEmpty)
+                  MarkerLayer(
+                    markers: storeStops.map((stop) {
+                      final point = LatLng(stop['lat'] as double, stop['lng'] as double);
+                      final bool isPickedUp = stop['isPickedUp'] == true;
+                      final int stopIndex = stop['index'] as int;
+                      final String storeName = stop['name'] as String;
+
+                      return Marker(
+                        point: point,
+                        width: 96,
+                        height: 58,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: isPickedUp ? AppColors.success : const Color(0xFFF59E0B),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Text(
+                                isMultipleStores
+                                    ? '${s.isArabic ? "محطة" : "Stop"} $stopIndex: $storeName'
+                                    : storeName,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: isPickedUp ? AppColors.success : const Color(0xFFF59E0B),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    isPickedUp ? Icons.check_rounded : Icons.storefront_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                                if (isMultipleStores)
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: CircleAvatar(
+                                      radius: 7,
+                                      backgroundColor: isPickedUp ? Colors.green.shade900 : Colors.black87,
+                                      child: Text(
+                                        '$stopIndex',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                // 2. Customer Delivery Destination Marker
+                if (destPos != null)
                   MarkerLayer(
                     markers: [
                       Marker(
-                        point: _initialMapCenter!,
-                        width: 40,
-                        height: 40,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: 40,
+                        point: destPos,
+                        width: 84,
+                        height: 56,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                                border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+                              ),
+                              child: Text(
+                                s.isArabic ? 'موقع التوصيل' : 'Delivery Address',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.home_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
