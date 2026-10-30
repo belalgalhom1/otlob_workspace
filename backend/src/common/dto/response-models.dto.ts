@@ -166,6 +166,10 @@ export class OrderResponseDto extends IntersectionType(
   PartialType(PrismaModel.OrderRelations),
 ) {}
 
+export class OrderVendorFulfillmentResponseDto extends PrismaModel.OrderVendorFulfillment {}
+
+export class OrderDeliveryGroupResponseDto extends PrismaModel.OrderDeliveryGroup {}
+
 export class OrderStatusEventResponseDto extends IntersectionType(
   PrismaModel.OrderStatusEvent,
   PartialType(PrismaModel.OrderStatusEventRelations),

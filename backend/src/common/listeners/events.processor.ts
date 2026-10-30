@@ -170,7 +170,10 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
-    const idempotencyKey = `notify:order_status:${event.orderId}:${event.newStatus}`;
+    const isStopNote = event.note?.includes('fulfillment stop');
+    const idempotencyKey = isStopNote
+      ? `notify:order_status:${event.orderId}:${event.note}`
+      : `notify:order_status:${event.orderId}:${event.newStatus}`;
     const isNew = await this.redis
       .getClient()
       .set(idempotencyKey, '1', 'EX', 14400, 'NX');
@@ -729,6 +732,10 @@ export class EventsProcessor extends WorkerHost {
       [OrderStatus.DRIVER_ASSIGNED]: {
         en: 'A driver is on the way',
         ar: 'السائق في الطريق إليك',
+      },
+      [OrderStatus.PARTIALLY_PICKED_UP]: {
+        en: 'The driver is collecting your order from stores',
+        ar: 'الكابتن يجمع طلبك من المتاجر',
       },
       [OrderStatus.PICKED_UP]: {
         en: 'Your order has been picked up',

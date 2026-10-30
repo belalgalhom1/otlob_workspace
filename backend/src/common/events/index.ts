@@ -371,3 +371,26 @@ export class OrderVendorRejectedEvent {
     public readonly actorUserId: string,
   ) {}
 }
+
+export class OrderFulfillmentUpdatedEvent {
+  constructor(
+    public readonly orderId: string,
+    public readonly orderNumber: string,
+    public readonly fulfillmentId: string,
+    public readonly customerUserId: string,
+    public readonly vendorUserIds: string[],
+    public readonly driverUserIds: string[],
+    public readonly status: OrderVendorFulfillmentStatus,
+    public readonly pickedUpAt: Date | null,
+    public readonly pickupImageUrl: string | null,
+    public readonly parentStatus: OrderStatus,
+    public readonly fulfillmentSummary: {
+      totalStops: number;
+      completedStops: number;
+      currentStopSequence: number;
+      currentStopBranchName: string | null;
+      isFullyCollected: boolean;
+    },
+    public readonly actorUserId: string,
+  ) {}
+}

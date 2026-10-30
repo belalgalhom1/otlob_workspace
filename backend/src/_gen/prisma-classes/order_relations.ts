@@ -1,3 +1,5 @@
+import { OrderVendorFulfillment } from './order_vendor_fulfillment';
+import { OrderDeliveryGroup } from './order_delivery_group';
 import { DriverWalletTransaction } from './driver_wallet_transaction';
 import { OrderDispatch } from './order_dispatch';
 import { OrderItem } from './order_item';
@@ -48,4 +50,18 @@ export class OrderRelations {
 
   @ApiProperty({ isArray: true, type: () => VendorWalletTransaction })
   vendorTransactions: VendorWalletTransaction[];
-}
+  @ApiPropertyOptional({ isArray: true, type: () => OrderVendorFulfillment })
+  vendorFulfillments?: OrderVendorFulfillment[];
+
+  @ApiPropertyOptional({ isArray: true, type: () => OrderDeliveryGroup })
+  deliveryGroups?: OrderDeliveryGroup[];
+
+  @ApiPropertyOptional({ type: Object })
+  fulfillmentSummary?: {
+    totalStops: number;
+    completedStops: number;
+    currentStopSequence: number;
+    currentStopBranchName: string | null;
+    isFullyCollected: boolean;
+  };
+};

@@ -48,6 +48,7 @@ export const EVENTS = {
 
   // Multi-vendor orders
   ORDER_FULFILLMENT_DECIDED: 'order.fulfillment.decided',
+  ORDER_FULFILLMENT_UPDATED: 'order.fulfillment.updated',
   ORDER_VENDOR_REJECTED: 'order.vendor.rejected',
 
   // Platform settings

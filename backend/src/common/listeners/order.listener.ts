@@ -14,6 +14,7 @@ import {
   OrderDispatchCancelledEvent,
   OrderSettledEvent,
   OrderPaymentStatusChangedEvent,
+  OrderFulfillmentUpdatedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
 import {
@@ -208,4 +209,58 @@ export class OrderListener {
       );
     }
 }
+
+  // ─── Order fulfillment updated (Multi-Vendor Delta) ───────────────────────
+
+  @OnEvent(EVENTS.ORDER_FULFILLMENT_UPDATED)
+  async handleOrderFulfillmentUpdated(event: OrderFulfillmentUpdatedEvent) {
+    this.logger.log(
+      `Order ${event.orderNumber} fulfillment ${event.fulfillmentId}: ${event.status}`,
+    );
+
+    const deltaPayload = {
+      orderId: event.orderId,
+      orderNumber: event.orderNumber,
+      fulfillmentId: event.fulfillmentId,
+      status: event.status,
+      pickedUpAt: event.pickedUpAt,
+      pickupImageUrl: event.pickupImageUrl,
+      parentStatus: event.parentStatus,
+      fulfillmentSummary: event.fulfillmentSummary,
+    };
+
+    const notifyUserIds = new Set<string>([
+      event.customerUserId,
+      ...event.vendorUserIds,
+      ...event.driverUserIds,
+    ]);
+
+    notifyUserIds.forEach((uid) => {
+      // 1. Emit dedicated real-time delta event
+      this.socketService
+        .emitToUser(uid, 'order.fulfillment_updated', deltaPayload)
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to emit order.fulfillment_updated for user ${uid}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+
+      // 2. Also emit on order.status with enriched delta for backwards compatibility
+      this.socketService
+        .emitToUser(uid, WS.ORDER_STATUS, {
+          orderId: event.orderId,
+          orderNumber: event.orderNumber,
+          oldStatus: event.parentStatus,
+          newStatus: event.parentStatus,
+          fulfillmentId: event.fulfillmentId,
+          fulfillmentStatus: event.status,
+          pickedUpAt: event.pickedUpAt,
+          pickupImageUrl: event.pickupImageUrl,
+          fulfillmentSummary: event.fulfillmentSummary,
+          note: `Fulfillment stop ${event.fulfillmentId} ${event.status}`,
+        })
+        .catch(() => {});
+    });
+  }
+
 }

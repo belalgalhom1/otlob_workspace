@@ -16,6 +16,7 @@ import {
 } from './dto/order.dto';
 import {
   OrderStatusChangedEvent,
+  OrderFulfillmentUpdatedEvent,
   OrderCancelledEvent,
   OrderDispatchRespondedEvent,
 } from '../../common/events';
@@ -28,6 +29,7 @@ import {
   PaymentMethod,
   DispatchStatus,
   DeliveryGroupStatus,
+  OrderVendorFulfillmentStatus,
   Permission,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -58,6 +60,7 @@ const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.CHANGES_REQUESTED]: [],
+  [OrderStatus.PARTIALLY_PICKED_UP]: [],
 };
 
 const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -79,6 +82,7 @@ const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.LOOKING_FOR_DRIVER]: [],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
+  [OrderStatus.PARTIALLY_PICKED_UP]: [OrderStatus.PICKED_UP, OrderStatus.DELIVERED, OrderStatus.PENDING_PAYMENT],
 };
 
 const NON_CANCELLABLE: OrderStatus[] = [
@@ -758,6 +762,62 @@ export class OrdersStateService {
             },
           });
           await this.recomputeGroupedOrderStatus(actor, order);
+        } else {
+          const fresh = await this.ordersRepository.findById(orderId);
+          const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+            orderId,
+            fresh.vendorId,
+          );
+
+          const totalStops = remaining.filter((it) => it.fulfillment && it.fulfillment.status !== 'REJECTED' && it.fulfillment.status !== 'CANCELLED').length;
+          const completedStops = remaining.filter((it) => it.fulfillment && (it.fulfillmentId === fulfillmentId || Boolean(it.fulfillment.pickedUpAt))).length;
+          const nextItem = remaining.find((it) => it.fulfillment && it.fulfillmentId !== fulfillmentId && !it.fulfillment.pickedUpAt && it.fulfillment.status !== 'REJECTED' && it.fulfillment.status !== 'CANCELLED');
+
+          const fulfillmentSummary = {
+            totalStops,
+            completedStops,
+            currentStopSequence: nextItem?.sequence ?? totalStops,
+            currentStopBranchName: (nextItem?.fulfillment as any)?.vendorBranch?.nameAr ?? (nextItem?.fulfillment as any)?.vendorBranch?.name ?? null,
+            isFullyCollected: false,
+          };
+
+          const customerUid = (fresh as any).customer?.user?.id ?? (fresh as any).customer?.userId ?? fresh.customerId;
+
+          this.eventEmitter.emit(
+            EVENTS.ORDER_FULFILLMENT_UPDATED,
+            new OrderFulfillmentUpdatedEvent(
+              orderId,
+              fresh.orderNumber,
+              fulfillmentId,
+              customerUid,
+              vendorUserIds,
+              [actor.sub],
+              OrderVendorFulfillmentStatus.PICKED_UP,
+              now,
+              imageUrl,
+              fresh.status,
+              fulfillmentSummary,
+              actor.sub,
+            ),
+          );
+
+          this.eventEmitter.emit(
+            EVENTS.ORDER_STATUS_CHANGED,
+            new OrderStatusChangedEvent(
+              orderId,
+              fresh.orderNumber,
+              fresh.status,
+              fresh.status,
+              fresh.customerId,
+              customerUid,
+              fresh.vendorId,
+              vendorUserIds,
+              fresh.driverId,
+              null,
+              actor.sub,
+              `Driver picked up fulfillment stop ${fulfillmentId}`,
+            ),
+          );
         }
       } else {
         await this.driverUpdateStatus(actor, orderId, {

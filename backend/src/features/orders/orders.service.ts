@@ -595,11 +595,62 @@ export class OrdersService {
       const { commissionRate, ...safeBranch } = sanitized.vendorBranch;
       sanitized.vendorBranch = safeBranch;
     }
+    let fulfillmentSummary: any = null;
     if (sanitized.vendorFulfillments) {
+      const allGroupItems = (order.deliveryGroups ?? []).flatMap((g: any) =>
+        Array.isArray(g.items) ? g.items : [],
+      );
+
       sanitized.vendorFulfillments = sanitized.vendorFulfillments.map((f: any) => {
         const { commissionRate, ...safeF } = f;
-        return safeF;
+        const stage =
+          f.status === 'REJECTED' || f.status === 'CANCELLED'
+            ? f.status
+            : f.pickedUpAt || f.status === 'PICKED_UP'
+              ? 'PICKED_UP'
+              : f.readyAt || f.status === 'READY_FOR_PICKUP'
+                ? 'READY_FOR_PICKUP'
+                : f.preparingAt || f.status === 'PREPARING'
+                  ? 'PREPARING'
+                  : f.status;
+        return {
+          ...safeF,
+          stage,
+        };
       });
+
+      sanitized.vendorFulfillments.sort((a: any, b: any) => {
+        const seqA = allGroupItems.find((it: any) => it.fulfillmentId === a.id)?.sequence ?? 0;
+        const seqB = allGroupItems.find((it: any) => it.fulfillmentId === b.id)?.sequence ?? 0;
+        return seqA - seqB;
+      });
+
+      const liveFulfillments = sanitized.vendorFulfillments.filter(
+        (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+      );
+      const activeFulfillment = liveFulfillments.find(
+        (f: any) => !f.pickedUpAt && f.status !== 'PICKED_UP',
+      );
+      const totalStops = liveFulfillments.length;
+      const completedStops = liveFulfillments.filter(
+        (f: any) => Boolean(f.pickedUpAt) || f.status === 'PICKED_UP',
+      ).length;
+
+      fulfillmentSummary = {
+        totalStops,
+        completedStops,
+        currentStopSequence: activeFulfillment
+          ? allGroupItems.find((it: any) => it.fulfillmentId === activeFulfillment.id)?.sequence ?? 1
+          : totalStops,
+        currentStopBranchName:
+          activeFulfillment?.vendorBranch?.nameAr ??
+          activeFulfillment?.vendorBranch?.name ??
+          activeFulfillment?.vendor?.storeNameAr ??
+          activeFulfillment?.vendor?.storeName ??
+          null,
+        isFullyCollected: completedStops >= totalStops,
+      };
+
       if (!sanitized.vendor && sanitized.vendorFulfillments.length > 0) {
         sanitized.vendor = sanitized.vendorFulfillments[0].vendor;
         if (!sanitized.vendorBranch && sanitized.vendorFulfillments[0].vendorBranch) {
@@ -610,6 +661,7 @@ export class OrdersService {
 
     return {
       ...sanitized,
+      fulfillmentSummary,
       financials: {
         viewRole: 'CUSTOMER',
         cashToPayAtDoor,
