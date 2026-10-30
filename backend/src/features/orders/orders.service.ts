@@ -227,32 +227,55 @@ export class OrdersService {
         select: { id: true },
       });
       if (myDriver) {
-        const group = order.deliveryGroups.find(
+        // Collect all groups assigned to this driver (or if the driver is assigned at order level, all groups)
+        const myGroups = order.deliveryGroups.filter(
           (g: any) =>
             g.primaryDriverId === myDriver.id ||
-            g.assistDriverId === myDriver.id,
+            g.assistDriverId === myDriver.id ||
+            (order.driverId === myDriver.id && !g.primaryDriverId),
         );
-        if (group) {
-          if (group.status) {
-            projectedStatus = group.status;
+
+        if (myGroups.length > 0) {
+          const anyPendingPayment = myGroups.some((g: any) => g.status === 'PENDING_PAYMENT');
+          const allDelivered = myGroups.every((g: any) => g.status === 'DELIVERED');
+          const allPickedUp = myGroups.every((g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED');
+          const allReady = myGroups.every((g: any) => g.status === 'READY_FOR_PICKUP' || g.status === 'PICKED_UP' || g.status === 'DELIVERED');
+
+          if (anyPendingPayment) {
+            projectedStatus = 'PENDING_PAYMENT';
+          } else if (allDelivered) {
+            projectedStatus = 'DELIVERED';
+          } else if (allPickedUp) {
+            projectedStatus = 'PICKED_UP';
+          } else if (allReady) {
+            projectedStatus = 'READY_FOR_PICKUP';
+          } else if (myGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')) {
+            projectedStatus = 'DRIVER_ASSIGNED';
+          } else {
+            projectedStatus = myGroups[0].status ?? order.status;
           }
-          if (group.deliveryFee != null) {
-            deliveryFee = Number(group.deliveryFee);
-          }
-          if (group.items && Array.isArray(group.items) && order.vendorFulfillments) {
-            const fulfillmentIds = new Set(group.items.map((it: any) => it.fulfillmentId));
-            // This driver only carries this delivery: never expose another
-            // delivery's vendor portions or items on a multi-vendor order.
-            // Scope unconditionally — if every portion here was rejected the
-            // driver must see an empty delivery, not the whole order.
+
+          deliveryFee = myGroups.reduce(
+            (sum: number, g: any) => sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
+            0,
+          );
+
+          const allGroupItems = myGroups.flatMap((g: any) =>
+            Array.isArray(g.items) ? g.items : [],
+          );
+
+          if (order.vendorFulfillments) {
+            const fulfillmentIds = new Set(allGroupItems.map((it: any) => it.fulfillmentId));
             const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
-              fulfillmentIds.has(f.id),
+              fulfillmentIds.size === 0 ? true : fulfillmentIds.has(f.id),
             );
+
             myFulfillments.sort((a, b) => {
-              const seqA = group.items.find((it: any) => it.fulfillmentId === a.id)?.sequence ?? 0;
-              const seqB = group.items.find((it: any) => it.fulfillmentId === b.id)?.sequence ?? 0;
+              const seqA = allGroupItems.find((it: any) => it.fulfillmentId === a.id)?.sequence ?? 0;
+              const seqB = allGroupItems.find((it: any) => it.fulfillmentId === b.id)?.sequence ?? 0;
               return seqA - seqB;
             });
+
             for (const f of myFulfillments) {
               f.isContracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
               const commRate = Number(
@@ -268,12 +291,12 @@ export class OrdersService {
               f.cashToPay = f.isContracted ? Math.max(0, sub - comm) : sub;
             }
             scopedFulfillments = myFulfillments;
+
             if (Array.isArray(order.items)) {
               scopedItems = order.items.filter(
                 (i: any) =>
                   i.rejectedAt == null &&
-                  i.fulfillmentId &&
-                  fulfillmentIds.has(i.fulfillmentId),
+                  (!i.fulfillmentId || fulfillmentIds.size === 0 || fulfillmentIds.has(i.fulfillmentId)),
               );
             }
 
@@ -287,14 +310,11 @@ export class OrdersService {
             }
             isStorePrepaid = allContracted;
 
-            // The driver collects only what this delivery is worth: its own
-            // vendors' goods plus its own delivery fee. The order-level
-            // upfront deposit is taken off the first delivery so the sum of
-            // all deliveries still equals the customer's total.
+            // Total cash to collect at door: sum of all assigned stores' goods + total delivery fee - upfront
             const firstSequence = Math.min(
               ...order.deliveryGroups.map((g: any) => Number(g.sequence ?? 0)),
             );
-            const isFirstGroup = Number(group.sequence ?? 0) === firstSequence;
+            const isFirstGroup = myGroups.some((g: any) => Number(g.sequence ?? 0) === firstSequence);
             cashToCollect =
               isPrepaid || orderPaid
                 ? 0

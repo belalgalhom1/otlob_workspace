@@ -445,7 +445,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           final phone = (branch['phone'] ?? v['phone'] ?? v['user']?['phone'] ?? '').toString();
           final address = (branch['address'] ?? v['address'] ?? '').toString();
           final subtotal = double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
-          final isContracted = branch['isContracted'] == true || v['isContracted'] == true || f['isContracted'] == true;
+          final isContracted = (f['isContracted'] as bool?) ??
+              (branch['isContracted'] as bool?) ??
+              (v['isContracted'] as bool?) ??
+              false;
           final double cashToPay = f['cashToPay'] != null
               ? (double.tryParse(f['cashToPay'].toString()) ?? 0.0)
               : (isContracted

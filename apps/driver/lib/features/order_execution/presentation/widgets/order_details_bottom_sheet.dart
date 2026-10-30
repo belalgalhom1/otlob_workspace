@@ -211,9 +211,10 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               : (fBranch['name'] ?? fBranch['nameAr'] ?? '').toString();
                           final address = (fBranch['address'] ?? f['pickupAddress'] ?? '').toString();
                           final phone = (fBranch['phone'] ?? fVendor['phone'] ?? '').toString();
-                          final isContracted = f['isContracted'] == true ||
-                              fBranch['isContracted'] == true ||
-                              fVendor['isContracted'] == true;
+                          final isContracted = (f['isContracted'] as bool?) ??
+                              (fBranch['isContracted'] as bool?) ??
+                              (fVendor['isContracted'] as bool?) ??
+                              false;
                           final double cashToPay = double.tryParse(f['cashToPay']?.toString() ?? '0') ??
                               (isContracted ? 0.0 : (double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0));
                           final isPickedUp = f['status'] == 'PICKED_UP';

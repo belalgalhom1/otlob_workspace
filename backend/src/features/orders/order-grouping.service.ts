@@ -97,9 +97,9 @@ export class OrderGroupingService {
   async currentThresholds(): Promise<GroupingThresholds> {
     const s = await this.platformSettings.getSettings();
     return {
-      maxBranchDistanceKm: Number(s.groupingMaxBranchDistanceKm ?? 5),
+      maxBranchDistanceKm: Number(s.groupingMaxBranchDistanceKm ?? 15),
       maxVendorCustomerDistanceKm: Number(
-        s.groupingMaxVendorCustomerDistanceKm ?? 25,
+        s.groupingMaxVendorCustomerDistanceKm ?? 35,
       ),
     };
   }
@@ -202,6 +202,14 @@ export class OrderGroupingService {
     // Never let the same vendor occupy one group twice.
     if (group.some((s) => s.vendorId === stop.vendorId)) return false;
 
+    // Safeguard for uncalibrated / (0,0) coordinates:
+    const stopHasCoords = Boolean(stop.lat && stop.lng && (stop.lat !== 0 || stop.lng !== 0));
+    const anchor = group[0];
+    const anchorHasCoords = Boolean(anchor && anchor.lat && anchor.lng && (anchor.lat !== 0 || anchor.lng !== 0));
+    if (!stopHasCoords || !anchorHasCoords) {
+      return true;
+    }
+
     // Close to each other: within range of any existing member.
     if (group.some((m) => haversineKm(m, stop) <= maxBranchDistanceKm)) {
       return true;
@@ -213,8 +221,6 @@ export class OrderGroupingService {
     // the branch allowance. group[0] is the anchor because stops are processed
     // farthest-first.
     if (!near) return false;
-
-    const anchor = group[0];
     const anchorToCustomer = haversineKm(anchor, customer);
     const detourKm =
       haversineKm(stop, anchor) + stopToCustomer - anchorToCustomer;
