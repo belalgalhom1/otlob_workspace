@@ -653,11 +653,151 @@ export class OrdersStateService {
   // Driver-only pickup confirmation: the order photo is uploaded as part of the
   // action, then the standard PICKED_UP transition runs (which itself enforces
   // that a photo was provided). If the transition fails the upload is rolled back.
+  async driverConfirmFulfillmentPickup(
+    actor: JwtAccessPayload,
+    orderId: string,
+    fulfillmentId: string,
+    file: Express.Multer.File,
+  ) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId: actor.sub },
+      select: { id: true },
+    });
+    if (!driver) throw new ForbiddenException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const fulfillment = await this.prisma.orderVendorFulfillment.findFirst({
+      where: { id: fulfillmentId, orderId },
+      include: {
+        groups: {
+          include: {
+            deliveryGroup: true,
+          },
+        },
+      },
+    });
+    if (!fulfillment) throw new NotFoundException('Fulfillment stop not found');
+
+    const order = await this.ordersRepository.findById(orderId);
+    if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
+
+    const isAssigned =
+      order.driverId === driver.id ||
+      fulfillment.groups.some(
+        (g) =>
+          g.deliveryGroup.primaryDriverId === driver.id ||
+          g.deliveryGroup.assistDriverId === driver.id,
+      );
+    if (!isAssigned) {
+      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
+    }
+
+    // Enforce sequential pickup if multiple fulfillments belong to this delivery group
+    const groupItem = fulfillment.groups[0];
+    if (groupItem) {
+      const allGroupItems = await this.prisma.orderDeliveryGroupItem.findMany({
+        where: { deliveryGroupId: groupItem.deliveryGroupId },
+        include: { fulfillment: true },
+        orderBy: { sequence: 'asc' },
+      });
+      for (const item of allGroupItems) {
+        if (item.fulfillmentId === fulfillmentId) break;
+        if (
+          item.fulfillment &&
+          item.fulfillment.status !== 'REJECTED' &&
+          item.fulfillment.status !== 'CANCELLED' &&
+          !item.fulfillment.pickedUpAt
+        ) {
+          throw new BadRequestException(
+            'Earlier vendor pickup stop must be completed first',
+          );
+        }
+      }
+    }
+
+    const imageUrl = await this.storage.upload(file, 'pickups');
+    try {
+      const now = new Date();
+      await this.prisma.orderVendorFulfillment.update({
+        where: { id: fulfillmentId },
+        data: {
+          pickedUpAt: now,
+          pickupImageUrl: imageUrl,
+          pickedUpByDriverId: driver.id,
+        },
+      });
+
+      // Check if all active fulfillments in the group are now picked up
+      if (groupItem) {
+        const remaining = await this.prisma.orderDeliveryGroupItem.findMany({
+          where: { deliveryGroupId: groupItem.deliveryGroupId },
+          include: { fulfillment: true },
+        });
+        const allPickedUp = remaining.every(
+          (it) =>
+            !it.fulfillment ||
+            it.fulfillment.status === 'REJECTED' ||
+            it.fulfillment.status === 'CANCELLED' ||
+            Boolean(it.fulfillment.pickedUpAt),
+        );
+
+        if (allPickedUp) {
+          await this.prisma.orderDeliveryGroup.update({
+            where: { id: groupItem.deliveryGroupId },
+            data: {
+              status: DeliveryGroupStatus.PICKED_UP,
+              pickedUpAt: now,
+              pickupImageUrl: imageUrl,
+            },
+          });
+          await this.recomputeGroupedOrderStatus(actor, order);
+        }
+      } else {
+        await this.driverUpdateStatus(actor, orderId, {
+          status: OrderStatus.PICKED_UP,
+          pickupImageUrl: imageUrl,
+        });
+      }
+
+      await this.prisma.orderStatusEvent.create({
+        data: {
+          orderId,
+          status: order.status,
+          note: `Driver picked up fulfillment stop ${fulfillmentId}`,
+          createdBy: actor.sub,
+        },
+      });
+
+      return this.ordersRepository.findById(orderId);
+    } catch (error) {
+      await this.storage.delete(imageUrl);
+      throw error;
+    }
+  }
+
   async driverConfirmPickup(
     actor: JwtAccessPayload,
     orderId: string,
     file: Express.Multer.File,
+    fulfillmentId?: string,
   ) {
+    if (fulfillmentId) {
+      return this.driverConfirmFulfillmentPickup(actor, orderId, fulfillmentId, file);
+    }
+
+    // If order has fulfillments, find the next unpicked one
+    const order = await this.ordersRepository.findById(orderId);
+    if (order && order.vendorFulfillments && order.vendorFulfillments.length > 0) {
+      const nextUnpicked = order.vendorFulfillments.find(
+        (f: any) =>
+          f.status !== 'REJECTED' &&
+          f.status !== 'CANCELLED' &&
+          !f.pickedUpAt,
+      );
+      if (nextUnpicked) {
+        return this.driverConfirmFulfillmentPickup(actor, orderId, nextUnpicked.id, file);
+      }
+    }
+
     const imageUrl = await this.storage.upload(file, 'pickups');
     try {
       return await this.driverUpdateStatus(actor, orderId, {

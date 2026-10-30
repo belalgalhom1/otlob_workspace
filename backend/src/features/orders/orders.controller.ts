@@ -238,8 +238,26 @@ export class OrdersController {
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Query('fulfillmentId') fulfillmentId?: string,
   ) {
-    return this.stateService.driverConfirmPickup(actor, orderId, file);
+    return this.stateService.driverConfirmPickup(actor, orderId, file, fulfillmentId);
+  }
+
+  @ApiStandardResponse()
+  @Post('driver/:orderId/fulfillment/:fulfillmentId/pickup')
+  @Roles(Role.DRIVER)
+  @ApiFileUpload({ type: 'IMAGE' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Driver confirms pickup for a specific vendor fulfillment stop with photo',
+  })
+  driverConfirmFulfillmentPickup(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @Param('fulfillmentId') fulfillmentId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.stateService.driverConfirmFulfillmentPickup(actor, orderId, fulfillmentId, file);
   }
 
   @ApiStandardResponse()

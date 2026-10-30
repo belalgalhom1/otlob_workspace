@@ -23,7 +23,8 @@ class DriverStatisticsScreen extends ConsumerWidget {
     String driverName = '';
     if (profile != null) {
       if (profile is Map) {
-        driverName = (profile['user']?['name'] ?? profile['name'] ?? '').toString();
+        final d = profile['data'] is Map ? profile['data'] : profile;
+        driverName = (d['name'] ?? d['user']?['name'] ?? profile['name'] ?? '').toString();
       } else {
         try {
           driverName = (profile.user?.name ?? profile.name ?? '').toString();

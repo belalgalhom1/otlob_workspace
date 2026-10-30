@@ -408,7 +408,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           final address = (branch['address'] ?? v['address'] ?? '').toString();
           final subtotal = double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
           final isContracted = branch['isContracted'] == true || v['isContracted'] == true || f['isContracted'] == true;
-          final cashToPay = isContracted ? 0.0 : subtotal;
+          final double cashToPay = f['cashToPay'] != null
+              ? (double.tryParse(f['cashToPay'].toString()) ?? 0.0)
+              : (isContracted
+                  ? (subtotal * (1 - (double.tryParse(f['commissionRate']?.toString() ?? '10') ?? 10.0) / 100))
+                  : subtotal);
 
           final fId = f['id']?.toString() ?? '';
           final stopItems = allItems.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
@@ -445,7 +449,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       final address = (branch['address'] ?? order['pickupAddress'] ?? '').toString();
       final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
       final isContracted = (branch['isContracted'] ?? (vendorData is Map ? vendorData['isContracted'] : false)) ?? false;
-      final cashToPay = isContracted ? 0.0 : subtotal;
+      final double cashToPay = order['financials'] is Map && order['financials']['cashToPayStore'] != null
+          ? (double.tryParse(order['financials']['cashToPayStore'].toString()) ?? 0.0)
+          : (order['cashToPay'] != null
+              ? (double.tryParse(order['cashToPay'].toString()) ?? 0.0)
+              : (isContracted ? 0.0 : subtotal));
 
       pickupStops.add({
         'fulfillmentId': '',
@@ -1293,12 +1301,22 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       if (hasMultiple && !isLastStop) {
         return PrimaryButton(
           text: l10n.localeName == 'ar'
-              ? 'تم الاستلام من المحطة ${_currentStopIndex + 1} -> المحطة التالية'
-              : 'Collected Stop ${_currentStopIndex + 1} -> Next Stop',
-          onPressed: () {
+              ? 'تأكيد استلام المحطة ${_currentStopIndex + 1} مع الصورة'
+              : 'Confirm Stop ${_currentStopIndex + 1} Pickup (Photo)',
+          onPressed: () => handleAction(() async {
+            var photo = _pickupPhoto;
+            if (photo == null) {
+              photo = await _capturePickupPhoto();
+              if (photo == null) return;
+            }
+            final curFulfillmentId = pickupStops[_currentStopIndex]['fulfillmentId']?.toString();
+            await ref
+                .read(orderExecutionProvider.notifier)
+                .confirmPickupWithPhoto(photo, fulfillmentId: curFulfillmentId);
             setState(() {
               _collectedStopIndices.add(_currentStopIndex);
               _currentStopIndex++;
+              _pickupPhoto = null;
             });
             if (_currentStopIndex < pickupStops.length) {
               final next = pickupStops[_currentStopIndex];
@@ -1307,16 +1325,18 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               if (sLat != 0 && sLng != 0 && _isMapReady) {
                 _mapController.move(LatLng(sLat, sLng), 15);
               }
-              ScaffoldMessenger.of(context).showSnackBar(
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(l10n.localeName == 'ar'
                       ? 'تم تأكيد استلام المحطة $_currentStopIndex! توجه الآن إلى ${next['storeName']}'
-                      : 'Stop $_currentStopIndex collected! Proceed to ${next['storeName']}'),
+                      : 'Stop $_currentStopIndex confirmed! Proceed to ${next['storeName']}'),
                   backgroundColor: AppColors.success,
                 ),
               );
+              }
             }
-          },
+          }),
         );
       }
 
@@ -1325,7 +1345,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         children: [
           PrimaryButton(
             text: hasMultiple
-                ? (l10n.localeName == 'ar' ? 'تأكيد استلام جميع المحطات' : 'Confirm Pickup of All Stops')
+                ? (l10n.localeName == 'ar' ? 'تأكيد استلام المحطة الأخيرة مع الصورة' : 'Confirm Final Stop Pickup (Photo)')
                 : l10n.confirmPickup,
             onPressed: () => handleAction(() async {
               var photo = _pickupPhoto;
@@ -1333,9 +1353,16 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 photo = await _capturePickupPhoto();
                 if (photo == null) return;
               }
+              final curFulfillmentId = hasMultiple && pickupStops.isNotEmpty
+                  ? pickupStops[_currentStopIndex]['fulfillmentId']?.toString()
+                  : null;
               await ref
                   .read(orderExecutionProvider.notifier)
-                  .confirmPickupWithPhoto(photo);
+                  .confirmPickupWithPhoto(photo, fulfillmentId: curFulfillmentId);
+              setState(() {
+                _collectedStopIndices.add(_currentStopIndex);
+                _pickupPhoto = null;
+              });
             }),
           ),
           const SizedBox(height: 8),

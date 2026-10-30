@@ -201,7 +201,13 @@ export class OrdersService {
       order.vendor?.isContracted ??
       false;
     let subtotal = Number(order.subtotal ?? 0);
-    let cashToPayStore = isStorePrepaid ? 0 : subtotal;
+    const singleStoreCommRate = Number(
+      order.vendorBranch?.commissionRate ??
+      order.vendor?.commissionRate ??
+      10,
+    );
+    const singleStoreComm = isStorePrepaid ? Math.round(subtotal * (singleStoreCommRate / 100)) : 0;
+    let cashToPayStore = isStorePrepaid ? Math.max(0, subtotal - singleStoreComm) : subtotal;
 
     const settings = await this.platformSettings.getSettings();
     const rate = Number(settings?.deliveryCommissionRate ?? 20);
@@ -249,7 +255,17 @@ export class OrdersService {
             });
             for (const f of myFulfillments) {
               f.isContracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
-              f.cashToPay = f.isContracted ? 0 : Number(f.subtotal ?? 0);
+              const commRate = Number(
+                f.commissionRate ??
+                f.vendorBranch?.commissionRate ??
+                f.vendor?.commissionRate ??
+                10,
+              );
+              f.commissionRate = commRate;
+              const sub = Number(f.subtotal ?? 0);
+              const comm = f.isContracted ? Math.round(sub * (commRate / 100)) : 0;
+              f.commissionAmount = comm;
+              f.cashToPay = f.isContracted ? Math.max(0, sub - comm) : sub;
             }
             scopedFulfillments = myFulfillments;
             if (Array.isArray(order.items)) {
@@ -266,11 +282,8 @@ export class OrdersService {
             let groupSubtotal = 0;
             for (const f of myFulfillments) {
               groupSubtotal += Number(f.subtotal ?? 0);
-              const contracted = f.isContracted;
-              if (!contracted) {
-                cashToPayStore += Number(f.subtotal ?? 0);
-                allContracted = false;
-              }
+              cashToPayStore += Number(f.cashToPay ?? 0);
+              if (!f.isContracted) allContracted = false;
             }
             isStorePrepaid = allContracted;
 
@@ -337,6 +350,15 @@ export class OrdersService {
         storePayments: (scopedFulfillments && scopedFulfillments.length > 0)
           ? scopedFulfillments.map((f: any) => {
               const contracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              const commRate = Number(
+                f.commissionRate ??
+                f.vendorBranch?.commissionRate ??
+                f.vendor?.commissionRate ??
+                10,
+              );
+              const sub = Number(f.subtotal ?? 0);
+              const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
+              const toPay = contracted ? Math.max(0, sub - comm) : sub;
               return {
                 fulfillmentId: f.id,
                 vendorId: f.vendorId,
@@ -344,9 +366,13 @@ export class OrdersService {
                 branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
                 address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
                 phone: f.vendorBranch?.phone ?? f.vendor?.phone ?? f.vendor?.user?.phone ?? '',
-                subtotal: Number(f.subtotal ?? 0),
+                subtotal: sub,
                 isContracted: contracted,
-                cashToPay: contracted ? 0 : Number(f.subtotal ?? 0),
+                commissionRate: commRate,
+                commissionAmount: comm,
+                cashToPay: toPay,
+                pickedUpAt: f.pickedUpAt ?? null,
+                pickupImageUrl: f.pickupImageUrl ?? null,
               };
             })
           : [{
@@ -357,7 +383,11 @@ export class OrdersService {
               phone: order.vendorBranch?.phone ?? order.vendor?.phone ?? order.vendor?.user?.phone ?? '',
               subtotal: subtotal,
               isContracted: isStorePrepaid,
+              commissionRate: singleStoreCommRate,
+              commissionAmount: singleStoreComm,
               cashToPay: cashToPayStore,
+              pickedUpAt: order.pickedUpAt ?? null,
+              pickupImageUrl: order.pickupImageUrl ?? null,
             }],
       },
     };
@@ -481,6 +511,12 @@ export class OrdersService {
       ? Math.max(0, vendorSubtotal - commissionAmount)
       : vendorSubtotal;
 
+    // Strict Vendor Isolation: Only expose the vendor's own fulfillment.
+    // Strip other stores and delivery groups to prevent any cross-vendor data leakage.
+    const myFulfillmentOnly = (order.vendorFulfillments ?? []).filter(
+      (f: any) => f.vendorId === vendorId,
+    );
+
     return {
       ...order,
       // The caller's own portion drives the vendor-facing status; the raw
@@ -498,6 +534,8 @@ export class OrdersService {
       discount: 0,
       grandTotal: vendorSubtotal,
       total: vendorSubtotal,
+      vendorFulfillments: myFulfillmentOnly,
+      deliveryGroups: [],
       vendor: order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId)?.vendor ?? order.vendor,
       vendorBranch: order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId)?.vendorBranch ?? order.vendorBranch,
       financials: {
@@ -506,6 +544,7 @@ export class OrdersService {
         commissionRate,
         commissionAmount,
         netPayout,
+        cashToCollectFromDriver: netPayout,
         isContracted,
         payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
       },

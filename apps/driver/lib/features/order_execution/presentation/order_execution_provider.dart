@@ -97,7 +97,8 @@ class OrderExecution extends _$OrderExecution {
   }
 
   // Confirms pickup by uploading the mandatory order photo and marking PICKED_UP.
-  Future<void> confirmPickupWithPhoto(XFile photo) async {
+  // Supports per-fulfillment pickup stops for multi-vendor orders.
+  Future<void> confirmPickupWithPhoto(XFile photo, {String? fulfillmentId}) async {
     final prev = state;
     final orderId = _activeOrderId(prev);
     if (orderId == null) return;
@@ -107,7 +108,10 @@ class OrderExecution extends _$OrderExecution {
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
       });
-      await dio.post('/orders/driver/$orderId/pickup', data: formData);
+      final path = fulfillmentId != null && fulfillmentId.isNotEmpty
+          ? '/orders/driver/$orderId/fulfillment/$fulfillmentId/pickup'
+          : '/orders/driver/$orderId/pickup';
+      await dio.post(path, data: formData);
       await _fetchActiveOrder();
     } catch (e, st) {
       if (prev.hasValue) {

@@ -1028,6 +1028,12 @@ model OrderVendorFulfillment {
   /// When THIS portion was declared ready for pickup. The shared delivery
   /// group only becomes READY_FOR_PICKUP once every live portion in it is ready.
   readyAt        DateTime?                 @db.Timestamptz(3)
+  /// Proof photo the driver uploaded when picking up this specific vendor portion.
+  pickupImageUrl String?
+  /// When the driver confirmed collection of this vendor portion.
+  pickedUpAt     DateTime?                 @db.Timestamptz(3)
+  /// Driver who confirmed collection of this vendor portion.
+  pickedUpByDriverId String?
   deliveredAt    DateTime?                 @db.Timestamptz(3)
   createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)

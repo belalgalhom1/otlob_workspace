@@ -218,7 +218,7 @@ class DataExportService {
     bool isRtl = true,
   }) async {
     // If table has more than 7 columns, split into 2 readable pages
-    if (headers.length > 7) {
+    if (headers.length > 8) {
       final fixedCount = headers.length >= 3 ? 3 : 1;
       final fixedHeaders = headers.sublist(0, fixedCount);
       final dynamicHeaders = headers.sublist(fixedCount);
@@ -281,6 +281,11 @@ class DataExportService {
     required String filename,
     bool isRtl = true,
   }) async {
+    // Resolve entity/driver name if not explicitly passed
+    String? resolvedEntity = entityName?.trim();
+    if ((resolvedEntity == null || resolvedEntity.isEmpty) && title.contains(':')) {
+      resolvedEntity = title.split(':').sublist(1).join(':').trim();
+    }
     final doc = pw.Document();
 
     pw.Font font;
@@ -305,7 +310,8 @@ class DataExportService {
     // Prevent crushed/broken text: if any section has > 7 columns, split into parts
     final normalizedSections = <ExportSection>[];
     for (final sec in sections) {
-      if (sec.headers.length > 7) {
+      // In A4 landscape, up to 9-10 columns fit with ample room without line breaks.
+      if (sec.headers.length > 10) {
         final fixedCount = sec.headers.length >= 3 ? 3 : 1;
         final fixedHeaders = sec.headers.sublist(0, fixedCount);
         final dynamicHeaders = sec.headers.sublist(fixedCount);
@@ -346,9 +352,10 @@ class DataExportService {
       doc.addPage(
         pw.MultiPage(
           pageTheme: pw.PageTheme(
+            pageFormat: PdfPageFormat.a4.landscape,
             theme: pw.ThemeData.withFont(base: font, bold: boldFont),
             textDirection: direction,
-            margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           ),
           footer: (pw.Context ctx) => pw.Container(
             padding: const pw.EdgeInsets.only(top: 8),
@@ -404,7 +411,7 @@ class DataExportService {
                           ),
                         ],
                         pw.SizedBox(height: 2),
-                        if (entityName != null && entityName.isNotEmpty) ...[
+                        if (resolvedEntity != null && resolvedEntity.isNotEmpty) ...[
                           pw.SizedBox(height: 3),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -413,7 +420,7 @@ class DataExportService {
                               borderRadius: pw.BorderRadius.circular(4),
                             ),
                             child: pw.Text(
-                              '${isRtl ? 'السائق' : 'Driver'}: $entityName',
+                              '${isRtl ? 'السائق' : 'Driver'}: $resolvedEntity',
                               style: pw.TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: pw.FontWeight.bold,
@@ -464,9 +471,9 @@ class DataExportService {
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    if (entityName != null && entityName.isNotEmpty)
+                    if (resolvedEntity != null && resolvedEntity.isNotEmpty)
                       pw.Text(
-                        '${isRtl ? 'السائق' : 'Driver'}: $entityName',
+                        '${isRtl ? 'السائق' : 'Driver'}: $resolvedEntity',
                         style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandPrimary),
                       ),
                     pw.Text(
