@@ -106,6 +106,67 @@ describe('OrdersService financial projections & vendor isolation', () => {
       // Total cashToPayStore is 400 + 300 = 700 EGP
       expect(projected.financials.cashToPayStore).toBe(700);
     });
+
+    it('aggregates multiple delivery groups when assigned to the same driver', async () => {
+      const actor = { sub: 'user-driver-1' } as any;
+      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1' });
+
+      const mockOrder = {
+        id: 'order-multigroup',
+        status: 'DRIVER_ASSIGNED',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        paymentStatus: 'PENDING',
+        deliveryFee: 60,
+        deliveryGroups: [
+          {
+            id: 'group-1',
+            sequence: 1,
+            primaryDriverId: 'driver-1',
+            deliveryFee: 30,
+            status: 'DRIVER_ASSIGNED',
+            items: [{ fulfillmentId: 'ff-store-1', sequence: 1 }],
+          },
+          {
+            id: 'group-2',
+            sequence: 2,
+            primaryDriverId: 'driver-1',
+            deliveryFee: 30,
+            status: 'DRIVER_ASSIGNED',
+            items: [{ fulfillmentId: 'ff-store-2', sequence: 1 }],
+          },
+        ],
+        vendorFulfillments: [
+          {
+            id: 'ff-store-1',
+            vendorId: 'vendor-1',
+            subtotal: 200,
+            commissionRate: 10,
+            vendor: { name: 'Store 1', isContracted: true },
+            vendorBranch: { name: 'Branch 1', isContracted: true },
+          },
+          {
+            id: 'ff-store-2',
+            vendorId: 'vendor-2',
+            subtotal: 300,
+            commissionRate: 10,
+            vendor: { name: 'Store 2', isContracted: false },
+            vendorBranch: { name: 'Branch 2', isContracted: false },
+          },
+        ],
+        items: [
+          { id: 'i1', fulfillmentId: 'ff-store-1' },
+          { id: 'i2', fulfillmentId: 'ff-store-2' },
+        ],
+      };
+
+      const projected = await (ordersService as any).projectForDriver(mockOrder, actor);
+
+      expect(projected.vendorFulfillments).toHaveLength(2);
+      expect(projected.financials.storePayments).toHaveLength(2);
+      // Combined goods (200 + 300) + combined delivery fee (30 + 30) = 560
+      expect(projected.grandTotal).toBe(560);
+      expect(projected.items).toHaveLength(2);
+    });
   });
 
   describe('projectForVendor', () => {

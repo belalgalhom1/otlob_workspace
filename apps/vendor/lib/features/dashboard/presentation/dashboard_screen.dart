@@ -1722,6 +1722,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     bool isMobile = false,
     int badgeCount = 0,
   }) {
+    final double btnSize = isMobile ? 38.0 : 42.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1729,35 +1730,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           FocusManager.instance.primaryFocus?.unfocus();
           onTap?.call();
         },
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: btnSize,
+          height: btnSize,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
           ),
-        ),
-        child: Badge(
-          isLabelVisible: badgeCount > 0,
-          label: Text(
-            '$badgeCount',
-            style: const TextStyle(fontSize: 10, color: Colors.white),
-          ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: Theme.of(context).colorScheme.onSurface,
+          child: Badge(
+            isLabelVisible: badgeCount > 0,
+            label: Text(
+              '$badgeCount',
+              style: const TextStyle(fontSize: 10, color: Colors.white),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildThemeToggle({bool isMobile = false}) {
+    final double btnSize = isMobile ? 38.0 : 42.0;
     return Consumer(
       builder: (context, ref, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1768,33 +1773,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               FocusManager.instance.primaryFocus?.unfocus();
               ref.read(themeProvider.notifier).toggleTheme();
             },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 8 : 12,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: btnSize,
+              height: btnSize,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Icon(
+                isDark ? LucideIcons.sun : LucideIcons.moon,
+                size: 18,
+                color: Colors.amber,
               ),
             ),
-            child: Icon(
-              isDark ? LucideIcons.sun : LucideIcons.moon,
-              size: 16,
-              color: Colors.amber,
-            ),
           ),
-        ));
+        );
       },
     );
   }
 
   Widget _buildLanguageToggle({bool isMobile = false}) {
+    final double btnHeight = isMobile ? 38.0 : 42.0;
     return Consumer(
       builder: (context, ref, child) {
         final locale = ref.watch(localeProvider);
@@ -1802,47 +1808,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return Material(
           color: Colors.transparent,
           child: InkWell(
-          onTap: () {
-            FocusManager.instance.primaryFocus?.unfocus();
-            ref.read(localeProvider.notifier).toggleLanguage();
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 8 : 12,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.05),
+            onTap: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              ref.read(localeProvider.notifier).toggleLanguage();
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: btnHeight,
+              constraints: BoxConstraints(minWidth: btnHeight),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 12,
+              ),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!isMobile) ...[
+                    const Icon(
+                      LucideIcons.languages,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    isArabic ? 'EN' : 'عربي',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                if (!isMobile) ...[
-                  const Icon(
-                    LucideIcons.languages,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  isArabic ? 'EN' : 'AR',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
           ),
-        ));
+        );
       },
     );
   }
