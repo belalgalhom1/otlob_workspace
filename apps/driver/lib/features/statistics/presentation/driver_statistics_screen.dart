@@ -32,20 +32,19 @@ class DriverStatisticsScreen extends ConsumerWidget {
       }
     }
     driverName = driverName.trim();
+    if (driverName.isEmpty) {
+      driverName = isArabic() ? 'كابتن اطلب' : 'Otlob Captain';
+    }
 
     return StatisticsScreen(
       config: StatisticsConfig(
-        titleAr: driverName.isNotEmpty
-            ? (isArabic() ? 'إحصائيات السائق: $driverName' : 'Driver Statistics: $driverName')
-            : (isArabic() ? 'إحصائيات السائق' : 'Driver Statistics'),
-        titleEn: driverName.isNotEmpty
-            ? 'Driver Statistics: $driverName'
-            : 'Driver Statistics',
-        entityName: driverName.isNotEmpty ? driverName : null,
+        titleAr: isArabic() ? 'إحصائيات السائق: $driverName' : 'Driver Statistics: $driverName',
+        titleEn: 'Driver Statistics: $driverName',
+        entityName: driverName,
         chartTitleAr: 'اتجاه الأرباح',
         chartTitleEn: 'Earnings Trend',
         tooltipSuffix: 'EGP',
-        filenamePrefix: 'driver_statistics',
+        filenamePrefix: 'driver_statistics_${driverName.replaceAll(RegExp(r'\\s+'), '_')}',
         fetch: (period, {from, to}) => ref.read(
             driverStatsProvider((
               period: period,
@@ -92,8 +91,8 @@ class DriverStatisticsScreen extends ConsumerWidget {
         ],
         exportSections: [
           StatisticExportSection(
-            titleAr: 'البيانات المالية والأرباح',
-            titleEn: 'Financial & Earnings Summary',
+            titleAr: 'القسم الأول: البيانات المالية وإيرادات التوصيل',
+            titleEn: 'Part 1: Financial & Earnings Summary',
             columns: [
               StatisticExportColumn(
                 labelAr: 'الأرباح',
@@ -114,8 +113,8 @@ class DriverStatisticsScreen extends ConsumerWidget {
             ],
           ),
           StatisticExportSection(
-            titleAr: 'إحصائيات الطلبات وساعات العمل',
-            titleEn: 'Orders & Operations Breakdown',
+            titleAr: 'القسم الثاني: مؤشرات التشغيل وأداء الطلبات',
+            titleEn: 'Part 2: Orders & Operations Breakdown',
             columns: [
               StatisticExportColumn(
                 labelAr: 'الطلبات',
@@ -139,16 +138,19 @@ class DriverStatisticsScreen extends ConsumerWidget {
                     '${StatisticsFormat.numOf(row['onlineHours']).toStringAsFixed(1)} h',
               ),
               StatisticExportColumn(
-                labelAr: 'القبول (مقبول/مستلم)',
-                labelEn: 'Acceptance Rate',
-                value: (row) =>
-                    '${acceptance(row)}% (${StatisticsFormat.intOf(row['dispatchesAccepted'])}/${StatisticsFormat.intOf(row['totalDispatchesReceived'])})',
+                labelAr: 'مقبولة',
+                labelEn: 'Accepted',
+                value: (row) => '${StatisticsFormat.intOf(row['dispatchesAccepted'])}',
               ),
               StatisticExportColumn(
-                labelAr: 'مرفوضة / منتهية',
-                labelEn: 'Rejected / Expired',
-                value: (row) =>
-                    '${StatisticsFormat.intOf(row['dispatchesRejected'])} / ${StatisticsFormat.intOf(row['dispatchesExpired'])}',
+                labelAr: 'مرفوضة',
+                labelEn: 'Rejected',
+                value: (row) => '${StatisticsFormat.intOf(row['dispatchesRejected'])}',
+              ),
+              StatisticExportColumn(
+                labelAr: 'منتهية',
+                labelEn: 'Expired',
+                value: (row) => '${StatisticsFormat.intOf(row['dispatchesExpired'])}',
               ),
             ],
           ),

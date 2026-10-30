@@ -217,8 +217,8 @@ class DataExportService {
     required String filename,
     bool isRtl = true,
   }) async {
-    // If table has more than 7 columns, split into 2 readable pages
-    if (headers.length > 8) {
+    // If table has more than 10 columns, split cleanly into 2 readable pages
+    if (headers.length > 10) {
       final fixedCount = headers.length >= 3 ? 3 : 1;
       final fixedHeaders = headers.sublist(0, fixedCount);
       final dynamicHeaders = headers.sublist(fixedCount);
@@ -270,6 +270,23 @@ class DataExportService {
     }
   }
 
+  static Map<int, pw.TableColumnWidth> _buildTableColumnWidths(List<String> headers) {
+    final widths = <int, pw.TableColumnWidth>{};
+    for (var i = 0; i < headers.length; i++) {
+      final h = headers[i].toLowerCase();
+      if (h.contains('يبدأ') || h.contains('ينتهي') || h.contains('start') || h.contains('end') || h.contains('تاريخ') || h.contains('date')) {
+        widths[i] = const pw.FixedColumnWidth(66);
+      } else if (h.contains('فترة') || h.contains('period')) {
+        widths[i] = const pw.FixedColumnWidth(50);
+      } else if (h.contains('أرباح') || h.contains('رسوم') || h.contains('مسؤول') || h.contains('earnings') || h.contains('fee') || h.contains('cut') || h.contains('profit')) {
+        widths[i] = const pw.FlexColumnWidth(1.6);
+      } else {
+        widths[i] = const pw.FlexColumnWidth(1.0);
+      }
+    }
+    return widths;
+  }
+
   /// Multi-section PDF: every section starts on its own page, so a full
   /// analytics report lands in one file with one page per tab/section.
   static Future<void> exportSectionsPdf({
@@ -311,7 +328,7 @@ class DataExportService {
     final normalizedSections = <ExportSection>[];
     for (final sec in sections) {
       // In A4 landscape, up to 9-10 columns fit with ample room without line breaks.
-      if (sec.headers.length > 8) {
+      if (sec.headers.length > 10) {
         final fixedCount = sec.headers.length >= 3 ? 3 : 1;
         final fixedHeaders = sec.headers.sublist(0, fixedCount);
         final dynamicHeaders = sec.headers.sublist(fixedCount);
@@ -472,9 +489,25 @@ class DataExportService {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     if (resolvedEntity != null && resolvedEntity.isNotEmpty)
-                      pw.Text(
-                        '${isRtl ? 'السائق' : 'Driver'}: $resolvedEntity',
-                        style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandPrimary),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: pw.BoxDecoration(
+                          color: brandPrimary,
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          children: [
+                            pw.Text(
+                              '${isRtl ? 'اسم السائق' : 'Driver'}: ',
+                              style: pw.TextStyle(fontSize: 9.0, color: PdfColors.grey400),
+                            ),
+                            pw.Text(
+                              resolvedEntity,
+                              style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandAccent),
+                            ),
+                          ],
+                        ),
                       ),
                     pw.Text(
                       '${isRtl ? 'إجمالي السجلات' : 'Total Records'}: ${section.rows.length}',
@@ -516,15 +549,16 @@ class DataExportService {
                   headerStyle: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColors.white,
-                    fontSize: section.headers.length > 8 ? 7.5 : 8.5,
+                    fontSize: section.headers.length > 8 ? 7.8 : 8.5,
                   ),
                   headerDecoration: pw.BoxDecoration(color: brandPrimary),
-                  headerHeight: 28,
-                  cellHeight: 24,
-                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  cellStyle: pw.TextStyle(fontSize: section.headers.length > 8 ? 7.5 : 8.0),
+                  headerHeight: 26,
+                  cellHeight: 22,
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                  cellStyle: pw.TextStyle(fontSize: section.headers.length > 8 ? 7.8 : 8.5),
                   rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
                   oddRowDecoration: pw.BoxDecoration(color: bgZebra),
+                  columnWidths: _buildTableColumnWidths(section.headers),
                   cellAlignments: {
                     for (var i = 0; i < section.headers.length; i++)
                       i: pw.Alignment.center,

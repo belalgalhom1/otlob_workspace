@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 
+import '../data/driver_providers.dart';
 import 'driver_statistics_provider.dart';
 
 class DriverStatisticsScreen extends ConsumerWidget {
@@ -25,21 +26,32 @@ class DriverStatisticsScreen extends ConsumerWidget {
       return received > 0 ? (accepted * 100 / received).round() : 0;
     }
 
-    final resolvedDriverName = (driverName ?? '').trim();
+    var resolvedDriverName = (driverName ?? '').trim();
+    if (resolvedDriverName.isEmpty) {
+      final driversState = ref.watch(driversProvider).asData?.value;
+      if (driversState != null) {
+        for (final d in driversState.drivers) {
+          if (d.id == driverId) {
+            resolvedDriverName = d.name.trim();
+            break;
+          }
+        }
+      }
+    }
+    if (resolvedDriverName.isEmpty) {
+      final shortId = driverId.length > 8 ? driverId.substring(0, 8) : driverId;
+      resolvedDriverName = isArabic() ? 'سائق #$shortId' : 'Driver #$shortId';
+    }
 
     return StatisticsScreen(
       config: StatisticsConfig(
-        titleAr: resolvedDriverName.isNotEmpty
-            ? (isArabic() ? 'إحصائيات السائق: $resolvedDriverName' : 'Driver Statistics: $resolvedDriverName')
-            : (isArabic() ? 'إحصائيات السائق' : 'Driver Statistics'),
-        titleEn: resolvedDriverName.isNotEmpty
-            ? 'Driver Statistics: $resolvedDriverName'
-            : 'Driver Statistics',
-        entityName: resolvedDriverName.isNotEmpty ? resolvedDriverName : null,
+        titleAr: isArabic() ? 'إحصائيات السائق: $resolvedDriverName' : 'Driver Statistics: $resolvedDriverName',
+        titleEn: 'Driver Statistics: $resolvedDriverName',
+        entityName: resolvedDriverName,
         chartTitleAr: 'اتجاه الأرباح',
         chartTitleEn: 'Earnings Trend',
         tooltipSuffix: 'EGP',
-        filenamePrefix: 'driver_statistics',
+        filenamePrefix: 'driver_statistics_${resolvedDriverName.replaceAll(RegExp(r'\\s+'), '_')}',
         fetch: (period, {from, to}) => ref.read(
             adminDriverStatsProvider((
               driverId: driverId,
@@ -139,8 +151,8 @@ class DriverStatisticsScreen extends ConsumerWidget {
         ],
         exportSections: [
           StatisticExportSection(
-            titleAr: 'البيانات المالية والأرباح',
-            titleEn: 'Financial & Earnings Summary',
+            titleAr: 'القسم الأول: البيانات المالية وإيرادات التوصيل',
+            titleEn: 'Part 1: Financial & Earnings Summary',
             columns: [
               StatisticExportColumn(
                 labelAr: 'أرباح السائق',
@@ -191,12 +203,12 @@ class DriverStatisticsScreen extends ConsumerWidget {
             ],
           ),
           StatisticExportSection(
-            titleAr: 'إحصائيات الطلبات وساعات العمل',
-            titleEn: 'Orders & Operations Breakdown',
+            titleAr: 'القسم الثاني: مؤشرات التشغيل وأداء الطلبات',
+            titleEn: 'Part 2: Orders & Operations Breakdown',
             columns: [
               StatisticExportColumn(
-                labelAr: 'إجمالي الطلبات',
-                labelEn: 'Total Orders',
+                labelAr: 'الطلبات',
+                labelEn: 'Orders',
                 value: (row) => '${StatisticsFormat.intOf(row['totalOrders'])}',
               ),
               StatisticExportColumn(
@@ -216,16 +228,19 @@ class DriverStatisticsScreen extends ConsumerWidget {
                     '${StatisticsFormat.numOf(row['onlineHours']).toStringAsFixed(1)} h',
               ),
               StatisticExportColumn(
-                labelAr: 'القبول (مقبول/مستلم)',
-                labelEn: 'Acceptance Rate',
-                value: (row) =>
-                    '${acceptance(row)}% (${StatisticsFormat.intOf(row['dispatchesAccepted'])}/${StatisticsFormat.intOf(row['totalDispatchesReceived'])})',
+                labelAr: 'مقبولة',
+                labelEn: 'Accepted',
+                value: (row) => '${StatisticsFormat.intOf(row['dispatchesAccepted'])}',
               ),
               StatisticExportColumn(
-                labelAr: 'مرفوضة / منتهية',
-                labelEn: 'Rejected / Expired',
-                value: (row) =>
-                    '${StatisticsFormat.intOf(row['dispatchesRejected'])} / ${StatisticsFormat.intOf(row['dispatchesExpired'])}',
+                labelAr: 'مرفوضة',
+                labelEn: 'Rejected',
+                value: (row) => '${StatisticsFormat.intOf(row['dispatchesRejected'])}',
+              ),
+              StatisticExportColumn(
+                labelAr: 'منتهية',
+                labelEn: 'Expired',
+                value: (row) => '${StatisticsFormat.intOf(row['dispatchesExpired'])}',
               ),
             ],
           ),
