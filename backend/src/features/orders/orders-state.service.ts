@@ -546,7 +546,15 @@ export class OrdersStateService {
     ).filter(Boolean);
 
     if (groups.length > 0) {
-      const group = groups.find((g) => g.primaryDriverId === driver.id);
+      const activeGroups = groups.filter(
+        (g) =>
+          g.primaryDriverId === driver.id &&
+          g.status !== DeliveryGroupStatus.CANCELLED,
+      );
+      const group = (dto as any).deliveryGroupId
+        ? activeGroups.find((g) => g.id === (dto as any).deliveryGroupId)
+        : (activeGroups.find((g) => g.status !== DeliveryGroupStatus.DELIVERED) ??
+           activeGroups[0]);
       if (!group) {
         // Not this driver's delivery (or not assigned yet).
         throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
@@ -818,13 +826,15 @@ export class OrdersStateService {
     actor: JwtAccessPayload,
     orderId: string,
     file: Express.Multer.File,
+    deliveryGroupId?: string,
   ) {
     const imageUrl = await this.storage.upload(file, 'deliveries');
     try {
       return await this.driverUpdateStatus(actor, orderId, {
         status: OrderStatus.DELIVERED,
         deliveryImageUrl: imageUrl,
-      });
+        ...(deliveryGroupId ? { deliveryGroupId } : {}),
+      } as any);
     } catch (error) {
       await this.storage.delete(imageUrl);
       throw error;

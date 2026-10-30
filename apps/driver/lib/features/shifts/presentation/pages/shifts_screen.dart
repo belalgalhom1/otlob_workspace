@@ -976,63 +976,15 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
             ),
           ],
           if (isUpcoming) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: PrimaryButton(
-                    text: l10n.startShift,
-                    isLoading: _startingShiftId == shift['id']?.toString(),
-                    onPressed: _startingShiftId != null
-                        ? null
-                        : () => _startShiftWithSelfie(
-                            Map<String, dynamic>.from(shift),
-                            l10n,
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      _showOfferSwapDialog(context, ref, shift['id'], l10n);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+            PrimaryButton(
+              text: l10n.startShift,
+              isLoading: _startingShiftId == shift['id']?.toString(),
+              onPressed: _startingShiftId != null
+                  ? null
+                  : () => _startShiftWithSelfie(
+                      Map<String, dynamic>.from(shift),
+                      l10n,
                     ),
-                    child: Text(
-                      l10n.offerSwap,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: () =>
-                    _cancelShift(shift['id']?.toString() ?? '', l10n),
-                icon: const Icon(
-                  LucideIcons.trash2,
-                  size: 16,
-                  color: AppColors.error,
-                ),
-                label: Text(
-                  l10n.cancelShift,
-                  style: const TextStyle(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ),
           ],
           // Drivers cannot end/leave a shift once started. The shift
@@ -1042,63 +994,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     );
   }
 
-  Future<void> _cancelShift(String shiftId, AppLocalizations l10n) async {
-    if (shiftId.isEmpty) return;
-    final confirmed = await _confirmAction(
-      title: l10n.deleteShiftTitle,
-      message: l10n.deleteShiftMessage,
-      confirmLabel: l10n.deleteShift,
-      l10n: l10n,
-    );
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(driverShiftsProvider.notifier).deleteShift(shiftId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.shiftCancelledSuccess),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ErrorUtils.translate(context, e)),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
-  }
-
-  Future<bool?> _confirmAction({
-    required String title,
-    required String message,
-    required String confirmLabel,
-    required AppLocalizations l10n,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancelAction),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Booked shifts sharing a pool's [batchId] render under one header so a
+/// Booked shifts sharing a pool's [batchId] render under one header so a
   /// multi-day generation reads as a single group; legacy shifts stand alone.
   List<List<Map<String, dynamic>>> _groupShifts(List<dynamic> shifts) {
     final map = <String, List<Map<String, dynamic>>>{};
@@ -1138,7 +1034,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     }
   }
 
-  String _groupSpan(List<Map<String, dynamic>> group) {
+    String _groupSpan(List<Map<String, dynamic>> group) {
     DateTime? firstDt;
     DateTime? lastDt;
     for (final shift in group) {
@@ -1233,47 +1129,6 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
           ],
         ],
       ),
-    );
-  }
-
-  void _showOfferSwapDialog(
-    BuildContext context,
-    WidgetRef ref,
-    String shiftId,
-    AppLocalizations l10n,
-  ) {
-    final reasonController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return DialogScaffold(
-          child: AlertDialog(
-            title: Text(l10n.offerSwap),
-            content: TextField(
-              controller: reasonController,
-              decoration: InputDecoration(
-                labelText: l10n.reasonOptional,
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.cancelAction),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  ref
-                      .read(driverShiftsProvider.notifier)
-                      .offerSwap(shiftId, reasonController.text);
-                  Navigator.pop(context);
-                },
-                child: Text(l10n.offerSwapAction),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

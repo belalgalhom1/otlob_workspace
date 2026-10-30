@@ -473,7 +473,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       });
     }
     
-    final dl = order['deliveryLocation'];
+    final dl = order['deliveryLocation'] ?? order['customer']?['location'] ?? order['destinationLocation'];
     double customerLat = 0.0;
     double customerLng = 0.0;
     if (dl is List && dl.length > 1) {
@@ -483,8 +483,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       customerLng = double.tryParse(dl['coordinates'][0].toString()) ?? 0.0;
       customerLat = double.tryParse(dl['coordinates'][1].toString()) ?? 0.0;
     } else if (order['deliveryAddress'] is Map) {
-      customerLat = double.tryParse(order['deliveryAddress']['latitude']?.toString() ?? '') ?? 0.0;
-      customerLng = double.tryParse(order['deliveryAddress']['longitude']?.toString() ?? '') ?? 0.0;
+      final addr = order['deliveryAddress'] as Map;
+      customerLat = double.tryParse((addr['latitude'] ?? addr['lat'])?.toString() ?? '') ?? 0.0;
+      customerLng = double.tryParse((addr['longitude'] ?? addr['lng'] ?? addr['long'])?.toString() ?? '') ?? 0.0;
     }
 
     final status = order['status'] ?? '';
@@ -1240,14 +1241,18 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
   Widget _buildActionButton(BuildContext context, String status, bool isCashOnDelivery, bool isMobileWallet, LatLng? targetLocation, AppLocalizations l10n, Map<String, dynamic> order, [List<Map<String, dynamic>> pickupStops = const []]) {
     bool isWithinGeofence = true;
-    if (_currentPosition != null && targetLocation != null && targetLocation.latitude != 0) {
+    if (_currentPosition != null && targetLocation != null && targetLocation.latitude != 0.0 && targetLocation.longitude != 0.0) {
       final distanceInMeters = Geolocator.distanceBetween(
         _currentPosition!.latitude, 
         _currentPosition!.longitude, 
         targetLocation.latitude, 
         targetLocation.longitude,
       );
-      if (distanceInMeters > 100) {
+      final accuracy = _currentPosition!.accuracy.isFinite && _currentPosition!.accuracy > 0
+          ? _currentPosition!.accuracy
+          : 0.0;
+      final allowedRadius = 500.0 + accuracy;
+      if (distanceInMeters > allowedRadius) {
         isWithinGeofence = false;
       }
     }
@@ -1403,9 +1408,39 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               await ref
                   .read(orderExecutionProvider.notifier)
                   .confirmDeliveryWithPhoto(photo);
-              // Order is finished — leave this page at once instead of
-              // waiting on the provider refetch (which shows "No active
-              // order" if we stay).
+              if (!mounted) return;
+
+              // Check if driver has more active orders or remaining stops
+              final repo = ref.read(driverOrdersRepositoryProvider);
+              final activeOrders = await repo.getActiveDriverOrders();
+
+              if (activeOrders.isNotEmpty) {
+                final currentId = order['id']?.toString();
+                final remaining = activeOrders
+                    .where((o) => o['id']?.toString() != currentId)
+                    .toList();
+                if (remaining.isNotEmpty) {
+                  final nextOrder = remaining.first;
+                  final nextId = nextOrder['id']?.toString();
+                  if (nextId != null) {
+                    ref.read(orderExecutionProvider.notifier).selectOrder(nextId);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          l10n.localeName == 'ar'
+                              ? 'تم تسليم الطلب بنجاح! جاري التوجه للمحطة التالية (${remaining.length} متبقي)'
+                              : 'Order delivered successfully! Moving to next stop (${remaining.length} remaining)',
+                        ),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                    return;
+                  }
+                }
+              }
+
+              // No remaining active orders in the route — return to dashboard
               if (context.mounted) context.go('/dashboard');
             }),
           ),

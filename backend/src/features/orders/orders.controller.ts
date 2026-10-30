@@ -272,8 +272,9 @@ export class OrdersController {
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Query('deliveryGroupId') deliveryGroupId?: string,
   ) {
-    return this.stateService.driverConfirmDelivery(actor, orderId, file);
+    return this.stateService.driverConfirmDelivery(actor, orderId, file, deliveryGroupId);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

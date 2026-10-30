@@ -653,41 +653,9 @@ export class DriversService {
     const driver = await this.driversRepository.findByUserIdWithUser(userId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
-    const shift = await this.driversRepository.findShiftById(
-      shiftId,
-      driver.id,
+    throw new BadRequestException(
+      'Drivers cannot cancel assigned shifts. Please contact your manager or support.',
     );
-    if (!shift) throw new NotFoundException(DriverErrors.SHIFT_NOT_FOUND);
-
-    if (shift.status === DriverShiftStatus.ACTIVE) {
-      throw new BadRequestException(DriverErrors.CANNOT_DELETE_ACTIVE_SHIFT);
-    }
-
-    // Deleting a shift must not orphan break rows: settle the active break
-    // (minutes kept) and drop any pending request for this driver.
-    const openBreak = await this.driversRepository.findActiveBreak(driver.id);
-    if (openBreak) {
-      await this.finishBreak(openBreak.id, false);
-    }
-    const pendingBreak =
-      await this.driversRepository.findPendingBreak(driver.id);
-    if (pendingBreak) {
-      await this.driversRepository.cancelBreak(pendingBreak.id);
-    }
-
-    await this.driversRepository.deleteShift(shiftId);
-
-    this.eventEmitter.emit(
-      EVENTS.SHIFT_DISABLED,
-      new ShiftDisabledEvent(driver.user.id, shift.id, 'self'),
-    );
-
-    // The freed seat goes to the pool's waitlist, if any.
-    if (shift.shiftPoolId) {
-      await this.driverShiftsService.promoteFromWaitlist(shift.shiftPoolId);
-    }
-
-    return { success: true, removed: 1 };
   }
 
   async startShift(

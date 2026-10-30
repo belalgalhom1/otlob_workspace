@@ -22,6 +22,10 @@ class OrderExecution extends _$OrderExecution {
     _fetchActiveOrder();
   }
 
+  void clearSelectedOrder() {
+    _selectedOrderId = null;
+  }
+
   Future<void> _fetchActiveOrder() async {
     try {
       final repository = ref.read(driverOrdersRepositoryProvider);
@@ -124,7 +128,7 @@ class OrderExecution extends _$OrderExecution {
   }
 
   // Confirms delivery by uploading the mandatory order photo and marking DELIVERED.
-  Future<void> confirmDeliveryWithPhoto(XFile photo) async {
+  Future<void> confirmDeliveryWithPhoto(XFile photo, {String? deliveryGroupId}) async {
     final prev = state;
     final orderId = _activeOrderId(prev);
     if (orderId == null) return;
@@ -134,7 +138,11 @@ class OrderExecution extends _$OrderExecution {
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
       });
-      await dio.post('/orders/driver/$orderId/delivery', data: formData);
+      final query = deliveryGroupId != null && deliveryGroupId.isNotEmpty
+          ? '?deliveryGroupId=$deliveryGroupId'
+          : '';
+      await dio.post('/orders/driver/$orderId/delivery$query', data: formData);
+      _selectedOrderId = null;
       await _fetchActiveOrder();
       if (ref.mounted) {
         ref.read(driverProfileProvider.notifier).fetchProfile();
