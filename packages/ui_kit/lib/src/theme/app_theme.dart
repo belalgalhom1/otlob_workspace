@@ -24,10 +24,16 @@ class AppTheme {
         secondary: AppColors.primaryVariant,
         surface: AppColors.surfaceLight,
         error: AppColors.error,
-        onPrimary: Colors.white,
+        onPrimary: AppColors.onPrimary,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimaryLight,
         onError: Colors.white,
+      ),
+
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        elevation: 3,
       ),
 
       appBarTheme: const AppBarTheme(
@@ -141,7 +147,7 @@ class AppTheme {
         secondary: AppColors.primaryVariant,
         surface: AppColors.surfaceDark,
         error: AppColors.error,
-        onPrimary: Colors.white,
+        onPrimary: AppColors.onPrimary,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimaryDark,
         onError: Colors.white,
@@ -272,7 +278,7 @@ class AppTheme {
     return ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.onPrimary,
         elevation: 0,
         minimumSize: const Size(88, 54),
         shape: RoundedRectangleBorder(borderRadius: AppRadius.mdRadius),

@@ -2184,7 +2184,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   ],
                 ),
               ),
-              const Icon(LucideIcons.chevronRight, size: 18),
+              const AppAdaptiveChevron(size: 18),
             ],
           ),
         ),

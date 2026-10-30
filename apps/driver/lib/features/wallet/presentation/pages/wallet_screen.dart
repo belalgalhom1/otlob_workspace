@@ -210,13 +210,13 @@ class WalletScreen extends ConsumerWidget {
               Icon(
                 isNegative ? LucideIcons.handCoins : LucideIcons.wallet,
                 size: 16,
-                color: isNegative ? Colors.amberAccent : Theme.of(context).colorScheme.onPrimary,
+                color: isNegative ? Colors.amberAccent : const Color(0xFF0F172A),
               ),
               const SizedBox(width: 8),
               Text(
                 cardTitle,
                 style: TextStyle(
-                  color: isNegative ? Colors.amberAccent : Theme.of(context).colorScheme.onPrimary,
+                  color: isNegative ? Colors.amberAccent : const Color(0xFF0F172A),
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -226,8 +226,8 @@ class WalletScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           Text(
             displayAmount,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isNegative ? Colors.white : const Color(0xFF0F172A),
               fontSize: 38,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
@@ -283,8 +283,8 @@ class WalletScreen extends ConsumerWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.2),
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    backgroundColor: isNegative ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF0F172A).withValues(alpha: 0.12),
+                    foregroundColor: isNegative ? Colors.white : const Color(0xFF0F172A),
                     elevation: 0,
                   ),
                   icon: const Icon(LucideIcons.arrowDownCircle),

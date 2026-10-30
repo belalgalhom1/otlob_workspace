@@ -219,7 +219,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 8),
         Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface)),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
       ],
     );
   }

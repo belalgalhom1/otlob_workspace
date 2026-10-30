@@ -311,7 +311,7 @@ class DataExportService {
     final normalizedSections = <ExportSection>[];
     for (final sec in sections) {
       // In A4 landscape, up to 9-10 columns fit with ample room without line breaks.
-      if (sec.headers.length > 10) {
+      if (sec.headers.length > 8) {
         final fixedCount = sec.headers.length >= 3 ? 3 : 1;
         final fixedHeaders = sec.headers.sublist(0, fixedCount);
         final dynamicHeaders = sec.headers.sublist(fixedCount);
@@ -441,13 +441,13 @@ class DataExportService {
                     pw.Column(
                       crossAxisAlignment: isRtl ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Text(
-                          'OTLOB | اطلب',
-                          style: pw.TextStyle(
-                            fontSize: 14,
-                            fontWeight: pw.FontWeight.bold,
-                            color: brandAccent,
-                          ),
+                        pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          children: [
+                            pw.Text('OTLOB', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: brandAccent)),
+                            pw.Text('  |  ', style: pw.TextStyle(fontSize: 11, color: PdfColors.white)),
+                            pw.Text('اطلب', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: brandAccent)),
+                          ],
                         ),
                         pw.Text(
                           dateStr,

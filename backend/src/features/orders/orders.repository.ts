@@ -10,7 +10,7 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   OrderErrors,
   CustomerErrors,
-} from 'src/common/constants/response.constants';
+} from '../../common/constants/response.constants';
 import {
   DeliveryGroupStatus,
   DispatchStatus,

@@ -1,31 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:driver/app.dart';
+import 'package:ui_kit/ui_kit.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const ProviderScope(child: App()));
+  group('Driver Statistics & Calculations', () {
+    test('calculates acceptance rate correctly', () {
+      int calculateAcceptance(dynamic row) {
+        final received = StatisticsFormat.intOf(row['totalDispatchesReceived']);
+        final accepted = StatisticsFormat.intOf(row['dispatchesAccepted']);
+        return received > 0 ? (accepted * 100 / received).round() : 0;
+      }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      expect(calculateAcceptance({'totalDispatchesReceived': 10, 'dispatchesAccepted': 8}), 80);
+      expect(calculateAcceptance({'totalDispatchesReceived': 0, 'dispatchesAccepted': 0}), 0);
+      expect(calculateAcceptance({'totalDispatchesReceived': 3, 'dispatchesAccepted': 1}), 33);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('formats delivery fee and driver earnings correctly', () {
+      final row = {
+        'totalEarnings': 807.0,
+        'deliveryFee': 1008.75,
+        'onlineHours': 7.7,
+      };
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      final earnings = StatisticsFormat.numOf(row['totalEarnings']);
+      final deliveryFee = StatisticsFormat.numOf(row['deliveryFee']);
+      final onlineHours = StatisticsFormat.numOf(row['onlineHours']);
+
+      expect(earnings, 807.0);
+      expect(deliveryFee, 1008.75);
+      expect(onlineHours, 7.7);
+    });
   });
 }

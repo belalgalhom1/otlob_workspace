@@ -517,7 +517,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
-            Icon(LucideIcons.chevronRight, size: 20, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+            const AppAdaptiveChevron(size: 20),
           ],
         ),
       ),

@@ -326,7 +326,7 @@ class _DriverManagerWalletScreenState
                 ),
                 Text('$_page / $_totalPages', style: const TextStyle(fontWeight: FontWeight.bold)),
                 IconButton(
-                  icon: const Icon(LucideIcons.chevronRight),
+                  icon: const AppAdaptiveChevron(),
                   onPressed: _page < _totalPages ? () => _loadData(page: _page + 1) : null,
                 ),
               ],

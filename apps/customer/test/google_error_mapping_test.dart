@@ -33,9 +33,10 @@ void main() {
 
   test('key resolves in both locale catalogs', () {
     for (final locale in ['en', 'ar']) {
-      final raw = File(
-        '../../packages/core/assets/translations/$locale.json',
-      ).readAsStringSync();
+      final p1 = '../../packages/core/assets/translations/$locale.json';
+      final p2 = 'packages/core/assets/translations/$locale.json';
+      final file = File(File(p1).existsSync() ? p1 : p2);
+      final raw = file.readAsStringSync();
       final map = jsonDecode(raw) as Map<String, dynamic>;
       final value = map['auth_error_only_drivers_app_allowed'];
       debugPrint('$locale: $value');

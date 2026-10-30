@@ -1231,7 +1231,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           ],
           IconButton(
             onPressed: onTap,
-            icon: const Icon(LucideIcons.chevronRight, size: 18),
+            icon: const AppAdaptiveChevron(size: 18),
           ),
         ],
       ),

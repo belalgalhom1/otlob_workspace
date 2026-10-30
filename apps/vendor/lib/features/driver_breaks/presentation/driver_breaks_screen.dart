@@ -374,7 +374,7 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
                       child: Icon(LucideIcons.user, size: 16)),
                   title: Text(displayName),
                   subtitle: Text(d.status),
-                  trailing: const Icon(LucideIcons.chevronRight, size: 18),
+                  trailing: const AppAdaptiveChevron(size: 18),
                   onTap: () => setState(() => _selectedDriver = d),
                 );
               },

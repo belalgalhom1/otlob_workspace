@@ -293,7 +293,7 @@ class _VendorProductSalesScreenState
                   ? () => setState(() => _page++)
                   : null,
               tooltip: _isArabic ? 'التالي' : 'Next',
-              icon: const Icon(LucideIcons.chevronRight, size: 18),
+              icon: const AppAdaptiveChevron(size: 18),
             ),
           ],
         ),

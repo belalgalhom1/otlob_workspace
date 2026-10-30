@@ -423,7 +423,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
         ),
         const SizedBox(width: 16),
         IconButton(
-          icon: const Icon(LucideIcons.chevronRight),
+          icon: const AppAdaptiveChevron(),
           onPressed: state.page < totalPages
               ? () => ref
                     .read(userProvider.notifier)
