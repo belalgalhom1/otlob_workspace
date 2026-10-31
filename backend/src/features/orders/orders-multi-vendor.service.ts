@@ -264,6 +264,8 @@ export class OrdersMultiVendorService {
       const fulfillmentIds = new Map<string, string>();
       for (const portion of plan.portions) {
         const fulfillmentId = randomUUID();
+        const portionKey = portion.vendorBranchId ?? portion.vendorId;
+        fulfillmentIds.set(portionKey, fulfillmentId);
         fulfillmentIds.set(portion.vendorId, fulfillmentId);
 
         await tx.orderVendorFulfillment.create({
@@ -283,7 +285,8 @@ export class OrdersMultiVendorService {
 
       // Items carry their owning portion (null keeps legacy rows compatible).
       for (const portion of plan.portions) {
-        const fulfillmentId = fulfillmentIds.get(portion.vendorId)!;
+        const portionKey = portion.vendorBranchId ?? portion.vendorId;
+        const fulfillmentId = fulfillmentIds.get(portionKey)!;
 
         // Allocate an id per item up-front so its options can be attached
         // deterministically (createMany does not preserve/return input order).
@@ -353,7 +356,9 @@ export class OrdersMultiVendorService {
         await tx.orderDeliveryGroupItem.createMany({
           data: group.stops.map((stop, index) => ({
             deliveryGroupId: groupId,
-            fulfillmentId: fulfillmentIds.get(stop.vendorId)!,
+            fulfillmentId:
+              fulfillmentIds.get(stop.vendorBranchId ?? stop.vendorId) ??
+              fulfillmentIds.get(stop.vendorId)!,
             sequence: index + 1,
           })),
         });
@@ -629,29 +634,32 @@ export class OrdersMultiVendorService {
           settings.defaultCommissionRate ??
           10,
         subtotal: cart.subtotal,
-        items: cart.items.map((i: any) => ({
-          productId: i.productId ?? null,
-          variantId: i.variantId ?? null,
-          productName: i.product?.name ?? 'Unknown Product',
-          variantName: i.variant?.name ?? null,
-          unitPrice: Math.round(i.unitPrice),
-          quantity: i.quantity,
-          selectedUnit: i.selectedUnit,
-          baseUnitPrice:
-            Math.round(i.unitPrice) -
-            (i.selectedOptions ?? []).reduce(
-              (s: number, o: any) => s + Math.round(Number(o.priceAdded)),
-              0,
-            ),
-          totalPrice: Math.round(i.totalPrice),
-          specialRequest: i.specialRequest ?? null,
-          options: (i.selectedOptions ?? []).map((o: any) => ({
-            optionId: o.id,
-            optionName: o.name,
-            groupName: o.groupName ?? null,
-            priceAdded: Math.round(Number(o.priceAdded)),
-          })),
-        })),
+        items: cart.items.map((i: any) => {
+          const rawOptions = i.options ?? i.selectedOptions ?? [];
+          return {
+            productId: i.productId ?? null,
+            variantId: i.variantId ?? null,
+            productName: i.product?.name ?? 'Unknown Product',
+            variantName: i.variant?.name ?? null,
+            unitPrice: Math.round(i.unitPrice),
+            quantity: i.quantity,
+            selectedUnit: i.selectedUnit,
+            baseUnitPrice:
+              Math.round(i.unitPrice) -
+              rawOptions.reduce(
+                (s: number, o: any) => s + Math.round(Number(o.priceAdded)),
+                0,
+              ),
+            totalPrice: Math.round(i.totalPrice),
+            specialRequest: i.specialRequest ?? null,
+            options: rawOptions.map((o: any) => ({
+              optionId: o.id ?? o.optionId,
+              optionName: o.name ?? o.optionName,
+              groupName: o.groupName ?? null,
+              priceAdded: Math.round(Number(o.priceAdded)),
+            })),
+          };
+        }),
         stop: {
           vendorId,
           vendorBranchId: branch.id,
@@ -669,8 +677,18 @@ export class OrdersMultiVendorService {
       throw new BadRequestException(OrderErrors.NO_DELIVERY_GROUPS);
     }
 
+    const maxRadius = Number(settings.maxDeliveryRadiusKm ?? 1500);
+    if (
+      maxRadius > 0 &&
+      grouping.groups.some((g) => g.farthestToCustomerKm > maxRadius)
+    ) {
+      throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
+    }
+
     const subtotal = portions.reduce((s, p) => s + p.subtotal, 0);
-    const minOrder = Number(settings.minOrderAmount);
+    const minOrder = Number(
+      zone.minOrderAmountOverride ?? settings.minOrderAmount,
+    );
     if (minOrder > 0 && subtotal < minOrder) {
       throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
@@ -696,10 +714,22 @@ export class OrdersMultiVendorService {
 
     const serviceFee = await this.serviceFeeFor(portions, settings);
 
-    const driverBonusFee =
-      settings.driverBonusActive && settings.driverBonusPaidByCustomer
-        ? Number(settings.driverBonusAmount ?? 0)
-        : 0;
+    let driverBonusFee = 0;
+    if (settings.driverBonusActive) {
+      const now = new Date();
+      const start = settings.driverBonusStartDate;
+      const end = settings.driverBonusEndDate;
+      if (
+        (!start || now >= start) &&
+        (!end || now <= end) &&
+        Number(settings.driverBonusAmount ?? 0) > 0
+      ) {
+        driverBonusFee = Number(settings.driverBonusAmount ?? 0);
+      }
+    }
+    const customerBonusFee = settings.driverBonusPaidByCustomer
+      ? driverBonusFee
+      : 0;
 
     const tax = Math.round(
       (subtotal + serviceFee) * (Number(settings.defaultTaxRate) / 100),
@@ -726,7 +756,7 @@ export class OrdersMultiVendorService {
     // discount at the total and only consume the coins actually needed —
     // mirroring the single-vendor/custom checkout rule.
     const preDiscount =
-      subtotal + deliveryFee + serviceFee + tax + driverBonusFee;
+      subtotal + deliveryFee + serviceFee + tax + customerBonusFee;
     if (discount > preDiscount) {
       discount = preDiscount;
       const coinValue = Number(settings.coinValue) || 1;

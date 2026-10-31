@@ -571,6 +571,7 @@ export class LocationRepository {
       WHERE d.id IN (${Prisma.join(candidateIds)})
         ${driverAvailabilityCond}
         AND d."deletedAt" IS NULL
+        AND d."isApproved" = true
         AND d."hasUnpaidCommission" = false
         ${vehicleTypeCond}
         ${activeShiftCond}
@@ -587,6 +588,7 @@ export class LocationRepository {
           FROM drivers d
           WHERE d.id IN (${Prisma.join(nonEligibleIds)})
             AND d."deletedAt" IS NULL
+            AND d."isApproved" = true
             AND d."hasUnpaidCommission" = false
             AND d.status::text IN ('ONLINE', 'ON_DELIVERY')
         `
@@ -596,10 +598,9 @@ export class LocationRepository {
             (id) => !stillValidIds.has(id),
           );
           if (trulyStale.length > 0) {
-            (this.redis.zrem as any)(
-              'otlobegy:driver-locations',
-              ...trulyStale,
-            ).catch((err: Error) =>
+            this.redis
+              .zremMembers('otlobegy:driver-locations', trulyStale)
+              .catch((err: Error) =>
               this.logger.warn(
                 `Failed to lazy-sweep stale drivers from Redis: ${err.message}`,
               ),
@@ -663,11 +664,29 @@ export class LocationRepository {
         COALESCE(
           ST_X("pickupLocation"::geometry),
           (SELECT ST_X(location::geometry) FROM vendor_branches WHERE id = orders."vendorBranchId"),
+          (
+            SELECT ST_X(b.location::geometry)
+            FROM order_vendor_fulfillments f
+            JOIN vendor_branches b ON b.id = f."vendorBranchId"
+            WHERE f."orderId" = orders.id
+              AND f.status::text NOT IN ('REJECTED', 'CANCELLED')
+            ORDER BY f."createdAt" ASC
+            LIMIT 1
+          ),
           ST_X("deliveryLocation"::geometry)
         ) AS lng,
         COALESCE(
           ST_Y("pickupLocation"::geometry),
           (SELECT ST_Y(location::geometry) FROM vendor_branches WHERE id = orders."vendorBranchId"),
+          (
+            SELECT ST_Y(b.location::geometry)
+            FROM order_vendor_fulfillments f
+            JOIN vendor_branches b ON b.id = f."vendorBranchId"
+            WHERE f."orderId" = orders.id
+              AND f.status::text NOT IN ('REJECTED', 'CANCELLED')
+            ORDER BY f."createdAt" ASC
+            LIMIT 1
+          ),
           ST_Y("deliveryLocation"::geometry)
         ) AS lat,
         ST_X("deliveryLocation"::geometry) AS "deliveryLng",

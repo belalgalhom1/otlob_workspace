@@ -709,6 +709,15 @@ export class DriverAssistService {
         } catch (e) {
           this.logWarn(e);
         }
+      } else {
+        try {
+          await this.ordersState.recomputeGroupedOrderStatusAfterCancel(
+            orderId,
+            [group.primaryDriverId, group.assistDriverId],
+          );
+        } catch (e) {
+          this.logWarn(e);
+        }
       }
 
       const primaryUserId = await this.resolveUserId(group.primaryDriverId);
@@ -792,6 +801,15 @@ export class DriverAssistService {
         if (remaining === 0) {
           try {
             await this.ordersState.cancelOrder(null, g.orderId, 'Assist decision timed out');
+          } catch (e) {
+            this.logWarn(e);
+          }
+        } else {
+          try {
+            await this.ordersState.recomputeGroupedOrderStatusAfterCancel(
+              g.orderId,
+              [g.primaryDriverId, g.assistDriverId],
+            );
           } catch (e) {
             this.logWarn(e);
           }

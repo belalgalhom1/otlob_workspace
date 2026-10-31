@@ -1201,7 +1201,12 @@ export class OrdersStateService {
         OrderStatus.LOOKING_FOR_DRIVER,
         OrderStatus.PARTIALLY_PICKED_UP,
       ],
-      [OrderStatus.DELIVERED]: [OrderStatus.PICKED_UP, OrderStatus.PARTIALLY_PICKED_UP],
+      [OrderStatus.DELIVERED]: [
+        OrderStatus.PICKED_UP,
+        OrderStatus.PARTIALLY_PICKED_UP,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.DRIVER_ASSIGNED,
+      ],
     };
     if (!(allowedFrom[target] ?? []).includes(fresh.status)) {
       return;
@@ -1742,12 +1747,84 @@ export class OrdersStateService {
     });
   }
 
-  async recomputeGroupedOrderStatusAfterCancel(orderId: string): Promise<void> {
+  async recomputeGroupedOrderStatusAfterCancel(
+    orderId: string,
+    extraDriverIds: Array<string | null | undefined> = [],
+  ): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, orderNumber: true },
+      select: { id: true, orderNumber: true, driverId: true },
     });
     if (!order) return;
+
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        status: true,
+        primaryDriverId: true,
+        assistDriverId: true,
+      },
+      orderBy: { sequence: 'asc' },
+    });
+
+    const cancelledGroups = groups.filter(
+      (g) => g.status === DeliveryGroupStatus.CANCELLED,
+    );
+    const activeGroups = groups.filter(
+      (g) => g.status !== DeliveryGroupStatus.CANCELLED,
+    );
+
+    if (cancelledGroups.length > 0) {
+      await this.prisma.orderVendorFulfillment.updateMany({
+        where: {
+          groups: {
+            some: {
+              deliveryGroupId: { in: cancelledGroups.map((g) => g.id) },
+            },
+          },
+          status: {
+            notIn: [
+              OrderVendorFulfillmentStatus.REJECTED,
+              OrderVendorFulfillmentStatus.CANCELLED,
+              OrderVendorFulfillmentStatus.DELIVERED,
+            ],
+          },
+        },
+        data: { status: OrderVendorFulfillmentStatus.CANCELLED },
+      });
+    }
+
+    const activeDriverSet = new Set(
+      activeGroups
+        .filter((g) => g.status !== DeliveryGroupStatus.DELIVERED)
+        .flatMap((g) => [g.primaryDriverId, g.assistDriverId])
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    if (
+      order.driverId &&
+      !activeGroups.some((g) => g.primaryDriverId === order.driverId)
+    ) {
+      const replacementGroup = activeGroups.find((g) => g.primaryDriverId);
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { driverId: replacementGroup?.primaryDriverId ?? null },
+      });
+    }
+
+    const driversToCheck = new Set(
+      [
+        ...cancelledGroups.flatMap((g) => [g.primaryDriverId, g.assistDriverId]),
+        ...extraDriverIds,
+      ].filter((id): id is string => Boolean(id)),
+    );
+    for (const did of driversToCheck) {
+      if (!activeDriverSet.has(did)) {
+        await this.ordersRepository.freeDriver(did);
+      }
+    }
+
     await this.recomputeGroupedOrderStatus(
       { sub: 'system', role: Role.SUPER_ADMIN } as JwtAccessPayload,
       order,

@@ -133,7 +133,9 @@ export class OrderGroupingService {
       const da = haversineKm(a, customer);
       const db = haversineKm(b, customer);
       if (Math.abs(da - db) > 1e-9) return db - da;
-      return a.vendorId.localeCompare(b.vendorId);
+      const keyA = a.vendorBranchId ?? a.vendorId;
+      const keyB = b.vendorBranchId ?? b.vendorId;
+      return keyA.localeCompare(keyB);
     });
 
     const groups: VendorStop[][] = [];
@@ -199,8 +201,11 @@ export class OrderGroupingService {
     maxBranchDistanceKm: number,
     near: boolean,
   ): boolean {
-    // Never let the same vendor occupy one group twice.
-    if (group.some((s) => s.vendorId === stop.vendorId)) return false;
+    // Never let the exact same stop (branch, or vendor if branchless) occupy one group twice.
+    const stopKey = stop.vendorBranchId ?? stop.vendorId;
+    if (group.some((s) => (s.vendorBranchId ?? s.vendorId) === stopKey)) {
+      return false;
+    }
 
     // Safeguard for uncalibrated / (0,0) coordinates:
     const stopHasCoords = Boolean(stop.lat && stop.lng && (stop.lat !== 0 || stop.lng !== 0));

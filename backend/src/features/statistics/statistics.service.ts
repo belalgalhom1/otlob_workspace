@@ -411,10 +411,16 @@ export class StatisticsService {
     await this.prisma.$transaction(async (client) => {
       await client.$executeRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
 
-      const alreadySettled = await client.driverWalletTransaction.findFirst({
-        where: { orderId, type: 'DELIVERY_FEE' },
-      });
-      if (alreadySettled) {
+      const [lockedOrder, alreadySettled] = await Promise.all([
+        client.order.findUnique({
+          where: { id: orderId },
+          select: { settledAt: true },
+        }),
+        client.driverWalletTransaction.findFirst({
+          where: { orderId, type: 'DELIVERY_FEE' },
+        }),
+      ]);
+      if (lockedOrder?.settledAt || alreadySettled) {
         this.logger.warn(
           `Order ${orderNumber} already settled — skipping duplicate settlement.`,
         );
@@ -484,21 +490,36 @@ export class StatisticsService {
             (cashPaidByGroup.get(item.deliveryGroupId) ?? 0) + paidToStore,
           );
         }
+        const storeReimbursementByDriver = new Map<
+          string,
+          { driverId: string; driverShiftId: string | null; amount: number }
+        >();
         for (const g of groups) {
           if (!g.primaryDriverId) continue;
           const paidAtStore = cashPaidByGroup.get(g.id) ?? 0;
-          if (paidAtStore > 0) {
-            await this.creditDriverWallet(
-              client,
-              g.primaryDriverId,
-              paidAtStore,
-              orderId,
-              g.primaryDriverShiftId,
-              `Store food reimbursement for order ${orderNumber}`,
-              'CASH_HANDED_TO_VENDOR',
-              { skipLock: true },
-            );
+          if (paidAtStore <= 0) continue;
+          const existing = storeReimbursementByDriver.get(g.primaryDriverId);
+          if (existing) {
+            existing.amount += paidAtStore;
+          } else {
+            storeReimbursementByDriver.set(g.primaryDriverId, {
+              driverId: g.primaryDriverId,
+              driverShiftId: g.primaryDriverShiftId,
+              amount: paidAtStore,
+            });
           }
+        }
+        for (const reimbursement of storeReimbursementByDriver.values()) {
+          await this.creditDriverWallet(
+            client,
+            reimbursement.driverId,
+            reimbursement.amount,
+            orderId,
+            reimbursement.driverShiftId,
+            `Store food reimbursement for order ${orderNumber}`,
+            'CASH_HANDED_TO_VENDOR',
+            { skipLock: true },
+          );
         }
       } else {
         const vendorCashPaid = isContracted
@@ -525,6 +546,7 @@ export class StatisticsService {
         if (groups.length > 0) {
           const collections = await this.splitCollectedCash(client, {
             groups,
+            grandTotal,
             subtotal,
             deliveryFee,
             serviceFee,
@@ -562,15 +584,54 @@ export class StatisticsService {
       // Pay EACH delivery's primary driver their own tier-adjusted fee. For a
       // single-delivery order there is exactly one entry (unchanged behaviour);
       // a delivery-grouped order has one entry per delivered group.
+      const combinedDriverPayouts = new Map<
+        string,
+        {
+          driverId: string;
+          driverShiftId: string | null;
+          amount: number;
+          isAssistOnly: boolean;
+        }
+      >();
       for (const payout of primaryPayouts) {
         if (payout.amount <= 0) continue;
+        const existing = combinedDriverPayouts.get(payout.driverId);
+        if (existing) {
+          existing.amount += payout.amount;
+          existing.isAssistOnly = false;
+        } else {
+          combinedDriverPayouts.set(payout.driverId, {
+            driverId: payout.driverId,
+            driverShiftId: payout.driverShiftId,
+            amount: payout.amount,
+            isAssistOnly: false,
+          });
+        }
+      }
+      for (const payout of assistPayouts) {
+        if (payout.amount <= 0) continue;
+        const existing = combinedDriverPayouts.get(payout.driverId);
+        if (existing) {
+          existing.amount += payout.amount;
+        } else {
+          combinedDriverPayouts.set(payout.driverId, {
+            driverId: payout.driverId,
+            driverShiftId: payout.driverShiftId,
+            amount: payout.amount,
+            isAssistOnly: true,
+          });
+        }
+      }
+      for (const payout of combinedDriverPayouts.values()) {
         await this.creditDriverWallet(
           client,
           payout.driverId,
           payout.amount,
           orderId,
           payout.driverShiftId,
-          `Delivery fee for order ${orderNumber}`,
+          payout.isAssistOnly
+            ? `Assisting delivery fee for order ${orderNumber}`
+            : `Delivery fee for order ${orderNumber}`,
           'DELIVERY_FEE',
           { skipLock: true },
         );
@@ -580,19 +641,7 @@ export class StatisticsService {
       // with the primary driver — two drivers collecting the customer's money
       // would risk double-collection and unreconciled float, so assistants are
       // paid purely from the fee pot (absorbed by platform revenue above).
-      for (const payout of assistPayouts) {
-        if (payout.amount <= 0) continue;
-        await this.creditDriverWallet(
-          client,
-          payout.driverId,
-          payout.amount,
-          orderId,
-          payout.driverShiftId,
-          `Assisting delivery fee for order ${orderNumber}`,
-          'DELIVERY_FEE',
-          { skipLock: true },
-        );
-      }
+
 
       for (const [mgrId, share] of managerPayouts.entries()) {
         if (share <= 0) continue;
@@ -764,7 +813,13 @@ export class StatisticsService {
       // are never dispatched and never paid.
       const portions = await client.orderVendorFulfillment.findMany({
         where: { orderId, status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] } },
-        select: { vendorId: true, subtotal: true, commissionRate: true },
+        select: {
+          vendorId: true,
+          subtotal: true,
+          commissionRate: true,
+          vendor: { select: { isContracted: true } },
+          vendorBranch: { select: { name: true, isContracted: true } },
+        },
       });
 
       const payables: Array<{
@@ -775,40 +830,59 @@ export class StatisticsService {
         commissionDescription: string;
       }> =
         portions.length > 0
-          ? await Promise.all(
-              portions.map(async (p) => {
-                const contracted = await client.vendor.findUnique({
-                  where: { id: p.vendorId },
-                  select: { isContracted: true },
-                });
-                const fulfillment = await client.orderVendorFulfillment.findFirst({
-                  where: { orderId, vendorId: p.vendorId },
-                  select: {
-                    vendorBranch: {
-                      select: { name: true, isContracted: true },
-                    },
-                  },
-                });
-                const isContracted =
-                  fulfillment?.vendorBranch?.isContracted != null
-                    ? fulfillment.vendorBranch.isContracted
-                    : (contracted?.isContracted ?? false);
-                if (!isContracted) return null;
+          ? (() => {
+              const byVendor = new Map<
+                string,
+                {
+                  vendorId: string;
+                  revenue: number;
+                  commission: number;
+                  branchNames: string[];
+                }
+              >();
+              for (const p of portions) {
+                const portionContracted =
+                  p.vendorBranch?.isContracted != null
+                    ? p.vendorBranch.isContracted
+                    : (p.vendor?.isContracted ?? false);
+                if (!portionContracted) continue;
                 const rate = Number(p.commissionRate ?? 0);
-                const bName = fulfillment?.vendorBranch?.name
-                  ? ` (${fulfillment.vendorBranch.name})`
-                  : '';
+                const portionComm = Math.round(p.subtotal * (rate / 100));
+                const existing = byVendor.get(p.vendorId);
+                if (existing) {
+                  existing.revenue += p.subtotal;
+                  existing.commission += portionComm;
+                  if (
+                    p.vendorBranch?.name &&
+                    !existing.branchNames.includes(p.vendorBranch.name)
+                  ) {
+                    existing.branchNames.push(p.vendorBranch.name);
+                  }
+                } else {
+                  byVendor.set(p.vendorId, {
+                    vendorId: p.vendorId,
+                    revenue: p.subtotal,
+                    commission: portionComm,
+                    branchNames: p.vendorBranch?.name
+                      ? [p.vendorBranch.name]
+                      : [],
+                  });
+                }
+              }
+              return Array.from(byVendor.values()).map((entry) => {
+                const bName =
+                  entry.branchNames.length > 0
+                    ? ` (${entry.branchNames.join(', ')})`
+                    : '';
                 return {
-                  vendorId: p.vendorId,
-                  revenue: p.subtotal,
-                  commission: Math.round(p.subtotal * (rate / 100)),
+                  vendorId: entry.vendorId,
+                  revenue: entry.revenue,
+                  commission: entry.commission,
                   description: `Order ${orderNumber}${bName} revenue`,
                   commissionDescription: `Commission for order ${orderNumber}${bName}`,
                 };
-              }),
-            ).then((rows) =>
-              rows.filter((r): r is NonNullable<typeof r> => !!r),
-            )
+              });
+            })()
           : // Legacy single-vendor path: unchanged behaviour.
             vendorId && isContracted
             ? await (async () => {
@@ -852,6 +926,11 @@ export class StatisticsService {
           { skipLock: true },
         );
       }
+
+      await client.order.update({
+        where: { id: orderId },
+        data: { settledAt: now },
+      });
     });
 
     // ─── Stats are applied via the queue after commit ───────────────────────
@@ -930,26 +1009,42 @@ export class StatisticsService {
             vendorBranch: { select: { isContracted: true } },
           },
         });
+        const vendorStatsByVendor = new Map<
+          string,
+          { totalRevenue: number; totalCommission: number }
+        >();
         for (const portion of portions) {
-          const isContracted =
+          const portionContracted =
             portion.vendorBranch?.isContracted != null
               ? portion.vendorBranch.isContracted
               : (portion.vendor?.isContracted ?? false);
+          const portionComm = portionContracted
+            ? Math.round(
+                portion.subtotal * (Number(portion.commissionRate) / 100),
+              )
+            : 0;
+          const existing = vendorStatsByVendor.get(portion.vendorId);
+          if (existing) {
+            existing.totalRevenue += portion.subtotal;
+            existing.totalCommission += portionComm;
+          } else {
+            vendorStatsByVendor.set(portion.vendorId, {
+              totalRevenue: portion.subtotal,
+              totalCommission: portionComm,
+            });
+          }
+        }
+        for (const [vId, agg] of vendorStatsByVendor.entries()) {
           statsJobs.push(
             this.enqueueStatsJob({
               name: STATS_JOBS.UPDATE_VENDOR,
-              sourceKey: `settle:${orderId}:vendor:${portion.vendorId}`,
+              sourceKey: `settle:${orderId}:vendor:${vId}`,
               data: {
-                vendorId: portion.vendorId,
+                vendorId: vId,
                 increment: {
                   totalOrders: 1,
-                  totalRevenue: portion.subtotal,
-                  totalCommission: isContracted
-                    ? Math.round(
-                        portion.subtotal *
-                          (Number(portion.commissionRate) / 100),
-                      )
-                    : 0,
+                  totalRevenue: agg.totalRevenue,
+                  totalCommission: agg.totalCommission,
                   completedOrders: 1,
                 },
               },
@@ -1033,10 +1128,6 @@ export class StatisticsService {
         `, platform: +${platformRevenue}`,
     );
 
-    await this.prisma.order.update({
-      where: { id: orderId },
-      data: { settledAt: new Date() },
-    });
   }
 
   // ─── Record cancelled order ───────────────────────────────────────────────
@@ -1427,6 +1518,7 @@ export class StatisticsService {
         primaryDriverId: string | null;
         primaryDriverShiftId: string | null;
       }>;
+      grandTotal: number;
       subtotal: number;
       deliveryFee: number;
       serviceFee: number;
@@ -1473,7 +1565,10 @@ export class StatisticsService {
 
     const extras =
       params.serviceFee + params.tax + params.driverBonusFee - params.discount;
-    const totalGross = params.subtotal + params.deliveryFee + extras;
+    const totalGross =
+      params.grandTotal > 0
+        ? params.grandTotal
+        : Math.max(0, params.subtotal + params.deliveryFee + extras);
 
     const base = params.groups.map(
       (g) => (goodsByGroup.get(g.id) ?? 0) + g.deliveryFee,

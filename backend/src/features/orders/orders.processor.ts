@@ -114,6 +114,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         coinsEarned: true,
         coinsUsed: true,
         discount: true,
+        isStacked: true,
         vendor: { select: { commissionRate: true, isContracted: true } },
         vendorBranch: { select: { isContracted: true, commissionRate: true } },
         driver: { select: { tier: true } },
@@ -538,6 +539,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     const deliveredOrders = await this.prisma.order.findMany({
       where: {
         status: OrderStatus.DELIVERED,
+        settledAt: null,
         updatedAt: { lt: cutoff },
       },
       select: {

@@ -849,7 +849,7 @@ export class OrdersCheckoutService {
       );
     }
 
-    return order;
+    return this.ordersRepository.findById(order.id);
   }
 
   async validateActiveOrderLimit(customerId: string) {
