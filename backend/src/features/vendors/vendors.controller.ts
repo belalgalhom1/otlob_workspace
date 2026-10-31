@@ -49,8 +49,12 @@ export class VendorsController {
   @ApiStandardResponse()
   @Get('by-slug/:slug')
   @ApiOperation({ summary: 'Find a vendor by its slug' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.service.findBySlug(slug);
+  @ApiQuery({ name: 'branchId', required: false, description: 'Optional branch UUID to filter menu for a specific branch' })
+  findBySlug(
+    @Param('slug') slug: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.service.findBySlug(slug, branchId);
   }
 
   @Public()

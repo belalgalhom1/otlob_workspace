@@ -130,7 +130,7 @@ class AdminVendorsRepository {
     required double lat,
     required double lng,
     String? zoneId,
-    bool isOpen = true,
+    bool? isOpen = true,
     bool? isContracted,
     int? commissionRate,
   }) async {
@@ -143,7 +143,7 @@ class AdminVendorsRepository {
         if (phone != null && phone.isNotEmpty) 'phone': phone,
         'location': [lat, lng],
         if (zoneId != null && zoneId.isNotEmpty) 'zoneId': zoneId,
-        'isOpen': isOpen,
+        'isOpen': isOpen ?? true,
         if (isContracted != null) 'isContracted': isContracted,
         if (commissionRate != null) 'commissionRate': commissionRate,
       },

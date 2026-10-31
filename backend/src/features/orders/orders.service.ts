@@ -44,7 +44,7 @@ export class OrdersService {
     const [isMember, canManage] = await Promise.all([
       this.prisma.vendorMember.findUnique({
         where: { vendorId_userId: { vendorId, userId: actor.sub } },
-        select: { id: true },
+        select: { id: true, branchId: true },
       }),
       this.canManageOrders(actor.sub, actor.role),
     ]);
@@ -53,7 +53,12 @@ export class OrdersService {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
     }
 
-    const result = await this.ordersRepository.findMany({ ...dto, vendorId });
+    const branchId = !canManage && isMember?.branchId ? isMember.branchId : undefined;
+    const result = await this.ordersRepository.findMany({
+      ...dto,
+      vendorId,
+      ...(branchId ? { branchId } : {}),
+    });
     result.orders = await Promise.all(
       result.orders.map((o: any) => this.projectOrderForRole(o, actor, vendorId)),
     );
@@ -211,8 +216,11 @@ export class OrdersService {
 
     const settings = await this.platformSettings.getSettings();
     const rate = Number(settings?.deliveryCommissionRate ?? 20);
+    const stackedDriverPct = Number(settings?.stackedOrderDriverPercentage ?? 50);
 
     let deliveryFee = Number(order.deliveryFee ?? 0);
+    let projectedIsStacked = Boolean(order.isStacked);
+    let customDriverEarnings: number | null = null;
     let groupVendor = order.vendor;
     let groupVendorBranch = order.vendorBranch;
     let groupPickupLocation = order.pickupLocation;
@@ -262,6 +270,12 @@ export class OrdersService {
             (sum: number, g: any) => sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
             0,
           );
+          projectedIsStacked = myGroups.some((g: any) => Boolean(g.isStacked));
+          customDriverEarnings = myGroups.reduce((sum: number, g: any) => {
+            const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            const share = g.isStacked ? stackedDriverPct / 100 : 1 - rate / 100;
+            return sum + Math.max(0, Math.round(gFee * share));
+          }, 0);
 
           const allGroupItems = myGroups.flatMap((g: any) =>
             Array.isArray(g.items) ? g.items : [],
@@ -313,19 +327,59 @@ export class OrdersService {
             }
             isStorePrepaid = allContracted;
 
-            // Total cash to collect at door: sum of all assigned stores' goods + total delivery fee - upfront
+            const liveFulfillments = myFulfillments.filter(
+              (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+            );
+            const nextUnpicked = liveFulfillments.find(
+              (f: any) => f.status !== 'PICKED_UP' && f.status !== 'DELIVERED' && !f.pickedUpAt,
+            );
+            const anyPicked = liveFulfillments.some(
+              (f: any) => f.status === 'PICKED_UP' || Boolean(f.pickedUpAt),
+            );
+            if (
+              projectedStatus !== 'PENDING_PAYMENT' &&
+              projectedStatus !== 'DELIVERED' &&
+              projectedStatus !== 'PICKED_UP'
+            ) {
+              if (anyPicked) {
+                projectedStatus = 'PARTIALLY_PICKED_UP';
+              } else if (
+                nextUnpicked &&
+                (nextUnpicked.status === 'READY_FOR_PICKUP' || Boolean(nextUnpicked.readyAt))
+              ) {
+                projectedStatus = 'READY_FOR_PICKUP';
+              } else if (
+                liveFulfillments.some(
+                  (f: any) => f.status === 'PREPARING' || Boolean(f.preparingAt),
+                )
+              ) {
+                projectedStatus = 'PREPARING';
+              }
+            }
+
+            // Total cash to collect at door: sum of all assigned stores' goods + delivery fee + first-group extras - upfront
+            const activeGroupsForSeq = order.deliveryGroups.filter(
+              (g: any) => g.status !== 'CANCELLED',
+            );
             const firstSequence = Math.min(
-              ...order.deliveryGroups.map((g: any) => Number(g.sequence ?? 0)),
+              ...(activeGroupsForSeq.length > 0 ? activeGroupsForSeq : order.deliveryGroups).map(
+                (g: any) => Number(g.sequence ?? 0),
+              ),
             );
             const isFirstGroup = myGroups.some((g: any) => Number(g.sequence ?? 0) === firstSequence);
+            const orderLevelExtras = isFirstGroup
+              ? Number(order.serviceFee ?? 0) +
+                Number(order.tax ?? 0) +
+                Number(order.driverBonusFee ?? 0) -
+                Number(order.discount ?? 0) -
+                upfrontAmount
+              : 0;
             cashToCollect =
               isPrepaid || orderPaid
                 ? 0
                 : Math.max(
                     0,
-                    groupSubtotal +
-                      deliveryFee -
-                      (isFirstGroup ? upfrontAmount : 0),
+                    groupSubtotal + deliveryFee + orderLevelExtras,
                   );
 
             const firstFulfillment = myFulfillments[0];
@@ -347,11 +401,17 @@ export class OrdersService {
         }
       }
     }
-    const driverEarnings = Math.max(0, Math.round(deliveryFee * (1 - rate / 100)));
+    const effectiveDriverShare = projectedIsStacked
+      ? stackedDriverPct / 100
+      : 1 - rate / 100;
+    const driverEarnings =
+      customDriverEarnings ??
+      Math.max(0, Math.round(deliveryFee * effectiveDriverShare));
 
     return {
       ...order,
       status: projectedStatus,
+      isStacked: projectedIsStacked,
       vendor: groupVendor,
       vendorBranch: groupVendorBranch,
       pickupLocation: groupPickupLocation,
@@ -360,6 +420,8 @@ export class OrdersService {
       vendorFulfillments: scopedFulfillments,
       grandTotal: cashToCollect,
       total: cashToCollect,
+      cashToCollect,
+      upfrontAmount: 0,
       serviceFee: 0,
       tax: 0,
       discount: 0,

@@ -84,8 +84,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
       final dispatchId = widget.dispatchData['dispatchId'] ?? widget.dispatchData['id'];
       await repo.respondToDispatch(dispatchId, 'ACCEPTED');
       
-      // Invalidate the provider so it fetches the new order instead of using the cached null state
-      ref.invalidate(orderExecutionProvider);
+      // Refresh active order state without wiping _selectedOrderId if driver is already executing an order
+      await ref.read(orderExecutionProvider.notifier).refresh();
       
       if (mounted) {
         Navigator.of(context).pop();

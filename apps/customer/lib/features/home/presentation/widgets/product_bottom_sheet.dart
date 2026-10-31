@@ -170,17 +170,29 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
             .fold<int>(0, (sum, ci) => sum + ci.quantity);
       }
     } else if (productTracksStock && productStock != null) {
+      final bool sellByStrip = item['sellByStrip'] == true;
+      final int stripsPerPackage =
+          int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 1;
       final divider = (_selectedUnit == 'strip' &&
-              item['sellByStrip'] == true &&
-              (int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 0) >
-                  0)
-          ? int.parse(item['stripsPerPackage'].toString())
+              sellByStrip &&
+              stripsPerPackage > 0)
+          ? stripsPerPackage
           : 1;
       stockLimit = productStock * divider;
       stockPoolQty = cartAllItems
           .where((ci) =>
               ci.product.id == item['id'] && ci.selectedVariant == null)
-          .fold<int>(0, (sum, ci) => sum + ci.quantity);
+          .fold<int>(0, (sum, ci) {
+        int lineQty = ci.quantity;
+        if (sellByStrip && stripsPerPackage > 1) {
+          if (_selectedUnit == 'strip' && ci.selectedUnit == 'package') {
+            lineQty = ci.quantity * stripsPerPackage;
+          } else if (_selectedUnit == 'package' && ci.selectedUnit == 'strip') {
+            lineQty = (ci.quantity / stripsPerPackage).ceil();
+          }
+        }
+        return sum + lineQty;
+      });
     }
     final bool isOutOfStock = stockLimit != null
         ? stockPoolQty >= stockLimit

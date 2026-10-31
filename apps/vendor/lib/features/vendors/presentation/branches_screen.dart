@@ -284,13 +284,32 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
       );
     }
 
+    final bool isOpen = branch['isOpen'] as bool? ?? true;
+    final Widget openBadge = Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: (isOpen ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        isOpen ? (isAr ? 'مفتوح' : 'Open') : (isAr ? 'مغلق' : 'Closed'),
+        style: TextStyle(
+          color: isOpen ? AppColors.success : AppColors.error,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
     final dynamic commRate = branch['commissionRate'];
-    if (commRate != null) {
-      return Wrap(
-        spacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          contractWidget,
+    return Wrap(
+      spacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        openBadge,
+        contractWidget,
+        if (commRate != null)
           Container(
             margin: const EdgeInsets.only(top: 6),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -307,11 +326,8 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
               ),
             ),
           ),
-        ],
-      );
-    }
-
-    return contractWidget;
+      ],
+    );
   }
 
   Widget _buildBranchCard(dynamic branch) {
@@ -360,8 +376,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                 fontSize: 13,
               ),
             ),
-            if (branch['phoneNumber'] != null &&
-                branch['phoneNumber'].isNotEmpty)
+            if ((branch['phone'] ?? branch['phoneNumber'] ?? '').toString().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
@@ -369,7 +384,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                     const Icon(LucideIcons.phone, size: 12),
                     const SizedBox(width: 4),
                     Text(
-                      branch['phoneNumber'],
+                      (branch['phone'] ?? branch['phoneNumber'] ?? '').toString(),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],
@@ -486,7 +501,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
       text: branch?['address'] ?? '',
     );
     final phoneController = TextEditingController(
-      text: branch?['phoneNumber'] ?? '',
+      text: (branch?['phone'] ?? branch?['phoneNumber'] ?? '').toString(),
     );
     final commissionController = TextEditingController(
       text: branch?['commissionRate']?.toString() ?? '',
@@ -497,9 +512,20 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     double? selectedLng = branch?['lng'] != null
         ? double.tryParse(branch['lng'].toString())
         : null;
+    if (selectedLat == null || selectedLng == null) {
+      final loc = branch?['location'];
+      final coords = (loc is Map && loc['coordinates'] is List)
+          ? (loc['coordinates'] as List)
+          : (loc is List ? loc : null);
+      if (coords != null && coords.length >= 2) {
+        selectedLng ??= double.tryParse(coords[0].toString());
+        selectedLat ??= double.tryParse(coords[1].toString());
+      }
+    }
     String? selectedZoneId = branch?['zoneId'] ?? branch?['zone']?['id'];
     String? errorMessage;
     bool? isContracted = branch?['isContracted'] as bool?;
+    bool isOpen = branch?['isOpen'] as bool? ?? true;
 
     final result = await showDialog<bool>(
       context: context,
@@ -725,6 +751,60 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                             hint: '+123...',
                             icon: LucideIcons.phone,
                             keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: SwitchListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              title: Text(
+                                Localizations.localeOf(context).languageCode ==
+                                        'ar'
+                                    ? 'حالة الفرع (مفتوح للطلبات)'
+                                    : 'Branch Open for Orders',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                isOpen
+                                    ? (Localizations.localeOf(
+                                              context,
+                                            ).languageCode ==
+                                            'ar'
+                                        ? 'مفتوح حالياً'
+                                        : 'Currently Open')
+                                    : (Localizations.localeOf(
+                                              context,
+                                            ).languageCode ==
+                                            'ar'
+                                        ? 'مغلق حالياً'
+                                        : 'Currently Closed'),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isOpen
+                                      ? AppColors.success
+                                      : AppColors.error,
+                                ),
+                              ),
+                              value: isOpen,
+                              activeThumbColor: AppColors.success,
+                              onChanged: (val) {
+                                setState(() {
+                                  isOpen = val;
+                                });
+                              },
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Container(
@@ -976,6 +1056,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             lat: selectedLat,
                                             lng: selectedLng,
                                             zoneId: selectedZoneId,
+                                            isOpen: isOpen,
                                             isContracted: isContracted,
                                             commissionRate:
                                                 commissionController.text
@@ -1009,6 +1090,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             lat: selectedLat!,
                                             lng: selectedLng!,
                                             zoneId: selectedZoneId,
+                                            isOpen: isOpen,
                                             isContracted: isContracted,
                                             commissionRate:
                                                 commissionController.text

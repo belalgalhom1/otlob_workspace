@@ -143,8 +143,8 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                     itemCount: _drivers.length,
                     itemBuilder: (context, index) {
                       final driver = _drivers[index];
-                      final name = driver['name'] ?? 'Unknown';
-                      final phone = driver['phoneNumber'] ?? '';
+                      final name = (driver['name'] ?? (driver['user'] is Map ? driver['user']['name'] : null) ?? 'Unknown').toString();
+                      final phone = (driver['phone'] ?? driver['phoneNumber'] ?? (driver['user'] is Map ? driver['user']['phone'] : null) ?? '').toString();
                       
                       return ListTile(
                         leading: const CircleAvatar(

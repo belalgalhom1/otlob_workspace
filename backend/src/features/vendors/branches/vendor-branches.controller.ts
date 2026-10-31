@@ -18,9 +18,14 @@ import {
 import { VendorMember } from '../../../common/decorators/vendor-member.decorator';
 import { RequirePermissions } from '../../../common/decorators/permissions.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { CurrentVendorBranch } from '../../../common/decorators/current-vendor-branch.decorator';
-import { VendorBranchErrors } from '../../../common/constants/response.constants';
-import { Permission, VendorMemberRole } from '@prisma/client';
+import {
+  VendorBranchErrors,
+  VendorErrors,
+} from '../../../common/constants/response.constants';
+import { Permission, Role, VendorMemberRole } from '@prisma/client';
+import type { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';
 
@@ -60,10 +65,15 @@ export class VendorBranchesController {
   create(
     @Param('vendorId') vendorId: string,
     @Body() dto: CreateVendorBranchDto,
+    @CurrentUser() user: JwtAccessPayload,
     @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
     if (assignedBranchId) {
       throw new ForbiddenException(VendorBranchErrors.CANNOT_CREATE_BRANCH);
+    }
+    if (user?.role !== Role.ADMIN && user?.role !== Role.SUPER_ADMIN) {
+      delete (dto as any).isContracted;
+      delete (dto as any).commissionRate;
     }
     return this.service.create(vendorId, dto);
   }
@@ -79,10 +89,15 @@ export class VendorBranchesController {
     @Param('vendorId') vendorId: string,
     @Param('branchId') branchId: string,
     @Body() dto: UpdateVendorBranchDto,
+    @CurrentUser() user: JwtAccessPayload,
     @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
     if (assignedBranchId && assignedBranchId !== branchId) {
       throw new ForbiddenException(VendorBranchErrors.NOT_ASSIGNED_BRANCH);
+    }
+    if (user?.role !== Role.ADMIN && user?.role !== Role.SUPER_ADMIN) {
+      delete (dto as any).isContracted;
+      delete (dto as any).commissionRate;
     }
     return this.service.update(vendorId, branchId, dto);
   }
@@ -100,8 +115,8 @@ export class VendorBranchesController {
     @Param('branchId') branchId: string,
     @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
-    if (assignedBranchId && assignedBranchId !== branchId) {
-      throw new ForbiddenException(VendorBranchErrors.NOT_ASSIGNED_BRANCH);
+    if (assignedBranchId) {
+      throw new ForbiddenException(VendorErrors.CANNOT_MODIFY_GLOBAL_SETTINGS);
     }
     return this.service.remove(vendorId, branchId);
   }

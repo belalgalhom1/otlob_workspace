@@ -26,6 +26,8 @@ class OrderExecution extends _$OrderExecution {
     _selectedOrderId = null;
   }
 
+  Future<void> refresh() => _fetchActiveOrder();
+
   Future<void> _fetchActiveOrder() async {
     try {
       final repository = ref.read(driverOrdersRepositoryProvider);
@@ -64,6 +66,9 @@ class OrderExecution extends _$OrderExecution {
       final repository = ref.read(driverOrdersRepositoryProvider);
 
       await repository.updateOrderStatus(orderId, newStatus);
+      if (newStatus == 'DELIVERED' || newStatus == 'CANCELLED') {
+        _selectedOrderId = null;
+      }
       await _fetchActiveOrder();
       
       if (newStatus == 'DELIVERED') {
@@ -164,7 +169,11 @@ class OrderExecution extends _$OrderExecution {
       if (incomingId != null && incomingId == orderId) {
         final updatedState = Map<String, dynamic>.from(state.value);
         final newStatus = data['newStatus'] ?? data['status'];
-        if (newStatus != null) {
+        final normalized = newStatus?.toString().toUpperCase();
+        if (normalized == 'DELIVERED' || normalized == 'CANCELLED') {
+          _selectedOrderId = null;
+          _fetchActiveOrder();
+        } else if (newStatus != null) {
           updatedState['status'] = newStatus;
           state = AsyncValue.data(updatedState);
         } else {

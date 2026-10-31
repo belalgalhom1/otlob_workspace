@@ -544,8 +544,32 @@ export class DriversRepository {
   async findActiveOrderForDriver(driverId: string) {
     return this.prisma.order.findFirst({
       where: {
-        driverId,
-        status: { in: ['DRIVER_ASSIGNED', 'PARTIALLY_PICKED_UP', 'PICKED_UP'] },
+        OR: [
+          {
+            driverId,
+            status: {
+              in: [
+                'DRIVER_ASSIGNED',
+                'PREPARING',
+                'READY_FOR_PICKUP',
+                'PENDING_PAYMENT',
+                'PARTIALLY_PICKED_UP',
+                'PICKED_UP',
+              ],
+            },
+          },
+          {
+            deliveryGroups: {
+              some: {
+                status: { notIn: ['CANCELLED', 'DELIVERED'] },
+                OR: [
+                  { primaryDriverId: driverId },
+                  { assistDriverId: driverId },
+                ],
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,

@@ -288,7 +288,13 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
       // Enqueue next attempt manually to ensure 'attempt' increments, triggering dynamic radius expansion
       await this.queue.add(
         ORDER_JOBS.DISPATCH,
-        { orderId, orderNumber, attempt: attempt + 1, excludeDriverIds },
+        {
+          orderId,
+          orderNumber,
+          attempt: attempt + 1,
+          excludeDriverIds,
+          ...(deliveryGroupId ? { deliveryGroupId } : {}),
+        },
         { delay: (settings.driverAcceptTimeoutSecs ?? 30) * 1000 },
       );
 

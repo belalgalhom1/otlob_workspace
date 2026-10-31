@@ -344,14 +344,10 @@ export class EventsProcessor extends WorkerHost {
     ];
     for (const driverId of driverUserById.keys()) {
       if (trackingStatuses.includes(event.newStatus)) {
-        await this.redis.set(
-          `otlobegy:driver-active-order:${driverId}`,
-          JSON.stringify({
-            orderId: event.orderId,
-            customerUserId: event.customerUserId,
-          }),
-          12 * 60 * 60,
-        );
+        await this.refreshDriverTracking(driverId, undefined, {
+          orderId: event.orderId,
+          customerUserId: event.customerUserId,
+        });
       } else if (
         event.newStatus === OrderStatus.DELIVERED ||
         event.newStatus === OrderStatus.CANCELLED
@@ -362,68 +358,81 @@ export class EventsProcessor extends WorkerHost {
   }
 
   /**
-   * Rebuild one driver's live-order tracking key after a delivery ended.
+   * Rebuild one driver's live-order tracking key across all batched/active work.
    *
-   * A driver can carry more than one unit of work (another delivery group of
-   * the same multi-vendor order, or a different order), so the key is repointed
-   * at the remaining work instead of being deleted blindly — deleting it would
-   * hide a live delivery from the tracking screen.
+   * A driver can carry more than one unit of work simultaneously (batched orders
+   * or multiple delivery groups), so all active orders are stored in `orders`
+   * (with `orderId`/`customerUserId` kept at top level for backward compatibility).
    */
-  private async refreshDriverTracking(driverId: string, endedOrderId: string) {
-    const remainingGroup = await this.prisma.orderDeliveryGroup.findFirst({
-      where: {
-        status: {
-          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+  private async refreshDriverTracking(
+    driverId: string,
+    endedOrderId?: string,
+    ensureActiveOrder?: { orderId: string; customerUserId: string },
+  ) {
+    const [remainingGroups, remainingOrders] = await Promise.all([
+      this.prisma.orderDeliveryGroup.findMany({
+        where: {
+          status: {
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.DELIVERED,
+            ],
+          },
+          OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
         },
-        OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
-      },
-      select: {
-        orderId: true,
-        order: {
-          select: {
-            customerId: true,
-            customer: { select: { userId: true } },
+        select: {
+          orderId: true,
+          order: {
+            select: {
+              customerId: true,
+              customer: { select: { userId: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          driverId,
+          ...(endedOrderId ? { id: { not: endedOrderId } } : {}),
+          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+          deliveryGroups: { none: {} },
+        },
+        select: {
+          id: true,
+          customerId: true,
+          customer: { select: { userId: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
 
-    if (remainingGroup) {
-      await this.redis.set(
-        `otlobegy:driver-active-order:${driverId}`,
-        JSON.stringify({
-          orderId: remainingGroup.orderId,
-          customerUserId:
-            remainingGroup.order.customer?.userId ??
-            remainingGroup.order.customerId,
-        }),
-        12 * 60 * 60,
-      );
-      return;
+    const byOrderId = new Map<string, { orderId: string; customerUserId: string }>();
+    for (const g of remainingGroups) {
+      if (endedOrderId && g.orderId === endedOrderId) continue;
+      byOrderId.set(g.orderId, {
+        orderId: g.orderId,
+        customerUserId: g.order.customer?.userId ?? g.order.customerId,
+      });
+    }
+    for (const o of remainingOrders) {
+      byOrderId.set(o.id, {
+        orderId: o.id,
+        customerUserId: o.customer?.userId ?? o.customerId,
+      });
+    }
+    if (ensureActiveOrder?.orderId) {
+      byOrderId.set(ensureActiveOrder.orderId, ensureActiveOrder);
     }
 
-    const remainingOrder = await this.prisma.order.findFirst({
-      where: {
-        driverId,
-        id: { not: endedOrderId },
-        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-        deliveryGroups: { none: {} },
-      },
-      select: {
-        id: true,
-        customerId: true,
-        customer: { select: { userId: true } },
-      },
-    });
-
-    if (remainingOrder) {
+    const activeList = Array.from(byOrderId.values());
+    if (activeList.length > 0) {
       await this.redis.set(
         `otlobegy:driver-active-order:${driverId}`,
         JSON.stringify({
-          orderId: remainingOrder.id,
-          customerUserId:
-            remainingOrder.customer?.userId ?? remainingOrder.customerId,
+          orderId: activeList[0].orderId,
+          customerUserId: activeList[0].customerUserId,
+          orders: activeList,
         }),
         12 * 60 * 60,
       );

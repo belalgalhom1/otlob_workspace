@@ -241,7 +241,7 @@ export class OrdersStateService {
     },
     dto: UpdateOrderStatusDto,
   ) {
-    if (fulfillment.status !== 'ACCEPTED') {
+    if (fulfillment.status !== 'ACCEPTED' && fulfillment.status !== 'PREPARING') {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
@@ -1012,8 +1012,14 @@ export class OrdersStateService {
     // Stamp this group's vendor portions as delivered.
     if (dto.status === OrderStatus.DELIVERED) {
       await this.prisma.orderVendorFulfillment.updateMany({
-        where: { groups: { some: { deliveryGroupId: group.id } } },
-        data: { deliveredAt: new Date() },
+        where: {
+          groups: { some: { deliveryGroupId: group.id } },
+          status: { notIn: ['REJECTED', 'CANCELLED'] },
+        },
+        data: {
+          status: OrderVendorFulfillmentStatus.DELIVERED,
+          deliveredAt: new Date(),
+        },
       });
     }
 
@@ -1295,17 +1301,34 @@ export class OrdersStateService {
     });
     const maxActive = settings?.maxActiveOrdersPerDriver ?? 1;
 
-    // Never put a driver on more live orders than maxActive.
-    const activeOrdersCount = await this.prisma.order.count({
-      where: {
-        driverId: driver.id,
-        id: { not: orderId },
-        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-      },
-    });
+    // Never put a driver on more live orders/delivery groups than maxActive.
+    const [activeGroupCount, activeLegacyOrderCount] = await Promise.all([
+      this.prisma.orderDeliveryGroup.count({
+        where: {
+          orderId: { not: orderId },
+          status: {
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.DELIVERED,
+            ],
+          },
+          OR: [{ primaryDriverId: driver.id }, { assistDriverId: driver.id }],
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          driverId: driver.id,
+          id: { not: orderId },
+          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+          deliveryGroups: { none: {} },
+        },
+      }),
+    ]);
+    const activeOrdersCount = activeGroupCount + activeLegacyOrderCount;
     if (activeOrdersCount >= maxActive) {
       throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
     }
+    const isStackedOrder = activeOrdersCount > 0;
 
     // Get active shift if any
     const activeShift = await this.prisma.driverShift.findFirst({
@@ -1331,6 +1354,33 @@ export class OrdersStateService {
       nextStatus,
       maxActive,
     );
+
+    const groupNextStatus =
+      nextStatus === OrderStatus.PENDING_PAYMENT
+        ? DeliveryGroupStatus.PENDING_PAYMENT
+        : DeliveryGroupStatus.DRIVER_ASSIGNED;
+    await this.prisma.orderDeliveryGroup.updateMany({
+      where: {
+        orderId,
+        primaryDriverId: null,
+        status: {
+          in: [
+            DeliveryGroupStatus.PENDING,
+            DeliveryGroupStatus.ACCEPTED,
+            DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+            DeliveryGroupStatus.READY_FOR_PICKUP,
+          ],
+        },
+      },
+      data: {
+        primaryDriverId: driver.id,
+        primaryDriverShiftId: activeShift?.id ?? null,
+        isStacked: isStackedOrder,
+        status: groupNextStatus,
+        assignedByUserId: actor.sub,
+        assignedAt: new Date(),
+      },
+    });
 
     // The dispatch listener will catch ORDER_STATUS_CHANGED to DRIVER_ASSIGNED
     // and cancel any automated dispatch ping that might be running automatically.
@@ -1508,8 +1558,16 @@ export class OrdersStateService {
       if (grouped.length > 0) {
         const now = new Date();
         await this.prisma.orderVendorFulfillment.updateMany({
-          where: { orderId: order.id, status: 'ACCEPTED', readyAt: null },
-          data: { preparingAt: now, readyAt: now },
+          where: {
+            orderId: order.id,
+            status: { in: ['ACCEPTED', 'PREPARING'] },
+            readyAt: null,
+          },
+          data: {
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            preparingAt: now,
+            readyAt: now,
+          },
         });
         await this.prisma.orderDeliveryGroup.updateMany({
           where: {

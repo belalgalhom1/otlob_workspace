@@ -292,8 +292,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     }
     final est = _estimate;
     final hasEstimate = est != null && (_pickupLocation != null) && (_dropoffLocation != null);
-    final totalFee = hasEstimate
-        ? ((est['grandTotal'] as num?)?.toDouble() ?? _calculateTotalFee())
+    final estDiscount = hasEstimate ? ((est['discount'] as num?)?.toDouble() ?? 0.0) : 0.0;
+    final estGrandTotal = hasEstimate ? (est['grandTotal'] as num?)?.toDouble() : null;
+    final totalFee = estGrandTotal != null
+        ? (estGrandTotal + estDiscount)
         : _calculateTotalFee();
     final isAr = s.isArabic;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -303,13 +305,15 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     double coinDiscount = 0;
     
     if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-      coinDiscount = coinState.currentBalance * settings.coinValue;
+      coinDiscount = estDiscount > 0 ? estDiscount : (coinState.currentBalance * settings.coinValue);
       if (coinDiscount > totalFee) {
         coinDiscount = totalFee;
       }
     }
     
-    final finalTotal = totalFee - coinDiscount;
+    final finalTotal = (est != null && est['grandTotal'] != null)
+        ? (est['grandTotal'] as num).toDouble()
+        : (totalFee - coinDiscount);
 
     return PopScope(
       canPop: _rideState == RideState.form,

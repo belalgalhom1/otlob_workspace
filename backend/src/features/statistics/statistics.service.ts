@@ -763,7 +763,7 @@ export class StatisticsService {
       // cannot alter an already-delivered order). Rejected/cancelled portions
       // are never dispatched and never paid.
       const portions = await client.orderVendorFulfillment.findMany({
-        where: { orderId, status: 'ACCEPTED' },
+        where: { orderId, status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] } },
         select: { vendorId: true, subtotal: true, commissionRate: true },
       });
 
@@ -921,7 +921,7 @@ export class StatisticsService {
         // Multi-vendor: one vendor-stats increment per accepted portion, keyed
         // by vendor so several vendors of the same order each accrue once.
         const portions = await this.prisma.orderVendorFulfillment.findMany({
-          where: { orderId, status: 'ACCEPTED' },
+          where: { orderId, status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] } },
           select: {
             vendorId: true,
             subtotal: true,
@@ -1339,7 +1339,7 @@ export class StatisticsService {
         JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
         JOIN orders o ON o.id = f."orderId"
         WHERE f."vendorId" = ${vendorId}
-          AND f.status = 'ACCEPTED'
+          AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
           AND o.status = 'DELIVERED'
           AND o."deletedAt" IS NULL
           AND oi."rejectedAt" IS NULL

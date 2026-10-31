@@ -61,6 +61,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   final MapController _mapController = MapController();
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStreamSub;
+  StreamSubscription<dynamic>? _fulfillmentSub;
   RoadSpeedLimit? _roadSpeedLimit;
   bool _isMapReady = false;
   XFile? _pickupPhoto;
@@ -180,12 +181,41 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     // build re-subscribes on every rebuild and throws in debug builds.
     ref.listen<AsyncValue<dynamic>>(
       orderExecutionProvider,
-      (previous, state) => _maybeLeaveForDashboard(state),
+      (previous, state) {
+        final prevId = previous?.value is Map ? previous!.value['id']?.toString() : null;
+        final nextId = state.value is Map ? state.value['id']?.toString() : null;
+        if (prevId != null && nextId != null && prevId != nextId && mounted) {
+          setState(() {
+            _currentStopIndex = 0;
+            _collectedStopIndices.clear();
+            _pickupPhoto = null;
+            _deliveryPhoto = null;
+          });
+        }
+        _maybeLeaveForDashboard(state);
+      },
     );
+    final socket = ref.read(coreSocketServiceProvider);
+    _fulfillmentSub = socket
+        .onEvent(SocketEvent.orderFulfillmentUpdated)
+        .listen((data) {
+      if (!mounted) return;
+      final currentOrder = ref.read(orderExecutionProvider).value;
+      final activeOrderId =
+          currentOrder is Map ? currentOrder['id']?.toString() : null;
+      final incomingOrderId =
+          data is Map ? (data['orderId'] ?? data['id'])?.toString() : null;
+      if (activeOrderId == null ||
+          incomingOrderId == null ||
+          incomingOrderId == activeOrderId) {
+        ref.read(orderExecutionProvider.notifier).refresh();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _fulfillmentSub?.cancel();
     _positionStreamSub?.cancel();
     _mapController.dispose();
     super.dispose();
@@ -534,9 +564,22 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final isMobileWallet = order['paymentMethod'] == 'MOBILE_WALLET';
     final isDelivering = status == 'PICKED_UP' || status == 'PENDING_PAYMENT';
 
-    // Clamp current stop index
-    if (pickupStops.isNotEmpty && _currentStopIndex >= pickupStops.length) {
-      _currentStopIndex = pickupStops.length - 1;
+    // Clamp current stop index and auto-advance past stops already marked PICKED_UP
+    if (pickupStops.isNotEmpty) {
+      if (_currentStopIndex >= pickupStops.length) {
+        _currentStopIndex = pickupStops.length - 1;
+      }
+      for (int i = 0; i < pickupStops.length; i++) {
+        if (pickupStops[i]['status'] == 'PICKED_UP') {
+          _collectedStopIndices.add(i);
+        }
+      }
+      if (pickupStops.length > 1) {
+        while (_currentStopIndex < pickupStops.length - 1 &&
+            pickupStops[_currentStopIndex]['status'] == 'PICKED_UP') {
+          _currentStopIndex++;
+        }
+      }
     }
     final currentStop = pickupStops.isNotEmpty ? pickupStops[_currentStopIndex] : null;
     
@@ -836,21 +879,47 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            status == 'PENDING_PAYMENT'
-                                ? (isAr ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
-                                : (status == 'PICKED_UP')
-                                    ? l10n.navigatingToCustomer
-                                    : (pickupStops.length > 1
-                                        ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
-                                        : (isCustomOrRide
-                                            ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
-                                            : l10n.navigatingToVendor)),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  status == 'PENDING_PAYMENT'
+                                      ? (isAr ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
+                                      : (status == 'PICKED_UP')
+                                          ? l10n.navigatingToCustomer
+                                          : (pickupStops.length > 1
+                                              ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
+                                              : (isCustomOrRide
+                                                  ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
+                                                  : l10n.navigatingToVendor)),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (order['isStacked'] == true) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    isAr ? 'مجمع في المسار' : 'Batch',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -1043,7 +1112,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                     ),
                   ),
                 ],
-                _buildPickupPhotoWidget(context, status, l10n, order),
+                _buildPickupPhotoWidget(context, status, l10n, order, pickupStops),
                 _buildDeliveryPhotoWidget(context, status, l10n, order),
                 _buildActionButton(context, status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order, pickupStops),
               ],
@@ -1108,12 +1177,19 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     BuildContext context,
     String status,
     AppLocalizations l10n,
-    Map<String, dynamic> order,
-  ) {
+    Map<String, dynamic> order, [
+    List<Map<String, dynamic>> pickupStops = const [],
+  ]) {
     final isCustomOrRide =
         order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
-    final showCapture = (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP') &&
-        (isCustomOrRide || status == 'READY_FOR_PICKUP');
+    final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
+        ? (pickupStops[_currentStopIndex]['status']?.toString() ?? status)
+        : status;
+    final showCapture = (status == 'DRIVER_ASSIGNED' ||
+            status == 'PREPARING' ||
+            status == 'READY_FOR_PICKUP' ||
+            status == 'PARTIALLY_PICKED_UP') &&
+        (isCustomOrRide || currentStopStatus == 'READY_FOR_PICKUP');
     final remoteUrl = order['pickupImageUrl']?.toString();
 
     // After pickup show the proof photo, tappable to view full screen.
@@ -1384,17 +1460,20 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
     }
 
-    if (status == 'PREPARING') {
-      return PrimaryButton(
-        text: l10n.localeName == 'ar' ? 'جاري تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
-        onPressed: null,
-      );
-    } else if (status == 'DRIVER_ASSIGNED' || status == 'READY_FOR_PICKUP' || status == 'PARTIALLY_PICKED_UP') {
+    if (status == 'PREPARING' ||
+        status == 'DRIVER_ASSIGNED' ||
+        status == 'READY_FOR_PICKUP' ||
+        status == 'PARTIALLY_PICKED_UP') {
       final isCustomOrRide =
           order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
-      if (!isCustomOrRide && status == 'DRIVER_ASSIGNED') {
+      final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
+          ? (pickupStops[_currentStopIndex]['status']?.toString() ?? status)
+          : status;
+      if (!isCustomOrRide && currentStopStatus != 'READY_FOR_PICKUP') {
         return PrimaryButton(
-          text: l10n.localeName == 'ar' ? 'بانتظار تجهيز الطلب من المطعم' : 'Waiting for vendor to prepare...',
+          text: l10n.localeName == 'ar'
+              ? 'بانتظار تجهيز الطلب من المطعم'
+              : 'Waiting for vendor to prepare...',
           onPressed: null,
         );
       }
@@ -1486,7 +1565,15 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         final total = double.tryParse(totalStr) ?? 0.0;
         final upfrontStr = order['upfrontAmount']?.toString() ?? '0.00';
         final upfront = double.tryParse(upfrontStr) ?? 0.0;
-        final collectAmount = (total - upfront) > 0 ? (total - upfront) : 0.0;
+        final rawCashToCollect = (order['financials'] is Map
+                ? order['financials']['cashToCollect']
+                : null) ??
+            order['cashToCollect'];
+        final double toCollect = (rawCashToCollect != null &&
+                double.tryParse(rawCashToCollect.toString()) != null)
+            ? double.parse(rawCashToCollect.toString())
+            : (total - upfront);
+        final collectAmount = toCollect > 0 ? toCollect : 0.0;
         label = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
       } else {
         label = l10n.confirmDelivery;

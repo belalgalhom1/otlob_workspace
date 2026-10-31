@@ -5,7 +5,10 @@ import {
   Logger,
   ConflictException,
   OnModuleInit,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../../infrastructure/storage/storage.service';
 import {
@@ -88,6 +91,7 @@ export class ProductsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async onModuleInit() {
@@ -135,6 +139,19 @@ export class ProductsService implements OnModuleInit {
           OR: [
             { branchAvailabilityMode: ProductBranchAvailabilityMode.ALL },
             { branchAvailability: { some: { branchId: dto.branchId } } },
+          ],
+        },
+        {
+          OR: [
+            { categoryId: null },
+            {
+              category: {
+                OR: [
+                  { branchAvailabilityMode: ProductBranchAvailabilityMode.ALL },
+                  { branchAvailability: { some: { branchId: dto.branchId } } },
+                ],
+              },
+            },
           ],
         },
       ];
@@ -256,6 +273,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     this.logger.log(`Product created: ${product.id} for vendor ${vendorId}`);
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, product.id);
   }
 
@@ -357,6 +375,7 @@ export class ProductsService implements OnModuleInit {
       throw error;
     }
 
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -385,6 +404,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     this.logger.log(`Image uploaded for product ${productId}: ${imageUrl}`);
+    await this.invalidateVendorCaches(vendorId);
     return { imageUrl };
   }
 
@@ -407,6 +427,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     this.logger.log(`Product soft-deleted: ${productId}`);
+    await this.invalidateVendorCaches(vendorId);
     return { message: CommonSuccess.RESOURCE_DELETED };
   }
 
@@ -457,6 +478,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     this.logger.log(`Variant ${variant.id} added to product ${productId}`);
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -511,6 +533,7 @@ export class ProductsService implements OnModuleInit {
       throw error;
     }
 
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -520,6 +543,7 @@ export class ProductsService implements OnModuleInit {
     await this.prisma.productVariant.delete({ where: { id: variantId } });
 
     this.logger.log(`Variant ${variantId} deleted from product ${productId}`);
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -564,6 +588,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     this.logger.log(`Option group ${group.id} added to product ${productId}`);
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -586,6 +611,7 @@ export class ProductsService implements OnModuleInit {
       },
     });
 
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -596,6 +622,7 @@ export class ProductsService implements OnModuleInit {
   ) {
     await this.assertGroupBelongsToProduct(groupId, productId, vendorId);
     await this.prisma.productOptionGroup.delete({ where: { id: groupId } });
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -621,6 +648,7 @@ export class ProductsService implements OnModuleInit {
       },
     });
 
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -644,6 +672,7 @@ export class ProductsService implements OnModuleInit {
       },
     });
 
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -656,6 +685,7 @@ export class ProductsService implements OnModuleInit {
     await this.assertGroupBelongsToProduct(groupId, productId, vendorId);
     await this.assertOptionBelongsToGroup(optionId, groupId);
     await this.prisma.productOption.delete({ where: { id: optionId } });
+    await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
@@ -922,5 +952,16 @@ export class ProductsService implements OnModuleInit {
       select: { id: true },
     });
     if (!option) throw new NotFoundException(ProductErrors.OPTION_NOT_FOUND);
+  }
+
+  private async invalidateVendorCaches(vendorId: string) {
+    await this.cacheManager.del(`vendor_details_${vendorId}`);
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { slug: true },
+    });
+    if (vendor?.slug) {
+      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
+    }
   }
 }

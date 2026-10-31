@@ -4,7 +4,10 @@ import {
   Logger,
   ForbiddenException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { ProductBranchAvailabilityMode } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -31,6 +34,7 @@ export class MenuCategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   // ─── List all categories for a vendor ─────────────────────────────────────
@@ -143,6 +147,7 @@ export class MenuCategoriesService {
       },
     });
 
+    await this.invalidateVendorCaches(vendorId);
     return category;
   }
 
@@ -203,6 +208,7 @@ export class MenuCategoriesService {
     });
 
     this.logger.log(`Menu category updated: ${categoryId}`);
+    await this.invalidateVendorCaches(vendorId);
     return updated;
   }
 
@@ -235,6 +241,7 @@ export class MenuCategoriesService {
     this.logger.log(
       `Reordered ${ids.length} categories for vendor ${vendorId}`,
     );
+    await this.invalidateVendorCaches(vendorId);
     return { message: CommonSuccess.OPERATION_SUCCESS };
   }
 
@@ -246,6 +253,7 @@ export class MenuCategoriesService {
 
     await this.prisma.menuCategory.delete({ where: { id: categoryId } });
 
+    await this.invalidateVendorCaches(vendorId);
     return { message: CommonSuccess.RESOURCE_DELETED };
   }
 
@@ -270,10 +278,22 @@ export class MenuCategoriesService {
       data: { iconUrl },
     });
 
+    await this.invalidateVendorCaches(vendorId);
     return { iconUrl };
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private async invalidateVendorCaches(vendorId: string) {
+    await this.cacheManager.del(`vendor_details_${vendorId}`);
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { slug: true },
+    });
+    if (vendor?.slug) {
+      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
+    }
+  }
 
   private async assertVendorExists(vendorId: string) {
     const vendor = await this.prisma.vendor.findFirst({

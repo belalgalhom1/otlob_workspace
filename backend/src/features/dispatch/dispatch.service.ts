@@ -1226,6 +1226,7 @@ export class DispatchService {
             candidate.pickupLocationName ?? dispatchData.pickupLocationName,
           dropoffLocationName:
             candidate.dropoffLocationName ?? dispatchData.dropoffLocationName,
+          isStacked: Boolean(candidate.isStacked),
         };
       }),
     );
@@ -1255,14 +1256,42 @@ export class DispatchService {
 
   async cancelActiveDispatch(orderId: string): Promise<void> {
     // A grouped order can have one active round PER DELIVERY, each keyed by its
-    // own scope. Cancel every scope so no orphaned broadcast keeps hunting for a
-    // driver after the order is cancelled. Legacy orders have no groups, so
-    // this degrades to exactly the previous order-level behaviour.
-    const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId },
-      select: { id: true },
-    });
-    const scopes: string[] = [orderId, ...groups.map((g) => g.id)];
+    // own scope. When the whole order is cancelled, cancel every scope so no
+    // orphaned broadcast keeps hunting for a driver. When triggered by an event
+    // like DRIVER_ASSIGNED on a multi-delivery order, only cancel scopes that
+    // already have a driver assigned (or are cancelled) so sibling delivery
+    // groups still searching for a driver are not prematurely killed.
+    const [order, groups] = await Promise.all([
+      this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { status: true, driverId: true },
+      }),
+      this.prisma.orderDeliveryGroup.findMany({
+        where: { orderId },
+        select: { id: true, primaryDriverId: true, status: true },
+      }),
+    ]);
+
+    const isOrderTerminal =
+      !order ||
+      order.status === 'CANCELLED' ||
+      order.status === 'DELIVERED';
+
+    let scopes: string[];
+    if (isOrderTerminal || groups.length === 0) {
+      scopes = [orderId, ...groups.map((g) => g.id)];
+    } else {
+      scopes = groups
+        .filter(
+          (g) =>
+            g.primaryDriverId != null ||
+            g.status === 'CANCELLED' ||
+            g.status === 'DELIVERED',
+        )
+        .map((g) => g.id);
+    }
+
+    if (scopes.length === 0) return;
 
     const activeDispatchIds = (
       await Promise.all(

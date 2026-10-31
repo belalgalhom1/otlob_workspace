@@ -424,9 +424,7 @@ export class VendorsService {
       },
       include: this.vendorIncludes(),
     });
-    await this.cacheManager.del(`vendor_details_${id}`);
-    if (vendor?.slug)
-      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
+    await this.invalidateVendorCaches(id, vendor?.slug);
     return updated;
   }
 
@@ -567,9 +565,7 @@ export class VendorsService {
       data: { status: dto.status, isScheduleActive: false },
       include: this.vendorIncludes(),
     });
-    await this.cacheManager.del(`vendor_details_${id}`);
-    if (vendor?.slug)
-      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
+    await this.invalidateVendorCaches(id, vendor?.slug);
     return updated;
   }
 
@@ -578,7 +574,7 @@ export class VendorsService {
   async uploadLogo(id: string, file: Express.Multer.File) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
-      select: { deletedAt: true, logo: true },
+      select: { deletedAt: true, logo: true, slug: true },
     });
     if (!vendor || vendor.deletedAt)
       throw new NotFoundException(VendorErrors.NOT_FOUND);
@@ -600,7 +596,7 @@ export class VendorsService {
       });
     }
 
-    await this.cacheManager.del(`vendor_details_${id}`);
+    await this.invalidateVendorCaches(id, vendor.slug);
 
     return { logo: logoUrl };
   }
@@ -608,7 +604,7 @@ export class VendorsService {
   async uploadCover(id: string, file: Express.Multer.File) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
-      select: { deletedAt: true, coverImage: true },
+      select: { deletedAt: true, coverImage: true, slug: true },
     });
     if (!vendor || vendor.deletedAt)
       throw new NotFoundException(VendorErrors.NOT_FOUND);
@@ -630,9 +626,24 @@ export class VendorsService {
       });
     }
 
-    await this.cacheManager.del(`vendor_details_${id}`);
+    await this.invalidateVendorCaches(id, vendor.slug);
 
     return { coverImage: coverUrl };
+  }
+
+  public async invalidateVendorCaches(id: string, slug?: string) {
+    await this.cacheManager.del(`vendor_details_${id}`);
+    let resolvedSlug = slug;
+    if (!resolvedSlug) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { id },
+        select: { slug: true },
+      });
+      resolvedSlug = vendor?.slug;
+    }
+    if (resolvedSlug) {
+      await this.cacheManager.del(`vendor_slug_details_${resolvedSlug}`);
+    }
   }
 
   // ─── Admin: soft delete ───────────────────────────────────────────────────
@@ -640,7 +651,7 @@ export class VendorsService {
   async remove(id: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
-      select: { deletedAt: true },
+      select: { deletedAt: true, slug: true },
     });
     if (!vendor || vendor.deletedAt)
       throw new NotFoundException(VendorErrors.NOT_FOUND);
@@ -649,6 +660,8 @@ export class VendorsService {
       where: { id },
       data: { deletedAt: new Date() },
     });
+
+    await this.invalidateVendorCaches(id, vendor.slug);
 
     return { message: CommonSuccess.RESOURCE_DELETED };
   }
@@ -760,6 +773,40 @@ export class VendorsService {
       const now = new Date(cairoTimeStr);
       const todayDay = now.getDay();
 
+      const currentHour = now.getHours();
+      const currentMin = now.getMinutes();
+      const currentMinutes = currentHour * 60 + currentMin;
+
+      // 1. Check yesterday's schedule for an active overnight shift spilling into early morning
+      const yesterdayIndex = (todayDay + 6) % 7;
+      const yesterdaySchedule = workingHours.find(
+        (h) => Number(h.day) === yesterdayIndex,
+      );
+      if (yesterdaySchedule) {
+        const yIsClosed =
+          yesterdaySchedule.isClosed === true ||
+          yesterdaySchedule.isClosed === 'true';
+        if (!yIsClosed) {
+          const yOpenTimeStr =
+            typeof yesterdaySchedule.openTime === 'string'
+              ? yesterdaySchedule.openTime
+              : '09:00';
+          const yCloseTimeStr =
+            typeof yesterdaySchedule.closeTime === 'string'
+              ? yesterdaySchedule.closeTime
+              : '22:00';
+          const [yOpenHour, yOpenMin] = yOpenTimeStr.split(':').map(Number);
+          const [yCloseHour, yCloseMin] = yCloseTimeStr.split(':').map(Number);
+          const yOpenMinutes = yOpenHour * 60 + yOpenMin;
+          const yCloseMinutes = yCloseHour * 60 + yCloseMin;
+
+          if (yCloseMinutes <= yOpenMinutes && currentMinutes <= yCloseMinutes) {
+            return true;
+          }
+        }
+      }
+
+      // 2. Check today's schedule
       const todaySchedule = workingHours.find(
         (h) => Number(h.day) === todayDay,
       );
@@ -781,15 +828,11 @@ export class VendorsService {
       const [openHour, openMin] = openTimeStr.split(':').map(Number);
       const [closeHour, closeMin] = closeTimeStr.split(':').map(Number);
 
-      const currentHour = now.getHours();
-      const currentMin = now.getMinutes();
-
       const openMinutes = openHour * 60 + openMin;
       const closeMinutes = closeHour * 60 + closeMin;
-      const currentMinutes = currentHour * 60 + currentMin;
 
-      if (closeMinutes < openMinutes) {
-        return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+      if (closeMinutes <= openMinutes) {
+        return currentMinutes >= openMinutes;
       }
       return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
     } catch (error) {
@@ -809,6 +852,7 @@ export class VendorsService {
     coverImage: string | null;
     logo: string | null;
     isScheduleActive: boolean;
+    is24Hours?: boolean;
     rating?: number | null;
     ratingCount?: number | null;
     vertical?: { name: string; nameAr: string | null; slug: string } | null;
@@ -837,7 +881,12 @@ export class VendorsService {
     let status = vendor.status;
     let isClosedBySchedule = false;
 
-    if (vendor.status === 'OPEN' && vendor.workingHours) {
+    if (
+      vendor.status === 'OPEN' &&
+      !vendor.is24Hours &&
+      vendor.isScheduleActive !== false &&
+      vendor.workingHours
+    ) {
       const isOpen = this.checkIfCurrentlyOpen(vendor.workingHours);
       if (!isOpen) {
         status = 'CLOSED';
@@ -1086,10 +1135,16 @@ return {
       productCategoryIds.has(c.id),
     );
 
+    const availableProductIds = new Set(availableProducts.map((p: any) => p.id));
+    const filteredMenu = Array.isArray(vendor.menu)
+      ? vendor.menu.filter((m: any) => availableProductIds.has(m.id))
+      : vendor.menu;
+
     return {
       ...vendor,
       categories: finalCategories,
       products: availableProducts,
+      menu: filteredMenu,
     };
   }
 }

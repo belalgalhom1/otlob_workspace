@@ -1445,7 +1445,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       titleAr: 'صورة التوصيل',
                                     ),
                                   ],
-                                  if (_userRole == 'ADMIN' && ['ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'LOOKING_FOR_DRIVER'].contains(order['status'])) ...[
+                                  if (_canManageDrivers && ['ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'LOOKING_FOR_DRIVER'].contains(order['status'])) ...[
                                     const SizedBox(height: 16),
                                     SizedBox(
                                       width: double.infinity,
@@ -1812,9 +1812,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     if (status == 'CANCELLED') return const SizedBox.shrink();
 
     int currentStep = 0;
-    if (status == 'PREPARING' || status == 'COOKING' || status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER') {
+    if (status == 'PREPARING' || status == 'COOKING' || status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
       currentStep = 1;
-    } else if (status == 'READY_FOR_PICKUP' || status == 'PICKED_UP') {
+    } else if (status == 'READY_FOR_PICKUP' || status == 'PICKED_UP' || status == 'PARTIALLY_PICKED_UP') {
       currentStep = 2;
     } else if (status == 'DELIVERED') {
       currentStep = 3;
@@ -2421,8 +2421,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         break;
       case 'DRIVER_ASSIGNED':
         color = Colors.orange;
-        label = isArabic ? 'بانتظار موافقة العميل' : 'Pending Approval';
+        label = isArabic ? 'تم تعيين السائق' : 'Driver Assigned';
         icon = LucideIcons.userCheck;
+        break;
+      case 'PARTIALLY_PICKED_UP':
+        color = Colors.indigo;
+        label = isArabic ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
+        icon = LucideIcons.truck;
         break;
       case 'ACCEPTED':
         color = AppColors.primary;
@@ -2508,8 +2513,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String status,
     bool isArabic,
   ) {
-    if (_userRole == 'ADMIN') {
-      return const SizedBox(); // Read-only for Admin!
+    if (_userRole != 'VENDOR_MEMBER') {
+      return const SizedBox(); // Read-only for non-vendor members!
     }
     if (status == 'DELIVERED' || status == 'CANCELLED') {
       return const SizedBox();

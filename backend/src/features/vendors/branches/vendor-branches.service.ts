@@ -3,7 +3,10 @@ import {
   NotFoundException,
   Logger,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import {
   CreateVendorBranchDto,
@@ -21,7 +24,10 @@ import * as crypto from 'crypto';
 export class VendorBranchesService {
   private readonly logger = new Logger(VendorBranchesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+  ) {}
 
   // ─── List all branches of a vendor ────────────────────────────────────────
 
@@ -122,6 +128,7 @@ export class VendorBranchesService {
     `;
 
     this.logger.log(`Branch ${id} created for vendor ${vendorId}`);
+    await this.invalidateZonesCache(vendorId);
     return this.findOne(vendorId, id);
   }
 
@@ -131,8 +138,13 @@ export class VendorBranchesService {
     const branch = await this.findOne(vendorId, branchId); // 404 if not found
 
     let finalZoneId = dto.zoneId !== undefined ? dto.zoneId : branch.zoneId;
-    const finalLocation =
-      dto.location !== undefined ? dto.location : branch.location?.coordinates;
+    const existingCoords = branch.location?.coordinates;
+    const finalLocation: [number, number] | undefined =
+      dto.location !== undefined
+        ? dto.location
+        : Array.isArray(existingCoords) && existingCoords.length >= 2
+          ? [existingCoords[1], existingCoords[0]]
+          : undefined;
 
     if (
       finalLocation &&
@@ -188,6 +200,7 @@ export class VendorBranchesService {
       });
     }
 
+    await this.invalidateZonesCache(vendorId);
     return this.findOne(vendorId, branchId);
   }
 
@@ -199,10 +212,22 @@ export class VendorBranchesService {
     await this.prisma.vendorBranch.delete({ where: { id: branchId } });
 
     this.logger.log(`Branch ${branchId} deleted from vendor ${vendorId}`);
+    await this.invalidateZonesCache(vendorId);
     return { message: CommonSuccess.RESOURCE_DELETED };
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private async invalidateZonesCache(vendorId: string) {
+    await this.cacheManager.del(`vendor_details_${vendorId}`);
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { slug: true },
+    });
+    if (vendor?.slug) {
+      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
+    }
+  }
 
   private async assertVendorExists(vendorId: string) {
     const vendor = await this.prisma.vendor.findFirst({

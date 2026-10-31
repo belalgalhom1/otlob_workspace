@@ -445,16 +445,52 @@ export class CartService {
                     [...dto.optionIds].sort().join(','),
                 )
                 .digest('hex')
-            : null
-          : cartItem.optionHash;
+            : ''
+          : (cartItem.optionHash ?? '');
+      const newSelectedUnit = dto.selectedUnit ?? cartItem.selectedUnit;
+      const newQuantity = dto.quantity ?? cartItem.quantity;
+
+      if (
+        (dto.optionIds !== undefined || dto.selectedUnit !== undefined) &&
+        cartItem.productId
+      ) {
+        const duplicateItem = await tx.cartItem.findFirst({
+          where: {
+            id: { not: cartItemId },
+            cartId: cartItem.cartId,
+            productId: cartItem.productId,
+            variantId: cartItem.variantId ?? null,
+            optionHash: newOptionHash,
+            selectedUnit: newSelectedUnit,
+            customPrice: cartItem.customPrice ?? null,
+          },
+        });
+
+        if (duplicateItem) {
+          await tx.cartItem.update({
+            where: { id: duplicateItem.id },
+            data: {
+              quantity: { increment: newQuantity },
+              specialRequest: dto.specialRequest ?? duplicateItem.specialRequest,
+              updatedAt: new Date(),
+            },
+          });
+          await tx.cartItem.delete({ where: { id: cartItemId } });
+          await tx.cart.update({
+            where: { id: cartItem.cartId },
+            data: { updatedAt: new Date() },
+          });
+          return;
+        }
+      }
 
       await tx.cartItem.update({
         where: { id: cartItemId },
         data: {
-          quantity: dto.quantity,
-          selectedUnit: dto.selectedUnit ?? cartItem.selectedUnit,
+          quantity: newQuantity,
+          selectedUnit: newSelectedUnit,
           specialRequest: dto.specialRequest ?? cartItem.specialRequest,
-          optionHash: newOptionHash ?? '',
+          optionHash: newOptionHash,
           updatedAt: new Date(),
         },
       });
@@ -548,9 +584,17 @@ export class CartService {
           (variantQuantities.get(item.variantId) ?? 0) + item.quantity,
         );
       } else if (item.productId) {
+        const isStripProduct =
+          Boolean(item.product?.sellByStrip) &&
+          Number(item.product?.stripsPerPackage ?? 0) >= 2;
+        const itemQty = isStripProduct
+          ? item.selectedUnit === 'strip'
+            ? item.quantity
+            : item.quantity * Number(item.product!.stripsPerPackage)
+          : item.quantity;
         productQuantities.set(
           item.productId,
-          (productQuantities.get(item.productId) ?? 0) + item.quantity,
+          (productQuantities.get(item.productId) ?? 0) + itemQty,
         );
       }
     }
@@ -624,13 +668,12 @@ export class CartService {
       } else {
         const productQty = productQuantities.get(item.productId!) ?? 0;
         if (item.product.tracksStock && item.product.stock != null) {
-          const stripsPerPackage =
-            item.selectedUnit === 'strip' &&
-            item.product.sellByStrip === true &&
-            Number(item.product.stripsPerPackage ?? 0) > 0
-              ? Number(item.product.stripsPerPackage)
-              : 1;
-          const effectiveStock = item.product.stock * stripsPerPackage;
+          const isStripProduct =
+            Boolean(item.product.sellByStrip) &&
+            Number(item.product.stripsPerPackage ?? 0) >= 2;
+          const effectiveStock = isStripProduct
+            ? Number(item.product.stock) * Number(item.product.stripsPerPackage)
+            : Number(item.product.stock);
           if (effectiveStock < productQty) {
             throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
           }
@@ -1067,31 +1110,71 @@ export class CartService {
       });
 
       for (const item of items) {
-        const optionIds = (item.selectedOptions || [])
+        const sortedOptionIds = (item.selectedOptions || [])
           .map((so: any) => so.optionId)
           .filter(Boolean)
           .sort();
-        const optionHash = createHash('md5')
-          .update(optionIds.join(','))
-          .digest('hex');
+        const optionHash =
+          sortedOptionIds.length > 0
+            ? createHash('sha256')
+                .update((item.variantId ?? '') + sortedOptionIds.join(','))
+                .digest('hex')
+            : '';
+        const selectedUnit = item.selectedUnit ?? 'package';
 
-        await tx.cartItem.create({
-          data: {
-            cartId: cart.id,
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-            specialRequest: item.specialRequest,
-            optionHash,
-            selectedOptions: {
-              create: (item.selectedOptions || [])
-                .filter((so: any) => so.optionId)
-                .map((so: any) => ({
-                  optionId: so.optionId,
-                })),
+        let existingItem: any = null;
+        if (item.productId) {
+          existingItem = await tx.cartItem.findFirst({
+            where: {
+              cartId: cart.id,
+              productId: item.productId,
+              variantId: item.variantId ?? null,
+              optionHash,
+              selectedUnit,
+              customPrice: item.customPrice ?? null,
             },
-          },
-        });
+          });
+        } else {
+          existingItem = await tx.cartItem.findFirst({
+            where: {
+              cartId: cart.id,
+              productId: null,
+              customName: item.customName ?? item.productName ?? null,
+              customPrice: item.customPrice ?? null,
+            },
+          });
+        }
+
+        if (existingItem) {
+          await tx.cartItem.update({
+            where: { id: existingItem.id },
+            data: {
+              quantity: { increment: item.quantity },
+              specialRequest: item.specialRequest ?? existingItem.specialRequest,
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          await tx.cartItem.create({
+            data: {
+              cartId: cart.id,
+              productId: item.productId ?? null,
+              variantId: item.variantId ?? null,
+              customName: item.customName ?? null,
+              customPrice: item.customPrice ?? null,
+              customImageUrl: item.customImageUrl ?? null,
+              quantity: item.quantity,
+              selectedUnit,
+              specialRequest: item.specialRequest ?? null,
+              optionHash,
+              selectedOptions: {
+                create: sortedOptionIds.map((optionId: string) => ({
+                  optionId,
+                })),
+              },
+            },
+          });
+        }
       }
     });
   }

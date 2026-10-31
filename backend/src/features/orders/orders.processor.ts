@@ -497,16 +497,29 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         status: OrderStatus.DELIVERED,
         updatedAt: { lt: cutoff },
       },
-      select: { id: true, orderNumber: true, vendorId: true, driverId: true },
+      select: {
+        id: true,
+        orderNumber: true,
+        vendorId: true,
+        driverId: true,
+        deliveryGroups: {
+          select: { primaryDriverId: true },
+        },
+      },
       take: 100,
     });
 
     if (deliveredOrders.length === 0) return { count: 0 };
 
+    const hasAssignedDriver = (o: (typeof deliveredOrders)[number]) =>
+      Boolean(
+        o.driverId || o.deliveryGroups.some((g) => g.primaryDriverId != null),
+      );
+
     // One batched query for the whole batch instead of a findFirst per order
     // (kills the N+1 that used to issue up to 100 round-trips every 5 minutes).
     const deliveredOrderIds = deliveredOrders
-      .filter((o) => o.driverId)
+      .filter(hasAssignedDriver)
       .map((o) => o.id);
 
     const settledRows = await this.prisma.driverWalletTransaction.findMany({
@@ -521,7 +534,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     let recovered = 0;
     for (const order of deliveredOrders) {
-      if (!order.driverId) continue; // Requires driver for driver settlement logic
+      if (!hasAssignedDriver(order)) continue; // Requires driver for driver settlement logic
 
       if (!settledOrderIds.has(order.id)) {
         this.logger.warn(

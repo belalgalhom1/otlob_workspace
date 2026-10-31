@@ -1140,7 +1140,11 @@ export class DriverAssistService {
     const offerKey = `assist:offer:${requestId}`;
     await this.redis.set(
       offerKey,
-      JSON.stringify({ driverIds, expiresAt: expiresAt.toISOString() }),
+      JSON.stringify({
+        driverIds,
+        orderId: request.orderId,
+        expiresAt: expiresAt.toISOString(),
+      }),
       ttlSecs,
     );
 

@@ -489,16 +489,27 @@ export class OrdersMultiVendorService {
         ]),
     );
 
+    const aggregatedStripQty = new Map<string, number>();
     for (const item of items) {
       if (!item.productId || item.variantId) continue;
-      const divider =
-        item.selectedUnit === 'strip'
-          ? (stripDividerById.get(item.productId) ?? 1)
-          : 1;
-      const packages = Math.ceil(item.quantity / divider);
+      if (item.selectedUnit === 'strip') {
+        aggregatedStripQty.set(
+          item.productId,
+          (aggregatedStripQty.get(item.productId) ?? 0) + item.quantity,
+        );
+      } else {
+        aggregatedProductQty.set(
+          item.productId,
+          (aggregatedProductQty.get(item.productId) ?? 0) + item.quantity,
+        );
+      }
+    }
+    for (const [productId, stripQty] of aggregatedStripQty) {
+      const divider = stripDividerById.get(productId) ?? 1;
+      const packages = Math.ceil(stripQty / divider);
       aggregatedProductQty.set(
-        item.productId,
-        (aggregatedProductQty.get(item.productId) ?? 0) + packages,
+        productId,
+        (aggregatedProductQty.get(productId) ?? 0) + packages,
       );
     }
 

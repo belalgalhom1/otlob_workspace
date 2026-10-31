@@ -359,6 +359,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         return isAr ? 'قيد التحضير' : 'Preparing';
       case 'READY_FOR_PICKUP':
         return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'PARTIALLY_PICKED_UP':
+        return isAr ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
       case 'PICKED_UP':
         return isAr ? 'الطلب في الطريق إليك' : 'On the Way';
       case 'DELIVERED':

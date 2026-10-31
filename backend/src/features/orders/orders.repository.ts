@@ -83,6 +83,7 @@ export interface OrderItemData {
 export interface OrderFilters {
   status?: OrderStatus;
   vendorId?: string;
+  branchId?: string;
   customerId?: string;
   driverId?: string;
   page?: number;
@@ -110,21 +111,55 @@ function portionStatusFilter(
       return { status: 'ACCEPTED', preparingAt: null, readyAt: null };
     case OrderStatus.PREPARING:
       return {
-        status: 'ACCEPTED',
-        preparingAt: { not: null },
-        readyAt: null,
+        OR: [
+          { status: 'PREPARING' },
+          {
+            status: 'ACCEPTED',
+            preparingAt: { not: null },
+            readyAt: null,
+          },
+        ],
       };
     case OrderStatus.READY_FOR_PICKUP:
-      return { status: 'ACCEPTED', readyAt: { not: null } };
+      return {
+        OR: [
+          { status: 'READY_FOR_PICKUP' },
+          {
+            status: 'ACCEPTED',
+            readyAt: { not: null },
+            pickedUpAt: null,
+          },
+        ],
+      };
+    case OrderStatus.PICKED_UP:
+    case OrderStatus.PARTIALLY_PICKED_UP:
+      return {
+        OR: [
+          { status: 'PICKED_UP' },
+          {
+            status: { notIn: ['REJECTED', 'CANCELLED', 'DELIVERED'] },
+            pickedUpAt: { not: null },
+            deliveredAt: null,
+          },
+        ],
+      };
     case OrderStatus.DELIVERED:
-      return { status: 'ACCEPTED', deliveredAt: { not: null } };
+      return {
+        OR: [
+          { status: 'DELIVERED' },
+          {
+            status: { notIn: ['REJECTED', 'CANCELLED'] },
+            deliveredAt: { not: null },
+          },
+        ],
+      };
     case OrderStatus.CANCELLED:
       return { status: { in: ['REJECTED', 'CANCELLED'] } };
     default:
       // Dispatch-driven states (LOOKING_FOR_DRIVER, DRIVER_ASSIGNED,
-      // PENDING_PAYMENT, PICKED_UP) live at the order/delivery level, while the
+      // PENDING_PAYMENT) live at the order/delivery level, while the
       // portion keeps its own production state. Show every live portion.
-      return { status: { in: ['PENDING', 'ACCEPTED'] } };
+      return { status: { notIn: ['REJECTED', 'CANCELLED'] } };
   }
 }
 
@@ -351,8 +386,18 @@ export class OrdersRepository {
     if (filters.vendorId) {
       and.push({
         OR: [
-          { vendorId: filters.vendorId },
-          { vendorFulfillments: { some: { vendorId: filters.vendorId } } },
+          {
+            vendorId: filters.vendorId,
+            ...(filters.branchId ? { vendorBranchId: filters.branchId } : {}),
+          },
+          {
+            vendorFulfillments: {
+              some: {
+                vendorId: filters.vendorId,
+                ...(filters.branchId ? { vendorBranchId: filters.branchId } : {}),
+              },
+            },
+          },
         ],
       });
     }
@@ -841,16 +886,27 @@ export class OrdersRepository {
           ]),
       );
 
+      const aggregatedStripQty = new Map<string, number>();
       for (const item of items) {
         if (!item.productId || item.variantId) continue;
-        const divider =
-          item.selectedUnit === 'strip'
-            ? (stripDividerById.get(item.productId) ?? 1)
-            : 1;
-        const packages = Math.ceil(item.quantity / divider);
+        if (item.selectedUnit === 'strip') {
+          aggregatedStripQty.set(
+            item.productId,
+            (aggregatedStripQty.get(item.productId) ?? 0) + item.quantity,
+          );
+        } else {
+          aggregatedProductQty.set(
+            item.productId,
+            (aggregatedProductQty.get(item.productId) ?? 0) + item.quantity,
+          );
+        }
+      }
+      for (const [productId, stripQty] of aggregatedStripQty) {
+        const divider = stripDividerById.get(productId) ?? 1;
+        const packages = Math.ceil(stripQty / divider);
         aggregatedProductQty.set(
-          item.productId,
-          (aggregatedProductQty.get(item.productId) ?? 0) + packages,
+          productId,
+          (aggregatedProductQty.get(productId) ?? 0) + packages,
         );
       }
 
@@ -981,6 +1037,8 @@ export class OrdersRepository {
             in: [
               OrderVendorFulfillmentStatus.PENDING,
               OrderVendorFulfillmentStatus.ACCEPTED,
+              OrderVendorFulfillmentStatus.PREPARING,
+              OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
             ],
           },
         },
@@ -1087,16 +1145,27 @@ export class OrdersRepository {
             ]),
         );
         const restoreProductQty = new Map<string, number>();
+        const restoreStripQty = new Map<string, number>();
         for (const item of cancelledItems) {
           if (!item.productId || item.variantId || item.quantity <= 0) continue;
-          const divider =
-            item.selectedUnit === 'strip'
-              ? (dividerById.get(item.productId) ?? 1)
-              : 1;
-          const packages = Math.ceil(item.quantity / divider);
+          if (item.selectedUnit === 'strip') {
+            restoreStripQty.set(
+              item.productId,
+              (restoreStripQty.get(item.productId) ?? 0) + item.quantity,
+            );
+          } else {
+            restoreProductQty.set(
+              item.productId,
+              (restoreProductQty.get(item.productId) ?? 0) + item.quantity,
+            );
+          }
+        }
+        for (const [productId, stripQty] of restoreStripQty) {
+          const divider = dividerById.get(productId) ?? 1;
+          const packages = Math.ceil(stripQty / divider);
           restoreProductQty.set(
-            item.productId,
-            (restoreProductQty.get(item.productId) ?? 0) + packages,
+            productId,
+            (restoreProductQty.get(productId) ?? 0) + packages,
           );
         }
         for (const [productId, qty] of restoreProductQty) {
@@ -1269,6 +1338,7 @@ export class OrdersRepository {
         data: {
           driverId,
           driverShiftId,
+          isStacked: activeCount > 0,
           status: nextStatus,
           driverAssignedAt: new Date(),
         },

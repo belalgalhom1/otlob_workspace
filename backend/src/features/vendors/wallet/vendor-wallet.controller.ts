@@ -34,7 +34,7 @@ export class VendorWalletController {
     @Query() dto: QueryVendorWalletDto,
     @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
-    if (assignedBranchId && !dto.branchId) {
+    if (assignedBranchId) {
       dto.branchId = assignedBranchId;
     }
     return this.service.listTransactions(vendorId, dto);
@@ -50,7 +50,7 @@ export class VendorWalletController {
     @Query() dto: QueryVendorWalletDto,
     @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
-    if (assignedBranchId && !dto.branchId) {
+    if (assignedBranchId) {
       dto.branchId = assignedBranchId;
     }
     return this.service.getSummary(vendorId, dto);

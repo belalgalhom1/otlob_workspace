@@ -52,19 +52,33 @@ export class LocationRepository {
     );
     if (activeOrderRaw) {
       const activeOrder = JSON.parse(activeOrderRaw);
+      const activeList: Array<{ orderId: string; customerUserId: string }> =
+        Array.isArray(activeOrder?.orders) && activeOrder.orders.length > 0
+          ? activeOrder.orders
+          : activeOrder?.orderId
+            ? [
+                {
+                  orderId: activeOrder.orderId,
+                  customerUserId: activeOrder.customerUserId,
+                },
+              ]
+            : [];
 
-      // 4. Emit event instantly to broadcast to customer (Zero DB hits!)
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_LOCATION_UPDATED,
-        new DriverLocationUpdatedEvent(
-          driverId,
-          userId,
-          lng,
-          lat,
-          activeOrder.orderId,
-          activeOrder.customerUserId,
-        ),
-      );
+      // 4. Emit event instantly to broadcast to all active batched customers (Zero DB hits!)
+      for (const entry of activeList) {
+        if (!entry?.orderId) continue;
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_LOCATION_UPDATED,
+          new DriverLocationUpdatedEvent(
+            driverId,
+            userId,
+            lng,
+            lat,
+            entry.orderId,
+            entry.customerUserId,
+          ),
+        );
+      }
     }
   }
 
@@ -355,13 +369,35 @@ export class LocationRepository {
       }>
     >`
       SELECT
-        o."driverId" AS "driverId",
+        COALESCE(
+          o."driverId",
+          (
+            SELECT g."primaryDriverId"
+            FROM order_delivery_groups g
+            WHERE g."orderId" = o.id
+              AND g."primaryDriverId" IS NOT NULL
+              AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
+            ORDER BY g.sequence ASC
+            LIMIT 1
+          )
+        ) AS "driverId",
         c."userId" AS "customerUserId",
         ST_X(d."lastLocation"::geometry) AS "lastLng",
         ST_Y(d."lastLocation"::geometry) AS "lastLat"
       FROM orders o
       JOIN customers c ON c.id = o."customerId"
-      LEFT JOIN drivers d ON d.id = o."driverId"
+      LEFT JOIN drivers d ON d.id = COALESCE(
+        o."driverId",
+        (
+          SELECT g."primaryDriverId"
+          FROM order_delivery_groups g
+          WHERE g."orderId" = o.id
+            AND g."primaryDriverId" IS NOT NULL
+            AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
+          ORDER BY g.sequence ASC
+          LIMIT 1
+        )
+      )
       WHERE o.id = ${orderId}
       LIMIT 1
     `;
@@ -472,16 +508,17 @@ export class LocationRepository {
       ? Prisma.sql`AND EXISTS (
           SELECT 1
           FROM orders o
+          LEFT JOIN vendor_branches ob ON ob.id = o."vendorBranchId"
           LEFT JOIN order_delivery_groups g ON g."orderId" = o.id
           LEFT JOIN order_delivery_group_items gi ON gi."deliveryGroupId" = g.id
           LEFT JOIN order_vendor_fulfillments f ON f.id = gi."fulfillmentId"
           LEFT JOIN vendor_branches b ON b.id = f."vendorBranchId"
           WHERE (
-            (o."driverId" = d.id AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PARTIALLY_PICKED_UP', 'PICKED_UP'))
+            (g.id IS NULL AND o."driverId" = d.id AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PARTIALLY_PICKED_UP', 'PICKED_UP'))
             OR ((g."primaryDriverId" = d.id OR g."assistDriverId" = d.id) AND g.status::text NOT IN ('CANCELLED', 'DELIVERED'))
           )
           AND ST_DWithin(
-            COALESCE(b."location", o."pickupLocation")::geography,
+            COALESCE(b."location", ob."location", o."pickupLocation")::geography,
             ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
             ${maxVendorMeters}
           )
