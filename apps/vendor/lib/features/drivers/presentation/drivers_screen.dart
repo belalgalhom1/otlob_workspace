@@ -36,6 +36,9 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   DriverProfile? _selectedDriver;
+  LatLng? _selectedDriverLocation;
+  bool _selectedDriverIsLive = false;
+  int _mobileViewMode = 0; // 0 = List, 1 = Map
   final MapController _mapController = MapController();
 
   @override
@@ -146,9 +149,22 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     } catch (_) {}
   }
 
+  Future<void> _openInMaps(double lat, double lng) async {
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(driversProvider);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -157,10 +173,103 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
         return Column(
           children: [
             _buildFilters(isMobile),
+            if (isMobile) ...[
+              const SizedBox(height: 10),
+              Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _mobileViewMode = 0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _mobileViewMode == 0
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                LucideIcons.list,
+                                size: 16,
+                                color: _mobileViewMode == 0
+                                    ? Colors.black
+                                    : theme.colorScheme.onSurface,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isArabic ? 'القائمة' : 'List',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: _mobileViewMode == 0
+                                      ? Colors.black
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _mobileViewMode = 1),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _mobileViewMode == 1
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                LucideIcons.map,
+                                size: 16,
+                                color: _mobileViewMode == 1
+                                    ? Colors.black
+                                    : theme.colorScheme.onSurface,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isArabic ? 'الخريطة' : 'Map',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: _mobileViewMode == 1
+                                      ? Colors.black
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Expanded(
               child: isMobile
-                  ? _buildList(state, isMobile)
+                  ? (_mobileViewMode == 0
+                      ? _buildList(state, isMobile)
+                      : _buildMap(context, state))
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -208,25 +317,39 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
         messenger.showSnackBar(SnackBar(content: Text(l10n.driverNoLocation)));
         return;
       }
-      setState(() => _selectedDriver = driver);
+      final isLive = data?['isLive'] == true;
+      final driverLocation = LatLng(lat, lng);
+
+      setState(() {
+        _selectedDriver = driver;
+        _selectedDriverLocation = driverLocation;
+        _selectedDriverIsLive = isLive;
+      });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _mapController.move(LatLng(lat, lng), 16);
+          try {
+            _mapController.move(driverLocation, 16);
+          } catch (_) {}
         }
       });
 
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            data?['isLive'] == true
-                ? l10n.driverLiveLocation
-                : l10n.driverLastKnownLocation,
+      final isCompactScreen = MediaQuery.of(context).size.width < 900;
+      if (isCompactScreen) {
+        _showDriverLocationBottomSheet(driver, driverLocation, isLive);
+      } else {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isLive
+                  ? l10n.driverLiveLocation
+                  : l10n.driverLastKnownLocation,
+            ),
+            duration: const Duration(seconds: 2),
           ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+        );
+      }
     } catch (err) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
@@ -236,6 +359,232 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
         ),
       );
     }
+  }
+
+  void _showDriverLocationBottomSheet(
+    DriverProfile driver,
+    LatLng location,
+    bool isLive,
+  ) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.72,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                      backgroundImage: driver.avatar != null && driver.avatar!.isNotEmpty
+                          ? CachedNetworkImageProvider(driver.avatar!)
+                          : null,
+                      child: driver.avatar == null || driver.avatar!.isEmpty
+                          ? const Icon(LucideIcons.user, size: 20, color: AppColors.primary)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  driver.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(context, driver.status).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  driver.status,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getStatusColor(context, driver.status),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: isLive ? AppColors.success : AppColors.warning,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isLive ? l10n.driverLiveLocation : l10n.driverLastKnownLocation,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLive ? AppColors.success : AppColors.warning,
+                                ),
+                              ),
+                              if (driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '• ${driver.vehiclePlate}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(LucideIcons.x),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: location,
+                    initialZoom: 15.5,
+                  ),
+                  children: [
+                    const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: location,
+                          width: 52,
+                          height: 52,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: (isLive ? AppColors.success : AppColors.primary).withValues(alpha: 0.25),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: isLive ? AppColors.success : AppColors.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  LucideIcons.navigation,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Row(
+                    children: [
+                      if (driver.phone != null && driver.phone!.isNotEmpty) ...[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _callDriver(driver.phone),
+                            icon: const Icon(LucideIcons.phone, size: 16),
+                            label: Text(isArabic ? 'اتصال' : 'Call'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _openInMaps(location.latitude, location.longitude),
+                          icon: const Icon(LucideIcons.mapPin, size: 16),
+                          label: Text(isArabic ? 'خرائط جوجل' : 'Google Maps'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildFilters(bool isMobile) {
@@ -595,12 +944,19 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
 
     return InkWell(
       onTap: () {
-        setState(() => _selectedDriver = driver);
-        if (driver.location != null) {
-          _mapController.move(
-            LatLng(driver.location![1], driver.location![0]),
-            15,
-          );
+        setState(() {
+          _selectedDriver = driver;
+          if (driver.location != null && driver.location!.length >= 2) {
+            _selectedDriverLocation = LatLng(driver.location![1], driver.location![0]);
+          }
+        });
+        if (driver.location != null && driver.location!.length >= 2) {
+          try {
+            _mapController.move(
+              LatLng(driver.location![1], driver.location![0]),
+              15,
+            );
+          } catch (_) {}
         }
       },
       borderRadius: BorderRadius.circular(16),
@@ -1071,56 +1427,313 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: state.maybeWhen(
         data: (data) {
-          final markers = data.drivers.where((d) => d.location != null).map((
-            d,
-          ) {
+          final List<Marker> markers = [];
+          bool selectedRendered = false;
+
+          for (final d in data.drivers) {
             final isSelected = _selectedDriver?.id == d.id;
-            return Marker(
-              point: LatLng(
-                d.location![1],
-                d.location![0],
-              ), // [lat, lng] usually, but backend saves [lng, lat] for GeoJSON
-              width: 40,
-              height: 40,
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedDriver = d),
-                child: Icon(
-                  LucideIcons.mapPin,
-                  size: isSelected ? 40 : 30,
-                  color: _getStatusColor(context, d.status),
+            if (isSelected && _selectedDriverLocation != null) {
+              selectedRendered = true;
+              markers.add(
+                Marker(
+                  point: _selectedDriverLocation!,
+                  width: 52,
+                  height: 52,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedDriver = d),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: (_selectedDriverIsLive ? AppColors.success : AppColors.primary).withValues(alpha: 0.25),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            LucideIcons.navigation,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            } else if (d.location != null && d.location!.length >= 2) {
+              final lat = d.location![1];
+              final lng = d.location![0];
+              markers.add(
+                Marker(
+                  point: LatLng(lat, lng),
+                  width: 38,
+                  height: 38,
+                  child: GestureDetector(
+                    onTap: () => _locateDriver(d),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(context, d.status),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        LucideIcons.bike,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+
+          if (!selectedRendered && _selectedDriver != null && _selectedDriverLocation != null) {
+            markers.add(
+              Marker(
+                point: _selectedDriverLocation!,
+                width: 52,
+                height: 52,
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: (_selectedDriverIsLive ? AppColors.success : AppColors.primary).withValues(alpha: 0.25),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          LucideIcons.navigation,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
-          }).toList();
+          }
 
-          return FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: const LatLng(30.0444, 31.2357), // Default Cairo
-              initialZoom: 12,
-            ),
+          return Stack(
             children: [
-              const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
-              if (_selectedZonePolygon.isNotEmpty)
-                PolygonLayer(
-                  polygons: [
-                    Polygon(
-                      points: _selectedZonePolygon,
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderColor: AppColors.primary,
-                      borderStrokeWidth: 2,
-                    ),
-                  ],
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: _selectedDriverLocation ?? const LatLng(30.0444, 31.2357),
+                  initialZoom: _selectedDriverLocation != null ? 15 : 12,
                 ),
-              MarkerLayer(markers: markers),
+                children: [
+                  const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
+                  if (_selectedZonePolygon.isNotEmpty)
+                    PolygonLayer(
+                      polygons: [
+                        Polygon(
+                          points: _selectedZonePolygon,
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderColor: AppColors.primary,
+                          borderStrokeWidth: 2,
+                        ),
+                      ],
+                    ),
+                  MarkerLayer(markers: markers),
+                ],
+              ),
+              if (_selectedDriver != null && _selectedDriverLocation != null)
+                Positioned(
+                  bottom: 16,
+                  left: 16,
+                  right: 16,
+                  child: _buildSelectedDriverFloatingCard(context),
+                ),
             ],
           );
         },
         orElse: () => const Center(child: CircularProgressIndicator()),
+      ),
+    );
+  }
+
+  Widget _buildSelectedDriverFloatingCard(BuildContext context) {
+    final driver = _selectedDriver!;
+    final loc = _selectedDriverLocation!;
+    final isLive = _selectedDriverIsLive;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                backgroundImage: driver.avatar != null && driver.avatar!.isNotEmpty
+                    ? CachedNetworkImageProvider(driver.avatar!)
+                    : null,
+                child: driver.avatar == null || driver.avatar!.isEmpty
+                    ? const Icon(LucideIcons.user, size: 20, color: AppColors.primary)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      driver.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isLive ? AppColors.success : AppColors.warning,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isLive ? l10n.driverLiveLocation : l10n.driverLastKnownLocation,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isLive ? AppColors.success : AppColors.warning,
+                          ),
+                        ),
+                        if (driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              '• ${driver.vehiclePlate}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() {
+                  _selectedDriver = null;
+                  _selectedDriverLocation = null;
+                }),
+                icon: const Icon(LucideIcons.x, size: 18),
+                tooltip: isArabic ? 'إغلاق' : 'Close',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (driver.phone != null && driver.phone!.isNotEmpty) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _callDriver(driver.phone),
+                    icon: const Icon(LucideIcons.phone, size: 15),
+                    label: Text(isArabic ? 'اتصال' : 'Call'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _openInMaps(loc.latitude, loc.longitude),
+                  icon: const Icon(LucideIcons.mapPin, size: 15),
+                  label: Text(isArabic ? 'خرائط جوجل' : 'Google Maps'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
