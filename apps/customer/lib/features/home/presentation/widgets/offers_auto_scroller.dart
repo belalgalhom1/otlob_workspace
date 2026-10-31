@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -135,46 +136,92 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
       child: Container(
         margin: const EdgeInsetsDirectional.only(start: 16, end: 8),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          color: widget.isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          color: widget.isDark ? const Color(0xFF18181B) : Colors.white,
           border: Border.all(
-            color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+            color: widget.isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: widget.isDark ? 0.4 : 0.1),
-              blurRadius: 25,
-              offset: const Offset(0, 12),
+              color: Colors.black.withValues(alpha: widget.isDark ? 0.35 : 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Product image — full top section
+              // Product image — full top section with ambient glow
               Expanded(
-                flex: 3,
                 child: Container(
                   width: double.infinity,
-                  color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                  color: widget.isDark ? const Color(0xFF101012) : const Color(0xFFF4F4F5),
                   child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      // Image
+                      // Ambient blurred backdrop: eliminates harsh cutoffs/letterboxing
+                      if (imageUrl.isNotEmpty)
+                        Positioned.fill(
+                          child: ClipRect(
+                            child: ImageFiltered(
+                              imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                              child: Transform.scale(
+                                scale: 1.35,
+                                child: CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  fit: BoxFit.cover,
+                                  memCacheWidth: 200,
+                                  color: (widget.isDark ? Colors.black : Colors.white).withValues(alpha: 0.35),
+                                  colorBlendMode: widget.isDark ? BlendMode.darken : BlendMode.lighten,
+                                  errorWidget: (_, _, _) => const SizedBox(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Gradient overlay for smooth transition into card
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: widget.isDark ? 0.3 : 0.08),
+                                Colors.transparent,
+                                (widget.isDark ? const Color(0xFF18181B) : Colors.white).withValues(alpha: 0.85),
+                                widget.isDark ? const Color(0xFF18181B) : Colors.white,
+                              ],
+                              stops: const [0.0, 0.4, 0.88, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Hero crisp foreground image
                       if (imageUrl.isNotEmpty)
                         Center(
-                          child: CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            fit: BoxFit.contain,
-                            placeholder: (_, _) => const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            errorWidget: (_, _, _) => const Icon(
-                              Icons.image_not_supported_rounded, 
-                              color: Colors.grey, 
-                              size: 40
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              fit: BoxFit.contain,
+                              memCacheWidth: 600,
+                              placeholder: (_, _) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (_, _, _) => const Icon(
+                                Icons.image_not_supported_rounded, 
+                                color: Colors.grey, 
+                                size: 40,
+                              ),
                             ),
                           ),
                         )
@@ -182,31 +229,36 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                         const Center(
                           child: Icon(Icons.local_offer_rounded, color: AppColors.primary, size: 48),
                         ),
+
                       // OFFER badge
                       PositionedDirectional(
-                        top: 10,
-                        start: 10,
+                        top: 12,
+                        start: 12,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.red.shade600, Colors.red.shade800],
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFE11D48), Color(0xFFBE123C)],
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             boxShadow: [
-                              BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 8),
+                              BoxShadow(
+                                color: const Color(0xFFE11D48).withValues(alpha: 0.4),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
                             ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.bolt, color: Colors.white, size: 10),
+                              const Icon(Icons.bolt_rounded, color: Colors.white, size: 12),
                               const SizedBox(width: 4),
                               Text(
                                 widget.s.offerBadge.toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 9,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.5,
                                 ),
@@ -351,18 +403,20 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   Widget _buildDiscountBadge(double offer, double original) {
     final pct = (((original - offer) / original) * 100).round();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.red.shade200),
+        color: const Color(0xFFDC2626).withValues(alpha: widget.isDark ? 0.22 : 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFFDC2626).withValues(alpha: widget.isDark ? 0.45 : 0.25),
+        ),
       ),
       child: Text(
         '-$pct%',
-        style: TextStyle(
-          fontSize: 10,
+        style: const TextStyle(
+          fontSize: 11,
           fontWeight: FontWeight.w900,
-          color: Colors.red.shade600,
+          color: Color(0xFFEF4444),
         ),
       ),
     );

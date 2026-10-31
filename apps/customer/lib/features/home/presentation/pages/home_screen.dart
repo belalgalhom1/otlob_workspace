@@ -930,7 +930,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         SizedBox(
-          height: 240,
+          height: 260,
           child: OffersAutoScroller(offers: data.offers, isDark: isDark, s: s, allVendors: data.products),
         ),
         const SizedBox(height: 8),
