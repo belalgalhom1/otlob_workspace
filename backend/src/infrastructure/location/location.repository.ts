@@ -252,10 +252,10 @@ export class LocationRepository {
    */
   async getLiveDriverLocations(
     driverIds: string[],
-  ): Promise<Map<string, { lng: number; lat: number }>> {
-    const map = new Map<string, { lng: number; lat: number }>();
+  ): Promise<Map<string, { lng: number; lat: number; isFresh: boolean }>> {
+    const map = new Map<string, { lng: number; lat: number; isFresh: boolean }>();
     if (driverIds.length === 0) return map;
-    // One GEOPOS round-trip for all drivers, then freshness checks only for
+    // One GEOPOS round-trip for all drivers, then freshness checks for
     // drivers that actually have a position.
     const positions = await this.redis.geoposMany(
       'otlobegy:driver-locations',
@@ -263,9 +263,8 @@ export class LocationRepository {
     );
     await Promise.all(
       [...positions.keys()].map(async (id) => {
-        if (await this.isDriverLocationFresh(id)) {
-          map.set(id, positions.get(id)!);
-        }
+        const isFresh = await this.isDriverLocationFresh(id);
+        map.set(id, { ...positions.get(id)!, isFresh });
       }),
     );
     return map;
@@ -306,20 +305,32 @@ export class LocationRepository {
    */
   async getDriverLocationWithState(
     driverId: string,
+    isCustomerFacing: boolean = false,
   ): Promise<{ lng: number; lat: number; isLive: boolean } | null> {
     const settings = await this.platformSettings.getSettings();
-    const precisionMeters = Number(settings.driverLocationPrecisionMeters ?? 0);
+    const precisionMeters = isCustomerFacing
+      ? Number(settings.driverLocationPrecisionMeters ?? 0)
+      : 0;
 
     const live = await this.getDriverLocation(driverId);
-    if (live && (await this.isDriverLocationFresh(driverId))) {
-      const reduced = LocationRepository.applyPrecisionReduction(live.lng, live.lat, precisionMeters);
-      return { ...reduced, isLive: true };
+    if (live) {
+      const isFresh = await this.isDriverLocationFresh(driverId);
+      const reduced = LocationRepository.applyPrecisionReduction(
+        live.lng,
+        live.lat,
+        precisionMeters,
+      );
+      return { ...reduced, isLive: isFresh };
     }
 
     const map = await this.getPersistedDriverLocations([driverId]);
     const persisted = map.get(driverId);
     if (persisted) {
-      const reduced = LocationRepository.applyPrecisionReduction(persisted.lng, persisted.lat, precisionMeters);
+      const reduced = LocationRepository.applyPrecisionReduction(
+        persisted.lng,
+        persisted.lat,
+        precisionMeters,
+      );
       return { ...reduced, isLive: false };
     }
 

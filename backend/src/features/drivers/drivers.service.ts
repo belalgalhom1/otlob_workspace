@@ -1221,7 +1221,11 @@ export class DriversService {
       ...result,
       drivers: (result.drivers as any[]).map((d) => {
         const { lastLocation, managerAssignment, ...rest } = d;
-        const loc = liveMap.get(d.id) ?? persistedMap.get(d.id) ?? null;
+        const liveInfo = liveMap.get(d.id);
+        const persistedInfo = persistedMap.get(d.id);
+        const loc = liveInfo
+          ? { lng: liveInfo.lng, lat: liveInfo.lat }
+          : (persistedInfo ?? null);
         return {
           ...rest,
           driverManager: managerAssignment?.driverManager
@@ -1233,7 +1237,7 @@ export class DriversService {
               }
             : null,
           location: loc ? [loc.lng, loc.lat] : null,
-          locationIsLive: liveMap.has(d.id),
+          locationIsLive: liveInfo?.isFresh ?? false,
         };
       }),
     };
@@ -1254,7 +1258,10 @@ export class DriversService {
       latitude: location?.lat ?? null,
       longitude: location?.lng ?? null,
       isLive: location?.isLive ?? false,
-      activeOrderId: activeOrder?.orderId ?? null,
+      activeOrderId:
+        activeOrder?.orderId ??
+        (await this.driversRepository.findActiveOrderForDriver(driverId))?.id ??
+        null,
     };
   }
 

@@ -20,8 +20,8 @@ class AdminOrdersRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> ordersFindAll({String? vendorId, String? status, num? limit = 20, num? page = 1}) async {
-    final response = await _api.ordersControllerAdminFindAll(vendorId: vendorId, status: status, limit: limit, page: page);
+  Future<dynamic> ordersFindAll({String? vendorId, String? driverId, String? status, num? limit = 20, num? page = 1}) async {
+    final response = await _api.ordersControllerAdminFindAll(vendorId: vendorId, driverId: driverId, status: status, limit: limit, page: page);
     return ResponseParser.parse(response);
   }
 
