@@ -125,7 +125,7 @@ export class OrdersStateService {
         })
       : null;
 
-    let matchingFulfillment: any = null;
+    let matchingFulfillments: any[] = [];
     const fulfillments = ((order as any).vendorFulfillments ?? []) as any[];
 
     if (!isMember && fulfillments.length > 0) {
@@ -141,10 +141,20 @@ export class OrdersStateService {
       });
       if (member) {
         isMember = member;
-        matchingFulfillment = fulfillments.find(
+        const vendorPortions = fulfillments.filter(
           (f: any) => f.vendorId === member.vendorId,
         );
+        matchingFulfillments = member.branchId
+          ? vendorPortions.filter((f: any) => f.vendorBranchId === member.branchId)
+          : vendorPortions;
       }
+    } else if (isMember && fulfillments.length > 0) {
+      const vendorPortions = fulfillments.filter(
+        (f: any) => f.vendorId === order.vendorId,
+      );
+      matchingFulfillments = isMember.branchId
+        ? vendorPortions.filter((f: any) => f.vendorBranchId === isMember!.branchId)
+        : vendorPortions;
     }
 
     const canManage = await this.canManageOrders(actor.sub, actor.role);
@@ -156,46 +166,55 @@ export class OrdersStateService {
     if (
       isMember &&
       isMember.branchId &&
-      matchingFulfillment &&
-      matchingFulfillment.vendorBranchId &&
-      isMember.branchId !== matchingFulfillment.vendorBranchId
+      fulfillments.length > 0 &&
+      matchingFulfillments.length === 0
     ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
     } else if (
       isMember &&
       isMember.branchId &&
+      fulfillments.length === 0 &&
       (order as any).vendorBranchId &&
       isMember.branchId !== (order as any).vendorBranchId
     ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
     }
 
-    // For multi-vendor orders, accept / cancel are per-fulfillment decisions
-    if (matchingFulfillment) {
+    // For multi-vendor / multi-branch orders, accept / cancel / production are per-fulfillment decisions
+    if (matchingFulfillments.length > 0) {
       if (dto.status === OrderStatus.ACCEPTED) {
-        if (matchingFulfillment.status !== 'PENDING') {
-          return this.ordersRepository.findById(orderId);
+        for (const f of matchingFulfillments) {
+          if (f.status === 'PENDING') {
+            await this.vendorDecisionService.accept(actor, f.id);
+          }
         }
-        await this.vendorDecisionService.accept(actor, matchingFulfillment.id);
         return this.ordersRepository.findById(orderId);
       }
       if (dto.status === OrderStatus.CANCELLED) {
-        await this.vendorDecisionService.reject(actor, matchingFulfillment.id, {
-          code: 'VENDOR_CANCELLED',
-          reason: dto.note ?? 'Cancelled by vendor',
-        });
+        for (const f of matchingFulfillments) {
+          if (f.status !== 'REJECTED' && f.status !== 'CANCELLED') {
+            await this.vendorDecisionService.reject(actor, f.id, {
+              code: 'VENDOR_CANCELLED',
+              reason: dto.note ?? 'Cancelled by vendor',
+            });
+          }
+        }
         return this.ordersRepository.findById(orderId);
       }
       if (
         dto.status === OrderStatus.PREPARING ||
         dto.status === OrderStatus.READY_FOR_PICKUP
       ) {
-        return this.applyFulfillmentProductionTransition(
-          actor,
-          order,
-          matchingFulfillment,
-          dto,
-        );
+        let lastResult: any = null;
+        for (const f of matchingFulfillments) {
+          lastResult = await this.applyFulfillmentProductionTransition(
+            actor,
+            order,
+            f,
+            dto,
+          );
+        }
+        return lastResult ?? this.ordersRepository.findById(orderId);
       }
       // Anything else is not a decision a single vendor may make about a
       // shared order (pickup/delivery belong to the driver of the delivery).
@@ -917,10 +936,32 @@ export class OrdersStateService {
       return this.driverConfirmFulfillmentPickup(actor, orderId, fulfillmentId, file);
     }
 
-    // If order has fulfillments, find the next unpicked one
+    // If order has fulfillments, find the next unpicked one scoped to this driver's delivery group(s)
     const order = await this.ordersRepository.findById(orderId);
     if (order && order.vendorFulfillments && order.vendorFulfillments.length > 0) {
-      const nextUnpicked = order.vendorFulfillments.find(
+      const driver = await this.prisma.driver.findUnique({
+        where: { userId: actor.sub },
+        select: { id: true },
+      });
+      let candidateFulfillments: any[] = order.vendorFulfillments;
+      if (driver && Array.isArray((order as any).deliveryGroups) && (order as any).deliveryGroups.length > 0) {
+        const myGroups = (order as any).deliveryGroups.filter(
+          (g: any) =>
+            g.primaryDriverId === driver.id ||
+            g.assistDriverId === driver.id ||
+            (order.driverId === driver.id && !g.primaryDriverId),
+        );
+        const myGroupItems = myGroups
+          .flatMap((g: any) => (Array.isArray(g.items) ? g.items : []))
+          .sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
+        if (myGroupItems.length > 0) {
+          const byId = new Map(order.vendorFulfillments.map((f: any) => [f.id, f]));
+          candidateFulfillments = myGroupItems
+            .map((it: any) => byId.get(it.fulfillmentId))
+            .filter(Boolean);
+        }
+      }
+      const nextUnpicked = candidateFulfillments.find(
         (f: any) =>
           f.status !== 'REJECTED' &&
           f.status !== 'CANCELLED' &&

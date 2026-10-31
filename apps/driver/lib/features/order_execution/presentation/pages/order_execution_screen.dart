@@ -1160,7 +1160,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             ),
             const SizedBox(width: 5),
             Text(
-              isAr ? 'محطة ${index + 1}: ${stop['storeName']}' : 'Stop ${index + 1}: ${stop['storeName']}',
+              isAr ? 'محطة ${index + 1}: ${stop['name'] ?? stop['storeName']}' : 'Stop ${index + 1}: ${stop['name'] ?? stop['storeName']}',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
@@ -1511,8 +1511,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(l10n.localeName == 'ar'
-                      ? 'تم تأكيد استلام المحطة $_currentStopIndex! توجه الآن إلى ${next['storeName']}'
-                      : 'Stop $_currentStopIndex confirmed! Proceed to ${next['storeName']}'),
+                      ? 'تم تأكيد استلام المحطة $_currentStopIndex! توجه الآن إلى ${next['name'] ?? next['storeName']}'
+                      : 'Stop $_currentStopIndex confirmed! Proceed to ${next['name'] ?? next['storeName']}'),
                   backgroundColor: AppColors.success,
                 ),
               );
@@ -1535,8 +1535,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 photo = await _capturePickupPhoto();
                 if (photo == null) return;
               }
-              final curFulfillmentId = hasMultiple && pickupStops.isNotEmpty
+              final rawFulfillmentId = pickupStops.isNotEmpty
                   ? pickupStops[_currentStopIndex]['fulfillmentId']?.toString()
+                  : null;
+              final curFulfillmentId = (rawFulfillmentId != null && rawFulfillmentId.isNotEmpty)
+                  ? rawFulfillmentId
                   : null;
               await ref
                   .read(orderExecutionProvider.notifier)

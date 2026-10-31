@@ -484,16 +484,21 @@ export class OrdersService {
     vendorIdScope?: string,
   ): Promise<any> {
     let vendorId = vendorIdScope;
-    if (!vendorId) {
-      if (order.vendorId) {
-        vendorId = order.vendorId;
-      } else {
-        const membership = await this.prisma.vendorMember.findFirst({
-          where: { userId: actor.sub },
-          select: { vendorId: true },
-        });
-        vendorId = membership?.vendorId;
+    let memberBranchId: string | null = null;
+    if (actor.role === Role.VENDOR_MEMBER) {
+      const membership = await this.prisma.vendorMember.findFirst({
+        where: {
+          userId: actor.sub,
+          ...(vendorId ? { vendorId } : {}),
+        },
+        select: { vendorId: true, branchId: true },
+      });
+      if (!vendorId) {
+        vendorId = order.vendorId ?? membership?.vendorId;
       }
+      memberBranchId = membership?.branchId ?? null;
+    } else if (!vendorId && order.vendorId) {
+      vendorId = order.vendorId;
     }
 
     let items = order.items ?? [];
@@ -517,9 +522,29 @@ export class OrdersService {
     let myFulfillmentId: string | null = null;
 
     if (order.vendorFulfillments && Array.isArray(order.vendorFulfillments) && vendorId) {
-      const myFulfillment = order.vendorFulfillments.find(
-        (f: any) => f.vendorId === vendorId,
+      const vendorFulfillments = order.vendorFulfillments.filter(
+        (f: any) =>
+          f.vendorId === vendorId &&
+          (!memberBranchId || f.vendorBranchId === memberBranchId),
       );
+      // If a global owner has multiple branch fulfillments on the same order,
+      // prefer the least-progressed active fulfillment for status/action projection.
+      const statusRank: Record<string, number> = {
+        PENDING: 1,
+        ACCEPTED: 2,
+        PREPARING: 3,
+        READY_FOR_PICKUP: 4,
+        PICKED_UP: 5,
+        DELIVERED: 6,
+        CANCELLED: 7,
+        REJECTED: 7,
+      };
+      const sortedFulfillments = [...vendorFulfillments].sort(
+        (a: any, b: any) =>
+          (statusRank[String(a.status)] ?? 99) -
+          (statusRank[String(b.status)] ?? 99),
+      );
+      const myFulfillment = sortedFulfillments[0];
       if (myFulfillment) {
         myFulfillmentId = myFulfillment.id ?? null;
 
@@ -575,17 +600,24 @@ export class OrdersService {
           portionStatus = rawPortionStatus;
         }
 
-        vendorSubtotal = Number(myFulfillment.subtotal ?? 0);
+        vendorSubtotal = vendorFulfillments.reduce(
+          (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
+          0,
+        );
         commissionRate = Number(myFulfillment.commissionRate ?? commissionRate);
         if (myFulfillment.vendorBranch?.isContracted != null) {
           isContracted = myFulfillment.vendorBranch.isContracted;
         }
-        if (myFulfillment.items && myFulfillment.items.length > 0) {
-          items = myFulfillment.items;
+        const myFulfillmentIds = new Set(vendorFulfillments.map((f: any) => f.id));
+        const directItems = vendorFulfillments.flatMap((f: any) =>
+          Array.isArray(f.items) ? f.items : [],
+        );
+        if (directItems.length > 0) {
+          items = directItems;
         } else if (order.items) {
           items = order.items.filter(
             (i: any) =>
-              i.rejectedAt == null && i.fulfillmentId === myFulfillment.id,
+              i.rejectedAt == null && myFulfillmentIds.has(i.fulfillmentId),
           );
         }
       }
