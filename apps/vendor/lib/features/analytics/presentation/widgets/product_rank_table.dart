@@ -22,46 +22,72 @@ class ProductRankTable extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(topProductsProvider);
 
     return state.when(
       data: (allProducts) {
+        // ── Filter ──────────────────────────────────────────────────
         var products = allProducts.where((p) {
           if (searchQuery.isEmpty) return true;
           final name = isArabic ? (p.nameAr ?? p.name) : p.name;
           return name.toLowerCase().contains(searchQuery);
         }).toList();
 
-        // Products only have one sort — totalOrders
+        // ── Sort ────────────────────────────────────────────────────
         products.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
 
         if (products.isEmpty) {
           return _emptyState(context, isDark);
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          itemCount: products.length,
-          itemBuilder: (context, index) {
-            final product = products[index];
-            final productName =
-                isArabic ? (product.nameAr ?? product.name) : product.name;
-            return _ProductCard(
-              product: product,
-              productName: productName,
-              rank: index,
-              isDark: isDark,
-              l10n: l10n,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth = constraints.maxWidth;
+            final isPhone = availableWidth < 650;
+
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: ListView.builder(
+                  padding: EdgeInsets.fromLTRB(
+                    isPhone ? 12 : 20,
+                    12,
+                    isPhone ? 12 : 20,
+                    24,
+                  ),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final product = products[index];
+                    final rawName =
+                        isArabic ? (product.nameAr ?? product.name) : product.name;
+                    final displayName = (rawName.isNotEmpty && rawName != 'Unknown')
+                        ? rawName
+                        : (isArabic ? 'منتج غير محدد' : 'Unnamed Product');
+
+                    return _ProductCard(
+                      product: product,
+                      productName: displayName,
+                      rank: index,
+                      isDark: isDark,
+                      isPhone: isPhone,
+                      l10n: l10n,
+                    );
+                  },
+                ),
+              ),
             );
           },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(
-        child: Text(ErrorUtils.translate(context, e),
-            style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        child: Text(
+          ErrorUtils.translate(context, e),
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
       ),
     );
   }
@@ -71,10 +97,11 @@ class ProductRankTable extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.packageOpen,
-              size: 52,
-              color: (isDark ? Colors.white : Colors.black)
-                  .withValues(alpha: 0.15)),
+          Icon(
+            LucideIcons.package,
+            size: 52,
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15),
+          ),
           const SizedBox(height: 12),
           Text(
             AppLocalizations.of(context)!.noDataAvailable,
@@ -96,6 +123,7 @@ class _ProductCard extends StatelessWidget {
   final String productName;
   final int rank;
   final bool isDark;
+  final bool isPhone;
   final AppLocalizations l10n;
 
   const _ProductCard({
@@ -103,138 +131,224 @@ class _ProductCard extends StatelessWidget {
     required this.productName,
     required this.rank,
     required this.isDark,
+    required this.isPhone,
     required this.l10n,
   });
 
   @override
   Widget build(BuildContext context) {
     final isTop3 = rank < 3;
-    final rankColors = [
-      const Color(0xFFFFD700),
-      const Color(0xFFC0C0C0),
-      const Color(0xFFCD7F32),
-    ];
-    final rankColor = isTop3
-        ? rankColors[rank]
-        : (isDark
-            ? Colors.white.withValues(alpha: 0.35)
-            : Colors.black.withValues(alpha: 0.25));
-    final cardColor = isDark ? const Color(0xFF252525) : Colors.white;
+    final isFirst = rank == 0;
+    final isSecond = rank == 1;
+    final isThird = rank == 2;
+
+    final rankColor = isFirst
+        ? const Color(0xFFFFD700)
+        : (isSecond
+            ? const Color(0xFFC0C0C0)
+            : (isThird
+                ? const Color(0xFFCD7F32)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.35)
+                    : Colors.black.withValues(alpha: 0.25))));
+
+    final cardColor = Theme.of(context).colorScheme.surface;
     final borderColor = isTop3
-        ? rankColor.withValues(alpha: 0.4)
+        ? rankColor.withValues(alpha: 0.45)
         : (isDark
-            ? Colors.white.withValues(alpha: 0.06)
+            ? Colors.white.withValues(alpha: 0.07)
             : Colors.black.withValues(alpha: 0.06));
     final textColor = isDark ? Colors.white : Colors.black;
-    final subColor = isDark
-        ? Colors.white.withValues(alpha: 0.5)
-        : Colors.black.withValues(alpha: 0.45);
+    final subColor = isDark ? const Color(0xFFF1F5F9) : textColor.withValues(alpha: 0.75);
+
+    Widget buildRankBadge() {
+      if (isTop3) {
+        final gradient = isFirst
+            ? const LinearGradient(
+                colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : (isSecond
+                ? const LinearGradient(
+                    colors: [Color(0xFFECEFF1), Color(0xFF90A4AE)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFFFFB74D), Color(0xFF8D6E63)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ));
+
+        return Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: gradient,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: rankColor.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            '#${rank + 1}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        );
+      }
+
+      return Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.04),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.black.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Text(
+          '#${rank + 1}',
+          style: TextStyle(
+            color: subColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    Widget buildProductImage() {
+      return Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isTop3 ? rankColor.withValues(alpha: 0.6) : borderColor,
+            width: isTop3 ? 2.0 : 1.0,
+          ),
+          color: rankColor.withValues(alpha: 0.08),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: product.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, url, err) => Center(
+                    child: Icon(
+                      LucideIcons.package,
+                      size: 20,
+                      color: rankColor,
+                    ),
+                  ),
+                )
+              : Center(
+                  child: Icon(
+                    LucideIcons.package,
+                    size: 20,
+                    color: rankColor,
+                  ),
+                ),
+        ),
+      );
+    }
+
+    Widget buildOrdersPill() {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.shoppingBag,
+              size: 13,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '${product.totalOrders} ${l10n.ordersCount}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: isTop3 ? 1.5 : 1.0),
         boxShadow: isTop3
             ? [
                 BoxShadow(
-                  color: rankColor.withValues(alpha: 0.12),
-                  blurRadius: 12,
+                  color: rankColor.withValues(alpha: isDark ? 0.15 : 0.08),
+                  blurRadius: 14,
                   offset: const Offset(0, 4),
                 ),
               ]
-            : null,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            // ── Image / Rank ───────────────────────────────────────
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: rankColor, width: isTop3 ? 2.5 : 1.5),
-                    color: rankColor.withValues(alpha: 0.1),
-                  ),
-                  child: ClipOval(
-                    child: product.imageUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: product.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorWidget: (context, url, error) => Center(
-                              child: Text('${rank + 1}',
-                                  style: TextStyle(
-                                      color: rankColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18)),
-                            ),
-                          )
-                        : Center(
-                            child: Text('${rank + 1}',
-                                style: TextStyle(
-                                    color: rankColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18)),
-                          ),
-                  ),
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                if (isTop3)
-                  Positioned(
-                    bottom: -2,
-                    right: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                          color: cardColor, shape: BoxShape.circle),
-                      child: Icon(Icons.star, color: rankColor, size: 14),
-                    ),
-                  ),
               ],
-            ),
-            const SizedBox(width: 12),
-
-            // ── Name ──────────────────────────────────────────────
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    productName,
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: textColor),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhone ? 12 : 16,
+            vertical: 12,
+          ),
+          child: Row(
+            children: [
+              buildRankBadge(),
+              const SizedBox(width: 12),
+              buildProductImage(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  productName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: textColor,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${l10n.ordersCount}: ${product.totalOrders}',
-                    style: TextStyle(fontSize: 12, color: subColor),
-                  ),
-                ],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-
-            // ── Icon ──────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(LucideIcons.shoppingBag,
-                  color: AppColors.primary, size: 16),
-            ),
-          ],
+              const SizedBox(width: 14),
+              buildOrdersPill(),
+            ],
+          ),
         ),
       ),
     );

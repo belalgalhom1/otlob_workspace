@@ -2515,8 +2515,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String status,
     bool isArabic,
   ) {
-    if (_userRole != 'VENDOR_MEMBER') {
-      return const SizedBox(); // Read-only for non-vendor members!
+    if (_userRole != 'VENDOR_MEMBER' &&
+        _userRole != 'ADMIN' &&
+        _userRole != 'SUPER_ADMIN') {
+      return const SizedBox();
     }
     if (status == 'DELIVERED' || status == 'CANCELLED') {
       return const SizedBox();

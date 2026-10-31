@@ -41,6 +41,9 @@ class ApiErrorMapper {
     }
 
     if (error is DioException) {
+      if (error.response?.statusCode == 429) {
+        return 'common_error_too_many_requests';
+      }
       final data = error.response?.data;
       if (data is Map && data.containsKey('message')) {
         final message = data['message'];

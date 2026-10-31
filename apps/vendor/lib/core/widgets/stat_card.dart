@@ -127,12 +127,11 @@ class StatCard extends StatelessWidget {
                               title,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.7),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
+                                    color: isDark
+                                        ? const Color(0xFFF8FAFC)
+                                        : Theme.of(context).colorScheme.onSurface,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
                                   ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

@@ -77,6 +77,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
     final surfaceColor = Theme.of(context).colorScheme.surface;
@@ -90,192 +91,309 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
         ? _sortBy
         : sortOptions.first.value;
 
-    return Column(
-      children: [
-        // ── Tab Bar ──────────────────────────────────────────────────
-        Container(
-          color: surfaceColor,
-          child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            onTap: (_) {
-              setState(() {
-                _sortBy = 'orders';
-              });
-            },
-            tabs: [
-              Tab(text: l10n.topDrivers),
-              Tab(text: l10n.topCustomers),
-              Tab(text: l10n.topVendors),
-              Tab(text: l10n.topProduct),
-            ],
-            indicatorColor: AppColors.primary,
-            labelColor: AppColors.primary,
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final bool isPhone = availableWidth < 650;
 
-        // ── Search + Sort ─────────────────────────────────────────────
-        Container(
-          color: surfaceColor,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Column(
-            children: [
-              // Search bar + Export
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : Colors.black.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: borderColor),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        style: TextStyle(color: textColor),
-                        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-                        decoration: InputDecoration(
-                          hintText: l10n.searchHint,
-                          hintStyle: TextStyle(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.35)
-                                : Colors.black38,
-                          ),
-                          prefixIcon: Icon(
-                            LucideIcons.search,
-                            size: 18,
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.4)
-                                : Colors.black38,
-                          ),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: Icon(LucideIcons.x,
-                                      size: 16, color: textColor),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 4),
-                        ),
-                      ),
+        return Column(
+          children: [
+            // ── Segmented Tab Bar ─────────────────────────────────────────
+            Container(
+              margin: EdgeInsets.symmetric(
+                horizontal: isPhone ? 12 : 20,
+                vertical: 10,
+              ),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderColor),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: isPhone,
+                tabAlignment: isPhone ? TabAlignment.start : null,
+                indicator: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                labelColor: Colors.white,
+                unselectedLabelColor: textColor.withValues(alpha: 0.7),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                tabs: [
+                  Tab(
+                    height: 42,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.truck, size: 16),
+                        const SizedBox(width: 8),
+                        Text(l10n.topDrivers),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'Export',
-                    child: IconButton(
-                      icon: Icon(LucideIcons.download, color: textColor),
-                      onPressed: () => _exportCurrentTab(context, ref),
+                  Tab(
+                    height: 42,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.users, size: 16),
+                        const SizedBox(width: 8),
+                        Text(l10n.topCustomers),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: 42,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.store, size: 16),
+                        const SizedBox(width: 8),
+                        Text(l10n.topVendors),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: 42,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.packageCheck, size: 16),
+                        const SizedBox(width: 8),
+                        Text(l10n.topProduct),
+                      ],
                     ),
                   ),
                 ],
               ),
+            ),
 
-              // Sort chips
-              if (sortOptions.length > 1) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 34,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: sortOptions.length,
-                    separatorBuilder: (_, x) => const SizedBox(width: 8),
-                    itemBuilder: (context, i) {
-                      final opt = sortOptions[i];
-                      final isSelected = opt.value == validSort;
-                      return GestureDetector(
-                        onTap: () => setState(() => _sortBy = opt.value),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+            // ── Search & Filter Controls ──────────────────────────────────
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isPhone ? 12 : 20,
+                vertical: 6,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 46,
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary
-                                : (isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
-                                    : Colors.black.withValues(alpha: 0.04)),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : borderColor,
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            style: TextStyle(color: textColor, fontSize: 13),
+                            onChanged: (v) => setState(
+                              () => _searchQuery = v.trim().toLowerCase(),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: l10n.searchHint,
+                              hintStyle: TextStyle(
+                                color: textColor.withValues(alpha: 0.4),
+                                fontSize: 13,
+                              ),
+                              prefixIcon: Icon(
+                                LucideIcons.search,
+                                size: 18,
+                                color: textColor.withValues(alpha: 0.5),
+                              ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        LucideIcons.x,
+                                        size: 16,
+                                        color: textColor,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 8,
+                              ),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                opt.icon,
-                                size: 13,
-                                color: isSelected
-                                    ? Colors.white
-                                    : textColor,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                opt.label,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : textColor,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _exportCurrentTab(context, ref),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            height: 46,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: surfaceColor,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  LucideIcons.download,
+                                  size: 16,
+                                  color: AppColors.primary,
                                 ),
-                              ),
-                            ],
+                                if (!isPhone) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isArabic ? 'تصدير التقرير' : 'Export Report',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ],
-          ),
-        ),
+                  if (sortOptions.length > 1) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: sortOptions.map((opt) {
+                        final isSelected = opt.value == validSort;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => setState(() => _sortBy = opt.value),
+                            borderRadius: BorderRadius.circular(20),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : surfaceColor,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : borderColor,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary
+                                              .withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    opt.icon,
+                                    size: 13,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : textColor.withValues(alpha: 0.7),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    opt.label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
 
-        // ── Divider ───────────────────────────────────────────────────
-        Divider(height: 1, color: borderColor),
+            const SizedBox(height: 6),
+            Divider(height: 1, color: borderColor),
 
-        // ── Tab Views ─────────────────────────────────────────────────
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              DriverRankTable(
-                searchQuery: _searchQuery,
-                sortBy: validSort,
-                onDriverTap: widget.onNavigate != null
-                    ? (_) => widget.onNavigate!(3)
-                    : null,
+            // ── Tab Views ─────────────────────────────────────────────────
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  DriverRankTable(
+                    searchQuery: _searchQuery,
+                    sortBy: validSort,
+                    onDriverTap: widget.onNavigate != null
+                        ? (_) => widget.onNavigate!(3)
+                        : null,
+                  ),
+                  CustomerRankTable(
+                    searchQuery: _searchQuery,
+                    sortBy: validSort,
+                  ),
+                  VendorRankTable(
+                    searchQuery: _searchQuery,
+                    sortBy: validSort,
+                    onVendorTap: widget.onNavigate != null
+                        ? (vendorId) => widget.onNavigate!(2)
+                        : null,
+                  ),
+                  ProductRankTable(
+                    searchQuery: _searchQuery,
+                    sortBy: validSort,
+                  ),
+                ],
               ),
-              CustomerRankTable(
-                searchQuery: _searchQuery,
-                sortBy: validSort,
-              ),
-              VendorRankTable(
-                searchQuery: _searchQuery,
-                sortBy: validSort,
-                onVendorTap: widget.onNavigate != null
-                    ? (vendorId) => widget.onNavigate!(2)
-                    : null,
-              ),
-              ProductRankTable(
-                searchQuery: _searchQuery,
-                sortBy: validSort,
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -344,7 +462,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
             );
           }
 
-          final loc = (String en, String ar) => arabic ? ar : en;
+          String loc(String en, String ar) => arabic ? ar : en;
           return AlertDialog(
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20)),

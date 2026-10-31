@@ -1450,8 +1450,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           l10n.liveUpdates,
                           style: TextStyle(
                             fontSize: 11,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? const Color(0xFFF1F5F9)
+                                : theme.colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -1493,10 +1495,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Text(
                           l10n.noOrdersFound,
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
+                            color: isDark ? const Color(0xFFF1F5F9) : theme.colorScheme.onSurface,
+                          ),),
                       ),
                     );
                   }
@@ -1688,11 +1688,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
-                                          Icon(
-                                            LucideIcons.store,
-                                            size: 12,
-                                            color: theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5),
+                                          Icon(LucideIcons.store, size: 12, color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                                           ),
                                           const SizedBox(width: 4),
                                           Flexible(
@@ -1700,8 +1696,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                               vendorName,
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: theme.colorScheme.onSurface
-                                                    .withValues(alpha: 0.7),
+                                                fontWeight: FontWeight.w500,
+                                                color: isDark ? const Color(0xFFF8FAFC) : theme.colorScheme.onSurface,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -1716,8 +1712,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                                 '•',
                                                 style: TextStyle(
                                                   fontSize: 9,
-                                                  color: theme.colorScheme.onSurface
-                                                      .withValues(alpha: 0.4),
+                                                   color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                                 ),
                                               ),
                                             ),
@@ -1725,8 +1720,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                               timeAgo,
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: theme.colorScheme.onSurface
-                                                    .withValues(alpha: 0.5),
+                                                 fontWeight: FontWeight.w500,
+                                                 color: isDark ? const Color(0xFFF1F5F9) : theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ],
@@ -1752,8 +1747,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                           ? LucideIcons.chevronLeft
                                           : LucideIcons.chevronRight,
                                       size: 13,
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.35),
+                                       color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                     ),
                                   ],
                                 ),
@@ -1844,8 +1838,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       l10n.recentActivity,
                       style: TextStyle(
                         fontSize: 11,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? const Color(0xFFF1F5F9)
+                            : theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -1885,8 +1881,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Text(
                           l10n.noSystemLogsFound,
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
+                            color: isDark
+                                ? const Color(0xFFF1F5F9)
+                                : theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -2042,11 +2039,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       Row(
                                         children: [
                                           if (actorName.isNotEmpty) ...[
-                                            Icon(
-                                              LucideIcons.user,
-                                              size: 11,
-                                              color: theme.colorScheme.onSurface
-                                                  .withValues(alpha: 0.5),
+                                            Icon(LucideIcons.user, size: 11, color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                                             ),
                                             const SizedBox(width: 4),
                                             Flexible(
@@ -2054,8 +2047,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                                 actorName,
                                                 style: TextStyle(
                                                   fontSize: 11,
-                                                  color: theme.colorScheme.onSurface
-                                                    .withValues(alpha: 0.7),
+                                                    fontWeight: FontWeight.w500,
+                                                    color: isDark ? const Color(0xFFF8FAFC) : theme.colorScheme.onSurface,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -2069,8 +2062,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                                 '•',
                                                 style: TextStyle(
                                                   fontSize: 9,
-                                                  color: theme.colorScheme.onSurface
-                                                      .withValues(alpha: 0.4),
+                                                   color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                                 ),
                                               ),
                                             ),
@@ -2079,8 +2071,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                             dateStr,
                                             style: TextStyle(
                                               fontSize: 11,
-                                              color: theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5),
+                                                fontWeight: FontWeight.w500,
+                                                color: isDark ? const Color(0xFFF1F5F9) : theme.colorScheme.onSurface,
                                             ),
                                           ),
                                         ],
@@ -2094,8 +2086,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       ? LucideIcons.chevronLeft
                                       : LucideIcons.chevronRight,
                                   size: 13,
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.35),
+                                       color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                 ),
                               ],
                             ),

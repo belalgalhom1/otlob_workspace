@@ -35,20 +35,24 @@ class App extends ConsumerWidget {
       builder: (context, child) {
         final l10n = AppLocalizations.of(context)!;
         final mediaQuery = MediaQuery.of(context);
-        return MediaQuery(
-          data: mediaQuery.copyWith(
-            textScaler: TextScaler.noScaling,
-          ),
-          child: LocationRequiredGate(
-            title: l10n.locationRequiredTitle,
-            message: l10n.locationRequiredMessage,
-            buttonLabel: l10n.locationRequiredButton,
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
-              child: child ?? const SizedBox.shrink(),
+        return AppWindowConstraintGuard(
+          minWidth: 360.0,
+          minHeight: 600.0,
+          child: MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaler: TextScaler.noScaling,
+            ),
+            child: LocationRequiredGate(
+              title: l10n.locationRequiredTitle,
+              message: l10n.locationRequiredMessage,
+              buttonLabel: l10n.locationRequiredButton,
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         );

@@ -187,32 +187,62 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          AppLocalizations.of(context)!.platformUsers,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-
-                      ElevatedButton.icon(
-                        onPressed: () => _showUserFormDialog(context),
-                        icon: const Icon(LucideIcons.userPlus, size: 14),
-                        label: Text(AppLocalizations.of(context)!.addUser),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(110, 44),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, headerConstraints) {
+                      final isNarrow = headerConstraints.maxWidth < 450;
+                      return isNarrow
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  AppLocalizations.of(context)!.platformUsers,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  onPressed: () => _showUserFormDialog(context),
+                                  icon: const Icon(LucideIcons.userPlus, size: 14),
+                                  label: Text(AppLocalizations.of(context)!.addUser),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(110, 44),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    AppLocalizations.of(context)!.platformUsers,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: () => _showUserFormDialog(context),
+                                  icon: const Icon(LucideIcons.userPlus, size: 14),
+                                  label: Text(AppLocalizations.of(context)!.addUser),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(110, 44),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                    },
                   ),
                   const SizedBox(height: 16),
                   // Search Bar
@@ -542,8 +572,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                       _buildRoleChip(u['role'] ?? 'CUSTOMER'),
                     ],
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
                     children: [
                       _buildActionItem(
                         context: context,
@@ -557,9 +588,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                             ? AppLocalizations.of(context)!.unban
                             : AppLocalizations.of(context)!.ban,
                         onPressed: () => _handleBanToggle(context, u),
+                        showLabel: true,
                       ),
                       if ((u['phone']?.toString().isNotEmpty ?? false)) ...[
-                        const SizedBox(width: 8),
                         _buildActionItem(
                           context: context,
                           icon: LucideIcons.phoneCall,
@@ -573,9 +604,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                             context,
                             u['phone'].toString(),
                           ),
+                          showLabel: true,
                         ),
                       ],
-                      const SizedBox(width: 8),
                       _buildActionItem(
                         context: context,
                         icon: LucideIcons.messageCircle,
@@ -585,22 +616,23 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                             ? 'دردشة'
                             : 'Chat',
                         onPressed: () => _openChat(u),
+                        showLabel: true,
                       ),
-                      const SizedBox(width: 8),
                       _buildActionItem(
                         context: context,
                         icon: LucideIcons.edit3,
                         color: AppColors.info,
                         label: AppLocalizations.of(context)!.edit,
                         onPressed: () => _showUserFormDialog(context, user: u),
+                        showLabel: true,
                       ),
-                      const SizedBox(width: 8),
                       _buildActionItem(
                         context: context,
                         icon: LucideIcons.trash2,
                         color: AppColors.error,
                         label: AppLocalizations.of(context)!.delete,
                         onPressed: () => _showDeleteConfirmation(context, u),
+                        showLabel: true,
                       ),
                     ],
                   ),
@@ -623,130 +655,174 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       );
     }
 
-    return SizedBox(
-      width: double.infinity,
-      child: DataTable(
-        horizontalMargin: 0,
-        columnSpacing: 12,
-        headingRowHeight: 48,
-        columns: [
-          DataColumn(label: Text(AppLocalizations.of(context)!.name)),
-          DataColumn(label: Text(AppLocalizations.of(context)!.emailAddress)),
-          DataColumn(label: Text(AppLocalizations.of(context)!.phone)),
-          DataColumn(label: Text(AppLocalizations.of(context)!.role)),
-          DataColumn(label: Text(AppLocalizations.of(context)!.active)),
-          DataColumn(label: Text(AppLocalizations.of(context)!.actions)),
-        ],
-        rows: users
-            .map(
-              (u) => DataRow(
-                cells: [
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildUserAvatar(u, 14),
-                        const SizedBox(width: 12),
-                        Text(
-                          u['name'] ?? AppLocalizations.of(context)!.unknown,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return LayoutBuilder(
+      builder: (context, tableConstraints) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: tableConstraints.maxWidth),
+              child: DataTable(
+                horizontalMargin: 16,
+                columnSpacing: 20,
+                headingRowHeight: 48,
+                dataRowMinHeight: 56,
+                dataRowMaxHeight: 64,
+                headingRowColor: WidgetStateProperty.all(
+                  theme.colorScheme.surface.withValues(alpha: isDark ? 0.4 : 0.6),
+                ),
+                columns: [
+                  DataColumn(
+                    label: Text(
+                      AppLocalizations.of(context)!.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
-                  DataCell(
-                    Text(
-                      u['email'] ?? AppLocalizations.of(context)!.noEmail,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface,
-                      ),
+                  DataColumn(
+                    label: Text(
+                      AppLocalizations.of(context)!.emailAddress,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
-                  DataCell(
-                    Text(
-                      u['phone'] ?? '-',
-                      style: const TextStyle(fontSize: 13),
+                  DataColumn(
+                    label: Text(
+                      AppLocalizations.of(context)!.phone,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
-                  DataCell(_buildRoleChip(u['role'] ?? 'CUSTOMER')),
-                  DataCell(_buildStatusChip(context, u['isBanned'] == true)),
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildActionItem(
-                          context: context,
-                          icon: u['isBanned'] == true
-                              ? LucideIcons.unlock
-                              : LucideIcons.ban,
-                          color: u['isBanned'] == true
-                              ? AppColors.success
-                              : AppColors.warning,
-                          label: u['isBanned'] == true
-                              ? AppLocalizations.of(context)!.unban
-                              : AppLocalizations.of(context)!.ban,
-                          onPressed: () => _handleBanToggle(context, u),
-                        ),
-                        if ((u['phone']?.toString().isNotEmpty ?? false)) ...[
-                          const SizedBox(width: 8),
-                          _buildActionItem(
-                            context: context,
-                            icon: LucideIcons.phoneCall,
-                            color: AppColors.success,
-                            label: Localizations.localeOf(context)
-                                        .languageCode ==
-                                    'ar'
-                                ? 'اتصال'
-                                : 'Call',
-                            onPressed: () => _callUser(
-                              context,
-                              u['phone'].toString(),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(width: 8),
-                        _buildActionItem(
-                          context: context,
-                          icon: LucideIcons.messageCircle,
-                          color: AppColors.primary,
-                          label:
-                              Localizations.localeOf(context).languageCode ==
-                                  'ar'
-                              ? 'دردشة'
-                              : 'Chat',
-                          onPressed: () => _openChat(u),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildActionItem(
-                          context: context,
-                          icon: LucideIcons.edit3,
-                          color: AppColors.info,
-                          label: AppLocalizations.of(context)!.edit,
-                          onPressed: () =>
-                              _showUserFormDialog(context, user: u),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildActionItem(
-                          context: context,
-                          icon: LucideIcons.trash2,
-                          color: AppColors.error,
-                          label: AppLocalizations.of(context)!.delete,
-                          onPressed: () => _showDeleteConfirmation(context, u),
-                        ),
-                      ],
+                  DataColumn(
+                    label: Text(
+                      AppLocalizations.of(context)!.role,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      AppLocalizations.of(context)!.active,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      AppLocalizations.of(context)!.actions,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
                 ],
+                rows: users.map((u) {
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildUserAvatar(u, 16),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                u['name'] ?? AppLocalizations.of(context)!.unknown,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          u['email'] ?? AppLocalizations.of(context)!.noEmail,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          u['phone'] ?? '-',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      DataCell(_buildRoleChip(u['role'] ?? 'CUSTOMER')),
+                      DataCell(_buildStatusChip(context, u['isBanned'] == true)),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildActionItem(
+                              context: context,
+                              icon: u['isBanned'] == true
+                                  ? LucideIcons.unlock
+                                  : LucideIcons.ban,
+                              color: u['isBanned'] == true
+                                  ? AppColors.success
+                                  : AppColors.warning,
+                              label: u['isBanned'] == true
+                                  ? AppLocalizations.of(context)!.unban
+                                  : AppLocalizations.of(context)!.ban,
+                              onPressed: () => _handleBanToggle(context, u),
+                            ),
+                            if ((u['phone']?.toString().isNotEmpty ?? false)) ...[
+                              const SizedBox(width: 6),
+                              _buildActionItem(
+                                context: context,
+                                icon: LucideIcons.phoneCall,
+                                color: AppColors.success,
+                                label: Localizations.localeOf(context).languageCode == 'ar'
+                                    ? 'اتصال'
+                                    : 'Call',
+                                onPressed: () => _callUser(
+                                  context,
+                                  u['phone'].toString(),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 6),
+                            _buildActionItem(
+                              context: context,
+                              icon: LucideIcons.messageCircle,
+                              color: AppColors.primary,
+                              label: Localizations.localeOf(context).languageCode == 'ar'
+                                  ? 'دردشة'
+                                  : 'Chat',
+                              onPressed: () => _openChat(u),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildActionItem(
+                              context: context,
+                              icon: LucideIcons.edit3,
+                              color: AppColors.info,
+                              label: AppLocalizations.of(context)!.edit,
+                              onPressed: () => _showUserFormDialog(context, user: u),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildActionItem(
+                              context: context,
+                              icon: LucideIcons.trash2,
+                              color: AppColors.error,
+                              label: AppLocalizations.of(context)!.delete,
+                              onPressed: () => _showDeleteConfirmation(context, u),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
               ),
-            )
-            .toList(),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -897,7 +973,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       backgroundImage:
           url.isNotEmpty ? CachedNetworkImageProvider(url) : null,
       onBackgroundImageError:
-          url.isNotEmpty ? (_, __) {} : null,
+          url.isNotEmpty ? (_, _) {} : null,
       child: url.isEmpty
           ? Text(
               initial,
@@ -961,34 +1037,50 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     required Color color,
     required String label,
     required VoidCallback onPressed,
+    bool showLabel = false,
   }) {
-    return InkWell(
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    Widget button = InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
-      child: Column(
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? 0.16 : 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: color.withValues(alpha: 0.28),
+            width: 0.8,
+          ),
+        ),
+        child: Icon(icon, size: 15, color: color),
+      ),
+    );
+
+    if (showLabel) {
+      button = Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 16, color: color),
-          ),
-          const SizedBox(height: 4),
+          button,
+          const SizedBox(height: 3),
           Text(
             label,
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface,
+              color: theme.colorScheme.onSurface,
             ),
           ),
         ],
-      ),
+      );
+    }
+
+    return Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 250),
+      child: button,
     );
   }
 

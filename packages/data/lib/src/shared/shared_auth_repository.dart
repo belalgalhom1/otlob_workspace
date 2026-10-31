@@ -106,11 +106,17 @@ class SharedAuthRepository {
       List<dynamic> permissions = [];
 
       if (user != null && user['vendorMemberships'] != null) {
-        vendorMemberships = user['vendorMemberships'] as List<dynamic>;
+        final rawMemberships = user['vendorMemberships'];
+        if (rawMemberships is Iterable) {
+          vendorMemberships = rawMemberships.toList();
+        }
       }
 
       if (user != null && user['permissions'] != null) {
-        permissions = user['permissions'] as List<dynamic>;
+        final rawPermissions = user['permissions'];
+        if (rawPermissions is Iterable) {
+          permissions = rawPermissions.toList();
+        }
       }
 
       await _tokenService.saveSession(
@@ -157,11 +163,17 @@ class SharedAuthRepository {
       List<dynamic> permissions = [];
 
       if (user != null && user['vendorMemberships'] != null) {
-        vendorMemberships = user['vendorMemberships'] as List<dynamic>;
+        final rawMemberships = user['vendorMemberships'];
+        if (rawMemberships is Iterable) {
+          vendorMemberships = rawMemberships.toList();
+        }
       }
 
       if (user != null && user['permissions'] != null) {
-        permissions = user['permissions'] as List<dynamic>;
+        final rawPermissions = user['permissions'];
+        if (rawPermissions is Iterable) {
+          permissions = rawPermissions.toList();
+        }
       }
 
       await _tokenService.saveSession(

@@ -31,7 +31,7 @@ class AppColors {
   static const Color fieldDark = Color(0xFF334155);
 
   static const Color textPrimaryDark = Color(0xFFF8FAFC);
-  static const Color textSecondaryDark = Color(0xFF94A3B8);
+  static const Color textSecondaryDark = Color(0xFFF1F5F9);
   static const Color borderDark = Color(0xFF334155);
 
   static const Color textHint = Color(0xFF94A3B8);

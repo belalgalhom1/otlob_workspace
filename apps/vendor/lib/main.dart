@@ -126,16 +126,20 @@ class OtlobAdminApp extends ConsumerWidget {
         scrollBehavior: const AppScrollBehavior(),
         builder: (context, child) {
           final mediaQuery = MediaQuery.of(context);
-          return MediaQuery(
-            data: mediaQuery.copyWith(
-              textScaler: TextScaler.noScaling,
-            ),
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
-              child: child ?? const SizedBox.shrink(),
+          return AppWindowConstraintGuard(
+            minWidth: 360.0,
+            minHeight: 600.0,
+            child: MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: TextScaler.noScaling,
+              ),
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           );
         },
