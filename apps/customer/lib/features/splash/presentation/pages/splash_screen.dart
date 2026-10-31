@@ -71,6 +71,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     final status = await checkAppStatus(
       ref.read(sharedPlatformSettingsRepositoryProvider),
+    ).timeout(
+      const Duration(seconds: 4),
+      onTimeout: () => null,
     );
     if (!mounted) return;
 

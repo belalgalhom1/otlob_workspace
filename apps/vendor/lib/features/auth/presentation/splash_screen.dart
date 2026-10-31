@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,10 +15,12 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late final AnimationController _rotationController;
+  Timer? _watchdogTimer;
+  bool _navigated = false;
 
   @override
   void initState() {
@@ -33,58 +36,83 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     )..repeat();
 
     _controller.forward();
+
+    // Watchdog timer: If anything upstream hangs, never leave the user frozen
+    _watchdogTimer = Timer(const Duration(seconds: 15), () {
+      if (!mounted || _navigated) return;
+      debugPrint('🚀 Splash: watchdog triggered fallback');
+      _navigated = true;
+      context.go('/login');
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runAppGate();
     });
   }
 
   Future<void> _runAppGate() async {
-    final status = await checkAppStatus(
-      ref.read(sharedPlatformSettingsRepositoryProvider),
-    );
-    if (!mounted) return;
+    try {
+      final status = await checkAppStatus(
+        ref.read(sharedPlatformSettingsRepositoryProvider),
+      ).timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => null,
+      );
+      if (!mounted || _navigated) return;
 
-    if (status != null) {
-      if (status.maintenance && !await _isPlatformStaff()) {
-        context.go('/maintenance');
-        return;
-      }
-      if (status.mustUpdate) {
-        ref.read(updateStoreUrlProvider.notifier).set(status.storeUrl);
-        context.go('/update-required');
-        return;
-      }
-      if (status.shouldUpdate) {
-        final l10n = AppLocalizations.of(context)!;
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(l10n.updateAvailableTitle),
-            content: Text(l10n.updateAvailableMessage),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.updateLater),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  final url = (status.storeUrl ?? '').trim();
-                  final uri = Uri.tryParse(url);
-                  if (uri != null && await canLaunchUrl(uri)) {
-                    await launchUrl(uri,
-                        mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: Text(l10n.updateNow),
-              ),
-            ],
-          ),
+      if (status != null) {
+        final isStaff = await _isPlatformStaff().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => false,
         );
-        if (!mounted) return;
+        if (status.maintenance && !isStaff) {
+          _navigated = true;
+          context.go('/maintenance');
+          return;
+        }
+        if (status.mustUpdate) {
+          _navigated = true;
+          ref.read(updateStoreUrlProvider.notifier).set(status.storeUrl);
+          context.go('/update-required');
+          return;
+        }
+        if (status.shouldUpdate) {
+          final l10n = AppLocalizations.of(context);
+          if (l10n != null) {
+            await showDialog<void>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text(l10n.updateAvailableTitle),
+                content: Text(l10n.updateAvailableMessage),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(l10n.updateLater),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      final url = (status.storeUrl ?? '').trim();
+                      final uri = Uri.tryParse(url);
+                      if (uri != null && await canLaunchUrl(uri)) {
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: Text(l10n.updateNow),
+                  ),
+                ],
+              ),
+            );
+            if (!mounted || _navigated) return;
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('Splash gate error: $e');
     }
 
+    if (!mounted || _navigated) return;
     ref.read(authProvider.notifier).checkAuth();
   }
 
@@ -102,6 +130,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _onAuthStateChanged(BuildContext context, AsyncValue<bool> state) async {
+    if (_navigated) return;
     if (!state.isLoading && state.hasValue) {
       try {
         if (state.value == true) {
@@ -109,29 +138,43 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           final role = await repo.getUserRole();
           if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER' && role != 'DRIVER_MANAGER') {
             await repo.logout();
-            if (context.mounted) context.go('/login');
+            if (context.mounted) {
+              _navigated = true;
+              context.go('/login');
+            }
             return;
           }
           if (role == 'VENDOR_MEMBER') {
             final vendorId = ref.read(activeVendorProvider);
             if (vendorId == null || vendorId.isEmpty) {
-              if (context.mounted) context.go('/select-vendor');
+              if (context.mounted) {
+                _navigated = true;
+                context.go('/select-vendor');
+              }
               return;
             }
           }
-          if (context.mounted) context.go('/dashboard');
+          if (context.mounted) {
+            _navigated = true;
+            context.go('/dashboard');
+          }
         } else {
+          _navigated = true;
           context.go('/login');
         }
       } catch (e) {
         debugPrint('_onAuthStateChanged error: $e');
-        if (context.mounted) context.go('/login');
+        if (context.mounted) {
+          _navigated = true;
+          context.go('/login');
+        }
       }
     }
   }
 
   @override
   void dispose() {
+    _watchdogTimer?.cancel();
     _controller.dispose();
     _rotationController.dispose();
     super.dispose();
@@ -151,12 +194,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              RotationTransition(
-                turns: _rotationController,
-                child: Image.asset(
-                  'assets/logo_without_background.png',
-                  width: 140,
-                  fit: BoxFit.contain,
+              RepaintBoundary(
+                child: RotationTransition(
+                  turns: _rotationController,
+                  child: Image.asset(
+                    'assets/logo_without_background.png',
+                    width: 140,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -176,4 +221,3 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
   }
 }
-

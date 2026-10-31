@@ -1001,9 +1001,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         statusColor = Colors.grey;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
+    return RepaintBoundary(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -1683,6 +1684,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

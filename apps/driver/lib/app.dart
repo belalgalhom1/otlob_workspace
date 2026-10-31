@@ -30,6 +30,7 @@ class App extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: appPreferences.themeMode,
+      scrollBehavior: const AppScrollBehavior(),
 
       builder: (context, child) {
         final l10n = AppLocalizations.of(context)!;
@@ -42,9 +43,9 @@ class App extends ConsumerWidget {
             title: l10n.locationRequiredTitle,
             message: l10n.locationRequiredMessage,
             buttonLabel: l10n.locationRequiredButton,
-            child: GestureDetector(
+            child: Listener(
               behavior: HitTestBehavior.translucent,
-              onTap: () {
+              onPointerDown: (_) {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
               child: child ?? const SizedBox.shrink(),

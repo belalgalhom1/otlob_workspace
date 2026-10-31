@@ -2,6 +2,7 @@ library;
 
 export 'src/forms/validators.dart';
 export 'src/theme/app_theme.dart';
+export 'src/theme/app_scroll_behavior.dart';
 export 'src/theme/app_colors.dart';
 export 'src/theme/app_typography.dart';
 export 'src/theme/app_radius.dart';

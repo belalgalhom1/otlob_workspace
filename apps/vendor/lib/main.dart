@@ -123,15 +123,16 @@ class OtlobAdminApp extends ConsumerWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         routerConfig: router,
+        scrollBehavior: const AppScrollBehavior(),
         builder: (context, child) {
           final mediaQuery = MediaQuery.of(context);
           return MediaQuery(
             data: mediaQuery.copyWith(
               textScaler: TextScaler.noScaling,
             ),
-            child: GestureDetector(
+            child: Listener(
               behavior: HitTestBehavior.translucent,
-              onTap: () {
+              onPointerDown: (_) {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
               child: child ?? const SizedBox.shrink(),

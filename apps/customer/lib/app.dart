@@ -33,6 +33,7 @@ class App extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: appSettings.themeMode,
+      scrollBehavior: const AppScrollBehavior(),
 
       builder: (context, child) {
         final mediaQuery = MediaQuery.of(context);
@@ -44,9 +45,9 @@ class App extends ConsumerWidget {
             title: context.tr('location_required_title'),
             message: context.tr('location_required_message'),
             buttonLabel: context.tr('location_required_button'),
-            child: GestureDetector(
+            child: Listener(
               behavior: HitTestBehavior.translucent,
-              onTap: () {
+              onPointerDown: (_) {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
               child: child ?? const SizedBox.shrink(),
