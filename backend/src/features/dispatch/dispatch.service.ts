@@ -144,11 +144,15 @@ export class DispatchService {
 
     const orderDispatchable =
       !!order && dispatchableStatuses.includes(order.status);
+    const isOrderTerminal =
+      !order ||
+      order.status === OrderStatus.CANCELLED ||
+      order.status === OrderStatus.DELIVERED;
     const groupDispatchable =
       !group || dispatchableGroupStatuses.includes(group.status);
     const alreadyAssigned = !!group?.primaryDriverId;
 
-    if (!order || alreadyAssigned || !groupDispatchable) {
+    if (isOrderTerminal || alreadyAssigned || !groupDispatchable) {
       this.logger.warn(
         `Dispatch skipped for ${orderNumber}: status ${order?.status ?? 'not found'}` +
           (group ? `, group #${group.sequence} status ${group.status}` : '') +
@@ -653,7 +657,17 @@ export class DispatchService {
       OrderStatus.READY_FOR_PICKUP,
     ];
 
-    if (!order || !dispatchableStatuses.includes(order.status)) return false;
+    const isGroupedAccept = Boolean(
+      candidate.deliveryGroupId ?? dispatchData.deliveryGroupId,
+    );
+    if (
+      !order ||
+      order.status === OrderStatus.CANCELLED ||
+      order.status === OrderStatus.DELIVERED ||
+      (!isGroupedAccept && !dispatchableStatuses.includes(order.status))
+    ) {
+      return false;
+    }
 
     const dispatchContext =
       await this.locationRepository.getOrderLocationContext(order.id);
@@ -669,7 +683,10 @@ export class DispatchService {
     const totalDistanceKm = Number(candidate.distanceKm) + orderDistanceKm;
 
     let nextStatus: OrderStatus;
-    if (order.paymentMethod === 'MOBILE_WALLET') {
+    if (
+      (order.paymentMethod === 'MOBILE_WALLET' || Number(order.upfrontAmount ?? 0) > 0) &&
+      order.paymentStatus !== 'COMPLETED'
+    ) {
       nextStatus = OrderStatus.PENDING_PAYMENT;
     } else {
       // Preserve preparation progress if vendor already advanced it
@@ -766,7 +783,16 @@ export class DispatchService {
 
       if (groupId) {
         const groupClaimed = await tx.orderDeliveryGroup.updateMany({
-          where: { id: groupId, primaryDriverId: null },
+          where: {
+            id: groupId,
+            primaryDriverId: null,
+            status: {
+              notIn: [
+                DeliveryGroupStatus.CANCELLED,
+                DeliveryGroupStatus.DELIVERED,
+              ],
+            },
+          },
           data: {
             primaryDriverId: driverId,
             primaryDriverShiftId: candidate.driverShiftId,

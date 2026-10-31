@@ -256,15 +256,18 @@ export class OrdersCheckoutService {
     }
 
     const settings = await this.platformSettings.getSettings();
-    const minOrder = Number(settings.minOrderAmount);
-    if (minOrder > 0 && subtotal < minOrder) {
-      throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
-    }
 
     const [lng, lat] = deliveryLocation;
     const zone = await this.ordersRepository.getZoneAtLocation(lng, lat);
     if (!zone) {
       throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
+    }
+
+    const minOrder = Number(
+      zone.minOrderAmountOverride ?? settings.minOrderAmount,
+    );
+    if (minOrder > 0 && subtotal < minOrder) {
+      throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
 
     const branch = await this.ordersRepository.getNearestOpenBranchLocation(
@@ -631,36 +634,35 @@ export class OrdersCheckoutService {
       actor.sub,
     );
 
-    // Custom Orders have no vendor to accept them:
-    // If no upfront payment is required, dispatch immediately;
-    // if upfront payment is required, order stays in PENDING_PAYMENT until customer pays.
+    // Custom Orders (CUSTOM_DELIVERY / RIDE) have no vendor to accept them:
+    // Always advance immediately to LOOKING_FOR_DRIVER so dispatch assigns a driver;
+    // when a driver accepts, DispatchService.handleAcceptance moves it to PENDING_PAYMENT
+    // if MOBILE_WALLET or upfrontAmount > 0 is required.
     if (created.created) {
-      if (upfrontAmount === 0) {
-        await this.ordersRepository.updateStatus(
+      await this.ordersRepository.updateStatus(
+        created.id,
+        'LOOKING_FOR_DRIVER',
+        'system',
+        'Auto-dispatched custom order',
+      );
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_STATUS_CHANGED,
+        new OrderStatusChangedEvent(
           created.id,
-          'LOOKING_FOR_DRIVER',
+          created.orderNumber,
+          OrderStatus.PENDING,
+          OrderStatus.LOOKING_FOR_DRIVER,
+          customerId,
+          actor.sub,
+          null,
+          [],
+          null,
+          null,
           'system',
           'Auto-dispatched custom order',
-        );
-
-        this.eventEmitter.emit(
-          EVENTS.ORDER_STATUS_CHANGED,
-          new OrderStatusChangedEvent(
-            created.id,
-            created.orderNumber,
-            OrderStatus.PENDING,
-            OrderStatus.LOOKING_FOR_DRIVER,
-            customerId,
-            actor.sub,
-            null,
-            [],
-            null,
-            null,
-            'system',
-            'Auto-dispatched custom order',
-          ),
-        );
-      }
+        ),
+      );
 
       this.eventEmitter.emit(
         EVENTS.ORDER_CREATED,

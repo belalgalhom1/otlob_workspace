@@ -103,16 +103,26 @@ export class OrderVendorDecisionService {
    *    customer notification naming the vendor, items and reason.
    */
   async reject(
-    actor: JwtAccessPayload,
+    actor: JwtAccessPayload | null,
     fulfillmentId: string,
     dto: RejectFulfillmentDto,
   ) {
+    const actorSub = actor?.sub ?? 'system';
     const fulfillment = await this.assertVendorMember(
       actor,
       fulfillmentId,
     );
 
-    if (fulfillment.status !== OrderVendorFulfillmentStatus.PENDING) {
+    const rejectableStatuses: OrderVendorFulfillmentStatus[] = [
+      OrderVendorFulfillmentStatus.PENDING,
+      OrderVendorFulfillmentStatus.ACCEPTED,
+      OrderVendorFulfillmentStatus.PREPARING,
+      OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+    ];
+    if (
+      !rejectableStatuses.includes(fulfillment.status) ||
+      fulfillment.pickedUpAt != null
+    ) {
       throw new BadRequestException(OrderErrors.FULFILLMENT_ALREADY_DECIDED);
     }
 
@@ -182,11 +192,12 @@ export class OrderVendorDecisionService {
       const claimed = await tx.orderVendorFulfillment.updateMany({
         where: {
           id: fulfillmentId,
-          status: OrderVendorFulfillmentStatus.PENDING,
+          status: { in: rejectableStatuses },
+          pickedUpAt: null,
         },
         data: {
           status: OrderVendorFulfillmentStatus.REJECTED,
-          decidedByUserId: actor.sub,
+          decidedByUserId: actorSub,
           decidedAt: new Date(),
           rejectionCode: dto.code,
           rejectionReason: reason,
@@ -216,7 +227,7 @@ export class OrderVendorDecisionService {
 
       // Losing a vendor can cancel its whole delivery (nobody left to pick up
       // from) or merely release that vendor's extra-stop surcharge.
-      const deliveryFeeDelta = ridingGroup
+      const groupSync = ridingGroup
         ? await this.syncDeliveryGroupAfterVendorRemoved(
             tx,
             ridingGroup.deliveryGroupId,
@@ -224,17 +235,22 @@ export class OrderVendorDecisionService {
             order.status,
             extraVendorFee,
           )
-        : 0;
+        : { deliveryFeeDelta: 0, freedDriverIds: [] as string[] };
 
       await this.restoreStock(tx, items);
 
       return {
         items,
         refundAmount,
-        deliveryFeeDelta,
+        deliveryFeeDelta: groupSync.deliveryFeeDelta,
+        freedDriverIds: groupSync.freedDriverIds,
         ridingGroupId: ridingGroup?.deliveryGroupId ?? null,
       };
     });
+
+    for (const driverId of result.freedDriverIds) {
+      await this.ordersRepository.freeDriver(driverId);
+    }
 
     // Recompute the money under the order-money advisory lock so a concurrent
     // cancellation or second rejection cannot double-refund the same portion.
@@ -266,12 +282,17 @@ export class OrderVendorDecisionService {
         await this.stateService.syncGroupReadinessAfterPortionRemoved(
           fulfillment.orderId,
           result.ridingGroupId,
-          actor.sub,
+          actorSub,
         );
       }
       // A portion may have been rejected while others are already accepted and
       // none are still pending — start the driver search in that case.
       await this.maybeAdvanceToDispatch(fulfillment.orderId);
+      // If a cancelled delivery group left all surviving groups already delivered,
+      // advance the aggregate order to DELIVERED so settlement runs.
+      await this.stateService.recomputeGroupedOrderStatusAfterCancel(
+        fulfillment.orderId,
+      );
     }
 
     const vendor = await this.prisma.vendor.findUnique({
@@ -300,7 +321,7 @@ export class OrderVendorDecisionService {
         result.items.map((i) => i.productName),
         refundAmount,
         allRejected,
-        actor.sub,
+        actorSub,
       ),
     );
 
@@ -323,10 +344,13 @@ export class OrderVendorDecisionService {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
     }
 
-    const vendorIds = memberships.map((m) => m.vendorId);
+    const membershipConditions = memberships.map((m) => ({
+      vendorId: m.vendorId,
+      ...(m.branchId ? { vendorBranchId: m.branchId } : {}),
+    }));
     return this.prisma.orderVendorFulfillment.findMany({
       where: {
-        vendorId: { in: vendorIds },
+        OR: membershipConditions,
         status: OrderVendorFulfillmentStatus.PENDING,
         order: { status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] } },
       },
@@ -338,14 +362,17 @@ export class OrderVendorDecisionService {
   async listForVendor(actor: JwtAccessPayload, vendorId: string) {
     const member = await this.prisma.vendorMember.findUnique({
       where: { vendorId_userId: { vendorId, userId: actor.sub } },
-      select: { id: true },
+      select: { id: true, branchId: true },
     });
     if (!member) {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
     }
 
     return this.prisma.orderVendorFulfillment.findMany({
-      where: { vendorId },
+      where: {
+        vendorId,
+        ...(member.branchId ? { vendorBranchId: member.branchId } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       include: this.fulfillmentInclude(),
     });
@@ -372,7 +399,10 @@ export class OrderVendorDecisionService {
 
   // ─── Internals ─────────────────────────────────────────────────────────────
 
-  private async assertVendorMember(actor: JwtAccessPayload, fulfillmentId: string) {
+  private async assertVendorMember(
+    actor: JwtAccessPayload | null,
+    fulfillmentId: string,
+  ) {
     const fulfillment = await this.prisma.orderVendorFulfillment.findUnique({
       where: { id: fulfillmentId },
       select: {
@@ -381,6 +411,7 @@ export class OrderVendorDecisionService {
         vendorId: true,
         vendorBranchId: true,
         status: true,
+        pickedUpAt: true,
         subtotal: true,
         commissionRate: true,
       },
@@ -390,16 +421,23 @@ export class OrderVendorDecisionService {
     }
 
     // Vendor identity is derived from the fulfillment itself, never from a
-    // client-supplied vendorId, so a member cannot act on another vendor.
-    if (actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
+    // client-supplied vendorId, so a member cannot act on another vendor or branch.
+    if (actor && actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
       const member = await this.prisma.vendorMember.findUnique({
         where: {
           vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
         },
-        select: { id: true },
+        select: { id: true, branchId: true },
       });
       if (!member) {
         throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
+      }
+      if (
+        member.branchId &&
+        fulfillment.vendorBranchId &&
+        member.branchId !== fulfillment.vendorBranchId
+      ) {
+        throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
       }
     }
     return fulfillment;
@@ -475,23 +513,58 @@ export class OrderVendorDecisionService {
       variant: { tracksStock: boolean } | null;
     }>,
   ): Promise<void> {
+    const variantQtyById = new Map<string, number>();
+    const packageQtyByProductId = new Map<string, number>();
+    const stripQtyByProductId = new Map<string, number>();
+    const dividerByProductId = new Map<string, number>();
+
     for (const item of items) {
       if (item.quantity <= 0) continue;
-      if (item.variantId && item.variant?.tracksStock) {
-        await tx.$executeRaw`
-          UPDATE product_variants SET stock = stock + ${item.quantity}
-          WHERE id = ${item.variantId} AND stock IS NOT NULL
-        `;
+      if (item.variantId) {
+        if (item.variant?.tracksStock) {
+          variantQtyById.set(
+            item.variantId,
+            (variantQtyById.get(item.variantId) ?? 0) + item.quantity,
+          );
+        }
+      } else if (item.productId && item.product?.tracksStock) {
+        const per = Math.max(1, Number(item.product.stripsPerPackage ?? 1));
+        dividerByProductId.set(item.productId, per);
+        if (item.selectedUnit === 'strip') {
+          stripQtyByProductId.set(
+            item.productId,
+            (stripQtyByProductId.get(item.productId) ?? 0) + item.quantity,
+          );
+        } else {
+          packageQtyByProductId.set(
+            item.productId,
+            (packageQtyByProductId.get(item.productId) ?? 0) + item.quantity,
+          );
+        }
       }
-      if (item.productId && item.product?.tracksStock) {
-        const strips = item.selectedUnit === 'strip';
-        const per = strips ? (item.product.stripsPerPackage ?? 1) : 1;
-        const qty = Math.ceil(item.quantity / per);
-        await tx.$executeRaw`
-          UPDATE products SET stock = stock + ${qty}
-          WHERE id = ${item.productId} AND stock IS NOT NULL
-        `;
-      }
+    }
+
+    for (const [productId, stripQty] of stripQtyByProductId) {
+      const per = dividerByProductId.get(productId) ?? 1;
+      packageQtyByProductId.set(
+        productId,
+        (packageQtyByProductId.get(productId) ?? 0) + Math.ceil(stripQty / per),
+      );
+    }
+
+    for (const [variantId, qty] of variantQtyById) {
+      if (qty <= 0) continue;
+      await tx.$executeRaw`
+        UPDATE product_variants SET stock = stock + ${qty}
+        WHERE id = ${variantId} AND stock IS NOT NULL
+      `;
+    }
+    for (const [productId, qty] of packageQtyByProductId) {
+      if (qty <= 0) continue;
+      await tx.$executeRaw`
+        UPDATE products SET stock = stock + ${qty}
+        WHERE id = ${productId} AND stock IS NOT NULL
+      `;
     }
   }
 
@@ -513,30 +586,48 @@ export class OrderVendorDecisionService {
     orderId: string,
     orderStatus: OrderStatus,
     extraVendorFee: number,
-  ): Promise<number> {
+  ): Promise<{ deliveryFeeDelta: number; freedDriverIds: string[] }> {
     const group = await tx.orderDeliveryGroup.findUnique({
       where: { id: deliveryGroupId },
-      select: { deliveryFee: true, sequence: true, primaryDriverId: true },
+      select: {
+        deliveryFee: true,
+        sequence: true,
+        primaryDriverId: true,
+        assistDriverId: true,
+      },
     });
-    if (!group) return 0;
+    if (!group) return { deliveryFeeDelta: 0, freedDriverIds: [] };
 
     const remaining = await tx.orderDeliveryGroupItem.count({
       where: { deliveryGroupId },
     });
 
     if (remaining === 0) {
-      // Nobody left to pick up from. Only ever cancel a delivery no driver has
-      // taken (a driver can only take a group after every portion was decided,
-      // so a group still losing vendors is always unassigned).
+      // Nobody left to pick up from: cancel the delivery group (as long as it
+      // has not been picked up/delivered yet), cancel any pending dispatches for
+      // it, and return any assigned driver(s) so they can be freed after commit.
       const cancelled = await tx.orderDeliveryGroup.updateMany({
         where: {
           id: deliveryGroupId,
-          status: { not: DeliveryGroupStatus.CANCELLED },
-          primaryDriverId: null,
+          status: {
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.PICKED_UP,
+              DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+              DeliveryGroupStatus.DELIVERED,
+            ],
+          },
         },
         data: { status: DeliveryGroupStatus.CANCELLED, deliveryFee: 0 },
       });
-      if (cancelled.count === 0) return 0;
+      if (cancelled.count === 0) {
+        return { deliveryFeeDelta: 0, freedDriverIds: [] };
+      }
+
+      await tx.orderDispatch.updateMany({
+        where: { deliveryGroupId, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      });
 
       await tx.orderStatusEvent.create({
         data: {
@@ -546,18 +637,27 @@ export class OrderVendorDecisionService {
           createdBy: 'system',
         },
       });
-      return -group.deliveryFee;
+      const freedDriverIds = [
+        group.primaryDriverId,
+        group.assistDriverId,
+      ].filter((id): id is string => Boolean(id));
+      return { deliveryFeeDelta: -group.deliveryFee, freedDriverIds };
     }
 
     // One fewer vendor rides along — drop that vendor's extra-stop surcharge.
     const newFee = Math.max(0, Math.round(group.deliveryFee - extraVendorFee));
-    if (newFee === group.deliveryFee) return 0;
+    if (newFee === group.deliveryFee) {
+      return { deliveryFeeDelta: 0, freedDriverIds: [] };
+    }
 
     await tx.orderDeliveryGroup.update({
       where: { id: deliveryGroupId },
       data: { deliveryFee: newFee },
     });
-    return newFee - group.deliveryFee;
+    return {
+      deliveryFeeDelta: newFee - group.deliveryFee,
+      freedDriverIds: [],
+    };
   }
 
   /**
@@ -818,7 +918,10 @@ export class OrderVendorDecisionService {
       (p) => p.status === OrderVendorFulfillmentStatus.PENDING,
     );
     const anyAccepted = portions.some(
-      (p) => p.status === OrderVendorFulfillmentStatus.ACCEPTED,
+      (p) =>
+        p.status === OrderVendorFulfillmentStatus.ACCEPTED ||
+        p.status === OrderVendorFulfillmentStatus.PREPARING ||
+        p.status === OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
     );
     if (anyPending || !anyAccepted) return;
 

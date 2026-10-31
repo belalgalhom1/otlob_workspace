@@ -240,27 +240,63 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       // Bound the batch so a sudden backlog of stale PENDING orders cannot
       // fan out an unbounded Promise.allSettled onto the shared DB pool.
       const BATCH_LIMIT = 50;
+      const reason = `Auto-cancelled: pending for more than ${settings.autoCancelPendingMins} minutes`;
+
+      // 1. Multi-vendor orders: time out individual PENDING portions so an
+      // unresponsive vendor does not kill sibling vendors who already accepted
+      // (if all portions end up rejected, autoTimeoutPendingFulfillment cancels
+      // the whole order automatically).
+      const stalePortions = await this.prisma.orderVendorFulfillment.findMany({
+        where: {
+          status: 'PENDING',
+          createdAt: { lt: cutoff },
+          order: {
+            deletedAt: null,
+            status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+          },
+        },
+        select: { id: true, orderId: true },
+        take: BATCH_LIMIT,
+      });
+
+      for (const portion of stalePortions) {
+        try {
+          await this.stateService.autoTimeoutPendingFulfillment(
+            portion.id,
+            reason,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Failed to auto-timeout fulfillment ${portion.id}: ${(err as Error).message}`,
+          );
+        }
+      }
+
+      // 2. Single-vendor orders (no fulfillments): cancel the order directly.
       const staleOrders = await this.prisma.order.findMany({
         where: {
           status: OrderStatus.PENDING,
           deletedAt: null,
           createdAt: { lt: cutoff },
+          vendorFulfillments: { none: {} },
         },
         select: { id: true, orderNumber: true },
         take: BATCH_LIMIT,
       });
 
-      if (staleOrders.length === 0) return;
+      if (staleOrders.length === 0 && stalePortions.length === 0) return;
 
       const cancelPromises = staleOrders.map((order) =>
         this.stateService.cancelOrder(
           null, // system actor
           order.id,
-          `Auto-cancelled: pending for more than ${settings.autoCancelPendingMins} minutes`,
+          reason,
         ),
       );
 
-      await Promise.allSettled(cancelPromises);
+      if (cancelPromises.length > 0) {
+        await Promise.allSettled(cancelPromises);
+      }
 
       this.logger.log(`⏰ Auto-cancelled ${staleOrders.length} pending orders`);
     } catch (error) {
@@ -386,9 +422,16 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     );
     const stuckPaymentOrders = await this.prisma.order.findMany({
       where: {
-        status: OrderStatus.PENDING_PAYMENT,
-        paymentMethod: PaymentMethod.MOBILE_WALLET,
         updatedAt: { lt: paymentCutoff },
+        status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+        OR: [
+          { status: OrderStatus.PENDING_PAYMENT },
+          {
+            deliveryGroups: {
+              some: { status: DeliveryGroupStatus.PENDING_PAYMENT },
+            },
+          },
+        ],
       },
       select: { id: true, orderNumber: true },
       take: 100,

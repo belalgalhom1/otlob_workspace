@@ -170,10 +170,12 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
-    const isStopNote = event.note?.includes('fulfillment stop');
-    const idempotencyKey = isStopNote
+    const isPerStopOrGroupNote =
+      event.note?.includes('fulfillment stop') ||
+      event.note?.startsWith('Delivery ');
+    const idempotencyKey = isPerStopOrGroupNote
       ? `notify:order_status:${event.orderId}:${event.note}`
-      : `notify:order_status:${event.orderId}:${event.newStatus}`;
+      : `notify:order_status:${event.orderId}:${event.newStatus}:${event.driverId ?? ''}`;
     const isNew = await this.redis
       .getClient()
       .set(idempotencyKey, '1', 'EX', 14400, 'NX');

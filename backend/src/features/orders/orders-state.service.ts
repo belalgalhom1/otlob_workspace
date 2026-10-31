@@ -578,6 +578,7 @@ export class OrdersStateService {
         sequence: number;
         status: DeliveryGroupStatus;
         primaryDriverId: string | null;
+        assistDriverId?: string | null;
         pickupImageUrl: string | null;
         deliveryImageUrl: string | null;
       }>
@@ -633,7 +634,7 @@ export class OrdersStateService {
       }
 
       if (
-        order.paymentMethod === PaymentMethod.MOBILE_WALLET &&
+        (order.paymentMethod === PaymentMethod.MOBILE_WALLET || Number((order as any).upfrontAmount ?? 0) > 0) &&
         order.paymentStatus !== 'COMPLETED' &&
         dto.status !== OrderStatus.PENDING_PAYMENT
       ) {
@@ -686,7 +687,7 @@ export class OrdersStateService {
     // (driverConfirmPayment) writes paymentStatus=COMPLETED when it advances the
     // order, so no transition here may run ahead of that.
     if (
-      order.paymentMethod === 'MOBILE_WALLET' &&
+      (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
       order.paymentStatus !== 'COMPLETED' &&
       dto.status !== OrderStatus.PENDING_PAYMENT
     ) {
@@ -1021,6 +1022,8 @@ export class OrdersStateService {
       id: string;
       sequence: number;
       status: DeliveryGroupStatus;
+      primaryDriverId?: string | null;
+      assistDriverId?: string | null;
       pickupImageUrl?: string | null;
       deliveryImageUrl?: string | null;
     },
@@ -1050,7 +1053,8 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
     }
 
-    // Stamp this group's vendor portions as delivered.
+    // Stamp this group's vendor portions as delivered and immediately free its
+    // driver(s) so they are not held ON_DELIVERY waiting for sibling groups.
     if (dto.status === OrderStatus.DELIVERED) {
       await this.prisma.orderVendorFulfillment.updateMany({
         where: {
@@ -1062,6 +1066,12 @@ export class OrdersStateService {
           deliveredAt: new Date(),
         },
       });
+      const groupDriverIds = [group.primaryDriverId, group.assistDriverId].filter(
+        (id): id is string => Boolean(id),
+      );
+      for (const did of new Set(groupDriverIds)) {
+        await this.ordersRepository.freeDriver(did);
+      }
     }
 
     await this.prisma.orderStatusEvent.create({
@@ -1074,6 +1084,39 @@ export class OrdersStateService {
     });
 
     await this.recomputeGroupedOrderStatus(actor, order);
+
+    // If this group finished while sibling groups are still in progress,
+    // emit a per-delivery status update so events.processor refreshes this
+    // driver's active-order tracking key and notifies the customer.
+    if (dto.status === OrderStatus.DELIVERED) {
+      const latest = await this.prisma.order.findUnique({
+        where: { id: order.id },
+        select: { status: true, customerId: true, vendorId: true, driverId: true, customer: { select: { userId: true } } },
+      });
+      if (latest && latest.status !== OrderStatus.DELIVERED) {
+        const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+          order.id,
+          latest.vendorId,
+        );
+        this.eventEmitter.emit(
+          EVENTS.ORDER_STATUS_CHANGED,
+          new OrderStatusChangedEvent(
+            order.id,
+            order.orderNumber,
+            latest.status,
+            latest.status,
+            latest.customerId,
+            latest.customer?.userId ?? latest.customerId,
+            latest.vendorId,
+            vendorUserIds,
+            group.primaryDriverId ?? latest.driverId,
+            actor.sub,
+            actor.sub,
+            `Delivery ${group.sequence} completed`,
+          ),
+        );
+      }
+    }
 
     return this.ordersRepository.findById(order.id);
   }
@@ -1089,7 +1132,7 @@ export class OrdersStateService {
   ): Promise<void> {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId: order.id },
-      select: { id: true, status: true, primaryDriverId: true },
+      select: { id: true, status: true, primaryDriverId: true, assistDriverId: true },
       orderBy: { sequence: 'asc' },
     });
     const active = groups.filter(
@@ -1188,7 +1231,7 @@ export class OrdersStateService {
     if (target === OrderStatus.DELIVERED) {
       const driverIds = [
         fresh.driverId,
-        ...groups.map((g) => g.primaryDriverId),
+        ...groups.flatMap((g) => [g.primaryDriverId, g.assistDriverId]),
       ].filter((d): d is string => !!d);
       for (const driverId of new Set(driverIds)) {
         await this.ordersRepository.freeDriver(driverId);
@@ -1383,7 +1426,8 @@ export class OrdersStateService {
     }
 
     const nextStatus =
-      order.paymentMethod === 'MOBILE_WALLET'
+      (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
+      order.paymentStatus !== 'COMPLETED'
         ? OrderStatus.PENDING_PAYMENT
         : OrderStatus.DRIVER_ASSIGNED;
 
@@ -1686,6 +1730,28 @@ export class OrdersStateService {
 
     this.logger.log(`Order ${order.orderNumber}: ${oldStatus} → ${newStatus}`);
     return updated;
+  }
+
+  async autoTimeoutPendingFulfillment(
+    fulfillmentId: string,
+    reason: string,
+  ): Promise<void> {
+    await this.vendorDecisionService.reject(null, fulfillmentId, {
+      code: 'AUTO_TIMEOUT',
+      reason,
+    });
+  }
+
+  async recomputeGroupedOrderStatusAfterCancel(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, orderNumber: true },
+    });
+    if (!order) return;
+    await this.recomputeGroupedOrderStatus(
+      { sub: 'system', role: Role.SUPER_ADMIN } as JwtAccessPayload,
+      order,
+    );
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {

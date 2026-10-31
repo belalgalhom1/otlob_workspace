@@ -23,15 +23,20 @@ export class OrdersService {
   ) {}
 
   async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { userId: actor.sub },
-      select: { id: true },
-    });
+    const [customer, canManage] = await Promise.all([
+      this.prisma.customer.findUnique({
+        where: { userId: actor.sub },
+        select: { id: true },
+      }),
+      this.canManageOrders(actor.sub, actor.role),
+    ]);
     if (!customer)
       return { orders: [], total: 0, page: 1, limit: 20, totalPages: 0 };
     const result = await this.ordersRepository.findMany({ ...dto, customerId: customer.id });
     result.orders = await Promise.all(
-      result.orders.map((o: any) => this.projectOrderForRole(o, actor)),
+      result.orders.map((o: any) =>
+        this.projectOrderForRole(o, actor, undefined, { canManage }),
+      ),
     );
     return result;
   }
@@ -60,20 +65,36 @@ export class OrdersService {
       ...(branchId ? { branchId } : {}),
     });
     result.orders = await Promise.all(
-      result.orders.map((o: any) => this.projectOrderForRole(o, actor, vendorId)),
+      result.orders.map((o: any) =>
+        this.projectOrderForRole(o, actor, vendorId, {
+          canManage,
+          vendorId,
+          memberBranchId: isMember?.branchId ?? null,
+        }),
+      ),
     );
     return result;
   }
 
   async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
-    const driver = await this.prisma.driver.findUnique({
-      where: { userId: actor.sub },
-      select: { id: true },
-    });
+    const [driver, canManage, settings] = await Promise.all([
+      this.prisma.driver.findUnique({
+        where: { userId: actor.sub },
+        select: { id: true },
+      }),
+      this.canManageOrders(actor.sub, actor.role),
+      this.platformSettings.getSettings(),
+    ]);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const result = await this.ordersRepository.findMany({ ...dto, driverId: driver.id });
     result.orders = await Promise.all(
-      result.orders.map((o: any) => this.projectOrderForRole(o, actor)),
+      result.orders.map((o: any) =>
+        this.projectOrderForRole(o, actor, undefined, {
+          canManage,
+          driverId: driver.id,
+          settings,
+        }),
+      ),
     );
     return result;
   }
@@ -168,19 +189,30 @@ export class OrdersService {
     order: any,
     actor: JwtAccessPayload,
     vendorIdScope?: string,
+    ctx?: {
+      canManage?: boolean;
+      driverId?: string | null;
+      vendorId?: string;
+      memberBranchId?: string | null;
+      settings?: any;
+    },
   ): Promise<any> {
     if (!order) return order;
 
-    if (await this.canManageOrders(actor.sub, actor.role)) {
+    const canManage =
+      ctx?.canManage !== undefined
+        ? ctx.canManage
+        : await this.canManageOrders(actor.sub, actor.role);
+    if (canManage) {
       return this.enrichWithAdminHelpers(order);
     }
 
     if (actor.role === Role.DRIVER) {
-      return this.projectForDriver(order, actor);
+      return this.projectForDriver(order, actor, ctx);
     }
 
     if (actor.role === Role.VENDOR_MEMBER) {
-      return this.projectForVendor(order, actor, vendorIdScope);
+      return this.projectForVendor(order, actor, vendorIdScope, ctx);
     }
 
     if (actor.role === Role.CUSTOMER) {
@@ -190,7 +222,11 @@ export class OrdersService {
     return order;
   }
 
-  private async projectForDriver(order: any, actor: JwtAccessPayload): Promise<any> {
+  private async projectForDriver(
+    order: any,
+    actor: JwtAccessPayload,
+    ctx?: { driverId?: string | null; settings?: any },
+  ): Promise<any> {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
       order.paymentMethod !== 'MOBILE_WALLET';
@@ -214,7 +250,7 @@ export class OrdersService {
     const singleStoreComm = isStorePrepaid ? Math.round(subtotal * (singleStoreCommRate / 100)) : 0;
     let cashToPayStore = isStorePrepaid ? Math.max(0, subtotal - singleStoreComm) : subtotal;
 
-    const settings = await this.platformSettings.getSettings();
+    const settings = ctx?.settings ?? (await this.platformSettings.getSettings());
     const rate = Number(settings?.deliveryCommissionRate ?? 20);
     const stackedDriverPct = Number(settings?.stackedOrderDriverPercentage ?? 50);
 
@@ -230,10 +266,13 @@ export class OrdersService {
     let scopedFulfillments = order.vendorFulfillments;
 
     if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
-      const myDriver = await this.prisma.driver.findUnique({
-        where: { userId: actor.sub },
-        select: { id: true },
-      });
+      const myDriver =
+        ctx?.driverId !== undefined
+          ? (ctx.driverId ? { id: ctx.driverId } : null)
+          : await this.prisma.driver.findUnique({
+              where: { userId: actor.sub },
+              select: { id: true },
+            });
       if (myDriver) {
         // Collect all groups assigned to this driver (or if the driver is assigned at order level, all groups)
         const myGroups = order.deliveryGroups.filter(
@@ -482,10 +521,11 @@ export class OrdersService {
     order: any,
     actor: JwtAccessPayload,
     vendorIdScope?: string,
+    ctx?: { vendorId?: string; memberBranchId?: string | null },
   ): Promise<any> {
-    let vendorId = vendorIdScope;
-    let memberBranchId: string | null = null;
-    if (actor.role === Role.VENDOR_MEMBER) {
+    let vendorId = vendorIdScope ?? ctx?.vendorId;
+    let memberBranchId: string | null = ctx?.memberBranchId ?? null;
+    if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
       const membership = await this.prisma.vendorMember.findFirst({
         where: {
           userId: actor.sub,
@@ -630,10 +670,13 @@ export class OrdersService {
       ? Math.max(0, vendorSubtotal - commissionAmount)
       : vendorSubtotal;
 
-    // Strict Vendor Isolation: Only expose the vendor's own fulfillment.
-    // Strip other stores and delivery groups to prevent any cross-vendor data leakage.
+    // Strict Vendor & Branch Isolation: Only expose the vendor's own fulfillment
+    // (and if branch-scoped, only that branch's fulfillment).
+    // Strip other stores and delivery groups to prevent any cross-vendor/branch data leakage.
     const myFulfillmentOnly = (order.vendorFulfillments ?? []).filter(
-      (f: any) => f.vendorId === vendorId,
+      (f: any) =>
+        f.vendorId === vendorId &&
+        (!memberBranchId || f.vendorBranchId === memberBranchId),
     );
 
     return {

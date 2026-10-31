@@ -38,10 +38,24 @@ export class OrdersPaymentService {
     if (order.customer.user.id !== actor.sub) {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
     }
-    if (order.paymentMethod !== 'MOBILE_WALLET') {
+    if (
+      order.paymentMethod !== 'MOBILE_WALLET' &&
+      Number((order as any).upfrontAmount ?? 0) <= 0
+    ) {
       throw new BadRequestException(OrderErrors.NOT_MOBILE_WALLET);
     }
-    if (order.status !== OrderStatus.PENDING_PAYMENT) {
+    const groups = (((order as any).deliveryGroups ?? []) as Array<{
+      id: string;
+      status: DeliveryGroupStatus;
+      primaryDriverId: string | null;
+    }>).filter(Boolean);
+    const hasPendingPaymentGroup = groups.some(
+      (g) => g.status === DeliveryGroupStatus.PENDING_PAYMENT,
+    );
+    if (
+      order.status !== OrderStatus.PENDING_PAYMENT &&
+      !hasPendingPaymentGroup
+    ) {
       throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
     }
     if (!file) {
@@ -54,7 +68,16 @@ export class OrdersPaymentService {
     const receiptUrl = await this.storage.upload(file, 'payment-receipts');
     try {
       const updated = await this.prisma.order.updateMany({
-        where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
+        where: {
+          id: orderId,
+          ...(hasPendingPaymentGroup
+            ? {
+                status: {
+                  notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED],
+                },
+              }
+            : { status: OrderStatus.PENDING_PAYMENT }),
+        },
         data: { paymentStatus: 'PAID', paymentReceiptUrl: receiptUrl },
       });
 
@@ -257,7 +280,16 @@ export class OrdersPaymentService {
       // Driver says they did NOT receive the money. Revert payment status so customer can try again,
       // or we could cancel the order. For now, just revert payment status.
       const updated = await this.prisma.order.updateMany({
-        where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
+        where: {
+          id: orderId,
+          ...(groups.length > 0
+            ? {
+                status: {
+                  notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED],
+                },
+              }
+            : { status: OrderStatus.PENDING_PAYMENT }),
+        },
         data: { paymentStatus: 'PENDING' },
       });
       if (updated.count === 0) {
