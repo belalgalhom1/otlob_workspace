@@ -303,6 +303,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemLogs => 'System Logs';
 
   @override
+  String get unknownVendor => 'Unknown Vendor';
+
+  @override
+  String get recentActivity => 'Recent Activity';
+
+  @override
+  String get liveUpdates => 'Live Updates';
+
+  @override
   String get ordersApiNotImplemented => 'Orders API not implemented';
 
   @override

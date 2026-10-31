@@ -11,6 +11,10 @@ import '../data/audit_logs_provider.dart';
 class AuditLogsScreen extends ConsumerStatefulWidget {
   const AuditLogsScreen({super.key});
 
+  static String prettifyEntity(String raw) => _AuditLogCardState._prettifyEntity(raw);
+  static String entityLabel(String pretty, bool isAr) => _AuditLogCardState._entityLabel(pretty, isAr);
+  static String userDisplayName(dynamic log) => _AuditLogsScreenState.userDisplayName(log);
+
   @override
   ConsumerState<AuditLogsScreen> createState() => _AuditLogsScreenState();
 }

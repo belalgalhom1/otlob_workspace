@@ -302,6 +302,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get systemLogs => 'سجلات النظام';
 
   @override
+  String get unknownVendor => 'متجر غير معروف';
+
+  @override
+  String get recentActivity => 'سجلات النشاط الحديثة';
+
+  @override
+  String get liveUpdates => 'تحديث مباشر';
+
+  @override
   String get ordersApiNotImplemented => 'واجهة برمجة الطلبات غير مفعلة';
 
   @override

@@ -1119,249 +1119,368 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildDashboardContent(bool isMobile) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final bool isPhone = availableWidth < 600;
+                final bool isDesktop = availableWidth >= 1050;
+
+        // Dynamic responsive column count for stats cards
+        final int statColumns = isPhone ? 2 : (availableWidth < 850 ? 3 : 4);
+        final double spacing = isPhone ? 10.0 : 16.0;
+        final double statCardWidth =
+            (availableWidth - (statColumns - 1) * spacing) / statColumns;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Always show these core stats
-            if (_hasPermission('MANAGE_VENDORS') ||
-                _userRole == 'VENDOR_MEMBER')
-              Consumer(
-                builder: (context, ref, child) {
-                  final state = ref.watch(vendorProvider);
-                  String count = '...';
-                  if (state.hasValue) count = state.value!.total.toString();
-                  return StatCard(
-                    title: l10n.totalVendors,
-                    value: count,
-                    icon: LucideIcons.store,
-                    color: AppColors.primary,
-                    isMobile: isMobile,
-                    onTap: () => setState(() => _selectedIndex = 2),
-                  );
-                },
-              ),
-            if (_hasPermission('MANAGE_USERS'))
-              Consumer(
-                builder: (context, ref, child) {
-                  final state = ref.watch(userProvider);
-                  String count = '...';
-                  if (state.hasValue) count = state.value!.total.toString();
-                  return StatCard(
-                    title: l10n.systemUsers,
-                    value: count,
-                    icon: LucideIcons.users,
-                    color: AppColors.info,
-                    isMobile: isMobile,
-                    onTap: () => setState(() => _selectedIndex = 4),
-                  );
-                },
-              ),
-            if (_hasPermission('MANAGE_ORDERS') || _userRole == 'VENDOR_MEMBER')
-              Consumer(
-                builder: (context, ref, child) {
-                  final state = ref.watch(ordersProvider);
-                  String orderCount = '0';
-                  if (state.hasValue) {
-                    orderCount = state.value!.total.toString();
-                  } else if (state.isLoading) {
-                    orderCount = '...';
-                  }
+            Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                // Core stats
+                if (_hasPermission('MANAGE_VENDORS') ||
+                    _userRole == 'VENDOR_MEMBER')
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final state = ref.watch(vendorProvider);
+                      String count = '...';
+                      if (state.hasValue) count = state.value!.total.toString();
+                      return StatCard(
+                        title: l10n.totalVendors,
+                        value: count,
+                        icon: LucideIcons.store,
+                        color: AppColors.primary,
+                        isMobile: isPhone,
+                        width: statCardWidth,
+                        onTap: () => setState(() => _selectedIndex = 2),
+                      );
+                    },
+                  ),
+                if (_hasPermission('MANAGE_USERS'))
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final state = ref.watch(userProvider);
+                      String count = '...';
+                      if (state.hasValue) count = state.value!.total.toString();
+                      return StatCard(
+                        title: l10n.systemUsers,
+                        value: count,
+                        icon: LucideIcons.users,
+                        color: AppColors.info,
+                        isMobile: isPhone,
+                        width: statCardWidth,
+                        onTap: () => setState(() => _selectedIndex = 4),
+                      );
+                    },
+                  ),
+                if (_hasPermission('MANAGE_ORDERS') || _userRole == 'VENDOR_MEMBER')
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final state = ref.watch(ordersProvider);
+                      String orderCount = '0';
+                      if (state.hasValue) {
+                        orderCount = state.value!.total.toString();
+                      } else if (state.isLoading) {
+                        orderCount = '...';
+                      }
 
-                  return StatCard(
-                    title: l10n.orders,
-                    value: orderCount,
-                    icon: LucideIcons.shoppingBag,
-                    color: AppColors.warning,
-                    isMobile: isMobile,
-                    onTap: () => setState(() => _selectedIndex = 1),
-                  );
-                },
-              ),
-            if (_hasPermission('MANAGE_DRIVERS'))
-              Consumer(
-                builder: (context, ref, child) {
-                  final state = ref.watch(driversProvider);
-                  String count = '0';
-                  if (state.hasValue) {
-                    count = state.value!.total.toString();
-                  } else if (state.isLoading) {
-                    count = '...';
-                  }
+                      return StatCard(
+                        title: l10n.orders,
+                        value: orderCount,
+                        icon: LucideIcons.shoppingBag,
+                        color: AppColors.warning,
+                        isMobile: isPhone,
+                        width: statCardWidth,
+                        onTap: () => setState(() => _selectedIndex = 1),
+                      );
+                    },
+                  ),
+                if (_hasPermission('MANAGE_DRIVERS'))
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final state = ref.watch(driversProvider);
+                      String count = '0';
+                      if (state.hasValue) {
+                        count = state.value!.total.toString();
+                      } else if (state.isLoading) {
+                        count = '...';
+                      }
 
-                  return StatCard(
-                    title: l10n.drivers,
-                    value: count,
-                    icon: LucideIcons.truck,
-                    color: AppColors.success,
-                    isMobile: isMobile,
-                    onTap: () => setState(() => _selectedIndex = 3),
-                  );
-                },
-              ),
+                      return StatCard(
+                        title: l10n.drivers,
+                        value: count,
+                        icon: LucideIcons.truck,
+                        color: AppColors.success,
+                        isMobile: isPhone,
+                        width: statCardWidth,
+                        onTap: () => setState(() => _selectedIndex = 3),
+                      );
+                    },
+                  ),
 
-            if (_isStatsExpanded) ...[
-              if (_hasPermission('MANAGE_TICKETS'))
-                Consumer(
-                  builder: (context, ref, child) {
-                    final state = ref.watch(ticketProvider);
-                    String count = '0';
-                    if (state.hasValue && state.value != null) {
-                      count = state.value!.total.toString();
-                    } else if (state.isLoading) {
-                      count = '...';
-                    }
+                if (_isStatsExpanded) ...[
+                  if (_hasPermission('MANAGE_TICKETS'))
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final state = ref.watch(ticketProvider);
+                        String count = '0';
+                        if (state.hasValue && state.value != null) {
+                          count = state.value!.total.toString();
+                        } else if (state.isLoading) {
+                          count = '...';
+                        }
 
-                    return StatCard(
-                      title: l10n.tickets,
-                      value: count,
-                      icon: LucideIcons.helpCircle,
-                      color: AppColors.error,
-                      isMobile: isMobile,
-                      onTap: () => setState(() => _selectedIndex = 5),
-                    );
-                  },
-                ),
-              if (_hasPermission('MANAGE_SETTINGS'))
-                Consumer(
-                  builder: (context, ref, child) {
-                    final state = ref.watch(zoneProvider);
-                    String count = '0';
-                    if (state.hasValue) count = state.value!.total.toString();
-                    return StatCard(
-                      title: l10n.deliveryZones,
-                      value: count,
-                      icon: LucideIcons.map,
-                      color: Colors.teal,
-                      isMobile: isMobile,
-                      onTap: () => setState(() => _selectedIndex = 8),
-                    );
-                  },
-                ),
-              if (_hasPermission('MANAGE_VENDORS'))
-                Consumer(
-                  builder: (context, ref, child) {
-                    final state = ref.watch(verticalProvider);
-                    String count = '0';
-                    if (state.hasValue) count = state.value!.length.toString();
-                    return StatCard(
-                      title: l10n.businessTypes,
-                      value: count,
-                      icon: LucideIcons.layers,
-                      color: Colors.purple,
-                      isMobile: isMobile,
-                      onTap: () => setState(() => _selectedIndex = 9),
-                    );
-                  },
-                ),
-              if (_hasPermission('MANAGE_PROMOTIONS'))
-                Consumer(
-                  builder: (context, ref, child) {
-                    final state = ref.watch(promotionProvider);
-                    String count = '0';
-                    if (state.hasValue) count = state.value!.length.toString();
-                    return StatCard(
-                      title: l10n.promotions,
-                      value: count,
-                      icon: LucideIcons.megaphone,
-                      color: Colors.orange,
-                      isMobile: isMobile,
-                      onTap: () => setState(() => _selectedIndex = 10),
-                    );
-                  },
-                ),
-            ],
-          ],
-        ),
-        if (_hasPermission('MANAGE_TICKETS') ||
-            _hasPermission('MANAGE_SETTINGS') ||
-            _hasPermission('MANAGE_VENDORS') ||
-            _hasPermission('MANAGE_PROMOTIONS'))
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () =>
-                    setState(() => _isStatsExpanded = !_isStatsExpanded),
-                icon: Icon(
-                  _isStatsExpanded
-                      ? LucideIcons.chevronUp
-                      : LucideIcons.chevronDown,
-                  size: 16,
-                ),
-                label: Text(_isStatsExpanded ? l10n.showLess : l10n.showMore),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                        return StatCard(
+                          title: l10n.tickets,
+                          value: count,
+                          icon: LucideIcons.helpCircle,
+                          color: AppColors.error,
+                          isMobile: isPhone,
+                          width: statCardWidth,
+                          onTap: () => setState(() => _selectedIndex = 5),
+                        );
+                      },
+                    ),
+                  if (_hasPermission('MANAGE_SETTINGS'))
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final state = ref.watch(zoneProvider);
+                        String count = '0';
+                        if (state.hasValue) count = state.value!.total.toString();
+                        return StatCard(
+                          title: l10n.deliveryZones,
+                          value: count,
+                          icon: LucideIcons.map,
+                          color: Colors.teal,
+                          isMobile: isPhone,
+                          width: statCardWidth,
+                          onTap: () => setState(() => _selectedIndex = 8),
+                        );
+                      },
+                    ),
+                  if (_hasPermission('MANAGE_VENDORS'))
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final state = ref.watch(verticalProvider);
+                        String count = '0';
+                        if (state.hasValue) count = state.value!.length.toString();
+                        return StatCard(
+                          title: l10n.businessTypes,
+                          value: count,
+                          icon: LucideIcons.layers,
+                          color: Colors.purple,
+                          isMobile: isPhone,
+                          width: statCardWidth,
+                          onTap: () => setState(() => _selectedIndex = 9),
+                        );
+                      },
+                    ),
+                  if (_hasPermission('MANAGE_PROMOTIONS'))
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final state = ref.watch(promotionProvider);
+                        String count = '0';
+                        if (state.hasValue) count = state.value!.length.toString();
+                        return StatCard(
+                          title: l10n.promotions,
+                          value: count,
+                          icon: LucideIcons.megaphone,
+                          color: Colors.orange,
+                          isMobile: isPhone,
+                          width: statCardWidth,
+                          onTap: () => setState(() => _selectedIndex = 10),
+                        );
+                      },
+                    ),
+                ],
+              ],
+            ),
+            if (_hasPermission('MANAGE_TICKETS') ||
+                _hasPermission('MANAGE_SETTINGS') ||
+                _hasPermission('MANAGE_VENDORS') ||
+                _hasPermission('MANAGE_PROMOTIONS'))
+              Padding(
+                padding: const EdgeInsets.only(top: 14.0),
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: InkWell(
+                    onTap: () =>
+                        setState(() => _isStatsExpanded = !_isStatsExpanded),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _isStatsExpanded ? l10n.showLess : l10n.showMore,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            _isStatsExpanded
+                                ? LucideIcons.chevronUp
+                                : LucideIcons.chevronDown,
+                            size: 15,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        const SizedBox(height: 24),
-        if (!isMobile)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 2, child: _buildRecentOrdersList(l10n)),
-              if (_hasPermission('VIEW_AUDIT_LOGS')) ...[
-                const SizedBox(width: 24),
-                Expanded(child: _buildRecentLogsList(l10n)),
-              ],
-            ],
-          )
-        else
-          Column(
-            children: [
-              _buildRecentOrdersList(l10n),
-              if (_hasPermission('VIEW_AUDIT_LOGS')) ...[
-                const SizedBox(height: 24),
-                _buildRecentLogsList(l10n),
-              ],
-            ],
-          ),
-        const SizedBox(height: 32),
-      ],
+            const SizedBox(height: 24),
+            if (isDesktop)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _buildRecentOrdersList(l10n, isPhone: false),
+                  ),
+                  if (_hasPermission('VIEW_AUDIT_LOGS')) ...[
+                    const SizedBox(width: 20),
+                    Expanded(
+                      flex: 2,
+                      child: _buildRecentLogsList(l10n, isPhone: false),
+                    ),
+                  ],
+                ],
+              )
+            else
+              Column(
+                children: [
+                  _buildRecentOrdersList(l10n, isPhone: isPhone),
+                  if (_hasPermission('VIEW_AUDIT_LOGS')) ...[
+                    const SizedBox(height: 20),
+                    _buildRecentLogsList(l10n, isPhone: isPhone),
+                  ],
+                ],
+              ),
+            const SizedBox(height: 32),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildRecentOrdersList(AppLocalizations l10n) {
+  Widget _buildRecentOrdersList(AppLocalizations l10n, {required bool isPhone}) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isPhone ? 16 : 22),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                l10n.liveOrders,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  LucideIcons.shoppingBag,
+                  size: 18,
+                  color: AppColors.warning,
                 ),
               ),
-              TextButton(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.liveOrders,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: AppColors.success,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          l10n.liveUpdates,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
                 onPressed: () => setState(() => _selectedIndex = 1),
-                child: Text(
+                icon: Icon(
+                  isArabic ? LucideIcons.arrowLeft : LucideIcons.arrowRight,
+                  size: 14,
+                ),
+                iconAlignment: IconAlignment.end,
+                label: Text(
                   l10n.showMore,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Consumer(
             builder: (context, ref, child) {
               final state = ref.watch(ordersProvider);
@@ -1370,10 +1489,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   if (data.orders.isEmpty) {
                     return Center(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 28),
                         child: Text(
                           l10n.noOrdersFound,
-                          style: const TextStyle(),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                          ),
                         ),
                       ),
                     );
@@ -1383,13 +1505,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: data.orders.length > 5 ? 5 : data.orders.length,
                     separatorBuilder: (context, index) =>
-                        Divider(color: Theme.of(context).dividerColor),
+                        const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final order = data.orders[index];
-                      final status = order['status']?.toString() ?? 'PENDING';
+                      final status = (order['status'] ?? 'PENDING').toString();
                       final isCancelled =
-                          status.contains('CANCEL') ||
-                          status.contains('REJECT');
+                          status.contains('CANCEL') || status.contains('REJECT');
                       final areFeesFinalized = !isCancelled;
 
                       final subtotal =
@@ -1406,39 +1527,238 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ? grandTotal
                           : subtotal;
 
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.shoppingBag,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        title: Text(
-                          'Order #${order['orderNumber'] ?? order['id'].toString().substring(0, 8)}',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        subtitle: Text(
-                          (order['vendor'] is Map
-                                  ? order['vendor']['storeName']
-                                  : null) ??
-                              'Unknown Vendor',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: Text(
-                          '${displayTotal.toStringAsFixed(2)} EGP',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                      Color statusColor;
+                      String statusLabel;
+                      switch (status) {
+                        case 'PENDING':
+                          statusColor = AppColors.warning;
+                          statusLabel = isArabic ? 'جديد' : 'New';
+                          break;
+                        case 'ACCEPTED':
+                          statusColor = AppColors.primary;
+                          statusLabel = isArabic ? 'مقبول' : 'Accepted';
+                          break;
+                        case 'PREPARING':
+                          statusColor = Colors.blue;
+                          statusLabel = isArabic ? 'قيد التحضير' : 'Preparing';
+                          break;
+                        case 'READY_FOR_PICKUP':
+                          statusColor = Colors.teal;
+                          statusLabel = isArabic ? 'جاهز للاستلام' : 'Ready';
+                          break;
+                        case 'LOOKING_FOR_DRIVER':
+                        case 'DRIVER_ASSIGNED':
+                          statusColor = Colors.purple;
+                          statusLabel = isArabic ? 'جاري التوصيل' : 'In Delivery';
+                          break;
+                        case 'DELIVERED':
+                          statusColor = AppColors.success;
+                          statusLabel = isArabic ? 'تم التوصيل' : 'Delivered';
+                          break;
+                        case 'CANCELLED':
+                        case 'REJECTED':
+                          statusColor = AppColors.error;
+                          statusLabel = isArabic ? 'ملغي' : 'Cancelled';
+                          break;
+                        default:
+                          statusColor = AppColors.primary;
+                          statusLabel = status;
+                      }
+
+                      final vendorName = (order['vendor'] is Map
+                              ? (isArabic
+                                  ? (order['vendor']['storeNameAr'] ??
+                                      order['vendor']['storeName'])
+                                  : (order['vendor']['storeName'] ??
+                                      order['vendor']['storeNameAr']))
+                              : null) ??
+                          l10n.unknownVendor;
+
+                      final rawOrderNum = order['orderNumber']?.toString();
+                      final rawId = order['id']?.toString() ?? '';
+                      final orderCode =
+                          (rawOrderNum != null && rawOrderNum.isNotEmpty)
+                              ? rawOrderNum
+                              : (rawId.length >= 8
+                                  ? rawId.substring(0, 8).toUpperCase()
+                                  : rawId);
+
+                      String timeAgo = '';
+                      if (order['createdAt'] != null) {
+                        try {
+                          final dt = DateTime.parse(
+                            order['createdAt'].toString(),
+                          ).toLocal();
+                          final diff = DateTime.now().difference(dt);
+                          if (diff.inMinutes < 60) {
+                            timeAgo = isArabic
+                                ? 'منذ ${diff.inMinutes} د'
+                                : '${diff.inMinutes}m ago';
+                          } else if (diff.inHours < 24) {
+                            timeAgo = isArabic
+                                ? 'منذ ${diff.inHours} س'
+                                : '${diff.inHours}h ago';
+                          } else {
+                            timeAgo = DateFormat(
+                              'd MMM',
+                              isArabic ? 'ar' : 'en',
+                            ).format(dt);
+                          }
+                        } catch (_) {}
+                      }
+
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _highlightOrderId = rawId;
+                              _selectedIndex = 1;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isPhone ? 10 : 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.06),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(9),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    LucideIcons.receipt,
+                                    size: 18,
+                                    color: statusColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              '#$orderCode',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              statusLabel,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            LucideIcons.store,
+                                            size: 12,
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              vendorName,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.7),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (timeAgo.isNotEmpty) ...[
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 5,
+                                                  ),
+                                              child: Text(
+                                                '•',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: theme.colorScheme.onSurface
+                                                      .withValues(alpha: 0.4),
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              timeAgo,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${displayTotal.toStringAsFixed(2)} ${l10n.egp}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Icon(
+                                      isArabic
+                                          ? LucideIcons.chevronLeft
+                                          : LucideIcons.chevronRight,
+                                      size: 13,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.35),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -1447,14 +1767,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 },
                 loading: () => const Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: EdgeInsets.all(28),
                     child: CircularProgressIndicator(),
                   ),
                 ),
                 error: (e, st) => Center(
-                  child: Text(
-                    AppLocalizations.of(context)!.errorLoadingOrders,
-                    style: const TextStyle(color: AppColors.error),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      l10n.errorLoadingOrders,
+                      style: const TextStyle(color: AppColors.error),
+                    ),
                   ),
                 ),
               );
@@ -1465,37 +1788,91 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildRecentLogsList(AppLocalizations l10n) {
+  Widget _buildRecentLogsList(AppLocalizations l10n, {required bool isPhone}) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isPhone ? 16 : 22),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                l10n.systemLogs,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  LucideIcons.shieldCheck,
+                  size: 18,
+                  color: AppColors.info,
                 ),
               ),
-              TextButton(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.systemLogs,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.recentActivity,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
                 onPressed: () => setState(() => _selectedIndex = 12),
-                child: Text(
+                icon: Icon(
+                  isArabic ? LucideIcons.arrowLeft : LucideIcons.arrowRight,
+                  size: 14,
+                ),
+                iconAlignment: IconAlignment.end,
+                label: Text(
                   l10n.showMore,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Consumer(
             builder: (context, ref, child) {
               final state = ref.watch(auditLogsProvider);
@@ -1504,10 +1881,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   if (data.logs.isEmpty) {
                     return Center(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 28),
                         child: Text(
-                          AppLocalizations.of(context)!.noSystemLogsFound,
-                          style: const TextStyle(),
+                          l10n.noSystemLogsFound,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                          ),
                         ),
                       ),
                     );
@@ -1517,63 +1897,209 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: data.logs.length > 5 ? 5 : data.logs.length,
                     separatorBuilder: (context, index) =>
-                        Divider(color: Theme.of(context).dividerColor),
+                        const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final log = data.logs[index];
-                      final actionType = (log['actionType'] ?? 'OTHER')
-                          .toString();
-                      final rawDate = (log['createdAt'] ?? '').toString();
-                      String dateStr = rawDate;
-                      try {
-                        final date = DateTime.parse(rawDate).toLocal();
-                        dateStr = DateFormat('MMM dd, hh:mm a').format(date);
-                      } catch (_) {}
+                      final actionTypeRaw =
+                          (log['actionType'] ?? 'OTHER').toString();
+                      String actionType = actionTypeRaw.toUpperCase();
+                      if (actionType == 'POST') actionType = 'CREATE';
+                      if (actionType == 'PUT' || actionType == 'PATCH') {
+                        actionType = 'UPDATE';
+                      }
+                      if (actionType == 'GET') actionType = 'READ';
 
                       Color iconColor;
                       IconData iconData;
+                      String actionLabel;
                       switch (actionType) {
                         case 'CREATE':
                           iconColor = AppColors.success;
                           iconData = LucideIcons.plusCircle;
+                          actionLabel = l10n.actionCreate;
                           break;
                         case 'UPDATE':
                           iconColor = AppColors.warning;
                           iconData = LucideIcons.edit;
+                          actionLabel = l10n.actionUpdate;
                           break;
                         case 'DELETE':
                           iconColor = AppColors.error;
                           iconData = LucideIcons.trash2;
+                          actionLabel = l10n.actionDelete;
                           break;
                         case 'LOGIN':
-                        case 'LOGOUT':
                           iconColor = AppColors.info;
                           iconData = LucideIcons.logIn;
+                          actionLabel = l10n.actionLogin;
+                          break;
+                        case 'LOGOUT':
+                          iconColor = Colors.grey;
+                          iconData = LucideIcons.logOut;
+                          actionLabel = l10n.actionLogout;
                           break;
                         default:
                           iconColor = AppColors.primary;
                           iconData = LucideIcons.activity;
+                          actionLabel = actionType;
                       }
 
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: iconColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                      final rawEntity = (log['entityType'] ?? '').toString();
+                      final prettified =
+                          AuditLogsScreen.prettifyEntity(rawEntity);
+                      final entityLabel = prettified.isNotEmpty
+                          ? AuditLogsScreen.entityLabel(prettified, isArabic)
+                          : '';
+
+                      final actorName = AuditLogsScreen.userDisplayName(log);
+
+                      final rawDate = (log['createdAt'] ?? '').toString();
+                      String dateStr = rawDate;
+                      try {
+                        final date = DateTime.parse(rawDate).toLocal();
+                        dateStr = DateFormat(
+                          'd MMM, hh:mm a',
+                          isArabic ? 'ar' : 'en',
+                        ).format(date);
+                      } catch (_) {}
+
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => setState(() => _selectedIndex = 12),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isPhone ? 10 : 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.06),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(9),
+                                  decoration: BoxDecoration(
+                                    color: iconColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    iconData,
+                                    size: 18,
+                                    color: iconColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: iconColor.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              actionLabel,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: iconColor,
+                                              ),
+                                            ),
+                                          ),
+                                          if (entityLabel.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Flexible(
+                                              child: Text(
+                                                entityLabel,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          if (actorName.isNotEmpty) ...[
+                                            Icon(
+                                              LucideIcons.user,
+                                              size: 11,
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.5),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                actorName,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.7),
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 5,
+                                                  ),
+                                              child: Text(
+                                                '•',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: theme.colorScheme.onSurface
+                                                      .withValues(alpha: 0.4),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          Text(
+                                            dateStr,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  isArabic
+                                      ? LucideIcons.chevronLeft
+                                      : LucideIcons.chevronRight,
+                                  size: 13,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.35),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Icon(iconData, size: 16, color: iconColor),
-                        ),
-                        title: Text(
-                          actionType,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Text(
-                          dateStr,
-                          style: const TextStyle(fontSize: 11),
                         ),
                       );
                     },
@@ -1581,7 +2107,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 },
                 loading: () => const Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: EdgeInsets.all(28),
                     child: CircularProgressIndicator(),
                   ),
                 ),
@@ -1589,7 +2115,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      '${AppLocalizations.of(context)!.errorLoadingLogs}\n${ErrorUtils.translate(context, e)}',
+                      '${l10n.errorLoadingLogs}: ${ErrorUtils.translate(context, e)}',
                       style: const TextStyle(
                         color: AppColors.error,
                         fontSize: 10,

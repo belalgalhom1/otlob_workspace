@@ -680,6 +680,24 @@ abstract class AppLocalizations {
   /// **'System Logs'**
   String get systemLogs;
 
+  /// No description provided for @unknownVendor.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Vendor'**
+  String get unknownVendor;
+
+  /// No description provided for @recentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Activity'**
+  String get recentActivity;
+
+  /// No description provided for @liveUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Updates'**
+  String get liveUpdates;
+
   /// No description provided for @ordersApiNotImplemented.
   ///
   /// In en, this message translates to:

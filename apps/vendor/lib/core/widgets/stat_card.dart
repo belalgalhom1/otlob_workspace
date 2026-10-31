@@ -7,6 +7,7 @@ class StatCard extends StatelessWidget {
   final Color color;
   final bool isMobile;
   final VoidCallback? onTap;
+  final double? width;
 
   const StatCard({
     super.key,
@@ -16,14 +17,16 @@ class StatCard extends StatelessWidget {
     required this.color,
     this.isMobile = false,
     this.onTap,
+    this.width,
   });
 
   @override
   Widget build(BuildContext context) {
     // Determine dynamic width based on device
-    final double cardWidth = isMobile
-        ? (MediaQuery.of(context).size.width - 64) / 2 - 8
-        : 150.0;
+    final double cardWidth = width ??
+        (isMobile
+            ? (MediaQuery.of(context).size.width - 64) / 2 - 8
+            : 150.0);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -97,7 +100,7 @@ class StatCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 18),
+                      child: Icon(icon, color: Colors.white, size: 18),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -105,35 +108,38 @@ class StatCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: AlignmentDirectional.centerStart,
                         child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            value,
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 22,
-                                  height: 1.1,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              value,
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 22,
+                                    height: 1.1,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              title,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.7),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     ),
                   ],
                 ),
