@@ -135,9 +135,9 @@ function portionStatusFilter(
     case OrderStatus.PARTIALLY_PICKED_UP:
       return {
         OR: [
-          { status: 'PICKED_UP' },
+          { status: 'PICKED_UP', deliveredAt: null },
           {
-            status: { notIn: ['REJECTED', 'CANCELLED', 'DELIVERED'] },
+            status: { notIn: ['REJECTED', 'CANCELLED'] },
             pickedUpAt: { not: null },
             deliveredAt: null,
           },
@@ -145,13 +145,8 @@ function portionStatusFilter(
       };
     case OrderStatus.DELIVERED:
       return {
-        OR: [
-          { status: 'DELIVERED' },
-          {
-            status: { notIn: ['REJECTED', 'CANCELLED'] },
-            deliveredAt: { not: null },
-          },
-        ],
+        status: { notIn: ['REJECTED', 'CANCELLED'] },
+        deliveredAt: { not: null },
       };
     case OrderStatus.CANCELLED:
       return { status: { in: ['REJECTED', 'CANCELLED'] } };

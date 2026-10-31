@@ -24,7 +24,6 @@ export const SETTLEABLE_FULFILLMENT_STATUSES: OrderVendorFulfillmentStatus[] = [
   OrderVendorFulfillmentStatus.PREPARING,
   OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
   OrderVendorFulfillmentStatus.PICKED_UP,
-  OrderVendorFulfillmentStatus.DELIVERED,
 ];
 
 // Terminal delivery group statuses where a driver is no longer actively carrying

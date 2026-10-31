@@ -1039,6 +1039,8 @@ export class CartService {
             basePrice: item.customPrice ?? 0,
             comparePrice: null,
             isActive: true,
+            sellByStrip: false,
+            stripsPerPackage: null,
             hasVariants: false,
             stock: null,
             tracksStock: false,

@@ -1062,7 +1062,6 @@ export class OrdersStateService {
           status: { notIn: ['REJECTED', 'CANCELLED'] },
         },
         data: {
-          status: OrderVendorFulfillmentStatus.DELIVERED,
           deliveredAt: new Date(),
         },
       });
@@ -1787,9 +1786,9 @@ export class OrdersStateService {
             notIn: [
               OrderVendorFulfillmentStatus.REJECTED,
               OrderVendorFulfillmentStatus.CANCELLED,
-              OrderVendorFulfillmentStatus.DELIVERED,
             ],
           },
+          deliveredAt: null,
         },
         data: { status: OrderVendorFulfillmentStatus.CANCELLED },
       });
