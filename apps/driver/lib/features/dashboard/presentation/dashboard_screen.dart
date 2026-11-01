@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/features/statistics/presentation/driver_statistics_screen.dart';
+import 'package:driver/features/profile/presentation/pages/nearby_vendors_map_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:image_picker/image_picker.dart';
@@ -343,6 +344,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const DriverStatisticsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildProfileNavigationTile(
+                icon: LucideIcons.map,
+                title: l10n.localeName == 'ar'
+                    ? 'خريطة المتاجر القريبة'
+                    : 'Nearby Vendors Map',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const NearbyVendorsMapScreen(),
                     ),
                   );
                 },

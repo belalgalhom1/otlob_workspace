@@ -179,7 +179,9 @@ class DriverMapDetailsCard extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: isEmbeddedInSheet ? double.infinity : 480,
+        maxHeight: isEmbeddedInSheet
+            ? double.infinity
+            : (MediaQuery.sizeOf(context).height * 0.55).clamp(320.0, 480.0),
       ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -519,7 +521,9 @@ class DriverMapDetailsCard extends StatelessWidget {
               ),
               if (distanceToNextKm != null) ...[
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -549,8 +553,7 @@ class DriverMapDetailsCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (etaMinutes != null) ...[
-                      const SizedBox(width: 8),
+                    if (etaMinutes != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -573,7 +576,6 @@ class DriverMapDetailsCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -595,30 +597,37 @@ class DriverMapDetailsCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        '#$orderNumber',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _translateStatus(status, isArabic),
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
+                  Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '#$orderNumber',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _translateStatus(status, isArabic),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${grandTotal.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                     style: const TextStyle(
@@ -633,14 +642,19 @@ class DriverMapDetailsCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${isArabic ? "النوع: " : "Type: "}$orderType • $paymentMethod',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  Expanded(
+                    child: Text(
+                      '${isArabic ? "النوع: " : "Type: "}$orderType • $paymentMethod',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (onViewOrderDetails != null)
+                  if (onViewOrderDetails != null) ...[
+                    const SizedBox(width: 8),
                     InkWell(
                       onTap: () => onViewOrderDetails!(order),
                       borderRadius: BorderRadius.circular(6),
@@ -663,6 +677,7 @@ class DriverMapDetailsCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ],
@@ -718,6 +733,8 @@ class DriverMapDetailsCard extends StatelessWidget {
                     fontSize: 11.5,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

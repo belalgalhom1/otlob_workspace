@@ -584,8 +584,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final currentStop = pickupStops.isNotEmpty ? pickupStops[_currentStopIndex] : null;
     
     LatLng? targetLocation;
-    if (!isDelivering && currentStop != null && currentStop['lat'] != 0.0) {
-      targetLocation = LatLng(currentStop['lat'] as double, currentStop['lng'] as double);
+    if (!isDelivering &&
+        currentStop != null &&
+        (currentStop['lat'] as num?)?.toDouble() != 0.0 &&
+        (currentStop['lng'] as num?)?.toDouble() != 0.0) {
+      targetLocation = LatLng(
+        (currentStop['lat'] as num).toDouble(),
+        (currentStop['lng'] as num).toDouble(),
+      );
     } else if (isDelivering && customerLat != 0.0 && customerLng != 0.0) {
       targetLocation = LatLng(customerLat, customerLng);
     }
@@ -1002,19 +1008,40 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
+                          LatLng? destination;
                           if (isDelivering) {
-                            final lat = customerLat != 0.0 ? customerLat : (targetLocation?.latitude ?? 0.0);
-                            final lng = customerLng != 0.0 ? customerLng : (targetLocation?.longitude ?? 0.0);
-                            _launchMapsNavigation(lat, lng);
+                            if (customerLat != 0.0 && customerLng != 0.0) {
+                              destination = LatLng(customerLat, customerLng);
+                            }
                           } else if (currentStop != null) {
-                            final sLat = (currentStop['lat'] as num?)?.toDouble() ?? 0.0;
-                            final sLng = (currentStop['lng'] as num?)?.toDouble() ?? 0.0;
-                            final lat = sLat != 0.0 ? sLat : (targetLocation?.latitude ?? 0.0);
-                            final lng = sLng != 0.0 ? sLng : (targetLocation?.longitude ?? 0.0);
-                            _launchMapsNavigation(lat, lng);
-                          } else if (targetLocation != null) {
-                            _launchMapsNavigation(targetLocation.latitude, targetLocation.longitude);
+                            final sLat =
+                                (currentStop['lat'] as num?)?.toDouble() ?? 0.0;
+                            final sLng =
+                                (currentStop['lng'] as num?)?.toDouble() ?? 0.0;
+                            if (sLat != 0.0 && sLng != 0.0) {
+                              destination = LatLng(sLat, sLng);
+                            }
                           }
+                          destination ??= targetLocation;
+
+                          if (destination == null ||
+                              destination.latitude == 0.0 ||
+                              destination.longitude == 0.0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isAr
+                                      ? 'إحداثيات الموقع غير متوفرة'
+                                      : 'Location coordinates are not available',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          _launchMapsNavigation(
+                            destination.latitude,
+                            destination.longitude,
+                          );
                         },
                         icon: const Icon(LucideIcons.navigation, size: 16),
                         label: Text(isAr ? 'خرائط' : 'Maps'),
@@ -1410,25 +1437,24 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
       bool withinFence = true;
       double? calculatedDistance;
-      if (freshPos != null && targetLocation != null && targetLocation.latitude != 0.0 && targetLocation.longitude != 0.0) {
-        final d1 = Geolocator.distanceBetween(
+      if (freshPos != null &&
+          targetLocation != null &&
+          targetLocation.latitude != 0.0 &&
+          targetLocation.longitude != 0.0) {
+        calculatedDistance = Geolocator.distanceBetween(
           freshPos.latitude,
           freshPos.longitude,
           targetLocation.latitude,
           targetLocation.longitude,
         );
-        final d2 = Geolocator.distanceBetween(
-          freshPos.latitude,
-          freshPos.longitude,
-          targetLocation.longitude,
-          targetLocation.latitude,
-        );
-        calculatedDistance = math.min(d1, d2);
         final accuracy = (freshPos.accuracy.isFinite && freshPos.accuracy > 0)
             ? freshPos.accuracy
             : 30.0;
-        final allowedRadius = math.max(1500.0, 500.0 + accuracy * 2);
-        if (calculatedDistance > allowedRadius) {
+        // Indoor/GPS fixes can be wildly inaccurate. Only warn when the fix is
+        // reasonably trustworthy and the driver is clearly outside the fence,
+        // otherwise drivers get a false "you are far away" prompt at the door.
+        final allowedRadius = math.max(2500.0, 800.0 + accuracy * 2);
+        if (accuracy <= 1500 && calculatedDistance > allowedRadius) {
           withinFence = false;
         }
       }

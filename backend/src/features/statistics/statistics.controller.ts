@@ -207,6 +207,30 @@ export class StatisticsController {
     );
   }
 
+  // ─── Driver manager / super admin: stats for ALL managed drivers ──────────
+
+  @ApiStandardResponse()
+  @Get('drivers/all/managed')
+  @Roles(Role.DRIVER_MANAGER, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Get combined statistics and a per-driver breakdown for all managed drivers',
+  })
+  @ApiQuery({ name: 'period', enum: StatisticPeriod, required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  getAllManagedDriverStats(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Query() dto: StatsQueryDto,
+  ) {
+    return this.statisticsService.getAllManagedDriverStats(
+      actor,
+      dto.period ?? StatisticPeriod.DAILY,
+      dto.limit,
+      dto.from,
+      dto.to,
+    );
+  }
+
   // ─── Admin: stats for a specific driver ───────────────────────────────────
 
   @ApiStandardResponse()

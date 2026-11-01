@@ -76,6 +76,29 @@ export class DriversController {
   }
 
   @ApiStandardResponse()
+  @Get('me/nearby-vendors')
+  @Roles(Role.DRIVER)
+  @ApiOperation({
+    summary:
+      'Vendors near my current location with their recent order density',
+  })
+  getNearbyVendors(
+    @CurrentUser('sub') userId: string,
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radiusKm') radiusKm?: string,
+    @Query('days') days?: string,
+  ) {
+    return this.driversService.getNearbyVendors(
+      userId,
+      Number(lat),
+      Number(lng),
+      radiusKm != null ? Number(radiusKm) : 5,
+      days != null ? Number(days) : 7,
+    );
+  }
+
+  @ApiStandardResponse()
   @Patch('me')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Update my driver profile' })

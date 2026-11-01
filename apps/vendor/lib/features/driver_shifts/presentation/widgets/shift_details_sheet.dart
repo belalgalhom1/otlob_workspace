@@ -15,10 +15,15 @@ class ShiftDetailsSheet extends ConsumerStatefulWidget {
   final ShiftPool pool;
   final VoidCallback onAssigned;
 
+  /// Every pool in the same generated batch. When there is more than one the
+  /// UI offers to assign the driver to the whole group in a single action.
+  final List<String> allPoolIds;
+
   const ShiftDetailsSheet({
     super.key,
     required this.pool,
     required this.onAssigned,
+    this.allPoolIds = const [],
   });
 
   @override
@@ -27,6 +32,7 @@ class ShiftDetailsSheet extends ConsumerStatefulWidget {
 
 class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   final TextEditingController _searchController = TextEditingController();
+  bool _assignToAll = false;
 
   @override
   void initState() {
@@ -241,6 +247,46 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             l10n.assignDriver,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
+          if (widget.allPoolIds.length > 1) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _assignToAll = !_assignToAll),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _assignToAll
+                          ? LucideIcons.checkSquare
+                          : LucideIcons.square,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.localeName == 'ar'
+                            ? 'تعيين لكل الورديات (${widget.allPoolIds.length})'
+                            : 'Assign to all shifts (${widget.allPoolIds.length})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _searchController,
@@ -660,11 +706,17 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
     ShiftPool pool,
   ) async {
     try {
-      await ref
-          .read(shiftPoolsProvider.notifier)
-          .assignDriver(
-            AdminAssignShiftRequest(shiftPoolId: pool.id, driverId: driver.id),
-          );
+      if (_assignToAll && widget.allPoolIds.length > 1) {
+        await ref
+            .read(shiftPoolsProvider.notifier)
+            .bookWeeklyShiftsForDriver(driver.id, widget.allPoolIds);
+      } else {
+        await ref
+            .read(shiftPoolsProvider.notifier)
+            .assignDriver(
+              AdminAssignShiftRequest(shiftPoolId: pool.id, driverId: driver.id),
+            );
+      }
       widget.onAssigned();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

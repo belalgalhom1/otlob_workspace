@@ -62,6 +62,33 @@ class AdminStatisticsRepository {
     return ResponseParser.parse(response);
   }
 
+  /// Combined statistics for every driver the signed-in driver manager is
+  /// responsible for (super admins get the whole fleet).
+  Future<dynamic> getAllManagedDriverStats({
+    String? period,
+    int? limit = 30,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final dio = _dio;
+    if (dio != null) {
+      final response = await dio.get<dynamic>(
+        '/statistics/drivers/all/managed',
+        queryParameters: {
+          'period': ?period,
+          'limit': ?limit,
+          if (from != null) 'from': _dateParam(from),
+          if (to != null) 'to': _dateParam(to),
+        },
+      );
+      if (response.data is Map) {
+        return (response.data as Map)['data'];
+      }
+      return response.data;
+    }
+    return null;
+  }
+
   Future<dynamic> getVendorStats(
     String vendorId, {
     String? period,

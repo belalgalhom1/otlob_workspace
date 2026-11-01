@@ -20,6 +20,7 @@ import 'package:vendor/core/providers.dart';
 import 'widgets/driver_form_dialog.dart';
 import 'widgets/assist_requests_dialog.dart';
 import 'driver_statistics_screen.dart';
+import 'all_drivers_statistics_screen.dart';
 import '../../zones/presentation/zone_provider.dart';
 import 'package:data/data.dart';
 import 'widgets/driver_map_details_card.dart';
@@ -362,12 +363,18 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   }
 
   bool _canManageDrivers = false;
+  bool _canViewAllDriversStats = false;
 
   Future<void> _checkPermissions() async {
     final repo = ref.read(sharedAuthRepositoryProvider);
     final role = await repo.getUserRole();
     if (role == 'SUPER_ADMIN' || role == 'DRIVER_MANAGER') {
-      if (mounted) setState(() => _canManageDrivers = true);
+      if (mounted) {
+        setState(() {
+          _canManageDrivers = true;
+          _canViewAllDriversStats = true;
+        });
+      }
       return;
     }
     final permissions = await repo.getUserPermissions();
@@ -932,6 +939,27 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
 
                 if (_canManageDrivers) ...[
                   const SizedBox(width: 8),
+                  if (_canViewAllDriversStats) ...[
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AllDriversStatisticsScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(LucideIcons.chartNoAxesCombined, size: 14),
+                      label: Text(
+                        isArabic ? 'إحصائيات كل السائقين' : 'All Drivers Stats',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   OutlinedButton.icon(
                     onPressed: () {
                       Navigator.of(context).push(

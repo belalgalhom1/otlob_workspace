@@ -85,6 +85,133 @@ export class DriversService {
     return driver;
   }
 
+  /**
+   * Vendors near the driver, with a recent order count so the app can show
+   * which stores are busiest. Only the closest branch per vendor is returned,
+   * and only when it falls inside the requested radius.
+   */
+  async getNearbyVendors(
+    userId: string,
+    lat: number,
+    lng: number,
+    radiusKm = 5,
+    days = 7,
+  ) {
+    await this.assertDriver(userId);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new BadRequestException('Valid latitude and longitude are required');
+    }
+
+    const safeRadius = Math.min(Math.max(Number(radiusKm) || 5, 0.5), 50);
+    const safeDays = Math.min(Math.max(Math.round(Number(days) || 7), 1), 90);
+
+    type NearbyVendorRow = {
+      vendorId: string;
+      storeName: string;
+      storeNameAr: string | null;
+      logo: string | null;
+      rating: number | null;
+      vendorStatus: string;
+      branchName: string | null;
+      branchNameAr: string | null;
+      branchAddress: string | null;
+      branchIsOpen: boolean | null;
+      lat: number;
+      lng: number;
+      distanceKm: number;
+      orderCount: number;
+    };
+
+    const rows = await this.prisma.$queryRaw<NearbyVendorRow[]>`
+      WITH recent_orders AS (
+        SELECT o."vendorId" AS vendor_id, o.id AS order_id
+        FROM orders o
+        WHERE o."vendorId" IS NOT NULL
+          AND o."deletedAt" IS NULL
+          AND o."createdAt" >= NOW() - (${safeDays}::int * INTERVAL '1 day')
+          AND o.status::text <> 'CANCELLED'
+        UNION
+        SELECT f."vendorId" AS vendor_id, f."orderId" AS order_id
+        FROM order_vendor_fulfillments f
+        JOIN orders o ON o.id = f."orderId"
+        WHERE o."deletedAt" IS NULL
+          AND o."createdAt" >= NOW() - (${safeDays}::int * INTERVAL '1 day')
+          AND o.status::text <> 'CANCELLED'
+          AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
+      ),
+      order_counts AS (
+        SELECT vendor_id, COUNT(DISTINCT order_id)::int AS order_count
+        FROM recent_orders
+        GROUP BY vendor_id
+      ),
+      nearest_branch AS (
+        SELECT
+          vb.id,
+          vb."vendorId" AS vendor_id,
+          vb.name AS branch_name,
+          vb."nameAr" AS branch_name_ar,
+          vb.address AS branch_address,
+          vb."isOpen" AS branch_is_open,
+          ST_Y(vb.location::geometry) AS lat,
+          ST_X(vb.location::geometry) AS lng,
+          ST_Distance(
+            vb.location::geography,
+            ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+          ) / 1000.0 AS distance_km,
+          ROW_NUMBER() OVER (
+            PARTITION BY vb."vendorId"
+            ORDER BY ST_Distance(
+              vb.location::geography,
+              ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+            ) ASC
+          ) AS rank
+        FROM vendor_branches vb
+        JOIN vendors v ON v.id = vb."vendorId"
+        WHERE v."deletedAt" IS NULL
+      )
+      SELECT
+        v.id AS "vendorId",
+        v."storeName" AS "storeName",
+        v."storeNameAr" AS "storeNameAr",
+        v.logo AS logo,
+        v.rating AS rating,
+        v.status::text AS "vendorStatus",
+        nb.branch_name AS "branchName",
+        nb.branch_name_ar AS "branchNameAr",
+        nb.branch_address AS "branchAddress",
+        nb.branch_is_open AS "branchIsOpen",
+        nb.lat AS lat,
+        nb.lng AS lng,
+        nb.distance_km AS "distanceKm",
+        COALESCE(oc.order_count, 0) AS "orderCount"
+      FROM nearest_branch nb
+      JOIN vendors v ON v.id = nb.vendor_id
+      LEFT JOIN order_counts oc ON oc.vendor_id = nb.vendor_id
+      WHERE nb.rank = 1
+        AND nb.distance_km <= ${safeRadius}
+      ORDER BY "orderCount" DESC, nb.distance_km ASC
+      LIMIT 200
+    `;
+
+    return rows.map((row) => ({
+      vendorId: row.vendorId,
+      storeName: row.storeName,
+      storeNameAr: row.storeNameAr,
+      logo: row.logo,
+      rating: row.rating == null ? 0 : Number(row.rating),
+      vendorStatus: row.vendorStatus,
+      branchName: row.branchName,
+      branchNameAr: row.branchNameAr,
+      branchAddress: row.branchAddress,
+      branchIsOpen: row.branchIsOpen ?? false,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      distanceKm: Number(Number(row.distanceKm).toFixed(2)),
+      orderCount: Number(row.orderCount) || 0,
+    }));
+  }
+
   async updateProfile(userId: string, dto: UpdateDriverProfileDto) {
     const driver = await this.assertDriver(userId);
     return this.driversRepository.update(driver.id, {

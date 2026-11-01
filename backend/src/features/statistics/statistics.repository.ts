@@ -223,6 +223,25 @@ export class StatisticsRepository {
     return this.aggregateDriverStats(driverId, period, from, to);
   }
 
+  /**
+   * Aggregated statistics for a set of drivers (a driver manager's managed
+   * drivers, or every driver when `driverIds` is null). Returns both the
+   * combined totals for the period and a per-driver breakdown so the UI can
+   * compare drivers at a glance.
+   */
+  async getManagedDriversStats(
+    driverIds: string[] | null,
+    period: StatisticPeriod,
+    limit = 30,
+    from?: string,
+    to?: string,
+  ) {
+    if (!from || !to) {
+      ({ from, to } = this.buildDefaultRange(period, limit));
+    }
+    return this.aggregateManagedDriversStats(driverIds, period, from, to);
+  }
+
   // ─── Analytics leaderboards ───────────────────────────────────────────────
 
   private buildOrderRange(
@@ -951,6 +970,117 @@ export class StatisticsRepository {
         return { period, startDate, endDate, ...g };
       })
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  }
+
+  private async aggregateManagedDriversStats(
+    driverIds: string[] | null,
+    period: StatisticPeriod,
+    from: string,
+    to: string,
+  ) {
+    const { from: fromDate, to: toDate } = this.buildRange(from, to);
+
+    const where: Prisma.DriverStatisticWhereInput = {
+      period: StatisticPeriod.DAILY,
+      startDate: { gte: fromDate, lt: toDate },
+    };
+    if (driverIds !== null) {
+      where.driverId = { in: driverIds };
+    }
+
+    const [days, drivers] = await Promise.all([
+      this.prisma.driverStatistic.findMany({ where }),
+      this.prisma.driver.findMany({
+        where: {
+          deletedAt: null,
+          ...(driverIds !== null ? { id: { in: driverIds } } : {}),
+        },
+        select: {
+          id: true,
+          tier: true,
+          status: true,
+          user: { select: { name: true, phone: true, avatar: true } },
+        },
+      }),
+    ]);
+
+    type DriverBucket = {
+      totalOrders: number;
+      totalEarnings: number;
+      completedOrders: number;
+      cancelledOrders: number;
+      onlineHours: number;
+      totalDispatchesReceived: number;
+      dispatchesAccepted: number;
+      dispatchesRejected: number;
+      dispatchesExpired: number;
+    };
+    const emptyBucket = (): DriverBucket => ({
+      totalOrders: 0,
+      totalEarnings: 0,
+      completedOrders: 0,
+      cancelledOrders: 0,
+      onlineHours: 0,
+      totalDispatchesReceived: 0,
+      dispatchesAccepted: 0,
+      dispatchesRejected: 0,
+      dispatchesExpired: 0,
+    });
+
+    const perDriver = new Map<string, DriverBucket>();
+    const totals = emptyBucket();
+
+    for (const day of days) {
+      const bucket = perDriver.get(day.driverId) ?? emptyBucket();
+      bucket.totalOrders += day.totalOrders;
+      bucket.totalEarnings += day.totalEarnings;
+      bucket.completedOrders += day.completedOrders;
+      bucket.cancelledOrders += day.cancelledOrders;
+      bucket.onlineHours += day.onlineHours ?? 0;
+      bucket.totalDispatchesReceived += day.totalDispatchesReceived;
+      bucket.dispatchesAccepted += day.dispatchesAccepted;
+      bucket.dispatchesRejected += day.dispatchesRejected;
+      bucket.dispatchesExpired += day.dispatchesExpired;
+      perDriver.set(day.driverId, bucket);
+
+      totals.totalOrders += day.totalOrders;
+      totals.totalEarnings += day.totalEarnings;
+      totals.completedOrders += day.completedOrders;
+      totals.cancelledOrders += day.cancelledOrders;
+      totals.onlineHours += day.onlineHours ?? 0;
+      totals.totalDispatchesReceived += day.totalDispatchesReceived;
+      totals.dispatchesAccepted += day.dispatchesAccepted;
+      totals.dispatchesRejected += day.dispatchesRejected;
+      totals.dispatchesExpired += day.dispatchesExpired;
+    }
+
+    const rows = drivers
+      .map((driver) => {
+        const stats = perDriver.get(driver.id) ?? emptyBucket();
+        return {
+          driverId: driver.id,
+          name: driver.user?.name ?? null,
+          phone: driver.user?.phone ?? null,
+          avatar: driver.user?.avatar ?? null,
+          tier: driver.tier,
+          status: driver.status,
+          ...stats,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.totalEarnings - a.totalEarnings ||
+          b.totalOrders - a.totalOrders ||
+          (a.name ?? '').localeCompare(b.name ?? ''),
+      );
+
+    return {
+      period,
+      from: fromDate,
+      to: toDate,
+      totals,
+      drivers: rows,
+    };
   }
 
   private async aggregateAppStats(

@@ -270,18 +270,20 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                                 color: statusColor,
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                status == 'PICKED_UP'
-                                    ? (isArabic
-                                        ? 'السائق في الطريق إلى العميل'
-                                        : 'Driver is on the way to customer')
-                                    : (isArabic
-                                        ? 'السائق في طريقه للمتجر للاستلام'
-                                        : 'Driver is heading to store for pickup'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: statusColor,
+                              Expanded(
+                                child: Text(
+                                  status == 'PICKED_UP'
+                                      ? (isArabic
+                                          ? 'السائق في الطريق إلى العميل'
+                                          : 'Driver is on the way to customer')
+                                      : (isArabic
+                                          ? 'السائق في طريقه للمتجر للاستلام'
+                                          : 'Driver is heading to store for pickup'),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: statusColor,
+                                  ),
                                 ),
                               ),
                             ],

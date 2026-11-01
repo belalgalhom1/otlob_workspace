@@ -14,7 +14,9 @@ import {
   StatisticPeriod,
   DriverStatus,
   DeliveryGroupStatus,
+  Role,
 } from '@prisma/client';
+import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import {
   QUEUES,
   STATS_JOBS,
@@ -1368,6 +1370,55 @@ export class StatisticsService {
       from,
       to,
     );
+  }
+
+  /**
+   * Statistics for every driver a manager is responsible for. A driver manager
+   * is scoped to their assignments (or every driver when `manageAllDrivers`),
+   * while a super admin gets the whole fleet.
+   */
+  async getAllManagedDriverStats(
+    actor: JwtAccessPayload,
+    period: StatisticPeriod,
+    limit = 30,
+    from?: string,
+    to?: string,
+  ) {
+    const driverIds = await this.resolveManagedDriverIds(actor);
+    return this.statsRepository.getManagedDriversStats(
+      driverIds,
+      period,
+      limit,
+      from,
+      to,
+    );
+  }
+
+  private async resolveManagedDriverIds(
+    actor: JwtAccessPayload,
+  ): Promise<string[] | null> {
+    // null = no filter (the whole fleet).
+    if (actor.role === Role.SUPER_ADMIN) return null;
+
+    const manager = await this.prisma.driverManager.findUnique({
+      where: { userId: actor.sub },
+      select: { id: true, manageAllDrivers: true },
+    });
+    if (!manager) return [];
+
+    if (manager.manageAllDrivers) {
+      const drivers = await this.prisma.driver.findMany({
+        where: { deletedAt: null },
+        select: { id: true },
+      });
+      return drivers.map((d) => d.id);
+    }
+
+    const assignments = await this.prisma.driverManagerAssignment.findMany({
+      where: { driverManagerId: manager.id },
+      select: { driverId: true },
+    });
+    return assignments.map((a) => a.driverId);
   }
 
   async getMyDriverStats(
