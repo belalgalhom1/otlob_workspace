@@ -144,6 +144,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
             fullOrder.driver?.userId || null,
             'system',
             'Searching for available driver',
+            (await this.prisma.order.update({ where: { id: fullOrder.id }, data: { revision: { increment: 1 } }, select: { revision: true } })).revision,
           ),
         );
       }

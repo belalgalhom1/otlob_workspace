@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { NotificationsService } from '../../features/notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 import {
   OrderCreatedEvent,
   OrderStatusChangedEvent,
@@ -180,7 +181,8 @@ export class OrderListener {
   async handleOrderSettled(event: OrderSettledEvent) {
     this.logger.log(`Order ${event.orderNumber} settled`);
 
-    // Send a receipt notification to the customer (best-effort).
+    // Send a receipt notification to the customer (best-effort) - enqueued
+    // so the DB write + socket + push run on the worker, not inline.
     try {
       const order = await this.prisma.order.findUnique({
         where: { id: event.orderId },
@@ -192,20 +194,26 @@ export class OrderListener {
           select: { userId: true },
         });
         if (customer?.userId) {
-          await this.notificationsService.create({
-            userId: customer.userId,
-            title: 'Order delivered',
-            titleAr: 'تم توصيل الطلب',
-            body: `Order ${event.orderNumber} was delivered. Total: ${event.grandTotal}.`,
-            bodyAr: `تم توصيل الطلب ${event.orderNumber}. الإجمالي: ${event.grandTotal}.`,
-            type: 'ORDER_UPDATE' as any,
-            data: { orderId: event.orderId, orderNumber: event.orderNumber },
-          });
+          await this.eventsQueue.add(
+            EVENT_JOBS.NOTIFY,
+            {
+              dto: {
+                userId: customer.userId,
+                title: 'Order delivered',
+                titleAr: 'تم توصيل الطلب',
+                body: `Order ${event.orderNumber} was delivered. Total: ${event.grandTotal}.`,
+                bodyAr: `تم توصيل الطلب ${event.orderNumber}. الإجمالي: ${event.grandTotal}.`,
+                type: NotificationType.ORDER_UPDATE,
+                data: { orderId: event.orderId, orderNumber: event.orderNumber },
+              },
+            },
+            { attempts: 1 },
+          );
         }
       }
     } catch (error: unknown) {
       this.logger.error(
-        `Failed to send settled receipt: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to enqueue settled receipt: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 }
@@ -259,6 +267,8 @@ export class OrderListener {
           pickupImageUrl: event.pickupImageUrl,
           fulfillmentSummary: event.fulfillmentSummary,
           note: `Fulfillment stop ${event.fulfillmentId} ${event.status}`,
+          status: event.parentStatus,
+          revision: event.revision,
         })
         .catch(() => {});
     });

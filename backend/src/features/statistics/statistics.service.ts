@@ -350,8 +350,10 @@ export class StatisticsService {
     );
     platformRevenue -= platformAbsorbedAssist;
 
-    const isDriverCollected =
-      paymentMethod === 'CASH_ON_DELIVERY' || paymentMethod === 'MOBILE_WALLET';
+    // Only cash-on-delivery is collected by the driver in person. Mobile-wallet
+    // (bank transfer to the platform) is paid directly to the platform, so the
+    // driver never holds the cash and must not be credited as if they did.
+    const isDriverCollected = paymentMethod === 'CASH_ON_DELIVERY';
 
     // Emission effects collected inside the transaction and replayed after
     // commit (socket/events must not run inside the DB transaction).
@@ -1116,7 +1118,7 @@ export class StatisticsService {
         grandTotal,
         deliveryFee,
         commissionRate,
-        0, // taxRate not stored on payload; pass 0 or extend payload if needed
+
       ),
     );
 
@@ -1225,7 +1227,7 @@ export class StatisticsService {
   ): Promise<void> {
     await this.enqueueStatsJob({
       name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-expired:${dispatchId}`,
+      sourceKey: `dispatch-expired:${dispatchId}:${driverId}`,
       data: { driverId, increment: { dispatchesExpired: 1 } },
       periods: this.statsRepository.getPeriodsForDate(new Date()),
     });

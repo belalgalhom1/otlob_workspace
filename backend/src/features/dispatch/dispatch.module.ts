@@ -3,7 +3,6 @@ import { BullModule } from '@nestjs/bullmq';
 import { QUEUES } from '../../infrastructure/queue/queues.constants';
 
 import { DispatchService } from './dispatch.service';
-import { DispatchRepository } from './dispatch.repository';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { OrdersModule } from '../orders/orders.module';
 
@@ -13,7 +12,7 @@ import { OrdersModule } from '../orders/orders.module';
     forwardRef(() => OrdersModule),
     BullModule.registerQueue({ name: QUEUES.ORDERS }),
   ],
-  providers: [DispatchService, DispatchRepository],
-  exports: [DispatchService, DispatchRepository],
+  providers: [DispatchService],
+  exports: [DispatchService],
 })
 export class DispatchModule {}

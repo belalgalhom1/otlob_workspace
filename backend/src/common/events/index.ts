@@ -104,6 +104,7 @@ export class OrderStatusChangedEvent {
     public readonly driverUserId: string | null,
     public readonly actorUserId: string,
     public readonly note: string | null,
+    public readonly revision?: number,
   ) {}
 }
 
@@ -134,6 +135,7 @@ export class OrderCancelledEvent {
     // All primary drivers of a multi-vendor order's delivery groups. For
     // legacy single-vendor orders this is just [driverId] (or []).
     public readonly driverIds: string[] = [],
+    public readonly revision?: number,
   ) {}
 }
 
@@ -147,7 +149,7 @@ export class OrderSettledEvent {
     public readonly grandTotal: number,
     public readonly deliveryFee: number,
     public readonly commissionRate: number,
-    public readonly taxRate: number,
+
   ) {}
 }
 
@@ -327,17 +329,6 @@ export class DriverAssistDecidedEvent {
   ) {}
 }
 
-export class DriverAssistAssignedEvent {
-  constructor(
-    public readonly requestId: string,
-    public readonly orderId: string,
-    public readonly deliveryGroupId: string,
-    public readonly primaryDriverUserId: string,
-    public readonly assistDriverUserId: string,
-    public readonly actorUserId: string,
-  ) {}
-}
-
 export class OrderFulfillmentDecidedEvent {
   constructor(
     public readonly orderId: string,
@@ -392,5 +383,6 @@ export class OrderFulfillmentUpdatedEvent {
       isFullyCollected: boolean;
     },
     public readonly actorUserId: string,
+    public readonly revision?: number,
   ) {}
 }

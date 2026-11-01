@@ -12,6 +12,7 @@ import {
   OrderVendorRejectedEvent,
   OrderFulfillmentDecidedEvent,
   DriverAssistDecidedEvent,
+  DriverAssistRequestedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
 import {
@@ -212,6 +213,20 @@ export class NotificationListener {
   }
 
   // ─── Extra-driver assistance ──────────────────────────────────────────────
+
+  @OnEvent(EVENTS.DRIVER_ASSIST_REQUESTED, { async: true })
+  async handleDriverAssistRequested(event: DriverAssistRequestedEvent) {
+    try {
+      await this.eventsQueue.add(EVENT_JOBS.DRIVER_ASSIST_REQUESTED, event, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue driver.assist.requested event: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   /** Support approved/rejected/withdrew an assistance request — tell the driver. */
   @OnEvent(EVENTS.DRIVER_ASSIST_DECIDED, { async: true })

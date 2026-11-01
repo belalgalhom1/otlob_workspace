@@ -14,6 +14,7 @@ import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { OrderErrors } from '../../common/constants/response.constants';
 
@@ -26,7 +27,21 @@ export class OrdersPaymentService {
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly redis: RedisService,
   ) {}
+
+  async nextRevision(orderId: string): Promise<number> {
+    try {
+      const updated = await this.prisma.order.update({
+        where: { id: orderId },
+        data: { revision: { increment: 1 } },
+        select: { revision: true },
+      });
+      return updated.revision;
+    } catch {
+      return 0;
+    }
+  }
 
   async customerMarkPaid(
     actor: JwtAccessPayload,
@@ -223,7 +238,7 @@ export class OrdersPaymentService {
         // (single-delivery, or the first grouped delivery to confirm).
         const advanced = await tx.order.updateMany({
           where: { id: orderId, status: OrderStatus.PENDING_PAYMENT },
-          data: { status: nextStatus },
+          data: { status: nextStatus, revision: { increment: 1 } },
         });
         if (groups.length === 0 && advanced.count === 0) {
           throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
@@ -272,6 +287,7 @@ export class OrdersPaymentService {
           driver.userId,
           actor.sub,
           'Driver confirmed payment received.',
+          (await this.prisma.order.findUnique({ where: { id: order.id }, select: { revision: true } }))?.revision ?? 0,
         ),
       );
 

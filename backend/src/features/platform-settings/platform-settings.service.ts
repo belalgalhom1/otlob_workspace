@@ -222,6 +222,7 @@ export class PlatformSettingsService {
       'autoCancelPendingMins',
       'mobileWalletTimeoutMins',
       'driverAcceptTimeoutSecs',
+    'dispatchHandoffDedupeTtlSecs',
     'assistDecisionTimeoutSecs',
     'maxNegativeDriverBalance',
       'isMaintenanceMode',

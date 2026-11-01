@@ -395,6 +395,13 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   driverAcceptTimeoutSecs?: number;
 
+  @ApiProperty({ example: 300, required: false })
+  @IsInt()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  dispatchHandoffDedupeTtlSecs?: number;
+
   @ApiProperty({ example: 120, required: false })
   @IsInt()
   @IsPositive()

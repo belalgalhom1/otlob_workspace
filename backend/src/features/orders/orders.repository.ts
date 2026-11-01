@@ -1203,7 +1203,7 @@ export class OrdersRepository {
       if (expectedOldStatus) {
         const count = await tx.order.updateMany({
           where: { id: orderId, status: expectedOldStatus },
-          data: { status, ...extraData },
+          data: { status, revision: { increment: 1 }, ...extraData },
         });
         if (count.count === 0) {
           throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
@@ -1211,7 +1211,7 @@ export class OrdersRepository {
       } else {
         await tx.order.update({
           where: { id: orderId },
-          data: { status, ...extraData },
+          data: { status, revision: { increment: 1 }, ...extraData },
         });
       }
 

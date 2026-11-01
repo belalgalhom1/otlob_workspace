@@ -44,7 +44,6 @@ export const EVENTS = {
   // Extra-driver assistance
   DRIVER_ASSIST_REQUESTED: 'driver.assist.requested',
   DRIVER_ASSIST_DECIDED: 'driver.assist.decided',
-  DRIVER_ASSIST_ASSIGNED: 'driver.assist.assigned',
 
   // Multi-vendor orders
   ORDER_FULFILLMENT_DECIDED: 'order.fulfillment.decided',

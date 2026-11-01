@@ -518,8 +518,19 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       }
 
       if (stale) {
-        await this.redis.del(activeKey);
-        this.logger.warn(`Cleared stale dispatch claim for order ${orderId}`);
+        // Only delete if the dispatch we found is still the owner; otherwise a
+        // fresh round has claimed the slot and must not be cleared.
+        const removed = await this.redis.delIfValue(
+          activeKey,
+          activeDispatchId,
+        );
+        if (removed) {
+          this.logger.warn(`Cleared stale dispatch claim for order ${orderId}`);
+        } else {
+          this.logger.debug(
+            `Stale claim for ${orderId} was superseded before clearing`,
+          );
+        }
       }
     } catch (err) {
       this.logger.warn(

@@ -18,7 +18,6 @@ import { CustomerErrors } from '../../common/constants/response.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
 import { EVENTS } from '../../common/events/event-names';
 import {
-  DriverAssistAssignedEvent,
   DriverAssistDecidedEvent,
   DriverAssistRequestedEvent,
 } from '../../common/events';
@@ -520,18 +519,6 @@ export class DriverAssistService {
         this.logWarn(error);
       }
     }
-
-    this.eventEmitter.emit(
-      EVENTS.DRIVER_ASSIST_ASSIGNED,
-      new DriverAssistAssignedEvent(
-        requestId,
-        request.orderId,
-        groupId,
-        primaryUserId ?? '',
-        candidate.userId,
-        actor.sub,
-      ),
-    );
 
     try { await this.redis.del(`assist:offer:${requestId}`); } catch {}
 
@@ -1040,7 +1027,6 @@ export class DriverAssistService {
       orderNumber: order?.orderNumber ?? orderId,
     });
 
-    this.eventEmitter.emit(EVENTS.DRIVER_ASSIST_ASSIGNED, new DriverAssistAssignedEvent(requestId, orderId, null as any, primaryUserId ?? '', dto.driverId, actor.sub));
     return this.findById(requestId);
   }
 

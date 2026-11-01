@@ -12,9 +12,15 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import {
   OrderDispatchSentEvent,
   OrderDispatchCancelledEvent,
+  OrderDispatchRespondedEvent,
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
-import { DeliveryGroupStatus, OrderStatus, DriverStatus } from '@prisma/client';
+import {
+  DeliveryGroupStatus,
+  OrderStatus,
+  DriverStatus,
+  DispatchStatus,
+} from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../orders/orders.constants';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
@@ -333,6 +339,10 @@ export class DispatchService {
     const dispatchData = {
       dispatchId,
       orderId,
+      // Persist the delivery scope at the top level. Expiry/rejection retries
+      // are re-enqueued from this payload, and without it every grouped retry
+      // degraded into an order-level dispatch.
+      deliveryGroupId: group?.id ?? null,
       type: order.type,
       candidates,
       expiresAt: expiresAt.toISOString(),
@@ -398,6 +408,9 @@ export class DispatchService {
           orderNumber,
           attempt,
           excludeDriverIds: newExcludeDriverIds,
+          // Carry the delivery scope into the watchdog so handleExpiry can
+          // re-enqueue the retry for the same group instead of the whole order.
+          deliveryGroupId: group?.id ?? null,
         },
         {
           delay: timeoutSecs * 1000,
@@ -419,7 +432,7 @@ export class DispatchService {
     } catch (err) {
       // Release the claim so the order can be retried rather than being stuck
       // behind a half-written dispatch.
-      await this.redis.del(activeKey);
+      await this.redis.delIfValue(activeKey, dispatchId);
       await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
       throw err;
     }
@@ -460,6 +473,7 @@ export class DispatchService {
     orderNumber: string;
     attempt: number;
     excludeDriverIds: string[];
+    deliveryGroupId?: string | null;
   }): Promise<void> {
     const { dispatchId, orderId, orderNumber, attempt, excludeDriverIds } =
       payload;
@@ -477,34 +491,38 @@ export class DispatchService {
 
     // Bail out if the order (or this delivery group) was cancelled while the
     // dispatch was in flight �?" re-enqueueing would resurrect a dead delivery.
-    const expiryScope = dispatchData.deliveryGroupId ?? orderId;
+    // Prefer the payload copy, but fall back to the job argument so expiry
+    // watchdogs scheduled before this fix still keep their delivery scope.
+    const groupScope =
+      dispatchData.deliveryGroupId ??
+      payload.deliveryGroupId ??
+      dispatchData.candidates?.[0]?.deliveryGroupId ??
+      null;
+    const expiryScope = groupScope ?? orderId;
+    const activeKey = `otlobegy:order-dispatch-active:${expiryScope}`;
+    const stateKey = `otlobegy:dispatch-state:${expiryScope}`;
     const orderRow = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: { status: true },
     });
     if (orderRow?.status === 'CANCELLED') {
       await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
-      await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
+      const cancelledOwner = await this.releaseDispatchClaim(expiryScope, dispatchId);
+      if (cancelledOwner) await this.redis.del(stateKey);
       return;
     }
-    if (dispatchData.deliveryGroupId) {
-      const groupRow = await this.prisma.orderDeliveryGroup.findUnique({
-        where: { id: dispatchData.deliveryGroupId },
-        select: { status: true },
-      });
-      if (groupRow?.status === 'CANCELLED') {
-        await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-        await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
-        await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
-        return;
-      }
-    }
 
-    // It is truly expired. Clean up Redis.
+    // It is truly expired. Release the single-flight claim only if this round
+    // still owns it: a late watchdog must never delete a newer round's claim or
+    // its attempt state.
+    const stillOwner = await this.releaseDispatchClaim(
+      expiryScope,
+      dispatchId,
+    );
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    await this.redis.del(`otlobegy:order-dispatch-active:${expiryScope}`);
-    await this.redis.del(`otlobegy:dispatch-state:${expiryScope}`);
+    if (stillOwner) {
+      await this.redis.del(stateKey);
+    }
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
     // Read the rejected set BEFORE deleting it — every consumer below needs it.
     const rejectedBy: string[] = await this.redis.smembers(rejectedKey);
@@ -553,7 +571,9 @@ export class DispatchService {
         });
       }
 
-      // Notify unresponded drivers that the dispatch has expired/cancelled
+      // Notify unresponded drivers that the dispatch has expired/cancelled.
+      // Emitting the responded event with EXPIRED keeps per-driver dispatch
+      // statistics accurate; the event was previously never emitted at all.
       for (const candidate of unresponded) {
         this.eventEmitter.emit(
           EVENTS.ORDER_DISPATCH_CANCELLED,
@@ -563,7 +583,26 @@ export class DispatchService {
             candidate.userId,
           ),
         );
+        this.eventEmitter.emit(
+          EVENTS.ORDER_DISPATCH_RESPONDED,
+          new OrderDispatchRespondedEvent(
+            dispatchId,
+            orderId,
+            candidate.driverId,
+            DispatchStatus.EXPIRED,
+          ),
+        );
       }
+    }
+
+    if (!stillOwner) {
+      // A newer round took the slot while this watchdog was queued. The old
+      // round's terminal rows/events above are still valid, but the new round
+      // owns the claim, state and retry schedule.
+      this.logger.warn(
+        `Dispatch ${dispatchId} expired after another round claimed ${expiryScope}; not re-enqueuing`,
+      );
+      return;
     }
 
     this.logger.log(
@@ -574,7 +613,7 @@ export class DispatchService {
     // resume from the true next attempt instead of falling back to 1.
     const settings = await this.platformSettings.getSettings();
     await this.redis.set(
-      `otlobegy:dispatch-state:${dispatchData.deliveryGroupId ?? orderId}`,
+      stateKey,
       JSON.stringify({
         attempt: attempt + 1,
         excludeDriverIds,
@@ -588,7 +627,7 @@ export class DispatchService {
       orderNumber,
       attempt: attempt + 1,
       excludeDriverIds,
-      deliveryGroupId: dispatchData.deliveryGroupId ?? null,
+      deliveryGroupId: groupScope,
     });
   }
 
@@ -703,7 +742,8 @@ export class DispatchService {
       (c: any) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
     );
 
-    const acceptScope = dispatchData.deliveryGroupId ?? orderId;
+    const acceptScope =
+      candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? orderId;
     const activeKey = `otlobegy:order-dispatch-active:${acceptScope}`;
 
     try {
@@ -934,10 +974,17 @@ export class DispatchService {
       throw err;
     }
 
-    // Cleanup Redis (success path)
+    // Cleanup Redis (success path). Release the claim only if this acceptance
+    // still owns it, so a newer round's claim is never deleted.
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    await this.redis.del(`otlobegy:order-dispatch-active:${acceptScope}`);
-    await this.redis.del(`otlobegy:dispatch-state:${acceptScope}`);
+    const stillOwner = await this.releaseDispatchClaim(acceptScope, dispatchId);
+    if (stillOwner) {
+      await this.redis.del(`otlobegy:dispatch-state:${acceptScope}`);
+    } else {
+      this.logger.warn(
+        `Dispatch ${dispatchId} accepted but a newer round now owns ${acceptScope}; leaving its claim intact`,
+      );
+    }
 
     await this.redis.del(rejectedKey);
 
@@ -1003,6 +1050,7 @@ export class DispatchService {
         candidate.userId,
         'system',
         'Driver found and auto-assigned.',
+        await this.nextRevision(order.id),
       ),
       { attempts: 3, backoff: { type: 'exponential', delay: 2_000 } },
     );
@@ -1089,8 +1137,14 @@ export class DispatchService {
       const rejectedList = await this.redis.smembers(rejectedKey);
 
       await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      const rejectScope = dispatchData.deliveryGroupId ?? orderId;
-      await this.redis.del(`otlobegy:order-dispatch-active:${rejectScope}`);
+      const groupScope =
+        candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? null;
+      const rejectScope = groupScope ?? orderId;
+      // Release the claim only if this round still owns it.
+      const stillOwner = await this.releaseDispatchClaim(
+        rejectScope,
+        dispatchId,
+      );
       await this.redis.del(rejectedKey);
 
       await Promise.all(
@@ -1107,29 +1161,34 @@ export class DispatchService {
       );
 
       if (expiryJob) {
-        // We delete the pending expiry job because we are handling it immediately
+        // Remove the pending expiry watchdog — this rejection handled it.
         await expiryJob.remove();
+        if (stillOwner) {
+          // Keep the dispatch-state in sync with the re-queued attempt so the
+          // stuck-order monitor resumes from the true counter, never attempt 1.
+          const branchSettings = await this.platformSettings.getSettings();
+          await this.redis.set(
+            `otlobegy:dispatch-state:${rejectScope}`,
+            JSON.stringify({
+              attempt: expiryJob.data.attempt + 1,
+              excludeDriverIds: expiryJob.data.excludeDriverIds,
+            }),
+            (branchSettings.driverAcceptTimeoutSecs ?? 30) * 60,
+          );
 
-        // Keep the dispatch-state in sync with the re-queued attempt so the
-        // stuck-order monitor resumes from the true counter, never attempt 1.
-        const branchSettings = await this.platformSettings.getSettings();
-        await this.redis.set(
-          `otlobegy:dispatch-state:${rejectScope}`,
-          JSON.stringify({
+          await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
+            orderId,
+            orderNumber: expiryJob.data.orderNumber,
             attempt: expiryJob.data.attempt + 1,
             excludeDriverIds: expiryJob.data.excludeDriverIds,
-          }),
-          (branchSettings.driverAcceptTimeoutSecs ?? 30) * 60,
-        );
-
-        await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
-          orderId,
-          orderNumber: expiryJob.data.orderNumber,
-          attempt: expiryJob.data.attempt + 1,
-          excludeDriverIds: expiryJob.data.excludeDriverIds,
-          deliveryGroupId: dispatchData.deliveryGroupId ?? null,
-        });
-      } else {
+            deliveryGroupId: groupScope,
+          });
+        } else {
+          this.logger.warn(
+            `Dispatch ${dispatchId} rejected after another round claimed ${rejectScope}; not re-enqueuing`,
+          );
+        }
+      } else if (stillOwner) {
         const order = await this.prisma.order.findUnique({
           where: { id: orderId },
         });
@@ -1146,9 +1205,13 @@ export class DispatchService {
             orderNumber: order.orderNumber,
             attempt: nextAttempt,
             excludeDriverIds: rejectedList,
-            deliveryGroupId: dispatchData.deliveryGroupId ?? null,
+            deliveryGroupId: groupScope,
           });
         }
+      } else {
+        this.logger.warn(
+          `Dispatch ${dispatchId} rejected after another round claimed ${rejectScope}; not re-enqueuing`,
+        );
       }
     }
   }
@@ -1265,17 +1328,11 @@ export class DispatchService {
       return pendingDispatches;
     }
 
-    // Fallback to PostgreSQL if any pending exist
-    return this.prisma.orderDispatch.findMany({
-      where: {
-        driverId: driver.id,
-        status: 'PENDING',
-        expiresAt: { gt: new Date() },
-      },
-      include: {
-        order: true,
-      },
-    });
+    // Pending offers live entirely in Redis. The old Postgres fallback queried
+    // `status: 'PENDING'`, but no PENDING row is ever persisted (only terminal
+    // ACCEPTED/REJECTED/EXPIRED/CANCELLED rows are written), so that query
+    // could never return anything. Return the live offers as-is.
+    return [];
   }
 
   // ─── Cancel active dispatch (e.g. order cancelled) ────────────────────────
@@ -1339,6 +1396,22 @@ export class DispatchService {
     }
   }
 
+  /**
+   * Release the single-flight claim for `scope` only if this dispatch round
+   * still owns it. Returns true when the caller still owns (or already lost)
+   * nothing to a newer round, false when a different dispatchId now holds the
+   * slot — in that case the caller must not touch shared state or re-enqueue.
+   */
+  private async releaseDispatchClaim(
+    scope: string,
+    dispatchId: string,
+  ): Promise<boolean> {
+    return this.redis.delIfValue(
+      `otlobegy:order-dispatch-active:${scope}`,
+      dispatchId,
+    );
+  }
+
   /** Cancel one dispatch round and persist terminal states for the losers. */
   private async cancelDispatchById(
     dispatchId: string,
@@ -1351,8 +1424,16 @@ export class DispatchService {
     const scope = dispatchData.deliveryGroupId ?? orderId;
 
     await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    await this.redis.del(`otlobegy:order-dispatch-active:${scope}`);
-    await this.redis.del(`otlobegy:dispatch-state:${scope}`);
+    // Only release the claim if this round still owns it, so a newer round's
+    // claim is never deleted by a stale cancellation.
+    const stillOwner = await this.releaseDispatchClaim(scope, dispatchId);
+    if (stillOwner) {
+      await this.redis.del(`otlobegy:dispatch-state:${scope}`);
+    } else {
+      this.logger.warn(
+        `Dispatch ${dispatchId} cancelled but ${scope} now owned by another round`,
+      );
+    }
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
     // Read BEFORE deleting — the persisted terminal states below need it.
     const rejectedBy: string[] = await this.redis.smembers(rejectedKey);
@@ -1409,6 +1490,19 @@ export class DispatchService {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
+  async nextRevision(orderId: string): Promise<number> {
+    try {
+      const updated = await this.prisma.order.update({
+        where: { id: orderId },
+        data: { revision: { increment: 1 } },
+        select: { revision: true },
+      });
+      return updated.revision;
+    } catch {
+      return 0;
+    }
+  }
+
   private async calculateEstimatedEarnings(
     distanceKm: number,
     perKmOverride?: number | null,
@@ -1427,9 +1521,12 @@ export class DispatchService {
     );
     const settings =
       prefetchedSettings ?? (await this.platformSettings.getSettings());
+    const platformShare = Number(settings.deliveryCommissionRate ?? 20) / 100;
+    const supervisorShare =
+      Number(settings.driverManagerCommissionRate ?? 10) / 100;
     const driverShare = isStacked
       ? (settings.stackedOrderDriverPercentage ?? 50) / 100
-      : 1 - (settings.deliveryCommissionRate ?? 20) / 100;
+      : Math.max(0, 1 - platformShare - supervisorShare);
 
     return Math.round(deliveryFee * driverShare);
   }
@@ -1441,12 +1538,19 @@ export class DispatchService {
    */
   private earningsForGroupFee(
     groupDeliveryFee: number,
-    settings: { deliveryCommissionRate?: number | null; stackedOrderDriverPercentage?: number | null },
+    settings: {
+      deliveryCommissionRate?: number | null;
+      driverManagerCommissionRate?: number | null;
+      stackedOrderDriverPercentage?: number | null;
+    },
     isStacked: boolean = false,
   ): number {
+    const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
+    const supervisorShare =
+      Number(settings?.driverManagerCommissionRate ?? 10) / 100;
     const share = isStacked
       ? (settings.stackedOrderDriverPercentage ?? 50) / 100
-      : 1 - Number(settings?.deliveryCommissionRate ?? 20) / 100;
+      : Math.max(0, 1 - platformShare - supervisorShare);
     return Math.max(0, Math.round(groupDeliveryFee * share));
   }
 }

@@ -58,6 +58,7 @@ model PlatformSetting {
   autoCancelPendingMins                 Int       @default(15)
   mobileWalletTimeoutMins               Int       @default(15)
   driverAcceptTimeoutSecs               Int       @default(30)
+  dispatchHandoffDedupeTtlSecs          Int       @default(300)
   assistDecisionTimeoutSecs             Int       @default(120)
   isMaintenanceMode                     Boolean   @default(false)
   androidMinVersion                     String    @default("1.0.0")
@@ -872,6 +873,7 @@ model Order {
   assistApprovedAt     DateTime?                 @db.Timestamptz(3)
   isStacked            Boolean                   @default(false)
   status               OrderStatus               @default(PENDING)
+  revision             Int                       @default(0)
   paymentMethod        PaymentMethod
   paymentStatus        PaymentStatus             @default(PENDING)
   deliveryAddress      String

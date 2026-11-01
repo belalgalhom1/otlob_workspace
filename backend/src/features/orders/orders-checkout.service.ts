@@ -26,6 +26,7 @@ import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { OrderStatus, Role, PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import {
   OrderErrors,
   CustomerErrors,
@@ -41,7 +42,21 @@ export class OrdersCheckoutService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
   ) {}
+
+  async nextRevision(orderId: string): Promise<number> {
+    try {
+      const updated = await this.prisma.order.update({
+        where: { id: orderId },
+        data: { revision: { increment: 1 } },
+        select: { revision: true },
+      });
+      return updated.revision;
+    } catch {
+      return 0;
+    }
+  }
 
   async placeOrder(
     actor: JwtAccessPayload,
@@ -661,6 +676,7 @@ export class OrdersCheckoutService {
           null,
           'system',
           'Auto-dispatched custom order',
+          await this.nextRevision(created.id),
         ),
       );
 
@@ -830,6 +846,7 @@ export class OrdersCheckoutService {
           null,
           actor.sub,
           'Order created by Vendor/Admin directly from chat',
+          await this.nextRevision(order.id),
         ),
       );
 

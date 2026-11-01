@@ -109,6 +109,8 @@ export class OrdersStateService {
     private readonly storage: StorageService,
   ) {}
 
+  // Per-order monotonic revision counter for event ordering. Clients can use
+  // this to reorder out-of-arrival events and detect gaps.
   async vendorUpdateStatus(
     actor: JwtAccessPayload,
     orderId: string,
@@ -550,6 +552,7 @@ export class OrdersStateService {
         target === OrderStatus.READY_FOR_PICKUP
           ? 'All vendor portions ready for pickup'
           : 'Vendor portion started preparing',
+         (fresh as any).revision ?? 0,
       ),
     );
   }
@@ -900,6 +903,7 @@ export class OrdersStateService {
               null,
               actor.sub,
               `Driver picked up fulfillment stop ${fulfillmentId}`,
+              (fresh as any).revision ?? 0,
             ),
           );
         }
@@ -1112,6 +1116,7 @@ export class OrdersStateService {
             actor.sub,
             actor.sub,
             `Delivery ${group.sequence} completed`,
+            (latest as any).revision ?? 0,
           ),
         );
       }
@@ -1266,6 +1271,7 @@ export class OrdersStateService {
         target === OrderStatus.DELIVERED
           ? 'All deliveries completed'
           : 'All deliveries picked up',
+         (fresh as any).revision ?? 0,
       ),
     );
   }
@@ -1496,6 +1502,7 @@ export class OrdersStateService {
         driver.userId,
         actor.sub,
         `Driver manually assigned by admin. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
+        (order as any).revision ?? 0,
       ),
     );
 
@@ -1729,6 +1736,7 @@ export class OrdersStateService {
         driverUserId,
         actor.sub,
         dto.note ?? null,
+        (order as any).revision ?? 0,
       ),
     );
 

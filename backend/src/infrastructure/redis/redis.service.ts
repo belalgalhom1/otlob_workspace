@@ -143,6 +143,34 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Atomically delete `key` only when it still holds `value` (compare-and-delete).
+   * Returns true when the key was deleted (or did not exist), false when another
+   * owner has replaced the value. Used to release single-flight claims without
+   * deleting a newer round's claim.
+   */
+  async delIfValue(key: string, value: string): Promise<boolean> {
+    const script = `
+      local v = redis.call('GET', KEYS[1])
+      if not v then
+        return 1
+      end
+      if v == ARGV[1] then
+        return redis.call('DEL', KEYS[1])
+      end
+      return 0
+    `;
+    try {
+      return Number(await this.client.eval(script, 1, key, value)) === 1;
+    } catch (error) {
+      this.logger.error(
+        `Failed to compare-and-delete key "${key}"`,
+        (error as Error).stack,
+      );
+      return false;
+    }
+  }
+
   async incr(key: string): Promise<number> {
     try {
       return await this.client.incr(key);

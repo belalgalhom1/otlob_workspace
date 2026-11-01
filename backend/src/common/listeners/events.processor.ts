@@ -1,10 +1,11 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import { DispatchStatus, DeliveryGroupStatus, NotificationType, OrderStatus } from '@prisma/client';
+import { DispatchStatus, DeliveryGroupStatus, NotificationType, OrderStatus, Role } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../../features/notifications/notifications.service';
 import { DispatchService } from '../../features/dispatch/dispatch.service';
+import { PlatformSettingsService } from '../../features/platform-settings/platform-settings.service';
 import { StatisticsService } from '../../features/statistics/statistics.service';
 import { ConversationsService } from '../../features/chat/conversations.service';
 import { CartService } from '../../features/cart/cart.service';
@@ -16,6 +17,7 @@ import {
   OrderCancelledEvent,
   OrderDispatchSentEvent,
   OrderDispatchRespondedEvent,
+  DriverAssistRequestedEvent,
 } from '../events';
 import {
   QUEUES,
@@ -31,10 +33,8 @@ const WS = {
   DISPATCH_INCOMING: 'dispatch.incoming',
 } as const;
 
-// Lifetime (seconds) of the per-delivery dispatch-handoff dedupe marker. Long
-// enough to absorb duplicate emissions of one status transition; short enough
-// that a delivery whose round found no drivers can be dispatched again later.
-const DISPATCH_HANDOFF_MARKER_TTL = 300;
+// Lifetime (seconds) of the per-delivery dispatch-handoff dedupe marker. Now
+// configurable via platform settings (dispatchHandoffDedupeTtlSecs), default 300.
 
 export interface CreateNotificationPayload {
   userId: string;
@@ -63,6 +63,7 @@ export class EventsProcessor extends WorkerHost {
     private readonly cartService: CartService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly platformSettings: PlatformSettingsService,
     @InjectQueue(QUEUES.ORDERS) private readonly ordersQueue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
@@ -71,6 +72,18 @@ export class EventsProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
+    // Claim the event-level idempotency marker BEFORE running the handler so
+    // duplicate emissions are skipped. On failure the claim is released and
+    // the error is re-thrown: BullMQ must see the failure, otherwise the
+    // attempts/backoff configured on the producing job never apply.
+    const idempotencyKey = this.eventIdempotencyKey(job.name, job.data);
+    if (idempotencyKey) {
+      const claimed = await this.redis
+        .getClient()
+        .set(idempotencyKey, '1', 'EX', 14400, 'NX');
+      if (!claimed) return { skipped: true };
+    }
+
     try {
       switch (job.name) {
         case EVENT_JOBS.ORDER_CREATED:
@@ -90,6 +103,10 @@ export class EventsProcessor extends WorkerHost {
         case EVENT_JOBS.ORDER_DISPATCH_RESPONDED:
           return await this.handleDispatchResponded(
             job.data as OrderDispatchRespondedEvent,
+          );
+        case EVENT_JOBS.DRIVER_ASSIST_REQUESTED:
+          return await this.handleDriverAssistRequested(
+            job.data as DriverAssistRequestedEvent,
           );
         case EVENT_JOBS.DISPATCH_HANDOFF:
           return await this.handleDispatchHandoff(
@@ -116,24 +133,61 @@ export class EventsProcessor extends WorkerHost {
           return { ignored: true, reason: 'unknown_job_name' };
       }
     } catch (error: unknown) {
-      // The inline listeners were fire-and-forget the same way: swallow and log.
+      if (idempotencyKey) {
+        // Without releasing the claim the retry would immediately skip as a
+        // duplicate, making the retry policy useless.
+        await this.redis
+          .getClient()
+          .del(idempotencyKey)
+          .catch(() => undefined);
+      }
       this.logger.error(
         `Failed to process event job ${job.name}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      return { failed: true, reason: error };
+      throw error;
     }
+  }
+
+  /**
+   * Deterministic idempotency marker for event jobs. Centralised here so the
+   * claim can be released on failure; the handlers no longer shadow it.
+   */
+  private eventIdempotencyKey(name: string, data: any): string | null {
+    switch (name) {
+      case EVENT_JOBS.ORDER_CREATED:
+        return `notify:order_created:${data.orderId}`;
+      case EVENT_JOBS.ORDER_CANCELLED:
+        return `notify:order_cancelled:${data.orderId}`;
+      case EVENT_JOBS.ORDER_DISPATCH_SENT:
+        return `notify:dispatch_sent:${data.dispatchId}`;
+      case EVENT_JOBS.ORDER_DISPATCH_RESPONDED:
+        // Include the driver: an expiry round emits one EXPIRED event per
+        // candidate, and they must not dedupe each other away.
+        return `notify:dispatch_responded:${data.dispatchId}:${data.status}:${data.driverId}`;
+      case EVENT_JOBS.DRIVER_ASSIST_REQUESTED:
+        return `notify:driver_assist_requested:${data.requestId}`;
+      case EVENT_JOBS.ORDER_STATUS_CHANGED:
+        return this.orderStatusIdempotencyKey(
+          data as OrderStatusChangedEvent,
+        );
+      default:
+        return null;
+    }
+  }
+
+  private orderStatusIdempotencyKey(event: OrderStatusChangedEvent): string {
+    const isPerStopOrGroupNote =
+      event.note?.includes('fulfillment stop') ||
+      event.note?.startsWith('Delivery ');
+    return isPerStopOrGroupNote
+      ? `notify:order_status:${event.orderId}:${event.note}`
+      : `notify:order_status:${event.orderId}:${event.newStatus}:${event.driverId ?? ''}`;
   }
 
   // ─── Moved OrderListener bodies ────────────────────────────────────────────
 
   private async handleOrderCreated(event: OrderCreatedEvent) {
-    const idempotencyKey = `notify:order_created:${event.orderId}`;
-    const isNew = await this.redis
-      .getClient()
-      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
-    if (!isNew) return { skipped: true };
-
     this.logger.log(`Order created: ${event.orderNumber}`);
 
     const notificationPayloads: CreateNotificationPayload[] =
@@ -170,17 +224,6 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
-    const isPerStopOrGroupNote =
-      event.note?.includes('fulfillment stop') ||
-      event.note?.startsWith('Delivery ');
-    const idempotencyKey = isPerStopOrGroupNote
-      ? `notify:order_status:${event.orderId}:${event.note}`
-      : `notify:order_status:${event.orderId}:${event.newStatus}:${event.driverId ?? ''}`;
-    const isNew = await this.redis
-      .getClient()
-      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
-    if (!isNew) return { skipped: true };
-
     this.logger.log(
       `Order ${event.orderNumber}: ${event.oldStatus} -> ${event.newStatus}`,
     );
@@ -190,7 +233,9 @@ export class EventsProcessor extends WorkerHost {
       orderNumber: event.orderNumber,
       oldStatus: event.oldStatus,
       newStatus: event.newStatus,
+      status: event.newStatus,
       note: event.note,
+      revision: event.revision,
     };
 
     const notifyUserIds = new Set<string>([
@@ -444,11 +489,6 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleOrderCancelled(event: OrderCancelledEvent) {
-    const idempotencyKey = `notify:order_cancelled:${event.orderId}`;
-    const isNew = await this.redis
-      .getClient()
-      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
-    if (!isNew) return { skipped: true };
     this.logger.log(`Order cancelled: ${event.orderNumber} — ${event.reason}`);
 
     const allDriverIds = (event.driverIds && event.driverIds.length > 0)
@@ -485,9 +525,12 @@ export class EventsProcessor extends WorkerHost {
         this.socketService.emitToUser(uid, WS.ORDER_STATUS, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
-          status: 'CANCELLED',
+          oldStatus: null,
           newStatus: 'CANCELLED',
+          status: 'CANCELLED',
+          note: event.reason,
           reason: event.reason,
+          revision: event.revision ?? null,
         }),
       ),
     );
@@ -524,12 +567,6 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleDispatchSent(event: OrderDispatchSentEvent) {
-    const idempotencyKey = `notify:dispatch_sent:${event.dispatchId}`;
-    const isNew = await this.redis
-      .getClient()
-      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
-    if (!isNew) return { skipped: true };
-
     this.logger.log(
       `Dispatch sent to driver ${event.driverId} for order ${event.orderNumber}`,
     );
@@ -575,12 +612,6 @@ export class EventsProcessor extends WorkerHost {
   }
 
   private async handleDispatchResponded(event: OrderDispatchRespondedEvent) {
-    const idempotencyKey = `notify:dispatch_responded:${event.dispatchId}:${event.status}`;
-    const isNew = await this.redis
-      .getClient()
-      .set(idempotencyKey, '1', 'EX', 14400, 'NX');
-    if (!isNew) return { skipped: true };
-
     this.logger.log(
       `Dispatch ${event.dispatchId} responded: ${event.status} by driver ${event.driverId}`,
     );
@@ -619,6 +650,43 @@ export class EventsProcessor extends WorkerHost {
           ),
         );
     }
+  }
+
+  // ─── Driver assist requests ────────────────────────────────────────────────
+
+  // DRIVER_ASSIST_REQUESTED had no subscriber, so a driver asking for a second
+  // pair of hands never surfaced to operations. Notify the people who can
+  // approve it (admins and driver managers) through the normal notification
+  // pipeline, which also emits the realtime socket event.
+  private async handleDriverAssistRequested(
+    event: DriverAssistRequestedEvent,
+  ) {
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        role: { in: [Role.ADMIN, Role.SUPER_ADMIN, Role.DRIVER_MANAGER] },
+      },
+      select: { id: true },
+    });
+    if (recipients.length === 0) return { skipped: true };
+
+    await this.notificationsService.createMany(
+      recipients.map(({ id }) => ({
+        userId: id,
+        title: 'Driver assistance requested',
+        titleAr: 'طلب مساعدة سائق',
+        body: `A driver requested assistance on order ${event.orderNumber}.`,
+        bodyAr: `طلب سائق المساعدة في الطلب ${event.orderNumber}.`,
+        type: NotificationType.SYSTEM,
+        data: {
+          requestId: event.requestId,
+          orderId: event.orderId,
+          deliveryGroupId: event.deliveryGroupId,
+          driverUserId: event.driverUserId,
+        },
+      })),
+    );
+
+    return { notified: recipients.length };
   }
 
   // ─── Dispatch handoff ──────────────────────────────────────────────────────
@@ -690,10 +758,13 @@ export class EventsProcessor extends WorkerHost {
       // enough for that, short enough to allow a real re-dispatch later.
       // Duplicated enqueues are additionally absorbed by the dispatch
       // processor's in-flight guard.
+      const handoffTtl = Number(
+        (await this.platformSettings.getSettings().catch(() => null))?.dispatchHandoffDedupeTtlSecs ?? 300,
+      );
       await this.redis.set(
         idempotencyKey,
         '1',
-        DISPATCH_HANDOFF_MARKER_TTL,
+        handoffTtl,
       );
       enqueued++;
     }
