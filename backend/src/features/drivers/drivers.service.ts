@@ -109,6 +109,9 @@ export class DriversService {
     const safeHours = Math.min(Math.max(Number(hours) || 3, 1), 72);
     const safeDays =
       days != null ? Math.min(Math.max(Math.round(Number(days)), 1), 90) : null;
+    const cutoffMs =
+      safeDays != null ? safeDays * 86400000 : safeHours * 3600000;
+    const cutoffDate = new Date(Date.now() - cutoffMs);
 
     type NearbyVendorRow = {
       vendorId: string;
@@ -151,12 +154,7 @@ export class DriversService {
               'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'READY_FOR_PICKUP',
               'PARTIALLY_PICKED_UP'
             )
-            OR o."createdAt" >= NOW() - (
-              CASE
-                WHEN ${safeDays} IS NOT NULL THEN (${safeDays}::int * INTERVAL '1 day')
-                ELSE (${safeHours}::int * INTERVAL '1 hour')
-              END
-            )
+            OR o."createdAt" >= ${cutoffDate}
           )
         UNION
         SELECT
@@ -179,12 +177,7 @@ export class DriversService {
               'PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP',
               'PARTIALLY_PICKED_UP'
             )
-            OR f."createdAt" >= NOW() - (
-              CASE
-                WHEN ${safeDays} IS NOT NULL THEN (${safeDays}::int * INTERVAL '1 day')
-                ELSE (${safeHours}::int * INTERVAL '1 hour')
-              END
-            )
+            OR f."createdAt" >= ${cutoffDate}
           )
       ),
       order_counts AS (
