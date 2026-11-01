@@ -80,13 +80,14 @@ export class DriversController {
   @Roles(Role.DRIVER)
   @ApiOperation({
     summary:
-      'Vendors near my current location with their recent order density',
+      'Vendors near my current location with real-time order density in current time',
   })
   getNearbyVendors(
     @CurrentUser('sub') userId: string,
     @Query('lat') lat: string,
     @Query('lng') lng: string,
     @Query('radiusKm') radiusKm?: string,
+    @Query('hours') hours?: string,
     @Query('days') days?: string,
   ) {
     return this.driversService.getNearbyVendors(
@@ -94,7 +95,8 @@ export class DriversController {
       Number(lat),
       Number(lng),
       radiusKm != null ? Number(radiusKm) : 5,
-      days != null ? Number(days) : 7,
+      hours != null ? Number(hours) : 3,
+      days != null ? Number(days) : undefined,
     );
   }
 

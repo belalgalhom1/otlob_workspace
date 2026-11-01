@@ -86,16 +86,18 @@ export class DriversService {
   }
 
   /**
-   * Vendors near the driver, with a recent order count so the app can show
-   * which stores are busiest. Only the closest branch per vendor is returned,
-   * and only when it falls inside the requested radius.
+   * Vendors near the driver, with their active in-flight orders and real-time
+   * order density in the current time window so drivers know which stores
+   * are busiest right now. Only the closest branch per vendor is returned,
+   * sorted by active orders descending and distance ascending.
    */
   async getNearbyVendors(
     userId: string,
     lat: number,
     lng: number,
     radiusKm = 5,
-    days = 7,
+    hours = 3,
+    days?: number,
   ) {
     await this.assertDriver(userId);
 
@@ -104,7 +106,9 @@ export class DriversService {
     }
 
     const safeRadius = Math.min(Math.max(Number(radiusKm) || 5, 0.5), 50);
-    const safeDays = Math.min(Math.max(Math.round(Number(days) || 7), 1), 90);
+    const safeHours = Math.min(Math.max(Number(hours) || 3, 1), 72);
+    const safeDays =
+      days != null ? Math.min(Math.max(Math.round(Number(days)), 1), 90) : null;
 
     type NearbyVendorRow = {
       vendorId: string;
@@ -121,28 +125,74 @@ export class DriversService {
       lng: number;
       distanceKm: number;
       orderCount: number;
+      activeOrderCount: number;
     };
 
     const rows = await this.prisma.$queryRaw<NearbyVendorRow[]>`
-      WITH recent_orders AS (
-        SELECT o."vendorId" AS vendor_id, o.id AS order_id
+      WITH current_orders AS (
+        SELECT
+          o."vendorId" AS vendor_id,
+          o.id AS order_id,
+          CASE
+            WHEN o.status::text IN (
+              'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
+              'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'READY_FOR_PICKUP',
+              'PARTIALLY_PICKED_UP'
+            ) THEN 1
+            ELSE 0
+          END AS is_active
         FROM orders o
         WHERE o."vendorId" IS NOT NULL
           AND o."deletedAt" IS NULL
-          AND o."createdAt" >= NOW() - (${safeDays}::int * INTERVAL '1 day')
           AND o.status::text <> 'CANCELLED'
+          AND (
+            o.status::text IN (
+              'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
+              'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'READY_FOR_PICKUP',
+              'PARTIALLY_PICKED_UP'
+            )
+            OR o."createdAt" >= NOW() - (
+              CASE
+                WHEN ${safeDays} IS NOT NULL THEN (${safeDays}::int * INTERVAL '1 day')
+                ELSE (${safeHours}::int * INTERVAL '1 hour')
+              END
+            )
+          )
         UNION
-        SELECT f."vendorId" AS vendor_id, f."orderId" AS order_id
+        SELECT
+          f."vendorId" AS vendor_id,
+          f."orderId" AS order_id,
+          CASE
+            WHEN f.status::text IN (
+              'PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP',
+              'PARTIALLY_PICKED_UP'
+            ) THEN 1
+            ELSE 0
+          END AS is_active
         FROM order_vendor_fulfillments f
         JOIN orders o ON o.id = f."orderId"
         WHERE o."deletedAt" IS NULL
-          AND o."createdAt" >= NOW() - (${safeDays}::int * INTERVAL '1 day')
           AND o.status::text <> 'CANCELLED'
-          AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
+          AND f.status::text NOT IN ('REJECTED', 'CANCELLED')
+          AND (
+            f.status::text IN (
+              'PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP',
+              'PARTIALLY_PICKED_UP'
+            )
+            OR f."createdAt" >= NOW() - (
+              CASE
+                WHEN ${safeDays} IS NOT NULL THEN (${safeDays}::int * INTERVAL '1 day')
+                ELSE (${safeHours}::int * INTERVAL '1 hour')
+              END
+            )
+          )
       ),
       order_counts AS (
-        SELECT vendor_id, COUNT(DISTINCT order_id)::int AS order_count
-        FROM recent_orders
+        SELECT
+          vendor_id,
+          COUNT(DISTINCT order_id)::int AS order_count,
+          COUNT(DISTINCT CASE WHEN is_active = 1 THEN order_id END)::int AS active_order_count
+        FROM current_orders
         GROUP BY vendor_id
       ),
       nearest_branch AS (
@@ -184,13 +234,14 @@ export class DriversService {
         nb.lat AS lat,
         nb.lng AS lng,
         nb.distance_km AS "distanceKm",
-        COALESCE(oc.order_count, 0) AS "orderCount"
+        COALESCE(oc.order_count, 0) AS "orderCount",
+        COALESCE(oc.active_order_count, 0) AS "activeOrderCount"
       FROM nearest_branch nb
       JOIN vendors v ON v.id = nb.vendor_id
       LEFT JOIN order_counts oc ON oc.vendor_id = nb.vendor_id
       WHERE nb.rank = 1
         AND nb.distance_km <= ${safeRadius}
-      ORDER BY "orderCount" DESC, nb.distance_km ASC
+      ORDER BY "activeOrderCount" DESC, "orderCount" DESC, nb.distance_km ASC
       LIMIT 200
     `;
 
@@ -209,6 +260,7 @@ export class DriversService {
       lng: Number(row.lng),
       distanceKm: Number(Number(row.distanceKm).toFixed(2)),
       orderCount: Number(row.orderCount) || 0,
+      activeOrderCount: Number(row.activeOrderCount) || 0,
     }));
   }
 

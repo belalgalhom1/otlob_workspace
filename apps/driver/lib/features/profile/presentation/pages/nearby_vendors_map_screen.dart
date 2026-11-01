@@ -27,7 +27,6 @@ class NearbyVendorsMapScreen extends ConsumerStatefulWidget {
 class _NearbyVendorsMapScreenState
     extends ConsumerState<NearbyVendorsMapScreen> {
   static const double _radiusKm = 5;
-  static const int _days = 7;
 
   final MapController _mapController = MapController();
   Position? _position;
@@ -213,7 +212,8 @@ class _NearbyVendorsMapScreenState
         lat: position.latitude,
         lng: position.longitude,
         radiusKm: _radiusKm,
-        days: _days,
+        hours: null,
+        days: null,
       )),
     );
 
@@ -235,7 +235,8 @@ class _NearbyVendorsMapScreenState
                 lat: position.latitude,
                 lng: position.longitude,
                 radiusKm: _radiusKm,
-                days: _days,
+                hours: null,
+                days: null,
               )),
             ),
           ),
@@ -266,7 +267,6 @@ class _NearbyVendorsMapScreenState
                 isDark: isDark,
                 vendorCount: vendors.length,
                 radiusKm: _radiusKm.toInt(),
-                days: _days,
                 demand: demand,
               ),
             ),
@@ -441,6 +441,7 @@ class _NearbyVendorsMapScreenState
     final isArabic = _isArabic;
     final name = _vendorName(vendor, isArabic);
     final orders = _asInt(vendor['orderCount']);
+    final activeOrders = _asInt(vendor['activeOrderCount']);
     final distance = _asDouble(vendor['distanceKm']);
     final level = demand?.levelOf(vendor) ?? _DemandLevel.normal;
     final color = _colorFor(level);
@@ -478,9 +479,17 @@ class _NearbyVendorsMapScreenState
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          isArabic
-                              ? '$orders طلب خلال آخر $_days أيام'
-                              : '$orders orders in the last $_days days',
+                          activeOrders > 0
+                              ? (isArabic
+                                  ? '$activeOrders طلب نشط في الوقت الحالي'
+                                  : '$activeOrders active orders right now')
+                              : (orders > 0
+                                  ? (isArabic
+                                      ? '$orders طلب في الوقت الحالي'
+                                      : '$orders orders in current time')
+                                  : (isArabic
+                                      ? 'لا توجد طلبات جارية حالياً'
+                                      : 'No active orders currently')),
                           style: TextStyle(
                             fontSize: 12,
                             color: color,
@@ -527,7 +536,15 @@ class _NearbyVendorsMapScreenState
     bool isDark,
   ) {
     final sorted = [...vendors]..sort(
-        (a, b) => _asInt(b['orderCount']).compareTo(_asInt(a['orderCount'])),
+        (a, b) {
+          final aActive = _asInt(a['activeOrderCount']);
+          final bActive = _asInt(b['activeOrderCount']);
+          if (bActive != aActive) return bActive.compareTo(aActive);
+          final aCount = _asInt(a['orderCount']);
+          final bCount = _asInt(b['orderCount']);
+          if (bCount != aCount) return bCount.compareTo(aCount);
+          return _asDouble(a['distanceKm']).compareTo(_asDouble(b['distanceKm']));
+        },
       );
 
     showModalBottomSheet<void>(
@@ -578,6 +595,7 @@ class _NearbyVendorsMapScreenState
                     final level = demand.levelOf(vendor);
                     final color = _colorFor(level);
                     final orders = _asInt(vendor['orderCount']);
+                    final active = _asInt(vendor['activeOrderCount']);
                     final distance = _asDouble(vendor['distanceKm']);
                     return Material(
                       color: isDark ? const Color(0xFF252525) : Colors.white,
@@ -611,8 +629,12 @@ class _NearbyVendorsMapScreenState
                         ),
                         subtitle: Text(
                           _isArabic
-                              ? '$orders طلب · ${distance.toStringAsFixed(1)} كم'
-                              : '$orders orders · ${distance.toStringAsFixed(1)} km',
+                              ? (active > 0
+                                  ? '$active طلب نشط الآن · ${distance.toStringAsFixed(1)} كم'
+                                  : '$orders طلب حالياً · ${distance.toStringAsFixed(1)} كم')
+                              : (active > 0
+                                  ? '$active active now · ${distance.toStringAsFixed(1)} km'
+                                  : '$orders orders now · ${distance.toStringAsFixed(1)} km'),
                           style: const TextStyle(fontSize: 11.5),
                         ),
                         trailing: Container(
@@ -669,20 +691,22 @@ class _DemandThresholds {
     }
     var maxCount = 0;
     for (final vendor in vendors) {
-      maxCount = math.max(maxCount, _asInt(vendor['orderCount']));
+      final active = _asInt(vendor['activeOrderCount']);
+      final total = _asInt(vendor['orderCount']);
+      maxCount = math.max(maxCount, math.max(active, total));
     }
-    // Relative bands keep the highlight meaningful for both quiet and busy
-    // areas. A minimum volume avoids painting every store red/orange when the
-    // whole area only saw one or two orders.
-    final high = maxCount >= 3 ? math.max(3, (maxCount * 0.6).ceil()) : 0;
-    final medium = maxCount >= 2 ? math.max(2, (maxCount * 0.3).ceil()) : 0;
+    // Real-time demand bands for current time orders
+    final high = maxCount >= 3 ? math.max(3, (maxCount * 0.6).ceil()) : (maxCount >= 2 ? 2 : 0);
+    final medium = maxCount >= 1 ? 1 : 0;
     return _DemandThresholds(high: high, medium: medium, maxCount: maxCount);
   }
 
   _DemandLevel levelOf(Map<String, dynamic> vendor) {
+    final active = _asInt(vendor['activeOrderCount']);
     final count = _asInt(vendor['orderCount']);
-    if (high > 0 && count >= high) return _DemandLevel.high;
-    if (medium > 0 && count >= medium) return _DemandLevel.medium;
+    final effective = math.max(active, count);
+    if (active >= 2 || (high > 0 && effective >= high)) return _DemandLevel.high;
+    if (active >= 1 || (medium > 0 && effective >= medium)) return _DemandLevel.medium;
     return _DemandLevel.normal;
   }
 
@@ -707,9 +731,9 @@ Color _colorFor(_DemandLevel level) {
 String _levelLabelAr(_DemandLevel level) {
   switch (level) {
     case _DemandLevel.high:
-      return 'طلبات كثيرة';
+      return 'ضغط طلبات الآن';
     case _DemandLevel.medium:
-      return 'متوسط';
+      return 'نشاط حالي';
     case _DemandLevel.normal:
       return 'عادي';
   }
@@ -718,9 +742,9 @@ String _levelLabelAr(_DemandLevel level) {
 String _levelLabelEn(_DemandLevel level) {
   switch (level) {
     case _DemandLevel.high:
-      return 'High demand';
+      return 'High demand now';
     case _DemandLevel.medium:
-      return 'Medium';
+      return 'Active now';
     case _DemandLevel.normal:
       return 'Normal';
   }
@@ -792,7 +816,9 @@ class _VendorMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _colorFor(level);
+    final activeOrders = _asInt(vendor['activeOrderCount']);
     final orders = _asInt(vendor['orderCount']);
+    final displayCount = activeOrders > 0 ? activeOrders : orders;
     final name = _vendorName(vendor, isArabic);
     final isHigh = level == _DemandLevel.high;
 
@@ -835,7 +861,7 @@ class _VendorMarker extends StatelessWidget {
                   ),
                 ),
               ),
-              if (orders > 0)
+              if (displayCount > 0)
                 Positioned(
                   top: -7,
                   right: -7,
@@ -851,7 +877,7 @@ class _VendorMarker extends StatelessWidget {
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
                     child: Text(
-                      '$orders',
+                      '$displayCount',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -901,7 +927,6 @@ class _HeaderCard extends StatelessWidget {
   final bool isDark;
   final int vendorCount;
   final int radiusKm;
-  final int days;
   final _DemandThresholds demand;
 
   const _HeaderCard({
@@ -909,7 +934,6 @@ class _HeaderCard extends StatelessWidget {
     required this.isDark,
     required this.vendorCount,
     required this.radiusKm,
-    required this.days,
     required this.demand,
   });
 
@@ -966,8 +990,8 @@ class _HeaderCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       isArabic
-                          ? 'حسب عدد الطلبات في آخر $days أيام'
-                          : 'By order volume over the last $days days',
+                          ? 'حسب الطلبات الجارية في الوقت الحالي'
+                          : 'By real-time orders in current time',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -988,12 +1012,12 @@ class _HeaderCard extends StatelessWidget {
             children: [
               _LegendDot(
                 color: const Color(0xFFE53935),
-                label: isArabic ? 'طلبات كثيرة' : 'High demand',
+                label: isArabic ? 'طلبات كثيرة الآن' : 'High demand now',
                 isDark: isDark,
               ),
               _LegendDot(
                 color: const Color(0xFFF59E0B),
-                label: isArabic ? 'متوسط' : 'Medium',
+                label: isArabic ? 'نشاط حالي' : 'Active now',
                 isDark: isDark,
               ),
               _LegendDot(

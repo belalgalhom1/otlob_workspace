@@ -131,13 +131,22 @@ class DataExportService {
     try {
       switch (format) {
         case ExportFormat.excel:
-          await exportCsv(
-            context: context,
-            title: title,
-            headers: headers,
-            rows: rows,
-            filename: safeName,
-          );
+          if (sections != null && sections.isNotEmpty) {
+            await exportSectionsCsv(
+              context: context,
+              title: title,
+              sections: sections,
+              filename: safeName,
+            );
+          } else {
+            await exportCsv(
+              context: context,
+              title: title,
+              headers: headers,
+              rows: rows,
+              filename: safeName,
+            );
+          }
         case ExportFormat.pdf:
           if (sections != null && sections.isNotEmpty) {
             await exportSectionsPdf(
@@ -274,7 +283,13 @@ class DataExportService {
     final widths = <int, pw.TableColumnWidth>{};
     for (var i = 0; i < headers.length; i++) {
       final h = headers[i].toLowerCase();
-      if (h.contains('يبدأ') || h.contains('ينتهي') || h.contains('start') || h.contains('end') || h.contains('تاريخ') || h.contains('date')) {
+      if (h == '#' || h.contains('ترتيب') || h.contains('rank')) {
+        widths[i] = const pw.FixedColumnWidth(28);
+      } else if (h.contains('هاتف') || h.contains('phone')) {
+        widths[i] = const pw.FixedColumnWidth(76);
+      } else if (h.contains('سائق') || h.contains('driver')) {
+        widths[i] = const pw.FlexColumnWidth(2.0);
+      } else if (h.contains('يبدأ') || h.contains('ينتهي') || h.contains('start') || h.contains('end') || h.contains('تاريخ') || h.contains('date')) {
         widths[i] = const pw.FixedColumnWidth(66);
       } else if (h.contains('فترة') || h.contains('period')) {
         widths[i] = const pw.FixedColumnWidth(50);

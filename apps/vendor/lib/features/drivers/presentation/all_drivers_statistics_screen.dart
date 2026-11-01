@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 
@@ -24,6 +25,8 @@ class _AllDriversStatisticsScreenState
     extends ConsumerState<AllDriversStatisticsScreen> {
   static const _periods = ['DAILY', 'WEEKLY', 'MONTHLY'];
   String _period = 'DAILY';
+  DateTimeRange? _customRange;
+  bool _exporting = false;
 
   bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
 
@@ -38,6 +41,22 @@ class _AllDriversStatisticsScreenState
     }
   }
 
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+      helpText: _isArabic ? 'اختر الفترة الزمنية' : 'Select date range',
+      saveText: _isArabic ? 'حفظ' : 'Save',
+      initialDateRange:
+          _customRange ?? DateTimeRange(start: DateTime(now.year), end: now),
+    );
+    if (picked != null) {
+      setState(() => _customRange = picked);
+    }
+  }
+
   /// Query for the selected period. The backend turns [limit] into a look-back
   /// window, so keep it period-aware (30 days / 12 weeks / 12 months).
   ({String period, int limit, DateTime? from, DateTime? to}) get _query => (
@@ -47,8 +66,8 @@ class _AllDriversStatisticsScreenState
       'MONTHLY' => 12,
       _ => 30,
     },
-    from: null,
-    to: null,
+    from: _customRange?.start,
+    to: _customRange?.end,
   );
 
   @override
@@ -68,6 +87,17 @@ class _AllDriversStatisticsScreenState
         ),
         actions: [
           IconButton(
+            tooltip: _isArabic ? 'تصدير التقرير (PDF/Excel)' : 'Export Report (PDF/Excel)',
+            icon: _exporting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(LucideIcons.download, color: textColor),
+            onPressed: _exporting ? null : () => _export(context),
+          ),
+          IconButton(
             tooltip: _isArabic ? 'تحديث' : 'Refresh',
             icon: Icon(LucideIcons.refreshCw, color: textColor),
             onPressed: () => ref.invalidate(
@@ -80,18 +110,86 @@ class _AllDriversStatisticsScreenState
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
                 for (final period in _periods) ...[
                   Expanded(
                     child: _PeriodChip(
                       label: _periodLabel(period),
-                      selected: _period == period,
-                      onTap: () => setState(() => _period = period),
+                      selected: _customRange == null && _period == period,
+                      onTap: () => setState(() {
+                        _customRange = null;
+                        _period = period;
+                      }),
                     ),
                   ),
                   if (period != _periods.last) const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _pickRange,
+                  icon: const Icon(LucideIcons.calendar, size: 14),
+                  label: Text(
+                    _isArabic ? 'فترة مخصصة' : 'Custom range',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                if (_customRange != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${DateFormat('yyyy-MM-dd').format(_customRange!.start)}'
+                              ' - '
+                              '${DateFormat('yyyy-MM-dd').format(_customRange!.end)}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => setState(() => _customRange = null),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(
+                                LucideIcons.x,
+                                size: 14,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -201,6 +299,25 @@ class _AllDriversStatisticsScreenState
                   color: textColor.withValues(alpha: 0.5),
                 ),
               ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _exporting ? null : () => _export(context),
+                icon: const Icon(LucideIcons.download, size: 13),
+                label: Text(
+                  _isArabic ? 'تصدير' : 'Export',
+                  style: const TextStyle(fontSize: 11.5),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 30),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -231,6 +348,204 @@ class _AllDriversStatisticsScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _export(BuildContext context) async {
+    setState(() => _exporting = true);
+    try {
+      final data = await ref.read(allManagedDriversStatsProvider(_query).future);
+      if (!context.mounted) return;
+
+      final drivers = data['drivers'] is List
+          ? (data['drivers'] as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
+
+      if (drivers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isArabic ? 'لا توجد بيانات متاحة للتصدير' : 'No data available to export',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final totals = data['totals'] is Map
+          ? Map<String, dynamic>.from(data['totals'] as Map)
+          : <String, dynamic>{};
+
+      final totalOrders = StatisticsFormat.intOf(totals['totalOrders']);
+      final completed = StatisticsFormat.intOf(totals['completedOrders']);
+      final cancelled = StatisticsFormat.intOf(totals['cancelledOrders']);
+      final received = StatisticsFormat.intOf(totals['totalDispatchesReceived']);
+      final accepted = StatisticsFormat.intOf(totals['dispatchesAccepted']);
+      final rejected = StatisticsFormat.intOf(totals['dispatchesRejected']);
+      final expired = StatisticsFormat.intOf(totals['dispatchesExpired']);
+      final acceptance = received > 0 ? (accepted * 100 / received).round() : 0;
+      final earnings = StatisticsFormat.numOf(totals['totalEarnings']);
+      final onlineHours = StatisticsFormat.numOf(totals['onlineHours']);
+
+      final isArabic = _isArabic;
+
+      // Section 1: Fleet Totals Summary
+      final s1Headers = [
+        isArabic ? 'المؤشر' : 'Metric',
+        isArabic ? 'القيمة' : 'Value',
+      ];
+      final s1Rows = [
+        [
+          isArabic ? 'إجمالي أرباح الفريق' : 'Total Fleet Earnings',
+          '${earnings.toStringAsFixed(2)} EGP',
+        ],
+        [
+          isArabic ? 'إجمالي الطلبات' : 'Total Orders',
+          '$totalOrders',
+        ],
+        [
+          isArabic ? 'الطلبات المكتملة' : 'Completed Orders',
+          '$completed',
+        ],
+        [
+          isArabic ? 'الطلبات الملغية' : 'Cancelled Orders',
+          '$cancelled',
+        ],
+        [
+          isArabic ? 'إجمالي ساعات العمل' : 'Total Online Hours',
+          '${onlineHours.toStringAsFixed(1)} h',
+        ],
+        [
+          isArabic ? 'متوسط نسبة القبول' : 'Overall Acceptance Rate',
+          '$acceptance%',
+        ],
+        [
+          isArabic ? 'عدد السائقين النشطين' : 'Active Fleet Drivers',
+          '${drivers.length}',
+        ],
+        [
+          isArabic ? 'الطلبات المعروضة' : 'Total Dispatches Received',
+          '$received',
+        ],
+        [
+          isArabic ? 'الطلبات المقبولة' : 'Dispatches Accepted',
+          '$accepted',
+        ],
+        [
+          isArabic ? 'الطلبات المرفوضة' : 'Dispatches Rejected',
+          '$rejected',
+        ],
+        [
+          isArabic ? 'الطلبات المنتهية' : 'Dispatches Expired',
+          '$expired',
+        ],
+      ];
+
+      // Section 2: Driver Performance Breakdown
+      final s2Headers = [
+        '#',
+        isArabic ? 'السائق' : 'Driver',
+        isArabic ? 'الهاتف' : 'Phone',
+        isArabic ? 'الحالة' : 'Status',
+        isArabic ? 'الأرباح' : 'Earnings',
+        isArabic ? 'الطلبات' : 'Orders',
+        isArabic ? 'المكتملة' : 'Completed',
+        isArabic ? 'الملغية' : 'Cancelled',
+        isArabic ? 'ساعات العمل' : 'Online Hours',
+        isArabic ? 'القبول' : 'Acceptance',
+      ];
+
+      String translateDriverStatus(String status) {
+        switch (status.toUpperCase()) {
+          case 'ONLINE':
+            return isArabic ? 'متصل' : 'Online';
+          case 'ON_DELIVERY':
+            return isArabic ? 'في رحلة توصيل' : 'On Delivery';
+          case 'ON_BREAK':
+            return isArabic ? 'في استراحة' : 'On Break';
+          case 'OFFLINE':
+            return isArabic ? 'غير متصل' : 'Offline';
+          case 'SUSPENDED':
+            return isArabic ? 'موقوف' : 'Suspended';
+          default:
+            return status;
+        }
+      }
+
+      final s2Rows = <List<String>>[];
+      for (var i = 0; i < drivers.length; i++) {
+        final d = drivers[i];
+        final name = (d['name']?.toString().trim().isNotEmpty ?? false)
+            ? d['name'].toString().trim()
+            : (isArabic ? 'سائق' : 'Driver');
+        final phone = d['phone']?.toString().trim() ?? '';
+        final status = d['status']?.toString() ?? 'OFFLINE';
+        final dOrders = StatisticsFormat.intOf(d['totalOrders']);
+        final dCompleted = StatisticsFormat.intOf(d['completedOrders']);
+        final dCancelled = StatisticsFormat.intOf(d['cancelledOrders']);
+        final dEarnings = StatisticsFormat.numOf(d['totalEarnings']);
+        final dHours = StatisticsFormat.numOf(d['onlineHours']);
+        final dReceived = StatisticsFormat.intOf(d['totalDispatchesReceived']);
+        final dAccepted = StatisticsFormat.intOf(d['dispatchesAccepted']);
+        final dAcceptance = dReceived > 0 ? (dAccepted * 100 / dReceived).round() : 0;
+
+        s2Rows.add([
+          '${i + 1}',
+          name,
+          phone.isNotEmpty ? phone : '-',
+          translateDriverStatus(status),
+          '${dEarnings.toStringAsFixed(2)} EGP',
+          '$dOrders',
+          '$dCompleted',
+          '$dCancelled',
+          '${dHours.toStringAsFixed(1)} h',
+          '$dAcceptance%',
+        ]);
+      }
+
+      final rangeSubtitle = _customRange != null
+          ? '${DateFormat('yyyy-MM-dd').format(_customRange!.start)} - ${DateFormat('yyyy-MM-dd').format(_customRange!.end)}'
+          : isArabic
+              ? 'تقرير ${_periodLabel(_period)} (${drivers.length} سائق)'
+              : '${_periodLabel(_period)} Report (${drivers.length} drivers)';
+
+      await DataExportService.showExportOptions(
+        context,
+        title: isArabic ? 'تقرير إحصائيات كل السائقين' : 'All Drivers Fleet Statistics',
+        subtitle: rangeSubtitle,
+        sections: [
+          ExportSection(
+            title: isArabic ? 'ملخص إجماليات الفريق' : 'Fleet Totals Summary',
+            headers: s1Headers,
+            rows: s1Rows,
+          ),
+          ExportSection(
+            title: isArabic ? 'تفاصيل أداء السائقين' : 'Driver Performance Breakdown',
+            headers: s2Headers,
+            rows: s2Rows,
+          ),
+        ],
+        headers: s2Headers,
+        rows: s2Rows,
+        filename: 'all_drivers_statistics_${_customRange != null ? 'custom' : _period.toLowerCase()}',
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isArabic ? 'فشل التصدير: $e' : 'Export failed: $e',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _exporting = false);
+      }
+    }
   }
 }
 
