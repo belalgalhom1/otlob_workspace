@@ -87,6 +87,9 @@ export class OrderCreatedEvent {
     public readonly grandTotal: number,
     public readonly paymentMethod: string,
     public readonly orderType: string,
+    // Monotonic order revision at the moment the order row was created. This
+    // seeds a client's last-seen revision; later status events carry >= this.
+    public readonly revision: number = 0,
   ) {}
 }
 
@@ -104,7 +107,14 @@ export class OrderStatusChangedEvent {
     public readonly driverUserId: string | null,
     public readonly actorUserId: string,
     public readonly note: string | null,
-    public readonly revision?: number,
+    // Revision of the Order row written by this transition. Required so every
+    // producer proves it carries the version it actually persisted.
+    public readonly revision: number,
+    // Stable discriminator for the rare case where ONE order revision legitimately
+    // produces several status events (per-stop pickup, per-delivery completion).
+    // Event identity is (orderId, revision, dedupeKey); leave undefined for the
+    // single event of a normal transition. Never derive this from free text.
+    public readonly dedupeKey?: string,
   ) {}
 }
 
@@ -149,7 +159,7 @@ export class OrderSettledEvent {
     public readonly grandTotal: number,
     public readonly deliveryFee: number,
     public readonly commissionRate: number,
-
+    public readonly taxRate: number,
   ) {}
 }
 

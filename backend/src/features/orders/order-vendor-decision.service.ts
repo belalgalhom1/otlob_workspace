@@ -15,7 +15,6 @@ import {
   VendorMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
 import { OrdersRepository } from './orders.repository';
 import { OrdersStateService } from './orders-state.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -52,21 +51,7 @@ export class OrderVendorDecisionService {
     private readonly stateService: OrdersStateService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly redis: RedisService,
   ) {}
-
-  async nextRevision(orderId: string): Promise<number> {
-    try {
-      const updated = await this.prisma.order.update({
-        where: { id: orderId },
-        data: { revision: { increment: 1 } },
-        select: { revision: true },
-      });
-      return updated.revision;
-    } catch {
-      return 0;
-    }
-  }
 
   // ─── Vendor workflow ───────────────────────────────────────────────────────
 
@@ -986,7 +971,7 @@ export class OrderVendorDecisionService {
           updated.driver?.userId ?? null,
           'system',
           'All vendor portions decided — searching for drivers',
-          await this.nextRevision(updated.id),
+          updated.revision,
         ),
       );
     } catch {

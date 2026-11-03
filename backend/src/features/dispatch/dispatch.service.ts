@@ -512,6 +512,28 @@ export class DispatchService {
       return;
     }
 
+    // A grouped delivery can also be cancelled or completed independently of
+    // the order (e.g. its vendor rejected, or another round already delivered
+    // it). Stop here instead of re-enqueueing a watchdog for a dead group.
+    if (groupScope) {
+      const groupRow = await this.prisma.orderDeliveryGroup.findUnique({
+        where: { id: groupScope },
+        select: { status: true },
+      });
+      if (
+        groupRow?.status === DeliveryGroupStatus.CANCELLED ||
+        groupRow?.status === DeliveryGroupStatus.DELIVERED
+      ) {
+        await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
+        const cancelledOwner = await this.releaseDispatchClaim(
+          expiryScope,
+          dispatchId,
+        );
+        if (cancelledOwner) await this.redis.del(stateKey);
+        return;
+      }
+    }
+
     // It is truly expired. Release the single-flight claim only if this round
     // still owns it: a late watchdog must never delete a newer round's claim or
     // its attempt state.
@@ -746,6 +768,10 @@ export class DispatchService {
       candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? orderId;
     const activeKey = `otlobegy:order-dispatch-active:${acceptScope}`;
 
+    // The order revision written by this acceptance, captured inside the
+    // transaction so the event carries exactly the version it produced.
+    let assignedRevision = 0;
+
     try {
       await this.prisma.$transaction(async (tx) => {
       // Serialize concurrent acceptances for the SAME driver. Two different
@@ -862,8 +888,10 @@ export class DispatchService {
         });
 
         // Move the aggregate status forward only while it is still awaiting a
-        // driver; never walk back PREPARING/READY_FOR_PICKUP.
-        await tx.order.updateMany({
+        // driver; never walk back PREPARING/READY_FOR_PICKUP. The revision is
+        // bumped in the SAME statement so the DB guard cannot auto-bump it a
+        // second time when this actually changes the status.
+        const aggregateAdvanced = await tx.order.updateMany({
           where: {
             id: order.id,
             status: {
@@ -874,7 +902,7 @@ export class DispatchService {
               ],
             },
           },
-          data: { status: nextStatus },
+          data: { status: nextStatus, revision: { increment: 1 } },
         });
 
         await tx.orderStatusEvent.create({
@@ -885,6 +913,25 @@ export class DispatchService {
             createdBy: 'system',
           },
         });
+
+        // Exactly one order-level revision per accepted delivery. If the
+        // aggregate update above matched, its bump is the one to report;
+        // otherwise this is a later group whose order status did not move, and
+        // the order still genuinely changed (another delivery got a driver).
+        if (aggregateAdvanced.count > 0) {
+          const revisionRow = await tx.order.findUnique({
+            where: { id: order.id },
+            select: { revision: true },
+          });
+          assignedRevision = revisionRow?.revision ?? 0;
+        } else {
+          const bumped = await tx.order.update({
+            where: { id: order.id },
+            data: { revision: { increment: 1 } },
+            select: { revision: true },
+          });
+          assignedRevision = bumped.revision;
+        }
       } else {
         const updated = await tx.order.updateMany({
           where: { id: order.id, status: { in: dispatchableStatuses } },
@@ -893,6 +940,7 @@ export class DispatchService {
             driverShiftId: candidate.driverShiftId,
             isStacked: isStackedOrder,
             status: nextStatus,
+            revision: { increment: 1 },
             driverAssignedAt: new Date(),
             distanceKm: totalDistanceKm,
           },
@@ -901,6 +949,16 @@ export class DispatchService {
         if (updated.count === 0) {
           throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
         }
+
+        // The row lock from the update above makes this read the value just
+        // written by this acceptance.
+        assignedRevision =
+          (
+            await tx.order.findUnique({
+              where: { id: order.id },
+              select: { revision: true },
+            })
+          )?.revision ?? 0;
 
         await tx.orderStatusEvent.create({
           data: {
@@ -1050,7 +1108,7 @@ export class DispatchService {
         candidate.userId,
         'system',
         'Driver found and auto-assigned.',
-        await this.nextRevision(order.id),
+        assignedRevision,
       ),
       { attempts: 3, backoff: { type: 'exponential', delay: 2_000 } },
     );
@@ -1489,19 +1547,6 @@ export class DispatchService {
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
-
-  async nextRevision(orderId: string): Promise<number> {
-    try {
-      const updated = await this.prisma.order.update({
-        where: { id: orderId },
-        data: { revision: { increment: 1 } },
-        select: { revision: true },
-      });
-      return updated.revision;
-    } catch {
-      return 0;
-    }
-  }
 
   private async calculateEstimatedEarnings(
     distanceKm: number,

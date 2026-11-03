@@ -873,6 +873,10 @@ model Order {
   assistApprovedAt     DateTime?                 @db.Timestamptz(3)
   isStacked            Boolean                   @default(false)
   status               OrderStatus               @default(PENDING)
+  // Monotonic per-order version. Bumped in the same transaction as every
+  // status write so clients can order realtime events and dedupe replays.
+  // A DB trigger (migration 20261103000000_order_revision_guard) auto-bumps it
+  // if a status write forgets and rejects any decrease.
   revision             Int                       @default(0)
   paymentMethod        PaymentMethod
   paymentStatus        PaymentStatus             @default(PENDING)

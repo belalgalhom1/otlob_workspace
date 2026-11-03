@@ -17,6 +17,9 @@ export class PlatformSetting {
   driverManagerCommissionRate: number = 10;
 
   @ApiProperty({ type: Number })
+  dispatchHandoffDedupeTtlSecs: number = 300;
+
+  @ApiProperty({ type: Number })
   defaultTaxRate: number = 14;
 
   @ApiProperty({ type: Number })

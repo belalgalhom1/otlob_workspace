@@ -176,13 +176,23 @@ export class EventsProcessor extends WorkerHost {
     }
   }
 
-  private orderStatusIdempotencyKey(event: OrderStatusChangedEvent): string {
-    const isPerStopOrGroupNote =
-      event.note?.includes('fulfillment stop') ||
-      event.note?.startsWith('Delivery ');
-    return isPerStopOrGroupNote
-      ? `notify:order_status:${event.orderId}:${event.note}`
-      : `notify:order_status:${event.orderId}:${event.newStatus}:${event.driverId ?? ''}`;
+  private orderStatusIdempotencyKey(
+    event: OrderStatusChangedEvent,
+  ): string | null {
+    // Event identity is (orderId, revision, dedupeKey). Order.revision is bumped
+    // in the same transaction as every status write (enforced by a DB trigger),
+    // so a revision identifies exactly one transition. A transition that emits
+    // several events supplies a stable dedupeKey; everything else emits one
+    // event per revision.
+    //
+    // A missing revision can only come from a job that was already sitting in
+    // the queue before the revision rollout. Such a job has no reliable
+    // identity, so it is deliberately NOT deduped rather than risking a false
+    // suppression of a distinct transition.
+    if (typeof event.revision !== 'number') return null;
+    return event.dedupeKey
+      ? `notify:order_status:${event.orderId}:${event.revision}:${event.dedupeKey}`
+      : `notify:order_status:${event.orderId}:${event.revision}`;
   }
 
   // ─── Moved OrderListener bodies ────────────────────────────────────────────
@@ -208,6 +218,9 @@ export class EventsProcessor extends WorkerHost {
           orderNumber: event.orderNumber,
           grandTotal: event.grandTotal,
           paymentMethod: event.paymentMethod,
+          // Seeds the client's last-seen revision; every later status event
+          // carries a revision >= this one.
+          revision: event.revision,
         }),
       ),
       ...(notificationPayloads.length
@@ -656,14 +669,34 @@ export class EventsProcessor extends WorkerHost {
 
   // DRIVER_ASSIST_REQUESTED had no subscriber, so a driver asking for a second
   // pair of hands never surfaced to operations. Notify the people who can
-  // approve it (admins and driver managers) through the normal notification
-  // pipeline, which also emits the realtime socket event.
+  // approve it through the normal notification pipeline, which also emits the
+  // realtime socket event.
+  //
+  // Scope matters: a driver manager only handles drivers in their own zone
+  // (unless granted manageAllDrivers), so blasting every manager in the
+  // country would page people who cannot act on the request.
   private async handleDriverAssistRequested(
     event: DriverAssistRequestedEvent,
   ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: event.orderId },
+      select: { zoneId: true },
+    });
+    const zoneId = order?.zoneId ?? null;
+
+    const managerScope = zoneId
+      ? { OR: [{ manageAllDrivers: true }, { zoneId }] }
+      : { manageAllDrivers: true };
+
     const recipients = await this.prisma.user.findMany({
       where: {
-        role: { in: [Role.ADMIN, Role.SUPER_ADMIN, Role.DRIVER_MANAGER] },
+        OR: [
+          { role: { in: [Role.ADMIN, Role.SUPER_ADMIN] } },
+          {
+            role: Role.DRIVER_MANAGER,
+            driverManager: { is: managerScope },
+          },
+        ],
       },
       select: { id: true },
     });
@@ -737,6 +770,18 @@ export class EventsProcessor extends WorkerHost {
             },
           ];
 
+    // One settings read for the whole fan-out instead of one per delivery group.
+    // A missing or corrupt value falls back to the documented default rather
+    // than making Redis SET EX reject every handoff.
+    const configuredHandoffTtl = Number(
+      (await this.platformSettings.getSettings().catch(() => null))
+        ?.dispatchHandoffDedupeTtlSecs ?? 300,
+    );
+    const handoffTtl =
+      Number.isFinite(configuredHandoffTtl) && configuredHandoffTtl > 0
+        ? configuredHandoffTtl
+        : 300;
+
     let enqueued = 0;
     for (const payload of jobPayloads) {
       // Dedupe per DELIVERY, not per order: an order-level key meant one
@@ -758,14 +803,7 @@ export class EventsProcessor extends WorkerHost {
       // enough for that, short enough to allow a real re-dispatch later.
       // Duplicated enqueues are additionally absorbed by the dispatch
       // processor's in-flight guard.
-      const handoffTtl = Number(
-        (await this.platformSettings.getSettings().catch(() => null))?.dispatchHandoffDedupeTtlSecs ?? 300,
-      );
-      await this.redis.set(
-        idempotencyKey,
-        '1',
-        handoffTtl,
-      );
+      await this.redis.set(idempotencyKey, '1', handoffTtl);
       enqueued++;
     }
 

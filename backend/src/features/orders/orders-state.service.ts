@@ -109,8 +109,6 @@ export class OrdersStateService {
     private readonly storage: StorageService,
   ) {}
 
-  // Per-order monotonic revision counter for event ordering. Clients can use
-  // this to reorder out-of-arrival events and detect gaps.
   async vendorUpdateStatus(
     actor: JwtAccessPayload,
     orderId: string,
@@ -461,6 +459,7 @@ export class OrdersStateService {
       select: {
         orderNumber: true,
         status: true,
+        revision: true,
         customerId: true,
         vendorId: true,
         driverId: true,
@@ -514,8 +513,9 @@ export class OrdersStateService {
       extraData.preparedAt = new Date();
     }
 
+    let updatedRevision = fresh.revision;
     try {
-      await this.ordersRepository.updateStatus(
+      const updated = await this.ordersRepository.updateStatus(
         orderId,
         target,
         actorUserId,
@@ -525,6 +525,7 @@ export class OrdersStateService {
         extraData,
         fresh.status,
       );
+      updatedRevision = updated.revision;
     } catch {
       // Another writer moved the aggregate first; its value is authoritative.
       return;
@@ -552,7 +553,7 @@ export class OrdersStateService {
         target === OrderStatus.READY_FOR_PICKUP
           ? 'All vendor portions ready for pickup'
           : 'Vendor portion started preparing',
-         (fresh as any).revision ?? 0,
+        updatedRevision,
       ),
     );
   }
@@ -832,6 +833,7 @@ export class OrdersStateService {
               fresh.status,
               fulfillmentSummary,
               actor.sub,
+              fresh.revision,
             ),
           );
         } else {
@@ -885,6 +887,7 @@ export class OrdersStateService {
               fresh.status,
               fulfillmentSummary,
               actor.sub,
+              fresh.revision,
             ),
           );
 
@@ -903,7 +906,8 @@ export class OrdersStateService {
               null,
               actor.sub,
               `Driver picked up fulfillment stop ${fulfillmentId}`,
-              (fresh as any).revision ?? 0,
+              fresh.revision,
+              `stop:${fulfillmentId}`,
             ),
           );
         }
@@ -1094,7 +1098,7 @@ export class OrdersStateService {
     if (dto.status === OrderStatus.DELIVERED) {
       const latest = await this.prisma.order.findUnique({
         where: { id: order.id },
-        select: { status: true, customerId: true, vendorId: true, driverId: true, customer: { select: { userId: true } } },
+        select: { status: true, customerId: true, vendorId: true, driverId: true, revision: true, customer: { select: { userId: true } } },
       });
       if (latest && latest.status !== OrderStatus.DELIVERED) {
         const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
@@ -1116,7 +1120,8 @@ export class OrdersStateService {
             actor.sub,
             actor.sub,
             `Delivery ${group.sequence} completed`,
-            (latest as any).revision ?? 0,
+            latest.revision,
+            `delivery:${group.sequence}`,
           ),
         );
       }
@@ -1148,6 +1153,7 @@ export class OrdersStateService {
       where: { id: order.id },
       select: {
         status: true,
+        revision: true,
         customerId: true,
         vendorId: true,
         driverId: true,
@@ -1221,8 +1227,9 @@ export class OrdersStateService {
     if (target === OrderStatus.DELIVERED)
       extraData.actualDeliveryTime = new Date();
 
+    let updatedRevision = fresh.revision;
     try {
-      await this.ordersRepository.updateStatus(
+      const updated = await this.ordersRepository.updateStatus(
         order.id,
         target,
         actor.sub,
@@ -1232,6 +1239,7 @@ export class OrdersStateService {
         extraData,
         fresh.status,
       );
+      updatedRevision = updated.revision;
     } catch {
       // Lost a race with a concurrent group update — the other writer wins.
       return;
@@ -1271,7 +1279,7 @@ export class OrdersStateService {
         target === OrderStatus.DELIVERED
           ? 'All deliveries completed'
           : 'All deliveries picked up',
-         (fresh as any).revision ?? 0,
+        updatedRevision,
       ),
     );
   }
@@ -1502,7 +1510,7 @@ export class OrdersStateService {
         driver.userId,
         actor.sub,
         `Driver manually assigned by admin. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-        (order as any).revision ?? 0,
+        updated.revision,
       ),
     );
 
@@ -1620,6 +1628,7 @@ export class OrdersStateService {
         reason,
         actor?.sub ?? null,
         allDriverIds,
+        updatedOrder.revision,
       ),
     );
 
@@ -1736,7 +1745,7 @@ export class OrdersStateService {
         driverUserId,
         actor.sub,
         dto.note ?? null,
-        (order as any).revision ?? 0,
+        updated.revision,
       ),
     );
 

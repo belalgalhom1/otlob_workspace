@@ -403,10 +403,10 @@ export class PlatformSettingsService {
       fee = maxFee;
     }
 
-    // Global customer-facing floor (EGP). Applied last so a configured
-    // per-vehicle minimum still wins over it, and so a cheap zone override or
-    // sub-minimum `minDistanceFixedPrice` can never drop a delivery below the
-    // platform minimum. 0 disables the floor.
+    // Global customer-facing floor (EGP), applied last so the effective
+    // minimum is max(per-vehicle minimum, platform minimum) and a cheap zone
+    // override or sub-minimum `minDistanceFixedPrice` can never drop a delivery
+    // below the platform minimum. 0 disables the floor.
     const globalMinFee = Number(s.minDeliveryFee ?? 0);
     if (globalMinFee > 0 && fee < globalMinFee) {
       fee = globalMinFee;

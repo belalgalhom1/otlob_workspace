@@ -942,10 +942,18 @@ export class OrdersRepository {
     orderNumber: string,
     driverIds: string[],
   ) {
+    // Revision written by THIS cancellation. Read inside the transaction so the
+    // event carries the version this call produced even when another transition
+    // commits before the post-commit aggregate read below.
+    const written = { revision: null as number | null };
+
     await this.prisma.$transaction(async (tx) => {
       const updatedCount = await tx.order.updateMany({
         where: { id: orderId, status: expectedOldStatus },
-        data: { status: OrderStatus.CANCELLED },
+        data: {
+          status: OrderStatus.CANCELLED,
+          revision: { increment: 1 },
+        },
       });
 
       if (updatedCount.count === 0) {
@@ -960,6 +968,13 @@ export class OrdersRepository {
         }
         throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
       }
+
+      written.revision = (
+        await tx.order.findUnique({
+          where: { id: orderId },
+          select: { revision: true },
+        })
+      )?.revision ?? null;
 
       await tx.orderStatusEvent.create({
         data: {
@@ -1188,6 +1203,10 @@ export class OrdersRepository {
     });
     if (!updated) throw new Error(OrderErrors.NOT_FOUND);
 
+    // Report the revision this call wrote, not one a concurrent transition may
+    // have produced between commit and the aggregate read.
+    if (written.revision != null) updated.revision = written.revision;
+
     return updated;
   }
 
@@ -1199,6 +1218,11 @@ export class OrdersRepository {
     extraData?: Prisma.OrderUpdateInput,
     expectedOldStatus?: OrderStatus,
   ) {
+    // Revision written by THIS transition. Captured inside the transaction so
+    // the event identity can never collide with a transition that commits
+    // between this commit and the post-commit aggregate read.
+    const written = { revision: null as number | null };
+
     await this.prisma.$transaction(async (tx) => {
       if (expectedOldStatus) {
         const count = await tx.order.updateMany({
@@ -1214,6 +1238,13 @@ export class OrdersRepository {
           data: { status, revision: { increment: 1 }, ...extraData },
         });
       }
+
+      written.revision = (
+        await tx.order.findUnique({
+          where: { id: orderId },
+          select: { revision: true },
+        })
+      )?.revision ?? null;
 
       await tx.orderStatusEvent.create({
         data: {
@@ -1236,6 +1267,10 @@ export class OrdersRepository {
 
     if (!updated) throw new Error(OrderErrors.NOT_FOUND);
 
+    // Report the revision this call wrote, not one a concurrent transition may
+    // have produced between commit and the aggregate read.
+    if (written.revision != null) updated.revision = written.revision;
+
     return updated;
   }
 
@@ -1247,6 +1282,11 @@ export class OrdersRepository {
     nextStatus: OrderStatus = OrderStatus.DRIVER_ASSIGNED,
     maxActiveOrders: number = 1,
   ) {
+    // Revision written by THIS assignment. Captured inside the transaction so
+    // the event carries the value this call produced even when another
+    // transition commits before the post-commit aggregate read.
+    const written = { revision: null as number | null };
+
     await this.prisma.$transaction(async (tx) => {
       // Serialize concurrent assignments/acceptances for THE SAME driver, then
       // enforce the max-active-orders cap inside the transaction. The caller
@@ -1328,16 +1368,20 @@ export class OrdersRepository {
         data: { status: 'CANCELLED' },
       });
 
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          driverId,
-          driverShiftId,
-          isStacked: activeCount > 0,
-          status: nextStatus,
-          driverAssignedAt: new Date(),
-        },
-      });
+      written.revision = (
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            driverId,
+            driverShiftId,
+            isStacked: activeCount > 0,
+            status: nextStatus,
+            revision: { increment: 1 },
+            driverAssignedAt: new Date(),
+          },
+          select: { revision: true },
+        })
+      ).revision;
 
       await tx.orderStatusEvent.create({
         data: {
@@ -1359,6 +1403,12 @@ export class OrdersRepository {
       where: { id: orderId },
       include: ORDER_INCLUDE,
     });
+
+    if (!updated) throw new Error(OrderErrors.NOT_FOUND);
+
+    // Report the revision this call wrote, not one a concurrent transition may
+    // have produced between commit and the aggregate read.
+    if (written.revision != null) updated.revision = written.revision;
 
     return updated;
   }

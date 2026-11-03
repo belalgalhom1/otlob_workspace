@@ -41,6 +41,9 @@ export class Order {
   @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' })
   status: OrderStatus = OrderStatus.PENDING;
 
+  @ApiProperty({ type: Number })
+  revision: number = 0;
+
   @ApiProperty({ enum: PaymentMethod, enumName: 'PaymentMethod' })
   paymentMethod: PaymentMethod;
 

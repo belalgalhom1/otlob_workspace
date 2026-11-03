@@ -26,7 +26,6 @@ import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { OrderStatus, Role, PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
 import {
   OrderErrors,
   CustomerErrors,
@@ -42,21 +41,7 @@ export class OrdersCheckoutService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
   ) {}
-
-  async nextRevision(orderId: string): Promise<number> {
-    try {
-      const updated = await this.prisma.order.update({
-        where: { id: orderId },
-        data: { revision: { increment: 1 } },
-        select: { revision: true },
-      });
-      return updated.revision;
-    } catch {
-      return 0;
-    }
-  }
 
   async placeOrder(
     actor: JwtAccessPayload,
@@ -654,7 +639,7 @@ export class OrdersCheckoutService {
     // when a driver accepts, DispatchService.handleAcceptance moves it to PENDING_PAYMENT
     // if MOBILE_WALLET or upfrontAmount > 0 is required.
     if (created.created) {
-      await this.ordersRepository.updateStatus(
+      const advanced = await this.ordersRepository.updateStatus(
         created.id,
         'LOOKING_FOR_DRIVER',
         'system',
@@ -676,7 +661,7 @@ export class OrdersCheckoutService {
           null,
           'system',
           'Auto-dispatched custom order',
-          await this.nextRevision(created.id),
+          advanced.revision,
         ),
       );
 
@@ -692,6 +677,7 @@ export class OrdersCheckoutService {
           grandTotal,
           dto.paymentMethod,
           dto.type,
+          advanced.revision,
         ),
       );
 
@@ -813,9 +799,13 @@ export class OrdersCheckoutService {
     // Direct orders placed by a vendor/admin skip the customer-approval step and
     // are treated as accepted immediately (createOrder sets PENDING by default).
     if (order.created) {
-      await this.prisma.order.update({
+      const accepted = await this.prisma.order.update({
         where: { id: order.id },
-        data: { status: OrderStatus.ACCEPTED },
+        data: {
+          status: OrderStatus.ACCEPTED,
+          revision: { increment: 1 },
+        },
+        select: { revision: true },
       });
 
       // Also update the status event to ACCEPTED instead of whatever createOrder created
@@ -846,7 +836,7 @@ export class OrdersCheckoutService {
           null,
           actor.sub,
           'Order created by Vendor/Admin directly from chat',
-          await this.nextRevision(order.id),
+          accepted.revision,
         ),
       );
 
@@ -862,6 +852,7 @@ export class OrdersCheckoutService {
           orderData.grandTotal,
           orderData.paymentMethod,
           orderData.type,
+          accepted.revision,
         ),
       );
     }

@@ -14,7 +14,6 @@ import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { OrderErrors } from '../../common/constants/response.constants';
 
@@ -27,21 +26,7 @@ export class OrdersPaymentService {
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-    private readonly redis: RedisService,
   ) {}
-
-  async nextRevision(orderId: string): Promise<number> {
-    try {
-      const updated = await this.prisma.order.update({
-        where: { id: orderId },
-        data: { revision: { increment: 1 } },
-        select: { revision: true },
-      });
-      return updated.revision;
-    } catch {
-      return 0;
-    }
-  }
 
   async customerMarkPaid(
     actor: JwtAccessPayload,
@@ -207,6 +192,10 @@ export class OrdersPaymentService {
         ? OrderStatus.PICKED_UP
         : (hasAnyPickup ? OrderStatus.PARTIALLY_PICKED_UP : OrderStatus.DRIVER_ASSIGNED);
 
+      // Captured inside the transaction that bumps it, so the event revision is
+      // exactly the value this transition wrote (never a later concurrent one).
+      let revisionAfter = 0;
+
       await this.prisma.$transaction(async (tx) => {
         for (const g of groups) {
           if (g.status !== DeliveryGroupStatus.PENDING_PAYMENT) continue;
@@ -243,6 +232,19 @@ export class OrdersPaymentService {
         if (groups.length === 0 && advanced.count === 0) {
           throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
         }
+
+        // Read the revision inside the transaction in both cases: when this
+        // call advanced the order it is the value just written; when a sibling
+        // delivery already advanced it (grouped orders only) it is the current
+        // version, so the emitted event never claims a stale revision of 0.
+        revisionAfter =
+          (
+            await tx.order.findUnique({
+              where: { id: orderId },
+              select: { revision: true },
+            })
+          )?.revision ?? 0;
+
         if (advanced.count > 0) {
           await tx.orderStatusEvent.create({
             data: {
@@ -287,7 +289,7 @@ export class OrdersPaymentService {
           driver.userId,
           actor.sub,
           'Driver confirmed payment received.',
-          (await this.prisma.order.findUnique({ where: { id: order.id }, select: { revision: true } }))?.revision ?? 0,
+          revisionAfter,
         ),
       );
 

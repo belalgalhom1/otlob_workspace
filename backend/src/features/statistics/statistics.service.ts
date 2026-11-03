@@ -460,11 +460,17 @@ export class StatisticsService {
       }
 
       // 1. Food / Products payment reimbursement at store (CASH_HANDED_TO_VENDOR)
-      // The driver pays the vendor out of pocket at pickup.
-      // For contracted vendors, the driver subtracts the commission from product cost (subtotal - commission).
-      // For uncontracted vendors, the driver pays the full product subtotal.
-      // This amount is credited to the driver wallet as POSITIVE (+).
-      if (groups.length > 0) {
+      // Only a cash-collecting (COD) driver pays the vendor out of pocket at
+      // pickup. For contracted vendors the driver subtracts the commission from
+      // the product cost (subtotal - commission); for uncontracted vendors the
+      // driver pays the full subtotal. That outgoing cash is credited back to
+      // the driver wallet as POSITIVE (+).
+      //
+      // A mobile-wallet order is paid to the platform upfront, and the platform
+      // settles the vendor through the vendor wallet below. The driver never
+      // hands cash to the store, so crediting them here would pay the vendor
+      // twice. Guard the whole branch on `isDriverCollected`.
+      if (isDriverCollected && groups.length > 0) {
         const items = await client.orderDeliveryGroupItem.findMany({
           where: { deliveryGroupId: { in: groups.map((g) => g.id) } },
           select: {
@@ -525,7 +531,7 @@ export class StatisticsService {
             { skipLock: true },
           );
         }
-      } else {
+      } else if (isDriverCollected) {
         const vendorCashPaid = isContracted
           ? Math.max(0, subtotal - commission)
           : subtotal;
@@ -1118,7 +1124,7 @@ export class StatisticsService {
         grandTotal,
         deliveryFee,
         commissionRate,
-
+        Number(settings.defaultTaxRate ?? 0),
       ),
     );
 
