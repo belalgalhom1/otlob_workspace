@@ -190,6 +190,22 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     debugPrint('Global listener: Received orderStatus -> $eventData');
     if (eventData == null) return;
 
+    // Reject transitions older than the revision already applied for this
+    // order. Socket.IO does not guarantee ordering, so without this a delayed
+    // event can move the execution screen back to a previous status.
+    final eventOrderId = (eventData['orderId'] ?? eventData['id'])?.toString();
+    if (eventOrderId != null) {
+      final revisions = ref.read(orderRevisionTrackerProvider);
+      final revision = orderRevisionOf(eventData);
+      if (!revisions.accept(eventOrderId, revision)) {
+        debugPrint(
+          'Global listener: dropping stale orderStatus for $eventOrderId '
+          '(revision $revision < ${revisions.latest(eventOrderId)})',
+        );
+        return;
+      }
+    }
+
     final newStatus = eventData['newStatus']?.toString() ?? eventData['status']?.toString() ?? '';
 
     if (newStatus == 'CANCELLED' || newStatus == 'DELIVERED') {

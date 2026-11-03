@@ -15,6 +15,7 @@ export 'src/localization/bilingual_helper.dart';
 export 'src/localization/api_error_mapper.dart';
 export 'src/socket/socket_events.dart';
 export 'src/socket/socket_service.dart';
+export 'src/socket/order_revision.dart';
 export 'src/permissions/permission_service.dart';
 // export 'src/models/paginated_result.dart';
 export 'src/utils/image_utils.dart';

@@ -70,6 +70,19 @@ class AdminPlatformSettingsRepository {
     return ResponseParser.parse(response);
   }
 
+  /// Raw PATCH for dispatch settings the generated UpdatePlatformSettingsDto
+  /// predates (the handoff dedupe TTL). Only whitelisted keys are sent.
+  Future<dynamic> platformSettingsUpdateDispatch(Map<String, dynamic> data) async {
+    if (_dio == null) throw Exception('Dio is required');
+    const allowed = {'dispatchHandoffDedupeTtlSecs'};
+    final payload = Map<String, dynamic>.fromEntries(
+      data.entries.where((e) => allowed.contains(e.key)),
+    );
+    if (payload.isEmpty) return null;
+    final response = await _dio.patch('/platform-settings', data: payload);
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> platformSettingsUploadHomeCover({MultipartFile? file}) async {
     final response = await _api.platformSettingsControllerUploadHomeCover(file: file);
     return ResponseParser.parse(response);

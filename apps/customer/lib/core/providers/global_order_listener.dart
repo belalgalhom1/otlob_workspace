@@ -149,6 +149,20 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
     if (orderId == null) return;
 
+    // The backend stamps every status transition with a monotonic order
+    // revision. Socket.IO (and the FCM fallback) can deliver an older
+    // transition after a newer one, so drop anything below the highest
+    // revision already applied for this order.
+    final tracker = ref.read(orderRevisionTrackerProvider);
+    final revision = orderRevisionOf(data);
+    if (!tracker.accept(orderId, revision)) {
+      debugPrint(
+        'Order listener: dropping stale event for $orderId '
+        '(revision $revision < ${tracker.latest(orderId)})',
+      );
+      return;
+    }
+
     // Instantly reflect any status change in the orders list.
     final orders = ref.read(ordersProvider.notifier);
     if (status != null) {

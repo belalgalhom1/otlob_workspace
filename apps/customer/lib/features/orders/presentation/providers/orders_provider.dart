@@ -98,6 +98,7 @@ class Orders extends _$Orders {
   }
 
   void clear() {
+    ref.read(orderRevisionTrackerProvider).clear();
     state = OrdersState(
       activeOrders: const [],
       pastOrders: const [],
@@ -159,6 +160,12 @@ class Orders extends _$Orders {
               .where((o) => targetSet.contains(o['status']?.toString()))
               .map((o) => Map<String, dynamic>.from(o))
               .toList();
+          // Seed the realtime revision guard with the authoritative snapshot so
+          // a socket event that was already in flight cannot regress it.
+          final revisions = ref.read(orderRevisionTrackerProvider);
+          for (final order in mapped) {
+            revisions.observeOrder(order);
+          }
           return (orders: mapped, hasMore: hasMore);
         }
       }
@@ -255,6 +262,9 @@ class Orders extends _$Orders {
           updatedOrder = updatedOrder['data'];
         }
         if (updatedOrder is Map<String, dynamic>) {
+          // Detail is authoritative: keep the revision guard above any event
+          // that may still be queued behind this response.
+          ref.read(orderRevisionTrackerProvider).observeOrder(updatedOrder);
           final index = state.activeOrders.indexWhere((o) => o['id'] == orderId);
           if (index != -1) {
             final newOrders = List<Map<String, dynamic>>.from(state.activeOrders);

@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:core/core.dart'
+    show orderRevisionOf, orderRevisionTrackerProvider;
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -92,9 +94,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       // Fast local flip only — the global order listener owns the throttled
       // list refresh, so one socket event no longer triggers duplicate GETs.
       if (data != null && data['orderId'] != null) {
+        final orderId = data['orderId'].toString();
+        // Ignore events older than the revision this screen already shows, so
+        // an out-of-order delivery cannot flip a card back to a past status.
+        final revisions = ref.read(orderRevisionTrackerProvider);
+        if (!revisions.accept(orderId, orderRevisionOf(data))) return;
         final newStatus = data['newStatus'] ?? data['status'];
         if (newStatus != null) {
-          ref.read(ordersProvider.notifier).updateOrderStatusFast(data['orderId'], newStatus);
+          ref.read(ordersProvider.notifier).updateOrderStatusFast(orderId, newStatus.toString());
         }
       }
     };

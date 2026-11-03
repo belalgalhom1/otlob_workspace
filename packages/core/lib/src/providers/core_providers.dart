@@ -9,6 +9,7 @@ import '../config/media_config_service.dart';
 
 import '../auth/token_service.dart';
 import '../socket/socket_service.dart';
+import '../socket/order_revision.dart';
 import '../config/env_config.dart';
 
 // Provides the secure storage instance
@@ -53,6 +54,13 @@ final coreSocketServiceProvider = Provider<CoreSocketService>((ref) {
     isTokenExpired: tokenService.isTokenExpired,
     refreshToken: tokenService.refreshToken,
   );
+});
+
+// Per-app tracker of the highest Order.revision seen for each order. Shared by
+// the realtime listeners and the REST fetchers so an in-flight socket event can
+// never roll a freshly fetched order back to an older status.
+final orderRevisionTrackerProvider = Provider<OrderRevisionTracker>((ref) {
+  return OrderRevisionTracker();
 });
 
 // Provides the permission service

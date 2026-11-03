@@ -33,11 +33,16 @@ class SettingsNotifier extends _$SettingsNotifier {
     'pendingBreakExpiryMins',
   };
 
+  static const _dispatchKeys = {
+    'dispatchHandoffDedupeTtlSecs',
+  };
+
   Future<void> updateSettings(Map<String, dynamic> settings) async {
     final repository = ref.read(adminPlatformSettingsRepositoryProvider);
 
-    // Break quota keys bypass the generated DTO (it predates them) via a
-    // raw PATCH. Everything else flows through the typed client as before.
+    // Break quota / dispatch handoff keys bypass the generated DTO (it predates
+    // them) via a raw PATCH. Everything else flows through the typed client as
+    // before.
     bool? toBool(dynamic value) {
       if (value == null) return null;
       if (value is bool) return value;
@@ -64,11 +69,21 @@ class SettingsNotifier extends _$SettingsNotifier {
         if (numValue != null) breakData[key] = numValue.toInt();
       }
     }
+    final dispatchData = <String, dynamic>{};
+    for (final key in _dispatchKeys) {
+      if (!settings.containsKey(key)) continue;
+      final numValue = toNum(settings[key]);
+      if (numValue != null) dispatchData[key] = numValue.toInt();
+    }
     final rest = Map<String, dynamic>.of(settings)
-      ..removeWhere((key, _) => _breakKeys.contains(key));
+      ..removeWhere((key, _) =>
+          _breakKeys.contains(key) || _dispatchKeys.contains(key));
 
     if (breakData.isNotEmpty) {
       await repository.platformSettingsUpdateBreaks(breakData);
+    }
+    if (dispatchData.isNotEmpty) {
+      await repository.platformSettingsUpdateDispatch(dispatchData);
     }
     if (rest.isEmpty) {
       await fetchSettings();

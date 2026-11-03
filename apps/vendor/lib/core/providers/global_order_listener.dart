@@ -43,11 +43,23 @@ final globalOrderListenerProvider = Provider<void>((ref) {
 
   void handleOrderEvent(dynamic data) {
     if (data != null && data is Map && data['orderId'] != null) {
+      final orderId = data['orderId'].toString();
+      // Drop transitions the app has already moved past: Socket.IO and the FCM
+      // fallback can replay an older revision after a newer one.
+      final revisions = ref.read(orderRevisionTrackerProvider);
+      final revision = orderRevisionOf(data);
+      if (!revisions.accept(orderId, revision)) {
+        debugPrint(
+          'Vendor orders: dropping stale event for $orderId '
+          '(revision $revision < ${revisions.latest(orderId)})',
+        );
+        return;
+      }
       final newStatus = data['newStatus'] ?? data['status'];
       if (newStatus != null) {
         ref
             .read(ordersProvider.notifier)
-            .updateOrderStatusFast(data['orderId'].toString(), newStatus.toString());
+            .updateOrderStatusFast(orderId, newStatus.toString());
       }
       fetchOrders();
     }
@@ -55,7 +67,16 @@ final globalOrderListenerProvider = Provider<void>((ref) {
 
   final orderNewSub = socketService
       .onEvent(SocketEvent.orderNew)
-      .listen((_) => fetchOrders());
+      .listen((data) {
+    // order.new carries the revision the order row was created with; record it
+    // so the first status event is ordered against a known starting point.
+    if (data is Map && data['orderId'] != null) {
+      ref
+          .read(orderRevisionTrackerProvider)
+          .observe(data['orderId'].toString(), orderRevisionOf(data));
+    }
+    fetchOrders();
+  });
 
   final orderStatusSub = socketService
       .onEvent(SocketEvent.orderStatus)

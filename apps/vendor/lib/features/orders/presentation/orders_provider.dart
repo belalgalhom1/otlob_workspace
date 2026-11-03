@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:api/api.dart';
 
@@ -31,6 +32,7 @@ class OrdersNotifier extends _$OrdersNotifier {
   }
 
   void clear() {
+    ref.read(orderRevisionTrackerProvider).clear();
     state = AsyncValue.data(OrdersStateData([], 0, {}));
   }
 
@@ -68,8 +70,17 @@ class OrdersNotifier extends _$OrdersNotifier {
         );
       }
 
+      final orders = result['orders'] ?? result['items'] ?? [];
+      // Seed the realtime revision guard with the authoritative snapshot so a
+      // socket event that was already in flight cannot regress it.
+      if (orders is List) {
+        final revisions = ref.read(orderRevisionTrackerProvider);
+        for (final order in orders) {
+          revisions.observeOrder(order);
+        }
+      }
       state = AsyncValue.data(
-        OrdersStateData(result['orders'] ?? result['items'] ?? [], result['total'] ?? 0, params),
+        OrdersStateData(orders, result['total'] ?? 0, params),
       );
       ref.read(ordersRefreshErrorProvider.notifier).set(null);
     } catch (e, st) {

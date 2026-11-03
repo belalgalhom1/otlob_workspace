@@ -41,6 +41,9 @@ class OrderExecution extends _$OrderExecution {
         _selectedOrderId = null;
         state = const AsyncValue.data(null);
       } else {
+        // REST detail is authoritative: keep the revision guard above any
+        // socket event that may still be queued behind this response.
+        ref.read(orderRevisionTrackerProvider).observeOrder(response['data']);
         _selectedOrderId = response['data']['id']?.toString();
         state = AsyncValue.data(response['data']);
       }
@@ -167,6 +170,12 @@ class OrderExecution extends _$OrderExecution {
       final orderId = state.value['id']?.toString();
       final incomingId = (data['orderId'] ?? data['id'])?.toString();
       if (incomingId != null && incomingId == orderId) {
+        // Same guard as the global listener: never apply a stale transition.
+        if (!ref
+            .read(orderRevisionTrackerProvider)
+            .accept(incomingId, orderRevisionOf(data))) {
+          return;
+        }
         final updatedState = Map<String, dynamic>.from(state.value);
         final newStatus = data['newStatus'] ?? data['status'];
         final normalized = newStatus?.toString().toUpperCase();

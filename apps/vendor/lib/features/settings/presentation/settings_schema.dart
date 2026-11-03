@@ -681,6 +681,18 @@ const List<SettingsSection> platformSettingsSections = [
         helpEn:
             'Maximum allowed distance in km between customer drop-offs for batching orders to the same driver.',
       ),
+      SettingsField(
+        key: 'dispatchHandoffDedupeTtlSecs',
+        kind: SettingsFieldKind.number,
+        labelAr: 'مهلة منع تكرار إرسال الطلب للمندوب',
+        labelEn: 'Handoff Dedupe TTL (sec)',
+        helpAr:
+            'المدة التي يتذكر فيها النظام أنه أرسل الطلب بالفعل لمندوب، لمنع '
+            'إرساله مرتين. الافتراضي 300 ثانية.',
+        helpEn:
+            'How long the system remembers that a delivery was already handed '
+            'to a driver, to avoid sending it twice. Default 300 seconds.',
+      ),
     ],
   ),
 

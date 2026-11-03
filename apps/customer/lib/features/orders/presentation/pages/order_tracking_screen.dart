@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:core/core.dart'
+    show orderRevisionOf, orderRevisionTrackerProvider;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -273,6 +275,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       _statusSub?.cancel();
       _statusSub = socket.onEvent('order.status').listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
+          // The latest transition wins: a stale socket event must not move the
+          // tracking status back to an earlier revision.
+          final revisions = ref.read(orderRevisionTrackerProvider);
+          if (!revisions.accept(widget.orderId, orderRevisionOf(data))) {
+            return;
+          }
           if (mounted) {
             setState(() {
               _orderStatus =
