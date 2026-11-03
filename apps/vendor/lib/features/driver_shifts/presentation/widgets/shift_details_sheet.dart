@@ -709,7 +709,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       if (_assignToAll && widget.allPoolIds.length > 1) {
         await ref
             .read(shiftPoolsProvider.notifier)
-            .bookWeeklyShiftsForDriver(driver.id, widget.allPoolIds);
+            .assignDriverToPools(driver.id, widget.allPoolIds);
       } else {
         await ref
             .read(shiftPoolsProvider.notifier)

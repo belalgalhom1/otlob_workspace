@@ -79,9 +79,9 @@ class ShiftPools extends _$ShiftPools {
     await refresh();
   }
 
-  Future<void> bookWeeklyShiftsForDriver(String driverId, List<String> poolIds) async {
+  Future<void> assignDriverToPools(String driverId, List<String> poolIds) async {
     final dio = ref.read(dioProvider);
-    await dio.post('/driver-shifts/admin/book-week', data: {
+    await dio.post('/driver-shifts/admin/assign-bulk', data: {
       'driverId': driverId,
       'shiftPoolIds': poolIds,
     });

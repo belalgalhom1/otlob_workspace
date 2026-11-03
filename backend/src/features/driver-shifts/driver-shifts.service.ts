@@ -24,6 +24,7 @@ import {
   BookOvertimeShiftDto,
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
+  AdminBulkAssignShiftsDto,
   AdminBookWeeklyShiftsDto,
   UpdateShiftPoolDto,
   ShiftReportQueryDto,
@@ -436,6 +437,79 @@ export class DriverShiftsService {
     }
 
     return shift;
+  }
+
+  async adminAssignShiftBulk(dto: AdminBulkAssignShiftsDto) {
+    const shiftPoolIds = [...new Set(dto.shiftPoolIds)];
+    if (shiftPoolIds.length !== dto.shiftPoolIds.length) {
+      throw new BadRequestException('Shift pool IDs must be unique.');
+    }
+
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: dto.driverId },
+      select: { id: true, userId: true },
+    });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const assignments = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id IN (${Prisma.join(shiftPoolIds)}) FOR UPDATE`;
+
+      const pools = await tx.shiftPool.findMany({
+        where: { id: { in: shiftPoolIds } },
+        include: { _count: { select: { driverShifts: true } } },
+      });
+      if (pools.length !== shiftPoolIds.length) {
+        throw new NotFoundException(DriverErrors.SHIFT_POOL_MISSING);
+      }
+
+      const existing = await tx.driverShift.findMany({
+        where: { driverId: driver.id, shiftPoolId: { in: shiftPoolIds } },
+        select: { shiftPoolId: true },
+      });
+      const alreadyAssigned = new Set(
+        existing.map((shift) => shift.shiftPoolId),
+      );
+      const pendingPools = pools.filter(
+        (pool) => !alreadyAssigned.has(pool.id),
+      );
+
+      for (const pool of pendingPools) {
+        if (pool._count.driverShifts >= pool.maxDrivers) {
+          throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
+        }
+      }
+
+      if (pendingPools.length === 0) return [];
+
+      const created = pendingPools.map((pool) => ({
+        id: randomUUID(),
+        driverId: driver.id,
+        shiftPoolId: pool.id,
+        zoneId: pool.zoneId,
+        shiftDate: pool.shiftDate,
+        startTime: pool.startTime,
+        endTime: pool.endTime,
+      }));
+
+      await tx.driverShift.createMany({ data: created });
+      await tx.shiftPoolWaitlist.deleteMany({
+        where: { driverId: driver.id, shiftPoolId: { in: shiftPoolIds } },
+      });
+      return created;
+    });
+
+    for (const shift of assignments) {
+      this.eventEmitter.emit(
+        EVENTS.SHIFT_ASSIGNED,
+        new ShiftAssignedEvent(driver.userId, shift.id),
+      );
+    }
+
+    return {
+      success: true,
+      assigned: assignments.length,
+      alreadyAssigned: shiftPoolIds.length - assignments.length,
+    };
   }
 
   async adminBookWeeklyShifts(dto: AdminBookWeeklyShiftsDto) {
