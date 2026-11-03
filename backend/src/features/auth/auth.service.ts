@@ -800,6 +800,35 @@ export class AuthService {
     return { access_token, refresh_token, user: userWithoutPassword };
   }
 
+  private async setDriverOfflineAfterLogoutIfNoActiveShift(
+    driverId: string,
+    userId: string,
+    currentStatus: DriverStatus,
+  ) {
+    const activeShift = await this.prisma.driverShift.findFirst({
+      where: { driverId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    // Logout ends the app session, not the driver's scheduled work shift.
+    if (activeShift) return;
+
+    await this.prisma.driver.update({
+      where: { id: driverId },
+      data: { status: DriverStatus.OFFLINE },
+    });
+    await this.locationRepository.removeDriverLocation(driverId);
+    this.eventEmitter.emit(
+      EVENTS.DRIVER_STATUS_CHANGED,
+      new DriverStatusChangedEvent(
+        driverId,
+        userId,
+        currentStatus,
+        DriverStatus.OFFLINE,
+      ),
+    );
+  }
+
   async logout(userId: string, sessionId: string, dto?: LogoutDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -833,19 +862,10 @@ export class AuthService {
         throw new BadRequestException(AuthErrors.CANNOT_LOGOUT_ON_DELIVERY);
       }
 
-      await this.prisma.driver.update({
-        where: { id: user.driver.id },
-        data: { status: DriverStatus.OFFLINE },
-      });
-      await this.locationRepository.removeDriverLocation(user.driver.id);
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_STATUS_CHANGED,
-        new DriverStatusChangedEvent(
-          user.driver.id,
-          userId,
-          user.driver.status,
-          DriverStatus.OFFLINE,
-        ),
+      await this.setDriverOfflineAfterLogoutIfNoActiveShift(
+        user.driver.id,
+        userId,
+        user.driver.status,
       );
     }
 
@@ -900,19 +920,10 @@ export class AuthService {
         throw new BadRequestException(AuthErrors.CANNOT_LOGOUT_ON_DELIVERY);
       }
 
-      await this.prisma.driver.update({
-        where: { id: user.driver.id },
-        data: { status: DriverStatus.OFFLINE },
-      });
-      await this.locationRepository.removeDriverLocation(user.driver.id);
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_STATUS_CHANGED,
-        new DriverStatusChangedEvent(
-          user.driver.id,
-          userId,
-          user.driver.status,
-          DriverStatus.OFFLINE,
-        ),
+      await this.setDriverOfflineAfterLogoutIfNoActiveShift(
+        user.driver.id,
+        userId,
+        user.driver.status,
       );
     }
 
