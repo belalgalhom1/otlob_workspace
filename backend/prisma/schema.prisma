@@ -201,6 +201,8 @@ model User {
   approvedTopUps       WalletTopUpRequest[]
   approvedDrivers      Driver[]                  @relation("DriverApprovals")
   accounts             Account[]
+  createdLegalDocuments LegalDocument[]          @relation("CreatedLegalDocuments")
+  legalAcceptances      UserLegalAcceptance[]    @relation("UserLegalAcceptances")
 
   @@index([role])
   @@index([deletedAt])
@@ -1916,4 +1918,51 @@ model Account {
   @@unique([provider, providerAccountId])
   @@index([userId])
   @@map("accounts")
+}
+
+
+enum LegalDocumentType {
+  TERMS_OF_USE
+  PRIVACY_POLICY
+}
+
+model LegalDocument {
+  id          String            @id @default(uuid())
+  type        LegalDocumentType
+  title       String
+  titleAr     String
+  content     String            @db.Text
+  contentAr   String            @db.Text
+  version     String
+  isPublished Boolean           @default(false)
+  publishedAt DateTime?         @db.Timestamptz(3)
+  createdById String?
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?         @db.Timestamptz(3)
+
+  createdBy   User?                 @relation("CreatedLegalDocuments", fields: [createdById], references: [id], onDelete: SetNull)
+  acceptances UserLegalAcceptance[]
+
+  @@index([type, isPublished])
+  @@index([deletedAt])
+  @@map("legal_documents")
+}
+
+model UserLegalAcceptance {
+  id           String            @id @default(uuid())
+  userId       String
+  documentId   String
+  documentType LegalDocumentType
+  version      String
+  ipAddress    String?
+  userAgent    String?
+  acceptedAt   DateTime          @default(now()) @db.Timestamptz(3)
+
+  user     User          @relation("UserLegalAcceptances", fields: [userId], references: [id], onDelete: Cascade)
+  document LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType, version])
+  @@index([userId, documentType])
+  @@map("user_legal_acceptances")
 }

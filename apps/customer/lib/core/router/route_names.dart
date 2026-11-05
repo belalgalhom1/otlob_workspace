@@ -12,4 +12,6 @@ class RouteNames {
   static const String maintenance = 'maintenance';
   static const String updateRequired = 'update-required';
   static const String completePhone = 'complete-phone';
+  static const String termsAcceptance = 'terms-acceptance';
+  static const String legalViewer = 'legal-document';
 }

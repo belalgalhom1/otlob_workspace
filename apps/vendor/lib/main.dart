@@ -9,6 +9,8 @@ import 'package:vendor/features/auth/presentation/splash_screen.dart';
 import 'package:vendor/features/auth/presentation/vendor_selection_screen.dart'
     as vendor_selection;
 import 'package:vendor/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:vendor/features/legal/presentation/terms_acceptance_gate_screen.dart';
+import 'package:vendor/features/legal/presentation/legal_document_viewer_page.dart';
 
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -66,7 +68,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuth = authState.value ?? false;
       final isGoingToLogin = state.matchedLocation == '/login';
       final isGoingToSplash = state.matchedLocation == '/splash';
+      final isGoingToTerms = state.matchedLocation == '/terms-acceptance';
+      final isGoingToLegal = state.matchedLocation.startsWith('/legal-document');
 
+      if (isGoingToLegal) return null;
       if (authState.isLoading || authState.hasError) return null;
 
       if (!isAuth && !isGoingToLogin && !isGoingToSplash) {
@@ -75,6 +80,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       
       if (isAuth && isGoingToLogin) {
         return '/dashboard';
+      }
+
+      if (isAuth && isGoingToTerms) {
+        return null;
       }
 
       return null;
@@ -98,6 +107,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: '/terms-acceptance',
+        builder: (context, state) => const TermsAcceptanceGateScreen(),
+      ),
+      GoRoute(
+        path: '/legal-document',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return LegalDocumentViewerPage(
+            type: extra['type'] as String? ?? 'TERMS_OF_USE',
+            title: extra['title'] as String?,
+          );
+        },
       ),
     ],
   );

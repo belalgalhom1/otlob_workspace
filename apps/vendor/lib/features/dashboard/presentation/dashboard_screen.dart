@@ -1,3 +1,4 @@
+import 'package:vendor/features/legal/presentation/legal_documents_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -743,13 +744,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               Divider(color: Theme.of(context).dividerColor),
               if (_hasPermission('MANAGE_SETTINGS') ||
-                  _userRole == 'SUPER_ADMIN')
+                  _userRole == 'SUPER_ADMIN') ...[
+                _buildMenuItem(
+                  20,
+                  LucideIcons.fileCheck2,
+                  Localizations.localeOf(context).languageCode == 'ar'
+                      ? 'الوثائق القانونية'
+                      : 'Legal & Terms',
+                  isMobile,
+                ),
                 _buildMenuItem(
                   7,
                   LucideIcons.settings,
                   AppLocalizations.of(context)!.settings,
                   isMobile,
                 ),
+              ],
               _buildUserProfile(context),
               const SizedBox(height: 16),
             ],
@@ -1092,6 +1102,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return const DriverBreaksScreen();
       case 19:
         return const DriverManagersScreen(isEmbedded: true);
+      case 20:
+        return const LegalDocumentsScreen();
       default:
         return _buildComingSoon();
     }

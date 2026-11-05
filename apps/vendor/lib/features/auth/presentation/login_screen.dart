@@ -55,6 +55,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           final repo = ref.read(sharedAuthRepositoryProvider);
           final role = await repo.getUserRole();
           debugPrint('DEBUG: Role is $role');
+          final acceptanceStatus = await ref
+              .read(sharedLegalDocumentsRepositoryProvider)
+              .getAcceptanceStatus();
+          if (acceptanceStatus?['needsAcceptance'] == true) {
+            if (context.mounted) {
+              context.go('/terms-acceptance');
+            }
+            return;
+          }
+
           if (role == 'VENDOR_MEMBER') {
             // Vendors stay frozen during maintenance even right after login.
             final blocked = await _isMaintenanceBlocked(ref);

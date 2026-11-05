@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -213,7 +214,137 @@ class SettingsSectionScreen extends StatelessWidget {
       );
     });
 
+    if (section.id == 'support') {
+      widgets.add(_buildActiveDocumentsCard(context, theme));
+    }
+
     return widgets;
+  }
+
+  Widget _buildActiveDocumentsCard(BuildContext context, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(
+            top: AppSpacing.lg,
+            bottom: AppSpacing.sm,
+            left: AppSpacing.xs,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: section.color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              AppSpacing.hsm,
+              Text(
+                isAr ? 'الوثائق القانونية المعتمدة' : 'Active Legal Documents',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: AppRadius.mdRadius,
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    LucideIcons.fileText,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  isAr ? 'شروط الاستخدام الحالية' : 'Current Terms of Use',
+                  style: AppTypography.labelLarge,
+                ),
+                subtitle: Text(
+                  isAr
+                      ? 'النسخة النشطة المطبقة على كافة مستخدمي المنصة'
+                      : 'Active version currently enforced across the platform',
+                  style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                ),
+                trailing: OutlinedButton.icon(
+                  onPressed: () {
+                    context.push(
+                      '/legal-document',
+                      extra: {
+                        'type': 'TERMS_OF_USE',
+                        'title': isAr ? 'شروط الاستخدام' : 'Terms of Use',
+                      },
+                    );
+                  },
+                  icon: const Icon(LucideIcons.externalLink, size: 14),
+                  label: Text(isAr ? 'عرض' : 'View'),
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    LucideIcons.shieldCheck,
+                    color: Color(0xFF10B981),
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  isAr ? 'سياسة الخصوصية الحالية' : 'Current Privacy Policy',
+                  style: AppTypography.labelLarge,
+                ),
+                subtitle: Text(
+                  isAr
+                      ? 'النسخة النشطة لحماية البيانات والخصوصية'
+                      : 'Active version for data protection and privacy',
+                  style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                ),
+                trailing: OutlinedButton.icon(
+                  onPressed: () {
+                    context.push(
+                      '/legal-document',
+                      extra: {
+                        'type': 'PRIVACY_POLICY',
+                        'title': isAr ? 'سياسة الخصوصية' : 'Privacy Policy',
+                      },
+                    );
+                  },
+                  icon: const Icon(LucideIcons.externalLink, size: 14),
+                  label: Text(isAr ? 'عرض' : 'View'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildSaveBar(

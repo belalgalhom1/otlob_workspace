@@ -61,6 +61,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           case AppStartupState.suspended:
             context.go('/suspended');
             break;
+          case AppStartupState.needsTerms:
+            context.go('/terms-acceptance');
+            break;
           case AppStartupState.dashboard:
             _maybeShowOptionalUpdate('/dashboard');
             break;
@@ -174,6 +177,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               break;
             case AppStartupState.forceUpdate:
               context.go('/update-required');
+              break;
+            case AppStartupState.needsTerms:
+              context.go('/terms-acceptance');
               break;
             case AppStartupState.loading:
               _navigated = false;

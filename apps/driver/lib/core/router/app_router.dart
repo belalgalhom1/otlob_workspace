@@ -1,3 +1,5 @@
+import 'package:driver/features/legal/presentation/pages/terms_acceptance_gate_screen.dart';
+import 'package:driver/features/legal/presentation/pages/legal_document_viewer_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -46,6 +48,10 @@ GoRouter appRouter(Ref ref) {
       final isGoingToLogin = state.matchedLocation == '/login';
       if (appState == AppStartupState.unauthenticated && !isGoingToLogin) {
         return '/login';
+      }
+
+      if (appState == AppStartupState.needsTerms && state.matchedLocation != '/terms-acceptance') {
+        return '/terms-acceptance';
       }
 
       return null;
@@ -117,6 +123,20 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/breaks',
         builder: (context, state) => const DriverBreaksScreen(),
+      ),
+      GoRoute(
+        path: '/terms-acceptance',
+        builder: (context, state) => const TermsAcceptanceGateScreen(),
+      ),
+      GoRoute(
+        path: '/legal-document',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return LegalDocumentViewerPage(
+            type: extra['type']?.toString() ?? 'TERMS_OF_USE',
+            initialTitle: extra['title']?.toString(),
+          );
+        },
       ),
     ],
   );

@@ -144,6 +144,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             }
             return;
           }
+          final acceptanceStatus = await ref
+              .read(sharedLegalDocumentsRepositoryProvider)
+              .getAcceptanceStatus();
+          if (acceptanceStatus?['needsAcceptance'] == true) {
+            if (context.mounted) {
+              _navigated = true;
+              context.go('/terms-acceptance');
+            }
+            return;
+          }
+
           if (role == 'VENDOR_MEMBER') {
             final vendorId = ref.read(activeVendorProvider);
             if (vendorId == null || vendorId.isEmpty) {

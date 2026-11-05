@@ -6,14 +6,21 @@ import 'package:core/core.dart';
 part 'register_controller.g.dart';
 
 String formatEgyptPhone(String phone) {
-  String formattedPhone = phone.trim();
-  if (formattedPhone.startsWith('0')) {
-    formattedPhone = formattedPhone.substring(1);
+  String cleaned = phone.trim().replaceAll(RegExp(r'[\s\-\(\)]'), '');
+  if (cleaned.startsWith('+200')) {
+    cleaned = '+20${cleaned.substring(4)}';
+  } else if (cleaned.startsWith('0020')) {
+    cleaned = '+20${cleaned.substring(4)}';
+  } else if (cleaned.startsWith('+20')) {
+    // Already prefixed
+  } else if (cleaned.startsWith('20') && cleaned.length >= 12) {
+    cleaned = '+$cleaned';
+  } else if (cleaned.startsWith('0')) {
+    cleaned = '+20${cleaned.substring(1)}';
+  } else {
+    cleaned = '+20$cleaned';
   }
-  if (!formattedPhone.startsWith('+')) {
-    return '+20$formattedPhone';
-  }
-  return formattedPhone;
+  return cleaned;
 }
 
 @riverpod

@@ -81,11 +81,35 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   LatLng? _driverAnimStart;
   LatLng? _driverAnimTarget;
   double _driverHeading = 0.0;
+  double _driverStartHeading = 0.0;
+  double _driverTargetHeading = 0.0;
   bool _isDriverWalking = false;
   DateTime? _lastCameraMove;
+
+  double get _currentDriverHeading {
+    if (_driverMoveController.isAnimating) {
+      final t = CurvedAnimation(
+        parent: _driverMoveController,
+        curve: Curves.easeInOutCubic,
+      ).value;
+      return _lerpAngle(_driverStartHeading, _driverTargetHeading, t);
+    }
+    return _driverHeading;
+  }
+
+  static double _lerpAngle(double from, double to, double t) {
+    double diff = (to - from) % 360.0;
+    if (diff > 180.0) diff -= 360.0;
+    if (diff < -180.0) diff += 360.0;
+    return (from + diff * t) % 360.0;
+  }
+
   LatLng? get _currentDriverLocation {
     if (_driverAnimStart != null && _driverAnimTarget != null && _driverMoveController.isAnimating) {
-      final t = _driverMoveController.value;
+      final t = CurvedAnimation(
+        parent: _driverMoveController,
+        curve: Curves.easeInOut,
+      ).value;
       final curLat = _driverAnimStart!.latitude +
           (_driverAnimTarget!.latitude - _driverAnimStart!.latitude) * t;
       final curLng = _driverAnimStart!.longitude +
@@ -93,6 +117,98 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       return LatLng(curLat, curLng);
     }
     return _driverLocation;
+  }
+
+  String get _driverVehicleType {
+    final driver = _orderDetails?['driver'];
+    if (driver is Map && driver['vehicleType'] != null) {
+      final t = driver['vehicleType'].toString().trim();
+      if (t.isNotEmpty) return t;
+    }
+    final deliveryGroups = _orderDetails?['deliveryGroups'];
+    if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
+      for (final g in deliveryGroups) {
+        if (g is Map && g['driver'] is Map && g['driver']['vehicleType'] != null) {
+          final t = g['driver']['vehicleType'].toString().trim();
+          if (t.isNotEmpty) return t;
+        }
+      }
+    }
+    if (_orderDetails?['requestedVehicleType'] != null) {
+      final t = _orderDetails!['requestedVehicleType'].toString().trim();
+      if (t.isNotEmpty) return t;
+    }
+    return 'MOTORCYCLE';
+  }
+
+  String? get _driverVehiclePlate {
+    final driver = _orderDetails?['driver'];
+    if (driver is Map && driver['vehiclePlate'] != null) {
+      final p = driver['vehiclePlate'].toString().trim();
+      if (p.isNotEmpty) return p;
+    }
+    final deliveryGroups = _orderDetails?['deliveryGroups'];
+    if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
+      for (final g in deliveryGroups) {
+        if (g is Map && g['driver'] is Map && g['driver']['vehiclePlate'] != null) {
+          final p = g['driver']['vehiclePlate'].toString().trim();
+          if (p.isNotEmpty) return p;
+        }
+      }
+    }
+    return null;
+  }
+
+  String get _driverDisplayName {
+    final driver = _orderDetails?['driver'];
+    if (driver is Map && driver['name'] != null) {
+      final n = driver['name'].toString().trim();
+      if (n.isNotEmpty) return n;
+    }
+    final deliveryGroups = _orderDetails?['deliveryGroups'];
+    if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
+      for (final g in deliveryGroups) {
+        if (g is Map && g['driver'] is Map && g['driver']['name'] != null) {
+          final n = g['driver']['name'].toString().trim();
+          if (n.isNotEmpty) return n;
+        }
+      }
+    }
+    return '';
+  }
+
+  IconData _vehicleIconData(String type) {
+    switch (type.toUpperCase()) {
+      case 'CAR':
+        return Icons.directions_car_rounded;
+      case 'BICYCLE':
+        return Icons.pedal_bike_rounded;
+      case 'VAN':
+      case 'TRUCK':
+        return Icons.local_shipping_rounded;
+      case 'MOTOR_TRICYCLE':
+      case 'MOTORCYCLE':
+      default:
+        return Icons.two_wheeler_rounded;
+    }
+  }
+
+  String _vehicleTypeLabel(String type, bool isArabic) {
+    switch (type.toUpperCase()) {
+      case 'CAR':
+        return isArabic ? 'سيارة' : 'Car';
+      case 'BICYCLE':
+        return isArabic ? 'دراجة هوائية' : 'Bicycle';
+      case 'VAN':
+        return isArabic ? 'فان بضائع' : 'Van';
+      case 'TRUCK':
+        return isArabic ? 'شاحنة' : 'Truck';
+      case 'MOTOR_TRICYCLE':
+        return isArabic ? 'تروسيكل' : 'Motor Tricycle';
+      case 'MOTORCYCLE':
+      default:
+        return isArabic ? 'دراجة نارية' : 'Motorcycle';
+    }
   }
 
   final MapController _mapController = MapController();
@@ -150,7 +266,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           _lastCameraMove = now;
           final pos = _currentDriverLocation;
           if (pos != null) {
-            _mapController.move(pos, 15.0);
+            final zoom = _mapController.camera.zoom;
+            _mapController.move(pos, zoom);
           }
         }
       }
@@ -162,7 +279,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           _driverLocation = _driverAnimTarget ?? _driverLocation;
         });
         if (_followDriver && _driverLocation != null) {
-          _mapController.move(_driverLocation!, 15.0);
+          final zoom = _mapController.camera.zoom;
+          _mapController.move(_driverLocation!, zoom);
         }
       }
     });
@@ -455,17 +573,76 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final dist = const Distance().as(LengthUnit.Meter, _driverLocation!, target);
     if (dist < 1.0) return;
 
-    _driverHeading = _calculateBearing(_driverLocation!, target);
+    final newHeading = _calculateBearing(_driverLocation!, target);
+    _driverStartHeading = _currentDriverHeading;
+    _driverTargetHeading = newHeading;
+    _driverHeading = newHeading;
     _driverAnimStart = _driverLocation;
     _driverAnimTarget = target;
     _isDriverWalking = true;
     _driverMoveController.forward(from: 0.0);
   }
 
-  void _toggleFollow() {
-    setState(() => _followDriver = !_followDriver);
-    if (_followDriver && _driverLocation != null) {
-      _mapController.move(_driverLocation!, 16.0);
+  void _recenterOnDriver() {
+    final driverPos = _currentDriverLocation ?? _driverLocation;
+    final destPos = _deliveryLocation ?? _initialMapCenter;
+    final s = AppStrings.of(context);
+
+    if (driverPos != null) {
+      setState(() => _followDriver = true);
+      final currentZoom = _mapController.camera.zoom;
+      final targetZoom = currentZoom < 14.5 ? 16.0 : currentZoom;
+      _mapController.move(driverPos, targetZoom);
+      return;
+    }
+
+    if (destPos != null) {
+      setState(() => _followDriver = false);
+      _mapController.move(destPos, 15.0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          content: Text(
+            s.isArabic
+                ? 'في انتظار تحديد موقع الكابتن، تم التمركز على موقع التوصيل'
+                : 'Waiting for captain location, centered on delivery address',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final storeStops = _extractStoreStops();
+    if (storeStops.isNotEmpty) {
+      final stop = storeStops.first;
+      final lat = stop['lat'] as double?;
+      final lng = stop['lng'] as double?;
+      if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+        setState(() => _followDriver = false);
+        _mapController.move(LatLng(lat, lng), 15.0);
+      }
+    }
+  }
+
+  void _fitEntireRoute(List<LatLng> tripPath) {
+    if (tripPath.isEmpty) return;
+    setState(() => _followDriver = false);
+
+    if (tripPath.length == 1) {
+      _mapController.move(tripPath.first, 15.0);
+      return;
+    }
+
+    try {
+      final bounds = LatLngBounds.fromPoints(tripPath);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 70),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Failed to fit route bounds: $e');
     }
   }
 
@@ -785,18 +962,27 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                   builder: (context, _) {
                     final pos = _currentDriverLocation;
                     if (pos == null) return const SizedBox.shrink();
+                    final heading = _currentDriverHeading;
+                    final vehicleType = _driverVehicleType;
+                    final plate = _driverVehiclePlate;
+                    final driverName = _driverDisplayName;
+                    final labelText = plate ?? (driverName.isNotEmpty ? driverName : (s.isArabic ? 'الكابتن' : 'Driver'));
+
                     return MarkerLayer(
                       markers: [
                         Marker(
                           point: pos,
-                          width: 68,
-                          height: 68,
+                          width: 80,
+                          height: 80,
                           child: RepaintBoundary(
-                            child: LiveWalkingDriverMarker(
-                              heading: _driverHeading,
-                              isWalking: _isDriverWalking,
+                            child: InDriveVehicleMarker(
+                              size: 54,
+                              heading: heading,
+                              isMoving: _isDriverWalking,
+                              vehicleType: vehicleType,
+                              plateNumber: plate,
+                              label: labelText,
                               color: AppColors.primary,
-                              label: s.isArabic ? 'الكابتن' : 'Driver',
                             ),
                           ),
                         ),
@@ -808,16 +994,66 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             ),
           Positioned(
             right: 16,
-            bottom: 140,
-            child: FloatingActionButton(
-              heroTag: 'track_follow_driver',
-              onPressed: _toggleFollow,
-              backgroundColor: _followDriver ? AppColors.primary : Colors.white,
-              foregroundColor:
-                  _followDriver ? Colors.white : AppColors.primary,
-              child: Icon(
-                _followDriver ? Icons.my_location : Icons.location_searching,
-              ),
+            bottom: 24,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (tripPath.length >= 2) ...[
+                  Material(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    shadowColor: Colors.black26,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => _fitEntireRoute(tripPath),
+                      child: Tooltip(
+                        message: s.isArabic
+                            ? 'عرض كامل مسار الرحلة'
+                            : 'Fit Entire Route',
+                        child: const Padding(
+                          padding: EdgeInsets.all(11.0),
+                          child: Icon(
+                            Icons.alt_route_rounded,
+                            size: 22,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Material(
+                  color: _followDriver
+                      ? AppColors.primary
+                      : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                  shape: const CircleBorder(),
+                  elevation: 4,
+                  shadowColor: Colors.black26,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _recenterOnDriver,
+                    child: Tooltip(
+                      message: s.isArabic
+                          ? 'إعادة التمركز على الكابتن'
+                          : 'Recenter on Driver',
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Icon(
+                          _followDriver
+                              ? Icons.my_location
+                              : Icons.location_searching,
+                          size: 24,
+                          color: _followDriver
+                              ? Colors.white
+                              : (isDark ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Positioned(
@@ -1130,10 +1366,46 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       ),
                       child: Row(
                         children: [
-                          const CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppColors.primary,
-                            child: Icon(Icons.person, color: Colors.white),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              CircleAvatar(
+                                radius: 21,
+                                backgroundColor: AppColors.primary,
+                                backgroundImage: (_orderDetails!['driver']['avatar'] != null &&
+                                        _orderDetails!['driver']['avatar'].toString().isNotEmpty)
+                                    ? NetworkImage(_orderDetails!['driver']['avatar'].toString())
+                                    : null,
+                                child: (_orderDetails!['driver']['avatar'] == null ||
+                                        _orderDetails!['driver']['avatar'].toString().isEmpty)
+                                    ? const Icon(Icons.person, color: Colors.white, size: 22)
+                                    : null,
+                              ),
+                              Positioned(
+                                bottom: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2.5),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: AppColors.primary, width: 1.2),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 2,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    _vehicleIconData(_driverVehicleType),
+                                    size: 11,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1149,6 +1421,44 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 2,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      _vehicleTypeLabel(_driverVehicleType, s.isArabic),
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white70 : Colors.black87,
+                                      ),
+                                    ),
+                                    if (_driverVehiclePlate != null && _driverVehiclePlate!.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(alpha: 0.14),
+                                          borderRadius: BorderRadius.circular(5),
+                                          border: Border.all(
+                                            color: AppColors.primary.withValues(alpha: 0.35),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _driverVehiclePlate!,
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),

@@ -52,6 +52,8 @@ import { ListenersModule } from './common/listeners/listener.module';
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
 import { WalletModule } from './features/wallet/wallet.module';
 
+import { LegalDocumentsModule } from './features/legal-documents/legal-documents.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -96,6 +98,7 @@ import { WalletModule } from './features/wallet/wallet.module';
     OffersModule,
     AuditLogsModule,
     ReviewsModule,
+    LegalDocumentsModule,
     // Event listeners (must come after all feature modules)
     ListenersModule,
 

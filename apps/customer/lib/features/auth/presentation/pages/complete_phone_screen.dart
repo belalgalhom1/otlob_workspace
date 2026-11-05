@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/router/route_paths.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../providers/auth_controller.dart';
 import '../providers/register_controller.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
@@ -57,6 +58,11 @@ class _CompletePhoneScreenState extends ConsumerState<CompletePhoneScreen> {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
+    final isAr = s.isArabic;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inputFill = isDark ? AppColors.surfaceDark : const Color(0xFFF8F9FB);
+    final inputBorder = isDark ? AppColors.borderDark : const Color(0xFFE2E8F0);
+
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -114,22 +120,81 @@ class _CompletePhoneScreenState extends ConsumerState<CompletePhoneScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _save(),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                     decoration: InputDecoration(
                       labelText: s.phoneNumber,
-                      prefixIcon: const Icon(Icons.phone_outlined),
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                      hintText: '01xxxxxxxxx',
+                      hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.grey.shade400, fontSize: 14),
+                      prefixIcon: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        margin: const EdgeInsetsDirectional.only(end: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: isAr ? BorderSide.none : BorderSide(color: inputBorder),
+                            left: isAr ? BorderSide(color: inputBorder) : BorderSide.none,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('🇪🇬', style: TextStyle(fontSize: 18)),
+                            const SizedBox(width: 6),
+                            Text(
+                              '+20',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: inputFill,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: inputBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: inputBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
                       ),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? s.phoneRequired
-                        : null,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return s.phoneRequired;
+                      final cleaned = v.trim().replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
+                      if (cleaned.length < 9 || cleaned.length > 13) {
+                        return isAr ? 'رقم الهاتف غير صحيح' : 'Invalid phone number';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _isSaving ? null : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
                       child: _isSaving
                           ? const SizedBox(
                               width: 22,
@@ -141,7 +206,7 @@ class _CompletePhoneScreenState extends ConsumerState<CompletePhoneScreen> {
                             )
                           : Text(
                               s.confirm,
-                              style: const TextStyle(fontSize: 18),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),

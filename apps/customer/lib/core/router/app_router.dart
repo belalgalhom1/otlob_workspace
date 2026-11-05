@@ -1,3 +1,5 @@
+import '../../features/legal/presentation/pages/terms_acceptance_gate_screen.dart';
+import '../../features/legal/presentation/pages/legal_document_viewer_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -56,6 +58,10 @@ class RouterNotifier extends ChangeNotifier {
       needsAddressProvider,
       (_, _) => notifyListeners(),
     );
+    _ref.listen<bool>(
+      needsTermsProvider,
+      (_, _) => notifyListeners(),
+    );
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -74,11 +80,20 @@ class RouterNotifier extends ChangeNotifier {
       return RoutePaths.completePhone;
     }
 
+    // Terms gate: authenticated users must accept current terms version
+    if (authStatus == AuthStatus.authenticated &&
+        path != RoutePaths.termsAcceptance &&
+        path != RoutePaths.completePhone &&
+        _ref.read(needsTermsProvider)) {
+      return RoutePaths.termsAcceptance;
+    }
+
     // Address gate: first login (or a fresh account) with no delivery
     // address must add one before continuing anywhere else.
     if (authStatus == AuthStatus.authenticated &&
         path != '/addresses' &&
         path != RoutePaths.completePhone &&
+        path != RoutePaths.termsAcceptance &&
         _ref.read(needsAddressProvider)) {
       return '/addresses';
     }
@@ -307,6 +322,22 @@ GoRouter appRouter(Ref ref) {
         path: '/coin-history',
         name: 'coinHistory',
         builder: (context, state) => const CoinHistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.termsAcceptance,
+        name: RouteNames.termsAcceptance,
+        builder: (context, state) => const TermsAcceptanceGateScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.legalViewer,
+        name: RouteNames.legalViewer,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return LegalDocumentViewerPage(
+            type: extra['type']?.toString() ?? 'TERMS_OF_USE',
+            initialTitle: extra['title']?.toString(),
+          );
+        },
       ),
     ],
   );

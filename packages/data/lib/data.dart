@@ -25,6 +25,7 @@ export 'src/admin/admin_vendors_repository.dart';
 export 'src/admin/admin_verticals_repository.dart';
 export 'src/admin/admin_wallet_repository.dart';
 export 'src/admin/admin_zones_repository.dart';
+export 'src/admin/admin_legal_documents_repository.dart';
 
 // Export Customer Repositories
 export 'src/customer/customer_addresses_repository.dart';
@@ -58,6 +59,7 @@ export 'src/shared/shared_tickets_repository.dart';
 export 'src/shared/shared_user_repository.dart';
 export 'src/shared/shared_verticals_repository.dart';
 export 'src/shared/shared_wallet_repository.dart';
+export 'src/shared/shared_legal_documents_repository.dart';
 
 // Export Vendor Repositories
 export 'src/vendor/vendor_branches_repository.dart';

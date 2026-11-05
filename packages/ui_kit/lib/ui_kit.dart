@@ -42,3 +42,6 @@ export 'src/widgets/map/navigation_route_polyline.dart';
 export 'src/widgets/map/navigation_map_launcher.dart';
 export 'src/widgets/map/speed_limit_service.dart';
 export 'src/widgets/map/navigation_markers.dart';
+
+export 'src/widgets/legal_document_view.dart';
+export 'src/widgets/terms_acceptance_dialog.dart';

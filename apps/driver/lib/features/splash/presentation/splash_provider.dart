@@ -17,6 +17,7 @@ enum AppStartupState {
   activeOrder,
   maintenance,
   forceUpdate,
+  needsTerms,
 }
 
 class UpdateStoreUrl extends Notifier<String?> {
@@ -104,6 +105,12 @@ class Splash extends _$Splash {
       
       if (profile['status'] == 'SUSPENDED') {
         return AppStartupState.suspended;
+      }
+
+      final legalRepo = ref.read(sharedLegalDocumentsRepositoryProvider);
+      final termsStatus = await legalRepo.getAcceptanceStatus();
+      if (termsStatus != null && termsStatus['needsAcceptance'] == true) {
+        return AppStartupState.needsTerms;
       }
 
       // Always connect the socket so the driver receives payment status,

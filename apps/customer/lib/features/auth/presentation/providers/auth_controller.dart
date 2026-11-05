@@ -40,6 +40,25 @@ class NeedsAddress extends Notifier<bool> {
 final needsAddressProvider =
     NotifierProvider<NeedsAddress, bool>(NeedsAddress.new);
 
+class NeedsTerms extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final needsTermsProvider = NotifierProvider<NeedsTerms, bool>(NeedsTerms.new);
+
+/// Returns true when the current user has not accepted the latest published terms of use.
+Future<bool> userNeedsTermsAcceptance(Ref ref) async {
+  try {
+    final status = await ref.read(sharedLegalDocumentsRepositoryProvider).getAcceptanceStatus();
+    return status?['needsAcceptance'] == true;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Returns true when the current user has no delivery address saved.
 Future<bool> userMissingAddress(Ref ref) async {
   try {
@@ -134,6 +153,7 @@ class AuthController extends _$AuthController {
     // For now, treat all authenticated users as verified
     // If verification state is needed, fetch it from profile
     state = AuthStatus.authenticated;
+    ref.read(needsTermsProvider.notifier).set(await userNeedsTermsAcceptance(ref));
     ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
     ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
     try {
@@ -148,6 +168,7 @@ class AuthController extends _$AuthController {
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     await authRepo.login(email, password, appType: 'customer');
     state = AuthStatus.authenticated;
+    ref.read(needsTermsProvider.notifier).set(await userNeedsTermsAcceptance(ref));
     ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
     ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
     try {
@@ -170,6 +191,7 @@ class AuthController extends _$AuthController {
           ..app = SocialLoginDtoAppEnum.customer),
       );
       state = AuthStatus.authenticated;
+      ref.read(needsTermsProvider.notifier).set(await userNeedsTermsAcceptance(ref));
       ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
       ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
       try {

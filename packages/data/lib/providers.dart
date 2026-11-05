@@ -69,3 +69,6 @@ final vendorPromotionsRepositoryProvider = Provider<VendorPromotionsRepository>(
 final vendorStatisticsRepositoryProvider = Provider<VendorStatisticsRepository>((ref) => VendorStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final vendorWalletRepositoryProvider = Provider<VendorWalletRepository>((ref) => VendorWalletRepository(ref.watch(apiClientProvider).getVendorsWalletTransactionsApi(), ref.watch(apiClientProvider).getWalletFinancialsApi(), dio: ref.watch(dioProvider)));
 
+
+final adminLegalDocumentsRepositoryProvider = Provider<AdminLegalDocumentsRepository>((ref) => AdminLegalDocumentsRepository(ref.watch(dioProvider)));
+final sharedLegalDocumentsRepositoryProvider = Provider<SharedLegalDocumentsRepository>((ref) => SharedLegalDocumentsRepository(ref.watch(dioProvider)));
