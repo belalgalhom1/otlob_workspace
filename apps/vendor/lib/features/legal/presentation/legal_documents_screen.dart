@@ -305,7 +305,10 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         ],
 
         // Section Title: Version History
-        Row(
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               isArabic ? 'سجل الإصدارات' : 'Version History',
@@ -378,8 +381,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
           final titleWidget = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xs,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -398,7 +402,6 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
                   Text(
                     'v$version',
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -414,6 +417,8 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           );
@@ -522,7 +527,10 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 // Status Badge
                 Container(
@@ -561,7 +569,6 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                     ],
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
                 // Version Chip
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -580,19 +587,26 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                     ),
                   ),
                 ),
-                const Spacer(),
-                // Acceptances
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
                 Icon(
                   LucideIcons.userCheck,
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  '$count ${isArabic ? 'موافقات' : 'acceptances'}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    '$count ${isArabic ? 'موافقات' : 'acceptances'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -605,6 +619,8 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
             Text(
@@ -612,6 +628,8 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: AppSpacing.md),
             Divider(color: theme.dividerColor.withValues(alpha: 0.1)),
