@@ -26,7 +26,9 @@ enum SocketEvent {
   platformSettingsUpdated('platform.settings.updated'),
 
   /// Driver (Client to Server)
-  driverLocationUpdate('driver.location.update');
+  driverLocationUpdate('driver.location.update'),
+  driverTrack('driver.track'),
+  driverUntrack('driver.untrack');
 
   final String eventName;
   const SocketEvent(this.eventName);

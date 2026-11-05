@@ -47,6 +47,18 @@ export class DriverListener {
           ),
         );
     }
+
+    // Also broadcast to driver room so admin / dashboard locating this driver can listen in real-time
+    this.socketService
+      .emitToRoom(`driver_${event.driverId}`, 'driver.location', {
+        ...payload,
+        orderId: event.activeOrderId,
+      })
+      .catch((err: unknown) =>
+        this.logger.error(
+          `Failed to emit driver room location: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
   }
 
   @OnEvent(EVENTS.DRIVER_STATUS_CHANGED, { async: true })

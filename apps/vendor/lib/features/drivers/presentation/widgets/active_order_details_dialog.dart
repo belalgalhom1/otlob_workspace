@@ -127,8 +127,17 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     // Vendor / Pickup
     final vendor = order['vendor'] is Map ? order['vendor'] as Map : {};
     final vendorBranch = order['vendorBranch'] is Map ? order['vendorBranch'] as Map : {};
-    final vendorName = vendor['name']?.toString() ?? (isArabic ? 'المتجر' : 'Vendor');
-    final branchName = vendorBranch['name']?.toString() ?? '';
+    final vendorStoreName = isArabic
+        ? (vendor['storeNameAr'] ?? vendor['storeName'] ?? vendor['name'])
+        : (vendor['storeName'] ?? vendor['storeNameAr'] ?? vendor['name']);
+    final branchName = isArabic
+        ? (vendorBranch['nameAr'] ?? vendorBranch['name'])
+        : (vendorBranch['name'] ?? vendorBranch['nameAr']);
+    final vendorName = (vendorStoreName != null && vendorStoreName.toString().trim().isNotEmpty)
+        ? (branchName != null && branchName.toString().trim().isNotEmpty
+            ? '$vendorStoreName - $branchName'
+            : vendorStoreName.toString().trim())
+        : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
     final pickupAddress = order['pickupAddress']?.toString() ??
         vendorBranch['address']?.toString() ??
         vendor['address']?.toString() ??

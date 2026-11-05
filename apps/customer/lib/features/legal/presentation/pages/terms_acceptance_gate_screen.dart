@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
+import '../../../../core/router/route_paths.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 
 class TermsAcceptanceGateScreen extends ConsumerStatefulWidget {
@@ -71,9 +73,11 @@ class _TermsAcceptanceGateScreenState
 
       // Successfully accepted: clear gate!
       ref.read(needsTermsProvider.notifier).set(false);
+      if (mounted) {
+        context.go(RoutePaths.home);
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSubmitting = false);
         final isAr = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -85,6 +89,10 @@ class _TermsAcceptanceGateScreenState
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }

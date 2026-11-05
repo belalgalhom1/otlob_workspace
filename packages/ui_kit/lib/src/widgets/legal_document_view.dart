@@ -11,6 +11,7 @@ class LegalDocumentView extends StatelessWidget {
   final String? lastUpdated;
   final String content;
   final bool isArabic;
+  final bool showHeader;
   final VoidCallback? onLanguageToggle;
   final VoidCallback? onShare;
   final bool isLoading;
@@ -25,6 +26,7 @@ class LegalDocumentView extends StatelessWidget {
     this.lastUpdated,
     required this.content,
     this.isArabic = false,
+    this.showHeader = true,
     this.onLanguageToggle,
     this.onShare,
     this.isLoading = false,
@@ -97,125 +99,127 @@ class LegalDocumentView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header card with metadata and language toggle
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
-                  : theme.colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.15),
+          if (showHeader) ...[
+            // Header card with metadata and language toggle
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
+                    : theme.colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: theme.dividerColor.withValues(alpha: 0.15),
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                // Version Chip
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.3),
+              child: Row(
+                children: [
+                  // Version Chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.gitBranch,
+                          size: 13,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'v$version',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        LucideIcons.gitBranch,
-                        size: 13,
-                        color: AppColors.primary,
+                  const SizedBox(width: AppSpacing.sm),
+                  if (lastUpdated != null && lastUpdated!.isNotEmpty)
+                    Expanded(
+                      child: Text(
+                        lastUpdated!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'v$version',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
+                    )
+                  else
+                    const Spacer(),
+                  if (onLanguageToggle != null) ...[
+                    InkWell(
+                      onTap: onLanguageToggle,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.languages,
+                              size: 14,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isArabic ? 'English' : 'عربي',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                if (lastUpdated != null && lastUpdated!.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      lastUpdated!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                else
-                  const Spacer(),
-                if (onLanguageToggle != null) ...[
-                  InkWell(
-                    onTap: onLanguageToggle,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: AppSpacing.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.languages,
-                            size: 14,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isArabic ? 'English' : 'عربي',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                  ],
+                  if (onShare != null) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    IconButton(
+                      icon: const Icon(LucideIcons.share2, size: 18),
+                      onPressed: onShare,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: isArabic ? 'مشاركة' : 'Share',
                     ),
-                  ),
+                  ],
                 ],
-                if (onShare != null) ...[
-                  const SizedBox(width: AppSpacing.xs),
-                  IconButton(
-                    icon: const Icon(LucideIcons.share2, size: 18),
-                    onPressed: onShare,
-                    visualDensity: VisualDensity.compact,
-                    tooltip: isArabic ? 'مشاركة' : 'Share',
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.lg),
 
-          // Main Title
-          Text(
-            title,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              height: 1.3,
+            // Main Title
+            Text(
+              title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                height: 1.3,
+              ),
+              textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
             ),
-            textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Divider(color: theme.dividerColor.withValues(alpha: 0.2)),
-          const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.md),
+            Divider(color: theme.dividerColor.withValues(alpha: 0.2)),
+            const SizedBox(height: AppSpacing.md),
+          ],
 
           // Content body
           Directionality(

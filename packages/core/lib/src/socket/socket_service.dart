@@ -105,7 +105,11 @@ class CoreSocketService with WidgetsBindingObserver {
     // stacked a duplicate handler on every reconnect, doubling each event.
     for (var event in SocketEvent.values) {
       // Skip client-emitted events
-      if (event == SocketEvent.driverLocationUpdate) continue;
+      if (event == SocketEvent.driverLocationUpdate ||
+          event == SocketEvent.driverTrack ||
+          event == SocketEvent.driverUntrack) {
+        continue;
+      }
 
       _socket?.on(event.eventName, (data) {
         if (!_controllers[event]!.isClosed) {
@@ -150,6 +154,11 @@ class CoreSocketService with WidgetsBindingObserver {
   /// Emit strongly typed events back to the server
   void emit(SocketEvent event, dynamic data) {
     _socket?.emit(event.eventName, data);
+  }
+
+  /// Emit raw string event back to the server
+  void emitRaw(String eventName, dynamic data) {
+    _socket?.emit(eventName, data);
   }
 
   void connect() => _socket?.connect();

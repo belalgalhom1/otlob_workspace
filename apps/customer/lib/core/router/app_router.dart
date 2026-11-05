@@ -136,7 +136,10 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     if (authStatus == AuthStatus.authenticated) {
-      if (isAuthRoute || isGoingToSplash || isGoingToOnboarding) {
+      if (isAuthRoute ||
+          isGoingToSplash ||
+          isGoingToOnboarding ||
+          (path == RoutePaths.termsAcceptance && !_ref.read(needsTermsProvider))) {
         return RoutePaths.home;
       }
     }

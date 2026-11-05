@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'driver_managers_screen.dart';
@@ -22,7 +24,6 @@ import 'widgets/assist_requests_dialog.dart';
 import 'driver_statistics_screen.dart';
 import 'all_drivers_statistics_screen.dart';
 import '../../zones/presentation/zone_provider.dart';
-import 'package:data/data.dart';
 import 'widgets/driver_map_details_card.dart';
 import 'widgets/active_order_details_dialog.dart';
 
@@ -33,7 +34,8 @@ class DriversScreen extends ConsumerStatefulWidget {
   ConsumerState<DriversScreen> createState() => _DriversScreenState();
 }
 
-class _DriversScreenState extends ConsumerState<DriversScreen> {
+class _DriversScreenState extends ConsumerState<DriversScreen>
+    with SingleTickerProviderStateMixin {
   String? _selectedStatus;
   String? _selectedZoneId;
   List<LatLng> _selectedZonePolygon = [];
@@ -49,20 +51,203 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
   int _mobileViewMode = 0; // 0 = List, 1 = Map
   final MapController _mapController = MapController();
 
+  late final AnimationController _driverMoveController;
+  LatLng? _driverAnimStart;
+  LatLng? _driverAnimTarget;
+  double _driverHeading = 0.0;
+  double _driverStartHeading = 0.0;
+  double _driverTargetHeading = 0.0;
+  bool _isDriverMoving = false;
+  Timer? _driverRenderTimer;
+  LatLng? _pendingDriverLocation;
+  double? _pendingDriverHeading;
+  Timer? _driverPollTimer;
+  StreamSubscription<dynamic>? _driverLocationSub;
+  String? _trackedDriverId;
+
+  static double _lerpAngle(double from, double to, double t) {
+    double diff = (to - from) % 360.0;
+    if (diff > 180.0) diff -= 360.0;
+    if (diff < -180.0) diff += 360.0;
+    return (from + diff * t) % 360.0;
+  }
+
+  double _calculateBearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * (math.pi / 180.0);
+    final lon1 = start.longitude * (math.pi / 180.0);
+    final lat2 = end.latitude * (math.pi / 180.0);
+    final lon2 = end.longitude * (math.pi / 180.0);
+    final dLon = lon2 - lon1;
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = math.atan2(y, x) * (180.0 / math.pi);
+    return (brng + 360.0) % 360.0;
+  }
+
+  LatLng? get _currentDriverLocation {
+    if (_driverAnimStart != null &&
+        _driverAnimTarget != null &&
+        _driverMoveController.isAnimating) {
+      final t = CurvedAnimation(
+        parent: _driverMoveController,
+        curve: Curves.easeInOut,
+      ).value;
+      final curLat = _driverAnimStart!.latitude +
+          (_driverAnimTarget!.latitude - _driverAnimStart!.latitude) * t;
+      final curLng = _driverAnimStart!.longitude +
+          (_driverAnimTarget!.longitude - _driverAnimStart!.longitude) * t;
+      return LatLng(curLat, curLng);
+    }
+    return _selectedDriverLocation;
+  }
+
+  double get _currentDriverHeading {
+    if (_driverMoveController.isAnimating) {
+      final t = CurvedAnimation(
+        parent: _driverMoveController,
+        curve: Curves.easeInOut,
+      ).value;
+      return _lerpAngle(_driverStartHeading, _driverTargetHeading, t);
+    }
+    return _driverHeading;
+  }
+
   @override
   void initState() {
     super.initState();
+    _driverMoveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _driverMoveController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _driverMoveController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() {
+          _isDriverMoving = false;
+          _selectedDriverLocation = _driverAnimTarget ?? _selectedDriverLocation;
+        });
+      }
+    });
+
     _scrollController.addListener(_onScroll);
-    // NOTE: no loadMore() here — DriversNotifier.build() already fetches
-    // page 1; an extra call only double-fetched (or skipped to page 2).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPermissions();
       ref.read(zoneProvider.notifier).fetchZones();
+      _initDriverSocket();
+    });
+  }
+
+  void _initDriverSocket() {
+    try {
+      final socket = ref.read(socketServiceProvider);
+      socket.init();
+      _driverLocationSub?.cancel();
+      _driverLocationSub = socket
+          .onEvent(SocketEvent.driverLocation)
+          .listen(_onDriverLocationSocketEvent);
+    } catch (e) {
+      debugPrint('Error initializing driver tracking socket: $e');
+    }
+  }
+
+  void _onDriverLocationSocketEvent(dynamic data) {
+    if (data == null || !mounted) return;
+    final driverId = data['driverId']?.toString();
+    if (driverId != null && driverId == _selectedDriver?.id) {
+      final lat = (data['latitude'] ?? data['lat']) as num?;
+      final lng = (data['longitude'] ?? data['lng']) as num?;
+      final heading = (data['heading'] as num?)?.toDouble();
+      if (lat != null && lng != null && lat.toDouble().isFinite && lng.toDouble().isFinite) {
+        _queueDriverLocation(LatLng(lat.toDouble(), lng.toDouble()), heading);
+      }
+    }
+  }
+
+  void _queueDriverLocation(LatLng point, double? heading) {
+    _pendingDriverLocation = point;
+    _pendingDriverHeading = heading;
+    _driverRenderTimer?.cancel();
+    _driverRenderTimer = Timer(const Duration(milliseconds: 250), _applyDriverLocation);
+  }
+
+  void _applyDriverLocation() {
+    _driverRenderTimer = null;
+    final target = _pendingDriverLocation;
+    final heading = _pendingDriverHeading;
+    _pendingDriverLocation = null;
+    _pendingDriverHeading = null;
+    if (target == null || !mounted) return;
+
+    if (_selectedDriverLocation == null) {
+      setState(() {
+        _selectedDriverLocation = target;
+        _selectedDriverIsLive = true;
+        _driverHeading = heading ?? 0.0;
+        _driverStartHeading = _driverHeading;
+        _driverTargetHeading = _driverHeading;
+      });
+      return;
+    }
+
+    final dist = const Distance().as(LengthUnit.Meter, _selectedDriverLocation!, target);
+    if (dist < 1.0) {
+      if (heading != null && (heading - _driverHeading).abs() > 5.0) {
+        setState(() {
+          _driverHeading = heading;
+          _driverStartHeading = heading;
+          _driverTargetHeading = heading;
+        });
+      }
+      return;
+    }
+
+    final newHeading = heading ?? _calculateBearing(_selectedDriverLocation!, target);
+    _driverStartHeading = _currentDriverHeading;
+    _driverTargetHeading = newHeading;
+    _driverHeading = newHeading;
+    _driverAnimStart = _currentDriverLocation ?? _selectedDriverLocation;
+    _driverAnimTarget = target;
+    _isDriverMoving = true;
+    _selectedDriverIsLive = true;
+    _driverMoveController.forward(from: 0.0);
+  }
+
+  void _clearSelectedDriver() {
+    if (_trackedDriverId != null) {
+      try {
+        ref.read(socketServiceProvider).emit(SocketEvent.driverUntrack, {'driverId': _trackedDriverId});
+      } catch (_) {}
+      _trackedDriverId = null;
+    }
+    _driverPollTimer?.cancel();
+    _driverRenderTimer?.cancel();
+    _driverMoveController.stop();
+    setState(() {
+      _selectedDriver = null;
+      _selectedDriverLocation = null;
+      _driverAnimStart = null;
+      _driverAnimTarget = null;
+      _isDriverMoving = false;
+      _selectedDriverOrder = null;
+      _orderPickupLocation = null;
+      _orderDeliveryLocation = null;
     });
   }
 
   @override
   void dispose() {
+    _driverMoveController.dispose();
+    _driverRenderTimer?.cancel();
+    _driverPollTimer?.cancel();
+    _driverLocationSub?.cancel();
+    if (_trackedDriverId != null) {
+      try {
+        ref.read(socketServiceProvider).emit(SocketEvent.driverUntrack, {'driverId': _trackedDriverId});
+      } catch (_) {}
+    }
     _scrollController.dispose();
     _searchController.dispose();
     _mapController.dispose();
@@ -394,12 +579,28 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       setState(() => _mobileViewMode = 1);
     }
 
+    if (_trackedDriverId != null && _trackedDriverId != driver.id) {
+      try {
+        ref.read(socketServiceProvider).emit(SocketEvent.driverUntrack, {'driverId': _trackedDriverId});
+      } catch (_) {}
+    }
+    _trackedDriverId = driver.id;
+    try {
+      ref.read(socketServiceProvider).emit(SocketEvent.driverTrack, {'driverId': driver.id});
+    } catch (_) {}
+
     setState(() {
       _selectedDriver = driver;
       _isLoadingDriverOrder = true;
       _selectedDriverOrder = null;
       _orderPickupLocation = null;
       _orderDeliveryLocation = null;
+      _driverAnimStart = null;
+      _driverAnimTarget = null;
+      _isDriverMoving = false;
+      _driverHeading = 0.0;
+      _driverStartHeading = 0.0;
+      _driverTargetHeading = 0.0;
     });
 
     try {
@@ -488,6 +689,27 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
         _isLoadingDriverOrder = false;
         _orderPickupLocation = pickup;
         _orderDeliveryLocation = delivery;
+      });
+
+      _driverPollTimer?.cancel();
+      _driverPollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+        if (!mounted || _selectedDriver?.id != driver.id) return;
+        try {
+          final locRes = await ref
+              .read(adminDriversRepositoryProvider)
+              .getDriverLocation(driverId: driver.id);
+          final locMap = (locRes is Map) ? locRes : null;
+          if (locMap != null && mounted && _selectedDriver?.id == driver.id) {
+            final lLat = (locMap['latitude'] as num?)?.toDouble() ??
+                (locMap['lat'] as num?)?.toDouble();
+            final lLng = (locMap['longitude'] as num?)?.toDouble() ??
+                (locMap['lng'] as num?)?.toDouble();
+            final heading = (locMap['heading'] as num?)?.toDouble();
+            if (lLat != null && lLng != null && lLat.isFinite && lLng.isFinite) {
+              _queueDriverLocation(LatLng(lLat, lLng), heading);
+            }
+          }
+        } catch (_) {}
       });
 
       final points = [
@@ -625,118 +847,134 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: FlutterMap(
-                        mapController: sheetMapController,
-                        options: MapOptions(
-                          initialCenter: location,
-                          initialZoom: 15.0,
-                          onMapReady: () {
-                            if (routePoints.length > 1) {
-                              try {
-                                final b = LatLngBounds.fromPoints(routePoints);
-                                sheetMapController.fitCamera(
-                                  CameraFit.bounds(
-                                    bounds: b,
-                                    padding: const EdgeInsets.all(40),
+                      child: AnimatedBuilder(
+                        animation: _driverMoveController,
+                        builder: (ctx, _) {
+                          final curLoc = _currentDriverLocation ?? location;
+                          final sheetPolylines = <Polyline>[];
+                          if (activeOrder != null) {
+                            final st = (activeOrder['status']?.toString() ?? '').toUpperCase();
+                            final isHeadingToCustomer = (st == 'PICKED_UP');
+                            if (isHeadingToCustomer && deliveryLocation != null) {
+                              sheetPolylines.add(
+                                Polyline(
+                                  points: [curLoc, deliveryLocation],
+                                  color: AppColors.primary,
+                                  strokeWidth: 4.5,
+                                ),
+                              );
+                            } else if (!isHeadingToCustomer) {
+                              if (pickupLocation != null) {
+                                sheetPolylines.add(
+                                  Polyline(
+                                    points: [curLoc, pickupLocation],
+                                    color: Colors.amber.shade700,
+                                    strokeWidth: 4.5,
                                   ),
                                 );
-                              } catch (_) {}
+                              }
+                              if (pickupLocation != null && deliveryLocation != null) {
+                                sheetPolylines.add(
+                                  Polyline(
+                                    points: [pickupLocation, deliveryLocation],
+                                    color: Colors.blue.withValues(alpha: 0.65),
+                                    strokeWidth: 3.5,
+                                  ),
+                                );
+                              }
                             }
-                          },
-                        ),
-                        children: [
-                          const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
-                          if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
-                          MarkerLayer(
-                            markers: [
-                              // Driver marker
-                              Marker(
-                                point: location,
-                                width: 52,
-                                height: 52,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    Container(
-                                      width: 52,
-                                      height: 52,
-                                      decoration: BoxDecoration(
-                                        color: (isLive ? AppColors.success : AppColors.primary)
-                                            .withValues(alpha: 0.25),
-                                        shape: BoxShape.circle,
+                          }
+
+                          return FlutterMap(
+                            mapController: sheetMapController,
+                            options: MapOptions(
+                              initialCenter: curLoc,
+                              initialZoom: 15.0,
+                              onMapReady: () {
+                                if (routePoints.length > 1) {
+                                  try {
+                                    final b = LatLngBounds.fromPoints(routePoints);
+                                    sheetMapController.fitCamera(
+                                      CameraFit.bounds(
+                                        bounds: b,
+                                        padding: const EdgeInsets.all(40),
                                       ),
-                                    ),
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
+                                    );
+                                  } catch (_) {}
+                                }
+                              },
+                            ),
+                            children: [
+                              const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
+                              if (sheetPolylines.isNotEmpty) PolylineLayer(polylines: sheetPolylines),
+                              MarkerLayer(
+                                markers: [
+                                  // Driver vehicle marker
+                                  Marker(
+                                    point: curLoc,
+                                    width: 72,
+                                    height: 72,
+                                    child: RepaintBoundary(
+                                      child: InDriveVehicleMarker(
+                                        size: 48,
+                                        heading: _currentDriverHeading,
+                                        isMoving: _isDriverMoving,
+                                        vehicleType: driver.vehicleType ?? 'MOTORCYCLE',
+                                        plateNumber: driver.vehiclePlate,
+                                        label: driver.name,
                                         color: isLive ? AppColors.success : AppColors.primary,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 2),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.25),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        LucideIcons.navigation,
-                                        size: 18,
-                                        color: Colors.white,
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  // Store / Pickup marker
+                                  if (pickupLocation != null)
+                                    Marker(
+                                      point: pickupLocation,
+                                      width: 44,
+                                      height: 44,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade700,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.25),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(LucideIcons.store, size: 20, color: Colors.white),
+                                      ),
+                                    ),
+                                  // Customer / Delivery marker
+                                  if (deliveryLocation != null)
+                                    Marker(
+                                      point: deliveryLocation,
+                                      width: 44,
+                                      height: 44,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: AppColors.success,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.25),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(LucideIcons.mapPin, size: 22, color: Colors.white),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              // Store / Pickup marker
-                              if (pickupLocation != null)
-                                Marker(
-                                  point: pickupLocation,
-                                  width: 44,
-                                  height: 44,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade700,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.25),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(LucideIcons.store, size: 20, color: Colors.white),
-                                  ),
-                                ),
-                              // Customer / Delivery marker
-                              if (deliveryLocation != null)
-                                Marker(
-                                  point: deliveryLocation,
-                                  width: 44,
-                                  height: 44,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: AppColors.success,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.25),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(LucideIcons.mapPin, size: 22, color: Colors.white),
-                                  ),
-                                ),
                             ],
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
                     // Google Maps direct pin button overlay
@@ -1701,12 +1939,12 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
       child: state.maybeWhen(
         data: (data) {
           final List<Marker> markers = [];
-          bool selectedRendered = false;
 
           // Route Polylines
           final polylines = <Polyline>[];
+          final curDriverPos = _currentDriverLocation ?? _selectedDriverLocation;
           if (_selectedDriver != null &&
-              _selectedDriverLocation != null &&
+              curDriverPos != null &&
               _selectedDriverOrder != null) {
             final st =
                 (_selectedDriverOrder!['status']?.toString() ?? '').toUpperCase();
@@ -1715,7 +1953,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
             if (isHeadingToCustomer && _orderDeliveryLocation != null) {
               polylines.add(
                 Polyline(
-                  points: [_selectedDriverLocation!, _orderDeliveryLocation!],
+                  points: [curDriverPos, _orderDeliveryLocation!],
                   color: AppColors.primary,
                   strokeWidth: 4.5,
                 ),
@@ -1724,7 +1962,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               if (_orderPickupLocation != null) {
                 polylines.add(
                   Polyline(
-                    points: [_selectedDriverLocation!, _orderPickupLocation!],
+                    points: [curDriverPos, _orderPickupLocation!],
                     color: Colors.amber.shade700,
                     strokeWidth: 4.5,
                   ),
@@ -1742,91 +1980,13 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
             }
           }
 
-          // Build Markers for all drivers
+          // Build Markers for unselected drivers
           for (final d in data.drivers) {
-            final isSelected = _selectedDriver?.id == d.id;
-            if (isSelected && _selectedDriverLocation != null) {
-              selectedRendered = true;
-              markers.add(
-                Marker(
-                  point: _selectedDriverLocation!,
-                  width: 90,
-                  height: 70,
-                  child: GestureDetector(
-                    onTap: () => _locateDriver(d),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.25),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Text(
-                            d.name,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: (_selectedDriverIsLive ? AppColors.success : AppColors.primary)
-                                    .withValues(alpha: 0.25),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.25),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                LucideIcons.navigation,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            } else if (d.location != null && d.location!.length >= 2) {
+            if (_selectedDriver?.id == d.id) {
+              // Selected driver is rendered below as animated InDriveVehicleMarker
+              continue;
+            }
+            if (d.location != null && d.location!.length >= 2) {
               final lat = d.location![1];
               final lng = d.location![0];
               markers.add(
@@ -1861,82 +2021,22 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
             }
           }
 
-          if (!selectedRendered && _selectedDriver != null && _selectedDriverLocation != null) {
+          // Selected Driver: Smooth Animated InDrive Vehicle Marker
+          if (_selectedDriver != null && curDriverPos != null) {
             markers.add(
               Marker(
-                point: _selectedDriverLocation!,
-                width: 90,
-                height: 70,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                          border: Border.all(
-                            color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Text(
-                          _selectedDriver!.name,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: (_selectedDriverIsLive ? AppColors.success : AppColors.primary)
-                                  .withValues(alpha: 0.25),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.25),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              LucideIcons.navigation,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                point: curDriverPos,
+                width: 80,
+                height: 80,
+                child: RepaintBoundary(
+                  child: InDriveVehicleMarker(
+                    size: 54,
+                    heading: _currentDriverHeading,
+                    isMoving: _isDriverMoving,
+                    vehicleType: _selectedDriver?.vehicleType ?? 'MOTORCYCLE',
+                    plateNumber: _selectedDriver?.vehiclePlate,
+                    label: _selectedDriver?.name,
+                    color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
                   ),
                 ),
               ),
@@ -1945,8 +2045,19 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
 
           // Active Order Store / Pickup Marker
           if (_orderPickupLocation != null) {
-            final vendorName = _selectedDriverOrder?['vendor']?['name']?.toString() ??
-                (isArabic ? 'المتجر' : 'Vendor');
+            final vendorMap = _selectedDriverOrder?['vendor'] is Map ? _selectedDriverOrder!['vendor'] as Map : {};
+            final vendorBranchMap = _selectedDriverOrder?['vendorBranch'] is Map ? _selectedDriverOrder!['vendorBranch'] as Map : {};
+            final vendorStoreName = isArabic
+                ? (vendorMap['storeNameAr'] ?? vendorMap['storeName'] ?? vendorMap['name'])
+                : (vendorMap['storeName'] ?? vendorMap['storeNameAr'] ?? vendorMap['name']);
+            final branchName = isArabic
+                ? (vendorBranchMap['nameAr'] ?? vendorBranchMap['name'])
+                : (vendorBranchMap['name'] ?? vendorBranchMap['nameAr']);
+            final vendorName = (vendorStoreName != null && vendorStoreName.toString().trim().isNotEmpty)
+                ? (branchName != null && branchName.toString().trim().isNotEmpty
+                    ? '$vendorStoreName - $branchName'
+                    : vendorStoreName.toString().trim())
+                : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
             markers.add(
               Marker(
                 point: _orderPickupLocation!,
@@ -2065,7 +2176,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
           }
 
           final routePoints = [
-            ?_selectedDriverLocation,
+            ?curDriverPos,
             ?_orderPickupLocation,
             ?_orderDeliveryLocation,
           ];
@@ -2075,8 +2186,8 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: _selectedDriverLocation ?? const LatLng(30.0444, 31.2357),
-                  initialZoom: _selectedDriverLocation != null ? 15 : 12,
+                  initialCenter: curDriverPos ?? const LatLng(30.0444, 31.2357),
+                  initialZoom: curDriverPos != null ? 15 : 12,
                 ),
                 children: [
                   const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
@@ -2151,12 +2262,12 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                       ),
-                    if (_selectedDriverLocation != null) ...[
+                    if (curDriverPos != null) ...[
                       const SizedBox(width: 8),
                       IconButton.filledTonal(
                         onPressed: () {
                           try {
-                            _mapController.move(_selectedDriverLocation!, 16);
+                            _mapController.move(curDriverPos, 16);
                           } catch (_) {}
                         },
                         icon: const Icon(LucideIcons.locateFixed, size: 16),
@@ -2165,8 +2276,8 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
                       const SizedBox(width: 6),
                       IconButton.filledTonal(
                         onPressed: () => _openInMaps(
-                          _selectedDriverLocation!.latitude,
-                          _selectedDriverLocation!.longitude,
+                          curDriverPos.latitude,
+                          curDriverPos.longitude,
                           label: _selectedDriver?.name,
                         ),
                         icon: const Icon(LucideIcons.externalLink, size: 16),
@@ -2178,26 +2289,20 @@ class _DriversScreenState extends ConsumerState<DriversScreen> {
               ),
 
               // Selected Driver Detailed Floating Card (Bottom)
-              if (_selectedDriver != null && _selectedDriverLocation != null)
+              if (_selectedDriver != null && curDriverPos != null)
                 Positioned(
                   bottom: 16,
                   left: 16,
                   right: 16,
                   child: DriverMapDetailsCard(
                     driver: _selectedDriver!,
-                    location: _selectedDriverLocation!,
+                    location: curDriverPos,
                     isLive: _selectedDriverIsLive,
                     activeOrder: _selectedDriverOrder,
                     isLoadingOrder: _isLoadingDriverOrder,
                     pickupLocation: _orderPickupLocation,
                     deliveryLocation: _orderDeliveryLocation,
-                    onClose: () => setState(() {
-                      _selectedDriver = null;
-                      _selectedDriverLocation = null;
-                      _selectedDriverOrder = null;
-                      _orderPickupLocation = null;
-                      _orderDeliveryLocation = null;
-                    }),
+                    onClose: _clearSelectedDriver,
                     onCallPhone: (phone) => _callDriver(phone),
                     onOpenMaps: (lat, lng, {label}) => _openInMaps(lat, lng, label: label),
                     onAssignOrder: () {

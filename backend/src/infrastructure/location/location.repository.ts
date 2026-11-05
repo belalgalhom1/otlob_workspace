@@ -79,6 +79,19 @@ export class LocationRepository {
           ),
         );
       }
+    } else {
+      // Driver has no active order, still emit location event so admin tracking map can follow driver live
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_LOCATION_UPDATED,
+        new DriverLocationUpdatedEvent(
+          driverId,
+          userId,
+          lng,
+          lat,
+          null,
+          null,
+        ),
+      );
     }
   }
 
@@ -470,6 +483,7 @@ export class LocationRepository {
     {
       id: string;
       userId: string;
+      tier?: string;
       distanceKm: number;
       activeShiftId: string | null;
       isOnDelivery?: boolean;
@@ -573,6 +587,7 @@ export class LocationRepository {
       SELECT
         d.id,
         d."userId",
+        d.tier,
         ds.id AS "activeShiftId",
         (d.status::text = 'ON_DELIVERY') AS "isOnDelivery"
       FROM drivers d
@@ -624,6 +639,7 @@ export class LocationRepository {
     const results = rows.map((r) => ({
       id: r.id,
       userId: r.userId,
+      tier: r.tier ?? 'GOLD',
       distanceKm: distanceMap.get(r.id) ?? 0,
       activeShiftId: r.activeShiftId ?? null,
       isOnDelivery: Boolean(r.isOnDelivery),

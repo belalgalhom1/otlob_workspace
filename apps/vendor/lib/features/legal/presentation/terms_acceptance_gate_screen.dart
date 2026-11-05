@@ -89,7 +89,7 @@ class _TermsAcceptanceGateScreenState
       context.go('/dashboard');
     } catch (e) {
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        // Handled in finally block
         final isAr = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -101,6 +101,10 @@ class _TermsAcceptanceGateScreenState
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }

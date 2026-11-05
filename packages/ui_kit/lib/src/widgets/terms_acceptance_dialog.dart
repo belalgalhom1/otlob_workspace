@@ -58,8 +58,14 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: BorderSide(
+            color: theme.dividerColor.withValues(alpha: 0.18),
+          ),
         ),
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: isDark
+            ? theme.colorScheme.surface
+            : theme.scaffoldBackgroundColor,
+        elevation: 6,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 620,
@@ -80,6 +86,9 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: const Center(
                         child: Icon(
@@ -104,14 +113,18 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(width: AppSpacing.xs),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
-                                  vertical: 2,
+                                  vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  color: AppColors.primary.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(AppRadius.sm),
+                                  border: Border.all(
+                                    color: AppColors.primary.withValues(alpha: 0.25),
+                                  ),
                                 ),
                                 child: Text(
                                   'v${widget.version}',
@@ -165,6 +178,7 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                         version: widget.version,
                         content: widget.content,
                         isArabic: widget.isArabic,
+                        showHeader: false,
                       ),
                     ),
                   ),
@@ -172,37 +186,58 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                 const SizedBox(height: AppSpacing.md),
 
                 // Agreement Checkbox
-                InkWell(
-                  onTap: () {
-                    setState(() => _accepted = !_accepted);
-                  },
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: _accepted,
-                          activeColor: AppColors.primary,
-                          onChanged: (v) {
-                            setState(() => _accepted = v ?? false);
-                          },
-                        ),
-                        Expanded(
-                          child: Text(
-                            widget.acceptCheckboxLabel,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                Container(
+                  decoration: BoxDecoration(
+                    color: _accepted
+                        ? AppColors.primary.withValues(alpha: 0.08)
+                        : (isDark
+                            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25)
+                            : theme.colorScheme.surfaceContainerLowest),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(
+                      color: _accepted
+                          ? AppColors.primary.withValues(alpha: 0.35)
+                          : theme.dividerColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => _accepted = !_accepted);
+                    },
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: _accepted,
+                            activeColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            onChanged: (v) {
+                              setState(() => _accepted = v ?? false);
+                            },
+                          ),
+                          Expanded(
+                            child: Text(
+                              widget.acceptCheckboxLabel,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
 
-                // Actions: Accept / Decline
+                // Actions: Accept / Decline (Equal Width & Balanced Height)
                 Row(
                   children: [
                     if (widget.declineButtonLabel != null &&
@@ -211,22 +246,33 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                         child: OutlinedButton(
                           onPressed: widget.isLoading ? null : widget.onDecline,
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            minimumSize: const Size.fromHeight(50),
+                            side: BorderSide(
+                              color: theme.colorScheme.outline.withValues(alpha: 0.35),
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(AppRadius.md),
                             ),
                           ),
-                          child: Text(widget.declineButtonLabel!),
+                          child: Text(
+                            widget.declineButtonLabel!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
                     ],
                     Expanded(
-                      flex: 2,
-                      child: PrimaryButton(
-                        text: widget.acceptButtonLabel,
-                        isLoading: widget.isLoading,
-                        onPressed: _accepted ? widget.onAccept : null,
+                      child: SizedBox(
+                        height: 50,
+                        child: PrimaryButton(
+                          text: widget.acceptButtonLabel,
+                          isLoading: widget.isLoading,
+                          onPressed: _accepted ? widget.onAccept : null,
+                        ),
                       ),
                     ),
                   ],

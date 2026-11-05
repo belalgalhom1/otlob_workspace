@@ -309,11 +309,17 @@ export class DispatchService {
           isCandidateStacked,
         );
 
-        // A grouped delivery is priced on its own fee, so the driver sees what
-        // that specific delivery earns rather than the whole order's fee.
-        const advertisedEarnings = group
-          ? this.earningsForGroupFee(dispatchDeliveryFee, settings, isCandidateStacked)
-          : estimatedEarnings;
+        // A delivery is priced on its stored order fee so the driver sees what
+        // settlement will actually pay rather than an inflated distance estimate.
+        const advertisedEarnings =
+          dispatchDeliveryFee && dispatchDeliveryFee > 0
+            ? this.earningsForGroupFee(
+                dispatchDeliveryFee,
+                settings,
+                isCandidateStacked,
+                candidate.tier,
+              )
+            : estimatedEarnings;
 
         const pickupLocationName = group
           ? `Delivery ${group.sequence}`
@@ -1589,6 +1595,7 @@ export class DispatchService {
       stackedOrderDriverPercentage?: number | null;
     },
     isStacked: boolean = false,
+    driverTier?: string | null,
   ): number {
     const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
     const supervisorShare =
@@ -1596,6 +1603,10 @@ export class DispatchService {
     const share = isStacked
       ? (settings.stackedOrderDriverPercentage ?? 50) / 100
       : Math.max(0, 1 - platformShare - supervisorShare);
-    return Math.max(0, Math.round(groupDeliveryFee * share));
+    let fee = Number(groupDeliveryFee);
+    if (driverTier === 'BRONZE') {
+      fee = Math.max(0, fee - 2);
+    }
+    return Math.max(0, Math.round(fee * share));
   }
 }

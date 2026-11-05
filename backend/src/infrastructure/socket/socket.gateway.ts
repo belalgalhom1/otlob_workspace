@@ -163,6 +163,25 @@ export class SocketGateway
     });
   }
 
+  @SubscribeMessage('driver.track')
+  handleTrackDriver(client: Socket, payload: { driverId?: string }) {
+    const driverId = payload?.driverId;
+    if (typeof driverId === 'string' && driverId.length > 0) {
+      void client.join(`driver_${driverId}`);
+      this.logger.debug(
+        `Socket ${client.id} joined tracking room driver_${driverId}`,
+      );
+    }
+  }
+
+  @SubscribeMessage('driver.untrack')
+  handleUntrackDriver(client: Socket, payload: { driverId?: string }) {
+    const driverId = payload?.driverId;
+    if (typeof driverId === 'string' && driverId.length > 0) {
+      void client.leave(`driver_${driverId}`);
+    }
+  }
+
   handleConnection(client: Socket) {
     this.logger.log(
       `✅ Client Connected: ${(client.data.user as { sub: string } | undefined)?.sub} (${client.id})`,
