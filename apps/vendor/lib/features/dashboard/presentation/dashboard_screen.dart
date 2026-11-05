@@ -354,10 +354,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   /// Indices that must NOT be wrapped in a SingleChildScrollView
   /// (they manage their own scroll or require Expanded).
-  /// NOTE: 18 (DriverBreaksScreen) must stay here — its Column uses
-  /// Expanded(TabBarView), which throws (blank page in release) inside a
-  /// scroll view with unbounded height.
-  static const _noScrollIndices = {3, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19};
+  /// NOTE: 18 (DriverBreaksScreen) and 20 (LegalDocumentsScreen) must stay
+  /// here — their Column uses Expanded(TabBarView), which throws (blank page
+  /// in release) inside a scroll view with unbounded height.
+  static const _noScrollIndices = {
+    3,
+    5,
+    6,
+    7,
+    11,
+    12,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+  };
 
   Widget _buildIndexedStack(bool isMobile) {
     Widget wrapForIndex(int index, Widget child) {
