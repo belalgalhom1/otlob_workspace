@@ -370,14 +370,15 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
 
   private async handleOutboxCleanup(): Promise<void> {
     try {
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const processedCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const staleCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
       const rows = await this.prisma.$executeRaw`
         DELETE FROM "outbox"
-        WHERE "processedAt" IS NOT NULL
-          AND "processedAt" < ${cutoff}
+        WHERE ("processedAt" IS NOT NULL AND "processedAt" < ${processedCutoff})
+           OR ("processedAt" IS NULL AND "createdAt" < ${staleCutoff})
       `;
       if (rows > 0) {
-        this.logger.log(`🗑️  Pruned ${rows} processed outbox records`);
+        this.logger.log(`🗑️  Pruned ${rows} outbox records`);
       }
     } catch (error) {
       this.logger.error('Failed to run outbox cleanup', (error as Error).stack);
