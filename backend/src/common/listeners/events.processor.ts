@@ -200,8 +200,14 @@ export class EventsProcessor extends WorkerHost {
   private async handleOrderCreated(event: OrderCreatedEvent) {
     this.logger.log(`Order created: ${event.orderNumber}`);
 
+    let vendorUserIds = event.vendorUserIds || [];
+    if (!vendorUserIds || vendorUserIds.length === 0) {
+      const resolved = await this.resolveOrderUserIds(event.orderId);
+      vendorUserIds = resolved.vendorUserIds;
+    }
+
     const notificationPayloads: CreateNotificationPayload[] =
-      event.vendorUserIds.map((uid) => ({
+      vendorUserIds.map((uid) => ({
         userId: uid,
         title: 'New Order Received',
         titleAr: 'طلب جديد',
@@ -212,7 +218,7 @@ export class EventsProcessor extends WorkerHost {
       }));
 
     await Promise.all([
-      ...event.vendorUserIds.map((uid) =>
+      ...vendorUserIds.map((uid) =>
         this.socketService.emitToUser(uid, WS.ORDER_NEW, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
@@ -251,11 +257,23 @@ export class EventsProcessor extends WorkerHost {
       revision: event.revision,
     };
 
-    const notifyUserIds = new Set<string>([
-      event.customerUserId,
-      ...event.vendorUserIds,
-    ]);
-    if (event.driverUserId) notifyUserIds.add(event.driverUserId);
+    let customerUserId: string | null = event.customerUserId ?? null;
+    let vendorUserIds = event.vendorUserIds || [];
+    let driverUserId: string | null = event.driverUserId ?? null;
+
+    if (!customerUserId || vendorUserIds.length === 0) {
+      const resolved = await this.resolveOrderUserIds(event.orderId);
+      if (!customerUserId) customerUserId = resolved.customerUserId;
+      if (vendorUserIds.length === 0) vendorUserIds = resolved.vendorUserIds;
+      if (!driverUserId) driverUserId = resolved.driverUserId;
+    }
+
+    const notifyUserIds = new Set<string>();
+    if (customerUserId) notifyUserIds.add(customerUserId);
+    for (const uid of vendorUserIds) {
+      if (uid) notifyUserIds.add(uid);
+    }
+    if (driverUserId) notifyUserIds.add(driverUserId);
 
     // Multi-vendor orders hand each delivery group to its own driver (and an
     // optional assistant). The event only carries the order-level mirror of
@@ -514,11 +532,23 @@ export class EventsProcessor extends WorkerHost {
       await this.refreshDriverTracking(did, event.orderId);
     }
 
-    const notifyUserIds = new Set<string>([
-      event.customerUserId,
-      ...event.vendorUserIds,
-    ]);
-    if (event.driverUserId) notifyUserIds.add(event.driverUserId);
+    let customerUserId: string | null = event.customerUserId ?? null;
+    let vendorUserIds = event.vendorUserIds || [];
+    let driverUserId: string | null = event.driverUserId ?? null;
+
+    if (!customerUserId || vendorUserIds.length === 0) {
+      const resolved = await this.resolveOrderUserIds(event.orderId);
+      if (!customerUserId) customerUserId = resolved.customerUserId;
+      if (vendorUserIds.length === 0) vendorUserIds = resolved.vendorUserIds;
+      if (!driverUserId) driverUserId = resolved.driverUserId;
+    }
+
+    const notifyUserIds = new Set<string>();
+    if (customerUserId) notifyUserIds.add(customerUserId);
+    for (const uid of vendorUserIds) {
+      if (uid) notifyUserIds.add(uid);
+    }
+    if (driverUserId) notifyUserIds.add(driverUserId);
     // Multi-vendor: notify every primary driver, not just the order-level one.
     if (allDriverIds.length > 0) {
       const drivers = await this.prisma.driver.findMany({
@@ -869,4 +899,61 @@ export class EventsProcessor extends WorkerHost {
     };
     return messages[status] ?? null;
   }
+
+  private async resolveOrderUserIds(orderId: string): Promise<{
+    customerUserId: string | null;
+    vendorUserIds: string[];
+    driverUserId: string | null;
+  }> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          customerId: true,
+          customer: { select: { userId: true } },
+          vendorId: true,
+          driverId: true,
+          driver: { select: { userId: true } },
+        },
+      });
+      if (!order) {
+        return { customerUserId: null, vendorUserIds: [], driverUserId: null };
+      }
+
+      const customerUserId = order.customer?.userId || order.customerId;
+      const driverUserId = order.driver?.userId || null;
+
+      let vendorUserIds: string[] = [];
+      if (order.vendorId) {
+        const members = await this.prisma.vendorMember.findMany({
+          where: { vendorId: order.vendorId },
+          select: { userId: true },
+        });
+        vendorUserIds = members.map((m) => m.userId);
+      } else {
+        const fulfillments = await this.prisma.orderVendorFulfillment.findMany({
+          where: { orderId },
+          select: { vendorId: true },
+        });
+        const vIds = [...new Set(fulfillments.map((f) => f.vendorId))];
+        if (vIds.length > 0) {
+          const members = await this.prisma.vendorMember.findMany({
+            where: { vendorId: { in: vIds } },
+            select: { userId: true },
+          });
+          vendorUserIds = members.map((m) => m.userId);
+        }
+      }
+
+      return { customerUserId, vendorUserIds, driverUserId };
+    } catch (err) {
+      this.logger.error(
+        `Failed to resolve order user IDs for ${orderId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return { customerUserId: null, vendorUserIds: [], driverUserId: null };
+    }
+  }
+
 }

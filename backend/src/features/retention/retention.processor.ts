@@ -372,7 +372,7 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
     try {
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const rows = await this.prisma.$executeRaw`
-        DELETE FROM "order_outbox"
+        DELETE FROM "outbox"
         WHERE "processedAt" IS NOT NULL
           AND "processedAt" < ${cutoff}
       `;

@@ -1,3 +1,5 @@
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import {
   Injectable,
   BadRequestException,
@@ -26,6 +28,7 @@ export class OrdersPaymentService {
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async customerMarkPaid(
@@ -252,6 +255,31 @@ export class OrdersPaymentService {
               status: nextStatus,
               note: 'Driver confirmed payment received.',
               createdBy: actor.sub,
+            },
+          });
+
+          await this.outbox.record(tx, {
+            aggregateType: 'ORDER',
+            aggregateId: orderId,
+            version: revisionAfter,
+            eventType: EVENTS.ORDER_STATUS_CHANGED,
+            jobName: EVENT_JOBS.ORDER_STATUS_CHANGED,
+            dedupeKey: `notify:order_status:${orderId}:${revisionAfter}`,
+            payload: {
+              orderId,
+              orderNumber: order.orderNumber,
+              oldStatus: OrderStatus.PENDING_PAYMENT,
+              newStatus: nextStatus,
+              status: nextStatus,
+              customerId: order.customerId,
+              customerUserId: order.customer.user.id,
+              vendorId: order.vendorId,
+              vendorUserIds,
+              driverId: order.driverId,
+              driverUserId: driver.userId,
+              actorUserId: actor.sub,
+              note: 'Driver confirmed payment received.',
+              revision: revisionAfter,
             },
           });
         }

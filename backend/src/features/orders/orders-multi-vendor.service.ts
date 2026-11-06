@@ -1,3 +1,5 @@
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import {
   BadRequestException,
   Injectable,
@@ -66,6 +68,7 @@ export class OrdersMultiVendorService {
     private readonly ordersRepository: OrdersRepository,
     private readonly grouping: OrderGroupingService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly outbox: OutboxService,
   ) {}
 
   // ─── Fee estimate ─────────────────────────────────────────────────────────
@@ -127,6 +130,18 @@ export class OrdersMultiVendorService {
 
     const orderId = randomUUID();
     const orderNumber = await this.ordersRepository.generateOrderNumber();
+
+    const vendorUserIds = Array.from(
+      new Set(
+        (
+          await Promise.all(
+            vendorIds.map((vendorId) =>
+              this.ordersRepository.getVendorUserIds(vendorId),
+            ),
+          )
+        ).flat(),
+      ),
+    );
 
     const created = await this.prisma.$transaction(async (tx) => {
       // Idempotency: the same clientOrderKey can never create a second order.
@@ -368,6 +383,27 @@ export class OrdersMultiVendorService {
         data: { orderId, status: 'PENDING', createdBy: actor.sub },
       });
 
+      await this.outbox.record(tx, {
+        aggregateType: 'ORDER',
+        aggregateId: orderId,
+        version: 0,
+        eventType: EVENTS.ORDER_CREATED,
+        jobName: EVENT_JOBS.ORDER_CREATED,
+        dedupeKey: `notify:order_created:${orderId}`,
+        payload: {
+          orderId,
+          orderNumber,
+          customerId: plan.customerId,
+          actorUserId: actor.sub,
+          vendorId: null,
+          vendorUserIds,
+          grandTotal: plan.grandTotal,
+          paymentMethod: dto.paymentMethod,
+          orderType: 'STANDARD',
+          revision: 0,
+        },
+      });
+
       return { id: orderId, orderNumber, created: true };
     });
 
@@ -380,19 +416,7 @@ export class OrdersMultiVendorService {
       );
 
       // Notify every vendor's staff that a new order is waiting for their
-      // portion decision. Without this the multi-vendor checkout emitted no
-      // ORDER_CREATED at all, so vendors were never told a portion existed.
-      const vendorUserIds = Array.from(
-        new Set(
-          (
-            await Promise.all(
-              vendorIds.map((vendorId) =>
-                this.ordersRepository.getVendorUserIds(vendorId),
-              ),
-            )
-          ).flat(),
-        ),
-      );
+      // portion decision.
 
       this.eventEmitter.emit(
         EVENTS.ORDER_CREATED,

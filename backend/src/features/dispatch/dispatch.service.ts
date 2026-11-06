@@ -979,9 +979,12 @@ export class DispatchService {
       }
 
       await this.outbox.record(tx, {
-        orderId: order.id,
-        revision: assignedRevision,
+        aggregateType: 'ORDER',
+        aggregateId: order.id,
+        version: assignedRevision,
         eventType: EVENTS.ORDER_STATUS_CHANGED,
+        jobName: EVENT_JOBS.ORDER_STATUS_CHANGED,
+        dedupeKey: `notify:order_status:${order.id}:${assignedRevision}`,
         payload: {
           orderId: order.id,
           orderNumber: order.orderNumber,

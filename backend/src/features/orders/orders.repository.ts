@@ -1,3 +1,4 @@
+import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import {
   Injectable,
   NotFoundException,
@@ -934,17 +935,20 @@ export class OrdersRepository {
       });
 
       await this.outbox.record(tx, {
-        orderId: created.id,
-        revision: created.revision ?? 0,
+        aggregateType: 'ORDER',
+        aggregateId: created.id,
+        version: 0,
         eventType: EVENTS.ORDER_CREATED,
+        jobName: EVENT_JOBS.ORDER_CREATED,
+        dedupeKey: `notify:order_created:${created.id}`,
         payload: {
           orderId: created.id,
           orderNumber: created.orderNumber,
-          customerId: created.customerId,
-          grandTotal: created.grandTotal,
-          paymentMethod: created.paymentMethod,
-          orderType: created.type,
-          revision: created.revision ?? 0,
+          customerId: data.customerId,
+          grandTotal: data.grandTotal,
+          paymentMethod: data.paymentMethod,
+          orderType: data.type,
+          revision: 0,
         },
       });
 
@@ -1216,9 +1220,12 @@ export class OrdersRepository {
 
       if (written.revision != null) {
         await this.outbox.record(tx, {
-          orderId,
-          revision: written.revision,
+          aggregateType: 'ORDER',
+          aggregateId: orderId,
+          version: written.revision,
           eventType: EVENTS.ORDER_CANCELLED,
+          jobName: EVENT_JOBS.ORDER_CANCELLED,
+          dedupeKey: `notify:order_cancelled:${orderId}`,
           payload: {
             orderId,
             orderNumber,
@@ -1298,9 +1305,12 @@ export class OrdersRepository {
           select: { orderNumber: true, customerId: true, vendorId: true, driverId: true },
         });
         await this.outbox.record(tx, {
-          orderId,
-          revision: written.revision,
+          aggregateType: 'ORDER',
+          aggregateId: orderId,
+          version: written.revision,
           eventType: EVENTS.ORDER_STATUS_CHANGED,
+          jobName: EVENT_JOBS.ORDER_STATUS_CHANGED,
+          dedupeKey: `notify:order_status:${orderId}:${written.revision}`,
           payload: {
             orderId,
             orderNumber: orderRow?.orderNumber ?? '',
