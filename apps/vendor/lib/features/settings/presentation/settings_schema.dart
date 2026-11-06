@@ -682,16 +682,37 @@ const List<SettingsSection> platformSettingsSections = [
             'Maximum allowed distance in km between customer drop-offs for batching orders to the same driver.',
       ),
       SettingsField(
-        key: 'dispatchHandoffDedupeTtlSecs',
+        key: 'assistDecisionTimeoutSecs',
         kind: SettingsFieldKind.number,
-        labelAr: 'مهلة منع تكرار إرسال الطلب للمندوب',
-        labelEn: 'Handoff Dedupe TTL (sec)',
+        suffix: 'ثانية',
+        labelAr: 'مهلة قرار مساعدة السائق',
+        labelEn: 'Driver Assist Decision Timeout',
         helpAr:
-            'المدة التي يتذكر فيها النظام أنه أرسل الطلب بالفعل لمندوب، لمنع '
-            'إرساله مرتين. الافتراضي 300 ثانية.',
+            'المدة بالثواني المتاحة للعميل أو النظام للبت في طلب مساعدة السائق الإضافي قبل إلغائه تلقائياً (الافتراضي 120 ثانية).',
         helpEn:
-            'How long the system remembers that a delivery was already handed '
-            'to a driver, to avoid sending it twice. Default 300 seconds.',
+            'Seconds allowed for customer or system to decide on an extra driver assistance request before auto-expiring (default 120s).',
+      ),
+      SettingsField(
+        key: 'groupingMaxBranchDistanceKm',
+        kind: SettingsFieldKind.number,
+        suffix: 'كم',
+        labelAr: 'أقصى مسافة لتجميع فروع المتاجر',
+        labelEn: 'Max Multi-Vendor Branch Grouping Distance',
+        helpAr:
+            'أقصى مسافة مستقيمة بالكيلومتر بين فروع المتاجر المختلفة لتجميعها في مهمة توصيل واحدة للمندوب في الطلب متعدد المتاجر (الافتراضي 5 كم).',
+        helpEn:
+            'Maximum straight-line distance in km between different vendor branches to bundle them into a single delivery group (default 5 km).',
+      ),
+      SettingsField(
+        key: 'groupingMaxVendorCustomerDistanceKm',
+        kind: SettingsFieldKind.number,
+        suffix: 'كم',
+        labelAr: 'أقصى مسافة بين المتجر والعميل للتجميع',
+        labelEn: 'Max Vendor-to-Customer Grouping Distance',
+        helpAr:
+            'أقصى مسافة بالكيلومتر بين فرع المتجر وموقع تسليم العميل ليكون مؤهلاً للتجميع في نفس مسار التوصيل (الافتراضي 25 كم).',
+        helpEn:
+            'Maximum distance in km from a vendor branch to the customer drop-off to be eligible for multi-vendor grouping (default 25 km).',
       ),
     ],
   ),

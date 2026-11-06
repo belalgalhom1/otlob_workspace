@@ -151,6 +151,13 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('autoCancelPendingMins')) b.autoCancelPendingMins = parseNum(settings['autoCancelPendingMins']);
       if (settings.containsKey('maxDispatchBatchSize')) b.maxDispatchBatchSize = parseNum(settings['maxDispatchBatchSize']);
       if (settings.containsKey('maxActiveOrdersPerDriver')) b.maxActiveOrdersPerDriver = parseNum(settings['maxActiveOrdersPerDriver']);
+      if (settings.containsKey('stackedOrderDriverPercentage')) b.stackedOrderDriverPercentage = parseNum(settings['stackedOrderDriverPercentage']);
+      if (settings.containsKey('batchMaxVendorDistanceKm')) b.batchMaxVendorDistanceKm = parseNum(settings['batchMaxVendorDistanceKm']);
+      if (settings.containsKey('batchMaxCustomerDistanceKm')) b.batchMaxCustomerDistanceKm = parseNum(settings['batchMaxCustomerDistanceKm']);
+      if (settings.containsKey('assistDecisionTimeoutSecs')) b.assistDecisionTimeoutSecs = parseNum(settings['assistDecisionTimeoutSecs']);
+      if (settings.containsKey('groupingMaxBranchDistanceKm')) b.groupingMaxBranchDistanceKm = parseNum(settings['groupingMaxBranchDistanceKm']);
+      if (settings.containsKey('groupingMaxVendorCustomerDistanceKm')) b.groupingMaxVendorCustomerDistanceKm = parseNum(settings['groupingMaxVendorCustomerDistanceKm']);
+      if (settings.containsKey('maxNegativeDriverBalance')) b.maxNegativeDriverBalance = parseNum(settings['maxNegativeDriverBalance']);
       if (settings.containsKey('mobileWalletTimeoutMins')) b.mobileWalletTimeoutMins = parseNum(settings['mobileWalletTimeoutMins']);
       if (settings.containsKey('isMaintenanceMode')) b.isMaintenanceMode = parseBool(settings['isMaintenanceMode']);
       if (settings.containsKey('androidMinVersion')) b.androidMinVersion = settings['androidMinVersion'];
