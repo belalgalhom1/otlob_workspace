@@ -29,6 +29,7 @@ const RETENTION_SCHEDULE: ReadonlyArray<{ type: string; pattern: string }> = [
   { type: 'payment-receipts', pattern: '20 2 * * *' },
   { type: 'shift-start-photos', pattern: '30 2 * * *' },
   { type: 'order-photos', pattern: '40 2 * * *' },
+  { type: 'outbox', pattern: '50 2 * * *' },
 ];
 
 const retentionJobId = (type: string) =>
@@ -91,6 +92,8 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
         return this.handleShiftStartPhotosCleanup();
       case 'order-photos':
         return this.handleOrderPhotosCleanup();
+      case 'outbox':
+        return this.handleOutboxCleanup();
       default:
         return { skipped: true };
     }
@@ -362,6 +365,22 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
         'Failed to run payment receipts cleanup',
         (error as Error).stack,
       );
+    }
+  }
+
+  private async handleOutboxCleanup(): Promise<void> {
+    try {
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const rows = await this.prisma.$executeRaw`
+        DELETE FROM "order_outbox"
+        WHERE "processedAt" IS NOT NULL
+          AND "processedAt" < ${cutoff}
+      `;
+      if (rows > 0) {
+        this.logger.log(`🗑️  Pruned ${rows} processed outbox records`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to run outbox cleanup', (error as Error).stack);
     }
   }
 

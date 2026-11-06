@@ -20,6 +20,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import { EVENTS } from '../../common/events/event-names';
 
 export interface CreateOrderData {
   orderNumber: string;
@@ -280,7 +282,10 @@ const ORDER_INCLUDE = {
 export class OrdersRepository {
   private readonly logger = new Logger(OrdersRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly outbox: OutboxService,
+  ) {}
 
   async findById(orderId: string) {
     const order = await this.prisma.order.findUnique({
@@ -928,6 +933,21 @@ export class OrdersRepository {
         },
       });
 
+      await this.outbox.record(tx, {
+        orderId: created.id,
+        revision: created.revision ?? 0,
+        eventType: EVENTS.ORDER_CREATED,
+        payload: {
+          orderId: created.id,
+          orderNumber: created.orderNumber,
+          customerId: created.customerId,
+          grandTotal: created.grandTotal,
+          paymentMethod: created.paymentMethod,
+          orderType: created.type,
+          revision: created.revision ?? 0,
+        },
+      });
+
       return created;
     });
   }
@@ -1193,6 +1213,23 @@ export class OrdersRepository {
         where: { orderId, status: DispatchStatus.PENDING },
         data: { status: DispatchStatus.CANCELLED },
       });
+
+      if (written.revision != null) {
+        await this.outbox.record(tx, {
+          orderId,
+          revision: written.revision,
+          eventType: EVENTS.ORDER_CANCELLED,
+          payload: {
+            orderId,
+            orderNumber,
+            customerId,
+            reason,
+            cancelledByUserId: actorUserId,
+            driverIds,
+            revision: written.revision,
+          },
+        });
+      }
     });
 
     // Read the response-shaped aggregate AFTER commit — the ORDER_INCLUDE tree
@@ -1254,6 +1291,28 @@ export class OrdersRepository {
           createdBy: actorUserId,
         },
       });
+
+      if (written.revision != null) {
+        const orderRow = await tx.order.findUnique({
+          where: { id: orderId },
+          select: { orderNumber: true, customerId: true, vendorId: true, driverId: true },
+        });
+        await this.outbox.record(tx, {
+          orderId,
+          revision: written.revision,
+          eventType: EVENTS.ORDER_STATUS_CHANGED,
+          payload: {
+            orderId,
+            orderNumber: orderRow?.orderNumber ?? '',
+            oldStatus: expectedOldStatus ?? null,
+            newStatus: status,
+            status,
+            note: note ?? null,
+            actorUserId,
+            revision: written.revision,
+          },
+        });
+      }
     });
 
     // Read the response-shaped aggregate AFTER commit. The write transaction

@@ -30,6 +30,7 @@ export const ORDER_JOBS = {
   DISPATCH_EXPIRE: 'order.dispatch_expire',
   SETTLE: 'order.settle',
   DELIVERY_WATCHDOG: 'order.delivery_watchdog',
+  OUTBOX_SWEEP: 'order.outbox_sweep',
 } as const;
 
 export const CRON_JOBS = {

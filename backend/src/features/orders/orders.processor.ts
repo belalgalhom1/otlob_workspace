@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 
 // Orders jobs hit Postgres (status transitions, settlement, coins/wallet
 // ledgers). BullMQ concurrency above the shared DB pool just queues waits, so
@@ -32,6 +33,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     private readonly redis: RedisService,
     @InjectQueue(QUEUES.ORDERS) private readonly queue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
+    private readonly outboxService: OutboxService,
   ) {
     super();
   }
@@ -62,6 +64,14 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         jobId: CRON_JOBS.UNSETTLED_ORDER_MONITOR,
       },
     );
+    await this.queue.add(
+      ORDER_JOBS.OUTBOX_SWEEP,
+      {},
+      {
+        repeat: { every: 3000 },
+        jobId: 'orders.outbox_sweep',
+      },
+    );
   }
 
   async process(job: Job): Promise<any> {
@@ -72,6 +82,8 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         return this.handleSettle(job);
       case ORDER_JOBS.DELIVERY_WATCHDOG:
         return this.handleDeliveryWatchdog(job);
+      case ORDER_JOBS.OUTBOX_SWEEP:
+        return this.outboxService.relayPending();
       case CRON_JOBS.AUTO_CANCEL_PENDING:
         return this.handleAutoCancelPendingOrders();
       case CRON_JOBS.STUCK_ORDER_MONITOR:

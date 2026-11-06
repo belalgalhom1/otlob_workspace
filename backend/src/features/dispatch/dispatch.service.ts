@@ -22,6 +22,7 @@ import {
   DispatchStatus,
 } from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../orders/orders.constants';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { LocationRepository } from '../../infrastructure/location/location.repository';
@@ -74,6 +75,7 @@ export class DispatchService {
     private readonly locationRepository: LocationRepository,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    private readonly outbox: OutboxService,
   ) {}
 
   // ─── Core dispatch logic ──────────────────────────────────────────────────
@@ -975,6 +977,28 @@ export class DispatchService {
           },
         });
       }
+
+      await this.outbox.record(tx, {
+        orderId: order.id,
+        revision: assignedRevision,
+        eventType: EVENTS.ORDER_STATUS_CHANGED,
+        payload: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          oldStatus: order.status,
+          newStatus: nextStatus,
+          status: nextStatus,
+          customerId: order.customerId,
+          customerUserId: order.customer?.userId || order.customerId,
+          vendorId: order.vendorId,
+          vendorUserIds,
+          driverId,
+          driverUserId: candidate.userId,
+          actorUserId: 'system',
+          note: 'Driver found and auto-assigned.',
+          revision: assignedRevision,
+        },
+      });
 
       // 2b. Mark the driver busy. When maxActive > 1, ON_DELIVERY drivers can
       // accept additional orders up to the cap.

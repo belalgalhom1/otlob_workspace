@@ -22,6 +22,7 @@ import {
   QUEUES,
   EVENT_JOBS,
 } from '../../infrastructure/queue/queues.constants';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 
 const WS = {
   ORDER_STATUS: 'order.status',
@@ -37,6 +38,7 @@ export class OrderListener {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    private readonly outboxService: OutboxService,
   ) {}
 
   // The heavy side-effects (notifications, conversations, stats, dispatch
@@ -50,6 +52,7 @@ export class OrderListener {
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       });
+      await this.outboxService.markProcessed(event.orderId, event.revision);
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue order.created event: ${error instanceof Error ? error.message : String(error)}`,
@@ -99,6 +102,7 @@ export class OrderListener {
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       });
+      await this.outboxService.markProcessed(event.orderId, event.revision);
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue order.status_changed event: ${error instanceof Error ? error.message : String(error)}`,
@@ -115,6 +119,9 @@ export class OrderListener {
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       });
+      if (typeof event.revision === 'number') {
+        await this.outboxService.markProcessed(event.orderId, event.revision);
+      }
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue order.cancelled event: ${error instanceof Error ? error.message : String(error)}`,

@@ -966,6 +966,23 @@ model OrderStatusEvent {
   @@map("order_status_events")
 }
 
+/// Transactional outbox for guaranteed, un-droppable event delivery.
+/// Atomically recorded in the same database transaction as the order status
+/// write, then relayed to BullMQ and Sockets with deduplication.
+model OrderOutbox {
+  id          String    @id @default(uuid())
+  orderId     String
+  revision    Int
+  eventType   String
+  payload     Json
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  processedAt DateTime? @db.Timestamptz(3)
+
+  @@index([processedAt, createdAt])
+  @@index([orderId, revision])
+  @@map("order_outbox")
+}
+
 model OrderItem {
   id              String            @id @default(uuid())
   orderId         String
