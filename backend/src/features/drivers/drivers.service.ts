@@ -854,6 +854,20 @@ export class DriversService {
       throw new BadRequestException(DriverErrors.SHIFT_NOT_SCHEDULED);
     }
 
+    // A driver can only start up to 15 minutes before the scheduled start time,
+    // and cannot start after the shift has already concluded.
+    const now = new Date();
+    const EARLY_START_WINDOW_MS = 15 * 60 * 1000;
+    if (
+      shift.startTime &&
+      now.getTime() < shift.startTime.getTime() - EARLY_START_WINDOW_MS
+    ) {
+      throw new BadRequestException(DriverErrors.SHIFT_TOO_EARLY);
+    }
+    if (shift.endTime && now.getTime() > shift.endTime.getTime()) {
+      throw new BadRequestException(DriverErrors.SHIFT_ALREADY_ENDED);
+    }
+
     // A selfie is mandatory to start a shift (shown in the shift list).
     if (!file) {
       throw new BadRequestException(DriverErrors.START_PHOTO_REQUIRED);

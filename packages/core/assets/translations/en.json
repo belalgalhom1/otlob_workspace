@@ -1730,6 +1730,8 @@
   "driver_error_status_managed_by_shift": "Online status is managed by your shifts. Start a shift to go online.",
   "driver_error_not_in_shift_zone": "You must be inside the shift zone to start this shift.",
   "driver_error_start_photo_required": "Please take a selfie photo to start your shift.",
+  "driver_error_shift_too_early": "Cannot start shift more than 15 minutes before scheduled start time.",
+  "driver_error_shift_already_ended": "This shift has already ended and cannot be started.",
   "driver_error_shift_pool_not_found": "Shift pool not found.",
   "driver_error_shift_pool_full": "This shift pool has reached its maximum driver capacity.",
   "driver_error_already_assigned_to_pool": "You are already assigned to this shift pool.",

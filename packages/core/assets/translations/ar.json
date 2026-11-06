@@ -1730,6 +1730,8 @@
   "driver_error_status_managed_by_shift": "حالة الاتصال بتتحدد من الوردية. ابدأ وردية عشان تبان متصل.",
   "driver_error_not_in_shift_zone": "لازم تكون جوه منطقة الوردية عشان تبدأها.",
   "driver_error_start_photo_required": "خد سيلفي عشان تبدأ الوردية.",
+  "driver_error_shift_too_early": "لا يمكن بدء الوردية قبل أكثر من 15 دقيقة من موعدها المحدد.",
+  "driver_error_shift_already_ended": "انتهت هذه الوردية بالفعل ولا يمكن بدؤها.",
   "driver_error_shift_pool_not_found": "الوردية مش موجودة.",
   "driver_error_shift_pool_full": "الوردية دي اتملت بالسواقين.",
   "driver_error_already_assigned_to_pool": "انت مسجل في الوردية دي بالفعل.",

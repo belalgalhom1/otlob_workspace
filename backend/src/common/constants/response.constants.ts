@@ -273,6 +273,8 @@ export const DriverErrors = {
   STATUS_MANAGED_BY_SHIFT: 'driver.error.status_managed_by_shift',
   NOT_IN_SHIFT_ZONE: 'driver.error.not_in_shift_zone',
   START_PHOTO_REQUIRED: 'driver.error.start_photo_required',
+  SHIFT_TOO_EARLY: 'driver.error.shift_too_early',
+  SHIFT_ALREADY_ENDED: 'driver.error.shift_already_ended',
   BREAK_NOT_PENDING: 'driver.error.break_not_pending',
   BREAK_NOT_FOUND: 'driver.error.break_not_found',
   CANNOT_REMOVE_HISTORICAL_SHIFT: 'driver.error.cannot_remove_historical_shift',
