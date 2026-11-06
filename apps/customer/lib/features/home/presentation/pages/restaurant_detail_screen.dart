@@ -133,11 +133,9 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         final vendorStatusOpen = fullVendor['status'] == null ||
             fullVendor['status'].toString().toUpperCase() == 'OPEN';
         final branchOpen = currentBranch == null || currentBranch['isOpen'] != false;
-        final scheduleOpen = (fullVendor['is24Hours'] == true ||
-                fullVendor['isScheduleActive'] == false)
-            ? true
-            : _isCurrentlyOpen(workingHours);
-        final isOpen = vendorStatusOpen && branchOpen && scheduleOpen;
+        // The backend is the single source of truth for store status and evaluates
+        // schedule & working hours against the store's physical timezone (Africa/Cairo).
+        final isOpen = vendorStatusOpen && branchOpen;
 
         final initialProductId = widget.restaurant['productId'];
         if (!_initialProductShown && initialProductId != null && allMenu.isNotEmpty) {
@@ -327,7 +325,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             );
                           }),
                           _buildWorkingHoursWidget(
-                            (fullVendor['workingHours'] as List<dynamic>?) ?? [],
+                            workingHours,
                             isAr,
                             isDark,
                             isOpen,
@@ -982,65 +980,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     );
   }
 
-  bool _isCurrentlyOpen(List<dynamic> workingHours) {
-    if (workingHours.isEmpty) return true;
-    final now = DateTime.now();
-    final todayDay = now.weekday % 7;
-    final yesterdayDay = (todayDay + 6) % 7;
-    final currentMinutes = now.hour * 60 + now.minute;
-
-    int? parseTimeMinutes(String? timeStr) {
-      if (timeStr == null) return null;
-      final parts = timeStr.split(':');
-      if (parts.length < 2) return null;
-      final h = int.tryParse(parts[0]);
-      final m = int.tryParse(parts[1]);
-      if (h == null || m == null) return null;
-      return h * 60 + m;
-    }
-
-    // 1. Check if we are still within yesterday's overnight shift (closeMin <= openMin)
-    final yesterdaySchedule = workingHours
-        .where((h) => int.tryParse(h['day'].toString()) == yesterdayDay)
-        .firstOrNull;
-    if (yesterdaySchedule != null) {
-      final yClosed = yesterdaySchedule['isClosed'] == true ||
-          yesterdaySchedule['isClosed'] == 'true';
-      if (!yClosed) {
-        final yOpenMin =
-            parseTimeMinutes(yesterdaySchedule['openTime'] as String? ?? '09:00');
-        final yCloseMin =
-            parseTimeMinutes(yesterdaySchedule['closeTime'] as String? ?? '22:00');
-        if (yOpenMin != null && yCloseMin != null && yCloseMin <= yOpenMin) {
-          if (currentMinutes <= yCloseMin) {
-            return true;
-          }
-        }
-      }
-    }
-
-    // 2. Check today's schedule
-    final todaySchedule = workingHours
-        .where((h) => int.tryParse(h['day'].toString()) == todayDay)
-        .firstOrNull;
-    if (todaySchedule == null) return true;
-
-    final isClosed = todaySchedule['isClosed'] == true ||
-        todaySchedule['isClosed'] == 'true';
-    if (isClosed) return false;
-
-    final openMinutes =
-        parseTimeMinutes(todaySchedule['openTime'] as String? ?? '09:00');
-    final closeMinutes =
-        parseTimeMinutes(todaySchedule['closeTime'] as String? ?? '22:00');
-    if (openMinutes == null || closeMinutes == null) return true;
-
-    if (closeMinutes <= openMinutes) {
-      // Overnight shift starting today: only open from openMinutes onwards today
-      return currentMinutes >= openMinutes;
-    }
-    return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
-  }
 
   Widget _buildWorkingHoursWidget(List<dynamic> workingHours, bool isAr, bool isDark, bool isOpen) {
     if (workingHours.isEmpty) return const SizedBox.shrink();
