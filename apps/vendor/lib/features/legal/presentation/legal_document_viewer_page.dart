@@ -88,13 +88,19 @@ class _LegalDocumentViewerPageState
       }
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark
+          ? Theme.of(context).colorScheme.surface
+          : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
           widget.title ??
               (widget.type == 'TERMS_OF_USE'
                   ? (isArLocale ? 'شروط الاستخدام' : 'Terms of Use')
                   : (isArLocale ? 'سياسة الخصوصية' : 'Privacy Policy')),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
@@ -106,21 +112,45 @@ class _LegalDocumentViewerPageState
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 820),
-          child: LegalDocumentView(
-            title: title.toString(),
-            version: version,
-            lastUpdated: formattedDate,
-            content: content.toString(),
-            isArabic: _showArabic,
-            isLoading: _isLoading,
-            error: _error,
-            onRetry: _fetchDocument,
-            onLanguageToggle: () {
-              setState(() => _showArabic = !_showArabic);
-            },
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Theme.of(context).colorScheme.surface
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: LegalDocumentView(
+                  title: title.toString(),
+                  version: version,
+                  lastUpdated: formattedDate,
+                  content: content.toString(),
+                  isArabic: _showArabic,
+                  isLoading: _isLoading,
+                  error: _error,
+                  onRetry: _fetchDocument,
+                  onLanguageToggle: () {
+                    setState(() => _showArabic = !_showArabic);
+                  },
+                ),
+              ),
+            ),
           ),
         ),
       ),

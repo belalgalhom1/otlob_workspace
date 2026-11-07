@@ -102,15 +102,23 @@ class LegalDocumentView extends StatelessWidget {
           if (showHeader) ...[
             // Header card with metadata and language toggle
             Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
               decoration: BoxDecoration(
-                color: isDark
-                    ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
-                    : theme.colorScheme.surfaceContainerLowest,
+                color: isDark ? theme.colorScheme.surface : Colors.white,
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(
-                  color: theme.dividerColor.withValues(alpha: 0.15),
+                  color: theme.dividerColor.withValues(alpha: 0.12),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -153,9 +161,9 @@ class LegalDocumentView extends StatelessWidget {
                         lastUpdated!,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                       ),
                     )
                   else
@@ -167,25 +175,29 @@ class LegalDocumentView extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm,
-                          vertical: AppSpacing.xs,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHigh,
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.25),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               LucideIcons.languages,
                               size: 14,
-                              color: theme.colorScheme.onSurface,
+                              color: AppColors.primary,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Text(
                               isArabic ? 'English' : 'عربي',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -212,12 +224,13 @@ class LegalDocumentView extends StatelessWidget {
               title,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                height: 1.3,
+                height: 1.35,
               ),
+              softWrap: true,
               textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
             ),
             const SizedBox(height: AppSpacing.md),
-            Divider(color: theme.dividerColor.withValues(alpha: 0.2)),
+            Divider(color: theme.dividerColor.withValues(alpha: 0.15)),
             const SizedBox(height: AppSpacing.md),
           ],
 
@@ -247,12 +260,15 @@ class LegalDocumentView extends StatelessWidget {
       if (line.startsWith('### ')) {
         widgets.add(
           Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.xs),
-            child: Text(
-              line.substring(4),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
+            padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.xs),
+            child: Text.rich(
+              _buildInlineSpans(
+                line.substring(4),
+                theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryVariant,
+                ),
+                AppColors.primary,
               ),
             ),
           ),
@@ -260,11 +276,15 @@ class LegalDocumentView extends StatelessWidget {
       } else if (line.startsWith('## ')) {
         widgets.add(
           Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.xs),
-            child: Text(
-              line.substring(3),
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+            padding: const EdgeInsets.only(top: AppSpacing.xl, bottom: AppSpacing.xs),
+            child: Text.rich(
+              _buildInlineSpans(
+                line.substring(3),
+                theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                AppColors.primary,
               ),
             ),
           ),
@@ -272,11 +292,46 @@ class LegalDocumentView extends StatelessWidget {
       } else if (line.startsWith('# ')) {
         widgets.add(
           Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xl, bottom: AppSpacing.sm),
-            child: Text(
-              line.substring(2),
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+            padding: const EdgeInsets.only(top: AppSpacing.xxl, bottom: AppSpacing.sm),
+            child: Text.rich(
+              _buildInlineSpans(
+                line.substring(2),
+                theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+                AppColors.primary,
+              ),
+            ),
+          ),
+        );
+      } else if (line.startsWith('> ')) {
+        // Blockquote / Important callout
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border(
+                left: isArabic
+                    ? BorderSide.none
+                    : const BorderSide(color: AppColors.primary, width: 3.5),
+                right: isArabic
+                    ? const BorderSide(color: AppColors.primary, width: 3.5)
+                    : BorderSide.none,
+              ),
+            ),
+            child: Text.rich(
+              _buildInlineSpans(
+                line.substring(2),
+                theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.6,
+                  color: theme.colorScheme.onSurface,
+                  fontStyle: FontStyle.italic,
+                ),
+                AppColors.primary,
               ),
             ),
           ),
@@ -284,27 +339,31 @@ class LegalDocumentView extends StatelessWidget {
       } else if (line.startsWith('- ') || line.startsWith('* ')) {
         widgets.add(
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3.0),
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(top: 6.0),
+                  padding: const EdgeInsets.only(top: 7.0),
                   child: Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: theme.colorScheme.primary,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(
-                    line.substring(2),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.55,
+                  child: Text.rich(
+                    _buildInlineSpans(
+                      line.substring(2),
+                      theme.textTheme.bodyMedium?.copyWith(
+                        height: 1.65,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      AppColors.primary,
                     ),
                   ),
                 ),
@@ -313,18 +372,59 @@ class LegalDocumentView extends StatelessWidget {
           ),
         );
       } else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.0),
-            child: Text(
-              line,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.6,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
+        // Check for numbered list like "1. ", "2. ", etc.
+        final numMatch = RegExp(r'^(\d+[\.\)])\s+(.*)$').firstMatch(line);
+        if (numMatch != null) {
+          final prefix = numMatch.group(1)!;
+          final rest = numMatch.group(2)!;
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    prefix,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                      height: 1.65,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text.rich(
+                      _buildInlineSpans(
+                        rest,
+                        theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.65,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        );
+          );
+        } else {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3.0),
+              child: Text.rich(
+                _buildInlineSpans(
+                  line,
+                  theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.65,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          );
+        }
       }
     }
 
@@ -332,5 +432,42 @@ class LegalDocumentView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: widgets,
     );
+  }
+
+  static TextSpan _buildInlineSpans(
+    String text,
+    TextStyle? baseStyle,
+    Color? boldColor,
+  ) {
+    if (!text.contains('**')) {
+      return TextSpan(text: text, style: baseStyle);
+    }
+
+    final spans = <InlineSpan>[];
+    final parts = text.split('**');
+    for (int i = 0; i < parts.length; i++) {
+      final part = parts[i];
+      if (part.isEmpty) continue;
+      if (i % 2 == 1) {
+        // Bold section inside ** ... **
+        spans.add(
+          TextSpan(
+            text: part,
+            style: baseStyle?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: boldColor ?? baseStyle?.color,
+            ),
+          ),
+        );
+      } else {
+        spans.add(
+          TextSpan(
+            text: part,
+            style: baseStyle,
+          ),
+        );
+      }
+    }
+    return TextSpan(children: spans);
   }
 }
