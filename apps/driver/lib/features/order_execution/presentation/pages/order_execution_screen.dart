@@ -8,6 +8,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:data/data.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/order_execution/presentation/widgets/order_details_bottom_sheet.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -596,18 +597,39 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       targetLocation = LatLng(customerLat, customerLng);
     }
 
+    final profileAsync = ref.watch(driverProfileProvider);
+    final profile = profileAsync.asData?.value;
+    final vehicleType = (profile is Map ? (profile['vehicleType'] ?? profile['vehicle_type']) : null)?.toString().toUpperCase().trim() ?? 'MOTORCYCLE';
+    final vehiclePlate = profile is Map ? profile['vehiclePlate']?.toString().trim() : null;
+    final driverName = profile is Map ? (profile['name']?.toString().trim() ?? '') : '';
+
     final List<Marker> markers = [];
     if (_currentPosition != null) {
+      final heading = (_currentPosition!.heading.isFinite && _currentPosition!.heading >= 0)
+          ? _currentPosition!.heading
+          : 0.0;
+      final speedKmh = (_currentPosition!.speed.isFinite && _currentPosition!.speed > 0)
+          ? _currentPosition!.speed * 3.6
+          : 0.0;
+      final isMoving = speedKmh > 1.5;
+
       markers.add(
         Marker(
           point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-          width: 44,
-          height: 44,
-          child: NavigationLocationMarker(
-            heading: _currentPosition!.heading.isFinite && _currentPosition!.heading > 0
-                ? _currentPosition!.heading
-                : null,
-            color: AppColors.primary,
+          width: 76,
+          height: 76,
+          child: RepaintBoundary(
+            child: InDriveVehicleMarker(
+              size: 52,
+              heading: heading,
+              isMoving: isMoving,
+              vehicleType: vehicleType,
+              plateNumber: vehiclePlate,
+              label: (vehiclePlate != null && vehiclePlate.isNotEmpty)
+                  ? vehiclePlate
+                  : (driverName.isNotEmpty ? driverName : null),
+              color: AppColors.primary,
+            ),
           ),
         ),
       );
@@ -733,7 +755,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           polylinePoints.add(LatLng(customerLat, customerLng));
         }
       } else {
-        for (final stop in pickupStops) {
+        for (int i = 0; i < pickupStops.length; i++) {
+          if (_collectedStopIndices.contains(i) && i < _currentStopIndex) continue;
+          final stop = pickupStops[i];
           final sLat = stop['lat'] as double;
           final sLng = stop['lng'] as double;
           if (sLat != 0.0 && sLng != 0.0) {

@@ -70,8 +70,17 @@ class DriverProfile {
       avatar: json['avatar']?.toString(),
       nationalId: json['nationalId']?.toString(),
       licenseNumber: json['licenseNumber']?.toString(),
-      vehicleType: json['vehicleType']?.toString(),
-      vehiclePlate: json['vehiclePlate']?.toString(),
+      vehicleType: (json['vehicleType'] ??
+              json['vehicle_type'] ??
+              (json['vehicle'] is Map ? json['vehicle']['type'] : null))
+          ?.toString()
+          .toUpperCase()
+          .trim(),
+      vehiclePlate: (json['vehiclePlate'] ??
+              json['vehicle_plate'] ??
+              (json['vehicle'] is Map ? json['vehicle']['plate'] : null))
+          ?.toString()
+          .trim(),
       status: (json['status']?.toString() ?? 'OFFLINE').toUpperCase(),
       isSuspended: json['isSuspended'] is bool
           ? json['isSuspended'] as bool
@@ -83,6 +92,42 @@ class DriverProfile {
       location: _toLocation(json['location']),
       user: rawUser,
       driverManager: json['driverManager'] is Map ? Map<String, dynamic>.from(json['driverManager']) : null,
+    );
+  }
+
+  DriverProfile copyWith({
+    String? id,
+    String? userId,
+    String? name,
+    String? avatar,
+    String? nationalId,
+    String? licenseNumber,
+    String? vehicleType,
+    String? vehiclePlate,
+    String? status,
+    bool? isSuspended,
+    bool? isApproved,
+    double? walletBalance,
+    List<double>? location,
+    dynamic user,
+    Map<String, dynamic>? driverManager,
+  }) {
+    return DriverProfile(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      avatar: avatar ?? this.avatar,
+      nationalId: nationalId ?? this.nationalId,
+      licenseNumber: licenseNumber ?? this.licenseNumber,
+      vehicleType: vehicleType ?? this.vehicleType,
+      vehiclePlate: vehiclePlate ?? this.vehiclePlate,
+      status: status ?? this.status,
+      isSuspended: isSuspended ?? this.isSuspended,
+      isApproved: isApproved ?? this.isApproved,
+      walletBalance: walletBalance ?? this.walletBalance,
+      location: location ?? this.location,
+      user: user ?? this.user,
+      driverManager: driverManager ?? this.driverManager,
     );
   }
 }

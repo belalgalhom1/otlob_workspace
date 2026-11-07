@@ -301,11 +301,18 @@ class DriverMapDetailsCard extends StatelessWidget {
                               color: isLive ? AppColors.success : AppColors.warning,
                             ),
                           ),
-                          if (driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ...[
+                          if ((driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ||
+                              (driver.vehicleType != null && driver.vehicleType!.isNotEmpty)) ...[
                             const SizedBox(width: 6),
+                            Icon(
+                              _getVehicleIcon(driver.vehicleType),
+                              size: 13,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 3),
                             Flexible(
                               child: Text(
-                                '• ${driver.vehicleType ?? ""} ${driver.vehiclePlate}'.trim(),
+                                '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'.trim(),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -760,7 +767,7 @@ class DriverMapDetailsCard extends StatelessWidget {
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
+                foregroundColor: theme.colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -834,7 +841,7 @@ class DriverMapDetailsCard extends StatelessWidget {
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
+              foregroundColor: theme.colorScheme.onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -901,5 +908,21 @@ class DriverMapDetailsCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  IconData _getVehicleIcon(String? vehicleType) {
+    switch ((vehicleType ?? '').toUpperCase().trim()) {
+      case 'CAR':
+        return LucideIcons.car;
+      case 'BICYCLE':
+        return LucideIcons.bike;
+      case 'VAN':
+      case 'TRUCK':
+        return LucideIcons.truck;
+      case 'MOTOR_TRICYCLE':
+      case 'MOTORCYCLE':
+      default:
+        return LucideIcons.bike;
+    }
   }
 }

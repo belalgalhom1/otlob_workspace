@@ -177,6 +177,24 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return '';
   }
 
+  String? get _driverId {
+    final driver = _orderDetails?['driver'];
+    if (driver is Map && driver['id'] != null) {
+      final id = driver['id'].toString().trim();
+      if (id.isNotEmpty) return id;
+    }
+    final deliveryGroups = _orderDetails?['deliveryGroups'];
+    if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
+      for (final g in deliveryGroups) {
+        if (g is Map && g['driver'] is Map && g['driver']['id'] != null) {
+          final id = g['driver']['id'].toString().trim();
+          if (id.isNotEmpty) return id;
+        }
+      }
+    }
+    return null;
+  }
+
   IconData _vehicleIconData(String type) {
     switch (type.toUpperCase()) {
       case 'CAR':
@@ -224,6 +242,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   bool _followDriver = true;
   Timer? _driverRenderTimer;
   LatLng? _pendingDriverLocation;
+  double? _pendingDriverHeading;
   XFile? _receiptFile;
 
   String get _driverPhone {
@@ -346,6 +365,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           _orderStatus == 'PENDING_PAYMENT') {
         _fetchOrderDetails();
       }
+      _extractDriverLocationFromOrder();
     }
 
     final token = await tokenService.getAccessToken();
@@ -356,9 +376,21 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       // (live Redis, or last persisted) for drivers that are stationary and
       // therefore not emitting position updates.
       _requestDriverLocation(socket);
+      final initialDriverId = _driverId;
+      if (initialDriverId != null && initialDriverId.isNotEmpty) {
+        try {
+          socket.emit('driver.track', {'driverId': initialDriverId});
+        } catch (_) {}
+      }
       _connectSub?.cancel();
       _connectSub = socket.onConnect.listen((_) {
         _requestDriverLocation(socket);
+        final reconnectDriverId = _driverId;
+        if (reconnectDriverId != null && reconnectDriverId.isNotEmpty) {
+          try {
+            socket.emit('driver.track', {'driverId': reconnectDriverId});
+          } catch (_) {}
+        }
       });
 
       // onEvent uses broadcast streams that survive socket reconnects/re-auth.
@@ -400,13 +432,17 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             return;
           }
           if (mounted) {
+            final newStatus = data['newStatus'] ?? data['status'] ?? _orderStatus;
             setState(() {
-              _orderStatus =
-                  data['newStatus'] ?? data['status'] ?? _orderStatus;
+              _orderStatus = newStatus.toString();
             });
-            if (_orderStatus == 'DRIVER_ASSIGNED' ||
-                _orderStatus == 'PENDING_PAYMENT') {
-              _fetchOrderDetails();
+            _fetchOrderDetails();
+            _requestDriverLocation(socket);
+            final did = data['driverId']?.toString() ?? _driverId;
+            if (did != null && did.isNotEmpty) {
+              try {
+                socket.emit('driver.track', {'driverId': did});
+              } catch (_) {}
             }
           }
         }
@@ -414,15 +450,19 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
       _driverLocSub?.cancel();
       _driverLocSub = socket.onEvent('driver.location').listen((data) {
-        if (data != null && data['orderId'] == widget.orderId) {
-          final lat = (data['latitude'] ?? data['lat']) as double?;
-          final lng = (data['longitude'] ?? data['lng']) as double?;
+        if (data != null && (data['orderId'] == widget.orderId || (data['driverId'] != null && data['driverId'] == _driverId))) {
+          final lat = (data['latitude'] ?? data['lat'] ?? (data['location'] is List && data['location'].length >= 2 ? data['location'][1] : null)) as num?;
+          final lng = (data['longitude'] ?? data['lng'] ?? (data['location'] is List && data['location'].length >= 2 ? data['location'][0] : null)) as num?;
+          final heading = (data['heading'] ?? data['bearing']) as num?;
           if (lat != null &&
               lng != null &&
-              lat.isFinite &&
-              lng.isFinite &&
+              lat.toDouble().isFinite &&
+              lng.toDouble().isFinite &&
               mounted) {
-            _queueDriverLocation(LatLng(lat, lng));
+            _queueDriverLocation(
+              LatLng(lat.toDouble(), lng.toDouble()),
+              heading: heading?.toDouble(),
+            );
           }
         }
       });
@@ -470,6 +510,64 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       setState(() {
         _orderDetails = order;
       });
+      _extractDriverLocationFromOrder();
+    }
+  }
+
+  void _extractDriverLocationFromOrder() {
+    if (_driverLocation != null) return;
+    final driver = _orderDetails?['driver'];
+    if (driver is Map) {
+      final loc = driver['location'];
+      if (loc is List && loc.length >= 2) {
+        final lng = (loc[0] as num?)?.toDouble();
+        final lat = (loc[1] as num?)?.toDouble();
+        if (lat != null && lng != null && lat.isFinite && lng.isFinite && (lat != 0 || lng != 0)) {
+          _applyInitialDriverLocation(LatLng(lat, lng));
+          return;
+        }
+      }
+      final lat = (driver['latitude'] ?? driver['lat']) as num?;
+      final lng = (driver['longitude'] ?? driver['lng']) as num?;
+      if (lat != null && lng != null && lat.toDouble().isFinite && lng.toDouble().isFinite && (lat != 0 || lng != 0)) {
+        _applyInitialDriverLocation(LatLng(lat.toDouble(), lng.toDouble()));
+        return;
+      }
+    }
+    final deliveryGroups = _orderDetails?['deliveryGroups'];
+    if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
+      for (final g in deliveryGroups) {
+        if (g is Map && g['driver'] is Map) {
+          final d = g['driver'] as Map;
+          final loc = d['location'];
+          if (loc is List && loc.length >= 2) {
+            final lng = (loc[0] as num?)?.toDouble();
+            final lat = (loc[1] as num?)?.toDouble();
+            if (lat != null && lng != null && lat.isFinite && lng.isFinite && (lat != 0 || lng != 0)) {
+              _applyInitialDriverLocation(LatLng(lat, lng));
+              return;
+            }
+          }
+          final lat = (d['latitude'] ?? d['lat']) as num?;
+          final lng = (d['longitude'] ?? d['lng']) as num?;
+          if (lat != null && lng != null && lat.toDouble().isFinite && lng.toDouble().isFinite && (lat != 0 || lng != 0)) {
+            _applyInitialDriverLocation(LatLng(lat.toDouble(), lng.toDouble()));
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  void _applyInitialDriverLocation(LatLng pos) {
+    if (_driverLocation != null || !mounted) return;
+    setState(() {
+      _driverLocation = pos;
+    });
+    if (_followDriver) {
+      try {
+        _mapController.move(pos, 15.0);
+      } catch (_) {}
     }
   }
 
@@ -534,11 +632,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   }
 
   // Coalesce bursts of location events into a single map update (latest wins)
-  // so the UI rebuilds at most ~3x/second no matter how fast the socket emits.
-  void _queueDriverLocation(LatLng point) {
+  // so the UI rebuilds at most ~5x/second no matter how fast the socket emits.
+  void _queueDriverLocation(LatLng point, {double? heading}) {
     _pendingDriverLocation = point;
+    _pendingDriverHeading = heading;
     _driverRenderTimer ??=
-        Timer(const Duration(milliseconds: 300), _applyDriverLocation);
+        Timer(const Duration(milliseconds: 180), _applyDriverLocation);
   }
 
   double _calculateBearing(LatLng start, LatLng end) {
@@ -557,28 +656,39 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   void _applyDriverLocation() {
     _driverRenderTimer = null;
     final target = _pendingDriverLocation;
+    final explicitHeading = _pendingDriverHeading;
     _pendingDriverLocation = null;
+    _pendingDriverHeading = null;
     if (target == null || !mounted) return;
 
     if (_driverLocation == null) {
       setState(() {
         _driverLocation = target;
+        if (explicitHeading != null) {
+          _driverHeading = explicitHeading;
+          _driverStartHeading = explicitHeading;
+          _driverTargetHeading = explicitHeading;
+        }
       });
       if (_followDriver) {
-        _mapController.move(target, 15.0);
+        try {
+          _mapController.move(target, 15.0);
+        } catch (_) {}
       }
       return;
     }
 
-    final dist = const Distance().as(LengthUnit.Meter, _driverLocation!, target);
-    if (dist < 1.0) return;
+    final currentPos = _currentDriverLocation ?? _driverLocation!;
+    final dist = const Distance().as(LengthUnit.Meter, currentPos, target);
+    if (dist < 0.5) return;
 
-    final newHeading = _calculateBearing(_driverLocation!, target);
+    final newHeading = explicitHeading ?? _calculateBearing(currentPos, target);
     _driverStartHeading = _currentDriverHeading;
     _driverTargetHeading = newHeading;
     _driverHeading = newHeading;
-    _driverAnimStart = _driverLocation;
+    _driverAnimStart = currentPos;
     _driverAnimTarget = target;
+    _driverLocation = currentPos;
     _isDriverWalking = true;
     _driverMoveController.forward(from: 0.0);
   }
@@ -789,16 +899,35 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               ),
               children: [
                 const AppMapTileLayer(userAgentPackageName: 'com.otlob.customer'),
-                if (tripPath.length >= 2)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: tripPath,
-                        color: AppColors.primary,
-                        strokeWidth: 4.0,
-                      ),
-                    ],
-                  ),
+                AnimatedBuilder(
+                  animation: _driverMoveController,
+                  builder: (context, _) {
+                    final currentDriverPos = _currentDriverLocation ?? _driverLocation;
+                    final List<LatLng> liveTripPath = [];
+                    if (currentDriverPos != null) {
+                      liveTripPath.add(currentDriverPos);
+                    }
+                    for (final stop in storeStops) {
+                      if (stop['isPickedUp'] != true) {
+                        liveTripPath.add(LatLng(stop['lat'] as double, stop['lng'] as double));
+                      }
+                    }
+                    if (destPos != null) {
+                      liveTripPath.add(destPos);
+                    }
+
+                    if (liveTripPath.length < 2) return const SizedBox.shrink();
+                    return PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: liveTripPath,
+                          color: AppColors.primary,
+                          strokeWidth: 4.0,
+                        ),
+                      ],
+                    );
+                  },
+                ),
 
                 // 1. Store Pickup Stops Markers
                 if (storeStops.isNotEmpty)

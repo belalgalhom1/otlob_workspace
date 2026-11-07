@@ -479,7 +479,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                 LucideIcons.list,
                                 size: 16,
                                 color: _mobileViewMode == 0
-                                    ? Colors.black
+                                    ? theme.colorScheme.onPrimary
                                     : theme.colorScheme.onSurface,
                               ),
                               const SizedBox(width: 6),
@@ -489,7 +489,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                   color: _mobileViewMode == 0
-                                      ? Colors.black
+                                      ? theme.colorScheme.onPrimary
                                       : theme.colorScheme.onSurface,
                                 ),
                               ),
@@ -528,7 +528,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                 LucideIcons.map,
                                 size: 16,
                                 color: _mobileViewMode == 1
-                                    ? Colors.black
+                                    ? theme.colorScheme.onPrimary
                                     : theme.colorScheme.onSurface,
                               ),
                               const SizedBox(width: 6),
@@ -538,7 +538,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                   color: _mobileViewMode == 1
-                                      ? Colors.black
+                                      ? theme.colorScheme.onPrimary
                                       : theme.colorScheme.onSurface,
                                 ),
                               ),
@@ -653,6 +653,20 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
       final isLive = data?['isLive'] == true;
       final driverLocation = LatLng(lat, lng);
       final activeOrderId = data?['activeOrderId']?.toString();
+
+      final remoteVehicleType = (data?['vehicleType'] ?? data?['vehicle_type'])?.toString().toUpperCase().trim();
+      final remotePlate = (data?['vehiclePlate'] ?? data?['vehicle_plate'])?.toString().trim();
+      if ((remoteVehicleType != null && remoteVehicleType.isNotEmpty) ||
+          (remotePlate != null && remotePlate.isNotEmpty)) {
+        _selectedDriver = _selectedDriver?.copyWith(
+          vehicleType: (remoteVehicleType != null && remoteVehicleType.isNotEmpty)
+              ? remoteVehicleType
+              : _selectedDriver?.vehicleType,
+          vehiclePlate: (remotePlate != null && remotePlate.isNotEmpty)
+              ? remotePlate
+              : _selectedDriver?.vehiclePlate,
+        );
+      }
 
       // Resolve active order
       String? orderIdToFetch = (activeOrderId != null && activeOrderId.isNotEmpty) ? activeOrderId : null;
@@ -1665,7 +1679,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                 if ((driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ||
                     (driver.vehicleType != null && driver.vehicleType!.isNotEmpty))
                   _buildTagPill(
-                    icon: LucideIcons.bike,
+                    icon: _getVehicleIcon(driver.vehicleType),
                     label: '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'.trim(),
                     color: Colors.blueGrey,
                   ),
@@ -2014,30 +2028,34 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             if (d.location != null && d.location!.length >= 2) {
               final lat = d.location![1];
               final lng = d.location![0];
+              final vehicleIcon = _getVehicleIcon(d.vehicleType);
+              final statusColor = _getStatusColor(context, d.status);
               markers.add(
                 Marker(
                   point: LatLng(lat, lng),
-                  width: 38,
-                  height: 38,
+                  width: 44,
+                  height: 44,
                   child: GestureDetector(
                     onTap: () => _locateDriver(d),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: _getStatusColor(context, d.status),
+                        color: statusColor,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 4,
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 5,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        LucideIcons.bike,
-                        size: 18,
-                        color: Colors.white,
+                      child: Center(
+                        child: Icon(
+                          vehicleIcon,
+                          size: 20,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -2240,37 +2258,44 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                 child: Row(
                   children: [
                     if (_selectedDriver == null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface.withValues(alpha: 0.94),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(LucideIcons.mousePointerClick, size: 14, color: AppColors.primary),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  isArabic
+                                      ? 'انقر على أي سائق لمعاينة موقعه والطلب النشط'
+                                      : 'Tap any driver to inspect live location & order',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(LucideIcons.mousePointerClick, size: 14, color: AppColors.primary),
-                            const SizedBox(width: 6),
-                            Text(
-                              isArabic
-                                  ? 'انقر على أي سائق على الخريطة لعرض تفاصيله والطلب النشط'
-                                  : 'Tap any driver marker to inspect location & active order',
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const Spacer(),
+                      )
+                    else
+                      const Spacer(),
                     if (routePoints.length > 1)
                       FilledButton.icon(
                         onPressed: () => _fitRouteBounds(routePoints),
@@ -2410,8 +2435,22 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         return l10n.statusOnBreak;
       case 'SUSPENDED':
         return l10n.suspended;
+    }
+  }
+
+  IconData _getVehicleIcon(String? vehicleType) {
+    switch ((vehicleType ?? '').toUpperCase().trim()) {
+      case 'CAR':
+        return LucideIcons.car;
+      case 'BICYCLE':
+        return LucideIcons.bike;
+      case 'VAN':
+      case 'TRUCK':
+        return LucideIcons.truck;
+      case 'MOTOR_TRICYCLE':
+      case 'MOTORCYCLE':
       default:
-        return status;
+        return LucideIcons.bike;
     }
   }
 }
