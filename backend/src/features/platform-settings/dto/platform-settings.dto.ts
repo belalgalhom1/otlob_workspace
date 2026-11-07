@@ -449,6 +449,71 @@ export class UpdatePlatformSettingsDto {
   stackedOrderDriverPercentage?: number;
 
   @ApiProperty({
+    example: 40,
+    required: false,
+    description:
+      'Platform cut percentage of the delivery fee for batched/stacked orders beyond order 1 (0-100).',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  batchedDeliveryCommissionRate?: number;
+
+  @ApiProperty({
+    example: 10,
+    required: false,
+    description:
+      'Driver manager cut percentage of the delivery fee for batched/stacked orders (0-100).',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  batchedDriverManagerCommissionRate?: number;
+
+  @ApiProperty({
+    example: 20,
+    required: false,
+    description:
+      'Platform delivery cut percentage for multi-vendor orders (0-100).',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  multiVendorDeliveryCommissionRate?: number;
+
+  @ApiProperty({
+    example: 10,
+    required: false,
+    description:
+      'Driver manager cut percentage for multi-vendor orders (0-100).',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  multiVendorDriverManagerCommissionRate?: number;
+
+  @ApiProperty({
+    example: 70,
+    required: false,
+    description:
+      'Driver delivery cut percentage for multi-vendor orders (0-100).',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  multiVendorDriverPercentage?: number;
+
+  @ApiProperty({
     example: 2.0,
     required: false,
     description:

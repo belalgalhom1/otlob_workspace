@@ -138,6 +138,16 @@ export class StatisticsService {
       0,
       (settings.stackedOrderDriverPercentage ?? 50) / 100,
     );
+    const multiVendorPlatformRate =
+      (settings.multiVendorDeliveryCommissionRate ?? deliveryCommissionRate ?? 20) / 100;
+    const multiVendorSupervisorRate =
+      (settings.multiVendorDriverManagerCommissionRate ?? settings.driverManagerCommissionRate ?? 10) / 100;
+    const multiVendorDriverShare =
+      settings.multiVendorDriverPercentage != null
+        ? Number(settings.multiVendorDriverPercentage) / 100
+        : Math.max(0, 1 - multiVendorPlatformRate - multiVendorSupervisorRate);
+    const batchedSupervisorRate =
+      (settings.batchedDriverManagerCommissionRate ?? settings.driverManagerCommissionRate ?? 10) / 100;
 
     interface DriverPayout {
       driverId: string;
@@ -239,7 +249,9 @@ export class StatisticsService {
         const routeKm = g.distanceKm ?? distanceKm;
         const primaryFee = primaryFeeFor(g.deliveryFee, routeKm, primaryTier);
         const isGroupStacked = (g as any).isStacked === true;
-        const groupShare = isGroupStacked ? stackedDriverShare : driverShare;
+        const groupShare = isGroupStacked
+          ? stackedDriverShare
+          : (groups.length > 0 ? multiVendorDriverShare : driverShare);
         const earnings = Math.max(0, Math.round(primaryFee * groupShare));
 
         primaryPayouts.push({
@@ -383,7 +395,9 @@ export class StatisticsService {
         if (!g.primaryDriverId) continue;
         const gManager = await this.resolveDriverManager(g.primaryDriverId, zoneId);
         if (gManager) {
-          const share = Math.round(g.deliveryFee * managerShareRate);
+          const isGroupStacked = (g as any).isStacked === true;
+          const rate = isGroupStacked ? batchedSupervisorRate : multiVendorSupervisorRate;
+          const share = Math.round(g.deliveryFee * rate);
           if (share > 0) {
             managerPayouts.set(
               gManager.id,
@@ -395,7 +409,9 @@ export class StatisticsService {
     } else if (driverId) {
       const manager = await this.resolveDriverManager(driverId, zoneId);
       if (manager) {
-        const share = Math.round(deliveryFee * managerShareRate);
+        const isOrderStacked = payload.isStacked === true;
+        const rate = isOrderStacked ? batchedSupervisorRate : supervisorCommissionRate;
+        const share = Math.round(deliveryFee * rate);
         if (share > 0) {
           managerPayouts.set(manager.id, share);
         }

@@ -302,6 +302,7 @@ export class DispatchService {
       selectedDrivers.map(async (candidate) => {
         const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
         const isCandidateStacked = Boolean(candidate.isOnDelivery);
+        const isCandidateMultiVendor = Boolean(group);
         const estimatedEarnings = await this.calculateEstimatedEarnings(
           totalDistanceKm,
           perKmOverride,
@@ -309,6 +310,7 @@ export class DispatchService {
           order.type === 'STANDARD',
           dispatchContext.requestedVehicleType,
           isCandidateStacked,
+          isCandidateMultiVendor,
         );
 
         // A delivery is priced on its stored order fee so the driver sees what
@@ -320,6 +322,7 @@ export class DispatchService {
                 settings,
                 isCandidateStacked,
                 candidate.tier,
+                isCandidateMultiVendor,
               )
             : estimatedEarnings;
 
@@ -1588,6 +1591,7 @@ export class DispatchService {
     isStandardOrder: boolean = true,
     vehicleType?: string | null,
     isStacked: boolean = false,
+    isMultiVendor: boolean = false,
   ): Promise<number> {
     const deliveryFee = await this.platformSettings.calculateDeliveryFee(
       distanceKm,
@@ -1599,12 +1603,33 @@ export class DispatchService {
     );
     const settings =
       prefetchedSettings ?? (await this.platformSettings.getSettings());
-    const platformShare = Number(settings.deliveryCommissionRate ?? 20) / 100;
-    const supervisorShare =
-      Number(settings.driverManagerCommissionRate ?? 10) / 100;
-    const driverShare = isStacked
-      ? (settings.stackedOrderDriverPercentage ?? 50) / 100
-      : Math.max(0, 1 - platformShare - supervisorShare);
+    let driverShare: number;
+    if (isStacked) {
+      driverShare = (settings.stackedOrderDriverPercentage ?? 50) / 100;
+    } else if (isMultiVendor) {
+      if (settings.multiVendorDriverPercentage != null) {
+        driverShare = Number(settings.multiVendorDriverPercentage) / 100;
+      } else {
+        const platformShare =
+          Number(
+            settings.multiVendorDeliveryCommissionRate ??
+              settings.deliveryCommissionRate ??
+              20,
+          ) / 100;
+        const supervisorShare =
+          Number(
+            settings.multiVendorDriverManagerCommissionRate ??
+              settings.driverManagerCommissionRate ??
+              10,
+          ) / 100;
+        driverShare = Math.max(0, 1 - platformShare - supervisorShare);
+      }
+    } else {
+      const platformShare = Number(settings.deliveryCommissionRate ?? 20) / 100;
+      const supervisorShare =
+        Number(settings.driverManagerCommissionRate ?? 10) / 100;
+      driverShare = Math.max(0, 1 - platformShare - supervisorShare);
+    }
 
     return Math.round(deliveryFee * driverShare);
   }
@@ -1620,16 +1645,43 @@ export class DispatchService {
       deliveryCommissionRate?: number | null;
       driverManagerCommissionRate?: number | null;
       stackedOrderDriverPercentage?: number | null;
+      batchedDeliveryCommissionRate?: number | null;
+      batchedDriverManagerCommissionRate?: number | null;
+      multiVendorDeliveryCommissionRate?: number | null;
+      multiVendorDriverManagerCommissionRate?: number | null;
+      multiVendorDriverPercentage?: number | null;
     },
     isStacked: boolean = false,
     driverTier?: string | null,
+    isMultiVendor: boolean = false,
   ): number {
-    const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
-    const supervisorShare =
-      Number(settings?.driverManagerCommissionRate ?? 10) / 100;
-    const share = isStacked
-      ? (settings.stackedOrderDriverPercentage ?? 50) / 100
-      : Math.max(0, 1 - platformShare - supervisorShare);
+    let share: number;
+    if (isStacked) {
+      share = (settings.stackedOrderDriverPercentage ?? 50) / 100;
+    } else if (isMultiVendor) {
+      if (settings.multiVendorDriverPercentage != null) {
+        share = Number(settings.multiVendorDriverPercentage) / 100;
+      } else {
+        const platformShare =
+          Number(
+            settings.multiVendorDeliveryCommissionRate ??
+              settings.deliveryCommissionRate ??
+              20,
+          ) / 100;
+        const supervisorShare =
+          Number(
+            settings.multiVendorDriverManagerCommissionRate ??
+              settings.driverManagerCommissionRate ??
+              10,
+          ) / 100;
+        share = Math.max(0, 1 - platformShare - supervisorShare);
+      }
+    } else {
+      const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
+      const supervisorShare =
+        Number(settings?.driverManagerCommissionRate ?? 10) / 100;
+      share = Math.max(0, 1 - platformShare - supervisorShare);
+    }
     let fee = Number(groupDeliveryFee);
     if (driverTier === 'BRONZE') {
       fee = Math.max(0, fee - 2);
