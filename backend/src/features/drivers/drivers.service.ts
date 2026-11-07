@@ -961,6 +961,24 @@ export class DriversService {
       );
     }
 
+    if (
+      typeof latitude === 'number' &&
+      typeof longitude === 'number' &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude)
+    ) {
+      await this.locationRepository.trackDriverLocation(
+        driver.id,
+        longitude,
+        latitude,
+      );
+      await this.driversRepository.updateLastLocation(
+        driver.id,
+        longitude,
+        latitude,
+      );
+    }
+
     return startedShift;
   }
 

@@ -80,12 +80,19 @@ class LocationService {
         .read(coreSocketServiceProvider)
         .onConnect
         .listen((_) {
-      if (_isTracking && _lastPosition != null) {
-        debugPrint('📍 LocationService: Socket reconnected, re-broadcasting latest position.');
-        // Bypass coalescing so the customer gets a fresh fix immediately.
-        _lastEmitted = _lastPosition;
-        _lastEmitAt = DateTime.now();
-        _emitPosition(_lastPosition!);
+      if (_isTracking) {
+        if (_lastPosition != null) {
+          debugPrint('📍 LocationService: Socket reconnected, re-broadcasting latest position.');
+          _lastEmitted = _lastPosition;
+          _lastEmitAt = DateTime.now();
+          _emitPosition(_lastPosition!);
+        } else {
+          Geolocator.getLastKnownPosition().then((pos) {
+            if (pos != null && _isTracking) {
+              _broadcastLocation(pos);
+            }
+          }).catchError((_) => null);
+        }
       }
     });
   }
@@ -218,6 +225,10 @@ class LocationService {
 
     if (fetchInitial) {
       try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null && _lastPosition == null) {
+          _broadcastLocation(lastKnown);
+        }
         final initialPosition = await Geolocator.getCurrentPosition(
           locationSettings: locationSettings,
         ).timeout(const Duration(seconds: 10));
@@ -251,7 +262,7 @@ class LocationService {
 
   void _broadcastLocation(Position position) {
     // Reject unreliable fixes so the customer never sees random jumps.
-    if (position.accuracy > 100) {
+    if (_lastPosition != null ? position.accuracy > 100 : position.accuracy > 250) {
       debugPrint('📍 LocationService: Dropping fix with accuracy ${position.accuracy}m');
       return;
     }
