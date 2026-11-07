@@ -739,10 +739,10 @@ export class AuthService {
 
     if (!isMatch) {
       // Check if this specific token was just rotated in-flight by a simultaneous concurrent request
-      const cached = await this.redis.get(inflightKey);
+      const cached = await this.getInflightCachedRotation(inflightKey);
       if (cached) {
         try {
-          return JSON.parse(cached);
+          return cached;
         } catch {}
       }
 
@@ -803,10 +803,10 @@ export class AuthService {
     if (updateResult.count === 0) {
       // Another concurrent request updated the session while this was signing tokens.
       // Return the cached in-flight tokens or throw if unavailable.
-      const cached = await this.redis.get(inflightKey);
+      const cached = await this.getInflightCachedRotation(inflightKey);
       if (cached) {
         try {
-          return JSON.parse(cached);
+          return cached;
         } catch {}
       }
       throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
@@ -820,6 +820,29 @@ export class AuthService {
     );
 
     return responsePayload;
+  }
+
+  private async getInflightCachedRotation(
+    key: string,
+    retries = 2,
+    delayMs = 60,
+  ): Promise<any | null> {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const cached = await this.redis.get(key);
+        if (cached) {
+          try {
+            return JSON.parse(cached);
+          } catch {
+            return null;
+          }
+        }
+      } catch {}
+      if (i < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return null;
   }
 
   private async setDriverOfflineAfterLogoutIfNoActiveShift(
