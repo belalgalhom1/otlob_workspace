@@ -37,6 +37,29 @@ class AppMapTileLayer extends StatelessWidget {
   /// Global default CARTO API key configured across all applications.
   static String? defaultCartoApiKey = 'cb1_4ypn_1_415291f018422807fa2ba7a8';
 
+  /// High-contrast color matrix applied to CartoDB Dark Matter tiles in dark mode.
+  ///
+  /// Boosts the luminance of city names, street labels, and district titles
+  /// to pure crisp white (#FFFFFF) while keeping the dark background deeply dark.
+  static const List<double> darkWhiteTextMatrix = <double>[
+    3.0, 0.0, 0.0, 0.0, -70.0, // R
+    0.0, 3.0, 0.0, 0.0, -70.0, // G
+    0.0, 0.0, 3.0, 0.0, -70.0, // B
+    0.0, 0.0, 0.0, 1.0, 0.0,   // A
+  ];
+
+  /// Standard dark inversion matrix used when falling back to standard OpenStreetMap.
+  ///
+  /// Inverts black text and white land into pure white text and dark land.
+  static const List<double> osmDarkInversionMatrix = <double>[
+    0.574, -1.43, -0.144, 0.0, 255.0,
+    -0.426, -0.43, -0.144, 0.0, 255.0,
+    -0.426, -1.43, 0.856, 0.0, 255.0,
+    0.0, 0.0, 0.0, 1.0, 0.0,
+  ];
+
+  final TileBuilder? tileBuilder;
+
   const AppMapTileLayer({
     super.key,
     this.style = AppMapStyle.auto,
@@ -45,6 +68,7 @@ class AppMapTileLayer extends StatelessWidget {
     this.maxZoom = 20.0,
     this.minZoom = 2.0,
     this.apiKey,
+    this.tileBuilder,
   });
 
   @override
@@ -93,6 +117,21 @@ class AppMapTileLayer extends StatelessWidget {
         break;
     }
 
+    final TileBuilder? effectiveTileBuilder;
+    if (tileBuilder != null) {
+      effectiveTileBuilder = tileBuilder;
+    } else if (effectiveStyle == AppMapStyle.navigationDark) {
+      final matrix = hasKey ? darkWhiteTextMatrix : osmDarkInversionMatrix;
+      effectiveTileBuilder = (context, tileWidget, tile) {
+        return ColorFiltered(
+          colorFilter: ColorFilter.matrix(matrix),
+          child: tileWidget,
+        );
+      };
+    } else {
+      effectiveTileBuilder = null;
+    }
+
     return TileLayer(
       urlTemplate: urlTemplate,
       subdomains: subdomains,
@@ -101,6 +140,7 @@ class AppMapTileLayer extends StatelessWidget {
       maxZoom: maxZoom,
       minZoom: minZoom,
       tileProvider: tileProvider,
+      tileBuilder: effectiveTileBuilder,
       panBuffer: 1,
     );
   }
