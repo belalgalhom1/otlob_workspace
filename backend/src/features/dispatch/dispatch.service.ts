@@ -775,6 +775,28 @@ export class DispatchService {
       (c: any) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
     );
 
+    // Resolve participating vendor users before transaction
+    const vendorIds = order.vendorId
+      ? [order.vendorId]
+      : Array.from(
+          new Set(
+            (
+              await this.prisma.orderVendorFulfillment.findMany({
+                where: { orderId: order.id },
+                select: { vendorId: true },
+              })
+            ).map((p) => p.vendorId),
+          ),
+        );
+    const vendorUserIds = vendorIds.length
+      ? (
+          await this.prisma.vendorMember.findMany({
+            where: { vendorId: { in: vendorIds } },
+            select: { userId: true },
+          })
+        ).map((m) => m.userId)
+      : [];
+
     const acceptScope =
       candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? orderId;
     const activeKey = `otlobegy:order-dispatch-active:${acceptScope}`;
@@ -1103,28 +1125,6 @@ export class DispatchService {
       );
     }
 
-    // Notify every participating vendor. A multi-vendor order has no
-    // order-level vendor, so its vendor set comes from the portions.
-    const vendorIds = order.vendorId
-      ? [order.vendorId]
-      : Array.from(
-          new Set(
-            (
-              await this.prisma.orderVendorFulfillment.findMany({
-                where: { orderId: order.id },
-                select: { vendorId: true },
-              })
-            ).map((p) => p.vendorId),
-          ),
-        );
-    const vendorUserIds = vendorIds.length
-      ? (
-          await this.prisma.vendorMember.findMany({
-            where: { vendorId: { in: vendorIds } },
-            select: { userId: true },
-          })
-        ).map((m) => m.userId)
-      : [];
 
     // Durable: enqueue directly to the events queue instead of an in-process
     // emit, so a process crash between commit and fan-out cannot lose the
