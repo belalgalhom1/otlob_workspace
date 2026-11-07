@@ -438,7 +438,8 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             if (isMobile) ...[
               const SizedBox(height: 10),
               Container(
-                height: 42,
+                height: 44,
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
@@ -450,13 +451,25 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                   children: [
                     Expanded(
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => setState(() => _mobileViewMode = 0),
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
                           decoration: BoxDecoration(
                             color: _mobileViewMode == 0
                                 ? AppColors.primary
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: _mobileViewMode == 0
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.25),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
                           ),
                           alignment: Alignment.center,
                           child: Row(
@@ -487,13 +500,25 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                     ),
                     Expanded(
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => setState(() => _mobileViewMode = 1),
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
                           decoration: BoxDecoration(
                             color: _mobileViewMode == 1
                                 ? AppColors.primary
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: _mobileViewMode == 1
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.25),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
                           ),
                           alignment: Alignment.center,
                           child: Row(
