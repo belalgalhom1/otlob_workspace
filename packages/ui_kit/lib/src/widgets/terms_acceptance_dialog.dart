@@ -64,12 +64,12 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
         ),
         backgroundColor: isDark
             ? theme.colorScheme.surface
-            : theme.scaffoldBackgroundColor,
+            : Colors.white,
         elevation: 6,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: 620,
-            maxHeight: size.height * 0.88,
+            maxWidth: 680,
+            maxHeight: size.height * 0.90,
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -78,7 +78,7 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
               children: [
                 // Top Header Row
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
                       width: 44,
@@ -103,21 +103,21 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: AppSpacing.xs,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  widget.title,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              Text(
+                                widget.title,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: AppSpacing.xs),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
-                                  vertical: 3,
+                                  vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppColors.primary.withValues(alpha: 0.12),
@@ -136,12 +136,13 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             widget.subtitle,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
+                            softWrap: true,
                           ),
                         ],
                       ),
@@ -164,8 +165,8 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isDark
-                          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)
-                          : theme.colorScheme.surfaceContainerLowest,
+                          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25)
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(
                         color: theme.dividerColor.withValues(alpha: 0.15),
@@ -192,7 +193,7 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                         ? AppColors.primary.withValues(alpha: 0.08)
                         : (isDark
                             ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25)
-                            : theme.colorScheme.surfaceContainerLowest),
+                            : const Color(0xFFF8FAFC)),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(
                       color: _accepted
@@ -228,6 +229,7 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
+                              softWrap: true,
                             ),
                           ),
                         ],

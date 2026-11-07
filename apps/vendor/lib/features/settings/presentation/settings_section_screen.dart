@@ -254,20 +254,33 @@ class SettingsSectionScreen extends StatelessWidget {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: AppRadius.mdRadius,
+            color: theme.brightness == Brightness.dark
+                ? theme.colorScheme.surface
+                : Colors.white,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+              color: theme.dividerColor.withValues(alpha: 0.12),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: [
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     LucideIcons.fileText,
@@ -277,13 +290,16 @@ class SettingsSectionScreen extends StatelessWidget {
                 ),
                 title: Text(
                   isAr ? 'شروط الاستخدام الحالية' : 'Current Terms of Use',
-                  style: AppTypography.labelLarge,
+                  style: AppTypography.labelLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 subtitle: Text(
                   isAr
                       ? 'النسخة النشطة المطبقة على كافة مستخدمي المنصة'
                       : 'Active version currently enforced across the platform',
                   style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                  softWrap: true,
                 ),
                 trailing: OutlinedButton.icon(
                   onPressed: () {
@@ -297,18 +313,28 @@ class SettingsSectionScreen extends StatelessWidget {
                   },
                   icon: const Icon(LucideIcons.externalLink, size: 14),
                   label: Text(isAr ? 'عرض' : 'View'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
               Divider(
                 height: 1,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                color: theme.dividerColor.withValues(alpha: 0.08),
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     LucideIcons.shieldCheck,
@@ -318,13 +344,16 @@ class SettingsSectionScreen extends StatelessWidget {
                 ),
                 title: Text(
                   isAr ? 'سياسة الخصوصية الحالية' : 'Current Privacy Policy',
-                  style: AppTypography.labelLarge,
+                  style: AppTypography.labelLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 subtitle: Text(
                   isAr
                       ? 'النسخة النشطة لحماية البيانات والخصوصية'
                       : 'Active version for data protection and privacy',
                   style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                  softWrap: true,
                 ),
                 trailing: OutlinedButton.icon(
                   onPressed: () {
@@ -338,6 +367,12 @@ class SettingsSectionScreen extends StatelessWidget {
                   },
                   icon: const Icon(LucideIcons.externalLink, size: 14),
                   label: Text(isAr ? 'عرض' : 'View'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
             ],

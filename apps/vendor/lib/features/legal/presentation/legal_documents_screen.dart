@@ -36,111 +36,48 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = theme.brightness == Brightness.dark;
     final state = ref.watch(legalDocumentsProvider);
 
-    return Scaffold(
-      body: Column(
+    return Container(
+      color: Colors.transparent,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Screen Header
+          // Top Screen Header & Action Bar
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.md,
             ),
             decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.dividerColor.withValues(alpha: 0.15),
-                ),
+              color: isDark ? theme.colorScheme.surface : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.1),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 650;
-                if (isCompact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(AppSpacing.sm),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(AppRadius.md),
-                            ),
-                            child: const Icon(
-                              LucideIcons.fileCheck2,
-                              color: AppColors.primary,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isArabic
-                                      ? 'إدارة الشروط والسياسات القانونية'
-                                      : 'Legal Documents Management',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  isArabic
-                                      ? 'إنشاء وتعديل ونشر الشروط والسياسات ومتابعة الموافقات'
-                                      : 'Create, edit & publish legal terms and track acceptances',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _openCreateDialog(context),
-                          icon: const Icon(LucideIcons.plus, size: 18),
-                          label: Text(
-                            isArabic ? 'إصدار جديد' : 'New Version Draft',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppRadius.md),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }
 
-                return Row(
+                final infoBlock = Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: const Icon(
                         LucideIcons.fileCheck2,
@@ -156,67 +93,175 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           Text(
                             isArabic
                                 ? 'إدارة الشروط والسياسات القانونية'
-                                : 'Legal Documents Management',
-                            style: theme.textTheme.titleLarge?.copyWith(
+                                : 'Legal Documents & Compliance',
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: 18,
                             ),
+                            softWrap: true,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             isArabic
                                 ? 'إنشاء وتعديل ونشر شروط الاستخدام وسياسة الخصوصية، ومتابعة موافقات المستخدمين'
-                                : 'Create, edit, publish terms and privacy policies, and track user acceptances',
+                                : 'Create, edit, publish legal policies and monitor user acceptances across the platform',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
+                            softWrap: true,
                           ),
                         ],
                       ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () => _openCreateDialog(context),
-                      icon: const Icon(LucideIcons.plus, size: 18),
-                      label: Text(
-                        isArabic ? 'إصدار جديد' : 'New Version Draft',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                          vertical: AppSpacing.md,
-                        ),
-                      ),
+                  ],
+                );
+
+                final actionBtn = ElevatedButton.icon(
+                  onPressed: () => _openCreateDialog(context),
+                  icon: const Icon(LucideIcons.plus, size: 18),
+                  label: Text(
+                    isArabic ? 'إصدار جديد' : 'New Version Draft',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: 14,
+                    ),
+                  ),
+                );
+
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      infoBlock,
+                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(width: double.infinity, child: actionBtn),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: infoBlock),
+                    const SizedBox(width: AppSpacing.md),
+                    actionBtn,
                   ],
                 );
               },
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
 
-          // Tab Bar
+          // Modern Pill Segmented Tab Bar
           Container(
-            color: theme.colorScheme.surfaceContainerLowest,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? theme.colorScheme.surface
+                  : Colors.black.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.08),
+              ),
+            ),
             child: TabBar(
               controller: _tabController,
-              indicatorColor: AppColors.primary,
+              indicator: BoxDecoration(
+                color: isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
               labelColor: AppColors.primary,
               unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
               tabs: [
                 Tab(
-                  icon: const Icon(LucideIcons.scrollText, size: 18),
-                  text: isArabic ? 'شروط الاستخدام' : 'Terms of Use',
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(LucideIcons.scrollText, size: 16),
+                      const SizedBox(width: 8),
+                      Text(isArabic ? 'شروط الاستخدام' : 'Terms of Use'),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${state.termsDocuments.length}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Tab(
-                  icon: const Icon(LucideIcons.shieldCheck, size: 18),
-                  text: isArabic ? 'سياسة الخصوصية' : 'Privacy Policy',
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(LucideIcons.shieldCheck, size: 16),
+                      const SizedBox(width: 8),
+                      Text(isArabic ? 'سياسة الخصوصية' : 'Privacy Policy'),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${state.privacyDocuments.length}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
 
           // Content body
           Expanded(
@@ -254,6 +299,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     required bool isArabic,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final activeDoc = docs.cast<Map<String, dynamic>?>().firstWhere(
           (d) => d?['isPublished'] == true,
           orElse: () => null,
@@ -261,15 +307,41 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
 
     if (docs.isEmpty) {
       return Center(
-        child: Padding(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 480),
           padding: const EdgeInsets.all(AppSpacing.xxl),
+          decoration: BoxDecoration(
+            color: isDark ? theme.colorScheme.surface : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.dividerColor.withValues(alpha: 0.1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                LucideIcons.fileQuestion,
-                size: 54,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    LucideIcons.fileQuestion,
+                    size: 32,
+                    color: AppColors.primary,
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -279,14 +351,36 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 isArabic
                     ? 'اضغط على "إصدار جديد" لإنشاء مسودة وتجهيزها للنشر'
-                    : 'Click "New Version Draft" to create a document version',
+                    : 'Click "New Version Draft" to create a document version and prepare it for release',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+                softWrap: true,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              ElevatedButton.icon(
+                onPressed: () => _openCreateDialog(context),
+                icon: const Icon(LucideIcons.plus, size: 16),
+                label: Text(
+                  isArabic ? 'إنشاء مسودة جديدة' : 'Create First Draft',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -296,7 +390,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     }
 
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
       children: [
         // Summary Card of Active Document
         if (activeDoc != null) ...[
@@ -305,10 +399,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         ],
 
         // Section Title: Version History
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Row(
           children: [
             Text(
               isArabic ? 'سجل الإصدارات' : 'Version History',
@@ -320,7 +411,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
+                color: isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : Colors.black.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Text(
@@ -346,149 +439,257 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     bool isArabic,
   ) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final version = doc['version']?.toString() ?? '1.0';
     final title = isArabic
         ? (doc['titleAr']?.toString() ?? doc['title']?.toString() ?? '')
         : (doc['title']?.toString() ?? doc['titleAr']?.toString() ?? '');
+    final altTitle = isArabic
+        ? (doc['title']?.toString() ?? '')
+        : (doc['titleAr']?.toString() ?? '');
     final count = doc['acceptanceCount']?.toString() ?? '0';
+    final id = doc['id']?.toString() ?? '';
+    final publishedAt = doc['publishedAt']?.toString();
+
+    String formattedDate = '';
+    if (publishedAt != null && publishedAt.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(publishedAt);
+        formattedDate = isArabic
+            ? '${dt.year}/${dt.month}/${dt.day}'
+            : '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      } catch (_) {
+        formattedDate = publishedAt;
+      }
+    }
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        color: isDark ? theme.colorScheme.surface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.3),
+          color: const Color(0xFF10B981).withValues(alpha: 0.35),
+          width: 1.4,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF10B981).withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 440;
+          final isNarrow = constraints.maxWidth < 620;
 
-          final iconWidget = Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              LucideIcons.checkCircle2,
-              color: Colors.green,
-              size: 22,
-            ),
-          );
-
-          final titleWidget = Column(
+          final headerRow = Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Text(
-                      isArabic ? 'الإصدار النشط المنشور' : 'Active Published',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.25),
                   ),
-                  Text(
-                    'v$version',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                child: const Icon(
+                  LucideIcons.shieldCheck,
+                  color: Color(0xFF10B981),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                LucideIcons.checkCircle2,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isArabic
+                                    ? 'الإصدار النشط المنشور'
+                                    : 'Active Enforced Version',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Text(
+                            'v$version',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      softWrap: true,
+                    ),
+                    if (altTitle.isNotEmpty && altTitle != title) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        altTitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        softWrap: true,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           );
 
-          final countWidget = Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.15),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  LucideIcons.users,
-                  size: 16,
-                  color: AppColors.primary,
+          final metricsAndActions = Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: isNarrow ? WrapAlignment.start : WrapAlignment.end,
+            children: [
+              // Metrics Pill
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
                 ),
-                const SizedBox(width: 6),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? theme.colorScheme.surfaceContainerHighest
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: theme.dividerColor.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    const Icon(
+                      LucideIcons.users,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      count,
-                      style: theme.textTheme.titleSmall?.copyWith(
+                      '$count ${isArabic ? 'موافقات مسجلة' : 'Accepted Users'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(
-                      isArabic ? 'مستخدم وافقوا' : 'Users Accepted',
-                      style: theme.textTheme.labelSmall?.copyWith(
+                    if (formattedDate.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '•',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        LucideIcons.calendar,
+                        size: 13,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      Text(
+                        formattedDate,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // Preview Action
+              OutlinedButton.icon(
+                onPressed: () => _openPreviewDialog(context, id, isArabic),
+                icon: const Icon(LucideIcons.eye, size: 15),
+                label: Text(isArabic ? 'معاينة' : 'Preview'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+
+              // Stats Action
+              OutlinedButton.icon(
+                onPressed: () => _openStatsDialog(context, id, isArabic),
+                icon: const Icon(LucideIcons.barChart2, size: 15),
+                label: Text(isArabic ? 'الإحصائيات' : 'Metrics'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
           );
 
-          if (isNarrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    iconWidget,
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: titleWidget),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                countWidget,
-              ],
-            );
-          }
-
-          return Row(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              iconWidget,
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: titleWidget),
-              const SizedBox(width: AppSpacing.sm),
-              countWidget,
+              headerRow,
+              const SizedBox(height: AppSpacing.md),
+              Divider(
+                height: 1,
+                color: theme.dividerColor.withValues(alpha: 0.08),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              metricsAndActions,
             ],
           );
         },
@@ -502,6 +703,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     bool isArabic,
   ) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isPublished = doc['isPublished'] == true;
     final version = doc['version']?.toString() ?? '1.0';
     final titleEn = doc['title']?.toString() ?? '';
@@ -509,218 +711,294 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     final count = doc['acceptanceCount']?.toString() ?? '0';
     final id = doc['id']?.toString() ?? '';
 
-    return Card(
+    final primaryTitle = isArabic ? titleAr : titleEn;
+    final secondaryTitle = isArabic ? titleEn : titleAr;
+
+    return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        side: BorderSide(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: isDark ? theme.colorScheme.surface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
           color: isPublished
-              ? Colors.green.withValues(alpha: 0.4)
-              : theme.dividerColor.withValues(alpha: 0.15),
-          width: isPublished ? 1.5 : 1.0,
+              ? const Color(0xFF10B981).withValues(alpha: 0.35)
+              : theme.dividerColor.withValues(alpha: 0.12),
+          width: isPublished ? 1.4 : 1.0,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerLowest,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.xs,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                // Status Badge
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header: Status Badge, Version, Acceptances
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // Status Badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isPublished
+                      ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                      : Colors.amber.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPublished ? LucideIcons.checkCheck : LucideIcons.clock,
+                      size: 13,
+                      color: isPublished
+                          ? const Color(0xFF10B981)
+                          : Colors.amber.shade800,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isPublished
+                          ? (isArabic ? 'منشور ونشط' : 'Published & Active')
+                          : (isArabic ? 'مسودة' : 'Draft'),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: isPublished
+                            ? const Color(0xFF10B981)
+                            : Colors.amber.shade900,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Version Chip
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      LucideIcons.gitBranch,
+                      size: 12,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'v$version',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Acceptances Chip
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? theme.colorScheme.surfaceContainerHighest
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.userCheck,
+                      size: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$count ${isArabic ? 'موافقات' : 'acceptances'}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Bilingual titles with NO truncation
+          Text(
+            primaryTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+            softWrap: true,
+          ),
+          if (secondaryTitle.isNotEmpty && secondaryTitle != primaryTitle) ...[
+            const SizedBox(height: 3),
+            Text(
+              secondaryTitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              softWrap: true,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          Divider(
+            height: 1,
+            color: theme.dividerColor.withValues(alpha: 0.08),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Action Buttons
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // View / Preview
+              OutlinedButton.icon(
+                onPressed: () => _openPreviewDialog(context, id, isArabic),
+                icon: const Icon(LucideIcons.eye, size: 15),
+                label: Text(isArabic ? 'معاينة' : 'Preview'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                ),
+              ),
+
+              // Edit
+              OutlinedButton.icon(
+                onPressed: () => _openEditDialog(context, id, isArabic),
+                icon: const Icon(LucideIcons.pencil, size: 15),
+                label: Text(isArabic ? 'تعديل' : 'Edit'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                ),
+              ),
+
+              // Stats breakdown
+              OutlinedButton.icon(
+                onPressed: () => _openStatsDialog(context, id, isArabic),
+                icon: const Icon(LucideIcons.barChart2, size: 15),
+                label: Text(isArabic ? 'الإحصائيات' : 'Stats'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                ),
+              ),
+
+              // Publish (if not currently published)
+              if (!isPublished) ...[
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      _confirmPublish(context, id, version, isArabic),
+                  icon: const Icon(LucideIcons.uploadCloud, size: 15),
+                  label: Text(
+                    isArabic ? 'نشر هذا الإصدار' : 'Publish Version',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                  ),
+                ),
+
+                // Delete Button (Proper aligned button)
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      _confirmDelete(context, id, version, isArabic),
+                  icon: Icon(
+                    LucideIcons.trash2,
+                    size: 14,
+                    color: theme.colorScheme.error,
+                  ),
+                  label: Text(
+                    isArabic ? 'حذف' : 'Delete',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide(
+                      color: theme.colorScheme.error.withValues(alpha: 0.35),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                  ),
+                ),
+              ] else ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+                    horizontal: 8,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: isPublished
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : Colors.amber.withValues(alpha: 0.15),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        isPublished
-                            ? LucideIcons.checkCheck
-                            : LucideIcons.clock,
+                      const Icon(
+                        LucideIcons.lock,
                         size: 13,
-                        color: isPublished ? Colors.green : Colors.amber.shade800,
+                        color: Color(0xFF10B981),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isPublished
-                            ? (isArabic ? 'منشور ونشط' : 'Published & Active')
-                            : (isArabic ? 'مسودة' : 'Draft'),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: isPublished
-                              ? Colors.green
-                              : Colors.amber.shade900,
+                        isArabic
+                            ? 'الإصدار المعتمد'
+                            : 'Active Enforced',
+                        style: const TextStyle(
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
+                          color: Color(0xFF10B981),
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Version Chip
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Text(
-                    'v$version',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.userCheck,
-                  size: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    '$count ${isArabic ? 'موافقات' : 'acceptances'}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
-            // Bilingual titles
-            Text(
-              isArabic ? titleAr : titleEn,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              isArabic ? titleEn : titleAr,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Divider(color: theme.dividerColor.withValues(alpha: 0.1)),
-            const SizedBox(height: AppSpacing.sm),
-
-            // Action Buttons
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.xs,
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                // View / Preview
-                OutlinedButton.icon(
-                  onPressed: () => _openPreviewDialog(context, id, isArabic),
-                  icon: const Icon(LucideIcons.eye, size: 15),
-                  label: Text(isArabic ? 'معاينة' : 'Preview'),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                  ),
-                ),
-
-                // Edit
-                OutlinedButton.icon(
-                  onPressed: () => _openEditDialog(context, id, isArabic),
-                  icon: const Icon(LucideIcons.pencil, size: 15),
-                  label: Text(isArabic ? 'تعديل' : 'Edit'),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                  ),
-                ),
-
-                // Stats breakdown
-                OutlinedButton.icon(
-                  onPressed: () => _openStatsDialog(context, id, isArabic),
-                  icon: const Icon(LucideIcons.barChart2, size: 15),
-                  label: Text(isArabic ? 'الإحصائيات' : 'Stats'),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                  ),
-                ),
-
-                // Publish (if not currently published)
-                if (!isPublished) ...[
-                  ElevatedButton.icon(
-                    onPressed: () => _confirmPublish(context, id, version, isArabic),
-                    icon: const Icon(LucideIcons.uploadCloud, size: 15),
-                    label: Text(isArabic ? 'نشر هذا الإصدار' : 'Publish Version'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                    ),
-                  ),
-                ],
-
-                // Delete
-                IconButton(
-                  icon: Icon(
-                    LucideIcons.trash2,
-                    size: 16,
-                    color: isPublished
-                        ? theme.disabledColor
-                        : theme.colorScheme.error,
-                  ),
-                  tooltip: isPublished
-                      ? (isArabic
-                          ? 'لا يمكن حذف الإصدار المنشور'
-                          : 'Cannot delete published version')
-                      : (isArabic ? 'حذف' : 'Delete'),
-                  onPressed: isPublished
-                      ? null
-                      : () => _confirmDelete(context, id, version, isArabic),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -751,15 +1029,18 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
       barrierDismissible: false,
       builder: (ctx) {
         final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return DialogScaffold(
               child: Dialog(
+                backgroundColor:
+                    isDark ? theme.colorScheme.surface : Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Container(
-                  constraints: const BoxConstraints(maxWidth: 750),
+                  constraints: const BoxConstraints(maxWidth: 720),
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Form(
                     key: formKey,
@@ -769,12 +1050,28 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                isArabic ? 'إنشاء مسودة إصدار جديد' : 'New Version Draft',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  LucideIcons.filePlus2,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  isArabic
+                                      ? 'إنشاء مسودة إصدار جديد'
+                                      : 'New Version Draft',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               IconButton(
@@ -789,20 +1086,26 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           DropdownButtonFormField<String>(
                             initialValue: type,
                             decoration: InputDecoration(
-                              labelText: isArabic ? 'نوع الوثيقة' : 'Document Type',
+                              labelText: isArabic
+                                  ? 'نوع الوثيقة'
+                                  : 'Document Type',
                               prefixIcon: const Icon(LucideIcons.fileType),
                             ),
                             items: [
                               DropdownMenuItem(
                                 value: 'TERMS_OF_USE',
                                 child: Text(
-                                  isArabic ? 'شروط الاستخدام (Terms of Use)' : 'Terms of Use',
+                                  isArabic
+                                      ? 'شروط الاستخدام (Terms of Use)'
+                                      : 'Terms of Use',
                                 ),
                               ),
                               DropdownMenuItem(
                                 value: 'PRIVACY_POLICY',
                                 child: Text(
-                                  isArabic ? 'سياسة الخصوصية (Privacy Policy)' : 'Privacy Policy',
+                                  isArabic
+                                      ? 'سياسة الخصوصية (Privacy Policy)'
+                                      : 'Privacy Policy',
                                 ),
                               ),
                             ],
@@ -818,11 +1121,15 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           TextFormField(
                             controller: versionController,
                             decoration: InputDecoration(
-                              labelText: isArabic ? 'رقم الإصدار (مثال: 1.1)' : 'Version (e.g. 1.1)',
+                              labelText: isArabic
+                                  ? 'رقم الإصدار (مثال: 1.1)'
+                                  : 'Version (e.g. 1.1)',
                               prefixIcon: const Icon(LucideIcons.gitBranch),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
-                                ? (isArabic ? 'رقم الإصدار مطلوب' : 'Version is required')
+                                ? (isArabic
+                                    ? 'رقم الإصدار مطلوب'
+                                    : 'Version is required')
                                 : null,
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -857,9 +1164,10 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           // Content English
                           TextFormField(
                             controller: contentController,
-                            maxLines: 8,
+                            maxLines: 7,
                             decoration: const InputDecoration(
-                              labelText: 'Content (English - Markdown supported)',
+                              labelText:
+                                  'Content (English - Markdown supported)',
                               alignLabelWithHint: true,
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
@@ -872,9 +1180,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           TextFormField(
                             controller: contentArController,
                             textDirection: TextDirection.rtl,
-                            maxLines: 8,
+                            maxLines: 7,
                             decoration: const InputDecoration(
-                              labelText: 'المحتوى (باللغة العربية)',
+                              labelText: 'المحتوى (باللغة العربية - يدعم التنسيق)',
                               alignLabelWithHint: true,
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
@@ -888,6 +1196,11 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                             children: [
                               OutlinedButton(
                                 onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
                                 child: Text(isArabic ? 'إلغاء' : 'Cancel'),
                               ),
                               const SizedBox(width: AppSpacing.md),
@@ -951,20 +1264,23 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     final titleArController = TextEditingController(text: doc['titleAr'] ?? '');
     final versionController = TextEditingController(text: doc['version'] ?? '');
     final contentController = TextEditingController(text: doc['content'] ?? '');
-    final contentArController = TextEditingController(text: doc['contentAr'] ?? '');
+    final contentArController =
+        TextEditingController(text: doc['contentAr'] ?? '');
 
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
         final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
         return DialogScaffold(
           child: Dialog(
+            backgroundColor: isDark ? theme.colorScheme.surface : Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 750),
+              constraints: const BoxConstraints(maxWidth: 720),
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Form(
                 key: formKey,
@@ -974,12 +1290,28 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            isArabic ? 'تعديل الوثيقة القانونية' : 'Edit Legal Document',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              LucideIcons.fileEdit,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              isArabic
+                                  ? 'تعديل الوثيقة القانونية'
+                                  : 'Edit Legal Document',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           IconButton(
@@ -996,7 +1328,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           prefixIcon: const Icon(LucideIcons.gitBranch),
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? (isArabic ? 'رقم الإصدار مطلوب' : 'Version is required')
+                            ? (isArabic
+                                ? 'رقم الإصدار مطلوب'
+                                : 'Version is required')
                             : null,
                       ),
                       const SizedBox(height: AppSpacing.md),
@@ -1025,7 +1359,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: contentController,
-                        maxLines: 8,
+                        maxLines: 7,
                         decoration: const InputDecoration(
                           labelText: 'Content (English)',
                           alignLabelWithHint: true,
@@ -1035,7 +1369,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                       TextFormField(
                         controller: contentArController,
                         textDirection: TextDirection.rtl,
-                        maxLines: 8,
+                        maxLines: 7,
                         decoration: const InputDecoration(
                           labelText: 'المحتوى (باللغة العربية)',
                           alignLabelWithHint: true,
@@ -1047,6 +1381,11 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                         children: [
                           OutlinedButton(
                             onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
                             child: Text(isArabic ? 'إلغاء' : 'Cancel'),
                           ),
                           const SizedBox(width: AppSpacing.md),
@@ -1104,6 +1443,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     await showDialog<void>(
       context: context,
       builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
+
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final title = showArabic
@@ -1116,17 +1458,19 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
 
             return DialogScaffold(
               child: Dialog(
+                backgroundColor:
+                    isDark ? theme.colorScheme.surface : Colors.white,
                 insetPadding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
                   vertical: AppSpacing.lg,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
-                    maxWidth: 750,
-                    maxHeight: 700,
+                    maxWidth: 820,
+                    maxHeight: 740,
                   ),
                   child: Column(
                     children: [
@@ -1135,20 +1479,34 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
-                              color: Theme.of(ctx).dividerColor.withValues(alpha: 0.15),
+                              color: theme.dividerColor
+                                  .withValues(alpha: 0.12),
                             ),
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(LucideIcons.fileText, color: AppColors.primary),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                LucideIcons.fileText,
+                                color: AppColors.primary,
+                                size: 18,
+                              ),
+                            ),
                             const SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text(
                                 title,
-                                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
+                                softWrap: true,
                               ),
                             ),
                             IconButton(
@@ -1196,13 +1554,17 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
       context: context,
       builder: (ctx) {
         final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
+
         return DialogScaffold(
           child: Dialog(
+            backgroundColor:
+                isDark ? theme.colorScheme.surface : Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 500),
+              constraints: const BoxConstraints(maxWidth: 520),
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1211,11 +1573,30 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        isArabic ? 'إحصائيات موافقات المستخدمين' : 'Acceptance Metrics',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              LucideIcons.barChart2,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            isArabic
+                                ? 'إحصائيات موافقات المستخدمين'
+                                : 'Acceptance Metrics',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                       IconButton(
                         icon: const Icon(LucideIcons.x, size: 20),
@@ -1229,6 +1610,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                      ),
                     ),
                     child: Column(
                       children: [
@@ -1239,8 +1623,11 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                             color: AppColors.primary,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          isArabic ? 'إجمالي الموافقات المسجلة' : 'Total Acceptances',
+                          isArabic
+                              ? 'إجمالي الموافقات المسجلة'
+                              : 'Total Acceptances Recorded',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -1250,7 +1637,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    isArabic ? 'التوزيع حسب نوع المستخدم:' : 'Breakdown by Role:',
+                    isArabic
+                        ? 'التوزيع حسب نوع المستخدم:'
+                        : 'Breakdown by User Role:',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1276,8 +1665,11 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                   ),
                   _buildRoleStatTile(
                     ctx,
-                    role: isArabic ? 'المشرفين والإداريين (Admins)' : 'Staff & Admins',
-                    count: (breakdown['ADMIN'] ?? 0) + (breakdown['SUPER_ADMIN'] ?? 0),
+                    role: isArabic
+                        ? 'المشرفين والإداريين (Admins)'
+                        : 'Staff & Admins',
+                    count: (breakdown['ADMIN'] ?? 0) +
+                        (breakdown['SUPER_ADMIN'] ?? 0),
                     icon: LucideIcons.shieldCheck,
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -1301,23 +1693,46 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     required IconData icon,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? theme.colorScheme.surfaceContainerHighest
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               role,
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+              softWrap: true,
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
+              color: isDark
+                  ? theme.colorScheme.surfaceContainerHighest
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.1),
+              ),
             ),
             child: Text(
               '$count',
@@ -1341,7 +1756,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text(isArabic ? 'تأكيد نشر الإصدار' : 'Confirm Version Release'),
+          title: Text(
+            isArabic ? 'تأكيد نشر الإصدار' : 'Confirm Version Release',
+          ),
           content: Text(
             isArabic
                 ? 'هل أنت متأكد من نشر الإصدار v$version؟\n\nبمجرد النشر، سيصبح هذا الإصدار هو المعتمد رسميًا، وسيتوجب على كافة المستخدمين (عملاء، مناديب، متاجر) الموافقة على هذا الإصدار الجديد عند فتح التطبيق للمتابعة.'
@@ -1355,7 +1772,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
               ),
               child: Text(isArabic ? 'نشر الآن' : 'Publish Now'),
@@ -1426,7 +1843,9 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isArabic ? 'تم حذف الإصدار بنجاح' : 'Version deleted successfully',
+              isArabic
+                  ? 'تم حذف الإصدار بنجاح'
+                  : 'Version deleted successfully',
             ),
           ),
         );

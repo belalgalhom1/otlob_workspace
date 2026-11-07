@@ -955,6 +955,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     17: 'NTF',
     18: 'BRK',
     19: 'DVM',
+    20: 'LEG',
   };
 
   static const _pageCodesAr = <int, String>{
@@ -978,6 +979,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     17: 'إشعار',
     18: 'استراحة',
     19: 'مدر',
+    20: 'قانون',
   };
 
   static const _pageIcons = <int, IconData>{
@@ -1001,6 +1003,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     17: LucideIcons.bell,
     18: LucideIcons.coffee,
     19: LucideIcons.userCheck,
+    20: LucideIcons.fileCheck2,
   };
 
   /// Pages visible to the current user, mirroring the sidebar gates.
@@ -1040,6 +1043,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     add(5, _hasPermission('MANAGE_TICKETS'));
     add(6, _hasPermission('MANAGE_CONVERSATIONS'));
     add(17, true);
+    add(20, _hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN');
     add(7, _hasPermission('MANAGE_SETTINGS') || _userRole == 'SUPER_ADMIN');
     return pages;
   }
@@ -2162,8 +2166,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: isDesktop ? 8 : 16,
-        vertical: 4,
+        horizontal: isDesktop ? 6 : 16,
+        vertical: 3,
       ),
       child: InkWell(
         onTap: () {
@@ -2175,14 +2179,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: isDesktop ? 12 : 12,
+            horizontal: isDesktop ? 6 : 16,
+            vertical: isDesktop ? 10 : 12,
           ),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.1)
+                ? AppColors.primary.withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
+            border: isSelected
+                ? Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    width: 1,
+                  )
+                : Border.all(color: Colors.transparent, width: 1),
           ),
           child: isDesktop
               ? Column(
@@ -2209,12 +2219,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 10,
+                        height: 1.15,
                         color: isSelected ? AppColors.primary : unselectedColor,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
+                      softWrap: true,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -2249,6 +2261,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               : FontWeight.normal,
                           fontSize: 14,
                         ),
+                        softWrap: true,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2453,6 +2466,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return Localizations.localeOf(context).languageCode == 'ar'
             ? 'مسؤولو السائقين'
             : 'Driver Managers';
+      case 20:
+        return Localizations.localeOf(context).languageCode == 'ar'
+            ? 'الوثائق القانونية'
+            : 'Legal & Terms';
       default:
         return l10n.dashboard;
     }
