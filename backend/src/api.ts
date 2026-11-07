@@ -33,6 +33,8 @@ async function bootstrap() {
 
   app.useStaticAssets(path.join(process.cwd(), 'storage'), {
     prefix: '/media/',
+    maxAge: 31536000000,
+    immutable: true,
   });
 
   const configService = app.get(ConfigService);

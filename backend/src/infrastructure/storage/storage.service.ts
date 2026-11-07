@@ -135,6 +135,11 @@ export class StorageService {
           fs.promises.writeFile(thumbFilePath, thumbBuffer),
         ]);
 
+        // Enqueue background deep compression to BullMQ media worker without blocking API response
+        if (this.mediaService) {
+          void this.mediaService.enqueueImageOptimization(mainFilePath, presetName);
+        }
+
         this.logger.log(
           `Uploaded & processed image: ${folder}/${mainFileName} (${mainBuffer.length}B, thumb: ${thumbBuffer.length}B)`,
         );
