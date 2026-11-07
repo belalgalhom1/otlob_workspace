@@ -62,11 +62,17 @@ part 'update_platform_settings_dto.g.dart';
 /// * [autoCancelPendingMins] 
 /// * [mobileWalletTimeoutMins] 
 /// * [driverAcceptTimeoutSecs] 
+/// * [dispatchHandoffDedupeTtlSecs] 
 /// * [assistDecisionTimeoutSecs] 
 /// * [maxNegativeDriverBalance] 
 /// * [maxDispatchBatchSize] 
 /// * [maxActiveOrdersPerDriver] - Maximum active orders a driver can carry at the same time (1-10). Default 1.
 /// * [stackedOrderDriverPercentage] - Percentage of the delivery fee given to the driver for stacked orders beyond order 1 (0-100). Remainder goes to platform.
+/// * [batchedDeliveryCommissionRate] - Platform cut percentage of the delivery fee for batched/stacked orders beyond order 1 (0-100).
+/// * [batchedDriverManagerCommissionRate] - Driver manager cut percentage of the delivery fee for batched/stacked orders (0-100).
+/// * [multiVendorDeliveryCommissionRate] - Platform delivery cut percentage for multi-vendor orders (0-100).
+/// * [multiVendorDriverManagerCommissionRate] - Driver manager cut percentage for multi-vendor orders (0-100).
+/// * [multiVendorDriverPercentage] - Driver delivery cut percentage for multi-vendor orders (0-100).
 /// * [batchMaxVendorDistanceKm] - Maximum straight-line distance (km) between vendor branches eligible for batch order assignment.
 /// * [batchMaxCustomerDistanceKm] - Maximum straight-line distance (km) between customer drop-off points eligible for batch order assignment.
 /// * [isMaintenanceMode] 
@@ -285,6 +291,9 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'driverAcceptTimeoutSecs')
   num? get driverAcceptTimeoutSecs;
 
+  @BuiltValueField(wireName: r'dispatchHandoffDedupeTtlSecs')
+  num? get dispatchHandoffDedupeTtlSecs;
+
   @BuiltValueField(wireName: r'assistDecisionTimeoutSecs')
   num? get assistDecisionTimeoutSecs;
 
@@ -301,6 +310,26 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Percentage of the delivery fee given to the driver for stacked orders beyond order 1 (0-100). Remainder goes to platform.
   @BuiltValueField(wireName: r'stackedOrderDriverPercentage')
   num? get stackedOrderDriverPercentage;
+
+  /// Platform cut percentage of the delivery fee for batched/stacked orders beyond order 1 (0-100).
+  @BuiltValueField(wireName: r'batchedDeliveryCommissionRate')
+  num? get batchedDeliveryCommissionRate;
+
+  /// Driver manager cut percentage of the delivery fee for batched/stacked orders (0-100).
+  @BuiltValueField(wireName: r'batchedDriverManagerCommissionRate')
+  num? get batchedDriverManagerCommissionRate;
+
+  /// Platform delivery cut percentage for multi-vendor orders (0-100).
+  @BuiltValueField(wireName: r'multiVendorDeliveryCommissionRate')
+  num? get multiVendorDeliveryCommissionRate;
+
+  /// Driver manager cut percentage for multi-vendor orders (0-100).
+  @BuiltValueField(wireName: r'multiVendorDriverManagerCommissionRate')
+  num? get multiVendorDriverManagerCommissionRate;
+
+  /// Driver delivery cut percentage for multi-vendor orders (0-100).
+  @BuiltValueField(wireName: r'multiVendorDriverPercentage')
+  num? get multiVendorDriverPercentage;
 
   /// Maximum straight-line distance (km) between vendor branches eligible for batch order assignment.
   @BuiltValueField(wireName: r'batchMaxVendorDistanceKm')
@@ -880,6 +909,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
+    if (object.dispatchHandoffDedupeTtlSecs != null) {
+      yield r'dispatchHandoffDedupeTtlSecs';
+      yield serializers.serialize(
+        object.dispatchHandoffDedupeTtlSecs,
+        specifiedType: const FullType(num),
+      );
+    }
     if (object.assistDecisionTimeoutSecs != null) {
       yield r'assistDecisionTimeoutSecs';
       yield serializers.serialize(
@@ -912,6 +948,41 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'stackedOrderDriverPercentage';
       yield serializers.serialize(
         object.stackedOrderDriverPercentage,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.batchedDeliveryCommissionRate != null) {
+      yield r'batchedDeliveryCommissionRate';
+      yield serializers.serialize(
+        object.batchedDeliveryCommissionRate,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.batchedDriverManagerCommissionRate != null) {
+      yield r'batchedDriverManagerCommissionRate';
+      yield serializers.serialize(
+        object.batchedDriverManagerCommissionRate,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.multiVendorDeliveryCommissionRate != null) {
+      yield r'multiVendorDeliveryCommissionRate';
+      yield serializers.serialize(
+        object.multiVendorDeliveryCommissionRate,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.multiVendorDriverManagerCommissionRate != null) {
+      yield r'multiVendorDriverManagerCommissionRate';
+      yield serializers.serialize(
+        object.multiVendorDriverManagerCommissionRate,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.multiVendorDriverPercentage != null) {
+      yield r'multiVendorDriverPercentage';
+      yield serializers.serialize(
+        object.multiVendorDriverPercentage,
         specifiedType: const FullType(num),
       );
     }
@@ -1666,6 +1737,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.driverAcceptTimeoutSecs = valueDes;
           break;
+        case r'dispatchHandoffDedupeTtlSecs':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.dispatchHandoffDedupeTtlSecs = valueDes;
+          break;
         case r'assistDecisionTimeoutSecs':
           final valueDes = serializers.deserialize(
             value,
@@ -1700,6 +1778,41 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.stackedOrderDriverPercentage = valueDes;
+          break;
+        case r'batchedDeliveryCommissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.batchedDeliveryCommissionRate = valueDes;
+          break;
+        case r'batchedDriverManagerCommissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.batchedDriverManagerCommissionRate = valueDes;
+          break;
+        case r'multiVendorDeliveryCommissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.multiVendorDeliveryCommissionRate = valueDes;
+          break;
+        case r'multiVendorDriverManagerCommissionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.multiVendorDriverManagerCommissionRate = valueDes;
+          break;
+        case r'multiVendorDriverPercentage':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.multiVendorDriverPercentage = valueDes;
           break;
         case r'batchMaxVendorDistanceKm':
           final valueDes = serializers.deserialize(

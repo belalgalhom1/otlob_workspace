@@ -110,6 +110,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? driverAcceptTimeoutSecs;
   @override
+  final num? dispatchHandoffDedupeTtlSecs;
+  @override
   final num? assistDecisionTimeoutSecs;
   @override
   final num? maxNegativeDriverBalance;
@@ -119,6 +121,16 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   final num? maxActiveOrdersPerDriver;
   @override
   final num? stackedOrderDriverPercentage;
+  @override
+  final num? batchedDeliveryCommissionRate;
+  @override
+  final num? batchedDriverManagerCommissionRate;
+  @override
+  final num? multiVendorDeliveryCommissionRate;
+  @override
+  final num? multiVendorDriverManagerCommissionRate;
+  @override
+  final num? multiVendorDriverPercentage;
   @override
   final num? batchMaxVendorDistanceKm;
   @override
@@ -282,11 +294,17 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.autoCancelPendingMins,
     this.mobileWalletTimeoutMins,
     this.driverAcceptTimeoutSecs,
+    this.dispatchHandoffDedupeTtlSecs,
     this.assistDecisionTimeoutSecs,
     this.maxNegativeDriverBalance,
     this.maxDispatchBatchSize,
     this.maxActiveOrdersPerDriver,
     this.stackedOrderDriverPercentage,
+    this.batchedDeliveryCommissionRate,
+    this.batchedDriverManagerCommissionRate,
+    this.multiVendorDeliveryCommissionRate,
+    this.multiVendorDriverManagerCommissionRate,
+    this.multiVendorDriverPercentage,
     this.batchMaxVendorDistanceKm,
     this.batchMaxCustomerDistanceKm,
     this.isMaintenanceMode,
@@ -407,11 +425,20 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         autoCancelPendingMins == other.autoCancelPendingMins &&
         mobileWalletTimeoutMins == other.mobileWalletTimeoutMins &&
         driverAcceptTimeoutSecs == other.driverAcceptTimeoutSecs &&
+        dispatchHandoffDedupeTtlSecs == other.dispatchHandoffDedupeTtlSecs &&
         assistDecisionTimeoutSecs == other.assistDecisionTimeoutSecs &&
         maxNegativeDriverBalance == other.maxNegativeDriverBalance &&
         maxDispatchBatchSize == other.maxDispatchBatchSize &&
         maxActiveOrdersPerDriver == other.maxActiveOrdersPerDriver &&
         stackedOrderDriverPercentage == other.stackedOrderDriverPercentage &&
+        batchedDeliveryCommissionRate == other.batchedDeliveryCommissionRate &&
+        batchedDriverManagerCommissionRate ==
+            other.batchedDriverManagerCommissionRate &&
+        multiVendorDeliveryCommissionRate ==
+            other.multiVendorDeliveryCommissionRate &&
+        multiVendorDriverManagerCommissionRate ==
+            other.multiVendorDriverManagerCommissionRate &&
+        multiVendorDriverPercentage == other.multiVendorDriverPercentage &&
         batchMaxVendorDistanceKm == other.batchMaxVendorDistanceKm &&
         batchMaxCustomerDistanceKm == other.batchMaxCustomerDistanceKm &&
         isMaintenanceMode == other.isMaintenanceMode &&
@@ -524,11 +551,17 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, autoCancelPendingMins.hashCode);
     _$hash = $jc(_$hash, mobileWalletTimeoutMins.hashCode);
     _$hash = $jc(_$hash, driverAcceptTimeoutSecs.hashCode);
+    _$hash = $jc(_$hash, dispatchHandoffDedupeTtlSecs.hashCode);
     _$hash = $jc(_$hash, assistDecisionTimeoutSecs.hashCode);
     _$hash = $jc(_$hash, maxNegativeDriverBalance.hashCode);
     _$hash = $jc(_$hash, maxDispatchBatchSize.hashCode);
     _$hash = $jc(_$hash, maxActiveOrdersPerDriver.hashCode);
     _$hash = $jc(_$hash, stackedOrderDriverPercentage.hashCode);
+    _$hash = $jc(_$hash, batchedDeliveryCommissionRate.hashCode);
+    _$hash = $jc(_$hash, batchedDriverManagerCommissionRate.hashCode);
+    _$hash = $jc(_$hash, multiVendorDeliveryCommissionRate.hashCode);
+    _$hash = $jc(_$hash, multiVendorDriverManagerCommissionRate.hashCode);
+    _$hash = $jc(_$hash, multiVendorDriverPercentage.hashCode);
     _$hash = $jc(_$hash, batchMaxVendorDistanceKm.hashCode);
     _$hash = $jc(_$hash, batchMaxCustomerDistanceKm.hashCode);
     _$hash = $jc(_$hash, isMaintenanceMode.hashCode);
@@ -646,11 +679,26 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('autoCancelPendingMins', autoCancelPendingMins)
           ..add('mobileWalletTimeoutMins', mobileWalletTimeoutMins)
           ..add('driverAcceptTimeoutSecs', driverAcceptTimeoutSecs)
+          ..add('dispatchHandoffDedupeTtlSecs', dispatchHandoffDedupeTtlSecs)
           ..add('assistDecisionTimeoutSecs', assistDecisionTimeoutSecs)
           ..add('maxNegativeDriverBalance', maxNegativeDriverBalance)
           ..add('maxDispatchBatchSize', maxDispatchBatchSize)
           ..add('maxActiveOrdersPerDriver', maxActiveOrdersPerDriver)
           ..add('stackedOrderDriverPercentage', stackedOrderDriverPercentage)
+          ..add('batchedDeliveryCommissionRate', batchedDeliveryCommissionRate)
+          ..add(
+            'batchedDriverManagerCommissionRate',
+            batchedDriverManagerCommissionRate,
+          )
+          ..add(
+            'multiVendorDeliveryCommissionRate',
+            multiVendorDeliveryCommissionRate,
+          )
+          ..add(
+            'multiVendorDriverManagerCommissionRate',
+            multiVendorDriverManagerCommissionRate,
+          )
+          ..add('multiVendorDriverPercentage', multiVendorDriverPercentage)
           ..add('batchMaxVendorDistanceKm', batchMaxVendorDistanceKm)
           ..add('batchMaxCustomerDistanceKm', batchMaxCustomerDistanceKm)
           ..add('isMaintenanceMode', isMaintenanceMode)
@@ -976,6 +1024,11 @@ class UpdatePlatformSettingsDtoBuilder
   set driverAcceptTimeoutSecs(num? driverAcceptTimeoutSecs) =>
       _$this._driverAcceptTimeoutSecs = driverAcceptTimeoutSecs;
 
+  num? _dispatchHandoffDedupeTtlSecs;
+  num? get dispatchHandoffDedupeTtlSecs => _$this._dispatchHandoffDedupeTtlSecs;
+  set dispatchHandoffDedupeTtlSecs(num? dispatchHandoffDedupeTtlSecs) =>
+      _$this._dispatchHandoffDedupeTtlSecs = dispatchHandoffDedupeTtlSecs;
+
   num? _assistDecisionTimeoutSecs;
   num? get assistDecisionTimeoutSecs => _$this._assistDecisionTimeoutSecs;
   set assistDecisionTimeoutSecs(num? assistDecisionTimeoutSecs) =>
@@ -1000,6 +1053,41 @@ class UpdatePlatformSettingsDtoBuilder
   num? get stackedOrderDriverPercentage => _$this._stackedOrderDriverPercentage;
   set stackedOrderDriverPercentage(num? stackedOrderDriverPercentage) =>
       _$this._stackedOrderDriverPercentage = stackedOrderDriverPercentage;
+
+  num? _batchedDeliveryCommissionRate;
+  num? get batchedDeliveryCommissionRate =>
+      _$this._batchedDeliveryCommissionRate;
+  set batchedDeliveryCommissionRate(num? batchedDeliveryCommissionRate) =>
+      _$this._batchedDeliveryCommissionRate = batchedDeliveryCommissionRate;
+
+  num? _batchedDriverManagerCommissionRate;
+  num? get batchedDriverManagerCommissionRate =>
+      _$this._batchedDriverManagerCommissionRate;
+  set batchedDriverManagerCommissionRate(
+    num? batchedDriverManagerCommissionRate,
+  ) => _$this._batchedDriverManagerCommissionRate =
+      batchedDriverManagerCommissionRate;
+
+  num? _multiVendorDeliveryCommissionRate;
+  num? get multiVendorDeliveryCommissionRate =>
+      _$this._multiVendorDeliveryCommissionRate;
+  set multiVendorDeliveryCommissionRate(
+    num? multiVendorDeliveryCommissionRate,
+  ) => _$this._multiVendorDeliveryCommissionRate =
+      multiVendorDeliveryCommissionRate;
+
+  num? _multiVendorDriverManagerCommissionRate;
+  num? get multiVendorDriverManagerCommissionRate =>
+      _$this._multiVendorDriverManagerCommissionRate;
+  set multiVendorDriverManagerCommissionRate(
+    num? multiVendorDriverManagerCommissionRate,
+  ) => _$this._multiVendorDriverManagerCommissionRate =
+      multiVendorDriverManagerCommissionRate;
+
+  num? _multiVendorDriverPercentage;
+  num? get multiVendorDriverPercentage => _$this._multiVendorDriverPercentage;
+  set multiVendorDriverPercentage(num? multiVendorDriverPercentage) =>
+      _$this._multiVendorDriverPercentage = multiVendorDriverPercentage;
 
   num? _batchMaxVendorDistanceKm;
   num? get batchMaxVendorDistanceKm => _$this._batchMaxVendorDistanceKm;
@@ -1325,11 +1413,19 @@ class UpdatePlatformSettingsDtoBuilder
       _autoCancelPendingMins = $v.autoCancelPendingMins;
       _mobileWalletTimeoutMins = $v.mobileWalletTimeoutMins;
       _driverAcceptTimeoutSecs = $v.driverAcceptTimeoutSecs;
+      _dispatchHandoffDedupeTtlSecs = $v.dispatchHandoffDedupeTtlSecs;
       _assistDecisionTimeoutSecs = $v.assistDecisionTimeoutSecs;
       _maxNegativeDriverBalance = $v.maxNegativeDriverBalance;
       _maxDispatchBatchSize = $v.maxDispatchBatchSize;
       _maxActiveOrdersPerDriver = $v.maxActiveOrdersPerDriver;
       _stackedOrderDriverPercentage = $v.stackedOrderDriverPercentage;
+      _batchedDeliveryCommissionRate = $v.batchedDeliveryCommissionRate;
+      _batchedDriverManagerCommissionRate =
+          $v.batchedDriverManagerCommissionRate;
+      _multiVendorDeliveryCommissionRate = $v.multiVendorDeliveryCommissionRate;
+      _multiVendorDriverManagerCommissionRate =
+          $v.multiVendorDriverManagerCommissionRate;
+      _multiVendorDriverPercentage = $v.multiVendorDriverPercentage;
       _batchMaxVendorDistanceKm = $v.batchMaxVendorDistanceKm;
       _batchMaxCustomerDistanceKm = $v.batchMaxCustomerDistanceKm;
       _isMaintenanceMode = $v.isMaintenanceMode;
@@ -1458,11 +1554,19 @@ class UpdatePlatformSettingsDtoBuilder
           autoCancelPendingMins: autoCancelPendingMins,
           mobileWalletTimeoutMins: mobileWalletTimeoutMins,
           driverAcceptTimeoutSecs: driverAcceptTimeoutSecs,
+          dispatchHandoffDedupeTtlSecs: dispatchHandoffDedupeTtlSecs,
           assistDecisionTimeoutSecs: assistDecisionTimeoutSecs,
           maxNegativeDriverBalance: maxNegativeDriverBalance,
           maxDispatchBatchSize: maxDispatchBatchSize,
           maxActiveOrdersPerDriver: maxActiveOrdersPerDriver,
           stackedOrderDriverPercentage: stackedOrderDriverPercentage,
+          batchedDeliveryCommissionRate: batchedDeliveryCommissionRate,
+          batchedDriverManagerCommissionRate:
+              batchedDriverManagerCommissionRate,
+          multiVendorDeliveryCommissionRate: multiVendorDeliveryCommissionRate,
+          multiVendorDriverManagerCommissionRate:
+              multiVendorDriverManagerCommissionRate,
+          multiVendorDriverPercentage: multiVendorDriverPercentage,
           batchMaxVendorDistanceKm: batchMaxVendorDistanceKm,
           batchMaxCustomerDistanceKm: batchMaxCustomerDistanceKm,
           isMaintenanceMode: isMaintenanceMode,

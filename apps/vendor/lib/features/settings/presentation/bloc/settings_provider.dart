@@ -154,6 +154,12 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('stackedOrderDriverPercentage')) b.stackedOrderDriverPercentage = parseNum(settings['stackedOrderDriverPercentage']);
       if (settings.containsKey('batchMaxVendorDistanceKm')) b.batchMaxVendorDistanceKm = parseNum(settings['batchMaxVendorDistanceKm']);
       if (settings.containsKey('batchMaxCustomerDistanceKm')) b.batchMaxCustomerDistanceKm = parseNum(settings['batchMaxCustomerDistanceKm']);
+      if (settings.containsKey('dispatchHandoffDedupeTtlSecs')) b.dispatchHandoffDedupeTtlSecs = parseNum(settings['dispatchHandoffDedupeTtlSecs']);
+      if (settings.containsKey('batchedDeliveryCommissionRate')) b.batchedDeliveryCommissionRate = parseNum(settings['batchedDeliveryCommissionRate']);
+      if (settings.containsKey('batchedDriverManagerCommissionRate')) b.batchedDriverManagerCommissionRate = parseNum(settings['batchedDriverManagerCommissionRate']);
+      if (settings.containsKey('multiVendorDeliveryCommissionRate')) b.multiVendorDeliveryCommissionRate = parseNum(settings['multiVendorDeliveryCommissionRate']);
+      if (settings.containsKey('multiVendorDriverManagerCommissionRate')) b.multiVendorDriverManagerCommissionRate = parseNum(settings['multiVendorDriverManagerCommissionRate']);
+      if (settings.containsKey('multiVendorDriverPercentage')) b.multiVendorDriverPercentage = parseNum(settings['multiVendorDriverPercentage']);
       if (settings.containsKey('assistDecisionTimeoutSecs')) b.assistDecisionTimeoutSecs = parseNum(settings['assistDecisionTimeoutSecs']);
       if (settings.containsKey('groupingMaxBranchDistanceKm')) b.groupingMaxBranchDistanceKm = parseNum(settings['groupingMaxBranchDistanceKm']);
       if (settings.containsKey('groupingMaxVendorCustomerDistanceKm')) b.groupingMaxVendorCustomerDistanceKm = parseNum(settings['groupingMaxVendorCustomerDistanceKm']);

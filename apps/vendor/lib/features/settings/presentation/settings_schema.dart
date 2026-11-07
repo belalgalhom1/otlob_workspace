@@ -660,6 +660,28 @@ const List<SettingsSection> platformSettingsSections = [
             'Percentage of delivery fee the driver keeps on additional concurrent orders beyond order 1 (e.g. 50% means driver keeps 50% and platform retains the rest).',
       ),
       SettingsField(
+        key: 'batchedDeliveryCommissionRate',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة المنصة من الطلبات المجمعة',
+        labelEn: 'Batched Order Platform Cut',
+        helpAr:
+            'نسبة عمولة المنصة المقتطعة من أجر التوصيل للطلبات المجمعة والمكدسة للمندوب (الافتراضي 40%).',
+        helpEn:
+            'Platform delivery fee commission percentage for batched/stacked orders (default 40%).',
+      ),
+      SettingsField(
+        key: 'batchedDriverManagerCommissionRate',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة مدير المناديب من الطلبات المجمعة',
+        labelEn: 'Batched Order Manager Cut',
+        helpAr:
+            'نسبة عمولة مشرف/مدير المناديب من أجر التوصيل لكل طلب مجمع للمندوب تحت إشرافه (الافتراضي 10%).',
+        helpEn:
+            'Driver manager commission percentage on the delivery fee for each batched order (default 10%).',
+      ),
+      SettingsField(
         key: 'batchMaxVendorDistanceKm',
         kind: SettingsFieldKind.number,
         suffix: 'كم',
@@ -713,6 +735,50 @@ const List<SettingsSection> platformSettingsSections = [
             'أقصى مسافة بالكيلومتر بين فرع المتجر وموقع تسليم العميل ليكون مؤهلاً للتجميع في نفس مسار التوصيل (الافتراضي 25 كم).',
         helpEn:
             'Maximum distance in km from a vendor branch to the customer drop-off to be eligible for multi-vendor grouping (default 25 km).',
+      ),
+      SettingsField(
+        key: 'multiVendorDeliveryCommissionRate',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة المنصة من الطلب متعدد المتاجر',
+        labelEn: 'Multi-Vendor Platform Cut',
+        helpAr:
+            'نسبة عمولة المنصة المقتطعة من أجر توصيل مجموعة الطلبات متعددة المتاجر (الافتراضي 20%).',
+        helpEn:
+            'Platform delivery fee commission percentage for multi-vendor delivery groups (default 20%).',
+      ),
+      SettingsField(
+        key: 'multiVendorDriverManagerCommissionRate',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة مدير المناديب من متعدد المتاجر',
+        labelEn: 'Multi-Vendor Manager Cut',
+        helpAr:
+            'نسبة عمولة مشرف المناديب من أجر توصيل مجموعة الطلب متعدد المتاجر (الافتراضي 10%).',
+        helpEn:
+            'Driver manager commission percentage for multi-vendor delivery groups (default 10%).',
+      ),
+      SettingsField(
+        key: 'multiVendorDriverPercentage',
+        kind: SettingsFieldKind.number,
+        suffix: '%',
+        labelAr: 'نسبة المندوب من متعدد المتاجر',
+        labelEn: 'Multi-Vendor Driver Cut',
+        helpAr:
+            'نسبة أجر التوصيل الصافية المخصصة للمندوب في مسار توصيل الطلب متعدد المتاجر (الافتراضي 70%).',
+        helpEn:
+            'Driver net delivery fee percentage for multi-vendor delivery groups (default 70%).',
+      ),
+      SettingsField(
+        key: 'dispatchHandoffDedupeTtlSecs',
+        kind: SettingsFieldKind.number,
+        suffix: 'ثانية',
+        labelAr: 'مهلة منع تكرار إرسال الطلب للمندوب',
+        labelEn: 'Handoff Dedupe TTL',
+        helpAr:
+            'المدة بالثواني التي يتذكر فيها النظام تعيين التوصيل للمندوب لمنع تكرار الإرسال (الافتراضي 300 ثانية).',
+        helpEn:
+            'How long the system remembers delivery assignment to prevent duplicate offers (default 300s).',
       ),
     ],
   ),
