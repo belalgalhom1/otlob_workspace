@@ -12,6 +12,7 @@ export const QUEUES = {
   AUDIT_LOGS: 'audit_logs_queue',
   REVIEWS: 'reviews_queue',
   EVENTS: 'events_queue',
+  MEDIA: 'media_queue',
 } as const;
 
 export const MAIL_JOBS = {
@@ -78,4 +79,9 @@ export const EVENT_JOBS = {
   CLEAR_CART: 'event.clear_cart',
   NOTIFY: 'event.notify',
   CHAT_NOTIFICATIONS: 'event.chat_notifications',
+} as const;
+
+export const MEDIA_JOBS = {
+  OPTIMIZE_IMAGE: 'media.optimize_image',
+  GENERATE_THUMBNAIL: 'media.generate_thumbnail',
 } as const;

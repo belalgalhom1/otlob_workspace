@@ -13,6 +13,7 @@ import { RedisModule } from './infrastructure/redis/redis.module';
 import { SocketModule } from './infrastructure/socket/socket.module';
 import { AppCacheModule } from './infrastructure/cache/cache.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
+import { MediaModule } from './features/media/media.module';
 import { EventsModule } from './infrastructure/events/events.module';
 import { RateLimiterModule } from './infrastructure/rate-limiter/rate-limiter.module';
 import { LocationModule } from './infrastructure/location/location.module';
@@ -70,6 +71,7 @@ import { LegalDocumentsModule } from './features/legal-documents/legal-documents
     RedisModule,
     SocketModule,
     StorageModule,
+    MediaModule,
     AppCacheModule,
     RateLimiterModule,
     EventsModule,

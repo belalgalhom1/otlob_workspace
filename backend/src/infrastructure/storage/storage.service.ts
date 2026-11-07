@@ -1,13 +1,12 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
+import { MediaService } from '../../features/media/media.service';
+import { MEDIA_PRESETS } from '../../features/media/media.constants';
 
-const MIME_TO_EXTENSION: Record<string, string> = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-  'image/gif': '.gif',
+const NON_IMAGE_MIME_TO_EXTENSION: Record<string, string> = {
   'video/mp4': '.mp4',
   'video/quicktime': '.mov',
   'video/webm': '.webm',
@@ -19,13 +18,22 @@ const MIME_TO_EXTENSION: Record<string, string> = {
   'audio/mp4': '.m4a',
   'audio/aac': '.aac',
   'audio/x-m4a': '.m4a',
+  'application/pdf': '.pdf',
 };
+
+const ALLOWED_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
 
 // Validate file signatures (magic bytes) for image uploads to reject spoofed MIME types
 function validateImageMagicBytes(buffer: Buffer, mimeType: string): boolean {
   if (!buffer || buffer.length < 12) return false;
 
-  if (mimeType === 'image/jpeg') {
+  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
     return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
   }
   if (mimeType === 'image/png') {
@@ -55,7 +63,7 @@ function validateImageMagicBytes(buffer: Buffer, mimeType: string): boolean {
     );
   }
 
-  return true;
+  return false;
 }
 
 @Injectable()
@@ -64,7 +72,9 @@ export class StorageService {
 
   readonly baseDir = path.join(process.cwd(), 'storage');
 
-  constructor() {
+  constructor(
+    @Optional() private readonly mediaService?: MediaService,
+  ) {
     if (!fs.existsSync(this.baseDir)) {
       fs.mkdirSync(this.baseDir, { recursive: true });
     }
@@ -76,24 +86,73 @@ export class StorageService {
       await this.ensureDir(targetDir);
 
       const mime = (file.mimetype || '').toLowerCase();
+      const id = uuidv4();
 
-      // Magic byte validation for image uploads
-      if (mime.startsWith('image/') && !validateImageMagicBytes(file.buffer, mime)) {
-        throw new BadRequestException('Invalid image file content');
+      // Handle Image Files: Convert strictly to WebP & generate thumbnail
+      if (mime.startsWith('image/')) {
+        if (!ALLOWED_IMAGE_MIMES.has(mime) || !validateImageMagicBytes(file.buffer, mime)) {
+          throw new BadRequestException('Invalid or unsupported image file content');
+        }
+
+        const presetName = this.mediaService
+          ? this.mediaService.detectPreset(folder)
+          : 'default';
+        const preset =
+          (this.mediaService ? this.mediaService.getPreset(presetName) : null) ||
+          MEDIA_PRESETS.default;
+
+        const mainFileName = `${id}.webp`;
+        const thumbFileName = `${id}_thumb.webp`;
+        const mainFilePath = path.join(targetDir, mainFileName);
+        const thumbFilePath = path.join(targetDir, thumbFileName);
+
+        // Process Main Image (auto-orient EXIF, resize, WebP encode)
+        const mainBuffer = await sharp(file.buffer)
+          .rotate()
+          .resize({
+            width: preset.maxWidth,
+            height: preset.maxHeight,
+            fit: preset.fit,
+            withoutEnlargement: true,
+          })
+          .webp({ quality: preset.quality, effort: 4 })
+          .toBuffer();
+
+        // Process Thumbnail
+        const thumbBuffer = await sharp(file.buffer)
+          .rotate()
+          .resize({
+            width: preset.thumb.width,
+            height: preset.thumb.height,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: preset.thumb.quality, effort: 4 })
+          .toBuffer();
+
+        await Promise.all([
+          fs.promises.writeFile(mainFilePath, mainBuffer),
+          fs.promises.writeFile(thumbFilePath, thumbBuffer),
+        ]);
+
+        this.logger.log(
+          `Uploaded & processed image: ${folder}/${mainFileName} (${mainBuffer.length}B, thumb: ${thumbBuffer.length}B)`,
+        );
+
+        return `/media/${folder}/${mainFileName}`;
       }
 
-      // Enforce safe extension derived strictly from validated MIME type
-      // Never preserve raw user-supplied extensions (blocks .html, .svg, .php, .sh, .exe)
-      const safeExt = MIME_TO_EXTENSION[mime];
+      // Handle Non-Image Files (Audio, Video, PDF Documents)
+      const safeExt = NON_IMAGE_MIME_TO_EXTENSION[mime];
       if (!safeExt) {
         throw new BadRequestException('Unsupported or unsafe file type');
       }
 
-      const fileName = `${uuidv4()}${safeExt}`;
+      const fileName = `${id}${safeExt}`;
       const filePath = path.join(targetDir, fileName);
 
       await fs.promises.writeFile(filePath, file.buffer);
-      this.logger.log(`Uploaded: ${folder}/${fileName}`);
+      this.logger.log(`Uploaded media file: ${folder}/${fileName} (${file.buffer.length}B)`);
 
       return `/media/${folder}/${fileName}`;
     } catch (error: unknown) {
@@ -122,6 +181,15 @@ export class StorageService {
         this.logger.log(`Deleted: ${relativePath}`);
       } else {
         this.logger.warn(`File not found for deletion: ${filePath}`);
+      }
+
+      // If WebP image, clean up associated thumbnail
+      if (filePath.endsWith('.webp') && !filePath.endsWith('_thumb.webp')) {
+        const thumbPath = filePath.replace(/\.webp$/, '_thumb.webp');
+        if (fs.existsSync(thumbPath)) {
+          await fs.promises.unlink(thumbPath);
+          this.logger.log(`Deleted associated thumbnail: ${path.basename(thumbPath)}`);
+        }
       }
     } catch (error: unknown) {
       this.logger.error(`Delete failed: ${(error as Error).message}`);

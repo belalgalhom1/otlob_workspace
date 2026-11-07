@@ -36,6 +36,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   String? _recordingPath;
   StreamSubscription? _recordingSubscription;
   Duration _recordingDuration = Duration.zero;
+  final List<double> _waveformSamples = [];
   bool _hasPoppedForClosed = false;
 
   final ValueNotifier<bool> _hasText = ValueNotifier(false);
@@ -65,6 +66,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   Future<void> _startRecording() async {
     if (!_isRecorderInitialized) return;
+    _waveformSamples.clear();
     final tempDir = await getTemporaryDirectory();
     _recordingPath = '${tempDir.path}/driver_recording_${DateTime.now().millisecondsSinceEpoch}.aac';
     await _recorder!.startRecorder(toFile: _recordingPath);
@@ -73,6 +75,10 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         setState(() {
           _recordingDuration = e.duration;
         });
+        if (e.decibels != null) {
+          final normalized = ((e.decibels! / 120.0).clamp(0.12, 1.0) * 100).round() / 100.0;
+          _waveformSamples.add(normalized);
+        }
       }
     });
     setState(() {
@@ -85,6 +91,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     if (!_isRecording) return;
     await _recorder!.stopRecorder();
     _recordingSubscription?.cancel();
+    _waveformSamples.clear();
     if (_recordingPath != null) {
       final file = File(_recordingPath!);
       if (await file.exists()) {
@@ -113,10 +120,42 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         final size = await file.length();
         if (size < 100 || duration.inMilliseconds < 800) {
           await file.delete();
+          _waveformSamples.clear();
           return;
         }
       }
-      ref.read(sharedChatProvider(_args).notifier).sendMedia(_recordingPath!, MessageType.audio);
+
+      const targetCount = 35;
+      final List<double> finalWaveform = [];
+      if (_waveformSamples.isEmpty) {
+        for (int i = 0; i < targetCount; i++) {
+          finalWaveform.add(0.25 + 0.5 * ((i % 5) / 5.0));
+        }
+      } else if (_waveformSamples.length <= targetCount) {
+        finalWaveform.addAll(_waveformSamples);
+        while (finalWaveform.length < targetCount) {
+          finalWaveform.add(finalWaveform.last);
+        }
+      } else {
+        final step = _waveformSamples.length / targetCount;
+        for (int i = 0; i < targetCount; i++) {
+          final index = (i * step).floor().clamp(0, _waveformSamples.length - 1);
+          finalWaveform.add(_waveformSamples[index]);
+        }
+      }
+
+      final metadata = {
+        'waveform': finalWaveform,
+        'durationSeconds': duration.inSeconds,
+        'durationMs': duration.inMilliseconds,
+      };
+
+      ref.read(sharedChatProvider(_args).notifier).sendMedia(
+        _recordingPath!,
+        MessageType.audio,
+        metadata: metadata,
+      );
+      _waveformSamples.clear();
     }
   }
 

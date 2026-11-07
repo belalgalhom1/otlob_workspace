@@ -590,7 +590,10 @@ export class MessagesService {
     }
 
     const result = await this.chatMedia.uploadChatMedia(file, conversationId);
-    return { url: result.mediaUrl };
+    const thumbnailUrl = result.mediaUrl.endsWith('.webp')
+      ? result.mediaUrl.replace(/\.webp$/, '_thumb.webp')
+      : undefined;
+    return { url: result.mediaUrl, thumbnailUrl };
   }
 
   async getUnreadCount(userId: string): Promise<number> {

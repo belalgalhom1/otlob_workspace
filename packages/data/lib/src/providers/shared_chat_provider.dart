@@ -323,10 +323,14 @@ class SharedChat extends _$SharedChat {
     }
   }
 
-  Future<void> sendMedia(String filePath, MessageType type) async {
+  Future<void> sendMedia(
+    String filePath,
+    MessageType type, {
+    Map<String, dynamic>? metadata,
+  }) async {
     if (_conversationId == null) return;
 
-    final tempId = 'upload-${DateTime.now().millisecondsSinceEpoch}';
+    final tempId = 'upload-' + DateTime.now().millisecondsSinceEpoch.toString();
     final optimisticMessage = Message(
       id: tempId,
       content: 'Uploading...',
@@ -335,6 +339,7 @@ class SharedChat extends _$SharedChat {
       timestamp: DateTime.now(),
       senderName: 'Me',
       mediaUrl: null,
+      metadata: metadata,
     );
 
     state.whenData((messages) {
@@ -343,11 +348,20 @@ class SharedChat extends _$SharedChat {
 
     final mediaUrl = await uploadMedia(filePath);
     if (mediaUrl != null) {
+      final updatedMeta = Map<String, dynamic>.from(metadata ?? {});
+      if (type == MessageType.image && !updatedMeta.containsKey('thumbnailUrl')) {
+        if (mediaUrl.endsWith('.webp')) {
+          updatedMeta['thumbnailUrl'] =
+              mediaUrl.substring(0, mediaUrl.length - 5) + '_thumb.webp';
+        }
+      }
+
       await sendMessage(
         '',
         type: type,
         mediaUrl: mediaUrl,
         tempIdToRemove: tempId,
+        metadata: updatedMeta.isNotEmpty ? updatedMeta : null,
       );
     } else {
       state.whenData((messages) {
@@ -361,10 +375,11 @@ class SharedChat extends _$SharedChat {
     MessageType type = MessageType.text,
     String? mediaUrl,
     String? tempIdToRemove,
+    Map<String, dynamic>? metadata,
   }) async {
     if (_conversationId == null) return;
     final tempId =
-        tempIdToRemove ?? 'temp-${DateTime.now().millisecondsSinceEpoch}';
+        tempIdToRemove ?? ('temp-' + DateTime.now().millisecondsSinceEpoch.toString());
 
     final optimisticMessage = Message(
       id: tempId,
@@ -374,6 +389,7 @@ class SharedChat extends _$SharedChat {
       timestamp: DateTime.now(),
       senderName: 'Me',
       mediaUrl: mediaUrl,
+      metadata: metadata,
     );
 
     state.whenData((messages) {
@@ -388,6 +404,7 @@ class SharedChat extends _$SharedChat {
         content.isEmpty ? '' : content,
         type: type.name.toUpperCase(),
         mediaUrl: mediaUrl,
+        metadata: metadata,
       );
       // Socket echo from backend will update state via _onSocketMessage.
       // We only replace the temp message with the real one when the socket

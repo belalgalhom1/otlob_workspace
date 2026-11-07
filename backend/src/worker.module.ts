@@ -8,6 +8,8 @@ import { QueueModule } from './infrastructure/queue/queue.module';
 import { LoggerModule } from './infrastructure/logger/logger.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
+import { MediaModule } from './features/media/media.module';
+import { MediaProcessor } from './features/media/media.processor';
 import { EventsModule } from './infrastructure/events/events.module';
 import { AppCacheModule } from './infrastructure/cache/cache.module';
 import { LocationModule } from './infrastructure/location/location.module';
@@ -76,6 +78,7 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     PromotionsModule,
     AuditLogsModule,
     ListenersModule,
+    MediaModule,
   ],
   providers: [
     // Processors live only in the worker process
@@ -90,6 +93,7 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     AuditLogsProcessor,
     ReviewsProcessor,
     EventsProcessor,
+    MediaProcessor,
   ],
 })
 export class WorkerModule {}

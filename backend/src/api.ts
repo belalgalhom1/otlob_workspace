@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { ApiModule } from './api.module';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -29,6 +30,10 @@ async function bootstrap() {
   app.enableCors();
 
   app.enableShutdownHooks();
+
+  app.useStaticAssets(path.join(process.cwd(), 'storage'), {
+    prefix: '/media/',
+  });
 
   const configService = app.get(ConfigService);
 
