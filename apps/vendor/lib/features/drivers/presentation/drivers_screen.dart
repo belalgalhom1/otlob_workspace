@@ -2435,6 +2435,8 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         return l10n.statusOnBreak;
       case 'SUSPENDED':
         return l10n.suspended;
+      default:
+        return status;
     }
   }
 

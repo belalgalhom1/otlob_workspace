@@ -782,6 +782,7 @@ class DriverMapDetailsCard extends StatelessWidget {
     required BuildContext context,
     required bool isArabic,
   }) {
+    final theme = Theme.of(context);
     final customer = activeOrder?['customer'] is Map ? activeOrder!['customer'] as Map : null;
     final customerUser = customer?['user'] is Map ? customer!['user'] as Map : null;
     final customerPhone = customerUser?['phone']?.toString();
