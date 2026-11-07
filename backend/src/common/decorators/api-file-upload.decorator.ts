@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { Observable } from 'rxjs';
 import {
@@ -72,6 +73,10 @@ export function ApiFileUpload(options: ApiFileUploadOptions = {}) {
   const decorators = [
     UseInterceptors(FileInterceptor(fieldName, multerOptions)),
     ApiConsumes('multipart/form-data'),
+    Throttle({
+      short: { limit: 5, ttl: 60000 },
+      medium: { limit: 20, ttl: 300000 },
+    }),
     ApiBody({
       schema: {
         type: 'object',

@@ -567,7 +567,10 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: { OR: [{ email: dto.contact }, { phone: dto.contact }] },
     });
-    if (!user) throw new NotFoundException(AuthErrors.USER_NOT_FOUND);
+    // Prevent user enumeration: always return success even if contact is not registered
+    if (!user) {
+      return { message: CommonSuccess.OPERATION_SUCCESS };
+    }
 
     await this.otpService.deleteOtp(dto.contact, 'VERIFICATION');
     const code = await this.otpService.generateOtp(dto.contact, 'VERIFICATION');
