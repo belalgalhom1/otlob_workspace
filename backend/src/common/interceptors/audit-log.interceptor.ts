@@ -23,6 +23,9 @@ export class AuditLogInterceptor implements NestInterceptor {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  private static readonly SENSITIVE_KEY_REGEX =
+    /(password|secret|token|otp|pin|auth|credential|cvv|cardnumber|nationalid|licensenumber|apikey|privatekey)/i;
+
   private redactSensitiveFields(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) {
@@ -30,23 +33,12 @@ export class AuditLogInterceptor implements NestInterceptor {
     }
 
     const redacted = { ...(obj as Record<string, unknown>) };
-    const sensitiveKeys = [
-      'password',
-      'oldPassword',
-      'newPassword',
-      'token',
-      'refreshToken',
-      'secret',
-      'accessToken',
-    ];
 
     for (const key of Object.keys(redacted)) {
-      if (
-        sensitiveKeys.includes(key.toLowerCase()) ||
-        sensitiveKeys.includes(key)
-      ) {
+      const cleanKey = key.replace(/[^a-zA-Z0-9]/g, '');
+      if (AuditLogInterceptor.SENSITIVE_KEY_REGEX.test(cleanKey)) {
         redacted[key] = '[REDACTED]';
-      } else if (typeof redacted[key] === 'object') {
+      } else if (typeof redacted[key] === 'object' && redacted[key] !== null) {
         redacted[key] = this.redactSensitiveFields(redacted[key]);
       }
     }

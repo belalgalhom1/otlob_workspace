@@ -47,12 +47,26 @@ export class OtpService {
     }
 
     if (attempts > settings.maxOtpAttempts) {
+      await this.redis.del(key);
       throw new BadRequestException(AuthErrors.TOO_MANY_FAILED_OTP);
     }
 
     const storedCode = await this.redis.get(key);
 
-    if (!storedCode || storedCode !== code) {
+    if (
+      !storedCode ||
+      typeof code !== 'string' ||
+      storedCode.length !== code.length
+    ) {
+      return false;
+    }
+
+    const isMatch = crypto.timingSafeEqual(
+      Buffer.from(storedCode),
+      Buffer.from(code),
+    );
+
+    if (!isMatch) {
       return false;
     }
 
@@ -78,12 +92,26 @@ export class OtpService {
     }
 
     if (attempts > settings.maxOtpAttempts) {
+      await this.redis.del(key);
       throw new BadRequestException(AuthErrors.TOO_MANY_FAILED_OTP);
     }
 
     const storedCode = await this.redis.get(key);
 
-    if (!storedCode || storedCode !== code) {
+    if (
+      !storedCode ||
+      typeof code !== 'string' ||
+      storedCode.length !== code.length
+    ) {
+      return false;
+    }
+
+    const isMatch = crypto.timingSafeEqual(
+      Buffer.from(storedCode),
+      Buffer.from(code),
+    );
+
+    if (!isMatch) {
       return false;
     }
 
