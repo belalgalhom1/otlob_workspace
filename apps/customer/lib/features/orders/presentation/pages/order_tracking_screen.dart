@@ -376,21 +376,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       // (live Redis, or last persisted) for drivers that are stationary and
       // therefore not emitting position updates.
       _requestDriverLocation(socket);
-      final initialDriverId = _driverId;
-      if (initialDriverId != null && initialDriverId.isNotEmpty) {
-        try {
-          socket.emit('driver.track', {'driverId': initialDriverId});
-        } catch (_) {}
-      }
       _connectSub?.cancel();
       _connectSub = socket.onConnect.listen((_) {
         _requestDriverLocation(socket);
-        final reconnectDriverId = _driverId;
-        if (reconnectDriverId != null && reconnectDriverId.isNotEmpty) {
-          try {
-            socket.emit('driver.track', {'driverId': reconnectDriverId});
-          } catch (_) {}
-        }
       });
 
       // onEvent uses broadcast streams that survive socket reconnects/re-auth.
@@ -438,12 +426,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             });
             _fetchOrderDetails();
             _requestDriverLocation(socket);
-            final did = data['driverId']?.toString() ?? _driverId;
-            if (did != null && did.isNotEmpty) {
-              try {
-                socket.emit('driver.track', {'driverId': did});
-              } catch (_) {}
-            }
           }
         }
       });

@@ -164,14 +164,29 @@ export class SocketGateway
   }
 
   @SubscribeMessage('driver.track')
-  handleTrackDriver(client: Socket, payload: { driverId?: string }) {
+  async handleTrackDriver(client: Socket, payload: { driverId?: string }) {
+    const user = client.data.user as { sub: string; role: string } | undefined;
     const driverId = payload?.driverId;
-    if (typeof driverId === 'string' && driverId.length > 0) {
-      void client.join(`driver_${driverId}`);
-      this.logger.debug(
-        `Socket ${client.id} joined tracking room driver_${driverId}`,
-      );
+    if (!user?.sub || typeof driverId !== 'string' || driverId.length === 0) {
+      return;
     }
+
+    const canTrack = await this.socketAuthService.canTrackDriver(
+      user.sub,
+      user.role,
+      driverId,
+    );
+    if (!canTrack) {
+      this.logger.warn(
+        `Socket ${client.id} (user: ${user.sub}, role: ${user.role}) unauthorized to track driver ${driverId}`,
+      );
+      return;
+    }
+
+    void client.join(`driver_${driverId}`);
+    this.logger.debug(
+      `Socket ${client.id} joined tracking room driver_${driverId}`,
+    );
   }
 
   @SubscribeMessage('driver.untrack')
@@ -179,6 +194,9 @@ export class SocketGateway
     const driverId = payload?.driverId;
     if (typeof driverId === 'string' && driverId.length > 0) {
       void client.leave(`driver_${driverId}`);
+      this.logger.debug(
+        `Socket ${client.id} left tracking room driver_${driverId}`,
+      );
     }
   }
 

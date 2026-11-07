@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DriverStatus, Role } from '@prisma/client';
+import { DriverStatus, Role, Permission } from '@prisma/client';
 
 @Injectable()
 export class SocketAuthService {
@@ -34,6 +34,60 @@ export class SocketAuthService {
     } catch (err) {
       if (err instanceof Error) {
         this.logger.error(`Socket auth failed for ${userId}: ${err.message}`);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Validates if a user is authorized to track real-time GPS locations of a driver.
+   * Only SUPER_ADMIN, ADMINs with MANAGE_DRIVERS, and DRIVER_MANAGERs assigned to this driver
+   * are permitted.
+   */
+  async canTrackDriver(
+    userId: string,
+    role: string,
+    driverId: string,
+  ): Promise<boolean> {
+    try {
+      if (role === Role.SUPER_ADMIN) {
+        return true;
+      }
+
+      if (role === Role.ADMIN) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { permissions: true },
+        });
+        return Boolean(user?.permissions?.includes(Permission.MANAGE_DRIVERS));
+      }
+
+      if (role === Role.DRIVER_MANAGER) {
+        const manager = await this.prisma.driverManager.findUnique({
+          where: { userId },
+          select: { id: true, manageAllDrivers: true },
+        });
+        if (!manager) return false;
+        if (manager.manageAllDrivers) return true;
+
+        const assignment = await this.prisma.driverManagerAssignment.findUnique({
+          where: {
+            driverManagerId_driverId: {
+              driverManagerId: manager.id,
+              driverId,
+            },
+          },
+          select: { id: true },
+        });
+        return Boolean(assignment);
+      }
+
+      return false;
+    } catch (err) {
+      if (err instanceof Error) {
+        this.logger.error(
+          `canTrackDriver check failed for user ${userId} on driver ${driverId}: ${err.message}`,
+        );
       }
       return false;
     }
