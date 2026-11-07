@@ -351,8 +351,9 @@ export class DriversController {
   adminApproveBreak(
     @CurrentUser('sub') reviewerId: string,
     @Param('breakId') breakId: string,
+    @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.approveBreak(breakId, reviewerId);
+    return this.driversService.approveBreak(breakId, reviewerId, actor);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -363,8 +364,9 @@ export class DriversController {
   adminRejectBreak(
     @CurrentUser('sub') reviewerId: string,
     @Param('breakId') breakId: string,
+    @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.rejectBreak(breakId, reviewerId);
+    return this.driversService.rejectBreak(breakId, reviewerId, actor);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -375,24 +377,31 @@ export class DriversController {
   adminEndBreak(
     @CurrentUser('sub') reviewerId: string,
     @Param('breakId') breakId: string,
+    @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminEndBreak(breakId, reviewerId);
+    return this.driversService.adminEndBreak(breakId, reviewerId, actor);
   }
 
   @ApiStandardResponse()
   @Get(':driverId')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Get a driver by ID' })
-  adminFindOne(@Param('driverId') driverId: string) {
-    return this.driversService.adminFindOne(driverId);
+  adminFindOne(
+    @Param('driverId') driverId: string,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminFindOne(driverId, actor);
   }
 
   @ApiStandardResponse()
   @Get(':driverId/location')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Get a driver current location' })
-  adminGetDriverLocation(@Param('driverId') driverId: string) {
-    return this.driversService.adminGetDriverLocation(driverId);
+  adminGetDriverLocation(
+    @Param('driverId') driverId: string,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminGetDriverLocation(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -400,8 +409,11 @@ export class DriversController {
   @HttpCode(HttpStatus.OK)
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Suspend a driver' })
-  adminSuspend(@Param('driverId') driverId: string) {
-    return this.driversService.adminSuspend(driverId);
+  adminSuspend(
+    @Param('driverId') driverId: string,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminSuspend(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -409,8 +421,11 @@ export class DriversController {
   @HttpCode(HttpStatus.OK)
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Unsuspend a driver' })
-  adminUnsuspend(@Param('driverId') driverId: string) {
-    return this.driversService.adminUnsuspend(driverId);
+  adminUnsuspend(
+    @Param('driverId') driverId: string,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminUnsuspend(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -420,16 +435,20 @@ export class DriversController {
   adminCreateShift(
     @Param('driverId') driverId: string,
     @Body() dto: CreateDriverShiftDto,
+    @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminCreateShift(driverId, dto);
+    return this.driversService.adminCreateShift(driverId, dto, actor);
   }
 
   @ApiStandardResponse()
   @Get(':driverId/shifts')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Get shifts for a driver' })
-  adminGetShifts(@Param('driverId') driverId: string) {
-    return this.driversService.adminGetShifts(driverId);
+  adminGetShifts(
+    @Param('driverId') driverId: string,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminGetShifts(driverId, actor);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -443,16 +462,20 @@ export class DriversController {
     @CurrentUser('sub') reviewerId: string,
     @Param('driverId') driverId: string,
     @Body() dto?: StartBreakDto,
+    @CurrentUser() actor?: JwtAccessPayload,
   ) {
-    return this.driversService.adminGrantBreak(driverId, reviewerId, dto);
+    return this.driversService.adminGrantBreak(driverId, reviewerId, dto, actor);
   }
 
   @ApiArrayResponse(DriverBreak)
   @Get(':driverId/breaks')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] List recent breaks for a driver' })
-  adminGetBreaks(@Param('driverId') driverId: string) {
-    return this.driversService.adminGetBreaks(driverId);
+  adminGetBreaks(
+    @Param('driverId') driverId: string,
+    @CurrentUser() actor: JwtAccessPayload,
+  ) {
+    return this.driversService.adminGetBreaks(driverId, actor);
   }
   // ─── Extra driver assistance ───────────────────────────────────────────────
   // NOTE: these are static `assist/*` paths and must stay before the

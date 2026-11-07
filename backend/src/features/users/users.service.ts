@@ -500,6 +500,14 @@ export class UsersService {
       if (dto.role !== undefined && dto.role === Role.SUPER_ADMIN) {
         throw new ForbiddenException(UserErrors.CANNOT_CREATE_SUPER_ADMIN);
       }
+      // Self-escalation guard: an ADMIN cannot modify their own role or permissions
+      if (actor.sub === userId && (dto.role !== undefined || dto.permissions !== undefined)) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+      // Only SUPER_ADMIN can grant or modify user permissions
+      if (dto.permissions !== undefined) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {

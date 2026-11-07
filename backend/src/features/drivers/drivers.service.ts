@@ -412,9 +412,12 @@ export class DriversService {
     return this.driversRepository.cancelBreak(pending.id);
   }
 
-  async approveBreak(breakId: string, reviewerId: string) {
+  async approveBreak(breakId: string, reviewerId: string, actor?: JwtAccessPayload) {
     const brk = await this.driversRepository.findBreakById(breakId);
     if (!brk) throw new NotFoundException(DriverErrors.BREAK_NOT_FOUND);
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, brk.driverId);
+    }
     if (brk.status !== 'PENDING') {
       throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
     }
@@ -477,9 +480,12 @@ export class DriversService {
     return approved;
   }
 
-  async rejectBreak(breakId: string, reviewerId: string) {
+  async rejectBreak(breakId: string, reviewerId: string, actor?: JwtAccessPayload) {
     const brk = await this.driversRepository.findBreakById(breakId);
     if (!brk) throw new NotFoundException(DriverErrors.BREAK_NOT_FOUND);
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, brk.driverId);
+    }
     if (brk.status !== 'PENDING') {
       throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
     }
@@ -516,9 +522,12 @@ export class DriversService {
   // MANAGE_DRIVERS (SUPER_ADMIN bypasses via PermissionsGuard).
 
   /** Force-end an ACTIVE break early (driver back ONLINE, minutes kept). */
-  async adminEndBreak(breakId: string, reviewerId: string) {
+  async adminEndBreak(breakId: string, reviewerId: string, actor?: JwtAccessPayload) {
     const brk = await this.driversRepository.findBreakById(breakId);
     if (!brk) throw new NotFoundException(DriverErrors.BREAK_NOT_FOUND);
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, brk.driverId);
+    }
     if (brk.status !== 'APPROVED' || brk.endedAt) {
       throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
     }
@@ -539,7 +548,11 @@ export class DriversService {
     driverId: string,
     reviewerId: string,
     dto?: StartBreakDto,
+    actor?: JwtAccessPayload,
   ) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const fresh = await this.assertCanBreak(driver.id);
@@ -1447,7 +1460,10 @@ export class DriversService {
     };
   }
 
-  async adminGetDriverLocation(driverId: string) {
+  async adminGetDriverLocation(driverId: string, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
@@ -1469,13 +1485,27 @@ export class DriversService {
     };
   }
 
-  async adminFindOne(driverId: string) {
+  async adminFindOne(driverId: string, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findOneAdmin(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      return {
+        ...driver,
+        nationalId: driver.nationalId ? '***' + driver.nationalId.slice(-4) : null,
+        licenseNumber: driver.licenseNumber ? '***' + driver.licenseNumber.slice(-4) : null,
+      };
+    }
     return driver;
   }
 
-  async adminSuspend(driverId: string) {
+  async adminSuspend(driverId: string, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
@@ -1510,7 +1540,10 @@ export class DriversService {
     return result;
   }
 
-  async adminUnsuspend(driverId: string) {
+  async adminUnsuspend(driverId: string, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     const result = await this.driversRepository.updateStatus(
@@ -1531,7 +1564,14 @@ export class DriversService {
     return result;
   }
 
-  async adminCreateShift(driverId: string, dto: CreateDriverShiftDto) {
+  async adminCreateShift(
+    driverId: string,
+    dto: CreateDriverShiftDto,
+    actor?: JwtAccessPayload,
+  ) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
@@ -1557,13 +1597,19 @@ export class DriversService {
     });
   }
 
-  async adminGetShifts(driverId: string) {
+  async adminGetShifts(driverId: string, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     return this.driversRepository.findShiftsByDriver(driver.id);
   }
 
-  async adminGetBreaks(driverId: string) {
+  async adminGetBreaks(driverId: string, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
+    }
     const driver = await this.driversRepository.findById(driverId);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     return this.driversRepository.findBreaksByDriver(driver.id, 50);

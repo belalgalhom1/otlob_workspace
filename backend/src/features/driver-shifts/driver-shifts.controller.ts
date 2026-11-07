@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { DriverShiftsService } from './driver-shifts.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Role, Permission } from '@prisma/client';
@@ -66,8 +67,11 @@ export class DriverShiftsController {
   @Post('admin/assign')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Force-assign a driver to a shift pool' })
-  adminAssignShift(@Body() dto: AdminAssignShiftDto) {
-    return this.shiftsService.adminAssignShift(dto);
+  adminAssignShift(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: AdminAssignShiftDto,
+  ) {
+    return this.shiftsService.adminAssignShift(dto, actor);
   }
 
   @ApiStandardResponse()
@@ -75,8 +79,11 @@ export class DriverShiftsController {
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '[Admin] Assign a driver to a generated group of shift pools' })
-  adminAssignShiftBulk(@Body() dto: AdminBulkAssignShiftsDto) {
-    return this.shiftsService.adminAssignShiftBulk(dto);
+  adminAssignShiftBulk(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: AdminBulkAssignShiftsDto,
+  ) {
+    return this.shiftsService.adminAssignShiftBulk(dto, actor);
   }
 
   @ApiStandardResponse()
@@ -84,8 +91,11 @@ export class DriverShiftsController {
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '[Admin] Book a full weekly shift schedule for a driver' })
-  adminBookWeeklyShifts(@Body() dto: AdminBookWeeklyShiftsDto) {
-    return this.shiftsService.adminBookWeeklyShifts(dto);
+  adminBookWeeklyShifts(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: AdminBookWeeklyShiftsDto,
+  ) {
+    return this.shiftsService.adminBookWeeklyShifts(dto, actor);
   }
 
   @ApiStandardResponse()
@@ -100,12 +110,16 @@ export class DriverShiftsController {
   @Delete('admin/shifts/:shiftId')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Remove a driver from a shift' })
-  removeDriverFromShift(@Param('shiftId') shiftId: string) {
-    return this.shiftsService.removeDriverFromShift(shiftId);
+  removeDriverFromShift(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('shiftId') shiftId: string,
+  ) {
+    return this.shiftsService.removeDriverFromShift(shiftId, actor);
   }
 
   @ApiStandardResponse()
   @Delete('admin/pools/:poolId/drivers')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({
     summary: '[Admin] Remove all drivers from a shift pool (keep the pool)',

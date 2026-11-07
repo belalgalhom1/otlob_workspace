@@ -3,7 +3,11 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { CommonErrors, DriverErrors } from 'src/common/constants/response.constants';
+import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -29,7 +33,6 @@ import {
   UpdateShiftPoolDto,
   ShiftReportQueryDto,
 } from './dto/driver-shifts.dto';
-import { DriverErrors } from 'src/common/constants/response.constants';
 import {
   DriverStatus,
   DriverShiftStatus,
@@ -387,7 +390,34 @@ export class DriverShiftsService {
     };
   }
 
-  async adminAssignShift(dto: AdminAssignShiftDto) {
+  private async assertManagesDriver(userId: string, driverId: string) {
+    const manager = await this.prisma.driverManager.findUnique({
+      where: { userId },
+      select: { id: true, manageAllDrivers: true },
+    });
+    if (!manager) {
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
+    }
+    if (manager.manageAllDrivers) return;
+
+    const assignment = await this.prisma.driverManagerAssignment.findUnique({
+      where: {
+        driverManagerId_driverId: {
+          driverManagerId: manager.id,
+          driverId,
+        },
+      },
+      select: { id: true },
+    });
+    if (!assignment) {
+      throw new ForbiddenException(CommonErrors.FORBIDDEN);
+    }
+  }
+
+  async adminAssignShift(dto: AdminAssignShiftDto, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.assertManagesDriver(actor.sub, dto.driverId);
+    }
     const pool = await this.prisma.shiftPool.findUnique({
       where: { id: dto.shiftPoolId },
       include: { _count: { select: { driverShifts: true } } },
@@ -439,7 +469,10 @@ export class DriverShiftsService {
     return shift;
   }
 
-  async adminAssignShiftBulk(dto: AdminBulkAssignShiftsDto) {
+  async adminAssignShiftBulk(dto: AdminBulkAssignShiftsDto, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.assertManagesDriver(actor.sub, dto.driverId);
+    }
     const shiftPoolIds = [...new Set(dto.shiftPoolIds)];
     if (shiftPoolIds.length !== dto.shiftPoolIds.length) {
       throw new BadRequestException('Shift pool IDs must be unique.');
@@ -512,7 +545,10 @@ export class DriverShiftsService {
     };
   }
 
-  async adminBookWeeklyShifts(dto: AdminBookWeeklyShiftsDto) {
+  async adminBookWeeklyShifts(dto: AdminBookWeeklyShiftsDto, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.assertManagesDriver(actor.sub, dto.driverId);
+    }
     const driver = await this.prisma.driver.findUnique({
       where: { id: dto.driverId },
     });
@@ -525,7 +561,7 @@ export class DriverShiftsService {
   // (SCHEDULED, ACTIVE, COMPLETED or MISSED). An ACTIVE driver is taken
   // offline unless they are mid-delivery, to avoid yanking them out from
   // under a live order; the shift is removed regardless.
-  async removeDriverFromShift(shiftId: string) {
+  async removeDriverFromShift(shiftId: string, actor?: JwtAccessPayload) {
     const shift = await this.prisma.driverShift.findUnique({
       where: { id: shiftId },
       include: {
@@ -535,6 +571,9 @@ export class DriverShiftsService {
     });
 
     if (!shift) throw new NotFoundException(DriverErrors.SHIFT_NOT_FOUND);
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.assertManagesDriver(actor.sub, shift.driverId);
+    }
 
     if (shift.status === DriverShiftStatus.ACTIVE) {
       if (shift.driver.status !== DriverStatus.ON_DELIVERY) {
