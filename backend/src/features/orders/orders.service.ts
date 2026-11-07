@@ -265,14 +265,15 @@ export class OrdersService {
     let scopedItems = order.items;
     let scopedFulfillments = order.vendorFulfillments;
 
+    const myDriver =
+      ctx?.driverId !== undefined
+        ? (ctx.driverId ? { id: ctx.driverId } : null)
+        : await this.prisma.driver.findUnique({
+            where: { userId: actor.sub },
+            select: { id: true },
+          });
+
     if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
-      const myDriver =
-        ctx?.driverId !== undefined
-          ? (ctx.driverId ? { id: ctx.driverId } : null)
-          : await this.prisma.driver.findUnique({
-              where: { userId: actor.sub },
-              select: { id: true },
-            });
       if (myDriver) {
         // Collect all groups assigned to this driver (or if the driver is assigned at order level, all groups)
         const myGroups = order.deliveryGroups.filter(
@@ -440,10 +441,13 @@ export class OrdersService {
         }
       }
     }
+    const activeDeliveryGroups = (Array.isArray(order.deliveryGroups) ? order.deliveryGroups : [])
+      .filter((g: any) => g.status !== 'CANCELLED' && g.primaryDriverId)
+      .sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const primaryCollectorId =
+      order.driverId ?? activeDeliveryGroups[0]?.primaryDriverId;
     const isPrimaryCollector =
-      order.deliveryGroups && order.deliveryGroups.length > 0
-        ? (order.driverId ? order.driverId === myDriver?.id : isFirstGroup)
-        : order.driverId === myDriver?.id;
+      Boolean(myDriver?.id && primaryCollectorId === myDriver.id);
 
     const effectiveDriverShare = projectedIsStacked
       ? stackedDriverPct / 100
