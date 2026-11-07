@@ -176,6 +176,26 @@ class OrderExecution extends _$OrderExecution {
             .accept(incomingId, orderRevisionOf(data))) {
           return;
         }
+        if (data['fulfillmentId'] != null) {
+          final updated = Map<String, dynamic>.from(state.value as Map);
+          final fulfillments = updated['vendorFulfillments'];
+          if (fulfillments is List) {
+            for (final fulfillment in fulfillments) {
+              if (fulfillment is Map &&
+                  fulfillment['id']?.toString() ==
+                      data['fulfillmentId']?.toString()) {
+                fulfillment['status'] = data['status'];
+                fulfillment['pickedUpAt'] = data['pickedUpAt'];
+                fulfillment['pickupImageUrl'] = data['pickupImageUrl'];
+              }
+            }
+          }
+          final status = data['orderStatus'] ?? data['parentStatus'];
+          if (status != null) updated['status'] = status;
+          state = AsyncValue.data(updated);
+          return;
+        }
+
         final updatedState = Map<String, dynamic>.from(state.value);
         final newStatus = data['newStatus'] ?? data['status'];
         final normalized = newStatus?.toString().toUpperCase();
@@ -190,6 +210,10 @@ class OrderExecution extends _$OrderExecution {
         }
       }
     }
+  }
+
+  void handleFulfillmentSocketUpdate(Map<String, dynamic> data) {
+    handleSocketUpdate(data);
   }
 
   Future<bool> requestAssist({required String reason, String? note}) async {
