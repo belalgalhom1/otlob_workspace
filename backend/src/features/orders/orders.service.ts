@@ -440,6 +440,11 @@ export class OrdersService {
         }
       }
     }
+    const isPrimaryCollector =
+      order.deliveryGroups && order.deliveryGroups.length > 0
+        ? (order.driverId ? order.driverId === myDriver?.id : isFirstGroup)
+        : order.driverId === myDriver?.id;
+
     const effectiveDriverShare = projectedIsStacked
       ? stackedDriverPct / 100
       : 1 - rate / 100;
@@ -449,6 +454,7 @@ export class OrdersService {
 
     return {
       ...order,
+      isPrimaryCollector,
       status: projectedStatus,
       isStacked: projectedIsStacked,
       vendor: groupVendor,
@@ -466,6 +472,7 @@ export class OrdersService {
       discount: 0,
       financials: {
         viewRole: 'DRIVER',
+        isPrimaryCollector,
         cashToCollect,
         isPrepaid: isPrepaid || orderPaid,
         cashToPayStore,

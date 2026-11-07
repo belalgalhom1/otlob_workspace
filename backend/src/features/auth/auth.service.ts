@@ -55,11 +55,9 @@ import {
   JWT_REFRESH_SERVICE,
 } from 'src/common/constants/jwt.constants';
 
-// When two workers rotate the same session concurrently the second incoming
-// refresh token is a previously-valid token that was just superseded. Treating
-// it as reuse immediately would nuclear-revoke all sessions. This window lets
-// the duplicate pass without triggering that path.
-const REFRESH_ROTATION_GRACE_MS = 15_000;
+// In-flight deduplication window (in seconds) to safely absorb simultaneous
+// concurrent refresh calls from the same client without re-rotating or desyncing.
+const REFRESH_INFLIGHT_TTL_SECONDS = 5;
 
 @Injectable()
 export class AuthService {
@@ -734,28 +732,20 @@ export class AuthService {
         Buffer.from(session.hashedRt),
       );
 
-    if (!isMatch) {
-      // The app runs multiple workers (PM2) and both a refresh request and
-      // the app's background listeners can rotate the same session nearly
-      // simultaneously. Without a grace period, the second request looks like
-      // refresh-token REUSE and nukes every session for the user — logging
-      // them out from all devices for no reason.
-      const updatedAt = session.updatedAt
-        ? new Date(session.updatedAt).getTime()
-        : 0;
-      const rotatedRecently =
-        Date.now() - updatedAt < REFRESH_ROTATION_GRACE_MS;
+    const inflightKey = `auth:inflight:${session.id}:${incomingHash}`;
 
-      if (!rotatedRecently) {
-        // Refresh token reuse detected → nuke ALL sessions (nuclear revocation)
-        await this.prisma.session.deleteMany({
-          where: { userId: payload.sub },
-        });
-        const accessTtl = this.getAccessExpirySeconds();
-        await this.redis.set(`revoked:user:${payload.sub}`, '1', accessTtl);
-        this.socketService.disconnectUser(payload.sub);
-        throw new UnauthorizedException(AuthErrors.SESSION_COMPROMISED);
+    if (!isMatch) {
+      // Check if this specific token was just rotated in-flight by a simultaneous concurrent request
+      const cached = await this.redis.get(inflightKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {}
       }
+
+      // Strictly reject superseded or invalid refresh tokens without overwriting
+      // stored session hashes, issuing new tokens, or locking out legitimate clients.
+      throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
     }
 
     const refreshExpiresIn = this.config.getOrThrow<string>(
@@ -785,9 +775,13 @@ export class AuthService {
       .update(refresh_token)
       .digest('hex');
 
-    // In-place update preserving stable sessionId
-    await this.prisma.session.update({
-      where: { id: session.id },
+    // Optimistic concurrency update: only rotate if hashedRt still matches incomingHash.
+    // This prevents race conditions between simultaneous requests from overwriting each other.
+    const updateResult = await this.prisma.session.updateMany({
+      where: {
+        id: session.id,
+        hashedRt: session.hashedRt,
+      },
       data: {
         hashedRt: newHashedRt,
         expiresAt,
@@ -797,7 +791,32 @@ export class AuthService {
     });
 
     const { password: _, ...userWithoutPassword } = user as any;
-    return { access_token, refresh_token, user: userWithoutPassword };
+    const responsePayload = {
+      access_token,
+      refresh_token,
+      user: userWithoutPassword,
+    };
+
+    if (updateResult.count === 0) {
+      // Another concurrent request updated the session while this was signing tokens.
+      // Return the cached in-flight tokens or throw if unavailable.
+      const cached = await this.redis.get(inflightKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {}
+      }
+      throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
+    }
+
+    // Cache the rotation response briefly for in-flight simultaneous requests only
+    await this.redis.set(
+      inflightKey,
+      JSON.stringify(responsePayload),
+      REFRESH_INFLIGHT_TTL_SECONDS,
+    );
+
+    return responsePayload;
   }
 
   private async setDriverOfflineAfterLogoutIfNoActiveShift(

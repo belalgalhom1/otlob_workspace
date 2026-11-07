@@ -742,6 +742,13 @@ export class OrdersStateService {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
+    if (
+      (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
+      order.paymentStatus !== 'COMPLETED'
+    ) {
+      throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
+    }
+
     // Enforce sequential pickup if multiple fulfillments belong to this delivery group
     const groupItem = fulfillment.groups[0];
     if (groupItem) {
@@ -1191,6 +1198,15 @@ export class OrdersStateService {
       target = OrderStatus.PARTIALLY_PICKED_UP;
     }
     if (!target || fresh.status === target) return;
+
+    // Never advance aggregate order status out of PENDING_PAYMENT until payment is COMPLETED
+    if (
+      fresh.status === OrderStatus.PENDING_PAYMENT &&
+      (order.paymentMethod === 'MOBILE_WALLET' || Number(order.upfrontAmount ?? 0) > 0) &&
+      order.paymentStatus !== 'COMPLETED'
+    ) {
+      return;
+    }
 
     // Only ever move forward.
     const allowedFrom: Record<string, OrderStatus[]> = {

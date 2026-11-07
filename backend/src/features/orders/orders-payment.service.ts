@@ -140,13 +140,16 @@ export class OrdersPaymentService {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
-    // A multi-vendor order splits into delivery groups, each with its OWN
-    // primary driver, while order.driverId only mirrors the FIRST group. So
-    // authorize the driver who owns any group — otherwise the second
-    // delivery's driver could never confirm their customer's payment.
+    // A multi-vendor order splits into delivery groups, each with its own
+    // primary driver. However, there is only ONE customer charge and ONE payment.
+    // The PRIMARY COLLECTOR (order.driverId, or the driver of the first active
+    // delivery group by sequence) is the only driver authorized to confirm or
+    // deny the order's payment. Secondary drivers must never confirm or deny
+    // payment for the order or alter the primary collector's delivery.
     const groups = (
       (((order as any).deliveryGroups ?? []) as Array<{
         id: string;
+        sequence: number;
         status: DeliveryGroupStatus;
         primaryDriverId: string | null;
         pickedUpAt: Date | null;
@@ -154,23 +157,26 @@ export class OrdersPaymentService {
       }>)
     ).filter(Boolean);
 
-    const ownsGroup = groups.some((g) => g.primaryDriverId === driver.id);
-    const authorized =
-      groups.length > 0 ? ownsGroup : order.driverId === driver.id;
-    if (!authorized) {
+    const activeGroups = groups
+      .filter((g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId)
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+
+    const primaryCollectorId =
+      order.driverId ?? activeGroups[0]?.primaryDriverId;
+
+    if (!primaryCollectorId || driver.id !== primaryCollectorId) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
-    // "Awaiting payment" is per-delivery for a grouped order: the caller's own
-    // delivery must be sitting in PENDING_PAYMENT (the order-level status may
-    // already have moved on while a later delivery still waits on payment).
+    // "Awaiting payment" is per-delivery for a grouped order: the collector's own
+    // delivery (or the order itself) must be sitting in PENDING_PAYMENT.
     const awaitingPayment =
       groups.length > 0
         ? groups.some(
             (g) =>
               g.primaryDriverId === driver.id &&
               g.status === DeliveryGroupStatus.PENDING_PAYMENT,
-          )
+          ) || order.status === OrderStatus.PENDING_PAYMENT
         : order.status === OrderStatus.PENDING_PAYMENT;
     if (!awaitingPayment) {
       throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);

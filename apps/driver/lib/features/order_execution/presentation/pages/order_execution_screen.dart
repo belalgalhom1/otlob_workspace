@@ -1705,6 +1705,54 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       final amountDue = isUpfront ? upfront : total;
       final paidClaimed =
           (order['paymentStatus']?.toString() ?? '') == 'PAID';
+      final isPrimaryCollector = order['isPrimaryCollector'] != false &&
+          (order['financials'] is Map
+              ? (order['financials']['isPrimaryCollector'] != false)
+              : true);
+
+      if (!isPrimaryCollector) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(
+                LucideIcons.hourglass,
+                color: Colors.orange,
+                size: 32,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                isAr
+                    ? 'في انتظار تأكيد استلام الدفع من السائق الأساسي للطلب.'
+                    : 'Waiting for the primary collector to confirm payment reception.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isAr
+                    ? 'سيتم تحديث حالة طلبك ومحطات الاستلام تلقائياً فور تأكيد استلام المبلغ.'
+                    : 'Your delivery stops and status will update automatically once payment is confirmed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
