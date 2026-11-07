@@ -242,6 +242,15 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     }
   }));
 
+  subscriptions.add(
+    socketService.onEvent(SocketEvent.orderFulfillmentUpdated).listen((eventData) {
+      if (!ref.mounted || eventData is! Map) return;
+      ref
+          .read(orderExecutionProvider.notifier)
+          .handleFulfillmentSocketUpdate(Map<String, dynamic>.from(eventData));
+    }),
+  );
+
   ref.onDispose(() {
     for (final sub in subscriptions) {
       sub.cancel();
