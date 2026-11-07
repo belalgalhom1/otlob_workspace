@@ -9,12 +9,12 @@ let cachedZone: string | null = null;
 /** IANA timezone from .env, validated once, falling back to UTC. */
 export function appTimeZone(): string {
   if (cachedZone) return cachedZone;
-  const raw = (process.env.TIMEZONE || 'UTC').trim();
+  const raw = (process.env.TIMEZONE || 'Africa/Cairo').trim();
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: raw });
     cachedZone = raw;
   } catch {
-    cachedZone = 'UTC';
+    cachedZone = 'Africa/Cairo';
   }
   return cachedZone;
 }

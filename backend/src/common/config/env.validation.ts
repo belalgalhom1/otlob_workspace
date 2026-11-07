@@ -85,6 +85,10 @@ class EnvironmentVariables {
 
   @IsString()
   APPLE_CLIENT_IDS!: string;
+
+  @IsOptional()
+  @IsString()
+  TIMEZONE?: string;
 }
 
 export function envValidate(config: Record<string, unknown>) {
