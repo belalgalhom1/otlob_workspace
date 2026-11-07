@@ -129,8 +129,12 @@ export class OutboxService {
               }
             }
 
+            const jobId = row.dedupeKey
+              ? row.dedupeKey.replace(/:/g, '_')
+              : undefined;
+
             await this.eventsQueue.add(row.jobName, payload, {
-              jobId: row.dedupeKey ?? undefined,
+              jobId,
               attempts: 3,
               backoff: { type: 'exponential', delay: 2_000 },
             });
