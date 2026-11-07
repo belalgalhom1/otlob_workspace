@@ -683,14 +683,10 @@ export class StatisticsService {
           });
 
         if (!alreadyManagerSettled) {
-          const managerRow = await client.driverManager.findUnique({
+          const updatedManager = await client.driverManager.update({
             where: { id: mgrId },
+            data: { walletBalance: { increment: share } },
             select: { walletBalance: true },
-          });
-          const balance = (managerRow?.walletBalance ?? 0) + share;
-          await client.driverManager.update({
-            where: { id: mgrId },
-            data: { walletBalance: balance },
           });
           await client.driverManagerWalletTransaction.create({
             data: {
@@ -698,7 +694,7 @@ export class StatisticsService {
               orderId,
               type: 'DELIVERY_SHARE',
               amount: share,
-              balanceAfter: balance,
+              balanceAfter: updatedManager.walletBalance,
               description: `Delivery manager share for order ${orderNumber}`,
               idempotencyKey: `${orderId}:DELIVERY_SHARE:${mgrId}`,
             },

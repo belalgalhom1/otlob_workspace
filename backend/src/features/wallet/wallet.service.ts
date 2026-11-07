@@ -329,12 +329,34 @@ export class WalletService {
       }
     }
 
+    // Guard: never allow vendor wallet balance to drop below zero (prevents overdraft debt).
+    if (dto.amount < 0) {
+      if (Number(vendor.walletBalance ?? 0) + dto.amount < 0) {
+        throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      if (dto.amount < 0) {
+        // Explicit row lock to read the authoritative current balance
+        const lockedRows: any = await tx.$queryRaw`
+          SELECT "walletBalance" FROM "vendors" WHERE "id" = ${vendorId} FOR UPDATE
+        `;
+        const currentBalance = Number(lockedRows?.[0]?.walletBalance ?? 0);
+        if (currentBalance + dto.amount < 0) {
+          throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
+        }
+      }
+
       const updatedVendor = await tx.vendor.update({
         where: { id: vendorId },
         data: { walletBalance: { increment: dto.amount } },
         select: { walletBalance: true },
       });
+
+      if (dto.amount < 0 && Number(updatedVendor.walletBalance) < 0) {
+        throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
+      }
 
       return tx.vendorWalletTransaction.create({
         data: {
@@ -430,11 +452,36 @@ export class WalletService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (dto.amount < 0) {
+        // Explicit row lock to read the authoritative current balance
+        const lockedRows: any = await tx.$queryRaw`
+          SELECT "walletBalance" FROM "drivers" WHERE "id" = ${driverId} FOR UPDATE
+        `;
+        const currentBalance = Number(lockedRows?.[0]?.walletBalance ?? 0);
+        const settings = await tx.platformSetting.findFirst({
+          select: { maxNegativeDriverBalance: true },
+        });
+        const maxNegative = Number(settings?.maxNegativeDriverBalance ?? 500);
+        if (currentBalance + dto.amount < -maxNegative) {
+          throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
+        }
+      }
+
       const updatedDriver = await tx.driver.update({
         where: { id: driverId },
         data: { walletBalance: { increment: dto.amount } },
         select: { walletBalance: true },
       });
+
+      if (dto.amount < 0) {
+        const settings = await tx.platformSetting.findFirst({
+          select: { maxNegativeDriverBalance: true },
+        });
+        const maxNegative = Number(settings?.maxNegativeDriverBalance ?? 500);
+        if (Number(updatedDriver.walletBalance) < -maxNegative) {
+          throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
+        }
+      }
 
       return tx.driverWalletTransaction.create({
         data: {
