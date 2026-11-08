@@ -82,7 +82,11 @@ export class StorageService {
 
   async upload(file: Express.Multer.File, folder: string): Promise<string> {
     try {
-      const targetDir = path.join(this.baseDir, folder);
+      const cleanFolder = this.sanitizeStoragePath(folder);
+      const targetDir = path.normalize(path.join(this.baseDir, cleanFolder));
+      if (!targetDir.startsWith(this.baseDir)) {
+        throw new BadRequestException('Invalid upload target folder');
+      }
       await this.ensureDir(targetDir);
 
       const mime = (file.mimetype || '').toLowerCase();
@@ -141,10 +145,10 @@ export class StorageService {
         }
 
         this.logger.log(
-          `Uploaded & processed image: ${folder}/${mainFileName} (${mainBuffer.length}B, thumb: ${thumbBuffer.length}B)`,
+          `Uploaded & processed image: ${cleanFolder}/${mainFileName} (${mainBuffer.length}B, thumb: ${thumbBuffer.length}B)`,
         );
 
-        return `/media/${folder}/${mainFileName}`;
+        return `/media/${cleanFolder}/${mainFileName}`;
       }
 
       // Handle Non-Image Files (Audio, Video, PDF Documents)
@@ -157,9 +161,9 @@ export class StorageService {
       const filePath = path.join(targetDir, fileName);
 
       await fs.promises.writeFile(filePath, file.buffer);
-      this.logger.log(`Uploaded media file: ${folder}/${fileName} (${file.buffer.length}B)`);
+      this.logger.log(`Uploaded media file: ${cleanFolder}/${fileName} (${file.buffer.length}B)`);
 
-      return `/media/${folder}/${fileName}`;
+      return `/media/${cleanFolder}/${fileName}`;
     } catch (error: unknown) {
       this.logger.error(
         `Upload failed: ${(error as Error).message}`,
