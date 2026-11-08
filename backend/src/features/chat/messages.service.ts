@@ -767,13 +767,24 @@ export class MessagesService {
     // Headquarters / organization-wide members (branchId === null) can access all branches
     if (!membership.branchId) return true;
 
-    // Branch-scoped members must match the branch this order was placed at
+    // Branch-scoped members must match at least one branch fulfilling this order
     if (orderId) {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
-        select: { vendorBranchId: true },
+        select: {
+          vendorBranchId: true,
+          vendorFulfillments: { select: { vendorBranchId: true } },
+        },
       });
-      if (order?.vendorBranchId && order.vendorBranchId !== membership.branchId) {
+      const orderBranchIds = [
+        order?.vendorBranchId,
+        ...(order?.vendorFulfillments?.map((f) => f.vendorBranchId) ?? []),
+      ].filter((b): b is string => !!b);
+
+      if (
+        orderBranchIds.length > 0 &&
+        !orderBranchIds.includes(membership.branchId)
+      ) {
         return false;
       }
     }
