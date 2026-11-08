@@ -15,6 +15,7 @@ class InboxScreen extends ConsumerStatefulWidget {
 
 class _InboxScreenState extends ConsumerState<InboxScreen> {
   final ScrollController _scrollController = ScrollController();
+  String _selectedFilter = 'ALL';
 
   @override
   void initState() {
@@ -54,68 +55,161 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async {
-          await ref.read(sharedInboxProvider.notifier).refresh();
-        },
-        child: inboxState.isLoading && inboxState.conversations.isEmpty
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              )
-            : inboxState.error != null && inboxState.conversations.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: Colors.red,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      isAr ? 'فشل تحميل الرسائل' : 'Failed to load inbox',
-                      style: TextStyle(
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () =>
-                          ref.read(sharedInboxProvider.notifier).refresh(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
-                      ),
-                      child: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
-                    ),
-                  ],
-                ),
-              )
-            : inboxState.conversations.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      size: 100,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      isAr ? 'لا توجد رسائل بعد' : 'No messages yet',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
+      body: Column(
+        children: [
+          _buildFilterChips(context, isAr),
+          Expanded(
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () async {
+                await ref.read(sharedInboxProvider.notifier).refresh();
+              },
+              child: _buildBodyContent(context, inboxState, isDark, isAr),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips(BuildContext context, bool isAr) {
+    final filters = [
+      {'key': 'ALL', 'label': isAr ? 'الكل' : 'All'},
+      {'key': 'ORDER', 'label': isAr ? 'الطلبات' : 'Orders'},
+      {'key': 'SUPPORT', 'label': isAr ? 'الدعم' : 'Support'},
+    ];
+
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: filters.map((f) {
+          final isSelected = _selectedFilter == f['key'];
+          return Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: ChoiceChip(
+              label: Text(f['label']!),
+              selected: isSelected,
+              onSelected: (val) {
+                if (val) setState(() => _selectedFilter = f['key']!);
+              },
+              selectedColor: AppColors.primary,
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+              ),
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              side: BorderSide(
+                color: isSelected ? AppColors.primary : Colors.transparent,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildBodyContent(
+    BuildContext context,
+    dynamic inboxState,
+    bool isDark,
+    bool isAr,
+  ) {
+    final allConvos = inboxState.conversations as List<dynamic>;
+    final convos = _selectedFilter == 'ALL'
+        ? allConvos
+        : allConvos.where((c) => (c['type'] as String?)?.toUpperCase() == _selectedFilter).toList();
+
+    if (inboxState.isLoading && allConvos.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (inboxState.error != null && allConvos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.red,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isAr ? 'فشل تحميل الرسائل' : 'Failed to load inbox',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.read(sharedInboxProvider.notifier).refresh(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+              ),
+              child: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (allConvos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: Colors.grey.withValues(alpha: 0.3),
+              size: 100,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isAr ? 'لا توجد رسائل بعد' : 'No messages yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (convos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.filter_list_off_rounded,
+              color: Colors.grey.withValues(alpha: 0.3),
+              size: 80,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isAr ? 'لا توجد محادثات مطابقة للتصفية' : 'No conversations in this filter',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => setState(() => _selectedFilter = 'ALL'),
+              child: Text(isAr ? 'عرض الكل' : 'Show All'),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
@@ -125,10 +219,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                   vertical: 8,
                 ),
                 itemCount:
-                    inboxState.conversations.length +
-                    (inboxState.hasMore ? 1 : 0),
+                    convos.length +
+                    (_selectedFilter == 'ALL' && inboxState.hasMore ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == inboxState.conversations.length) {
+                  if (index == convos.length) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Center(
@@ -138,12 +232,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                       ),
                     );
                   }
-                  final convo = inboxState.conversations[index];
+                  final convo = convos[index];
                   return _buildConversationItem(context, convo);
                 },
-              ),
-      ),
-    );
+              );
   }
 
   Widget _buildConversationItem(
