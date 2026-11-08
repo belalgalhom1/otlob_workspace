@@ -135,20 +135,72 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
         Date.now() - settings.retentionArchivedChatsDays * 24 * 60 * 60 * 1000,
       );
 
-      // Soft-delete: keep chat/wallet ledger rows for audit; Prisma reads
-      // already exclude deletedAt != null.
+      // 1. Purge physical media files from disk for messages in stale/closed/archived conversations.
+      // Use raw SQL to bypass the soft-delete filter in case conversations were already marked deletedAt != null.
+      let totalFilesCleared = 0;
+      let totalBytesReclaimed = 0;
+      const processedConversationIds = new Set<string>();
+
+      for (;;) {
+        const batch = await this.prisma.$queryRaw<
+          Array<{ id: string; mediaUrl: string; conversationId: string }>
+        >`
+          SELECT m."id", m."mediaUrl", m."conversationId"
+          FROM "messages" m
+          JOIN "conversations" c ON c."id" = m."conversationId"
+          WHERE m."mediaUrl" IS NOT NULL
+            AND (c."status" IN ('ARCHIVED', 'CLOSED') OR c."deletedAt" IS NOT NULL)
+            AND c."createdAt" < ${cutoff}
+          ORDER BY m."createdAt" ASC
+          LIMIT 200
+        `;
+
+        if (batch.length === 0) break;
+
+        for (const msg of batch) {
+          const url = msg.mediaUrl;
+          if (!url || typeof url !== 'string') continue;
+
+          // Conditional clear: only delete if DB row still has this exact mediaUrl
+          const clearedRow = await this.prisma.message.updateMany({
+            where: { id: msg.id, mediaUrl: url },
+            data: { mediaUrl: null },
+          });
+
+          if (clearedRow.count === 0) continue;
+
+          const bytesFreed = await this.storage.delete(url);
+          totalFilesCleared += 1;
+          totalBytesReclaimed += bytesFreed;
+          processedConversationIds.add(msg.conversationId);
+        }
+
+        if (batch.length < 200) break;
+      }
+
+      // 2. Clean up any empty conversation subdirectories in storage/chat/
+      for (const convId of processedConversationIds) {
+        await this.storage.deleteEmptyFolder(`chat/${convId}`);
+      }
+
+      // 3. Soft-delete expired conversations: keep chat/wallet ledger rows for audit;
+      // Prisma reads already exclude deletedAt != null.
       const result = await this.prisma.conversation.updateMany({
         where: {
-          status: 'ARCHIVED',
-          updatedAt: { lt: cutoff },
+          status: { in: ['ARCHIVED', 'CLOSED'] },
+          createdAt: { lt: cutoff },
           deletedAt: null,
         },
-        data: { deletedAt: new Date() },
+        data: {
+          deletedAt: new Date(),
+          status: 'ARCHIVED',
+        },
       });
 
-      if (result.count > 0) {
+      const reclaimedStr = this.formatBytes(totalBytesReclaimed);
+      if (result.count > 0 || totalFilesCleared > 0) {
         this.logger.log(
-          `🗑️  Soft-deleted ${result.count} archived conversations`,
+          `🗑️  Archived ${result.count} conversations, deleted ${totalFilesCleared} chat media files (${reclaimedStr} reclaimed)`,
         );
       }
     } catch (error) {
@@ -157,6 +209,13 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
         (error as Error).stack,
       );
     }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
   private async handleExpiredSessionsCleanup(): Promise<void> {

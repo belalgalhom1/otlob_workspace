@@ -169,19 +169,27 @@ export class StorageService {
     }
   }
 
-  async delete(fileUrl: string): Promise<void> {
+  async delete(fileUrl: string): Promise<number> {
     try {
-      if (!fileUrl) return;
+      if (!fileUrl) return 0;
 
       const relativePath = fileUrl.replace(/^\/media\//, '');
       const filePath = path.normalize(path.join(this.baseDir, relativePath));
 
       if (!filePath.startsWith(this.baseDir)) {
         this.logger.warn(`Path traversal attempt detected for: ${fileUrl}`);
-        return;
+        return 0;
       }
 
+      let bytesFreed = 0;
+
       if (fs.existsSync(filePath)) {
+        try {
+          const stat = await fs.promises.stat(filePath);
+          bytesFreed += stat.size;
+        } catch {
+          // ignore stat error
+        }
         await fs.promises.unlink(filePath);
         this.logger.log(`Deleted: ${relativePath}`);
       } else {
@@ -192,12 +200,45 @@ export class StorageService {
       if (filePath.endsWith('.webp') && !filePath.endsWith('_thumb.webp')) {
         const thumbPath = filePath.replace(/\.webp$/, '_thumb.webp');
         if (fs.existsSync(thumbPath)) {
+          try {
+            const thumbStat = await fs.promises.stat(thumbPath);
+            bytesFreed += thumbStat.size;
+          } catch {
+            // ignore stat error
+          }
           await fs.promises.unlink(thumbPath);
           this.logger.log(`Deleted associated thumbnail: ${path.basename(thumbPath)}`);
         }
       }
+
+      return bytesFreed;
     } catch (error: unknown) {
       this.logger.error(`Delete failed: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  async deleteEmptyFolder(folderPath: string): Promise<void> {
+    try {
+      if (!folderPath) return;
+
+      const relativePath = folderPath.replace(/^\/media\//, '');
+      const targetDir = path.normalize(path.join(this.baseDir, relativePath));
+
+      if (!targetDir.startsWith(this.baseDir)) {
+        this.logger.warn(`Path traversal attempt detected for folder: ${folderPath}`);
+        return;
+      }
+
+      if (fs.existsSync(targetDir)) {
+        const files = await fs.promises.readdir(targetDir);
+        if (files.length === 0) {
+          await fs.promises.rmdir(targetDir);
+          this.logger.log(`Removed empty folder: ${relativePath}`);
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.warn(`Could not remove empty folder ${folderPath}: ${(error as Error).message}`);
     }
   }
 
