@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -81,8 +82,34 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
 
   Future<void> _pickAndUploadAvatar() async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (image == null) return;
+
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressQuality: 85,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Avatar',
+          toolbarColor: const Color(0xFFD4920E),
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFFD4920E),
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+          cropStyle: CropStyle.circle,
+        ),
+        IOSUiSettings(
+          title: 'Crop Avatar',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          cropStyle: CropStyle.circle,
+        ),
+      ],
+    );
+    if (cropped == null) return;
 
     setState(() {
       _isUploadingAvatar = true;
@@ -90,8 +117,8 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
     });
 
     try {
-      final bytes = await image.readAsBytes();
-      final multipartFile = dio.MultipartFile.fromBytes(bytes, filename: image.name);
+      final bytes = await File(cropped.path).readAsBytes();
+      final multipartFile = dio.MultipartFile.fromBytes(bytes, filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
       final userRepo = ref.read(sharedUserRepositoryProvider);
       final response = await userRepo.uploadAvatar(multipartFile);
 

@@ -100,4 +100,33 @@ class MediaService {
     );
     return cropped != null ? File(cropped.path) : null;
   }
+
+  /// Square product interactive crop with drag, zoom, and pan
+  Future<File?> cropProduct({
+    required String sourcePath,
+  }) async {
+    final CroppedFile? cropped = await ImageCropper().cropImage(
+      sourcePath: sourcePath,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressQuality: 85,
+      maxWidth: 1080,
+      maxHeight: 1080,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Product Photo',
+          toolbarColor: const Color(0xFFD4920E),
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFFD4920E),
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'Crop Product Photo',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+    return cropped != null ? File(cropped.path) : null;
+  }
 }

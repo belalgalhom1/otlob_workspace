@@ -4,7 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -757,16 +757,42 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
 
   Future<void> _pickImage(BuildContext ctx) async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
       );
 
-      if (result != null && result.files.single.path != null) {
-        setState(() => _pickedImage = XFile(result.files.single.path!));
+      if (image != null) {
+        final cropped = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 8),
+          compressQuality: 82,
+          maxWidth: 1440,
+          maxHeight: 720,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Store Cover',
+              toolbarColor: const Color(0xFFD4920E),
+              toolbarWidgetColor: Colors.white,
+              activeControlsWidgetColor: const Color(0xFFD4920E),
+              initAspectRatio: CropAspectRatioPreset.ratio16x9,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'Crop Store Cover',
+              aspectRatioLockEnabled: true,
+              resetAspectRatioEnabled: false,
+            ),
+          ],
+        );
+
+        if (cropped != null) {
+          setState(() => _pickedImage = XFile(cropped.path));
+        }
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
+      debugPrint('Error picking cover image: $e');
     }
   }
 

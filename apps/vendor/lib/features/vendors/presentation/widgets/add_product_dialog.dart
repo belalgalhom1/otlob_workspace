@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:api/api.dart';
@@ -252,13 +252,38 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     setState(() => _isPickingImage = true);
 
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
       );
 
-      if (result != null && result.files.single.path != null) {
-        setState(() => _imageFile = XFile(result.files.single.path!));
+      if (image != null) {
+        final cropped = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+          compressQuality: 85,
+          maxWidth: 1080,
+          maxHeight: 1080,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Product Photo',
+              toolbarColor: const Color(0xFFD4920E),
+              toolbarWidgetColor: Colors.white,
+              activeControlsWidgetColor: const Color(0xFFD4920E),
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'Crop Product Photo',
+              aspectRatioLockEnabled: true,
+              resetAspectRatioEnabled: false,
+            ),
+          ],
+        );
+        if (cropped != null) {
+          setState(() => _imageFile = XFile(cropped.path));
+        }
       }
     } catch (e) {
       debugPrint('Error picking image: $e');

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:core/core.dart';
 import 'dart:io';
 import 'package:ui_kit/ui_kit.dart';
@@ -381,7 +382,32 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _imageFile = image);
+    if (image != null) {
+      final cropped = await ImageCropper().cropImage(
+        sourcePath: image.path,
+        aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 8),
+        compressQuality: 82,
+        maxWidth: 1440,
+        maxHeight: 720,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Banner',
+            toolbarColor: const Color(0xFFD4920E),
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: const Color(0xFFD4920E),
+            lockAspectRatio: true,
+          ),
+          IOSUiSettings(
+            title: 'Crop Banner',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+      if (cropped != null) {
+        setState(() => _imageFile = XFile(cropped.path));
+      }
+    }
   }
 
   Widget _buildTypeDropdown(AppLocalizations l10n) {
