@@ -40,7 +40,12 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 80,
+    );
     if (pickedFile != null) {
       setState(() {
         _receiptImage = File(pickedFile.path);

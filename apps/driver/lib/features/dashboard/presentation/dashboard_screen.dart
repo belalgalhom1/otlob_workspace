@@ -255,7 +255,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   GestureDetector(
                     onTap: () async {
                       final picker = ImagePicker();
-                      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                      final pickedFile = await picker.pickImage(
+                        source: ImageSource.gallery,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 80,
+                      );
                       if (pickedFile != null) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -276,7 +281,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: ClipOval(
                         child: avatarUrl != null
                             ? CachedNetworkImage(
-                                imageUrl: avatarUrl,
+                                imageUrl: ImageUtils.thumbnailUrl(avatarUrl),
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => Container(
                                   color: AppColors.primary.withValues(alpha: 0.1),

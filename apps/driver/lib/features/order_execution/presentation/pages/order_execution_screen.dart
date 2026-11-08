@@ -80,8 +80,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     try {
       final file = await ImagePicker().pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
+        maxWidth: 1280,
+        maxHeight: 1280,
         imageQuality: 80,
       );
       if (file != null && mounted) {
@@ -97,8 +97,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     try {
       final file = await ImagePicker().pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
+        maxWidth: 1280,
+        maxHeight: 1280,
         imageQuality: 80,
       );
       if (file != null && mounted) {
