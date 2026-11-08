@@ -56,6 +56,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _hasPoppedForClosed = false;
 
   Map<String, dynamic>? _orderData;
+  Message? _replyingTo;
+  final FocusNode _focusNode = FocusNode();
+
+  void _setReplyingTo(Message msg) {
+    setState(() {
+      _replyingTo = msg;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingTo = null;
+    });
+  }
+
+  MessageReply? _buildReplyPayload() {
+    if (_replyingTo == null) return null;
+    return MessageReply(
+      id: _replyingTo!.id,
+      type: _replyingTo!.type,
+      text: _replyingTo!.content,
+      mediaUrl: _replyingTo!.mediaUrl,
+      senderName: _replyingTo!.senderName,
+    );
+  }
+
+  void _scrollToMessage(String messageId) {
+    final messages = ref.read(sharedChatProvider(_args)).value;
+    if (messages == null) return;
+    final index = messages.indexWhere((m) => m.id == messageId);
+    if (index != -1 && _scrollController.hasClients) {
+      final targetOffset = (index * 72.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -243,10 +283,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     if (caption == null || !mounted) return;
 
+    final replyId = _replyingTo?.id;
+    final replyPayload = _buildReplyPayload();
+    if (_replyingTo != null) {
+      setState(() => _replyingTo = null);
+    }
+
     ref.read(sharedChatProvider(_args).notifier).sendMedia(
       pickedFile.path,
       MessageType.image,
       caption: caption,
+      replyToId: replyId,
+      replyTo: replyPayload,
     );
   }
 
@@ -300,10 +348,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     if (caption == null || !mounted) return;
 
+    final replyId = _replyingTo?.id;
+    final replyPayload = _buildReplyPayload();
+    if (_replyingTo != null) {
+      setState(() => _replyingTo = null);
+    }
+
     ref.read(sharedChatProvider(_args).notifier).sendMedia(
       pickedFile.path,
       isVideo ? MessageType.video : MessageType.image,
       caption: caption,
+      replyToId: replyId,
+      replyTo: replyPayload,
     );
   }
 
@@ -401,10 +457,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         'durationMs': duration.inMilliseconds,
       };
 
+      final replyId = _replyingTo?.id;
+      final replyPayload = _buildReplyPayload();
+      if (_replyingTo != null) {
+        setState(() => _replyingTo = null);
+      }
+
       ref.read(sharedChatProvider(_args).notifier).sendMedia(
         _recordingPath!,
         MessageType.audio,
         metadata: metadata,
+        replyToId: replyId,
+        replyTo: replyPayload,
       );
       _waveformSamples.clear();
     }
@@ -412,7 +476,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
-    ref.read(sharedChatProvider(_args).notifier).sendMessage(_controller.text.trim());
+    final text = _controller.text.trim();
+    final replyId = _replyingTo?.id;
+    final replyPayload = _buildReplyPayload();
+    if (_replyingTo != null) {
+      setState(() => _replyingTo = null);
+    }
+
+    ref.read(sharedChatProvider(_args).notifier).sendMessage(
+      text,
+      replyToId: replyId,
+      replyTo: replyPayload,
+    );
     _controller.clear();
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -494,7 +569,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         final msg = messages[index];
                         return GestureDetector(
                           key: ValueKey(msg.id),
-                          onLongPress: msg.isMe ? () => _showOptions(msg) : null,
+                          onLongPress: () => _showOptions(msg),
                           child: _buildMessage(msg),
                         );
                       },
@@ -525,7 +600,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   chips: _getCustomerQuickReplies(Localizations.localeOf(context).languageCode == 'ar'),
                   onSelected: _onQuickReplySelected,
                 ),
-              if (!messagesAsync.hasError) _buildInput(),
+              if (!messagesAsync.hasError) ...[
+                if (_replyingTo != null)
+                  ChatReplyBanner(
+                    senderName: _replyingTo!.senderName,
+                    content: _replyingTo!.content,
+                    type: _replyingTo!.type.name,
+                    mediaUrl: _replyingTo!.mediaUrl,
+                    formatImageUrl: ImageUtils.formatImageUrl,
+                    onCancel: _cancelReply,
+                  ),
+                _buildInput(),
+              ],
             ],
           ),
           const FloatingCartOverlay(),
@@ -545,6 +631,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(LucideIcons.reply, color: AppColors.primary),
+              title: const Text('Reply'),
+              onTap: () {
+                Navigator.pop(context);
+                _setReplyingTo(msg);
+              },
+            ),
             if (msg.type == MessageType.text)
               ListTile(
                 leading: const Icon(Icons.edit, color: AppColors.primary),
@@ -649,6 +743,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       isMe: msg.isMe,
       senderName: msg.senderName,
       senderRole: msg.senderRole,
+      senderTitle: msg.senderTitle,
+      senderTitleAr: msg.senderTitleAr,
       mediaUrl: msg.mediaUrl,
       content: msg.content,
       type: msg.type.name,
@@ -658,6 +754,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       uploadingText: AppStrings.of(context).uploading,
       fileAttachmentText: 'File Attachment',
       formatImageUrl: ImageUtils.formatImageUrl,
+      replyToSenderName: msg.replyTo?.senderName,
+      replyToContent: msg.replyTo?.text,
+      replyToType: msg.replyTo?.type.name,
+      replyToMediaUrl: msg.replyTo?.mediaUrl,
+      onReplyTap: msg.replyToId != null ? () => _scrollToMessage(msg.replyToId!) : null,
+      onSwipeToReply: () => _setReplyingTo(msg),
       buildOfferBubble: (metadata, isDark) {
          // Create a fake message object for _buildOfferBubble to use, or just pass metadata directly
          return _buildOfferBubble(msg, isDark);
@@ -884,6 +986,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               textDirection: Directionality.of(context),
                               child: TextField(
                                 controller: _controller,
+                                focusNode: _focusNode,
                                 style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 15),
                                 decoration: InputDecoration(
                                   hintText: AppStrings.of(context).typeAMessage,

@@ -27,6 +27,7 @@ export 'src/widgets/chat/quick_reply_chips.dart';
 export 'src/widgets/chat/order_context_bar.dart';
 export 'src/widgets/chat/chat_media_picker_sheet.dart';
 export 'src/widgets/chat/chat_media_caption_dialog.dart';
+export 'src/widgets/chat/chat_reply_banner.dart';
 
 export 'src/widgets/profile/change_password_dialog.dart';
 export 'src/widgets/profile/delete_account_dialog.dart';

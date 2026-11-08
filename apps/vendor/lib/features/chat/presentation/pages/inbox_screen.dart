@@ -7,7 +7,6 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/providers.dart';
-import '../inbox_counts_provider.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {

@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ class ChatBubbleWidget extends StatelessWidget {
   final bool isMe;
   final String? senderName;
   final String? senderRole;
+  final String? senderTitle;
+  final String? senderTitleAr;
   final String? mediaUrl;
   final String content;
   final String type; // 'text', 'image', 'video', 'audio', 'file', 'system'
@@ -19,6 +22,14 @@ class ChatBubbleWidget extends StatelessWidget {
   // Localization Strings
   final String uploadingText;
   final String fileAttachmentText;
+
+  // Reply fields
+  final String? replyToSenderName;
+  final String? replyToContent;
+  final String? replyToType;
+  final String? replyToMediaUrl;
+  final VoidCallback? onReplyTap;
+  final VoidCallback? onSwipeToReply;
 
   // Custom Builders for feature-specific logic
   final Widget Function(Map<String, dynamic> metadata, bool isDark)? buildOfferBubble;
@@ -31,6 +42,8 @@ class ChatBubbleWidget extends StatelessWidget {
     required this.isMe,
     this.senderName,
     this.senderRole,
+    this.senderTitle,
+    this.senderTitleAr,
     this.mediaUrl,
     required this.content,
     required this.type,
@@ -43,6 +56,12 @@ class ChatBubbleWidget extends StatelessWidget {
     this.formatImageUrl,
     this.onVideoTap,
     this.onImageTap,
+    this.replyToSenderName,
+    this.replyToContent,
+    this.replyToType,
+    this.replyToMediaUrl,
+    this.onReplyTap,
+    this.onSwipeToReply,
   });
 
   @override
@@ -82,7 +101,7 @@ class ChatBubbleWidget extends StatelessWidget {
       );
     }
 
-    return Align(
+    Widget bubble = Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -112,9 +131,7 @@ class ChatBubbleWidget extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, left: 4),
                 child: Text(
-                  senderRole != null
-                      ? '$senderName (${senderRole!.replaceAll('_', ' ').toLowerCase().split(' ').map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}').join(' ')})'
-                      : senderName!,
+                  _formatSenderBadge(context),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -122,6 +139,8 @@ class ChatBubbleWidget extends StatelessWidget {
                   ),
                 ),
               ),
+            if (replyToSenderName != null || replyToContent != null)
+              _buildQuotedReply(context, colorScheme, isDark, primaryColor),
             if (type == 'image')
               mediaUrl == null
                   ? _buildUploadingState(colorScheme, primaryColor)
@@ -237,6 +256,220 @@ class ChatBubbleWidget extends StatelessWidget {
         ),
       ),
     );
+
+    if (onSwipeToReply != null) {
+      bubble = Dismissible(
+        key: ValueKey('swipe-${time ?? ''}-${content.hashCode}'),
+        direction: DismissDirection.startToEnd,
+        confirmDismiss: (_) async {
+          HapticFeedback.lightImpact();
+          onSwipeToReply?.call();
+          return false;
+        },
+        background: Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                LucideIcons.reply,
+                size: 18,
+                color: primaryColor,
+              ),
+            ),
+          ),
+        ),
+        child: bubble,
+      );
+    }
+
+    return bubble;
+  }
+
+  String _formatSenderBadge(BuildContext context) {
+    if (senderName == null) return '';
+    final isArabic = Localizations.maybeLocaleOf(context)?.languageCode == 'ar' ||
+        Directionality.of(context) == TextDirection.rtl;
+
+    final localizedTitle = isArabic
+        ? (senderTitleAr?.trim().isNotEmpty == true ? senderTitleAr!.trim() : (senderTitle?.trim().isNotEmpty == true ? senderTitle!.trim() : null))
+        : (senderTitle?.trim().isNotEmpty == true ? senderTitle!.trim() : (senderTitleAr?.trim().isNotEmpty == true ? senderTitleAr!.trim() : null));
+
+    if (localizedTitle != null) {
+      return '$senderName ($localizedTitle)';
+    }
+
+    if (senderRole != null) {
+      final roleUpper = senderRole!.toUpperCase();
+      String roleLabel;
+      if (isArabic) {
+        if (roleUpper.contains('DRIVER')) {
+          roleLabel = 'سائق';
+        } else if (roleUpper.contains('CUSTOMER')) {
+          roleLabel = 'عميل';
+        } else if (roleUpper.contains('ADMIN')) {
+          roleLabel = 'إدارة';
+        } else if (roleUpper.contains('VENDOR')) {
+          roleLabel = 'المتجر';
+        } else {
+          roleLabel = senderRole!;
+        }
+      } else {
+        roleLabel = senderRole!
+            .replaceAll('_', ' ')
+            .toLowerCase()
+            .split(' ')
+            .map((word) => word.isEmpty ? '' : '${word[0].toUpperCase()}${word.substring(1)}')
+            .join(' ');
+      }
+      return '$senderName ($roleLabel)';
+    }
+
+    return senderName!;
+  }
+
+  Widget _buildQuotedReply(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDark,
+    Color primaryColor,
+  ) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final accentColor = isMe ? Colors.white : primaryColor;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.black.withValues(alpha: 0.14)
+            : (isDark
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                : colorScheme.surface.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          left: isRtl ? BorderSide.none : BorderSide(color: accentColor, width: 3.5),
+          right: isRtl ? BorderSide(color: accentColor, width: 3.5) : BorderSide.none,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onReplyTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        replyToSenderName ?? 'Reply',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? Colors.white : primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (replyToType != null && replyToType!.toLowerCase() != 'text') ...[
+                            Icon(
+                              _getReplyTypeIcon(replyToType!),
+                              size: 11,
+                              color: isMe
+                                  ? Colors.white.withValues(alpha: 0.85)
+                                  : colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Flexible(
+                            child: Text(
+                              _getReplyPreviewText(replyToType, replyToContent),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isMe
+                                    ? Colors.white.withValues(alpha: 0.85)
+                                    : colorScheme.onSurface.withValues(alpha: 0.75),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (replyToMediaUrl != null && replyToMediaUrl!.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: CachedNetworkImage(
+                      imageUrl: formatImageUrl != null
+                          ? formatImageUrl!(replyToMediaUrl!)
+                          : replyToMediaUrl!,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getReplyTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'image':
+        return LucideIcons.image;
+      case 'video':
+        return LucideIcons.video;
+      case 'audio':
+        return LucideIcons.mic;
+      case 'file':
+        return LucideIcons.fileText;
+      case 'location':
+        return LucideIcons.mapPin;
+      default:
+        return LucideIcons.messageSquare;
+    }
+  }
+
+  String _getReplyPreviewText(String? type, String? content) {
+    if (content != null && content.isNotEmpty) return content;
+    switch (type?.toLowerCase()) {
+      case 'image':
+        return 'Photo';
+      case 'video':
+        return 'Video';
+      case 'audio':
+        return 'Voice message';
+      case 'file':
+        return 'Document';
+      case 'location':
+        return 'Location';
+      default:
+        return 'Message';
+    }
   }
 
   void _openImage(BuildContext context, String rawUrl) {

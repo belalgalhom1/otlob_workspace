@@ -110,19 +110,31 @@ class SharedChat extends _$SharedChat {
     if (data['conversationId'] == _conversationId) {
       final content = data['text'] ?? '';
       bool isMe = data['senderId']?.toString() == _currentUserId?.toString();
-      String senderName = data['senderName'] ?? 'Unknown';
-      String? senderRole = data['senderRole'];
+      final senderObj = data['sender'] as Map?;
+      String senderName = data['senderName'] ?? senderObj?['name'] ?? 'Unknown';
+      String? senderRole = data['senderRole'] ?? senderObj?['role']?.toString();
+      String? senderTitle = data['senderTitle']?.toString() ?? senderObj?['title']?.toString();
+      String? senderTitleAr = data['senderTitleAr']?.toString() ?? senderObj?['titleAr']?.toString();
+
+      MessageReply? replyTo;
+      if (data['replyTo'] != null && data['replyTo'] is Map) {
+        replyTo = MessageReply.fromJson(Map<String, dynamic>.from(data['replyTo'] as Map));
+      }
 
       final newMessage = Message(
-        id: data['messageId'],
+        id: data['messageId']?.toString() ?? data['id']?.toString() ?? '',
         content: content,
         type: _mapMessageType(data['type']),
         isMe: isMe,
-        timestamp: DateTime.parse(data['createdAt']),
+        timestamp: DateTime.parse(data['createdAt'].toString()),
         senderName: senderName,
         senderRole: senderRole,
+        senderTitle: senderTitle,
+        senderTitleAr: senderTitleAr,
         mediaUrl: _getFullUrl(data['mediaUrl']),
-        metadata: data['metadata'],
+        metadata: data['metadata'] as Map<String, dynamic>?,
+        replyToId: data['replyToId']?.toString() ?? replyTo?.id,
+        replyTo: replyTo,
       );
 
       _addRealtimeMessage(newMessage);
@@ -328,6 +340,8 @@ class SharedChat extends _$SharedChat {
     MessageType type, {
     String? caption,
     Map<String, dynamic>? metadata,
+    String? replyToId,
+    MessageReply? replyTo,
   }) async {
     if (_conversationId == null) return;
 
@@ -341,6 +355,8 @@ class SharedChat extends _$SharedChat {
       senderName: 'Me',
       mediaUrl: null,
       metadata: metadata,
+      replyToId: replyToId,
+      replyTo: replyTo,
     );
 
     state.whenData((messages) {
@@ -363,6 +379,8 @@ class SharedChat extends _$SharedChat {
         mediaUrl: mediaUrl,
         tempIdToRemove: tempId,
         metadata: updatedMeta.isNotEmpty ? updatedMeta : null,
+        replyToId: replyToId,
+        replyTo: replyTo,
       );
     } else {
       state.whenData((messages) {
@@ -377,6 +395,8 @@ class SharedChat extends _$SharedChat {
     String? mediaUrl,
     String? tempIdToRemove,
     Map<String, dynamic>? metadata,
+    String? replyToId,
+    MessageReply? replyTo,
   }) async {
     if (_conversationId == null) return;
     final tempId =
@@ -391,6 +411,8 @@ class SharedChat extends _$SharedChat {
       senderName: 'Me',
       mediaUrl: mediaUrl,
       metadata: metadata,
+      replyToId: replyToId,
+      replyTo: replyTo,
     );
 
     state.whenData((messages) {
@@ -406,6 +428,7 @@ class SharedChat extends _$SharedChat {
         type: type.name.toUpperCase(),
         mediaUrl: mediaUrl,
         metadata: metadata,
+        replyToId: replyToId,
       );
       // Socket echo from backend will update state via _onSocketMessage.
       // We only replace the temp message with the real one when the socket

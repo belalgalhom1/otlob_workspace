@@ -44,6 +44,46 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   final ValueNotifier<bool> _hasText = ValueNotifier(false);
 
   Map<String, dynamic>? _orderData;
+  Message? _replyingTo;
+  final FocusNode _focusNode = FocusNode();
+
+  void _setReplyingTo(Message msg) {
+    setState(() {
+      _replyingTo = msg;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingTo = null;
+    });
+  }
+
+  MessageReply? _buildReplyPayload() {
+    if (_replyingTo == null) return null;
+    return MessageReply(
+      id: _replyingTo!.id,
+      type: _replyingTo!.type,
+      text: _replyingTo!.content,
+      mediaUrl: _replyingTo!.mediaUrl,
+      senderName: _replyingTo!.senderName,
+    );
+  }
+
+  void _scrollToMessage(String messageId) {
+    final messages = ref.read(sharedChatProvider(_args)).value;
+    if (messages == null) return;
+    final index = messages.indexWhere((m) => m.id == messageId);
+    if (index != -1 && _scrollController.hasClients) {
+      final targetOffset = (index * 72.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -292,10 +332,18 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         'durationMs': duration.inMilliseconds,
       };
 
+      final replyId = _replyingTo?.id;
+      final replyPayload = _buildReplyPayload();
+      if (_replyingTo != null) {
+        setState(() => _replyingTo = null);
+      }
+
       ref.read(sharedChatProvider(_args).notifier).sendMedia(
         _recordingPath!,
         MessageType.audio,
         metadata: metadata,
+        replyToId: replyId,
+        replyTo: replyPayload,
       );
       _waveformSamples.clear();
     }
@@ -315,7 +363,17 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   void _sendMessage() {
     final text = _textController.text.trim();
     if (text.isNotEmpty) {
-      ref.read(sharedChatProvider(_args).notifier).sendMessage(text);
+      final replyId = _replyingTo?.id;
+      final replyPayload = _buildReplyPayload();
+      if (_replyingTo != null) {
+        setState(() => _replyingTo = null);
+      }
+
+      ref.read(sharedChatProvider(_args).notifier).sendMessage(
+        text,
+        replyToId: replyId,
+        replyTo: replyPayload,
+      );
       _textController.clear();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (_scrollController.hasClients) {
@@ -346,10 +404,18 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     );
     if (caption == null || !mounted) return;
 
+    final replyId = _replyingTo?.id;
+    final replyPayload = _buildReplyPayload();
+    if (_replyingTo != null) {
+      setState(() => _replyingTo = null);
+    }
+
     ref.read(sharedChatProvider(_args).notifier).sendMedia(
       pickedFile.path,
       MessageType.image,
       caption: caption,
+      replyToId: replyId,
+      replyTo: replyPayload,
     );
   }
 
@@ -403,10 +469,18 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     );
     if (caption == null || !mounted) return;
 
+    final replyId = _replyingTo?.id;
+    final replyPayload = _buildReplyPayload();
+    if (_replyingTo != null) {
+      setState(() => _replyingTo = null);
+    }
+
     ref.read(sharedChatProvider(_args).notifier).sendMedia(
       pickedFile.path,
       isVideo ? MessageType.video : MessageType.image,
       caption: caption,
+      replyToId: replyId,
+      replyTo: replyPayload,
     );
   }
 
@@ -528,19 +602,30 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                         );
                       }
                       final msg = messages[index];
-                      return ChatBubbleWidget(
-                        isMe: msg.isMe,
-                        senderName: msg.senderName,
-                        senderRole: msg.senderRole,
-                        mediaUrl: msg.mediaUrl,
-                        content: msg.content,
-                        type: msg.type.name,
-                        time: DateFormat.jm().format(msg.timestamp.toLocal()),
-                        isRead: msg.isRead,
-                        metadata: msg.metadata,
-                        uploadingText: 'Uploading...',
-                        fileAttachmentText: 'File Attachment',
-                        formatImageUrl: _formatImageUrl,
+                      return GestureDetector(
+                        onLongPress: () => _setReplyingTo(msg),
+                        child: ChatBubbleWidget(
+                          isMe: msg.isMe,
+                          senderName: msg.senderName,
+                          senderRole: msg.senderRole,
+                          senderTitle: msg.senderTitle,
+                          senderTitleAr: msg.senderTitleAr,
+                          mediaUrl: msg.mediaUrl,
+                          content: msg.content,
+                          type: msg.type.name,
+                          time: DateFormat.jm().format(msg.timestamp.toLocal()),
+                          isRead: msg.isRead,
+                          metadata: msg.metadata,
+                          uploadingText: 'Uploading...',
+                          fileAttachmentText: 'File Attachment',
+                          formatImageUrl: _formatImageUrl,
+                          replyToSenderName: msg.replyTo?.senderName,
+                          replyToContent: msg.replyTo?.text,
+                          replyToType: msg.replyTo?.type.name,
+                          replyToMediaUrl: msg.replyTo?.mediaUrl,
+                          onReplyTap: msg.replyToId != null ? () => _scrollToMessage(msg.replyToId!) : null,
+                          onSwipeToReply: () => _setReplyingTo(msg),
+                        ),
                       );
                     },
                   ),
@@ -552,6 +637,15 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
             QuickReplyChips(
               chips: _getDriverQuickReplies(Localizations.localeOf(context).languageCode == 'ar'),
               onSelected: _onQuickReplySelected,
+            ),
+          if (!chatState.hasError && _replyingTo != null)
+            ChatReplyBanner(
+              senderName: _replyingTo!.senderName,
+              content: _replyingTo!.content,
+              type: _replyingTo!.type.name,
+              mediaUrl: _replyingTo!.mediaUrl,
+              formatImageUrl: _formatImageUrl,
+              onCancel: _cancelReply,
             ),
           if (!chatState.hasError) _buildInputBar(context),
         ],
@@ -662,6 +756,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
           Expanded(
             child: TextField(
               controller: _textController,
+              focusNode: _focusNode,
               maxLines: null,
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(

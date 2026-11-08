@@ -770,6 +770,8 @@ export class ConversationsService {
               avatar: true,
               role: true,
               phone: true,
+              title: true,
+              titleAr: true,
               vendorMemberships: {
                 select: { role: true },
               },
@@ -789,6 +791,7 @@ export class ConversationsService {
               avatar: true,
               role: true,
               title: true,
+              titleAr: true,
               vendorMemberships: {
                 select: { role: true },
               },
@@ -803,6 +806,8 @@ export class ConversationsService {
           avatar: true,
           role: true,
           phone: true,
+          title: true,
+          titleAr: true,
           vendorMemberships: {
             select: { role: true },
           },
@@ -838,6 +843,8 @@ export class ConversationsService {
           avatar: string | null;
           role: string;
           phone: string | null;
+          title?: string | null;
+          titleAr?: string | null;
           vendorMemberships: { role: string }[];
         };
       }[];
@@ -852,6 +859,7 @@ export class ConversationsService {
           name: string;
           role: string;
           title: string | null;
+          titleAr?: string | null;
           vendorMemberships: { role: string }[];
         };
       }[];
@@ -861,6 +869,8 @@ export class ConversationsService {
         avatar: string | null;
         role: string;
         phone: string | null;
+        title?: string | null;
+        titleAr?: string | null;
         vendorMemberships: { role: string }[];
       } | null;
       vendor: { storeName: string; storeNameAr: string | null } | null;
@@ -887,6 +897,8 @@ export class ConversationsService {
                 ? `VENDOR_${conversation.creator.vendorMemberships[0].role}`
                 : conversation.creator.role,
             phoneNumber: conversation.creator.phone,
+            title: conversation.creator.title ?? null,
+            titleAr: conversation.creator.titleAr ?? null,
           }
         : null,
       type: conversation.type,
@@ -905,6 +917,8 @@ export class ConversationsService {
             ? `VENDOR_${p.user.vendorMemberships[0].role}`
             : p.user.role,
         phoneNumber: p.user.phone,
+        title: p.user.title ?? null,
+        titleAr: p.user.titleAr ?? null,
         lastReadAt: p.lastReadAt,
         joinedAt: p.joinedAt,
       })),
@@ -921,7 +935,8 @@ export class ConversationsService {
               lastMessage.sender.vendorMemberships.length > 0
                 ? `VENDOR_${lastMessage.sender.vendorMemberships[0].role}`
                 : lastMessage.sender.role,
-            senderTitle: lastMessage.sender.title,
+            senderTitle: lastMessage.sender.title ?? null,
+            senderTitleAr: lastMessage.sender.titleAr ?? null,
             createdAt: lastMessage.createdAt,
           }
         : null,

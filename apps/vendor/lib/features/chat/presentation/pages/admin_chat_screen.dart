@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:vendor/features/chat/presentation/widgets/add_product_in_chat_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' as dio;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:vendor/core/utils/error_utils.dart';
@@ -64,6 +64,21 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   bool _hasMore = true;
   String? _nextCursor;
   bool _isLoadingMore = false;
+  dynamic _replyingTo;
+  final FocusNode _focusNode = FocusNode();
+
+  void _setReplyingTo(dynamic msg) {
+    setState(() {
+      _replyingTo = msg;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingTo = null;
+    });
+  }
 
   @override
   void initState() {
@@ -124,10 +139,13 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                     'type': data['type'] ?? 'TEXT',
                     'mediaUrl': data['mediaUrl'],
                     'metadata': data['metadata'],
+                    'replyTo': data['replyTo'],
                     'sender': {
                       'id': data['senderId'],
                       'role': data['senderRole'] ?? 'CUSTOMER',
                       'name': data['senderName'] ?? 'Customer',
+                      'title': data['senderTitle'] ?? data['sender']?['title'],
+                      'titleAr': data['senderTitleAr'] ?? data['sender']?['titleAr'],
                     },
                     'createdAt': data['createdAt'],
                   });
@@ -1663,6 +1681,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final replyId = _replyingTo?['id']?.toString();
+    final replyObj = _replyingTo;
     _controller.clear();
     final repository = ref.read(sharedChatRepositoryProvider);
 
@@ -1674,11 +1694,17 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         'type': 'TEXT',
         'sender': {'id': _currentUserId, 'role': 'VENDOR_MEMBER', 'name': 'Me'},
         'createdAt': DateTime.now().toIso8601String(),
+        'replyTo': replyObj,
       });
+      _replyingTo = null;
     });
     _scrollToBottom();
 
-    final success = await repository.sendMessage(widget.conversationId, text);
+    final success = await repository.sendMessage(
+      widget.conversationId,
+      text,
+      replyToId: replyId,
+    );
     if (success != null) {
       _loadMessages();
     }
@@ -1938,6 +1964,15 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       ),
                     ),
             ),
+            if (_replyingTo != null)
+              ChatReplyBanner(
+                senderName: (_replyingTo!['sender']?['name'] ?? _replyingTo!['senderName'] ?? 'Reply').toString(),
+                content: (_replyingTo!['text'] ?? '').toString(),
+                type: _replyingTo!['type']?.toString(),
+                mediaUrl: _replyingTo!['mediaUrl']?.toString(),
+                formatImageUrl: ImageUtils.formatImageUrl,
+                onCancel: _cancelReply,
+              ),
             _buildInput(),
           ],
         ),
@@ -1957,8 +1992,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         message['sender']['id']?.toString() == _currentUserId?.toString();
     final isAdmin = _currentUserRole == 'SUPER_ADMIN';
 
-    if (!isAdmin && !isMe) return;
-
     final l10n = AppLocalizations.of(context)!;
 
     showModalBottomSheet(
@@ -1971,7 +2004,15 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (message['type'] == 'TEXT')
+            ListTile(
+              leading: const Icon(LucideIcons.reply, color: AppColors.primary),
+              title: const Text('Reply'),
+              onTap: () {
+                Navigator.pop(context);
+                _setReplyingTo(message);
+              },
+            ),
+            if ((isAdmin || isMe) && message['type'] == 'TEXT')
               ListTile(
                 leading: const Icon(LucideIcons.edit, color: AppColors.primary),
                 title: Text(l10n.editMessage),
@@ -2107,26 +2148,133 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     ).then((_) => editController.dispose());
   }
 
+  Widget _buildAdminQuotedReply(dynamic replyTo, bool isMe) {
+    if (replyTo == null) return const SizedBox.shrink();
+    final senderName = replyTo['sender']?['name'] ?? replyTo['senderName'] ?? 'Reply';
+    final text = replyTo['text']?.toString();
+    final type = replyTo['type']?.toString().toLowerCase();
+    final mediaUrl = replyTo['mediaUrl']?.toString();
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isMe ? Colors.white : AppColors.primary;
+    final isRtl = Directionality.of(context) == ui.TextDirection.rtl;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.black.withValues(alpha: 0.14)
+            : (isDark
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                : colorScheme.surface.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          left: isRtl ? BorderSide.none : BorderSide(color: accentColor, width: 3.5),
+          right: isRtl ? BorderSide(color: accentColor, width: 3.5) : BorderSide.none,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    senderName.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isMe ? Colors.white : AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    text?.isNotEmpty == true ? text! : (type == 'image' ? 'Photo' : 'Message'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isMe
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : colorScheme.onSurface.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (mediaUrl != null && mediaUrl.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: CachedNetworkImage(
+                  imageUrl: ImageUtils.formatImageUrl(mediaUrl),
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorWidget: (context, url, error) => const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessageBubble(dynamic message, bool isMe) {
-    final senderName = message['sender']['name'] ?? 'Unknown';
-    final senderRole = message['sender']['role'];
+    final senderObj = (message['sender'] is Map) ? message['sender'] as Map : null;
+    final senderName = senderObj?['name'] ?? message['senderName'] ?? 'Unknown';
+    final senderRole = senderObj?['role'] ?? message['senderRole'];
+    final senderTitle = senderObj?['title']?.toString() ?? message['senderTitle']?.toString();
+    final senderTitleAr = senderObj?['titleAr']?.toString() ?? message['senderTitleAr']?.toString();
+    final isAr = Localizations.maybeLocaleOf(context)?.languageCode == 'ar' ||
+        Directionality.of(context) == ui.TextDirection.rtl;
+
+    final localizedTitle = isAr
+        ? (senderTitleAr?.trim().isNotEmpty == true ? senderTitleAr!.trim() : (senderTitle?.trim().isNotEmpty == true ? senderTitle!.trim() : null))
+        : (senderTitle?.trim().isNotEmpty == true ? senderTitle!.trim() : (senderTitleAr?.trim().isNotEmpty == true ? senderTitleAr!.trim() : null));
+
     final time =
         _formatTime(DateTime.parse(message['createdAt']).toLocal());
 
     String displaySenderName = senderName;
-    if (senderRole != null) {
-      final formattedRole = senderRole
-          .toString()
-          .replaceAll('_', ' ')
-          .toLowerCase()
-          .split(' ')
-          .map(
-            (word) => word.isEmpty
-                ? ''
-                : '${word[0].toUpperCase()}${word.substring(1)}',
-          )
-          .join(' ');
-      displaySenderName = '$senderName ($formattedRole)';
+    if (localizedTitle != null) {
+      displaySenderName = '$senderName ($localizedTitle)';
+    } else if (senderRole != null) {
+      final roleUpper = senderRole.toString().toUpperCase();
+      String roleLabel;
+      if (isAr) {
+        if (roleUpper.contains('DRIVER')) {
+          roleLabel = 'سائق';
+        } else if (roleUpper.contains('CUSTOMER')) {
+          roleLabel = 'عميل';
+        } else if (roleUpper.contains('ADMIN')) {
+          roleLabel = 'إدارة';
+        } else if (roleUpper.contains('VENDOR')) {
+          roleLabel = 'المتجر';
+        } else {
+          roleLabel = senderRole.toString();
+        }
+      } else {
+        roleLabel = senderRole
+            .toString()
+            .replaceAll('_', ' ')
+            .toLowerCase()
+            .split(' ')
+            .map(
+              (word) => word.isEmpty
+                  ? ''
+                  : '${word[0].toUpperCase()}${word.substring(1)}',
+            )
+            .join(' ');
+      }
+      displaySenderName = '$senderName ($roleLabel)';
     }
 
     return Padding(
@@ -2213,6 +2361,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      if (message['replyTo'] != null)
+                        _buildAdminQuotedReply(message['replyTo'], isMe),
                       if (message['type']?.toString().toUpperCase() == 'IMAGE')
                         if (message['isUploading'] == true ||
                             message['mediaUrl'] == null)
@@ -2582,6 +2732,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                               textDirection: Directionality.of(context),
                               child: TextField(
                                 controller: _controller,
+                                focusNode: _focusNode,
                                 style: TextStyle(
                                   color: Theme.of(context).brightness == Brightness.dark 
                                       ? Colors.white 

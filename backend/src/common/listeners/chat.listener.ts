@@ -32,14 +32,25 @@ export class ChatListener {
 
     const socketPayload = {
       messageId: event.messageId,
+      id: event.messageId,
       conversationId: event.conversationId,
       senderId: event.senderId,
       senderName: event.senderName,
       senderRole: event.senderRole,
+      senderTitle: event.senderTitle ?? null,
+      senderTitleAr: event.senderTitleAr ?? null,
+      sender: {
+        id: event.senderId,
+        name: event.senderName,
+        role: event.senderRole,
+        title: event.senderTitle ?? null,
+        titleAr: event.senderTitleAr ?? null,
+      },
       type: event.type,
       text: event.text,
       mediaUrl: event.mediaUrl,
       metadata: event.metadata,
+      replyTo: event.replyTo ?? null,
       isSystem,
       createdAt: event.createdAt,
     };

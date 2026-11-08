@@ -39,7 +39,7 @@ const REPLY_TO_INCLUDE = {
     mediaUrl: true,
     deletedAt: true,
     sender: {
-      select: { id: true, name: true, avatar: true },
+      select: { id: true, name: true, avatar: true, title: true, titleAr: true },
     },
   },
 };
@@ -158,6 +158,7 @@ export class MessagesService {
               avatar: true,
               role: true,
               title: true,
+              titleAr: true,
               vendorMemberships: {
                 select: { role: true },
               },
@@ -192,6 +193,8 @@ export class MessagesService {
         ? `VENDOR_${message.sender.vendorMemberships[0].role}`
         : message.sender.role;
 
+    const formatted = this.formatMessage(message);
+
     this.eventEmitter.emit(
       EVENTS.CHAT_MESSAGE_SENT,
       new ChatMessageSentEvent(
@@ -207,13 +210,16 @@ export class MessagesService {
         message.metadata as Record<string, any> | null,
         message.createdAt,
         conversation.type,
+        formatted.replyTo,
+        message.sender.title ?? null,
+        message.sender.titleAr ?? null,
       ),
     );
 
     this.logger.log(
       `Message sent: ${message.id} [${message.type}] in ${conversationId}`,
     );
-    return this.formatMessage(message);
+    return formatted;
   }
 
   async sendSystemMessage(
@@ -261,6 +267,9 @@ export class MessagesService {
         metadata ?? null,
         message.createdAt,
         conversation.type,
+        null,
+        null,
+        null,
       ),
     );
 
@@ -290,6 +299,7 @@ export class MessagesService {
             avatar: true,
             role: true,
             title: true,
+            titleAr: true,
             vendorMemberships: {
               select: { role: true },
             },
@@ -326,6 +336,9 @@ export class MessagesService {
         null,
         message.createdAt,
         conversation.type,
+        null,
+        message.sender.title ?? null,
+        message.sender.titleAr ?? null,
       ),
     );
 
@@ -392,6 +405,7 @@ export class MessagesService {
             avatar: true,
             role: true,
             title: true,
+            titleAr: true,
             vendorMemberships: {
               select: { role: true },
             },
@@ -691,6 +705,8 @@ export class MessagesService {
         name: string;
         avatar: string | null;
         role: string;
+        title?: string | null;
+        titleAr?: string | null;
         vendorMemberships: { role: string }[];
       } | null;
       replyTo: {
@@ -699,7 +715,7 @@ export class MessagesService {
         text: string | null;
         mediaUrl: string | null;
         deletedAt: Date | null;
-        sender: { id: string; name: string; avatar: string | null } | null;
+        sender: { id: string; name: string; avatar: string | null; title?: string | null; titleAr?: string | null } | null;
       } | null;
     };
     return {
@@ -719,6 +735,8 @@ export class MessagesService {
               message.sender.vendorMemberships.length > 0
                 ? `VENDOR_${message.sender.vendorMemberships[0].role}`
                 : message.sender.role,
+            title: message.sender.title ?? null,
+            titleAr: message.sender.titleAr ?? null,
           }
         : null,
       replyTo: message.replyTo
@@ -735,6 +753,8 @@ export class MessagesService {
                   id: message.replyTo.sender.id,
                   name: message.replyTo.sender.name,
                   avatar: message.replyTo.sender.avatar,
+                  title: message.replyTo.sender.title ?? null,
+                  titleAr: message.replyTo.sender.titleAr ?? null,
                 }
               : null,
           }

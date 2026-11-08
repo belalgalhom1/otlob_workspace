@@ -276,7 +276,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       icon = Icons.receipt_long_rounded;
       iconColor = Colors.orange;
     } else if (type == 'VENDOR') {
-      title = convo['vendor']?['name'] ?? (isAr ? 'متجر' : 'Store');
+      final vendorName = isAr
+          ? (convo['vendorNameAr'] ?? convo['vendorName'] ?? convo['vendor']?['name'])
+          : (convo['vendorName'] ?? convo['vendorNameAr'] ?? convo['vendor']?['name']);
+      title = vendorName ?? (isAr ? 'متجر' : 'Store');
       icon = Icons.storefront_rounded;
       iconColor = Colors.green;
     }

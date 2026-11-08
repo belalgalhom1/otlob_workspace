@@ -32,6 +32,9 @@ export class ChatMessageSentEvent {
     public readonly metadata: Record<string, unknown> | null,
     public readonly createdAt: Date,
     public readonly conversationType?: string,
+    public readonly replyTo?: Record<string, unknown> | null,
+    public readonly senderTitle?: string | null,
+    public readonly senderTitleAr?: string | null,
   ) {}
 }
 
