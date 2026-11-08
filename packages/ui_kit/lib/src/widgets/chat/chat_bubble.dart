@@ -815,9 +815,14 @@ class VideoPreviewWidget extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: GestureDetector(
-          onTap: () {
+          onTap: () async {
             if (onVideoTap != null) {
               onVideoTap!(url);
+            } else {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
             }
           },
           child: Stack(

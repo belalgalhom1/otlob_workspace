@@ -329,19 +329,85 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _takePhotoDirectly() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 80,
+      source: ImageSource.camera,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
     );
-    if (pickedFile != null) {
-      ref
-          .read(sharedChatProvider(_args).notifier)
-          .sendMedia(pickedFile.path, MessageType.image);
+    if (pickedFile == null || !mounted) return;
+
+    final caption = await ChatMediaCaptionDialog.show(
+      context,
+      filePath: pickedFile.path,
+      isVideo: false,
+    );
+    if (caption == null || !mounted) return;
+
+    ref.read(sharedChatProvider(_args).notifier).sendMedia(
+      pickedFile.path,
+      MessageType.image,
+      caption: caption,
+    );
+  }
+
+  Future<void> _showMediaPicker() async {
+    final option = await ChatMediaPickerSheet.show(context, allowVideo: true);
+    if (option == null || !mounted) return;
+
+    final picker = ImagePicker();
+    XFile? pickedFile;
+    bool isVideo = false;
+
+    switch (option) {
+      case ChatMediaPickerOption.cameraPhoto:
+        pickedFile = await picker.pickImage(
+          source: ImageSource.camera,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+        break;
+      case ChatMediaPickerOption.galleryPhoto:
+        pickedFile = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+        break;
+      case ChatMediaPickerOption.cameraVideo:
+        pickedFile = await picker.pickVideo(
+          source: ImageSource.camera,
+          maxDuration: const Duration(minutes: 2),
+        );
+        isVideo = true;
+        break;
+      case ChatMediaPickerOption.galleryVideo:
+        pickedFile = await picker.pickVideo(
+          source: ImageSource.gallery,
+          maxDuration: const Duration(minutes: 5),
+        );
+        isVideo = true;
+        break;
     }
+
+    if (pickedFile == null || !mounted) return;
+
+    final caption = await ChatMediaCaptionDialog.show(
+      context,
+      filePath: pickedFile.path,
+      isVideo: isVideo,
+    );
+    if (caption == null || !mounted) return;
+
+    ref.read(sharedChatProvider(_args).notifier).sendMedia(
+      pickedFile.path,
+      isVideo ? MessageType.video : MessageType.image,
+      caption: caption,
+    );
   }
 
   String _formatImageUrl(String url) {
@@ -571,11 +637,19 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         children: [
           IconButton(
             icon: Icon(
-              LucideIcons.image,
+              LucideIcons.camera,
               color: Theme.of(context).colorScheme.primary,
             ),
-            onPressed: _pickImage,
-            tooltip: 'Send Image',
+            onPressed: _takePhotoDirectly,
+            tooltip: 'Take Photo',
+          ),
+          IconButton(
+            icon: Icon(
+              LucideIcons.paperclip,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            onPressed: _showMediaPicker,
+            tooltip: 'Attach Media',
           ),
           IconButton(
             icon: Icon(

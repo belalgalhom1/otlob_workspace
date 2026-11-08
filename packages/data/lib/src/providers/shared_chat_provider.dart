@@ -326,6 +326,7 @@ class SharedChat extends _$SharedChat {
   Future<void> sendMedia(
     String filePath,
     MessageType type, {
+    String? caption,
     Map<String, dynamic>? metadata,
   }) async {
     if (_conversationId == null) return;
@@ -333,7 +334,7 @@ class SharedChat extends _$SharedChat {
     final tempId = 'upload-' + DateTime.now().millisecondsSinceEpoch.toString();
     final optimisticMessage = Message(
       id: tempId,
-      content: 'Uploading...',
+      content: caption?.isNotEmpty == true ? caption! : 'Uploading...',
       type: type,
       isMe: true,
       timestamp: DateTime.now(),
@@ -357,7 +358,7 @@ class SharedChat extends _$SharedChat {
       }
 
       await sendMessage(
-        '',
+        caption ?? '',
         type: type,
         mediaUrl: mediaUrl,
         tempIdToRemove: tempId,

@@ -1213,46 +1213,45 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     return true;
   }
 
-  Future<void> _pickDocument() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      allowMultiple: false,
+  Future<void> _takePhotoDirectly() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
     );
+    if (pickedFile == null || !mounted) return;
 
-    if (result != null && result.files.single.path != null) {
-      final path = result.files.single.path!;
-      final ext = path.split('.').last.toLowerCase();
-      if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.onlyImagesAllowed),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      
-      if (!await _validateMediaSize(path)) return;
-      
-      final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
-      setState(() {
-        _messages.insert(0, {
-          'id': tempId,
-          'text': '',
-          'type': 'IMAGE',
-          'mediaUrl': null,
-          'isUploading': true,
-          'sender': {
-            'id': _currentUserId,
-            'role': 'VENDOR_MEMBER',
-            'name': 'Me',
-          },
-          'createdAt': DateTime.now().toIso8601String(),
-        });
+    final path = pickedFile.path;
+    if (!await _validateMediaSize(path)) return;
+
+    final caption = await ChatMediaCaptionDialog.show(
+      context,
+      filePath: path,
+      isVideo: false,
+    );
+    if (caption == null || !mounted) return;
+
+    final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _messages.insert(0, {
+        'id': tempId,
+        'text': caption,
+        'type': 'IMAGE',
+        'mediaUrl': null,
+        'isUploading': true,
+        'sender': {
+          'id': _currentUserId,
+          'role': _currentUserRole ?? 'VENDOR_MEMBER',
+          'name': 'Me',
+        },
+        'createdAt': DateTime.now().toIso8601String(),
       });
-      _scrollToBottom();
+    });
+    _scrollToBottom();
 
+    try {
       final repository = ref.read(sharedChatRepositoryProvider);
       final uploadRes = await repository.uploadMedia(
         widget.conversationId,
@@ -1271,7 +1270,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
         await repository.sendMessage(
           widget.conversationId,
-          '',
+          caption,
           type: 'IMAGE',
           mediaUrl: mediaUrl,
         );
@@ -1281,6 +1280,118 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           _messages.removeWhere((m) => m['id'] == tempId);
         });
       }
+    } catch (_) {
+      setState(() {
+        _messages.removeWhere((m) => m['id'] == tempId);
+      });
+    }
+  }
+
+  Future<void> _pickDocument() async {
+    final option = await ChatMediaPickerSheet.show(context, allowVideo: true);
+    if (option == null || !mounted) return;
+
+    final picker = ImagePicker();
+    XFile? pickedFile;
+    bool isVideo = false;
+
+    switch (option) {
+      case ChatMediaPickerOption.cameraPhoto:
+        pickedFile = await picker.pickImage(
+          source: ImageSource.camera,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+        break;
+      case ChatMediaPickerOption.galleryPhoto:
+        pickedFile = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+        break;
+      case ChatMediaPickerOption.cameraVideo:
+        pickedFile = await picker.pickVideo(
+          source: ImageSource.camera,
+          maxDuration: const Duration(minutes: 2),
+        );
+        isVideo = true;
+        break;
+      case ChatMediaPickerOption.galleryVideo:
+        pickedFile = await picker.pickVideo(
+          source: ImageSource.gallery,
+          maxDuration: const Duration(minutes: 5),
+        );
+        isVideo = true;
+        break;
+    }
+
+    if (pickedFile == null || !mounted) return;
+
+    final path = pickedFile.path;
+    if (!await _validateMediaSize(path)) return;
+
+    final caption = await ChatMediaCaptionDialog.show(
+      context,
+      filePath: path,
+      isVideo: isVideo,
+    );
+    if (caption == null || !mounted) return;
+
+    final msgType = isVideo ? 'VIDEO' : 'IMAGE';
+    final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _messages.insert(0, {
+        'id': tempId,
+        'text': caption,
+        'type': msgType,
+        'mediaUrl': null,
+        'isUploading': true,
+        'sender': {
+          'id': _currentUserId,
+          'role': _currentUserRole ?? 'VENDOR_MEMBER',
+          'name': 'Me',
+        },
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+    });
+    _scrollToBottom();
+
+    try {
+      final repository = ref.read(sharedChatRepositoryProvider);
+      final uploadRes = await repository.uploadMedia(
+        widget.conversationId,
+        path,
+      );
+      final mediaUrl = _extractMediaUrl(uploadRes);
+
+      if (mediaUrl != null) {
+        setState(() {
+          final idx = _messages.indexWhere((m) => m['id'] == tempId);
+          if (idx != -1) {
+            _messages[idx]['mediaUrl'] = mediaUrl;
+            _messages[idx]['isUploading'] = false;
+          }
+        });
+
+        await repository.sendMessage(
+          widget.conversationId,
+          caption,
+          type: msgType,
+          mediaUrl: mediaUrl,
+        );
+        _loadMessages();
+      } else {
+        setState(() {
+          _messages.removeWhere((m) => m['id'] == tempId);
+        });
+      }
+    } catch (_) {
+      setState(() {
+        _messages.removeWhere((m) => m['id'] == tempId);
+      });
     }
   }
 
@@ -2305,7 +2416,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           if (hasCoords) ...[
             const SizedBox(height: 6),
             Text(
-              '\, ',
+              '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
               style: TextStyle(
                 fontSize: 12,
                 color: isMe
@@ -2317,7 +2428,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             InkWell(
               onTap: () async {
                 final uri = Uri.parse(
-                  'https://www.google.com/maps/search/?api=1&query=\,',
+                  'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
                 );
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -2494,13 +2605,23 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           ),
                     IconButton(
                       icon: const Icon(
-                        LucideIcons.image,
-                        
+                        LucideIcons.camera,
+                        size: 18,
+                      ),
+                      onPressed: _takePhotoDirectly,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Take Photo',
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        LucideIcons.paperclip,
                         size: 18,
                       ),
                       onPressed: _pickDocument,
-                      padding: const EdgeInsetsDirectional.only(end: 12),
+                      padding: const EdgeInsetsDirectional.only(end: 8),
                       constraints: const BoxConstraints(),
+                      tooltip: 'Attach Media',
                     ),
                   ],
                 ),
