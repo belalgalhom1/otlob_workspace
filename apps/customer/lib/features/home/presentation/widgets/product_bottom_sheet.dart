@@ -295,7 +295,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: (item['image']?.toString().isEmpty ?? true)
+                        child: ((item['imageUrl'] ?? item['image'])?.toString().isEmpty ?? true)
                             ? Container(
                                 width: double.infinity,
                                 height: 250,
@@ -312,7 +312,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
                                   child: CachedNetworkImage(
-                                    imageUrl: ImageUtils.formatImageUrl(item['image'] as String?),
+                                    imageUrl: ImageUtils.formatImageUrl((item['imageUrl'] ?? item['image']) as String?),
                                     fit: BoxFit.contain,
                                     errorWidget: (context, url, error) => Icon(Icons.fastfood, size: 40, color: isDark ? Colors.white24 : Colors.grey.shade300),
                                   ),

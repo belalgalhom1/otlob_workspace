@@ -505,7 +505,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             ),
                           )
                         : CachedNetworkImage(
-                            imageUrl: ImageUtils.formatImageUrl(
+                            imageUrl: ImageUtils.thumbnailUrl(
                               firstProduct.vendorLogo,
                             ),
                             height: 40,
@@ -903,7 +903,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         child: const Icon(Icons.fastfood, color: Colors.grey),
                       )
                     : CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(
+                        imageUrl: ImageUtils.thumbnailUrl(
                           item.product.imageUrl,
                         ),
                         height: 80,

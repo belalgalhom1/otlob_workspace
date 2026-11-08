@@ -492,7 +492,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
-                    imageUrl: ImageUtils.formatImageUrl((product['imageUrl'] ?? product['image']) as String?),
+                    imageUrl: ImageUtils.thumbnailUrl((product['imageUrl'] ?? product['image']) as String?),
                     width: double.infinity,
                     height: 120,
                     fit: BoxFit.cover,
