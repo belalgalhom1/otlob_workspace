@@ -47,6 +47,20 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   Message? _replyingTo;
   final FocusNode _focusNode = FocusNode();
 
+  void _onFocusChange() {
+    if (_focusNode.hasFocus && _scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
   void _setReplyingTo(Message msg) {
     setState(() {
       _replyingTo = msg;
@@ -94,6 +108,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       final hasText = _textController.text.trim().isNotEmpty;
       if (_hasText.value != hasText) _hasText.value = hasText;
     });
+    _focusNode.addListener(_onFocusChange);
   }
 
   Future<void> _loadOrderDetails() async {
@@ -357,6 +372,8 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     _textController.dispose();
     _scrollController.dispose();
     _hasText.dispose();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -518,6 +535,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),
@@ -592,7 +610,8 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                   child: ListView.builder(
                     controller: _scrollController,
                     reverse: true, // Newest messages at bottom
-                    padding: const EdgeInsets.all(16),
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     itemCount: messages.length + (ref.read(sharedChatProvider(_args).notifier).hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == messages.length) {
@@ -710,12 +729,15 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       );
     }
 
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = viewInsetsBottom > 0 ? 8.0 : (MediaQuery.of(context).padding.bottom + 8.0);
+
     return Container(
       padding: EdgeInsets.only(
         left: 8,
         right: 16,
         top: 8,
-        bottom: MediaQuery.of(context).padding.bottom + 8,
+        bottom: bottomPadding,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,

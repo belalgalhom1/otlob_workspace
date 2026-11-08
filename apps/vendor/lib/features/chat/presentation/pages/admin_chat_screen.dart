@@ -67,6 +67,20 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   dynamic _replyingTo;
   final FocusNode _focusNode = FocusNode();
 
+  void _onFocusChange() {
+    if (_focusNode.hasFocus && _scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
   void _setReplyingTo(dynamic msg) {
     setState(() {
       _replyingTo = msg;
@@ -88,6 +102,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _loadMessages();
     _initRecorder();
     _loadTicketAndOrderDetails();
+    _focusNode.addListener(_onFocusChange);
   }
 
   Future<void> _initRecorder() async {
@@ -199,6 +214,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _readSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -1797,6 +1814,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       endDrawer: _buildQuickSwitcherDrawer(),
       appBar: AppBar(
         titleSpacing: 0,
@@ -1938,9 +1956,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       child: ListView.builder(
                         controller: _scrollController,
                         reverse: true, // Start from bottom
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 20,
+                          vertical: 12,
                         ),
                         itemCount: _messages.length + (_hasMore ? 1 : 0),
                         itemBuilder: (context, index) {
@@ -2621,12 +2640,15 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   }
 
   Widget _buildInput() {
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = viewInsetsBottom > 0 ? 8.0 : (MediaQuery.of(context).padding.bottom + 8.0);
+
     return Container(
       padding: EdgeInsetsDirectional.only(
         start: 12,
         end: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-        top: 12,
+        bottom: bottomPadding,
+        top: 10,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,

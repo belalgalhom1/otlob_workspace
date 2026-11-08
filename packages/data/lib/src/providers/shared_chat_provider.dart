@@ -225,28 +225,10 @@ class SharedChat extends _$SharedChat {
 
       final ordered = data.map((m) {
         final mapData = Map<String, dynamic>.from(m as Map);
-        final content = mapData['text'] ?? '';
-        final sender = mapData['sender'] as Map?;
-        final senderId = sender?['id'];
-
-        bool isMe = senderId == _currentUserId;
-        String senderName = sender?['name'] ?? 'Unknown';
-        String? senderRole = sender?['role'];
-
-        return Message(
-          id: mapData['id'] ?? '',
-          content: content,
-          type: _mapMessageType(mapData['type']),
-          isMe: isMe,
-          timestamp: mapData['createdAt'] != null
-              ? DateTime.parse(mapData['createdAt'])
-              : DateTime.now(),
-          senderName: senderName,
-          senderRole: senderRole,
-          mediaUrl: _getFullUrl(mapData['mediaUrl']),
-          metadata: mapData['metadata'],
-          isRead: mapData['isRead'] == true,
-        );
+        if (mapData['mediaUrl'] != null && mapData['mediaUrl'].toString().isNotEmpty) {
+          mapData['mediaUrl'] = _getFullUrl(mapData['mediaUrl'].toString());
+        }
+        return Message.fromJson(mapData, _currentUserId);
       }).toList();
 
       try {
@@ -270,7 +252,9 @@ class SharedChat extends _$SharedChat {
       final oldMessages = await _fetchMessages(cursor: nextCursor);
       if (oldMessages.isNotEmpty) {
         state.whenData((currentMessages) {
-          state = AsyncData([...currentMessages, ...oldMessages]);
+          final existingIds = currentMessages.map((m) => m.id).toSet();
+          final uniqueOld = oldMessages.where((m) => !existingIds.contains(m.id)).toList();
+          state = AsyncData([...currentMessages, ...uniqueOld]);
         });
       }
     } finally {

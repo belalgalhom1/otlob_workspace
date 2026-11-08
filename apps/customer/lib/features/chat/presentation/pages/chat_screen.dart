@@ -59,6 +59,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Message? _replyingTo;
   final FocusNode _focusNode = FocusNode();
 
+  void _onFocusChange() {
+    if (_focusNode.hasFocus && _scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
   void _setReplyingTo(Message msg) {
     setState(() {
       _replyingTo = msg;
@@ -106,6 +120,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
+    _focusNode.addListener(_onFocusChange);
   }
 
   Future<void> _loadOrderDetails() async {
@@ -263,6 +278,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _recorder = null;
     _controller.dispose();
     _scrollController.dispose();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -523,6 +540,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final messagesAsync = ref.watch(sharedChatProvider(_args));
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
@@ -557,7 +575,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: ListView.builder(
                       controller: _scrollController,
                       reverse: true, // Start from bottom
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra padding for floating cart
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       itemCount: messages.length + (ref.read(sharedChatProvider(_args).notifier).hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index == messages.length) {
@@ -888,13 +907,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildInput() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = viewInsetsBottom > 0 ? 8.0 : (MediaQuery.of(context).padding.bottom + 8.0);
 
     return Container(
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-        top: 12,
+        bottom: bottomPadding,
+        top: 10,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
