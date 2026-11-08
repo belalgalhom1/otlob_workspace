@@ -114,22 +114,26 @@ export class ConversationsService {
 
   /**
    * Every driver working an order: the order-level driver plus each delivery
-   * group's primary driver, so a multi-vendor order's later deliveries get
-   * their driver into the chat too.
+   * group's primary and assist drivers, so multi-vendor order deliveries and
+   * assisted deliveries get all participating drivers into the chat room.
    */
   private async resolveOrderDriverUserIds(order: {
     id: string;
-    driverId: string | null;
+    driverId?: string | null;
+    assistDriverId?: string | null;
   }): Promise<string[]> {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId: order.id },
-      select: { primaryDriverId: true },
+      select: { primaryDriverId: true, assistDriverId: true },
     });
     const driverIds = Array.from(
       new Set(
-        [order.driverId, ...groups.map((g) => g.primaryDriverId)].filter(
-          (d): d is string => !!d,
-        ),
+        [
+          order.driverId,
+          order.assistDriverId,
+          ...groups.map((g) => g.primaryDriverId),
+          ...groups.map((g) => g.assistDriverId),
+        ].filter((d): d is string => !!d),
       ),
     );
     if (driverIds.length === 0) return [];
@@ -151,6 +155,7 @@ export class ConversationsService {
         vendorId: true,
         vendorBranchId: true,
         driverId: true,
+        assistDriverId: true,
         customer: { select: { userId: true } },
         driver: { select: { userId: true } },
       },
@@ -217,6 +222,7 @@ export class ConversationsService {
       select: {
         id: true,
         driverId: true,
+        assistDriverId: true,
       },
     });
     if (!order) return;
@@ -254,6 +260,25 @@ export class ConversationsService {
       });
       this.logger.log(
         `Pruned stale driver participants [${staleUserIds.join(', ')}] from order conversation ${conversation.id}`,
+      );
+    }
+
+    const existingParticipantUserIds = conversation.participants.map(
+      (p) => p.userId,
+    );
+    const missingDriverUserIds = currentDriverUserIds.filter(
+      (id) => !existingParticipantUserIds.includes(id),
+    );
+    if (missingDriverUserIds.length > 0) {
+      await this.prisma.conversationParticipant.createMany({
+        data: missingDriverUserIds.map((userId) => ({
+          conversationId: conversation.id,
+          userId,
+        })),
+        skipDuplicates: true,
+      });
+      this.logger.log(
+        `Added missing driver participants [${missingDriverUserIds.join(', ')}] to order conversation ${conversation.id}`,
       );
     }
   }
@@ -348,6 +373,7 @@ export class ConversationsService {
         vendorId: true,
         vendorBranchId: true,
         driverId: true,
+        assistDriverId: true,
         customer: { select: { userId: true } },
         driver: { select: { userId: true } },
       },
