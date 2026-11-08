@@ -33,8 +33,18 @@ export class MediaService {
     if (f.includes('banner') || f.includes('cover')) return 'banner';
     if (f.includes('categor') || f.includes('vertical')) return 'category';
     if (f.includes('chat') || f.includes('message')) return 'chat_image';
-    if (f.includes('receipt') || f.includes('document') || f.includes('delivery'))
+    if (
+      f.includes('delivery') ||
+      f.includes('deliveries') ||
+      f.includes('pickup') ||
+      f.includes('pickups') ||
+      f.includes('shift-start')
+    ) {
+      return 'delivery_proof';
+    }
+    if (f.includes('receipt') || f.includes('document')) {
       return 'document';
+    }
     return 'default';
   }
 

@@ -17,4 +17,23 @@ class ImageUtils {
 
     return '$baseUrl$path';
   }
+
+  static String thumbnailUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    if (url.contains('_thumb.')) return formatImageUrl(url);
+
+    if (url.endsWith('.webp')) {
+      return formatImageUrl(url.replaceAll(RegExp(r'\.webp$'), '_thumb.webp'));
+    }
+
+    final uri = Uri.tryParse(url);
+    if (uri != null && uri.path.contains('.')) {
+      final lastDot = uri.path.lastIndexOf('.');
+      final thumbPath = '${uri.path.substring(0, lastDot)}_thumb.webp';
+      final replaced = uri.replace(path: thumbPath).toString();
+      return formatImageUrl(replaced);
+    }
+
+    return formatImageUrl(url);
+  }
 }

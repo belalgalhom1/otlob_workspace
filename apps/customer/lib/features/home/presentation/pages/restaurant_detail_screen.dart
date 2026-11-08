@@ -917,7 +917,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     child: ((item['imageUrl'] ?? item['image'])?.toString().isEmpty ?? true)
                         ? Icon(Icons.fastfood, color: Colors.grey.shade400, size: 36)
                         : CachedNetworkImage(
-                            imageUrl: ImageUtils.formatImageUrl((item['imageUrl'] ?? item['image']) as String?),
+                            imageUrl: ImageUtils.thumbnailUrl((item['imageUrl'] ?? item['image']) as String?),
                             fit: BoxFit.cover,
                             width: 110,
                             height: 110,

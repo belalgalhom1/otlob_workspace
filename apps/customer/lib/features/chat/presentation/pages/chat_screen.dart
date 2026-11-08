@@ -1,10 +1,10 @@
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
@@ -85,22 +85,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _pickDocument() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 80,
     );
-
     if (!mounted) return;
-    if (result != null && result.files.single.path != null) {
-      final path = result.files.single.path!;
-      final ext = path.split('.').last.toLowerCase();
-      if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.of(context).onlyImagesAllowed), backgroundColor: Colors.red),
-        );
-        return;
-      }
-      ref.read(sharedChatProvider(_args).notifier).sendMedia(path, MessageType.image);
+    if (pickedFile != null) {
+      ref.read(sharedChatProvider(_args).notifier).sendMedia(pickedFile.path, MessageType.image);
     }
   }
 

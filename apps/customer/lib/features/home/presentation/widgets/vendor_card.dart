@@ -77,7 +77,7 @@ class VendorCard extends ConsumerWidget {
                 child: (vendor['image']?.toString().isEmpty ?? true)
                     ? Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: Icon(Icons.storefront, size: 40, color: Colors.grey)))
                     : CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(vendor['image'] as String?),
+                        imageUrl: ImageUtils.thumbnailUrl(vendor['image'] as String?),
                         height: 160, width: double.infinity, fit: BoxFit.contain,
                         placeholder: (c, u) => Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: CircularProgressIndicator())),
                         errorWidget: (c, u, e) => Container(height: 160, width: double.infinity, color: isDark ? Colors.white10 : Colors.grey.shade100, child: const Center(child: Icon(Icons.storefront, size: 40, color: Colors.grey))),

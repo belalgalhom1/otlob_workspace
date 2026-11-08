@@ -4,6 +4,7 @@ export type MediaPresetName =
   | 'banner'
   | 'category'
   | 'chat_image'
+  | 'delivery_proof'
   | 'document'
   | 'default';
 
@@ -75,6 +76,17 @@ export const MEDIA_PRESETS: Record<MediaPresetName, MediaPreset> = {
       width: 320,
       height: 320,
       quality: 75,
+    },
+  },
+  delivery_proof: {
+    maxWidth: 1280,
+    maxHeight: 1280,
+    fit: 'inside',
+    quality: 75,
+    thumb: {
+      width: 300,
+      height: 300,
+      quality: 70,
     },
   },
   document: {

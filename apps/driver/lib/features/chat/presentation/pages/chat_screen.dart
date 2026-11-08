@@ -191,6 +191,8 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
+      maxWidth: 1280,
+      maxHeight: 1280,
       imageQuality: 80,
     );
     if (pickedFile != null) {
