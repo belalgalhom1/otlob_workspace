@@ -42,6 +42,7 @@ class AppColors {
   static const Color textSecondary = Color(0xFF64748B);
   static const Color surface = surfaceLight;
   static const Color background = backgroundLight;
+  static const Color border = borderLight;
   static const Color accent = primaryVariant;
   static const Color textPrimary = textPrimaryLight;
 

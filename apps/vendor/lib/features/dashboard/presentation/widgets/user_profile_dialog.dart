@@ -5,6 +5,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
 
 import 'package:api/api.dart';
 import 'package:data/data.dart';
@@ -117,7 +118,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
     });
 
     try {
-      final bytes = await File(cropped.path).readAsBytes();
+      final bytes = await cropped.readAsBytes();
       final multipartFile = dio.MultipartFile.fromBytes(bytes, filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
       final userRepo = ref.read(sharedUserRepositoryProvider);
       final response = await userRepo.uploadAvatar(multipartFile);

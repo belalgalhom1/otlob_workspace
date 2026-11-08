@@ -2378,7 +2378,9 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         border: Border.all(
           color: isMe
               ? Colors.white.withValues(alpha: 0.25)
-              : AppColors.border,
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.borderDark
+                  : AppColors.borderLight),
         ),
       ),
       child: Column(
