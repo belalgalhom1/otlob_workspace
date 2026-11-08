@@ -282,18 +282,31 @@ class WaveformAudioWidget extends StatefulWidget {
 }
 
 class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
+  static final ValueNotifier<String?> _currentlyPlayingUrl = ValueNotifier<String?>(null);
+
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
   StreamSubscription? _playerSubscription;
   bool _isPlaying = false;
   bool _isPlayerInitialized = false;
+  double _playbackSpeed = 1.0;
 
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
   List<double> _waveformBars = [];
 
+  void _onActiveUrlChanged() {
+    if (_currentlyPlayingUrl.value != widget.url && _isPlaying) {
+      _player.pausePlayer();
+      if (mounted) {
+        setState(() => _isPlaying = false);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _currentlyPlayingUrl.addListener(_onActiveUrlChanged);
     _extractMetadata();
     _initPlayer();
   }
@@ -354,6 +367,10 @@ class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
 
   @override
   void dispose() {
+    _currentlyPlayingUrl.removeListener(_onActiveUrlChanged);
+    if (_currentlyPlayingUrl.value == widget.url) {
+      _currentlyPlayingUrl.value = null;
+    }
     _playerSubscription?.cancel();
     _player.closePlayer();
     super.dispose();
@@ -366,6 +383,7 @@ class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
       await _player.pausePlayer();
       setState(() => _isPlaying = false);
     } else {
+      _currentlyPlayingUrl.value = widget.url;
       if (_player.isPaused) {
         await _player.resumePlayer();
       } else {
@@ -378,8 +396,14 @@ class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
                 _currentPosition = Duration.zero;
               });
             }
+            if (_currentlyPlayingUrl.value == widget.url) {
+              _currentlyPlayingUrl.value = null;
+            }
           },
         );
+        if (_playbackSpeed != 1.0) {
+          await _player.setSpeed(_playbackSpeed);
+        }
       }
       setState(() => _isPlaying = true);
     }
@@ -395,6 +419,16 @@ class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
     setState(() {
       _currentPosition = targetDuration;
     });
+  }
+
+  Future<void> _toggleSpeed() async {
+    final next = _playbackSpeed == 1.0
+        ? 1.5
+        : (_playbackSpeed == 1.5 ? 2.0 : 1.0);
+    setState(() => _playbackSpeed = next);
+    if (_isPlayerInitialized && _isPlaying) {
+      await _player.setSpeed(next);
+    }
   }
 
   String _formatDuration(Duration d) {
@@ -478,15 +512,40 @@ class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
                   },
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  _formatDuration(displayDuration),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: widget.isMe
-                        ? Colors.white.withValues(alpha: 0.8)
-                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatDuration(displayDuration),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: widget.isMe
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _toggleSpeed,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: widget.isMe
+                              ? Colors.white.withValues(alpha: 0.22)
+                              : widget.primaryColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${_playbackSpeed == 1.0 ? '1' : (_playbackSpeed == 1.5 ? '1.5' : '2')}x',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: widget.isMe ? Colors.white : widget.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

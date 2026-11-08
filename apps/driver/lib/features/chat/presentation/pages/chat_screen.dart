@@ -76,8 +76,12 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
           _recordingDuration = e.duration;
         });
         if (e.decibels != null) {
-          final normalized = ((e.decibels! / 120.0).clamp(0.12, 1.0) * 100).round() / 100.0;
-          _waveformSamples.add(normalized);
+          final db = e.decibels!;
+          // iOS delivers dBFS (-60 to 0), Android delivers positive dB (0 to ~90)
+          final double normalized = db < 0
+              ? ((db + 60.0) / 60.0).clamp(0.12, 1.0)
+              : (db / 90.0).clamp(0.12, 1.0);
+          _waveformSamples.add(((normalized * 100).round()) / 100.0);
         }
       }
     });
