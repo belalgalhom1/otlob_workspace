@@ -98,6 +98,7 @@ export class MessagesService {
       actor.sub,
       actor.role,
       conversation.vendorId,
+      conversation.orderId,
     );
 
     if (!isParticipant && !isAdmin && !isVendorMember) {
@@ -352,6 +353,7 @@ export class MessagesService {
       actor.sub,
       actor.role,
       conversation.vendorId,
+      conversation.orderId,
     );
 
     if (!isParticipant && !isAdmin && !isVendorMember) {
@@ -436,7 +438,7 @@ export class MessagesService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { vendorId: true, participants: { select: { userId: true } } },
+      select: { vendorId: true, orderId: true, participants: { select: { userId: true } } },
     });
 
     const isAdmin = await this.canManageConversations(actor.sub, actor.role);
@@ -444,6 +446,7 @@ export class MessagesService {
       actor.sub,
       actor.role,
       conversation?.vendorId ?? null,
+      conversation?.orderId ?? null,
     );
 
     if (!participant && !isAdmin && !isVendorMember) {
@@ -583,6 +586,7 @@ export class MessagesService {
       actor.sub,
       actor.role,
       conversation.vendorId,
+      conversation.orderId,
     );
 
     if (!isParticipant && !isAdmin && !isVendorMember) {
@@ -745,6 +749,7 @@ export class MessagesService {
     userId: string,
     role: string,
     conversationVendorId: string | null,
+    orderId?: string | null,
   ): Promise<boolean> {
     if (!conversationVendorId || role !== Role.VENDOR_MEMBER) {
       return false;
@@ -757,6 +762,22 @@ export class MessagesService {
         },
       },
     });
-    return !!membership;
+    if (!membership) return false;
+
+    // Headquarters / organization-wide members (branchId === null) can access all branches
+    if (!membership.branchId) return true;
+
+    // Branch-scoped members must match the branch this order was placed at
+    if (orderId) {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { vendorBranchId: true },
+      });
+      if (order?.vendorBranchId && order.vendorBranchId !== membership.branchId) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }
