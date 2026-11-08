@@ -169,45 +169,57 @@ export class StorageService {
     }
   }
 
+  /**
+   * Defensive sanitizer: strips query strings, hash fragments, origin/scheme,
+   * and leading '/media/' to ensure clean, relative storage paths.
+   */
+  private sanitizeStoragePath(rawPath: string): string {
+    if (!rawPath) return '';
+    const withoutQuery = rawPath.split(/[?#]/)[0].trim();
+    return withoutQuery.replace(/^(?:https?:\/\/[^\/]+)?\/?(?:media\/)?/, '');
+  }
+
   async delete(fileUrl: string): Promise<number> {
     try {
       if (!fileUrl) return 0;
 
-      const relativePath = fileUrl.replace(/^\/media\//, '');
+      const relativePath = this.sanitizeStoragePath(fileUrl);
+      if (!relativePath) return 0;
+
       const filePath = path.normalize(path.join(this.baseDir, relativePath));
 
-      if (!filePath.startsWith(this.baseDir)) {
+      if (!filePath.startsWith(this.baseDir) || filePath === this.baseDir) {
         this.logger.warn(`Path traversal attempt detected for: ${fileUrl}`);
         return 0;
       }
 
       let bytesFreed = 0;
 
-      if (fs.existsSync(filePath)) {
-        try {
-          const stat = await fs.promises.stat(filePath);
-          bytesFreed += stat.size;
-        } catch {
-          // ignore stat error
-        }
+      try {
+        const stat = await fs.promises.stat(filePath);
+        bytesFreed += stat.size;
         await fs.promises.unlink(filePath);
         this.logger.log(`Deleted: ${relativePath}`);
-      } else {
-        this.logger.warn(`File not found for deletion: ${filePath}`);
+      } catch (err: unknown) {
+        const error = err as NodeJS.ErrnoException;
+        if (error.code !== 'ENOENT') {
+          this.logger.warn(`Failed to delete ${filePath}: ${error.message}`);
+        }
       }
 
-      // If WebP image, clean up associated thumbnail
+      // If WebP image, clean up associated companion thumbnail
       if (filePath.endsWith('.webp') && !filePath.endsWith('_thumb.webp')) {
         const thumbPath = filePath.replace(/\.webp$/, '_thumb.webp');
-        if (fs.existsSync(thumbPath)) {
-          try {
-            const thumbStat = await fs.promises.stat(thumbPath);
-            bytesFreed += thumbStat.size;
-          } catch {
-            // ignore stat error
-          }
+        try {
+          const thumbStat = await fs.promises.stat(thumbPath);
+          bytesFreed += thumbStat.size;
           await fs.promises.unlink(thumbPath);
           this.logger.log(`Deleted associated thumbnail: ${path.basename(thumbPath)}`);
+        } catch (err: unknown) {
+          const error = err as NodeJS.ErrnoException;
+          if (error.code !== 'ENOENT') {
+            this.logger.warn(`Failed to delete thumbnail ${thumbPath}: ${error.message}`);
+          }
         }
       }
 
@@ -222,11 +234,13 @@ export class StorageService {
     try {
       if (!folderPath) return;
 
-      const relativePath = folderPath.replace(/^\/media\//, '');
+      const relativePath = this.sanitizeStoragePath(folderPath);
+      if (!relativePath) return;
+
       const targetDir = path.normalize(path.join(this.baseDir, relativePath));
 
-      if (!targetDir.startsWith(this.baseDir)) {
-        this.logger.warn(`Path traversal attempt detected for folder: ${folderPath}`);
+      if (!targetDir.startsWith(this.baseDir) || targetDir === this.baseDir) {
+        this.logger.warn(`Invalid folder deletion target: ${folderPath}`);
         return;
       }
 
