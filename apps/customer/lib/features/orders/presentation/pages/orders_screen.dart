@@ -694,7 +694,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                             color: AppColors.primary, size: 20),
                       )
                     : CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(vendorLogoUrl),
+                        imageUrl: ImageUtils.thumbnailUrl(vendorLogoUrl),
                         height: 42,
                         width: 42,
                         fit: BoxFit.cover,
@@ -814,7 +814,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                             )
                           : CachedNetworkImage(
                               imageUrl:
-                                  ImageUtils.formatImageUrl(productImgUrl),
+                                  ImageUtils.thumbnailUrl(productImgUrl),
                               height: 32,
                               width: 32,
                               fit: BoxFit.cover,

@@ -132,7 +132,7 @@ class ChatBubbleWidget extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: GestureDetector(
-                          onTap: onImageTap != null ? () => onImageTap!(mediaUrl!) : null,
+                          onTap: () => _openImage(context, mediaUrl!),
                           child: CachedNetworkImage(
                             imageUrl: formatImageUrl != null ? formatImageUrl!(mediaUrl!) : mediaUrl!,
                             fit: BoxFit.cover,
@@ -234,6 +234,15 @@ class ChatBubbleWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _openImage(BuildContext context, String rawUrl) {
+    final resolved = formatImageUrl != null ? formatImageUrl!(rawUrl) : rawUrl;
+    if (onImageTap != null) {
+      onImageTap!(resolved);
+    } else {
+      FullScreenImageViewer.show(context, resolved);
+    }
   }
 
   Widget _buildUploadingState(ColorScheme colorScheme, Color primaryColor) {
@@ -750,6 +759,69 @@ class VideoPreviewWidget extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Fullscreen interactive zoomable image viewer
+class FullScreenImageViewer extends StatelessWidget {
+  final String imageUrl;
+
+  const FullScreenImageViewer({super.key, required this.imageUrl});
+
+  static void show(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        pageBuilder: (context, anim1, anim2) => FullScreenImageViewer(imageUrl: imageUrl),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Center(
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  ),
+                  errorWidget: (context, url, error) => const Center(
+                    child: Icon(LucideIcons.imageOff, color: Colors.white60, size: 48),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.5),
+                  border: Border.all(color: Colors.white30, width: 1),
+                ),
+                child: const Icon(LucideIcons.x, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
