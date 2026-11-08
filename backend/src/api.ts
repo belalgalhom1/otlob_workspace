@@ -1,4 +1,3 @@
-import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { ApiModule } from './api.module';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -31,11 +30,6 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  app.useStaticAssets(path.join(process.cwd(), 'storage'), {
-    prefix: '/media/',
-    maxAge: 31536000000,
-    immutable: true,
-  });
 
   const configService = app.get(ConfigService);
 
