@@ -12,6 +12,7 @@ import 'package:driver/features/profile/presentation/pages/nearby_vendors_map_sc
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/profile/presentation/settings_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
@@ -257,17 +258,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       final picker = ImagePicker();
                       final pickedFile = await picker.pickImage(
                         source: ImageSource.gallery,
-                        maxWidth: 1024,
-                        maxHeight: 1024,
                         imageQuality: 80,
                       );
                       if (pickedFile != null) {
+                        final cropped = await ImageCropper().cropImage(
+                          sourcePath: pickedFile.path,
+                          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+                          compressQuality: 85,
+                          maxWidth: 1024,
+                          maxHeight: 1024,
+                          uiSettings: [
+                            AndroidUiSettings(
+                              toolbarTitle: 'Crop Avatar',
+                              toolbarColor: const Color(0xFFD4920E),
+                              toolbarWidgetColor: Colors.white,
+                              activeControlsWidgetColor: const Color(0xFFD4920E),
+                              initAspectRatio: CropAspectRatioPreset.square,
+                              lockAspectRatio: true,
+                              cropStyle: CropStyle.circle,
+                            ),
+                            IOSUiSettings(
+                              title: 'Crop Avatar',
+                              aspectRatioLockEnabled: true,
+                              resetAspectRatioEnabled: false,
+                              cropStyle: CropStyle.circle,
+                            ),
+                          ],
+                        );
+                        if (cropped == null) return;
+
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(l10n.uploadingAvatar)),
                           );
                         }
-                        await ref.read(driverProfileProvider.notifier).uploadAvatar(pickedFile.path);
+                        await ref.read(driverProfileProvider.notifier).uploadAvatar(cropped.path);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(l10n.avatarUpdated)),

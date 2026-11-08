@@ -1,3 +1,4 @@
+import '../../../../core/services/media_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
@@ -262,15 +263,19 @@ class Profile extends _$Profile {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 70,
+      imageQuality: 80,
     );
 
     if (image != null) {
+      final media = ref.read(mediaServiceProvider);
+      final cropped = await media.cropAvatar(sourcePath: image.path);
+      if (cropped == null) return; // User cancelled cropping
+
       final userRepo = ref.read(sharedUserRepositoryProvider);
       final tokenService = ref.read(tokenServiceProvider);
       
       try {
-        final multipartFile = await MultipartFile.fromFile(image.path);
+        final multipartFile = await MultipartFile.fromFile(cropped.path);
         final data = await userRepo.uploadAvatar(multipartFile);
         
         final avatarUrl = data['avatar'];
