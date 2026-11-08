@@ -217,7 +217,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             : id;
         await context.push(
           '/chat/${type.toLowerCase()}/$targetId',
-          extra: {'title': title},
+          extra: {
+            'title': title,
+            'orderId': convo['orderId'] ?? convo['order']?['id'],
+          },
         );
         ref.read(inboxCountsProvider.notifier).refresh();
       },

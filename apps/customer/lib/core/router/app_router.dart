@@ -307,7 +307,13 @@ GoRouter appRouter(Ref ref) {
           final id = state.pathParameters['id'] ?? '0';
           final extra = state.extra as Map<String, dynamic>?;
           final title = extra?['title'] as String? ?? (type == 'support' ? 'Support' : 'Vendor');
-          return ChatScreen(conversationId: id, type: type, title: title);
+          final orderId = extra?['orderId'] as String? ?? (type == 'order' ? id : null);
+          return ChatScreen(
+            conversationId: id,
+            type: type,
+            title: title,
+            orderId: orderId,
+          );
         },
       ),
 

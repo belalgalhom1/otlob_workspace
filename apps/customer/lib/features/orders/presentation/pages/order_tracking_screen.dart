@@ -1645,7 +1645,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                             final convoId = conversation['id'];
                             context.push(
                               '/chat/order/$convoId',
-                              extra: {'title': s.isArabic ? 'طلب' : 'Order'},
+                              extra: {
+                                'title': s.isArabic ? 'طلب' : 'Order',
+                                'orderId': widget.orderId,
+                              },
                             );
                           }
                         } catch (e) {

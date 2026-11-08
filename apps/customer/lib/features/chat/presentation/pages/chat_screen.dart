@@ -18,6 +18,7 @@ import '../../../../core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/order_offer_bottom_sheet.dart';
 import '../../../../core/widgets/floating_cart_overlay.dart';
 
@@ -25,12 +26,14 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
   final String type;
   final String title;
+  final String? orderId;
 
   const ChatScreen({
     super.key,
     required this.conversationId,
     required this.type,
     required this.title,
+    this.orderId,
   });
 
   @override
@@ -51,14 +54,105 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final List<double> _waveformSamples = [];
   bool _hasPoppedForClosed = false;
 
+  Map<String, dynamic>? _orderData;
+
   @override
   void initState() {
     super.initState();
     _args = SharedChatArgs(id: widget.conversationId, type: widget.type);
     _initRecorder();
+    _loadOrderDetails();
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _loadOrderDetails() async {
+    final effectiveOrderId = widget.orderId ?? (widget.type.toLowerCase() == 'order' ? widget.conversationId : null);
+    if (effectiveOrderId == null || effectiveOrderId.isEmpty) return;
+    try {
+      final repo = ref.read(customerOrderRepositoryProvider);
+      final res = await repo.getOrderById(effectiveOrderId);
+      if (mounted && res is Map<String, dynamic>) {
+        setState(() => _orderData = res);
+      }
+    } catch (e) {
+      debugPrint('Failed to load order for chat header: $e');
+    }
+  }
+
+  Future<void> _callDriver() async {
+    final driver = _orderData?['driver'];
+    final phone = (driver is Map ? (driver['phone'] ?? driver['user']?['phone']) : null)?.toString();
+    if (phone == null || phone.isEmpty) return;
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri.parse('tel:$digits');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  bool _hasDriverPhone() {
+    final driver = _orderData?['driver'];
+    final phone = (driver is Map ? (driver['phone'] ?? driver['user']?['phone']) : null)?.toString();
+    return phone != null && phone.isNotEmpty;
+  }
+
+  String _formatStatusLabel(BuildContext context, String? status) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    switch (status?.toUpperCase()) {
+      case 'PREPARING':
+        return isAr ? 'قيد التحضير' : 'Preparing';
+      case 'READY_FOR_PICKUP':
+        return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'PICKED_UP':
+      case 'OUT_FOR_DELIVERY':
+        return isAr ? 'قيد التوصيل' : 'Out for Delivery';
+      case 'DELIVERED':
+        return isAr ? 'تم التوصيل' : 'Delivered';
+      case 'CANCELLED':
+        return isAr ? 'ملغي' : 'Cancelled';
+      default:
+        return status ?? (isAr ? 'نشط' : 'Active');
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toUpperCase()) {
+      case 'OUT_FOR_DELIVERY':
+      case 'DELIVERED':
+        return AppColors.success;
+      case 'PREPARING':
+      case 'READY_FOR_PICKUP':
+        return AppColors.warning;
+      case 'CANCELLED':
+        return AppColors.error;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  List<QuickReplyChipItem> _getCustomerQuickReplies(bool isAr) {
+    if (isAr) {
+      return const [
+        QuickReplyChipItem(text: 'اترك الطلب عند الباب 🚪', icon: LucideIcons.doorOpen),
+        QuickReplyChipItem(text: 'يرجى رن الجرس 🔔', icon: LucideIcons.bell),
+        QuickReplyChipItem(text: 'أنا في طريقي للأسفل ⏳', icon: LucideIcons.clock),
+        QuickReplyChipItem(text: 'أنا في الانتظار 📍', icon: LucideIcons.mapPin),
+        QuickReplyChipItem(text: 'سأتصل بك الآن 📞', icon: LucideIcons.phone),
+      ];
+    }
+    return const [
+      QuickReplyChipItem(text: 'Leave at the door 🚪', icon: LucideIcons.doorOpen),
+      QuickReplyChipItem(text: 'Please ring the bell 🔔', icon: LucideIcons.bell),
+      QuickReplyChipItem(text: 'I\'m coming down ⏳', icon: LucideIcons.clock),
+      QuickReplyChipItem(text: 'I\'m waiting here 📍', icon: LucideIcons.mapPin),
+      QuickReplyChipItem(text: 'Calling you now 📞', icon: LucideIcons.phone),
+    ];
+  }
+
+  void _onQuickReplySelected(String text) {
+    ref.read(sharedChatProvider(_args).notifier).sendMessage(text);
   }
 
   Future<void> _initRecorder() async {
@@ -247,6 +341,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           Column(
             children: [
+              if (_orderData != null)
+                OrderContextBar(
+                  orderNumber: (_orderData!['orderNumber'] ?? widget.orderId ?? widget.conversationId.substring(0, 8)).toString(),
+                  statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
+                  statusColor: _getStatusColor(_orderData!['status']?.toString()),
+                  totalAmount: _orderData!['totalAmount'] != null ? '${_orderData!['totalAmount']} EGP' : null,
+                  onTap: () {
+                    final targetId = widget.orderId ?? _orderData!['id']?.toString();
+                    if (targetId != null && targetId.isNotEmpty) {
+                      context.push('/order-tracking/$targetId');
+                    }
+                  },
+                  onCall: _hasDriverPhone() ? _callDriver : null,
+                ),
               Expanded(
                 child: messagesAsync.when(
                   data: (messages) => NotificationListener<ScrollNotification>(
@@ -297,6 +405,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   },
                 ),
               ),
+              if (!messagesAsync.hasError && !_isRecording && widget.type.toLowerCase() == 'order')
+                QuickReplyChips(
+                  chips: _getCustomerQuickReplies(Localizations.localeOf(context).languageCode == 'ar'),
+                  onSelected: _onQuickReplySelected,
+                ),
               if (!messagesAsync.hasError) _buildInput(),
             ],
           ),

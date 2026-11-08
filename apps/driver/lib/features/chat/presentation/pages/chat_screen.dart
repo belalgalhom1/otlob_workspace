@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:data/data.dart';
@@ -41,14 +42,103 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   final ValueNotifier<bool> _hasText = ValueNotifier(false);
 
+  Map<String, dynamic>? _orderData;
+
   @override
   void initState() {
     super.initState();
     _initRecorder();
+    _loadOrderDetails();
     _textController.addListener(() {
       final hasText = _textController.text.trim().isNotEmpty;
       if (_hasText.value != hasText) _hasText.value = hasText;
     });
+  }
+
+  Future<void> _loadOrderDetails() async {
+    try {
+      final repo = ref.read(driverOrdersRepositoryProvider);
+      final res = await repo.getOrderById(widget.orderId);
+      if (mounted && res is Map<String, dynamic>) {
+        setState(() => _orderData = res);
+      }
+    } catch (e) {
+      debugPrint('Failed to load order for chat header: $e');
+    }
+  }
+
+  Future<void> _callCustomer() async {
+    final cust = _orderData?['customer'];
+    final phone = (cust is Map ? (cust['phone'] ?? cust['user']?['phone']) : null)?.toString();
+    if (phone == null || phone.isEmpty) return;
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri.parse('tel:$digits');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  bool _hasCustomerPhone() {
+    final cust = _orderData?['customer'];
+    final phone = (cust is Map ? (cust['phone'] ?? cust['user']?['phone']) : null)?.toString();
+    return phone != null && phone.isNotEmpty;
+  }
+
+  String _formatStatusLabel(BuildContext context, String? status) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    switch (status?.toUpperCase()) {
+      case 'PREPARING':
+        return isAr ? 'قيد التحضير' : 'Preparing';
+      case 'READY_FOR_PICKUP':
+        return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'PICKED_UP':
+      case 'OUT_FOR_DELIVERY':
+        return isAr ? 'قيد التوصيل' : 'Out for Delivery';
+      case 'DELIVERED':
+        return isAr ? 'تم التوصيل' : 'Delivered';
+      case 'CANCELLED':
+        return isAr ? 'ملغي' : 'Cancelled';
+      default:
+        return status ?? (isAr ? 'نشط' : 'Active');
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toUpperCase()) {
+      case 'OUT_FOR_DELIVERY':
+      case 'DELIVERED':
+        return AppColors.success;
+      case 'PREPARING':
+      case 'READY_FOR_PICKUP':
+        return AppColors.warning;
+      case 'CANCELLED':
+        return AppColors.error;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  List<QuickReplyChipItem> _getDriverQuickReplies(bool isAr) {
+    if (isAr) {
+      return const [
+        QuickReplyChipItem(text: 'وصلت للموقع 📍', icon: LucideIcons.mapPin),
+        QuickReplyChipItem(text: 'أنا عند الباب 🚪', icon: LucideIcons.doorOpen),
+        QuickReplyChipItem(text: 'في الطريق إليك 🛵', icon: LucideIcons.bike),
+        QuickReplyChipItem(text: 'يرجى الرد على الهاتف 📞', icon: LucideIcons.phone),
+        QuickReplyChipItem(text: 'تأخير مروري ٥ دقائق ⏱️', icon: LucideIcons.clock),
+      ];
+    }
+    return const [
+      QuickReplyChipItem(text: 'I have arrived 📍', icon: LucideIcons.mapPin),
+      QuickReplyChipItem(text: 'I\'m at the door 🚪', icon: LucideIcons.doorOpen),
+      QuickReplyChipItem(text: 'On my way 🛵', icon: LucideIcons.bike),
+      QuickReplyChipItem(text: 'Please check your phone 📞', icon: LucideIcons.phone),
+      QuickReplyChipItem(text: 'Traffic delay 5 mins ⏱️', icon: LucideIcons.clock),
+    ];
+  }
+
+  void _onQuickReplySelected(String text) {
+    ref.read(sharedChatProvider(_args).notifier).sendMessage(text);
   }
 
   Future<void> _initRecorder() async {
@@ -258,6 +348,21 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       ),
       body: Column(
         children: [
+          if (_orderData != null)
+            OrderContextBar(
+              orderNumber: (_orderData!['orderNumber'] ?? widget.orderId.substring(0, 8)).toString(),
+              statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
+              statusColor: _getStatusColor(_orderData!['status']?.toString()),
+              totalAmount: _orderData!['totalAmount'] != null ? '${_orderData!['totalAmount']} EGP' : null,
+              onTap: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.push('/order/${widget.orderId}');
+                }
+              },
+              onCall: _hasCustomerPhone() ? _callCustomer : null,
+            ),
           Expanded(
             child: chatState.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -329,6 +434,11 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
               },
             ),
           ),
+          if (!chatState.hasError && !_isRecording)
+            QuickReplyChips(
+              chips: _getDriverQuickReplies(Localizations.localeOf(context).languageCode == 'ar'),
+              onSelected: _onQuickReplySelected,
+            ),
           if (!chatState.hasError) _buildInputBar(context),
         ],
       ),

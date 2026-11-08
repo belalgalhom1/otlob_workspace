@@ -23,6 +23,8 @@ export 'src/utils/time_formatter.dart';
 
 export 'src/widgets/chat/chat_bubble.dart';
 export 'src/widgets/chat/inbox_conversation_tile.dart';
+export 'src/widgets/chat/quick_reply_chips.dart';
+export 'src/widgets/chat/order_context_bar.dart';
 
 export 'src/widgets/profile/change_password_dialog.dart';
 export 'src/widgets/profile/delete_account_dialog.dart';
