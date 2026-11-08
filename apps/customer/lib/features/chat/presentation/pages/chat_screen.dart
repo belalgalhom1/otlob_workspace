@@ -1,3 +1,4 @@
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -153,6 +154,53 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _onQuickReplySelected(String text) {
     ref.read(sharedChatProvider(_args).notifier).sendMessage(text);
+  }
+
+  Future<void> _sendCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied')),
+          );
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission permanently denied')),
+        );
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (!mounted) return;
+
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+      final text = isAr ? '📍 مشاركة الموقع' : '📍 Shared Location';
+
+      await ref.read(sharedChatProvider(_args).notifier).sendMessage(
+        text,
+        type: MessageType.location,
+        metadata: {
+          'lat': pos.latitude,
+          'lng': pos.longitude,
+        },
+      );
+    } catch (e) {
+      debugPrint('Error sending location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _initRecorder() async {
@@ -783,8 +831,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     IconButton(
                       icon: const Icon(LucideIcons.image, color: AppColors.textHint, size: 18),
                       onPressed: _pickDocument,
-                      padding: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       constraints: const BoxConstraints(),
+                      tooltip: 'Send Image',
+                    ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.mapPin, color: AppColors.textHint, size: 18),
+                      onPressed: _sendCurrentLocation,
+                      padding: const EdgeInsets.only(right: 12, left: 2),
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Send Location',
                     ),
                   ],
                 ),

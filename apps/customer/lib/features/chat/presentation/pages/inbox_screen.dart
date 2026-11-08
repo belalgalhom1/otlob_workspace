@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -55,6 +56,15 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
+      floatingActionButton: _selectedFilter == 'SUPPORT'
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/support-menu'),
+              icon: const Icon(LucideIcons.helpCircle, size: 18),
+              label: Text(isAr ? 'تذكرة دعم جديدة' : 'New Support Ticket'),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: Column(
         children: [
           _buildFilterChips(context, isAr),

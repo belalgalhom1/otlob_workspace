@@ -123,6 +123,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                     'text': data['text'],
                     'type': data['type'] ?? 'TEXT',
                     'mediaUrl': data['mediaUrl'],
+                    'metadata': data['metadata'],
                     'sender': {
                       'id': data['senderId'],
                       'role': data['senderRole'] ?? 'CUSTOMER',
@@ -2190,8 +2191,12 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                             ),
                           ],
                         ),
+                      if (message['type']?.toString().toUpperCase() == 'LOCATION')
+                        _buildLocationWidget(Map<String, dynamic>.from(message), isMe),
                       if (message['text'] != null &&
-                          message['text'].toString().isNotEmpty)
+                          message['text'].toString().isNotEmpty &&
+                          (message['type']?.toString().toUpperCase() != 'LOCATION' ||
+                              !message['text'].toString().startsWith('Shared location:')))
                         Text(
                           message['text'] ?? '',
                           style: TextStyle(
@@ -2233,6 +2238,120 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
               if (isMe) const SizedBox(width: 4),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationWidget(Map<String, dynamic> message, bool isMe) {
+    double? lat;
+    double? lng;
+    final meta = message['metadata'];
+    if (meta is Map) {
+      lat = double.tryParse(meta['lat']?.toString() ?? '');
+      lng = double.tryParse(meta['lng']?.toString() ?? '');
+    }
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final hasCoords = lat != null && lng != null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.white.withValues(alpha: 0.15)
+            : (Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05)
+                : AppColors.surface),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.25)
+              : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  LucideIcons.mapPin,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isAr ? 'موقع محدد' : 'Shared Location',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isMe || Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          if (hasCoords) ...[
+            const SizedBox(height: 6),
+            Text(
+              '\, ',
+              style: TextStyle(
+                fontSize: 12,
+                color: isMe
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () async {
+                final uri = Uri.parse(
+                  'https://www.google.com/maps/search/?api=1&query=\,',
+                );
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.white : AppColors.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.externalLink,
+                      size: 13,
+                      color: isMe ? AppColors.primary : Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isAr ? 'فتح في الخريطة' : 'Open in Maps',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isMe ? AppColors.primary : Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

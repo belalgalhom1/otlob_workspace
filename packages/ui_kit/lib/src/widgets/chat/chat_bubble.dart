@@ -1,3 +1,4 @@
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -201,6 +202,8 @@ class ChatBubbleWidget extends StatelessWidget {
                   style: TextStyle(color: isMe ? Colors.white : colorScheme.onSurface),
                 ),
               ),
+            if (type.toLowerCase() == 'location')
+              _buildLocationBubble(context, colorScheme, primaryColor),
             if (metadata?['type'] == 'OFFER' && buildOfferBubble != null)
               buildOfferBubble!(metadata!, isDark),
             if (time != null || isMe) ...[
@@ -243,6 +246,160 @@ class ChatBubbleWidget extends StatelessWidget {
     } else {
       FullScreenImageViewer.show(context, resolved);
     }
+  }
+
+  Widget _buildLocationBubble(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Color primaryColor,
+  ) {
+    final lat = metadata?['lat'] ?? metadata?['latitude'];
+    final lng = metadata?['lng'] ?? metadata?['longitude'];
+    final address = metadata?['address']?.toString() ?? content;
+
+    return Container(
+      width: 210,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.black.withValues(alpha: 0.15)
+            : colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.25)
+              : colorScheme.outline.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 85,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: isMe
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : primaryColor.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  LucideIcons.map,
+                  size: 48,
+                  color: isMe
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : primaryColor.withValues(alpha: 0.25),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: isMe ? Colors.white : primaryColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    LucideIcons.mapPin,
+                    size: 16,
+                    color: isMe ? primaryColor : Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.navigation,
+                      size: 12,
+                      color: isMe ? Colors.white : primaryColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Shared Location',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isMe ? Colors.white : colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                if (address.isNotEmpty && address != 'Shared Location' && !address.startsWith('📍')) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    address,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isMe
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    if (lat != null && lng != null) {
+                      final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                      }
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isMe
+                          ? Colors.white.withValues(alpha: 0.25)
+                          : primaryColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.externalLink,
+                          size: 12,
+                          color: isMe ? Colors.white : primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Open in Maps',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isMe ? Colors.white : primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildUploadingState(ColorScheme colorScheme, Color primaryColor) {

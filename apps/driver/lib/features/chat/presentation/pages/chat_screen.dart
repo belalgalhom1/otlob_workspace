@@ -1,3 +1,4 @@
+import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -139,6 +140,53 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   void _onQuickReplySelected(String text) {
     ref.read(sharedChatProvider(_args).notifier).sendMessage(text);
+  }
+
+  Future<void> _sendCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission denied')),
+          );
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission permanently denied')),
+        );
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (!mounted) return;
+
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+      final text = isAr ? '📍 موقع الكابتن' : '📍 Driver Location';
+
+      await ref.read(sharedChatProvider(_args).notifier).sendMessage(
+        text,
+        type: MessageType.location,
+        metadata: {
+          'lat': pos.latitude,
+          'lng': pos.longitude,
+        },
+      );
+    } catch (e) {
+      debugPrint('Error sending location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _initRecorder() async {
@@ -528,6 +576,14 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
             ),
             onPressed: _pickImage,
             tooltip: 'Send Image',
+          ),
+          IconButton(
+            icon: Icon(
+              LucideIcons.mapPin,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            onPressed: _sendCurrentLocation,
+            tooltip: 'Send Location',
           ),
           Expanded(
             child: TextField(
