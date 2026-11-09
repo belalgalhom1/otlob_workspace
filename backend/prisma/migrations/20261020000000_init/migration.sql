@@ -10,6 +10,12 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
+-- CreateSequence
+CREATE SEQUENCE IF NOT EXISTS "ticket_number_seq" START WITH 1 INCREMENT BY 1;
+
+-- CreateSequence
+CREATE SEQUENCE IF NOT EXISTS "order_number_seq" START WITH 1 INCREMENT BY 1;
+
 -- CreateEnum
 CREATE TYPE "CoinTransactionType" AS ENUM ('EARNED', 'SPENT', 'REFUNDED');
 
