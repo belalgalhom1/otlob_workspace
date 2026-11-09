@@ -100,6 +100,9 @@ class Message {
   final bool isRead;
   final String? replyToId;
   final MessageReply? replyTo;
+  final double? uploadProgress;
+  final String? localFilePath;
+  final bool isUploadFailed;
 
   Message({
     required this.id,
@@ -116,6 +119,9 @@ class Message {
     this.isRead = false,
     this.replyToId,
     this.replyTo,
+    this.uploadProgress,
+    this.localFilePath,
+    this.isUploadFailed = false,
   });
 
   Message copyWith({
@@ -133,6 +139,9 @@ class Message {
     bool? isRead,
     String? replyToId,
     MessageReply? replyTo,
+    double? uploadProgress,
+    String? localFilePath,
+    bool? isUploadFailed,
   }) {
     return Message(
       id: id ?? this.id,
@@ -149,6 +158,9 @@ class Message {
       isRead: isRead ?? this.isRead,
       replyToId: replyToId ?? this.replyToId,
       replyTo: replyTo ?? this.replyTo,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
+      localFilePath: localFilePath ?? this.localFilePath,
+      isUploadFailed: isUploadFailed ?? this.isUploadFailed,
     );
   }
 

@@ -295,13 +295,17 @@ class SharedChat extends _$SharedChat {
     }
   }
 
-  Future<String?> uploadMedia(String filePath) async {
+  Future<String?> uploadMedia(
+    String filePath, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
     if (_conversationId == null) return null;
     try {
       final chatRepo = ref.read(sharedChatRepositoryProvider);
       final responseData = await chatRepo.uploadMedia(
         _conversationId!,
         filePath,
+        onSendProgress: onProgress,
       );
       String? url;
       if (responseData is Map) {
@@ -326,28 +330,60 @@ class SharedChat extends _$SharedChat {
     Map<String, dynamic>? metadata,
     String? replyToId,
     MessageReply? replyTo,
+    String? retryTempId,
   }) async {
     if (_conversationId == null) return;
 
-    final tempId = 'upload-' + DateTime.now().millisecondsSinceEpoch.toString();
+    final tempId = retryTempId ?? 'upload-${DateTime.now().millisecondsSinceEpoch}';
     final optimisticMessage = Message(
       id: tempId,
-      content: caption?.isNotEmpty == true ? caption! : 'Uploading...',
+      content: caption?.isNotEmpty == true ? caption! : '',
       type: type,
       isMe: true,
       timestamp: DateTime.now(),
       senderName: 'Me',
       mediaUrl: null,
+      localFilePath: filePath,
+      uploadProgress: 0.05,
+      isUploadFailed: false,
       metadata: metadata,
       replyToId: replyToId,
       replyTo: replyTo,
     );
 
     state.whenData((messages) {
-      state = AsyncData([optimisticMessage, ...messages]);
+      if (retryTempId != null) {
+        state = AsyncData(
+          messages.map((m) => m.id == retryTempId ? optimisticMessage : m).toList(),
+        );
+      } else {
+        state = AsyncData([optimisticMessage, ...messages]);
+      }
     });
 
-    final mediaUrl = await uploadMedia(filePath);
+    int lastUpdateMs = 0;
+    final mediaUrl = await uploadMedia(
+      filePath,
+      onProgress: (sent, total) {
+        if (total <= 0) return;
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final progress = (sent / total).clamp(0.05, 0.98);
+        if (now - lastUpdateMs > 80 || sent >= total) {
+          lastUpdateMs = now;
+          state.whenData((messages) {
+            state = AsyncData(
+              messages.map((m) {
+                if (m.id == tempId) {
+                  return m.copyWith(uploadProgress: progress);
+                }
+                return m;
+              }).toList(),
+            );
+          });
+        }
+      },
+    );
+
     if (mediaUrl != null) {
       final updatedMeta = Map<String, dynamic>.from(metadata ?? {});
       if (type == MessageType.image && !updatedMeta.containsKey('thumbnailUrl')) {
@@ -368,9 +404,45 @@ class SharedChat extends _$SharedChat {
       );
     } else {
       state.whenData((messages) {
-        state = AsyncData(messages.where((m) => m.id != tempId).toList());
+        state = AsyncData(
+          messages.map((m) {
+            if (m.id == tempId) {
+              return m.copyWith(isUploadFailed: true, uploadProgress: null);
+            }
+            return m;
+          }).toList(),
+        );
       });
     }
+  }
+
+  void retryUpload(String tempMessageId) {
+    state.whenData((messages) {
+      Message? failedMessage;
+      for (final m in messages) {
+        if (m.id == tempMessageId) {
+          failedMessage = m;
+          break;
+        }
+      }
+      if (failedMessage != null && failedMessage.localFilePath != null) {
+        sendMedia(
+          failedMessage.localFilePath!,
+          failedMessage.type,
+          caption: failedMessage.content.isNotEmpty ? failedMessage.content : null,
+          metadata: failedMessage.metadata,
+          replyToId: failedMessage.replyToId,
+          replyTo: failedMessage.replyTo,
+          retryTempId: tempMessageId,
+        );
+      }
+    });
+  }
+
+  void cancelUpload(String tempMessageId) {
+    state.whenData((messages) {
+      state = AsyncData(messages.where((m) => m.id != tempMessageId).toList());
+    });
   }
 
   Future<void> sendMessage(

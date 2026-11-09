@@ -66,7 +66,24 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  static const int maxFileSizeAllowed = 10 * 1024 * 1024; // 10MB limit
+  bool get _isTooLarge => _fileSizeBytes > maxFileSizeAllowed;
+
   void _onSend() {
+    if (_isTooLarge) {
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isAr
+                ? 'حجم الملف يتجاوز الحد الأقصى المسموح به (10 ميجابايت)'
+                : 'File size exceeds maximum 10MB limit',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     HapticFeedback.lightImpact();
     Navigator.of(context).pop(_captionController.text.trim());
   }
@@ -107,16 +124,30 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: _isTooLarge
+                            ? Colors.red.withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
+                        border: _isTooLarge
+                            ? Border.all(color: Colors.redAccent)
+                            : null,
                       ),
-                      child: Text(
-                        _formatFileSize(_fileSizeBytes),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_isTooLarge) ...[
+                            const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 14),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            _formatFileSize(_fileSizeBytes),
+                            style: TextStyle(
+                              color: _isTooLarge ? Colors.redAccent : Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -131,6 +162,56 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
                     : _buildImagePreview(file),
               ),
             ),
+
+            if (_isTooLarge)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isAr
+                            ? 'حجم الملف يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار ملف أصغر.'
+                            : 'File size exceeds 10MB limit. Please choose a smaller file.',
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_isTooLarge)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isAr
+                            ? 'حجم الملف يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار ملف أصغر.'
+                            : 'File size exceeds 10MB limit. Please choose a smaller file.',
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // Caption Input Bar
             Container(

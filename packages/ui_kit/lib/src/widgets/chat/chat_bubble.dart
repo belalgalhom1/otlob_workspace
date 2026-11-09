@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
@@ -22,6 +23,13 @@ class ChatBubbleWidget extends StatelessWidget {
   // Localization Strings
   final String uploadingText;
   final String fileAttachmentText;
+
+  // Media upload progress & local preview fields (WhatsApp style)
+  final double? uploadProgress;
+  final String? localFilePath;
+  final bool isUploadFailed;
+  final VoidCallback? onRetryUpload;
+  final VoidCallback? onCancelUpload;
 
   // Reply fields
   final String? replyToSenderName;
@@ -52,6 +60,11 @@ class ChatBubbleWidget extends StatelessWidget {
     this.isRead = false,
     required this.uploadingText,
     required this.fileAttachmentText,
+    this.uploadProgress,
+    this.localFilePath,
+    this.isUploadFailed = false,
+    this.onRetryUpload,
+    this.onCancelUpload,
     this.buildOfferBubble,
     this.formatImageUrl,
     this.onVideoTap,
@@ -143,7 +156,7 @@ class ChatBubbleWidget extends StatelessWidget {
               _buildQuotedReply(context, colorScheme, isDark, primaryColor),
             if (type == 'image')
               mediaUrl == null
-                  ? _buildUploadingState(colorScheme, primaryColor)
+                  ? _buildUploadingMediaState(context, colorScheme, primaryColor)
                   : ConstrainedBox(
                       constraints: BoxConstraints(
                         maxWidth: MediaQuery.of(context).size.width * 0.65,
@@ -173,7 +186,7 @@ class ChatBubbleWidget extends StatelessWidget {
                     ),
             if (type == 'video')
               mediaUrl == null
-                  ? _buildUploadingState(colorScheme, primaryColor)
+                  ? _buildUploadingMediaState(context, colorScheme, primaryColor)
                   : VideoPreviewWidget(
                       url: mediaUrl!,
                       isMe: isMe,
@@ -205,7 +218,7 @@ class ChatBubbleWidget extends StatelessWidget {
                   ),
                 ],
               ),
-            if (content.isNotEmpty && mediaUrl != null)
+            if (content.isNotEmpty && (mediaUrl != null || localFilePath != null))
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Text(
@@ -656,6 +669,194 @@ class ChatBubbleWidget extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildUploadingMediaState(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Color primaryColor,
+  ) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final hasLocalFile = localFilePath != null &&
+        localFilePath!.isNotEmpty &&
+        File(localFilePath!).existsSync();
+
+    final maxW = MediaQuery.of(context).size.width * 0.65;
+    const double maxH = 200.0;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: maxW,
+        maxHeight: maxH,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 1. Background layer: Local file thumbnail or placeholder
+            if (type == 'image' && hasLocalFile)
+              Image.file(
+                File(localFilePath!),
+                width: maxW,
+                height: maxH,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: maxW,
+                  height: maxH,
+                  color: Colors.black26,
+                  child: const Center(
+                    child: Icon(LucideIcons.image, color: Colors.white54, size: 36),
+                  ),
+                ),
+              )
+            else if (type == 'video')
+              Container(
+                width: maxW,
+                height: maxH,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.video,
+                    size: 48,
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: maxW,
+                height: maxH,
+                color: colorScheme.onSurface.withValues(alpha: 0.12),
+                child: const Center(
+                  child: Icon(LucideIcons.paperclip, color: Colors.white54, size: 36),
+                ),
+              ),
+
+            // 2. Translucent WhatsApp-style glass scrim
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.42),
+              ),
+            ),
+
+            // 3. Central WhatsApp-style circular action badge
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: isUploadFailed
+                  ? Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onRetryUpload,
+                        borderRadius: BorderRadius.circular(27),
+                        child: const Center(
+                          child: Icon(
+                            LucideIcons.rotateCcw,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: CircularProgressIndicator(
+                            value: (uploadProgress != null && uploadProgress! > 0.02)
+                                ? uploadProgress
+                                : null,
+                            strokeWidth: 3.5,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        if (onCancelUpload != null)
+                          GestureDetector(
+                            onTap: onCancelUpload,
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 18,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
+                          )
+                        else
+                          Icon(
+                            type == 'video' ? LucideIcons.arrowUp : LucideIcons.arrowUp,
+                            size: 18,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                      ],
+                    ),
+            ),
+
+            // 4. Bottom WhatsApp-style status pill (progress % or retry message)
+            Positioned(
+              bottom: 8,
+              left: 8,
+              right: 8,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isUploadFailed
+                        ? const Color(0xFFDC2626).withValues(alpha: 0.9)
+                        : Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isUploadFailed
+                            ? LucideIcons.alertCircle
+                            : (type == 'video' ? LucideIcons.video : LucideIcons.image),
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isUploadFailed
+                            ? (isAr ? 'فشل الرفع • اضغط للإعادة' : 'Upload failed • Tap to retry')
+                            : (uploadProgress != null
+                                ? '${(uploadProgress! * 100).toInt()}% • $uploadingText'
+                                : uploadingText),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

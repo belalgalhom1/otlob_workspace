@@ -57,6 +57,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   String? _recordingPath;
   StreamSubscription? _recordingSubscription;
   Duration _recordingDuration = Duration.zero;
+  final List<double> _waveformSamples = [];
 
   Map<String, dynamic>? _orderDetails;
   bool _isOrderExpanded = false;
@@ -1276,6 +1277,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         'type': 'IMAGE',
         'mediaUrl': null,
         'isUploading': true,
+        'localFilePath': path,
+        'uploadProgress': 0.05,
         'sender': {
           'id': _currentUserId,
           'role': _currentUserRole ?? 'VENDOR_MEMBER',
@@ -1288,9 +1291,23 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     try {
       final repository = ref.read(sharedChatRepositoryProvider);
+      int lastUpdate = 0;
       final uploadRes = await repository.uploadMedia(
         widget.conversationId,
         path,
+        onSendProgress: (sent, total) {
+          if (total <= 0 || !mounted) return;
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - lastUpdate > 80 || sent >= total) {
+            lastUpdate = now;
+            setState(() {
+              final idx = _messages.indexWhere((m) => m['id'] == tempId);
+              if (idx != -1) {
+                _messages[idx]['uploadProgress'] = (sent / total).clamp(0.05, 0.98);
+              }
+            });
+          }
+        },
       );
       final mediaUrl = _extractMediaUrl(uploadRes);
 
@@ -1384,6 +1401,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         'type': msgType,
         'mediaUrl': null,
         'isUploading': true,
+        'localFilePath': path,
+        'uploadProgress': 0.05,
         'sender': {
           'id': _currentUserId,
           'role': _currentUserRole ?? 'VENDOR_MEMBER',
@@ -1396,9 +1415,23 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     try {
       final repository = ref.read(sharedChatRepositoryProvider);
+      int lastUpdate = 0;
       final uploadRes = await repository.uploadMedia(
         widget.conversationId,
         path,
+        onSendProgress: (sent, total) {
+          if (total <= 0 || !mounted) return;
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - lastUpdate > 80 || sent >= total) {
+            lastUpdate = now;
+            setState(() {
+              final idx = _messages.indexWhere((m) => m['id'] == tempId);
+              if (idx != -1) {
+                _messages[idx]['uploadProgress'] = (sent / total).clamp(0.05, 0.98);
+              }
+            });
+          }
+        },
       );
       final mediaUrl = _extractMediaUrl(uploadRes);
 
@@ -1441,11 +1474,19 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         setState(() {
           _recordingDuration = e.duration;
         });
+        if (e.decibels != null) {
+          final db = e.decibels!;
+          final double normalized = db < 0
+              ? ((db + 60.0) / 60.0).clamp(0.12, 1.0)
+              : (db / 90.0).clamp(0.12, 1.0);
+          _waveformSamples.add(((normalized * 100).round()) / 100.0);
+        }
       }
     });
     setState(() {
       _isRecording = true;
       _recordingDuration = Duration.zero;
+      _waveformSamples.clear();
     });
   }
 
@@ -1525,11 +1566,18 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           }
         });
 
+        final metadata = {
+          'durationMs': duration.inMilliseconds,
+          if (_waveformSamples.isNotEmpty)
+            'waveform': List<double>.from(_waveformSamples),
+        };
+
         await repository.sendMessage(
           widget.conversationId,
           '',
           type: 'AUDIO',
           mediaUrl: mediaUrl,
+          metadata: metadata,
         );
         _loadMessages();
       } else {
@@ -2382,18 +2430,19 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                     children: [
                       if (message['replyTo'] != null)
                         _buildAdminQuotedReply(message['replyTo'], isMe),
-                      if (message['type']?.toString().toUpperCase() == 'IMAGE')
+                      if (message['type']?.toString().toUpperCase() == 'IMAGE' ||
+                          message['type']?.toString().toUpperCase() == 'VIDEO')
                         if (message['isUploading'] == true ||
                             message['mediaUrl'] == null)
+                          _buildAdminUploadingMedia(message, isMe)
+                        else if (message['type']?.toString().toUpperCase() == 'VIDEO')
                           Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: isMe ? Colors.white : AppColors.primary,
-                              ),
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: VideoPreviewWidget(
+                              url: message['mediaUrl'],
+                              isMe: isMe,
+                              primaryColor: AppColors.primary,
+                              formatImageUrl: ImageUtils.formatImageUrl,
                             ),
                           )
                         else
@@ -2444,9 +2493,13 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                             ],
                           )
                         else
-                          _AudioPlayerWidget(
+                          WaveformAudioWidget(
                             url: ImageUtils.formatImageUrl(message['mediaUrl']),
                             isMe: isMe,
+                            primaryColor: AppColors.primary,
+                            metadata: message['metadata'] is Map
+                                ? Map<String, dynamic>.from(message['metadata'] as Map)
+                                : null,
                           ),
                       if (message['type']?.toString().toUpperCase() == 'FILE' &&
                           message['mediaUrl'] != null)
@@ -2473,7 +2526,12 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         ),
                       if (message['type']?.toString().toUpperCase() == 'LOCATION')
                         _buildLocationWidget(Map<String, dynamic>.from(message), isMe),
-                      if (message['text'] != null &&
+                      if (message['metadata'] is Map &&
+                          (message['metadata']['type'] == 'OFFER' ||
+                              message['type']?.toString().toUpperCase() == 'PRODUCT') &&
+                          message['metadata']['product'] is Map)
+                        _buildAdminOfferCard(message['metadata']['product'] as Map, isMe)
+                      else if (message['text'] != null &&
                           message['text'].toString().isNotEmpty &&
                           (message['type']?.toString().toUpperCase() != 'LOCATION' ||
                               !message['text'].toString().startsWith('Shared location:')))
@@ -2517,6 +2575,211 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
               ),
               if (isMe) const SizedBox(width: 4),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminUploadingMedia(dynamic message, bool isMe) {
+    final localPath = message['localFilePath']?.toString();
+    final hasLocal = localPath != null && localPath.isNotEmpty && File(localPath).existsSync();
+    final uploadProgress = message['uploadProgress'] is num
+        ? (message['uploadProgress'] as num).toDouble()
+        : null;
+    final isVideo = message['type']?.toString().toUpperCase() == 'VIDEO';
+    final maxW = MediaQuery.of(context).size.width * 0.6;
+    const double maxH = 180.0;
+    final isAr = Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: maxW,
+          height: maxH,
+          color: Colors.black26,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (!isVideo && hasLocal)
+                Image.file(
+                  File(localPath),
+                  width: maxW,
+                  height: maxH,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(LucideIcons.image, color: Colors.white54, size: 36),
+                  ),
+                )
+              else if (isVideo)
+                Container(
+                  width: maxW,
+                  height: maxH,
+                  color: const Color(0xFF1E293B),
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.video,
+                      size: 44,
+                      color: Colors.white.withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+              Positioned.fill(
+                child: Container(color: Colors.black.withValues(alpha: 0.42)),
+              ),
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        value: (uploadProgress != null && uploadProgress > 0.02)
+                            ? uploadProgress
+                            : null,
+                        strokeWidth: 3.5,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    Icon(
+                      isVideo ? LucideIcons.video : LucideIcons.arrowUp,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                bottom: 8,
+                left: 8,
+                right: 8,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      uploadProgress != null
+                          ? '${(uploadProgress * 100).toInt()}% • ${(isAr ? "جارٍ الرفع..." : "Uploading...")}'
+                          : (isAr ? 'جارٍ الرفع...' : 'Uploading...'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminOfferCard(Map product, bool isMe) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final name = isAr && product['nameAr'] != null && product['nameAr'].toString().isNotEmpty
+        ? product['nameAr'].toString()
+        : (product['name']?.toString() ?? 'Offer');
+    final price = product['price']?.toString() ?? product['basePrice']?.toString() ?? '0';
+    final img = (product['imageUrl'] ?? product['image'])?.toString();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.65,
+      ),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.white.withValues(alpha: 0.12)
+            : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isMe
+              ? Colors.white.withValues(alpha: 0.25)
+              : AppColors.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                LucideIcons.package,
+                color: isMe ? Colors.white : AppColors.primary,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isAr ? 'عرض خاص تم إرساله' : 'Sent Custom Offer',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isMe ? Colors.white : AppColors.primary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (img != null && img.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                ImageUtils.formatImageUrl(img),
+                width: double.infinity,
+                height: 110,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 110,
+                  color: Colors.black12,
+                  child: const Center(
+                    child: Icon(LucideIcons.image, color: Colors.white54, size: 28),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            name,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isMe || isDark ? Colors.white : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$price ${isAr ? 'ج.م' : 'EGP'}',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
+              color: isMe ? Colors.white.withValues(alpha: 0.9) : AppColors.primary,
+            ),
           ),
         ],
       ),
@@ -2837,173 +3100,4 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     return DateFormat.jm().format(time);
   }
 }
-
-class _AudioPlayerWidget extends ConsumerStatefulWidget {
-  final String url;
-  final bool isMe;
-
-  const _AudioPlayerWidget({required this.url, required this.isMe});
-
-  @override
-  ConsumerState<_AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
-}
-
-class _AudioPlayerWidgetState extends ConsumerState<_AudioPlayerWidget> {
-  FlutterSoundPlayer? _player;
-  bool _isPlaying = false;
-  bool _isPlayerInitialized = false;
-  StreamSubscription? _playerSubscription;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _initPlayer();
-  }
-
-  Future<void> _initPlayer() async {
-    _player = FlutterSoundPlayer();
-    await _player!.openPlayer();
-    _player!.setSubscriptionDuration(const Duration(milliseconds: 100));
-    _playerSubscription = _player!.onProgress!.listen((e) {
-      if (mounted) {
-        setState(() {
-          _position = e.position;
-          _duration = e.duration;
-        });
-      }
-    });
-    if (mounted) {
-      setState(() {
-        _isPlayerInitialized = true;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _playerSubscription?.cancel();
-    _player?.closePlayer();
-    _player = null;
-    super.dispose();
-  }
-
-  Future<void> _playPause() async {
-    if (!_isPlayerInitialized || _player == null) return;
-
-    if (_isPlaying) {
-      await _player!.pausePlayer();
-      if (mounted) {
-        setState(() => _isPlaying = false);
-      }
-    } else {
-      if (_player!.isPaused) {
-        await _player!.resumePlayer();
-        if (mounted) {
-          setState(() => _isPlaying = true);
-        }
-      } else {
-        if (mounted) {
-          setState(() => _isPlaying = true);
-        }
-        try {
-          await _player!.startPlayer(
-            fromURI: widget.url,
-            whenFinished: () {
-              if (mounted) {
-                setState(() {
-                  _isPlaying = false;
-                  _position = Duration.zero;
-                });
-              }
-            },
-          );
-        } catch (e) {
-          debugPrint('Error playing audio: $e');
-          if (mounted) {
-            setState(() => _isPlaying = false);
-          }
-        }
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String posStr =
-        "${_position.inMinutes.toString().padLeft(2, "0")}:${(_position.inSeconds % 60).toString().padLeft(2, "0")}";
-    String durStr =
-        "${_duration.inMinutes.toString().padLeft(2, "0")}:${(_duration.inSeconds % 60).toString().padLeft(2, "0")}";
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: _playPause,
-          child: Icon(
-            _isPlaying ? LucideIcons.pauseCircle : LucideIcons.playCircle,
-            color: widget.isMe ? Colors.white : AppColors.primary,
-            size: 32,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 120,
-              height: 20,
-              child: SliderTheme(
-                data: SliderThemeData(
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 6,
-                  ),
-                  overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 14,
-                  ),
-                  trackHeight: 2,
-                ),
-                child: Slider(
-                  value: _duration.inMilliseconds > 0
-                      ? (_position.inMilliseconds / _duration.inMilliseconds)
-                            .clamp(0.0, 1.0)
-                      : 0.0,
-                  activeColor: widget.isMe ? Colors.white : AppColors.primary,
-                  inactiveColor: widget.isMe
-                      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)
-                      : AppColors.primary.withValues(alpha: 0.2),
-                  onChanged: (val) async {
-                    if (_duration != Duration.zero && _player != null) {
-                      final position = val * _duration.inMilliseconds;
-                      await _player!.seekToPlayer(
-                        Duration(milliseconds: position.round()),
-                      );
-                    }
-                  },
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: 8.0),
-              child: Text(
-                _duration == Duration.zero
-                    ? AppLocalizations.of(context)!.voiceMessage
-                    : "$posStr / $durStr",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: widget.isMe
-                      ? Theme.of(context).colorScheme.onSurface
-                      : AppColors.textMuted,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 

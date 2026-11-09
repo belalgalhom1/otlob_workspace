@@ -87,11 +87,16 @@ class SharedChatRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> uploadMedia(String conversationId, String filePath) async {
+  Future<dynamic> uploadMedia(
+    String conversationId,
+    String filePath, {
+    ProgressCallback? onSendProgress,
+  }) async {
     final file = await MultipartFile.fromFile(filePath);
     final response = await _messagesApi.messagesControllerUpload(
       conversationId: conversationId,
       file: file,
+      onSendProgress: onSendProgress,
     );
     return ResponseParser.parse(response);
   }
