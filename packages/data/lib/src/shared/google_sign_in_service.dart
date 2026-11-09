@@ -18,12 +18,26 @@ class GoogleSignInService {
   /// for POST /auth/social. Throws when the user cancels or no token arrives.
   static Future<String> getIdToken() async {
     await _ensureInitialized();
-    final account = await GoogleSignIn.instance.authenticate();
-    final idToken = account.authentication.idToken;
-    if (idToken == null || idToken.isEmpty) {
-      throw Exception('google.sign_in.no_token');
+    try {
+      final account = await GoogleSignIn.instance.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('google.sign_in.no_token');
+      }
+      return idToken;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted) {
+        throw Exception('google.sign_in.no_token');
+      }
+      rethrow;
+    } catch (e) {
+      final str = e.toString().toLowerCase();
+      if (str.contains('canceled') || str.contains('cancelled')) {
+        throw Exception('google.sign_in.no_token');
+      }
+      rethrow;
     }
-    return idToken;
   }
 
   static Future<void> signOut() async {

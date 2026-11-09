@@ -394,6 +394,9 @@ export class AuthService {
 
     // 3. If still no user, Auto-Register
     if (!user) {
+      if (dto.app === 'vendor') {
+        throw new ForbiddenException(AuthErrors.ONLY_VENDOR_APP_ALLOWED);
+      }
       user = await this.prisma.$transaction(async (tx) => {
         const u = await tx.user.create({
           data: {
