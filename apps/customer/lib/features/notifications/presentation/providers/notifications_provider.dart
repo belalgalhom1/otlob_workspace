@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
 import '../../../../core/services/socket_service.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 import 'package:flutter/foundation.dart';
 
 part 'notifications_provider.g.dart';
@@ -41,7 +42,18 @@ class NotificationsState {
 class Notifications extends _$Notifications {
   @override
   NotificationsState build() {
-    Future.microtask(() => _fetchNotifications(1));
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.authenticated) {
+        _fetchNotifications(1);
+      } else if (next == AuthStatus.unauthenticated) {
+        state = NotificationsState();
+      }
+    });
+
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      Future.microtask(() => _fetchNotifications(1));
+    }
 
     // Typed broadcast stream: survives socket re-auth (legacy socket.on
     // bindings die with the old socket instance).
@@ -54,14 +66,23 @@ class Notifications extends _$Notifications {
       sub.cancel();
     });
 
-    return NotificationsState(isLoading: true);
+    return NotificationsState(isLoading: authStatus == AuthStatus.authenticated);
   }
 
   void _onRealtimeEvent(dynamic data) {
-    _fetchNotifications(1); // Refresh from top
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      _fetchNotifications(1); // Refresh from top
+    }
   }
 
   Future<void> _fetchNotifications(int page) async {
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus != AuthStatus.authenticated) {
+      state = NotificationsState(isLoading: false);
+      return;
+    }
+
     if (page == 1) {
       state = state.copyWith(isLoading: true, error: null);
     } else {
@@ -108,12 +129,18 @@ class Notifications extends _$Notifications {
   }
 
   Future<void> refresh() async {
-    await _fetchNotifications(1);
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      await _fetchNotifications(1);
+    }
   }
 
   Future<void> loadMore() async {
     if (state.isLoading || !state.hasMore) return;
-    await _fetchNotifications(state.page + 1);
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      await _fetchNotifications(state.page + 1);
+    }
   }
 
   Future<void> markAsRead(String id) async {

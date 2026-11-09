@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 
 part 'coin_history_provider.g.dart';
 
@@ -35,11 +36,30 @@ class CoinHistoryState {
 class CoinHistory extends _$CoinHistory {
   @override
   CoinHistoryState build() {
-    Future.microtask(() => _fetchHistory());
-    return CoinHistoryState(isLoading: true);
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.authenticated) {
+        _fetchHistory();
+      } else if (next == AuthStatus.unauthenticated) {
+        state = CoinHistoryState();
+      }
+    });
+
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      Future.microtask(() => _fetchHistory());
+      return CoinHistoryState(isLoading: true);
+    }
+
+    return CoinHistoryState(isLoading: false);
   }
 
   Future<void> _fetchHistory() async {
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus != AuthStatus.authenticated) {
+      state = CoinHistoryState(isLoading: false);
+      return;
+    }
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       final dio = ref.read(dioProvider);
@@ -61,6 +81,9 @@ class CoinHistory extends _$CoinHistory {
   }
 
   Future<void> refresh() async {
-    await _fetchHistory();
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      await _fetchHistory();
+    }
   }
 }

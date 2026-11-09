@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
 import 'package:flutter/foundation.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 
 part 'favorites_provider.g.dart';
 
@@ -8,13 +9,28 @@ part 'favorites_provider.g.dart';
 class Favorites extends _$Favorites {
   @override
   Set<String> build() {
-    // Fetch asynchronously so we don't block the UI with a loading state,
-    // since the UI expects a synchronous Set<String>.
-    _fetchFavorites();
+    ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
+      if (next == AuthStatus.authenticated) {
+        _fetchFavorites();
+      } else if (next == AuthStatus.unauthenticated) {
+        state = {};
+      }
+    });
+
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus == AuthStatus.authenticated) {
+      _fetchFavorites();
+    }
     return {};
   }
 
   Future<void> _fetchFavorites() async {
+    final authStatus = ref.read(authControllerProvider);
+    if (authStatus != AuthStatus.authenticated) {
+      state = {};
+      return;
+    }
+
     try {
       final repo = ref.read(customerFavoritesRepositoryProvider);
       final data = await repo.getFavorites();

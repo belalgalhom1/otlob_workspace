@@ -67,6 +67,12 @@ class JwtInterceptor extends Interceptor {
         !alreadyRetried &&
         !isTerminal &&
         !_isGuestAuthPath(err.requestOptions.path)) {
+      final tokenService = ref.read(tokenServiceProvider);
+      final refreshToken = await tokenService.getRefreshToken();
+      if (refreshToken == null) {
+        return handler.next(err);
+      }
+
       try {
         final newToken = await _refreshTokenIfNeeded();
 
