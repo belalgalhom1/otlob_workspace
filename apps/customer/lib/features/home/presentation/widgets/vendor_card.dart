@@ -5,6 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/widgets/auth_prompt_dialog.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 import '../providers/favorites_provider.dart';
 
 class VendorCard extends ConsumerWidget {
@@ -14,15 +16,15 @@ class VendorCard extends ConsumerWidget {
 
   Color _tagColor(String tag) {
     final t = tag.toLowerCase();
-    if (t.contains('أعلى') || t.contains('highest') || t.contains('top rated')) return Colors.amber.shade700;
-    if (t.contains('بريميوم') || t.contains('premium')) return const Color(0xFF7B1FA2);
-    if (t.contains('رائج') || t.contains('trending')) return Colors.blue.shade600;
-    if (t.contains('جديد') || t.contains('new')) return Colors.teal;
-    if (t.contains('عرض') || t.contains('deal') || t.contains('offer')) return Colors.red;
-    if (t.contains('صحي') || t.contains('healthy')) return Colors.green.shade600;
-    if (t.contains('محلي') || t.contains('local') || t.contains('مفضل')) return AppColors.primary;
-    if (t.contains('موثوق') || t.contains('trusted')) return Colors.indigo;
-    if (t.contains('طازج') || t.contains('fresh')) return Colors.green.shade700;
+    if (t.contains('Ø£Ø¹Ù„Ù‰') || t.contains('highest') || t.contains('top rated')) return Colors.amber.shade700;
+    if (t.contains('Ø¨Ø±ÙŠÙ…ÙŠÙˆÙ…') || t.contains('premium')) return const Color(0xFF7B1FA2);
+    if (t.contains('Ø±Ø§Ø¦Ø¬') || t.contains('trending')) return Colors.blue.shade600;
+    if (t.contains('Ø¬Ø¯ÙŠØ¯') || t.contains('new')) return Colors.teal;
+    if (t.contains('Ø¹Ø±Ø¶') || t.contains('deal') || t.contains('offer')) return Colors.red;
+    if (t.contains('ØµØ­ÙŠ') || t.contains('healthy')) return Colors.green.shade600;
+    if (t.contains('Ù…Ø­Ù„ÙŠ') || t.contains('local') || t.contains('Ù…ÙØ¶Ù„')) return AppColors.primary;
+    if (t.contains('Ù…ÙˆØ«ÙˆÙ‚') || t.contains('trusted')) return Colors.indigo;
+    if (t.contains('Ø·Ø§Ø²Ø¬') || t.contains('fresh')) return Colors.green.shade700;
     return AppColors.primary;
   }
 
@@ -36,7 +38,7 @@ class VendorCard extends ConsumerWidget {
     if (dist != null && dist > 0) {
       final baseMin = (15 + dist * 2.5).round();
       final maxMin = baseMin + 10;
-      return isAr ? '$baseMin-$maxMin دقيقة' : '$baseMin-$maxMin mins';
+      return isAr ? '$baseMin-$maxMin Ø¯Ù‚ÙŠÙ‚Ø©' : '$baseMin-$maxMin mins';
     }
     return null;
   }
@@ -99,7 +101,14 @@ class VendorCard extends ConsumerWidget {
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.red : Colors.grey, size: 16),
-                    onPressed: () => ref.read(favoritesProvider.notifier).toggleFavorite(vendorId),
+                    onPressed: () {
+                      final authStatus = ref.read(authControllerProvider);
+                      if (authStatus != AuthStatus.authenticated) {
+                        AuthPromptDialog.show(context);
+                        return;
+                      }
+                      ref.read(favoritesProvider.notifier).toggleFavorite(vendorId);
+                    },
                   ),
                 ),
               ),
@@ -177,7 +186,7 @@ class VendorCard extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               isAr
-                                  ? '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} كم'
+                                  ? '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} ÙƒÙ…'
                                   : '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} km',
                               style: TextStyle(
                                 fontSize: 13,
