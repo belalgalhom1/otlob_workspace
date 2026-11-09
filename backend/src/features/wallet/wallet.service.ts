@@ -396,13 +396,13 @@ export class WalletService {
         throw new ForbiddenException(CommonErrors.FORBIDDEN);
       }
       if (dto.amount === 0) {
-        throw new BadRequestException('Penalty amount must be greater than zero');
+        throw new BadRequestException(WalletErrors.PENALTY_MUST_BE_POSITIVE);
       }
       // Force deduction (minus from wallet)
       dto.amount = -Math.abs(dto.amount);
     } else if ((dto.type || '').toString().toUpperCase() === 'PENALTY') {
       if (dto.amount === 0) {
-        throw new BadRequestException('Penalty amount must be greater than zero');
+        throw new BadRequestException(WalletErrors.PENALTY_MUST_BE_POSITIVE);
       }
       // Penalties are always deductions
       dto.amount = -Math.abs(dto.amount);

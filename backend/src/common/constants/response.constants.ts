@@ -136,6 +136,12 @@ export const ChatMediaErrors = {
   NO_FILE: 'chat.media.error.no_file',
 };
 
+export const StorageErrors = {
+  INVALID_TARGET_FOLDER: 'storage.error.invalid_target_folder',
+  INVALID_IMAGE_CONTENT: 'storage.error.invalid_image_content',
+  UNSUPPORTED_FILE_TYPE: 'storage.error.unsupported_file_type',
+};
+
 export const NotificationErrors = {
   NOT_FOUND: 'notification.error.not_found',
 };
@@ -162,6 +168,10 @@ export const TicketErrors = {
   ORDER_NOT_FOUND: 'ticket.error.order_not_found',
   VENDOR_NOT_FOUND: 'ticket.error.vendor_not_found',
   ACTIVE_TICKET_EXISTS: 'ticket.error.active_ticket_exists',
+};
+
+export const LegalDocumentErrors = {
+  NOT_FOUND: 'legal_document.error.not_found',
 };
 
 export const ZoneErrors = {
@@ -210,6 +220,14 @@ export const VendorBranchErrors = {
 export const MenuCategoryErrors = {
   NOT_FOUND: 'menu_category.error.not_found',
   BELONGS_TO_OTHER_VENDOR: 'menu_category.error.belongs_to_other_vendor',
+  BRANCH_IDS_MUST_BE_EMPTY_FOR_ALL:
+    'menu_category.error.branch_ids_must_be_empty_for_all',
+  AT_LEAST_ONE_BRANCH_REQUIRED:
+    'menu_category.error.at_least_one_branch_required',
+  BRANCHES_DO_NOT_BELONG_TO_VENDOR:
+    'menu_category.error.branches_do_not_belong_to_vendor',
+  BRANCH_DOES_NOT_BELONG_TO_VENDOR:
+    'menu_category.error.branch_does_not_belong_to_vendor',
 };
 
 export const ProductErrors = {
@@ -294,6 +312,12 @@ export const DriverErrors = {
   ASSIST_DRIVER_ALREADY_ASSIGNED:
     'driver.error.assist_driver_already_assigned',
   ASSIST_REASON_REQUIRED: 'driver.error.assist_reason_required',
+  SHIFT_POOL_IDS_MUST_BE_UNIQUE: 'driver.error.shift_pool_ids_must_be_unique',
+  INVALID_LOCATION: 'driver.error.invalid_location',
+};
+
+export const DriverManagerErrors = {
+  NOT_FOUND: 'driver_manager.error.not_found',
 };
 
 export const OrderErrors = {
@@ -349,6 +373,7 @@ export const OrderErrors = {
   NO_DELIVERY_GROUPS: 'order.error.no_delivery_groups',
   PRODUCT_NOT_AVAILABLE_AT_BRANCH:
     'order.error.product_not_available_at_branch',
+  FULFILLMENT_STOP_NOT_FOUND: 'order.error.fulfillment_stop_not_found',
 };
 
 export const CartErrors = {
@@ -384,6 +409,7 @@ export const WalletErrors = {
   DRIVER_NOT_FOUND: 'wallet.error.driver_not_found',
   INVALID_TRANSACTION_TYPE: 'wallet.error.invalid_transaction_type',
   NEGATIVE_BALANCE_EXCEEDED: 'wallet.error.negative_balance_exceeded',
+  PENALTY_MUST_BE_POSITIVE: 'wallet.error.penalty_must_be_positive',
 };
 
 export const PushNotificationErrors = {

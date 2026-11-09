@@ -20,12 +20,10 @@ import {
 import {
   CommonSuccess,
   VendorErrors,
+  MenuCategoryErrors,
 } from '../../../common/constants/response.constants';
 
-export const MenuCategoryErrors = {
-  NOT_FOUND: 'menu_category.error.not_found',
-  BELONGS_TO_OTHER_VENDOR: 'menu_category.error.belongs_to_other_vendor',
-};
+export { MenuCategoryErrors };
 
 @Injectable()
 export class MenuCategoriesService {
@@ -320,13 +318,13 @@ export class MenuCategoriesService {
 
     if (resolvedMode === ProductBranchAvailabilityMode.ALL) {
       if (uniqueBranchIds.length > 0) {
-        throw new BadRequestException('Branch IDs must be empty when mode is ALL');
+        throw new BadRequestException(MenuCategoryErrors.BRANCH_IDS_MUST_BE_EMPTY_FOR_ALL);
       }
       return { mode: ProductBranchAvailabilityMode.ALL, branchIds: [] };
     }
 
     if (uniqueBranchIds.length === 0) {
-      throw new BadRequestException('At least one branch must be selected for SPECIFIC mode');
+      throw new BadRequestException(MenuCategoryErrors.AT_LEAST_ONE_BRANCH_REQUIRED);
     }
 
     const branches = await this.prisma.vendorBranch.findMany({
@@ -337,7 +335,7 @@ export class MenuCategoriesService {
       select: { id: true },
     });
     if (branches.length !== uniqueBranchIds.length) {
-      throw new BadRequestException('One or more selected branches do not belong to this vendor');
+      throw new BadRequestException(MenuCategoryErrors.BRANCHES_DO_NOT_BELONG_TO_VENDOR);
     }
 
     return {
@@ -366,7 +364,7 @@ export class MenuCategoriesService {
         select: { branchId: true },
       });
       if (existing.length === 0) {
-        throw new BadRequestException('At least one branch must be selected for SPECIFIC mode');
+        throw new BadRequestException(MenuCategoryErrors.AT_LEAST_ONE_BRANCH_REQUIRED);
       }
       return this.resolveBranchAvailability(
         vendorId,
@@ -387,7 +385,7 @@ export class MenuCategoriesService {
       select: { id: true },
     });
     if (!branch) {
-      throw new BadRequestException('Branch does not belong to this vendor');
+      throw new BadRequestException(MenuCategoryErrors.BRANCH_DOES_NOT_BELONG_TO_VENDOR);
     }
   }
 }

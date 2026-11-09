@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { CommonErrors, DriverErrors, UserErrors } from '../../common/constants/response.constants';
+import { CommonErrors, DriverErrors, UserErrors, DriverManagerErrors } from '../../common/constants/response.constants';
 import { AssignDriversToManagerDto } from './dto/driver-manager.dto';
 
 @Injectable()
@@ -261,7 +261,7 @@ export class DriverManagersService {
       });
     }
 
-    if (!dm) throw new NotFoundException('Driver manager not found');
+    if (!dm) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
 
     let drivers = (dm.assignedDrivers || []).map((a: any) => a.driver);
     if (dm.manageAllDrivers) {
@@ -311,7 +311,7 @@ export class DriverManagersService {
         });
       }
     }
-    if (!manager) throw new NotFoundException('Driver manager not found');
+    if (!manager) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
 
     if (body.manageAllDrivers) {
       await this.prisma.$transaction(async (tx) => {
@@ -366,7 +366,7 @@ export class DriverManagersService {
     const manager = await this.prisma.driverManager.findUnique({
       where: { userId: driverManagerUserId },
     });
-    if (!manager) throw new NotFoundException('Driver manager not found');
+    if (!manager) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
 
     await this.prisma.driverManagerAssignment.deleteMany({
       where: {

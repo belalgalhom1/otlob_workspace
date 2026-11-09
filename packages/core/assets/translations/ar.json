@@ -1892,5 +1892,21 @@
   "order_error_empty_cart_for_vendor": "في متجر من اللي في طلبك سلته فاضية.",
   "order_error_no_delivery_groups": "معرفناش نظبط توزيع التوصيل للطلب ده، جرب تاني.",
   "order_error_no_open_branch": "مفيش فرع مفتوح للمتجر ده في منطقتك دلوقتي، جرب متجر تاني.",
-  "order_error_product_not_available_at_branch": "في منتجات في السلة مش متاحة في الفرع اللي بيخدم عنوانك."
+  "order_error_product_not_available_at_branch": "في منتجات في السلة مش متاحة في الفرع اللي بيخدم عنوانك.",
+  "user_error_email_same_as_old": "البريد الإلكتروني الجديد مطابق للبريد الحالي.",
+  "driver_error_shift_pool_not_full": "مجموعة الورديات غير مكتملة بعد.",
+  "wallet_error_negative_balance_exceeded": "تم تجاوز الحد الأقصى للرصيد السالب.",
+  "legal_document_error_not_found": "المستند القانوني غير موجود.",
+  "driver_manager_error_not_found": "مدير السائقين غير موجود.",
+  "storage_error_invalid_target_folder": "مجلد الرفع غير صالح.",
+  "storage_error_invalid_image_content": "محتوى الصورة غير صالح أو غير مدعوم.",
+  "storage_error_unsupported_file_type": "نوع الملف غير مدعوم أو غير آمن.",
+  "menu_category_error_branch_ids_must_be_empty_for_all": "يجب عدم تحديد فروع عند اختيار وضع الإتاحة لجميع الفروع.",
+  "menu_category_error_at_least_one_branch_required": "يجب اختيار فرع واحد على الأقل للوضع المخصص.",
+  "menu_category_error_branches_do_not_belong_to_vendor": "أحد الفروع المحددة أو أكثر لا ينتمي لهذا المتجر.",
+  "menu_category_error_branch_does_not_belong_to_vendor": "الفرع المحدد لا ينتمي لهذا المتجر.",
+  "driver_error_shift_pool_ids_must_be_unique": "معرفات مجموعات الورديات يجب أن تكون فريدة.",
+  "driver_error_invalid_location": "إحداثيات الموقع (خط الطول ودائرة العرض) غير صالحة.",
+  "order_error_fulfillment_stop_not_found": "نقطة التوصيل غير موجودة.",
+  "wallet_error_penalty_must_be_positive": "مبلغ الغرامة يجب أن يكون أكبر من الصفر."
 }

@@ -1,3 +1,4 @@
+import { StorageErrors } from '../../common/constants/response.constants';
 import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -85,7 +86,7 @@ export class StorageService {
       const cleanFolder = this.sanitizeStoragePath(folder);
       const targetDir = path.normalize(path.join(this.baseDir, cleanFolder));
       if (!targetDir.startsWith(this.baseDir)) {
-        throw new BadRequestException('Invalid upload target folder');
+        throw new BadRequestException(StorageErrors.INVALID_TARGET_FOLDER);
       }
       await this.ensureDir(targetDir);
 
@@ -95,7 +96,7 @@ export class StorageService {
       // Handle Image Files: Convert strictly to WebP & generate thumbnail
       if (mime.startsWith('image/')) {
         if (!ALLOWED_IMAGE_MIMES.has(mime) || !validateImageMagicBytes(file.buffer, mime)) {
-          throw new BadRequestException('Invalid or unsupported image file content');
+          throw new BadRequestException(StorageErrors.INVALID_IMAGE_CONTENT);
         }
 
         const presetName = this.mediaService
@@ -154,7 +155,7 @@ export class StorageService {
       // Handle Non-Image Files (Audio, Video, PDF Documents)
       const safeExt = NON_IMAGE_MIME_TO_EXTENSION[mime];
       if (!safeExt) {
-        throw new BadRequestException('Unsupported or unsafe file type');
+        throw new BadRequestException(StorageErrors.UNSUPPORTED_FILE_TYPE);
       }
 
       const fileName = `${id}${safeExt}`;

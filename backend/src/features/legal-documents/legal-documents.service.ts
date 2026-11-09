@@ -1,3 +1,4 @@
+import { LegalDocumentErrors } from '../../common/constants/response.constants';
 import {
   Injectable,
   NotFoundException,
@@ -218,7 +219,7 @@ You have the right to review, update, or request the deletion of your personal a
     });
 
     if (!document) {
-      throw new NotFoundException('Legal document not found');
+      throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
     }
 
     // Upsert acceptance record
@@ -318,7 +319,7 @@ You have the right to review, update, or request the deletion of your personal a
       },
     });
 
-    if (!doc) throw new NotFoundException('Legal document not found');
+    if (!doc) throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
 
     return {
       ...doc,
@@ -361,7 +362,7 @@ You have the right to review, update, or request the deletion of your personal a
       where: { id, deletedAt: null },
     });
 
-    if (!doc) throw new NotFoundException('Legal document not found');
+    if (!doc) throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
 
     if (dto.version && dto.version.trim() !== doc.version) {
       const existing = await this.prisma.legalDocument.findFirst({
@@ -397,7 +398,7 @@ You have the right to review, update, or request the deletion of your personal a
       where: { id, deletedAt: null },
     });
 
-    if (!doc) throw new NotFoundException('Legal document not found');
+    if (!doc) throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
 
     return this.prisma.$transaction(async (tx) => {
       // Unpublish all existing published docs of this type
@@ -428,7 +429,7 @@ You have the right to review, update, or request the deletion of your personal a
       where: { id, deletedAt: null },
     });
 
-    if (!doc) throw new NotFoundException('Legal document not found');
+    if (!doc) throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
 
     if (doc.isPublished) {
       // Check if there is another published version
@@ -465,7 +466,7 @@ You have the right to review, update, or request the deletion of your personal a
       where: { id, deletedAt: null },
     });
 
-    if (!doc) throw new NotFoundException('Legal document not found');
+    if (!doc) throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
 
     const totalAcceptances = await this.prisma.userLegalAcceptance.count({
       where: { documentId: id },

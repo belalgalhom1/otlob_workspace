@@ -726,7 +726,7 @@ export class OrdersStateService {
         },
       },
     });
-    if (!fulfillment) throw new NotFoundException('Fulfillment stop not found');
+    if (!fulfillment) throw new NotFoundException(OrderErrors.FULFILLMENT_STOP_NOT_FOUND);
 
     const order = await this.ordersRepository.findById(orderId);
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);

@@ -475,7 +475,7 @@ export class DriverShiftsService {
     }
     const shiftPoolIds = [...new Set(dto.shiftPoolIds)];
     if (shiftPoolIds.length !== dto.shiftPoolIds.length) {
-      throw new BadRequestException('Shift pool IDs must be unique.');
+      throw new BadRequestException(DriverErrors.SHIFT_POOL_IDS_MUST_BE_UNIQUE);
     }
 
     const driver = await this.prisma.driver.findUnique({

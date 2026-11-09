@@ -1892,5 +1892,21 @@
   "order_error_empty_cart_for_vendor": "One of the vendors in your checkout has an empty cart.",
   "order_error_no_delivery_groups": "We could not plan the deliveries for this order.",
   "order_error_no_open_branch": "This vendor has no open branch serving your area right now.",
-  "order_error_product_not_available_at_branch": "One or more products in your cart are not available at the branch serving your address."
+  "order_error_product_not_available_at_branch": "One or more products in your cart are not available at the branch serving your address.",
+  "user_error_email_same_as_old": "The new email is the same as the current email.",
+  "driver_error_shift_pool_not_full": "Shift pool is not yet full.",
+  "wallet_error_negative_balance_exceeded": "Maximum negative balance limit exceeded.",
+  "legal_document_error_not_found": "Legal document not found.",
+  "driver_manager_error_not_found": "Driver manager not found.",
+  "storage_error_invalid_target_folder": "Invalid upload target folder.",
+  "storage_error_invalid_image_content": "Invalid or unsupported image file content.",
+  "storage_error_unsupported_file_type": "Unsupported or unsafe file type.",
+  "menu_category_error_branch_ids_must_be_empty_for_all": "Branch IDs must be empty when availability mode is ALL.",
+  "menu_category_error_at_least_one_branch_required": "At least one branch must be selected for SPECIFIC mode.",
+  "menu_category_error_branches_do_not_belong_to_vendor": "One or more selected branches do not belong to this vendor.",
+  "menu_category_error_branch_does_not_belong_to_vendor": "Selected branch does not belong to this vendor.",
+  "driver_error_shift_pool_ids_must_be_unique": "Shift pool IDs must be unique.",
+  "driver_error_invalid_location": "Valid latitude and longitude are required.",
+  "order_error_fulfillment_stop_not_found": "Fulfillment stop not found.",
+  "wallet_error_penalty_must_be_positive": "Penalty amount must be greater than zero."
 }

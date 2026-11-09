@@ -102,7 +102,7 @@ export class DriversService {
     await this.assertDriver(userId);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      throw new BadRequestException('Valid latitude and longitude are required');
+      throw new BadRequestException(DriverErrors.INVALID_LOCATION);
     }
 
     const safeRadius = Math.min(Math.max(Number(radiusKm) || 5, 0.5), 50);
