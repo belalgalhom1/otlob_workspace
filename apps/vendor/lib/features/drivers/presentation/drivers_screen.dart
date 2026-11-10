@@ -397,16 +397,6 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
     final encodedLabel = Uri.encodeComponent(label ?? "Location");
 
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      final appleMapsUri = Uri.parse('https://maps.apple.com/?q=$encodedLabel&ll=$lat,$lng');
-      try {
-        if (await canLaunchUrl(appleMapsUri)) {
-          final ok = await launchUrl(appleMapsUri, mode: LaunchMode.externalApplication);
-          if (ok) return;
-        }
-      } catch (_) {}
-    }
-
     // 1. Android geo URI with exact pin coordinates and label
     final geoUri = Uri.parse("geo:$lat,$lng?q=$lat,$lng($encodedLabel)");
 
