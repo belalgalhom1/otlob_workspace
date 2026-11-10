@@ -814,7 +814,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
               Expanded(
                 child: Text(
                   heading,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
@@ -1083,7 +1083,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
               children: [
                 Text(
                   heading,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
@@ -1094,7 +1094,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   const SizedBox(height: 2),
                   Text(
                     span,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,

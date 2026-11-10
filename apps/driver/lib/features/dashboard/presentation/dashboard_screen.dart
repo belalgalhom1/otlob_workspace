@@ -261,7 +261,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         imageQuality: 80,
                       );
                       if (pickedFile != null) {
-                        String uploadPath = pickedFile.path;
+                        String? uploadPath;
                         try {
                           final cropped = await ImageCropper().cropImage(
                             sourcePath: pickedFile.path,
@@ -287,12 +287,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                             ],
                           );
-                          if (cropped != null) {
-                            uploadPath = cropped.path;
+                          if (cropped == null) {
+                            return;
                           }
+                          uploadPath = cropped.path;
                         } catch (cropErr) {
                           debugPrint('Cropping avatar failed, using original: $cropErr');
+                          uploadPath = pickedFile.path;
                         }
+
+                        if (uploadPath == null) return;
 
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

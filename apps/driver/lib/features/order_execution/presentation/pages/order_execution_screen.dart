@@ -927,7 +927,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                     fontWeight: FontWeight.w600,
                                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
                                   ),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),

@@ -784,7 +784,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
 
       if (image == null) return;
 
-      XFile finalImage = image;
+      XFile? finalImage;
 
       // Safely attempt cropping with isolated error handling
       try {
@@ -811,12 +811,16 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
           ],
         );
 
-        if (cropped != null) {
-          finalImage = XFile(cropped.path);
+        if (cropped == null) {
+          return;
         }
+        finalImage = XFile(cropped.path);
       } catch (cropErr) {
         debugPrint('ImageCropper failed or not available, falling back to original image: $cropErr');
+        finalImage = image;
       }
+
+      if (finalImage == null) return;
 
       final bytes = await finalImage.readAsBytes();
       if (mounted) {

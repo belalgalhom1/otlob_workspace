@@ -394,7 +394,7 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
                   ),
                   child: Text(
                     _breakReasonLabel(l10n, active?['reason']?.toString()),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
