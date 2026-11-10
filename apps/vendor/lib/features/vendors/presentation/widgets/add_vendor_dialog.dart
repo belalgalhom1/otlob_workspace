@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -35,6 +36,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   List<dynamic> _verticals = [];
   bool _isLoadingVerticals = true;
   XFile? _pickedImage;
+  Uint8List? _pickedImageBytes;
   bool _isContracted = false;
   bool _isScheduleActive = true;
   bool _is24Hours = false;
@@ -650,12 +652,26 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(_pickedImage!.path),
-                          height: 140,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+                        child: _pickedImageBytes != null
+                            ? Image.memory(
+                                _pickedImageBytes!,
+                                height: 140,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              )
+                            : kIsWeb
+                                ? Image.network(
+                                    _pickedImage!.path,
+                                    height: 140,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    File(_pickedImage!.path),
+                                    height: 140,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
                       ),
                       PositionedDirectional(
                         end: 8,
@@ -666,7 +682,10 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                             color: AppColors.error,
                             size: 18,
                           ),
-                          onPressed: () => setState(() => _pickedImage = null),
+                          onPressed: () => setState(() {
+                            _pickedImage = null;
+                            _pickedImageBytes = null;
+                          }),
                           style: IconButton.styleFrom(
                             backgroundColor: Colors.black26,
                           ),
@@ -763,7 +782,12 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         imageQuality: 85,
       );
 
-      if (image != null) {
+      if (image == null) return;
+
+      XFile finalImage = image;
+
+      // Safely attempt cropping with isolated error handling
+      try {
         final cropped = await ImageCropper().cropImage(
           sourcePath: image.path,
           aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 8),
@@ -788,8 +812,18 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         );
 
         if (cropped != null) {
-          setState(() => _pickedImage = XFile(cropped.path));
+          finalImage = XFile(cropped.path);
         }
+      } catch (cropErr) {
+        debugPrint('ImageCropper failed or not available, falling back to original image: $cropErr');
+      }
+
+      final bytes = await finalImage.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _pickedImage = finalImage;
+          _pickedImageBytes = bytes;
+        });
       }
     } catch (e) {
       debugPrint('Error picking cover image: $e');

@@ -261,38 +261,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         imageQuality: 80,
                       );
                       if (pickedFile != null) {
-                        final cropped = await ImageCropper().cropImage(
-                          sourcePath: pickedFile.path,
-                          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-                          compressQuality: 85,
-                          maxWidth: 1024,
-                          maxHeight: 1024,
-                          uiSettings: [
-                            AndroidUiSettings(
-                              toolbarTitle: 'Crop Avatar',
-                              toolbarColor: const Color(0xFFD4920E),
-                              toolbarWidgetColor: Colors.white,
-                              activeControlsWidgetColor: const Color(0xFFD4920E),
-                              initAspectRatio: CropAspectRatioPreset.square,
-                              lockAspectRatio: true,
-                              cropStyle: CropStyle.circle,
-                            ),
-                            IOSUiSettings(
-                              title: 'Crop Avatar',
-                              aspectRatioLockEnabled: true,
-                              resetAspectRatioEnabled: false,
-                              cropStyle: CropStyle.circle,
-                            ),
-                          ],
-                        );
-                        if (cropped == null) return;
+                        String uploadPath = pickedFile.path;
+                        try {
+                          final cropped = await ImageCropper().cropImage(
+                            sourcePath: pickedFile.path,
+                            aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+                            compressQuality: 85,
+                            maxWidth: 1024,
+                            maxHeight: 1024,
+                            uiSettings: [
+                              AndroidUiSettings(
+                                toolbarTitle: 'Crop Avatar',
+                                toolbarColor: const Color(0xFFD4920E),
+                                toolbarWidgetColor: Colors.white,
+                                activeControlsWidgetColor: const Color(0xFFD4920E),
+                                initAspectRatio: CropAspectRatioPreset.square,
+                                lockAspectRatio: true,
+                                cropStyle: CropStyle.circle,
+                              ),
+                              IOSUiSettings(
+                                title: 'Crop Avatar',
+                                aspectRatioLockEnabled: true,
+                                resetAspectRatioEnabled: false,
+                                cropStyle: CropStyle.circle,
+                              ),
+                            ],
+                          );
+                          if (cropped != null) {
+                            uploadPath = cropped.path;
+                          }
+                        } catch (cropErr) {
+                          debugPrint('Cropping avatar failed, using original: $cropErr');
+                        }
 
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(l10n.uploadingAvatar)),
                           );
                         }
-                        await ref.read(driverProfileProvider.notifier).uploadAvatar(cropped.path);
+                        await ref.read(driverProfileProvider.notifier).uploadAvatar(uploadPath);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(l10n.avatarUpdated)),

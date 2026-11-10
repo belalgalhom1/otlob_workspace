@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
@@ -49,6 +50,7 @@ class _AddProductInChatDialogState
   String? _selectedProductId;
   bool _isLoadingData = true;
   XFile? _imageFile;
+  Uint8List? _imageFileBytes;
   String? _existingImageUrl;
   bool _isPickingImage = false;
 
@@ -99,30 +101,43 @@ class _AddProductInChatDialogState
       );
 
       if (image != null) {
-        final cropped = await ImageCropper().cropImage(
-          sourcePath: image.path,
-          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-          compressQuality: 85,
-          maxWidth: 1080,
-          maxHeight: 1080,
-          uiSettings: [
-            AndroidUiSettings(
-              toolbarTitle: 'Crop Product Photo',
-              toolbarColor: const Color(0xFFD4920E),
-              toolbarWidgetColor: Colors.white,
-              activeControlsWidgetColor: const Color(0xFFD4920E),
-              initAspectRatio: CropAspectRatioPreset.square,
-              lockAspectRatio: true,
-            ),
-            IOSUiSettings(
-              title: 'Crop Product Photo',
-              aspectRatioLockEnabled: true,
-              resetAspectRatioEnabled: false,
-            ),
-          ],
-        );
-        if (cropped != null) {
-          setState(() => _imageFile = XFile(cropped.path));
+        XFile finalImage = image;
+        try {
+          final cropped = await ImageCropper().cropImage(
+            sourcePath: image.path,
+            aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+            compressQuality: 85,
+            maxWidth: 1080,
+            maxHeight: 1080,
+            uiSettings: [
+              AndroidUiSettings(
+                toolbarTitle: 'Crop Product Photo',
+                toolbarColor: const Color(0xFFD4920E),
+                toolbarWidgetColor: Colors.white,
+                activeControlsWidgetColor: const Color(0xFFD4920E),
+                initAspectRatio: CropAspectRatioPreset.square,
+                lockAspectRatio: true,
+              ),
+              IOSUiSettings(
+                title: 'Crop Product Photo',
+                aspectRatioLockEnabled: true,
+                resetAspectRatioEnabled: false,
+              ),
+            ],
+          );
+          if (cropped != null) {
+            finalImage = XFile(cropped.path);
+          }
+        } catch (cropErr) {
+          debugPrint('ImageCropper failed or not available, using original image: $cropErr');
+        }
+
+        final bytes = await finalImage.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _imageFile = finalImage;
+            _imageFileBytes = bytes;
+          });
         }
       }
     } catch (e) {
@@ -769,10 +784,20 @@ class _AddProductInChatDialogState
                 child: _imageFile != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: Image.file(
-                          File(_imageFile!.path),
-                          fit: BoxFit.cover,
-                        ),
+                        child: _imageFileBytes != null
+                            ? Image.memory(
+                                _imageFileBytes!,
+                                fit: BoxFit.cover,
+                              )
+                            : kIsWeb
+                                ? Image.network(
+                                    _imageFile!.path,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    File(_imageFile!.path),
+                                    fit: BoxFit.cover,
+                                  ),
                       )
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -828,6 +853,7 @@ class _AddProductInChatDialogState
                       onTap: () {
                         setState(() {
                           _imageFile = null;
+                          _imageFileBytes = null;
                         });
                       },
                       color: AppColors.error,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -36,6 +37,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
   String? _selectedProductId;
 
   XFile? _imageFile;
+  Uint8List? _imageFileBytes;
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -347,7 +349,11 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
         child: _imageFile != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(20),
-                child: Image.file(File(_imageFile!.path), fit: BoxFit.cover),
+                child: _imageFileBytes != null
+                    ? Image.memory(_imageFileBytes!, fit: BoxFit.cover)
+                    : kIsWeb
+                        ? Image.network(_imageFile!.path, fit: BoxFit.cover)
+                        : Image.file(File(_imageFile!.path), fit: BoxFit.cover),
               )
             : (widget.promotion?['imageUrl'] != null && widget.promotion!['imageUrl'].toString().trim().isNotEmpty)
             ? ClipRRect(
@@ -380,33 +386,50 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      final cropped = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 8),
-        compressQuality: 82,
-        maxWidth: 1440,
-        maxHeight: 720,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Banner',
-            toolbarColor: const Color(0xFFD4920E),
-            toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: const Color(0xFFD4920E),
-            lockAspectRatio: true,
-          ),
-          IOSUiSettings(
-            title: 'Crop Banner',
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-          ),
-        ],
-      );
-      if (cropped != null) {
-        setState(() => _imageFile = XFile(cropped.path));
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      XFile finalImage = image;
+      try {
+        final cropped = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 8),
+          compressQuality: 82,
+          maxWidth: 1440,
+          maxHeight: 720,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Crop Banner',
+              toolbarColor: const Color(0xFFD4920E),
+              toolbarWidgetColor: Colors.white,
+              activeControlsWidgetColor: const Color(0xFFD4920E),
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'Crop Banner',
+              aspectRatioLockEnabled: true,
+              resetAspectRatioEnabled: false,
+            ),
+          ],
+        );
+        if (cropped != null) {
+          finalImage = XFile(cropped.path);
+        }
+      } catch (cropErr) {
+        debugPrint('ImageCropper failed or not available, using original image: $cropErr');
       }
+
+      final bytes = await finalImage.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _imageFile = finalImage;
+          _imageFileBytes = bytes;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking promotion banner image: $e');
     }
   }
 

@@ -44,31 +44,36 @@ class MediaService {
 
   /// Discord/Instagram-style interactive circular crop with drag, zoom, and pan
   Future<File?> cropAvatar({required String sourcePath}) async {
-    final CroppedFile? cropped = await ImageCropper().cropImage(
-      sourcePath: sourcePath,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      compressQuality: 85,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Avatar',
-          toolbarColor: const Color(0xFFD4920E),
-          toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFFD4920E),
-          initAspectRatio: CropAspectRatioPreset.square,
-          lockAspectRatio: true,
-          cropStyle: CropStyle.circle,
-        ),
-        IOSUiSettings(
-          title: 'Crop Avatar',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-          cropStyle: CropStyle.circle,
-        ),
-      ],
-    );
-    return cropped != null ? File(cropped.path) : null;
+    try {
+      final CroppedFile? cropped = await ImageCropper().cropImage(
+        sourcePath: sourcePath,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Avatar',
+            toolbarColor: const Color(0xFFD4920E),
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: const Color(0xFFD4920E),
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            cropStyle: CropStyle.circle,
+          ),
+          IOSUiSettings(
+            title: 'Crop Avatar',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            cropStyle: CropStyle.circle,
+          ),
+        ],
+      );
+      return cropped != null ? File(cropped.path) : null;
+    } catch (e) {
+      debugPrint('cropAvatar failed: $e, falling back to source image');
+      return File(sourcePath);
+    }
   }
 
   /// Wide banner interactive crop with drag, zoom, and pan
@@ -77,56 +82,66 @@ class MediaService {
     double ratioX = 16,
     double ratioY = 6,
   }) async {
-    final CroppedFile? cropped = await ImageCropper().cropImage(
-      sourcePath: sourcePath,
-      aspectRatio: CropAspectRatio(ratioX: ratioX, ratioY: ratioY),
-      compressQuality: 80,
-      maxWidth: 1600,
-      maxHeight: 600,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Banner',
-          toolbarColor: const Color(0xFFD4920E),
-          toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFFD4920E),
-          lockAspectRatio: true,
-        ),
-        IOSUiSettings(
-          title: 'Crop Banner',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-        ),
-      ],
-    );
-    return cropped != null ? File(cropped.path) : null;
+    try {
+      final CroppedFile? cropped = await ImageCropper().cropImage(
+        sourcePath: sourcePath,
+        aspectRatio: CropAspectRatio(ratioX: ratioX, ratioY: ratioY),
+        compressQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 600,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Banner',
+            toolbarColor: const Color(0xFFD4920E),
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: const Color(0xFFD4920E),
+            lockAspectRatio: true,
+          ),
+          IOSUiSettings(
+            title: 'Crop Banner',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+      return cropped != null ? File(cropped.path) : null;
+    } catch (e) {
+      debugPrint('cropBanner failed: $e, falling back to source image');
+      return File(sourcePath);
+    }
   }
 
   /// Square product interactive crop with drag, zoom, and pan
   Future<File?> cropProduct({
     required String sourcePath,
   }) async {
-    final CroppedFile? cropped = await ImageCropper().cropImage(
-      sourcePath: sourcePath,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      compressQuality: 85,
-      maxWidth: 1080,
-      maxHeight: 1080,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Product Photo',
-          toolbarColor: const Color(0xFFD4920E),
-          toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFFD4920E),
-          initAspectRatio: CropAspectRatioPreset.square,
-          lockAspectRatio: true,
-        ),
-        IOSUiSettings(
-          title: 'Crop Product Photo',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-        ),
-      ],
-    );
-    return cropped != null ? File(cropped.path) : null;
+    try {
+      final CroppedFile? cropped = await ImageCropper().cropImage(
+        sourcePath: sourcePath,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 85,
+        maxWidth: 1080,
+        maxHeight: 1080,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Product Photo',
+            toolbarColor: const Color(0xFFD4920E),
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: const Color(0xFFD4920E),
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+          ),
+          IOSUiSettings(
+            title: 'Crop Product Photo',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+      return cropped != null ? File(cropped.path) : null;
+    } catch (e) {
+      debugPrint('cropProduct failed: $e, falling back to source image');
+      return File(sourcePath);
+    }
   }
 }
