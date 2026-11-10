@@ -80,7 +80,7 @@ export class OrdersService {
     const [driver, canManage, settings] = await Promise.all([
       this.prisma.driver.findUnique({
         where: { userId: actor.sub },
-        select: { id: true },
+        select: { id: true, tier: true },
       }),
       this.canManageOrders(actor.sub, actor.role),
       this.platformSettings.getSettings(),
@@ -92,6 +92,7 @@ export class OrdersService {
         this.projectOrderForRole(o, actor, undefined, {
           canManage,
           driverId: driver.id,
+          driverTier: driver.tier,
           settings,
         }),
       ),
@@ -113,7 +114,7 @@ export class OrdersService {
       }),
       this.prisma.driver.findUnique({
         where: { userId: actor.sub },
-        select: { id: true },
+        select: { id: true, tier: true },
       }),
       order.vendorId
         ? this.prisma.vendorMember.findUnique({
@@ -170,7 +171,10 @@ export class OrdersService {
       isCustomerOwner || driverOwnsDelivery || isPortionVendorStaff;
 
     if (!isOwner) throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-    return this.projectOrderForRole(order, actor, matchingVendorId);
+    return this.projectOrderForRole(order, actor, matchingVendorId, {
+      driverId: driver?.id,
+      driverTier: driver?.tier,
+    });
   }
 
   async adminFindAll(dto: QueryOrdersDto) {
@@ -185,6 +189,47 @@ export class OrdersService {
   // ROLE PROJECTIONS (High-throughput in-memory data masking)
   // ═══════════════════════════════════════════════════════════════════════════
 
+  private calculateDriverEarningsForFee(
+    fee: number,
+    settings: any,
+    isStacked: boolean,
+    isMultiVendor: boolean,
+    driverTier?: string | null,
+  ): number {
+    let share: number;
+    if (isStacked) {
+      share = Number(settings?.stackedOrderDriverPercentage ?? 50) / 100;
+    } else if (isMultiVendor) {
+      if (settings?.multiVendorDriverPercentage != null) {
+        share = Number(settings.multiVendorDriverPercentage) / 100;
+      } else {
+        const platformShare =
+          Number(
+            settings?.multiVendorDeliveryCommissionRate ??
+              settings?.deliveryCommissionRate ??
+              20,
+          ) / 100;
+        const supervisorShare =
+          Number(
+            settings?.multiVendorDriverManagerCommissionRate ??
+              settings?.driverManagerCommissionRate ??
+              10,
+          ) / 100;
+        share = Math.max(0, 1 - platformShare - supervisorShare);
+      }
+    } else {
+      const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
+      const supervisorShare = Number(settings?.driverManagerCommissionRate ?? 10) / 100;
+      share = Math.max(0, 1 - platformShare - supervisorShare);
+    }
+
+    let adjustedFee = Number(fee ?? 0);
+    if (driverTier === 'BRONZE') {
+      adjustedFee = Math.max(0, adjustedFee - 2);
+    }
+    return Math.max(0, Math.round(adjustedFee * share));
+  }
+
   async projectOrderForRole(
     order: any,
     actor: JwtAccessPayload,
@@ -192,6 +237,7 @@ export class OrdersService {
     ctx?: {
       canManage?: boolean;
       driverId?: string | null;
+      driverTier?: string | null;
       vendorId?: string;
       memberBranchId?: string | null;
       settings?: any;
@@ -225,7 +271,7 @@ export class OrdersService {
   private async projectForDriver(
     order: any,
     actor: JwtAccessPayload,
-    ctx?: { driverId?: string | null; settings?: any },
+    ctx?: { driverId?: string | null; driverTier?: string | null; settings?: any },
   ): Promise<any> {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
@@ -251,8 +297,6 @@ export class OrdersService {
     let cashToPayStore = isStorePrepaid ? Math.max(0, subtotal - singleStoreComm) : subtotal;
 
     const settings = ctx?.settings ?? (await this.platformSettings.getSettings());
-    const rate = Number(settings?.deliveryCommissionRate ?? 20);
-    const stackedDriverPct = Number(settings?.stackedOrderDriverPercentage ?? 50);
 
     let deliveryFee = Number(order.deliveryFee ?? 0);
     let projectedIsStacked = Boolean(order.isStacked);
@@ -267,10 +311,10 @@ export class OrdersService {
 
     const myDriver =
       ctx?.driverId !== undefined
-        ? (ctx.driverId ? { id: ctx.driverId } : null)
+        ? (ctx.driverId ? { id: ctx.driverId, tier: ctx.driverTier } : null)
         : await this.prisma.driver.findUnique({
             where: { userId: actor.sub },
-            select: { id: true },
+            select: { id: true, tier: true },
           });
 
     if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
@@ -311,10 +355,20 @@ export class OrdersService {
             0,
           );
           projectedIsStacked = myGroups.some((g: any) => Boolean(g.isStacked));
+          const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
           customDriverEarnings = myGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
-            const share = g.isStacked ? stackedDriverPct / 100 : 1 - rate / 100;
-            return sum + Math.max(0, Math.round(gFee * share));
+            const isGroupStacked = Boolean(g.isStacked);
+            return (
+              sum +
+              this.calculateDriverEarningsForFee(
+                gFee,
+                settings,
+                isGroupStacked,
+                isMultiVendor,
+                myDriver?.tier,
+              )
+            );
           }, 0);
 
           const allGroupItems = myGroups.flatMap((g: any) =>
@@ -449,15 +503,21 @@ export class OrdersService {
     const isPrimaryCollector =
       Boolean(myDriver?.id && primaryCollectorId === myDriver.id);
 
-    const effectiveDriverShare = projectedIsStacked
-      ? stackedDriverPct / 100
-      : 1 - rate / 100;
+    const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
     const driverEarnings =
       customDriverEarnings ??
-      Math.max(0, Math.round(deliveryFee * effectiveDriverShare));
+      this.calculateDriverEarningsForFee(
+        deliveryFee,
+        settings,
+        projectedIsStacked,
+        isMultiVendor,
+        myDriver?.tier,
+      );
 
     return {
       ...order,
+      driverEarnings,
+      deliveryFee,
       isPrimaryCollector,
       status: projectedStatus,
       isStacked: projectedIsStacked,
@@ -482,6 +542,7 @@ export class OrdersService {
         cashToPayStore,
         isStorePrepaid,
         driverEarnings,
+        deliveryFee,
         storePayments: (scopedFulfillments && scopedFulfillments.length > 0)
           ? scopedFulfillments.map((f: any) => {
               const contracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
@@ -840,9 +901,14 @@ export class OrdersService {
     const cashToPayStore = isStorePrepaid ? 0 : subtotal;
 
     const settings = await this.platformSettings.getSettings();
-    const rate = Number(settings?.deliveryCommissionRate ?? 20);
     const deliveryFee = Number(order.deliveryFee ?? 0);
-    const driverEarnings = Math.max(0, Math.round(deliveryFee * (1 - rate / 100)));
+    const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
+    const driverEarnings = this.calculateDriverEarningsForFee(
+      deliveryFee,
+      settings,
+      Boolean(order.isStacked),
+      isMultiVendor,
+    );
 
     let vendor = order.vendor;
     let vendorBranch = order.vendorBranch;
@@ -853,6 +919,8 @@ export class OrdersService {
 
     return {
       ...order,
+      driverEarnings,
+      deliveryFee,
       vendor,
       vendorBranch,
       financials: {
@@ -862,6 +930,7 @@ export class OrdersService {
         cashToPayStore,
         isStorePrepaid,
         driverEarnings,
+        deliveryFee,
       },
     };
   }

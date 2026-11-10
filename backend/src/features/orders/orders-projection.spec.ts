@@ -17,6 +17,7 @@ describe('OrdersService financial projections & vendor isolation', () => {
       {
         getSettings: jest.fn().mockResolvedValue({
           deliveryCommissionRate: 20,
+          driverManagerCommissionRate: 10,
         }),
       } as any,
     );
@@ -166,6 +167,26 @@ describe('OrdersService financial projections & vendor isolation', () => {
       // Combined goods (200 + 300) + combined delivery fee (30 + 30) = 560
       expect(projected.grandTotal).toBe(560);
       expect(projected.items).toHaveLength(2);
+    });
+    it('calculates driverEarnings matching dispatch and settlement commission rates (net 70%)', async () => {
+      const actor = { sub: 'user-driver-1' } as any;
+      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1', tier: 'GOLD' });
+
+      const mockOrder = {
+        id: 'order-single',
+        status: 'DRIVER_ASSIGNED',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        deliveryFee: 30,
+        subtotal: 100,
+        grandTotal: 130,
+      };
+
+      const projected = await (ordersService as any).projectForDriver(mockOrder, actor);
+
+      // 30 deliveryFee * (1 - 0.20 platform - 0.10 supervisor) = 21 EGP
+      expect(projected.driverEarnings).toBe(21);
+      expect(projected.financials.driverEarnings).toBe(21);
+      expect(projected.deliveryFee).toBe(30);
     });
   });
 

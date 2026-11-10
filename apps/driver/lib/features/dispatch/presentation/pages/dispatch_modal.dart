@@ -120,16 +120,27 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
   @override
   Widget build(BuildContext context) {
     final currency = ref.watch(configurationProvider.notifier).currency;
-    final earningsVal = widget.dispatchData['estimatedEarnings'] ?? 0.0;
-    final earnings = '${earningsVal.toString()} $currency';
-    
+    final isAr = AppLocalizations.of(context)!.localeName == 'ar';
+    final rawEarnings = widget.dispatchData['estimatedEarnings'];
+    final double earningsNum = rawEarnings is num
+        ? rawEarnings.toDouble()
+        : (double.tryParse(rawEarnings?.toString() ?? '0') ?? 0.0);
+    final earnings = '${earningsNum.toStringAsFixed(0)} $currency';
+
+    final rawDeliveryFee = widget.dispatchData['deliveryFee'];
+    final double deliveryFeeNum = rawDeliveryFee is num
+        ? rawDeliveryFee.toDouble()
+        : (double.tryParse(rawDeliveryFee?.toString() ?? '0') ?? 0.0);
+    final String? feeSubLabel = (deliveryFeeNum > 0 && (deliveryFeeNum - earningsNum).abs() > 0.01)
+        ? '${isAr ? 'رسوم التوصيل' : 'Delivery fee'}: ${deliveryFeeNum.toStringAsFixed(0)} $currency'
+        : null;
+
     final distVal = widget.dispatchData['distanceKm'] ?? widget.dispatchData['estimatedDistanceKm'] ?? 0.0;
     final distance = '${distVal.toStringAsFixed(1)} km';
-    
+
     final pickupName = widget.dispatchData['pickupLocationName']?.toString() ?? AppLocalizations.of(context)!.vendorFallback;
     final dropoffName = widget.dispatchData['dropoffLocationName']?.toString() ?? AppLocalizations.of(context)!.customerFallback;
     final isStacked = widget.dispatchData['isStacked'] == true || widget.dispatchData['isStacked'] == 'true';
-    final isAr = AppLocalizations.of(context)!.localeName == 'ar';
 
     return DialogScaffold(child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -179,7 +190,13 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildInfoItem(LucideIcons.banknote, earnings, AppLocalizations.of(context)!.earningsLabel, AppColors.success),
+                _buildInfoItem(
+                  LucideIcons.banknote,
+                  earnings,
+                  AppLocalizations.of(context)!.earningsLabel,
+                  AppColors.success,
+                  subLabel: feeSubLabel,
+                ),
                 _buildInfoItem(LucideIcons.navigation, distance, AppLocalizations.of(context)!.distanceLabel, AppColors.primary),
               ],
             ),
@@ -213,13 +230,17 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     ));
   }
 
-  Widget _buildInfoItem(IconData icon, String value, String label, Color color) {
+  Widget _buildInfoItem(IconData icon, String value, String label, Color color, {String? subLabel}) {
     return Column(
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 8),
         Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
         Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+        if (subLabel != null) ...[
+          const SizedBox(height: 2),
+          Text(subLabel, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+        ],
       ],
     );
   }

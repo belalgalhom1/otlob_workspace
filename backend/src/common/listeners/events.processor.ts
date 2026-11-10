@@ -623,6 +623,7 @@ export class EventsProcessor extends WorkerHost {
         orderNumber: event.orderNumber,
         type: event.type,
         estimatedEarnings: event.estimatedEarnings,
+        deliveryFee: event.deliveryFee ?? null,
         distanceKm: event.distanceKm,
         expiresAt: event.expiresAt,
         pickupLocationName: event.pickupLocationName,

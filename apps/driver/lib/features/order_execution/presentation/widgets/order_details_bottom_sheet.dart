@@ -564,9 +564,15 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     ? (double.tryParse(financials!['cashToPayStore'].toString()) ?? 0.0)
                     : (isStorePrepaid ? 0.0 : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0));
 
+                final double deliveryFee = financials?['deliveryFee'] != null
+                    ? (double.tryParse(financials!['deliveryFee'].toString()) ?? 0.0)
+                    : (double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0);
+
                 final double driverEarnings = financials?['driverEarnings'] != null
                     ? (double.tryParse(financials!['driverEarnings'].toString()) ?? 0.0)
-                    : (double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0);
+                    : (order['driverEarnings'] != null
+                        ? (double.tryParse(order['driverEarnings'].toString()) ?? 0.0)
+                        : (deliveryFee * 0.70));
 
                 final isAr = l10n.localeName == 'ar';
 
@@ -790,7 +796,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
 
                     // 3. Driver Delivery Earnings Card
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
@@ -798,27 +804,55 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Icon(LucideIcons.bike, size: 18, color: AppColors.primary),
-                              const SizedBox(width: 8),
+                              Row(
+                                children: [
+                                  const Icon(LucideIcons.bike, size: 18, color: AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isAr ? 'أرباحك الصافية من هذا التوصيل' : 'Your Net Delivery Earnings',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                               Text(
-                                isAr ? 'أرباحك من هذا التوصيل' : 'Your Delivery Earnings',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                '${driverEarnings.toStringAsFixed(2)} $currency',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.success,
+                                ),
                               ),
                             ],
                           ),
-                          Text(
-                            '${driverEarnings.toStringAsFixed(2)} $currency',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                          if (deliveryFee > 0 && (deliveryFee - driverEarnings).abs() > 0.01) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  isAr ? 'إجمالي رسوم التوصيل (العميل)' : 'Total Delivery Fee (Customer)',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                Text(
+                                  '${deliveryFee.toStringAsFixed(2)} $currency',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),

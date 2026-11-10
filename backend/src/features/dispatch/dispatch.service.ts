@@ -311,6 +311,7 @@ export class DispatchService {
           dispatchContext.requestedVehicleType,
           isCandidateStacked,
           isCandidateMultiVendor,
+          candidate.tier,
         );
 
         // A delivery is priced on its stored order fee so the driver sees what
@@ -464,6 +465,7 @@ export class DispatchService {
           candidate.pickupLocationName,
           candidate.dropoffLocationName,
           candidate.isStacked,
+          dispatchDeliveryFee ?? 0,
         ),
       );
     }
@@ -1592,8 +1594,9 @@ export class DispatchService {
     vehicleType?: string | null,
     isStacked: boolean = false,
     isMultiVendor: boolean = false,
+    driverTier?: string | null,
   ): Promise<number> {
-    const deliveryFee = await this.platformSettings.calculateDeliveryFee(
+    let deliveryFee = await this.platformSettings.calculateDeliveryFee(
       distanceKm,
       null,
       perKmOverride,
@@ -1601,6 +1604,9 @@ export class DispatchService {
       prefetchedSettings,
       vehicleType,
     );
+    if (driverTier === 'BRONZE') {
+      deliveryFee = Math.max(0, deliveryFee - 2);
+    }
     const settings =
       prefetchedSettings ?? (await this.platformSettings.getSettings());
     let driverShare: number;

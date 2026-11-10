@@ -182,6 +182,7 @@ export class OrderDispatchSentEvent {
     public readonly pickupLocationName?: string,
     public readonly dropoffLocationName?: string,
     public readonly isStacked: boolean = false,
+    public readonly deliveryFee?: number,
   ) {}
 }
 
