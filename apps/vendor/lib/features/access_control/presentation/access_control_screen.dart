@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'access_control_provider.dart';
 import '../../../l10n/l10n_error_helper.dart';
@@ -15,6 +16,8 @@ class AccessControlScreen extends ConsumerStatefulWidget {
 
 class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   final List<String> allPermissions = [
     'MANAGE_ORDERS',
@@ -43,6 +46,7 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -237,16 +241,90 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
   Widget _buildPermissionsMatrix(AsyncValue<AccessControlStateData> state, bool isAr, bool isMobile) {
     return state.when(
       data: (data) {
-        final allAdmins = [...data.superAdminUsers, ...data.adminUsers];
-        if (allAdmins.isEmpty) {
-          return Center(child: Text(isAr ? 'لا يوجد مديرين' : 'No administrators found.'));
+        var allAdmins = [...data.superAdminUsers, ...data.adminUsers];
+        final totalAdmins = allAdmins.length;
+
+        if (_searchQuery.isNotEmpty) {
+          allAdmins = allAdmins.where((u) {
+            final name = (u['name'] ?? '').toString().toLowerCase();
+            final email = (u['email'] ?? '').toString().toLowerCase();
+            final phone = (u['phone'] ?? '').toString().toLowerCase();
+            final role = (u['role'] ?? '').toString().toLowerCase();
+            return name.contains(_searchQuery) ||
+                email.contains(_searchQuery) ||
+                phone.contains(_searchQuery) ||
+                role.contains(_searchQuery);
+          }).toList();
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.only(bottom: 24),
-          itemCount: allAdmins.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: DashboardSearchBar(
+                controller: _searchController,
+                hintText: isAr
+                    ? 'بحث باسم المدير، البريد، أو الهاتف...'
+                    : 'Search admin by name, email, or phone...',
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.trim().toLowerCase();
+                  });
+                },
+                onClear: () {
+                  setState(() {
+                    _searchQuery = '';
+                  });
+                },
+              ),
+            ),
+            Expanded(
+              child: totalAdmins == 0
+                  ? Center(child: Text(isAr ? 'لا يوجد مديرين' : 'No administrators found.'))
+                  : allAdmins.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    LucideIcons.searchX,
+                                    size: 28,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  isAr
+                                      ? 'لا يوجد مديرين يطابقون بحثك'
+                                      : 'No administrators matching your search',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                const SizedBox(height: 6),
+                                TextButton(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                  child: Text(isAr ? 'مسح البحث' : 'Clear search'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          itemCount: allAdmins.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
             final user = allAdmins[index];
             final isSuperAdmin = user['role'] == 'SUPER_ADMIN';
             final userPerms = (user['permissions'] as List?)?.map((e) => e.toString()).toList() ?? [];
@@ -289,9 +367,9 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                              Text(user['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(user['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), softWrap: true),
                               const SizedBox(height: 4),
-                              Text(user['email'] ?? '', style: const TextStyle( fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(user['email'] ?? '', style: const TextStyle(fontSize: 14), softWrap: true),
                             ],
                           ),
                         ),
@@ -378,9 +456,12 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
               ),
             );
           },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    ],
+  );
+},
+loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text(L10nErrorHelper.translate(context, e))),
     );
   }

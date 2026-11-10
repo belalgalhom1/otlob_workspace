@@ -1,69 +1,165 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import '../data/wallet_providers.dart';
 import '../data/wallet_models.dart';
 
-class PendingTopUpsScreen extends ConsumerWidget {
+class PendingTopUpsScreen extends ConsumerStatefulWidget {
   const PendingTopUpsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PendingTopUpsScreen> createState() => _PendingTopUpsScreenState();
+}
+
+class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(pendingTopUpsProvider);
     final theme = Theme.of(context);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
-    return state.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
-            const SizedBox(height: 12),
-            Text(ErrorUtils.translate(context, err), style: const TextStyle(color: AppColors.error)),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => ref.invalidate(pendingTopUpsProvider),
-              icon: const Icon(LucideIcons.refreshCw, size: 16),
-              label: Text(l10n.refresh),
-            ),
-          ],
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: DashboardSearchBar(
+            controller: _searchController,
+            hintText: isAr
+                ? 'بحث باسم السائق، المبلغ، الملاحظات، أو الرقم التعريفي...'
+                : 'Search by driver, amount, notes, or ID...',
+            onChanged: (val) {
+              setState(() {
+                _searchQuery = val.trim().toLowerCase();
+              });
+            },
+            onClear: () {
+              setState(() {
+                _searchQuery = '';
+              });
+            },
+          ),
         ),
-      ),
-      data: (topUps) {
-        if (topUps.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  LucideIcons.checkCircle,
-                  size: 64,
-                  color: AppColors.success.withValues(alpha: 0.4),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  l10n.noPendingTopUps,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
+        Expanded(
+          child: state.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
+                  const SizedBox(height: 12),
+                  Text(ErrorUtils.translate(context, err), style: const TextStyle(color: AppColors.error)),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => ref.invalidate(pendingTopUpsProvider),
+                    icon: const Icon(LucideIcons.refreshCw, size: 16),
+                    label: Text(l10n.refresh),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        }
+            data: (topUps) {
+              if (topUps.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.checkCircle,
+                        size: 64,
+                        color: AppColors.success.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.noPendingTopUps,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: topUps.length,
-          itemBuilder: (context, index) {
-            final topUp = topUps[index] as WalletTopUpRequest;
+              var filtered = topUps;
+              if (_searchQuery.isNotEmpty) {
+                filtered = topUps.where((item) {
+                  final req = item as WalletTopUpRequest;
+                  final name = (req.driverName ?? '').toLowerCase();
+                  final amount = req.amount.toString();
+                  final id = req.id.toLowerCase();
+                  final notes = (req.notes ?? '').toLowerCase();
+                  return name.contains(_searchQuery) ||
+                      amount.contains(_searchQuery) ||
+                      id.contains(_searchQuery) ||
+                      notes.contains(_searchQuery);
+                }).toList();
+              }
+
+              if (filtered.isEmpty && topUps.isNotEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            LucideIcons.searchX,
+                            size: 28,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          isAr
+                              ? 'لا توجد طلبات شحن تطابق بحثك'
+                              : 'No top-up requests matching your search',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        const SizedBox(height: 6),
+                        TextButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: Text(
+                            isAr ? 'مسح البحث' : 'Clear search',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final topUp = filtered[index] as WalletTopUpRequest;
             String dateStr = '';
             try {
               dateStr = DateFormat('dd MMM yyyy – hh:mm a').format(topUp.createdAt.toLocal());
@@ -152,52 +248,62 @@ class PendingTopUpsScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
-                        Icon(
-                          LucideIcons.clock,
-                          size: 13,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            dateStr,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurface,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.clock,
+                              size: 13,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            const SizedBox(width: 5),
+                            Text(
+                              dateStr,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        // Reject
-                        OutlinedButton.icon(
-                          onPressed: () => _reviewTopUp(context, ref, topUp.id, 'REJECTED', l10n),
-                          icon: const Icon(LucideIcons.xCircle, size: 15),
-                          label: Text(l10n.reject),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.error,
-                            side: BorderSide(color: AppColors.error.withValues(alpha: 0.6)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            minimumSize: Size.zero,
-                            textStyle: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Approve
-                        ElevatedButton.icon(
-                          onPressed: () => _reviewTopUp(context, ref, topUp.id, 'APPROVED', l10n),
-                          icon: const Icon(LucideIcons.checkCircle, size: 15),
-                          label: Text(l10n.approve),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.success,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            minimumSize: Size.zero,
-                            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                            elevation: 0,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Reject
+                            OutlinedButton.icon(
+                              onPressed: () => _reviewTopUp(context, ref, topUp.id, 'REJECTED', l10n),
+                              icon: const Icon(LucideIcons.xCircle, size: 15),
+                              label: Text(l10n.reject),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.error,
+                                side: BorderSide(color: AppColors.error.withValues(alpha: 0.6)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: Size.zero,
+                                textStyle: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Approve
+                            ElevatedButton.icon(
+                              onPressed: () => _reviewTopUp(context, ref, topUp.id, 'APPROVED', l10n),
+                              icon: const Icon(LucideIcons.checkCircle, size: 15),
+                              label: Text(l10n.approve),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: Size.zero,
+                                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                elevation: 0,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -208,8 +314,11 @@ class PendingTopUpsScreen extends ConsumerWidget {
           },
         );
       },
-    );
-  }
+    ),
+  ),
+],
+);
+}
 
   String _resolveReceiptUrl(WidgetRef ref, String url) {
     if (url.startsWith('http')) return url;

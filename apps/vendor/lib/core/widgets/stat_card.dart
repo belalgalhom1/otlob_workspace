@@ -22,11 +22,12 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine dynamic width based on device
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Determine dynamic width based on device, giving ample room for Arabic text
     final double cardWidth = width ??
         (isMobile
-            ? (MediaQuery.of(context).size.width - 64) / 2 - 8
-            : 150.0);
+            ? (screenWidth - 48) / 2 - 8
+            : (screenWidth < 1100 ? 175.0 : 195.0));
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -80,7 +81,7 @@ class StatCard extends StatelessWidget {
             ),
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
                     Container(
@@ -102,42 +103,41 @@ class StatCard extends StatelessWidget {
                       ),
                       child: Icon(icon, color: Colors.white, size: 18),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
                               value,
                               style: Theme.of(context).textTheme.headlineMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 22,
+                                    fontSize: 20,
                                     height: 1.1,
                                   ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              title,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: isDark
-                                        ? const Color(0xFFF8FAFC)
-                                        : Theme.of(context).colorScheme.onSurface,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? const Color(0xFFF8FAFC)
+                                      : Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  height: 1.25,
+                                ),
+                            softWrap: true,
+                            maxLines: 2,
+                          ),
+                        ],
                       ),
                     ),
                   ],

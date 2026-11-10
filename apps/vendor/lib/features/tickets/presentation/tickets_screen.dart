@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:vendor/core/utils/error_utils.dart';
@@ -18,11 +19,19 @@ class TicketsScreen extends ConsumerStatefulWidget {
 class _TicketsScreenState extends ConsumerState<TicketsScreen> {
   String _statusFilter = 'ALL';
   bool _isStatsExpanded = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() => _fetchTickets());
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _fetchTickets() {
@@ -51,6 +60,26 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                   _buildStatsGrid(l10n, isMobile, state),
                   _buildShowMoreToggle(l10n),
                   const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: DashboardSearchBar(
+                      controller: _searchController,
+                      hintText: Localizations.localeOf(context).languageCode == 'ar'
+                          ? 'بحث برقم التذكرة، الموضوع، اسم العميل، أو الهاتف...'
+                          : 'Search by ticket #, subject, customer, phone...',
+                      onChanged: (val) {
+                        setState(() {
+                          _searchQuery = val.trim().toLowerCase();
+                        });
+                      },
+                      onClear: () {
+                        setState(() {
+                          _searchQuery = '';
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   if (state.isLoading && !state.hasValue)
                     const Center(
                       child: Padding(
@@ -58,16 +87,86 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                         child: CircularProgressIndicator(),
                       ),
                     )
-                  else if (state.hasValue)
-                    if (state.value!.tickets.isEmpty)
-                      _buildEmptyState(l10n)
-                    else
-                      ...state.value!.tickets.map(
-                        (ticket) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _buildTicketCard(ticket, l10n),
-                        ),
-                      )
+                  else if (state.hasValue) ...[
+                    () {
+                      var tickets = state.value!.tickets;
+                      final totalCount = tickets.length;
+                      if (_searchQuery.isNotEmpty) {
+                        tickets = tickets.where((ticket) {
+                          final ticketNum = (ticket['ticketNumber'] ?? '').toString().toLowerCase();
+                          final subject = (ticket['subject'] ?? '').toString().toLowerCase();
+                          final desc = (ticket['description'] ?? '').toString().toLowerCase();
+                          final creatorName = (ticket['creator']?['name'] ?? '').toString().toLowerCase();
+                          final creatorPhone = (ticket['creator']?['phone'] ?? '').toString().toLowerCase();
+                          final vendorName = (ticket['vendor']?['storeName'] ?? ticket['vendor']?['name'] ?? '').toString().toLowerCase();
+                          return ticketNum.contains(_searchQuery) ||
+                              subject.contains(_searchQuery) ||
+                              desc.contains(_searchQuery) ||
+                              creatorName.contains(_searchQuery) ||
+                              creatorPhone.contains(_searchQuery) ||
+                              vendorName.contains(_searchQuery);
+                        }).toList();
+                      }
+
+                      if (totalCount == 0) {
+                        return _buildEmptyState(l10n);
+                      }
+
+                      if (tickets.isEmpty && totalCount > 0) {
+                        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 48.0, horizontal: 16.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    LucideIcons.searchX,
+                                    size: 28,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  isAr
+                                      ? 'لا توجد تذاكر تطابق بحثك'
+                                      : 'No tickets matching your search',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                const SizedBox(height: 6),
+                                TextButton(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                  child: Text(
+                                    isAr ? 'مسح البحث' : 'Clear search',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: tickets.map(
+                          (ticket) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: _buildTicketCard(ticket, l10n),
+                          ),
+                        ).toList(),
+                      );
+                    }(),
+                  ]
                   else if (state.hasError)
                     Center(child: Text(ErrorUtils.translate(context, state.error))),
                 ],
@@ -135,7 +234,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
         mainAxisSpacing: 16,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        childAspectRatio: isSmallMobile ? 2.0 : 2.4,
+        childAspectRatio: isSmallMobile ? 1.85 : 2.1,
         children: [
           StatCard(
             title: l10n.all,
@@ -285,18 +384,19 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                   fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                ticket['description'] ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
-                  fontSize: 13,
+              if (ticket['description'] != null && (ticket['description'] as String).isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  ticket['description'],
+                  style: TextStyle(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.75),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [

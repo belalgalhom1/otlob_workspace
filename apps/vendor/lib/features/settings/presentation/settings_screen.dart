@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'bloc/settings_provider.dart';
 import 'settings_schema.dart';
 import 'widgets/settings_field_tile.dart';
@@ -22,6 +23,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final Map<String, dynamic> _editedSettings = {};
   Map<String, dynamic>? _settings;
   bool _isSaving = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -29,6 +32,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(settingsProvider.notifier).fetchSettings();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   bool _isSameValue(dynamic a, dynamic b) {
@@ -136,58 +145,275 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final displaySettings = Map<String, dynamic>.from(settings)
       ..addAll(_editedSettings);
 
-    return DefaultTabController(
-      length: 7,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(l10n),
+        const SizedBox(height: AppSpacing.md),
+        DashboardSearchBar(
+          controller: _searchController,
+          hintText: isAr
+              ? 'بحث في جميع إعدادات المنصة (الاسم، المفتاح، الشرح)...'
+              : 'Search platform settings (name, key, description)...',
+          onChanged: (q) {
+            setState(() {
+              _searchQuery = q.trim();
+            });
+          },
+          onClear: () {
+            setState(() {
+              _searchQuery = '';
+            });
+          },
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Expanded(
+          child: _searchQuery.isNotEmpty
+              ? _buildSearchResults(displaySettings, isAr, l10n)
+              : DefaultTabController(
+                  length: 7,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TabBar(
+                        isScrollable: true,
+                        labelColor: AppColors.primary,
+                        indicatorColor: AppColors.primary,
+                        tabs: [
+                          Tab(text: l10n.tabAssets, icon: const Icon(LucideIcons.image)),
+                          Tab(text: l10n.tabFinancials, icon: const Icon(LucideIcons.dollarSign)),
+                          Tab(text: l10n.tabDelivery, icon: const Icon(LucideIcons.truck)),
+                          Tab(text: l10n.tabLoyalty, icon: const Icon(LucideIcons.award)),
+                          Tab(text: l10n.tabDrivers, icon: const Icon(LucideIcons.users)),
+                          Tab(text: l10n.tabAppLegal, icon: const Icon(LucideIcons.smartphone)),
+                          Tab(text: l10n.tabDataRetention, icon: const Icon(LucideIcons.database)),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildAssetsTab(context, l10n, displaySettings, isAr),
+                            _buildSectionsTab([
+                              _findSection('money'),
+                            ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                            _buildSectionsTab([
+                              _findSection('delivery'),
+                              _findSection('vehicles'),
+                              _findSection('dispatch'),
+                            ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                            _buildSectionsTab([
+                              _findSection('loyalty'),
+                            ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                            _buildSectionsTab([
+                              _findSection('drivers'),
+                              _findSection('breaks'),
+                            ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                            _buildSectionsTab([
+                              _findSection('app'),
+                              _findSection('customer'),
+                              _findSection('support'),
+                            ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                            _buildSectionsTab([
+                              _findSection('retention'),
+                            ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults(
+    Map<String, dynamic> displaySettings,
+    bool isAr,
+    AppLocalizations l10n,
+  ) {
+    final theme = Theme.of(context);
+    final q = _searchQuery.toLowerCase();
+
+    bool matchesField(SettingsField f) {
+      if (f.labelAr.toLowerCase().contains(q)) return true;
+      if (f.labelEn.toLowerCase().contains(q)) return true;
+      if (f.key.toLowerCase().contains(q)) return true;
+      if (f.helpAr.toLowerCase().contains(q)) return true;
+      if (f.helpEn.toLowerCase().contains(q)) return true;
+      if ((f.groupAr ?? '').toLowerCase().contains(q)) return true;
+      if ((f.groupEn ?? '').toLowerCase().contains(q)) return true;
+      return false;
+    }
+
+    final results = <SettingsSection, List<SettingsField>>{};
+    int totalMatchingFields = 0;
+
+    for (final section in platformSettingsSections) {
+      final sectionMatches = section.titleAr.toLowerCase().contains(q) ||
+          section.titleEn.toLowerCase().contains(q) ||
+          section.descAr.toLowerCase().contains(q) ||
+          section.descEn.toLowerCase().contains(q) ||
+          section.id.toLowerCase().contains(q);
+
+      final matchingFields = section.fields.where((f) {
+        return sectionMatches || matchesField(f);
+      }).toList();
+
+      if (matchingFields.isNotEmpty) {
+        results[section] = matchingFields;
+        totalMatchingFields += matchingFields.length;
+      }
+    }
+
+    if (results.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  LucideIcons.searchX,
+                  size: 36,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                isAr
+                    ? 'لم يتم العثور على أي إعداد يطابق "$_searchQuery"'
+                    : 'No settings found matching "$_searchQuery"',
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                isAr
+                    ? 'جرب البحث باسم الإعداد، المفتاح البرمجي، أو القسم'
+                    : 'Try searching by setting name, technical key, or category',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              OutlinedButton.icon(
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                },
+                icon: const Icon(LucideIcons.x, size: 16),
+                label: Text(isAr ? 'مسح البحث' : 'Clear search'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(l10n),
-          const SizedBox(height: AppSpacing.md),
-          TabBar(
-            isScrollable: true,
-            labelColor: AppColors.primary,
-            indicatorColor: AppColors.primary,
-            tabs: [
-              Tab(text: l10n.tabAssets, icon: const Icon(LucideIcons.image)),
-              Tab(text: l10n.tabFinancials, icon: const Icon(LucideIcons.dollarSign)),
-              Tab(text: l10n.tabDelivery, icon: const Icon(LucideIcons.truck)),
-              Tab(text: l10n.tabLoyalty, icon: const Icon(LucideIcons.award)),
-              Tab(text: l10n.tabDrivers, icon: const Icon(LucideIcons.users)),
-              Tab(text: l10n.tabAppLegal, icon: const Icon(LucideIcons.smartphone)),
-              Tab(text: l10n.tabDataRetention, icon: const Icon(LucideIcons.database)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Expanded(
-            child: TabBarView(
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
               children: [
-                _buildAssetsTab(context, l10n, displaySettings, isAr),
-                _buildSectionsTab([
-                  _findSection('money'),
-                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
-                _buildSectionsTab([
-                  _findSection('delivery'),
-                  _findSection('vehicles'),
-                  _findSection('dispatch'),
-                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
-                _buildSectionsTab([
-                  _findSection('loyalty'),
-                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
-                _buildSectionsTab([
-                  _findSection('drivers'),
-                  _findSection('breaks'),
-                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
-                _buildSectionsTab([
-                  _findSection('app'),
-                  _findSection('customer'),
-                  _findSection('support'),
-                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
-                _buildSectionsTab([
-                  _findSection('retention'),
-                ].whereType<SettingsSection>().toList(), displaySettings, isAr, l10n),
+                const Icon(
+                  LucideIcons.sparkles,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+                AppSpacing.hsm,
+                Expanded(
+                  child: Text(
+                    isAr
+                        ? 'تم العثور على $totalMatchingFields إعداد في ${results.length} قسم'
+                        : 'Found $totalMatchingFields settings across ${results.length} sections',
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                  child: Text(
+                    isAr ? 'عرض الكل' : 'Show All',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               ],
             ),
           ),
+          for (final entry in results.entries) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: entry.key.color.withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: entry.key.color.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(context, entry.key, isAr, l10n),
+                  const SizedBox(height: AppSpacing.sm),
+                  ...entry.value.map(
+                    (f) => SettingsFieldTile(
+                      field: f,
+                      isAr: isAr,
+                      value: displaySettings[f.key],
+                      onChanged: (v) => _onSettingChanged(f.key, v),
+                      onPickImage: _pickAndUploadImage,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -330,59 +556,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           color: section.color.withValues(alpha: 0.2),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: section.color.withValues(alpha: 0.18),
-              borderRadius: AppRadius.smRadius,
-            ),
-            child: Icon(section.icon, color: section.color, size: 20),
-          ),
-          AppSpacing.hmd,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  section.title(isAr),
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 480;
+          return Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: section.color.withValues(alpha: 0.18),
+                  borderRadius: AppRadius.smRadius,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  section.desc(isAr),
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          AppSpacing.hsm,
-          OutlinedButton.icon(
-            onPressed: () => showSettingsExplanation(
-              context,
-              section: section,
-              isAr: isAr,
-            ),
-            icon: const Icon(LucideIcons.info, size: 16),
-            label: Text(l10n.settingsExplain),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: section.color,
-              side: BorderSide(color: section.color.withValues(alpha: 0.5)),
-              shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.xs,
+                child: Icon(section.icon, color: section.color, size: 20),
               ),
-            ),
-          ),
-        ],
+              AppSpacing.hmd,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      section.title(isAr),
+                      style: AppTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      section.desc(isAr),
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AppSpacing.hsm,
+              if (isCompact)
+                IconButton(
+                  onPressed: () => showSettingsExplanation(
+                    context,
+                    section: section,
+                    isAr: isAr,
+                  ),
+                  icon: Icon(LucideIcons.info, size: 18, color: section.color),
+                  tooltip: l10n.settingsExplain,
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: () => showSettingsExplanation(
+                    context,
+                    section: section,
+                    isAr: isAr,
+                  ),
+                  icon: const Icon(LucideIcons.info, size: 16),
+                  label: Text(l10n.settingsExplain),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: section.color,
+                    side: BorderSide(color: section.color.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.smRadius),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xs,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

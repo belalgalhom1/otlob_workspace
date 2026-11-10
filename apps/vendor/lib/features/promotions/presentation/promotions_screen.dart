@@ -7,6 +7,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/features/promotions/presentation/promotion_provider.dart';
 import 'package:vendor/features/promotions/presentation/widgets/add_promotion_dialog.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' as dio;
@@ -27,6 +28,8 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
   Timer? _refreshTimer;
   String? _userRole;
   String? _vendorId;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -54,6 +57,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -167,7 +171,24 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
+        DashboardSearchBar(
+          controller: _searchController,
+          hintText: Localizations.localeOf(context).languageCode == 'ar'
+              ? 'بحث في العروض والبانرات...'
+              : 'Search promotions and banners...',
+          onChanged: (val) {
+            setState(() {
+              _searchQuery = val.trim().toLowerCase();
+            });
+          },
+          onClear: () {
+            setState(() {
+              _searchQuery = '';
+            });
+          },
+        ),
+        const SizedBox(height: 24),
 
         // List Grid
         Consumer(
@@ -180,15 +201,78 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                   .toList();
             }
 
-            if (state.isLoading && promotions.isEmpty) {
+            final totalCount = promotions.length;
+
+            if (_searchQuery.isNotEmpty) {
+              promotions = promotions.where((p) {
+                final title = (p['title'] ?? '').toString().toLowerCase();
+                final titleAr = (p['titleAr'] ?? '').toString().toLowerCase();
+                final desc = (p['description'] ?? '').toString().toLowerCase();
+                final descAr = (p['descriptionAr'] ?? '').toString().toLowerCase();
+                final type = (p['type'] ?? '').toString().toLowerCase();
+                final discount = (p['discountValue'] ?? '').toString().toLowerCase();
+                return title.contains(_searchQuery) ||
+                    titleAr.contains(_searchQuery) ||
+                    desc.contains(_searchQuery) ||
+                    descAr.contains(_searchQuery) ||
+                    type.contains(_searchQuery) ||
+                    discount.contains(_searchQuery);
+              }).toList();
+            }
+
+            if (state.isLoading && totalCount == 0) {
               return const SizedBox(
                 height: 400,
                 child: Center(child: CircularProgressIndicator()),
               );
             }
 
-            if (promotions.isEmpty) {
+            if (totalCount == 0) {
               return _buildEmptyState(context, l10n);
+            }
+
+            if (promotions.isEmpty && totalCount > 0) {
+              final isAr = Localizations.localeOf(context).languageCode == 'ar';
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          LucideIcons.searchX,
+                          size: 28,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        isAr
+                            ? 'لا توجد عروض أو بانرات تطابق بحثك'
+                            : 'No promotions or banners matching your search',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(height: 6),
+                      TextButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        child: Text(
+                          isAr ? 'مسح البحث' : 'Clear search',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
 
             return GridView.builder(
@@ -200,7 +284,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     : (size.width > 900 ? 2 : 1),
                 crossAxisSpacing: 24,
                 mainAxisSpacing: 24,
-                childAspectRatio: 1.7,
+                childAspectRatio: size.width > 1400 ? 1.5 : (size.width > 900 ? 1.45 : 1.4),
               ),
               itemCount: promotions.length,
               itemBuilder: (context, index) {
@@ -373,17 +457,17 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       shadows: [Shadow(color: Theme.of(context).colorScheme.onSurface, blurRadius: 10)],
                     ),
                   ),
-                  if (promo['description'] != null)
+                  if (promo['description'] != null && promo['description'].toString().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        promo['description'],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        promo['description'].toString(),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 13,
+                          height: 1.3,
                         ),
+                        softWrap: true,
                       ),
                     ),
                   if (isOffer ||

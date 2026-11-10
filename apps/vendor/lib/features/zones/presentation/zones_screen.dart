@@ -3,17 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/features/zones/presentation/zone_provider.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/zones/presentation/customer_polygon_selection_screen.dart' as vendor_audience;
 import 'package:vendor/features/zones/presentation/zone_edit_screen.dart' as vendor_zone_edit;
 import 'package:vendor/core/utils/error_utils.dart';
 
-class ZonesScreen extends ConsumerWidget {
+class ZonesScreen extends ConsumerStatefulWidget {
   const ZonesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ZonesScreen> createState() => _ZonesScreenState();
+}
+
+class _ZonesScreenState extends ConsumerState<ZonesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen<AsyncValue<ZoneStateData>>(zoneProvider, (previous, state) {
       if (state.hasError && !state.isLoading) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,79 +92,23 @@ class ZonesScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  isMobile 
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.deliveryZones,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          Text(
-                            AppLocalizations.of(context)!.deliveryZones,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const vendor_audience.CustomerPolygonSelectionScreen(),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(LucideIcons.users, size: 14),
-                                label: Text(AppLocalizations.of(context)!.audienceSelection),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.accent,
-                                  minimumSize: const Size(100, 44),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const vendor_zone_edit.ZoneEditScreen(),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(LucideIcons.plus, size: 14),
-                                label: Text(AppLocalizations.of(context)!.addZone),
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size(100, 44),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              AppLocalizations.of(context)!.deliveryZones,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: () {
                               Navigator.push(
@@ -170,7 +129,6 @@ class ZonesScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: () {
                               Navigator.push(
@@ -192,7 +150,26 @@ class ZonesScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                  const SizedBox(height: 24),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  DashboardSearchBar(
+                    controller: _searchController,
+                    hintText: Localizations.localeOf(context).languageCode == 'ar'
+                        ? 'بحث في مناطق التوصيل...'
+                        : 'Search delivery zones...',
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val.trim().toLowerCase();
+                      });
+                    },
+                    onClear: () {
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   Consumer(
                     builder: (context, ref, child) {
                       final state = ref.watch(zoneProvider);
@@ -204,10 +181,68 @@ class ZonesScreen extends ConsumerWidget {
                           ),
                         );
                       } else if (state.hasValue) {
+                        var zones = state.value!.zones;
+                        if (_searchQuery.isNotEmpty) {
+                          zones = zones.where((zone) {
+                            final name = (zone.name ?? '').toString().toLowerCase();
+                            final nameAr = (zone.nameAr ?? '').toString().toLowerCase();
+                            final id = (zone.id ?? '').toString().toLowerCase();
+                            final fee = (zone.baseDeliveryFee ?? '').toString().toLowerCase();
+                            return name.contains(_searchQuery) ||
+                                nameAr.contains(_searchQuery) ||
+                                id.contains(_searchQuery) ||
+                                fee.contains(_searchQuery);
+                          }).toList();
+                        }
+
+                        if (zones.isEmpty && state.value!.zones.isNotEmpty) {
+                          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 36.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 56,
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      LucideIcons.searchX,
+                                      size: 28,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    isAr
+                                        ? 'لا توجد مناطق تطابق بحثك'
+                                        : 'No delivery zones matching your search',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextButton(
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                    child: Text(
+                                      isAr ? 'مسح البحث' : 'Clear search',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
                         if (constraints.maxWidth < 600) {
-                          return _buildZonesList(state.value!.zones, context, ref);
+                          return _buildZonesList(zones, context, ref);
                         } else {
-                          return _buildZonesTable(state.value!.zones, context, ref);
+                          return _buildZonesTable(zones, context, ref);
                         }
                       }
                       return const SizedBox();
