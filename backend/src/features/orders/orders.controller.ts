@@ -392,7 +392,7 @@ export class OrdersController {
 
   @ApiStandardResponse()
   @Get()
-  @RequirePermissions(Permission.MANAGE_ORDERS)
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, { mode: 'any' })
   @ApiOperation({ summary: '[Admin] List all orders with filters' })
   adminFindAll(@Query() dto: QueryOrdersDto) {
     return this.ordersService.adminFindAll(dto);
@@ -463,7 +463,7 @@ export class OrdersController {
 
   @ApiArrayResponse()
   @Get('vendor-decisions/order/:orderId')
-  @RequirePermissions(Permission.MANAGE_ORDERS)
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, { mode: 'any' })
   @ApiOperation({ summary: '[Admin] Vendor portions and their states for an order' })
   listOrderDecisions(@Param('orderId') orderId: string) {
     return this.vendorDecisionService.listForOrder(orderId);

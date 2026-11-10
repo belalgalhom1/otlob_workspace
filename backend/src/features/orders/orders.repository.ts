@@ -213,7 +213,7 @@ const ORDER_INCLUDE = {
     orderBy: { createdAt: 'asc' as const },
     include: {
       vendor: {
-        select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true },
+        select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true, phone: true },
       },
       vendorBranch: {
         select: {
@@ -230,6 +230,7 @@ const ORDER_INCLUDE = {
         where: { rejectedAt: null },
         select: {
           id: true,
+          fulfillmentId: true,
           productId: true,
           productName: true,
           variantName: true,
@@ -455,7 +456,7 @@ export class OrdersRepository {
           },
           vendorFulfillments: {
             include: {
-              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true } },
+              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true, phone: true } },
               vendorBranch: {
                 select: {
                   id: true,
@@ -471,6 +472,7 @@ export class OrdersRepository {
                 where: { rejectedAt: null },
                 select: {
                   id: true,
+                  fulfillmentId: true,
                   productId: true,
                   productName: true,
                   variantName: true,

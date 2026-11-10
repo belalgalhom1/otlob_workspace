@@ -1871,11 +1871,15 @@ export class OrdersStateService {
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.SUPER_ADMIN) return true;
+    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { permissions: true },
     });
-    return !!user?.permissions.includes(Permission.MANAGE_ORDERS);
+    return !!(
+      user?.permissions.includes(Permission.MANAGE_ORDERS) ||
+      user?.permissions.includes(Permission.MANAGE_DRIVERS) ||
+      user?.permissions.includes(Permission.MANAGE_VENDORS)
+    );
   }
 }

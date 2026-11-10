@@ -1011,7 +1011,8 @@ export class OrdersService {
     });
     return !!(
       user?.permissions.includes(Permission.MANAGE_ORDERS) ||
-      user?.permissions.includes(Permission.MANAGE_DRIVERS)
+      user?.permissions.includes(Permission.MANAGE_DRIVERS) ||
+      user?.permissions.includes(Permission.MANAGE_VENDORS)
     );
   }
 }

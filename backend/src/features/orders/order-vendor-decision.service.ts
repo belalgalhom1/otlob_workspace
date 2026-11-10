@@ -11,7 +11,9 @@ import {
   DeliveryGroupStatus,
   OrderStatus,
   OrderVendorFulfillmentStatus,
+  Permission,
   Prisma,
+  Role,
   VendorMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -336,6 +338,17 @@ export class OrderVendorDecisionService {
    * client-supplied id.
    */
   async listPendingForVendor(actor: JwtAccessPayload) {
+    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.canManageOrders(actor.sub, actor.role)))) {
+      return this.prisma.orderVendorFulfillment.findMany({
+        where: {
+          status: OrderVendorFulfillmentStatus.PENDING,
+          order: { status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] } },
+        },
+        orderBy: { createdAt: 'desc' },
+        include: this.fulfillmentInclude(),
+      });
+    }
+
     const memberships = await this.prisma.vendorMember.findMany({
       where: { userId: actor.sub },
       select: { vendorId: true, branchId: true, role: true },
@@ -360,6 +373,14 @@ export class OrderVendorDecisionService {
   }
 
   async listForVendor(actor: JwtAccessPayload, vendorId: string) {
+    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.canManageOrders(actor.sub, actor.role)))) {
+      return this.prisma.orderVendorFulfillment.findMany({
+        where: { vendorId },
+        orderBy: { createdAt: 'desc' },
+        include: this.fulfillmentInclude(),
+      });
+    }
+
     const member = await this.prisma.vendorMember.findUnique({
       where: { vendorId_userId: { vendorId, userId: actor.sub } },
       select: { id: true, branchId: true },
@@ -423,21 +444,24 @@ export class OrderVendorDecisionService {
     // Vendor identity is derived from the fulfillment itself, never from a
     // client-supplied vendorId, so a member cannot act on another vendor or branch.
     if (actor && actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
-      const member = await this.prisma.vendorMember.findUnique({
-        where: {
-          vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
-        },
-        select: { id: true, branchId: true },
-      });
-      if (!member) {
-        throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
-      }
-      if (
-        member.branchId &&
-        fulfillment.vendorBranchId &&
-        member.branchId !== fulfillment.vendorBranchId
-      ) {
-        throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
+      const canManage = await this.canManageOrders(actor.sub, actor.role);
+      if (!canManage) {
+        const member = await this.prisma.vendorMember.findUnique({
+          where: {
+            vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
+          },
+          select: { id: true, branchId: true },
+        });
+        if (!member) {
+          throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
+        }
+        if (
+          member.branchId &&
+          fulfillment.vendorBranchId &&
+          member.branchId !== fulfillment.vendorBranchId
+        ) {
+          throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
+        }
       }
     }
     return fulfillment;
@@ -977,5 +1001,16 @@ export class OrderVendorDecisionService {
     } catch {
       // Lost a race with another decision or flow that already advanced it.
     }
+  }
+  private async canManageOrders(userId: string, role: string): Promise<boolean> {
+    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { permissions: true },
+    });
+    return !!(
+      user?.permissions.includes(Permission.MANAGE_ORDERS) ||
+      user?.permissions.includes(Permission.MANAGE_VENDORS)
+    );
   }
 }

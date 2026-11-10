@@ -327,8 +327,160 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // Items list (if available)
-                    if (items.isNotEmpty) ...[
+                    // Items list (Multi-Vendor breakdown or Single Store)
+                    if (isMultiVendor && fulfillments.isNotEmpty) ...[
+                      Text(
+                        isArabic ? 'أصناف الطلب حسب المتاجر (${fulfillments.length} متاجر)' : 'Order Items by Store (${fulfillments.length} Stores)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < fulfillments.length; i++) ...[
+                        () {
+                          final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+                          final fId = f['id']?.toString() ?? '';
+                          final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                          final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
+                          final sName = isArabic
+                              ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
+                              : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? 'Store');
+                          final bName = isArabic ? (fBranch['nameAr'] ?? fBranch['name'] ?? '') : (fBranch['name'] ?? fBranch['nameAr'] ?? '');
+                          final fStatus = f['status']?.toString() ?? 'PENDING';
+                          final rawFItems = f['items'];
+                          final portionItems = (rawFItems is List && rawFItems.isNotEmpty)
+                              ? rawFItems
+                              : items.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          bName.toString().isNotEmpty ? '$sName ($bName)' : sName.toString(),
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(fStatus).withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          _translateStatus(fStatus, isArabic),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: _getStatusColor(fStatus),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                if (portionItems.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      isArabic ? 'لا توجد عناصر مسجلة لهذا المتجر' : 'No items listed for this store',
+                                      style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                                    ),
+                                  )
+                                else
+                                  ListView.separated(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: portionItems.length,
+                                    separatorBuilder: (_, _) => Divider(height: 1, color: theme.colorScheme.onSurface.withValues(alpha: 0.06)),
+                                    itemBuilder: (ctx, idx) {
+                                      final it = portionItems[idx];
+                                      final name = it['productName']?.toString() ?? it['name']?.toString() ?? it['product']?['name']?.toString() ?? (isArabic ? 'عنصر' : 'Item');
+                                      final variant = it['variantName']?.toString();
+                                      final unit = it['selectedUnit']?.toString();
+                                      final qty = it['quantity']?.toString() ?? '1';
+                                      final price = (it['unitPrice'] as num?)?.toDouble() ?? (it['price'] as num?)?.toDouble() ?? 0.0;
+                                      final totalPrice = (it['totalPrice'] as num?)?.toDouble() ?? (price * (int.tryParse(qty) ?? 1));
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 24,
+                                              height: 24,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                qty,
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    name,
+                                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  if ((variant != null && variant.isNotEmpty) || (unit != null && unit.isNotEmpty))
+                                                    Text(
+                                                      [if (variant != null && variant.isNotEmpty) variant, if (unit != null && unit.isNotEmpty) unit].join(' • '),
+                                                      style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              '${totalPrice.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                              ],
+                            ),
+                          );
+                        }(),
+                      ],
+                      const SizedBox(height: 16),
+                    ] else if (items.isNotEmpty) ...[
                       Text(
                         isArabic ? 'عناصر الطلب' : 'Order Items',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
@@ -352,11 +504,16 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                           ),
                           itemBuilder: (ctx, idx) {
                             final it = items[idx];
-                            final name = it['name']?.toString() ??
+                            final name = it['productName']?.toString() ??
+                                it['name']?.toString() ??
                                 it['product']?['name']?.toString() ??
                                 (isArabic ? 'عنصر' : 'Item');
+                            final variant = it['variantName']?.toString();
+                            final unit = it['selectedUnit']?.toString();
                             final qty = it['quantity']?.toString() ?? '1';
-                            final price = (it['price'] as num?)?.toDouble() ?? 0.0;
+                            final price = (it['unitPrice'] as num?)?.toDouble() ??
+                                (it['price'] as num?)?.toDouble() ?? 0.0;
+                            final totalPrice = (it['totalPrice'] as num?)?.toDouble() ?? (price * (int.tryParse(qty) ?? 1));
 
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -381,16 +538,26 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Text(
-                                      name,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if ((variant != null && variant.isNotEmpty) || (unit != null && unit.isNotEmpty))
+                                          Text(
+                                            [if (variant != null && variant.isNotEmpty) variant, if (unit != null && unit.isNotEmpty) unit].join(' • '),
+                                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    '${price.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
+                                    '${totalPrice.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
                                 ],
