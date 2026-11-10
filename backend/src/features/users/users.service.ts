@@ -573,15 +573,24 @@ export class UsersService {
         });
       } else {
         if (dto.vendorId) {
+          const existingSameVendor = await tx.vendorMember.findFirst({
+            where: { userId, vendorId: dto.vendorId },
+            select: { branchId: true },
+          });
           await tx.vendorMember.deleteMany({
             where: { userId },
           });
+          const targetVendorRole =
+            (dto.vendorRole as VendorMemberRole) ?? VendorMemberRole.STAFF;
           await tx.vendorMember.create({
             data: {
               userId,
               vendorId: dto.vendorId,
-              role:
-                (dto.vendorRole as VendorMemberRole) ?? VendorMemberRole.STAFF,
+              role: targetVendorRole,
+              branchId:
+                targetVendorRole === VendorMemberRole.OWNER
+                  ? null
+                  : (existingSameVendor?.branchId ?? null),
             },
           });
         }

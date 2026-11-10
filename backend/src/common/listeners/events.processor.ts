@@ -913,6 +913,7 @@ export class EventsProcessor extends WorkerHost {
           customerId: true,
           customer: { select: { userId: true } },
           vendorId: true,
+          vendorBranchId: true,
           driverId: true,
           driver: { select: { userId: true } },
         },
@@ -927,22 +928,44 @@ export class EventsProcessor extends WorkerHost {
       let vendorUserIds: string[] = [];
       if (order.vendorId) {
         const members = await this.prisma.vendorMember.findMany({
-          where: { vendorId: order.vendorId },
+          where: {
+            vendorId: order.vendorId,
+            ...(order.vendorBranchId
+              ? {
+                  OR: [
+                    { role: 'OWNER' },
+                    { branchId: null },
+                    { branchId: order.vendorBranchId },
+                  ],
+                }
+              : {}),
+          },
           select: { userId: true },
         });
-        vendorUserIds = members.map((m) => m.userId);
+        vendorUserIds = Array.from(new Set(members.map((m) => m.userId)));
       } else {
         const fulfillments = await this.prisma.orderVendorFulfillment.findMany({
           where: { orderId },
-          select: { vendorId: true },
+          select: { vendorId: true, vendorBranchId: true },
         });
-        const vIds = [...new Set(fulfillments.map((f) => f.vendorId))];
-        if (vIds.length > 0) {
+        if (fulfillments.length > 0) {
+          const orClauses = fulfillments.map((f) => ({
+            vendorId: f.vendorId,
+            ...(f.vendorBranchId
+              ? {
+                  OR: [
+                    { role: 'OWNER' as const },
+                    { branchId: null },
+                    { branchId: f.vendorBranchId },
+                  ],
+                }
+              : {}),
+          }));
           const members = await this.prisma.vendorMember.findMany({
-            where: { vendorId: { in: vIds } },
+            where: { OR: orClauses },
             select: { userId: true },
           });
-          vendorUserIds = members.map((m) => m.userId);
+          vendorUserIds = Array.from(new Set(members.map((m) => m.userId)));
         }
       }
 

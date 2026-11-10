@@ -46,30 +46,50 @@ export class OrdersService {
     vendorId: string,
     dto: QueryOrdersDto,
   ) {
-    const [isMember, canManage] = await Promise.all([
-      this.prisma.vendorMember.findUnique({
-        where: { vendorId_userId: { vendorId, userId: actor.sub } },
-        select: { id: true, branchId: true },
-      }),
-      this.canManageOrders(actor.sub, actor.role),
-    ]);
+    let targetVendorId = vendorId?.trim();
+    const canManage = await this.canManageOrders(actor.sub, actor.role);
+    let isMember =
+      targetVendorId && targetVendorId !== 'my'
+        ? await this.prisma.vendorMember.findUnique({
+            where: { vendorId_userId: { vendorId: targetVendorId, userId: actor.sub } },
+            select: { id: true, vendorId: true, branchId: true, role: true },
+          })
+        : null;
+
+    if (!isMember) {
+      isMember = await this.prisma.vendorMember.findFirst({
+        where: { userId: actor.sub },
+        select: { id: true, vendorId: true, branchId: true, role: true },
+      });
+      if (isMember && (!targetVendorId || targetVendorId === 'my' || !canManage)) {
+        targetVendorId = isMember.vendorId;
+      }
+    }
 
     if (!isMember && !canManage) {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
     }
 
-    const branchId = !canManage && isMember?.branchId ? isMember.branchId : undefined;
+    if (!targetVendorId) {
+      return { orders: [], total: 0, page: dto.page ?? 1, limit: dto.limit ?? 20, totalPages: 0 };
+    }
+
+    const effectiveBranchId =
+      !canManage && isMember && isMember.role !== 'OWNER' && isMember.branchId
+        ? isMember.branchId
+        : undefined;
+
     const result = await this.ordersRepository.findMany({
       ...dto,
-      vendorId,
-      ...(branchId ? { branchId } : {}),
+      vendorId: targetVendorId,
+      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
     });
     result.orders = await Promise.all(
       result.orders.map((o: any) =>
-        this.projectOrderForRole(o, actor, vendorId, {
+        this.projectOrderForRole(o, actor, targetVendorId, {
           canManage,
-          vendorId,
-          memberBranchId: isMember?.branchId ?? null,
+          vendorId: targetVendorId,
+          memberBranchId: effectiveBranchId ?? null,
         }),
       ),
     );
@@ -103,6 +123,14 @@ export class OrdersService {
   async getOne(actor: JwtAccessPayload, orderId: string) {
     const order = await this.ordersRepository.findById(orderId);
 
+    if (actor.role === Role.DRIVER_MANAGER) {
+      const managed = await this.getManagedDriverIdsForUser(actor.sub);
+      if (!this.isOrderAssignedToDrivers(order, managed)) {
+        throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+      }
+      return this.enrichWithAdminHelpers(order);
+    }
+
     if (await this.canManageOrders(actor.sub, actor.role)) {
       return this.enrichWithAdminHelpers(order);
     }
@@ -121,7 +149,7 @@ export class OrdersService {
             where: {
               vendorId_userId: { vendorId: order.vendorId, userId: actor.sub },
             },
-            select: { id: true },
+            select: { id: true, vendorId: true, branchId: true, role: true },
           })
         : Promise.resolve(null),
     ]);
@@ -145,24 +173,48 @@ export class OrdersService {
 
     const isCustomerOwner = !!customer && order.customerId === customer.id;
 
-    let isPortionVendorStaff = !!vendorMember;
+    let isPortionVendorStaff = false;
     let matchingVendorId = order.vendorId ?? undefined;
+    let memberBranchId: string | null = null;
+
+    if (vendorMember) {
+      const effectiveBranch =
+        vendorMember.role === 'OWNER' ? null : (vendorMember.branchId ?? null);
+      if (
+        !effectiveBranch ||
+        !(order as any).vendorBranchId ||
+        (order as any).vendorBranchId === effectiveBranch
+      ) {
+        isPortionVendorStaff = true;
+        memberBranchId = effectiveBranch;
+      }
+    }
+
     if (!isCustomerOwner && !driverOwnsDelivery && !isPortionVendorStaff) {
+      const fulfillments = (((order as any).vendorFulfillments ?? []) as Array<{
+        vendorId: string;
+        vendorBranchId?: string | null;
+      }>);
       const portionVendorIds = Array.from(
-        new Set(
-          (((order as any).vendorFulfillments ?? []) as Array<{
-            vendorId: string;
-          }>).map((f) => f.vendorId),
-        ),
+        new Set(fulfillments.map((f) => f.vendorId)),
       );
       if (portionVendorIds.length > 0) {
-        const found = await this.prisma.vendorMember.findFirst({
+        const memberships = await this.prisma.vendorMember.findMany({
           where: { userId: actor.sub, vendorId: { in: portionVendorIds } },
-          select: { vendorId: true },
+          select: { vendorId: true, branchId: true, role: true },
+        });
+        const found = memberships.find((m) => {
+          const effBranch = m.role === 'OWNER' ? null : (m.branchId ?? null);
+          return fulfillments.some(
+            (f) =>
+              f.vendorId === m.vendorId &&
+              (!effBranch || !f.vendorBranchId || f.vendorBranchId === effBranch),
+          );
         });
         if (found) {
           isPortionVendorStaff = true;
           matchingVendorId = found.vendorId;
+          memberBranchId = found.role === 'OWNER' ? null : (found.branchId ?? null);
         }
       }
     }
@@ -174,15 +226,82 @@ export class OrdersService {
     return this.projectOrderForRole(order, actor, matchingVendorId, {
       driverId: driver?.id,
       driverTier: driver?.tier,
+      memberBranchId,
     });
   }
 
-  async adminFindAll(dto: QueryOrdersDto) {
+  async adminFindAll(dto: QueryOrdersDto, actor?: JwtAccessPayload) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      const managedDriverIds = await this.getManagedDriverIdsForUser(actor.sub);
+      if (managedDriverIds.length === 0) {
+        return {
+          orders: [],
+          total: 0,
+          page: dto.page ?? 1,
+          limit: dto.limit ?? 20,
+          totalPages: 0,
+        };
+      }
+      if (dto.driverId && !managedDriverIds.includes(dto.driverId)) {
+        return {
+          orders: [],
+          total: 0,
+          page: dto.page ?? 1,
+          limit: dto.limit ?? 20,
+          totalPages: 0,
+        };
+      }
+      const result = await this.ordersRepository.findMany({
+        ...dto,
+        driverIds: dto.driverId ? undefined : managedDriverIds,
+      });
+      result.orders = await Promise.all(
+        result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
+      );
+      return result;
+    }
+
     const result = await this.ordersRepository.findMany(dto);
     result.orders = await Promise.all(
       result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
     );
     return result;
+  }
+
+  async getManagedDriverIdsForUser(userId: string): Promise<string[]> {
+    const manager = await this.prisma.driverManager.findUnique({
+      where: { userId },
+      select: { id: true, manageAllDrivers: true },
+    });
+    if (!manager) return [];
+    if (manager.manageAllDrivers) {
+      const drivers = await this.prisma.driver.findMany({
+        where: { deletedAt: null },
+        select: { id: true },
+      });
+      return drivers.map((d) => d.id);
+    }
+    const assignments = await this.prisma.driverManagerAssignment.findMany({
+      where: { driverManagerId: manager.id },
+      select: { driverId: true },
+    });
+    return assignments.map((a) => a.driverId);
+  }
+
+  isOrderAssignedToDrivers(order: any, driverIds: string[]): boolean {
+    if (!order || driverIds.length === 0) return false;
+    const driverSet = new Set(driverIds);
+    if (order.driverId && driverSet.has(order.driverId)) return true;
+    if (order.assistDriverId && driverSet.has(order.assistDriverId)) return true;
+    const deliveryGroups = (order.deliveryGroups ?? []) as Array<{
+      primaryDriverId: string | null;
+      assistDriverId: string | null;
+    }>;
+    return deliveryGroups.some(
+      (g) =>
+        (g.primaryDriverId && driverSet.has(g.primaryDriverId)) ||
+        (g.assistDriverId && driverSet.has(g.assistDriverId)),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -603,12 +722,13 @@ export class OrdersService {
           userId: actor.sub,
           ...(vendorId ? { vendorId } : {}),
         },
-        select: { vendorId: true, branchId: true },
+        select: { vendorId: true, branchId: true, role: true },
       });
       if (!vendorId) {
         vendorId = order.vendorId ?? membership?.vendorId;
       }
-      memberBranchId = membership?.branchId ?? null;
+      memberBranchId =
+        membership?.role === 'OWNER' ? null : (membership?.branchId ?? null);
     } else if (!vendorId && order.vendorId) {
       vendorId = order.vendorId;
     }
@@ -637,7 +757,7 @@ export class OrdersService {
       const vendorFulfillments = order.vendorFulfillments.filter(
         (f: any) =>
           f.vendorId === vendorId &&
-          (!memberBranchId || f.vendorBranchId === memberBranchId),
+          (!memberBranchId || !f.vendorBranchId || f.vendorBranchId === memberBranchId),
       );
       // If a global owner has multiple branch fulfillments on the same order,
       // prefer the least-progressed active fulfillment for status/action projection.
@@ -748,11 +868,16 @@ export class OrdersService {
     const myFulfillmentOnly = (order.vendorFulfillments ?? []).filter(
       (f: any) =>
         f.vendorId === vendorId &&
-        (!memberBranchId || f.vendorBranchId === memberBranchId),
+        (!memberBranchId || !f.vendorBranchId || f.vendorBranchId === memberBranchId),
     );
+    const primaryFulfillment =
+      myFulfillmentOnly[0] ??
+      order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId);
 
     return {
       ...order,
+      vendorId: vendorId ?? order.vendorId,
+      vendorBranchId: primaryFulfillment?.vendorBranchId ?? order.vendorBranchId,
       // The caller's own portion drives the vendor-facing status; the raw
       // aggregate stays available as `orderStatus`.
       status: portionStatus ?? order.status,
@@ -770,8 +895,8 @@ export class OrdersService {
       total: vendorSubtotal,
       vendorFulfillments: myFulfillmentOnly,
       deliveryGroups: [],
-      vendor: order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId)?.vendor ?? order.vendor,
-      vendorBranch: order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId)?.vendorBranch ?? order.vendorBranch,
+      vendor: primaryFulfillment?.vendor ?? order.vendor,
+      vendorBranch: primaryFulfillment?.vendorBranch ?? order.vendorBranch,
       financials: {
         viewRole: 'VENDOR',
         storeSubtotal: vendorSubtotal,
@@ -1002,6 +1127,9 @@ export class OrdersService {
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {
+    if (role === Role.DRIVER_MANAGER) {
+      return false;
+    }
     if (role === Role.SUPER_ADMIN || role === Role.ADMIN) {
       return true;
     }
@@ -1011,7 +1139,6 @@ export class OrdersService {
     });
     return !!(
       user?.permissions.includes(Permission.MANAGE_ORDERS) ||
-      user?.permissions.includes(Permission.MANAGE_DRIVERS) ||
       user?.permissions.includes(Permission.MANAGE_VENDORS)
     );
   }

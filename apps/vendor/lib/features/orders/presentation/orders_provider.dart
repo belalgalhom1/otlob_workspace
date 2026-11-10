@@ -28,6 +28,13 @@ final ordersRefreshErrorProvider =
 class OrdersNotifier extends _$OrdersNotifier {
   @override
   AsyncValue<OrdersStateData> build() {
+    ref.listen<String?>(activeVendorProvider, (prev, next) {
+      if (next != null && next.isNotEmpty && next != prev) {
+        final currentParams =
+            state.hasValue ? state.value!.params : const <String, dynamic>{};
+        fetchOrders(params: currentParams);
+      }
+    });
     return const AsyncValue.loading();
   }
 
@@ -42,22 +49,39 @@ class OrdersNotifier extends _$OrdersNotifier {
       clear();
       return;
     }
+    final effectiveParams =
+        (params.isEmpty && state.hasValue && state.value!.params.isNotEmpty)
+            ? state.value!.params
+            : params;
     final isInitialLoad = !state.hasValue;
     if (isInitialLoad) {
       state = const AsyncValue.loading();
     }
 
     try {
-      final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
-      final status = params['status'];
-      final page = params['page'] ?? 1;
-      final limit = params['limit'] ?? 20;
+      final role = await authRepo.getUserRole();
+      final status = effectiveParams['status'];
+      final page = effectiveParams['page'] ?? 1;
+      final limit = effectiveParams['limit'] ?? 20;
 
       dynamic result;
       if (role == 'VENDOR_MEMBER') {
-        final vendorId = ref.read(activeVendorProvider);
+        String? vendorId = ref.read(activeVendorProvider);
+        if (vendorId == null || vendorId.isEmpty) {
+          final memberships = await authRepo.getVendorMemberships();
+          if (memberships.isNotEmpty && memberships.first is Map) {
+            vendorId = (memberships.first as Map)['vendorId']?.toString();
+            if (vendorId != null && vendorId.isNotEmpty) {
+              await ref
+                  .read(activeVendorProvider.notifier)
+                  .setActiveVendor(vendorId);
+            }
+          }
+        }
+        final targetVendorId =
+            (vendorId != null && vendorId.isNotEmpty) ? vendorId : 'my';
         result = await ref.read(vendorOrdersRepositoryProvider).ordersFindAll(
-          vendorId: vendorId ?? '',
+          vendorId: targetVendorId,
           page: page,
           limit: limit,
           status: status,
@@ -80,7 +104,7 @@ class OrdersNotifier extends _$OrdersNotifier {
         }
       }
       state = AsyncValue.data(
-        OrdersStateData(orders, result['total'] ?? 0, params),
+        OrdersStateData(orders, result['total'] ?? 0, effectiveParams),
       );
       ref.read(ordersRefreshErrorProvider.notifier).set(null);
     } catch (e, st) {
@@ -95,18 +119,29 @@ class OrdersNotifier extends _$OrdersNotifier {
   }
 
   
-  void updateOrderStatusFast(String orderId, String newStatus) {
+  void updateOrderStatusFast(
+    String orderId,
+    String newStatus, {
+    bool isFulfillmentDelta = false,
+  }) {
     if (state.hasValue) {
       final currentData = state.value!;
       final newOrders = List<dynamic>.from(currentData.orders);
       final index = newOrders.indexWhere((o) => o['id'] == orderId);
       if (index != -1) {
-        final Map<String, dynamic> updatedOrder = Map<String, dynamic>.from(newOrders[index]);
-        updatedOrder['status'] = newStatus;
-        newOrders[index] = updatedOrder;
-        state = AsyncValue.data(
-          OrdersStateData(newOrders, currentData.total, currentData.params)
-        );
+        final Map<String, dynamic> updatedOrder =
+            Map<String, dynamic>.from(newOrders[index]);
+        final isMultiVendorPortion = updatedOrder['myFulfillmentStatus'] != null;
+        if (!isMultiVendorPortion || isFulfillmentDelta) {
+          updatedOrder['status'] = newStatus;
+          if (isFulfillmentDelta && isMultiVendorPortion) {
+            updatedOrder['myFulfillmentStatus'] = newStatus;
+          }
+          newOrders[index] = updatedOrder;
+          state = AsyncValue.data(
+            OrdersStateData(newOrders, currentData.total, currentData.params),
+          );
+        }
       }
     }
   }

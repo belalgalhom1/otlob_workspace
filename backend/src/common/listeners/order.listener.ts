@@ -16,6 +16,7 @@ import {
   OrderSettledEvent,
   OrderPaymentStatusChangedEvent,
   OrderFulfillmentUpdatedEvent,
+  OrderFulfillmentDecidedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
 import {
@@ -224,6 +225,41 @@ export class OrderListener {
       );
     }
 }
+
+  // ─── Order fulfillment decided (Vendor Accept / Reject) ───────────────────
+
+  @OnEvent(EVENTS.ORDER_FULFILLMENT_DECIDED)
+  async handleOrderFulfillmentDecided(event: OrderFulfillmentDecidedEvent) {
+    const notifyUserIds = new Set<string>([
+      event.customerUserId,
+      ...(event.vendorUserIds ?? []),
+    ]);
+
+    const deltaPayload = {
+      orderId: event.orderId,
+      orderNumber: event.orderNumber,
+      fulfillmentId: event.fulfillmentId,
+      vendorId: event.vendorId,
+      status: event.status,
+      fulfillmentStatus: event.status,
+    };
+
+    notifyUserIds.forEach((uid) => {
+      if (!uid) return;
+      this.socketService
+        .emitToUser(uid, 'order.fulfillment_updated', deltaPayload)
+        .catch(() => {});
+      this.socketService
+        .emitToUser(uid, WS.ORDER_STATUS, {
+          orderId: event.orderId,
+          orderNumber: event.orderNumber,
+          fulfillmentId: event.fulfillmentId,
+          fulfillmentStatus: event.status,
+          vendorId: event.vendorId,
+        })
+        .catch(() => {});
+    });
+  }
 
   // ─── Order fulfillment updated (Multi-Vendor Delta) ───────────────────────
 

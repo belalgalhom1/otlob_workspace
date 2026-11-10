@@ -148,12 +148,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
       // Administrative data only for admins
       if (!isVendor) {
-        if (_hasPermission('MANAGE_ORDERS')) {
+        if (_hasPermission('MANAGE_ORDERS') || _userRole == 'DRIVER_MANAGER') {
           ref
               .read(ordersProvider.notifier)
-              .fetchOrders(
-                params: {'limit': 1},
-              ); // Fetch to get total orders count
+              .fetchOrders();
         }
         if (_hasPermission('MANAGE_VENDORS')) {
           ref.read(verticalProvider.notifier).fetchVerticals();
@@ -173,9 +171,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       } else {
         ref
             .read(ordersProvider.notifier)
-            .fetchOrders(
-              params: {'limit': 1},
-            ); // Vendor members need total orders too
+            .fetchOrders();
       }
     }
   }
@@ -575,6 +571,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       3,
                       LucideIcons.truck,
                       AppLocalizations.of(context)!.drivers,
+                      isMobile,
+                    ),
+                    _buildMenuItem(
+                      1,
+                      LucideIcons.shoppingBag,
+                      AppLocalizations.of(context)!.orders,
                       isMobile,
                     ),
                     _buildMenuItem(
@@ -1014,7 +1016,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return [0, 1, 2, 5, 6, 17, 11];
     }
     if (_userRole == 'DRIVER_MANAGER') {
-      return [3, 15, 18, 11, 6, 17];
+      return [3, 1, 15, 18, 11, 6, 17];
     }
     final pages = <int>[];
     void add(int index, bool visible) {
@@ -1068,7 +1070,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildContent(bool isMobile, [int? index]) {
     final pageIndex = index ?? _selectedIndex;
     if (_userRole == 'DRIVER_MANAGER' &&
-        ![3, 15, 18, 11, 6, 17].contains(pageIndex)) {
+        ![3, 1, 15, 18, 11, 6, 17].contains(pageIndex)) {
       return const DriversScreen();
     }
     switch (pageIndex) {

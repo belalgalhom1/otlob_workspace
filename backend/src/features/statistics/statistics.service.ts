@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { CommonErrors } from '../../common/constants/response.constants';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -1382,7 +1383,14 @@ export class StatisticsService {
     limit = 30,
     from?: string,
     to?: string,
+    actor?: JwtAccessPayload,
   ) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      const managed = await this.resolveManagedDriverIds(actor);
+      if (!managed || !managed.includes(driverId)) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+    }
     return this.statsRepository.getDriverStats(
       driverId,
       period,

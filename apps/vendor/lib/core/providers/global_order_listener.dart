@@ -55,11 +55,16 @@ final globalOrderListenerProvider = Provider<void>((ref) {
         );
         return;
       }
-      final newStatus = data['newStatus'] ?? data['status'];
+      final fulfillmentStatus = data['fulfillmentStatus'];
+      final newStatus = fulfillmentStatus ?? data['newStatus'] ?? data['status'];
       if (newStatus != null) {
         ref
             .read(ordersProvider.notifier)
-            .updateOrderStatusFast(orderId, newStatus.toString());
+            .updateOrderStatusFast(
+              orderId,
+              newStatus.toString(),
+              isFulfillmentDelta: fulfillmentStatus != null,
+            );
       }
       fetchOrders();
     }
@@ -82,6 +87,12 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       .onEvent(SocketEvent.orderStatus)
       .listen(handleOrderEvent);
 
+  final orderFulfillmentSub = socketService
+      .onEvent(SocketEvent.orderFulfillmentUpdated)
+      .listen((data) {
+    fetchOrders();
+  });
+
   final orderCancelledSub = socketService
       .onEvent(SocketEvent.orderCancelled)
       .listen(handleOrderEvent);
@@ -97,6 +108,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
   ref.onDispose(() {
     orderNewSub.cancel();
     orderStatusSub.cancel();
+    orderFulfillmentSub.cancel();
     orderCancelledSub.cancel();
     pushSub.cancel();
     lifecycleObserver.dispose();

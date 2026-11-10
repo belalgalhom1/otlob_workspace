@@ -135,8 +135,11 @@ export class OrdersMultiVendorService {
       new Set(
         (
           await Promise.all(
-            vendorIds.map((vendorId) =>
-              this.ordersRepository.getVendorUserIds(vendorId),
+            plan.portions.map((portion) =>
+              this.ordersRepository.getVendorUserIds(
+                portion.vendorId,
+                portion.vendorBranchId,
+              ),
             ),
           )
         ).flat(),

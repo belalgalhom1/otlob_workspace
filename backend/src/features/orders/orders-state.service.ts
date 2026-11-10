@@ -116,12 +116,17 @@ export class OrdersStateService {
   ) {
     const order = await this.ordersRepository.findById(orderId);
 
-    let isMember: { id: string; branchId: string | null; vendorId?: string } | null = order.vendorId
+    let isMember: {
+      id: string;
+      branchId: string | null;
+      role?: string;
+      vendorId?: string;
+    } | null = order.vendorId
       ? await this.prisma.vendorMember.findUnique({
           where: {
             vendorId_userId: { vendorId: order.vendorId, userId: actor.sub },
           },
-          select: { id: true, branchId: true },
+          select: { id: true, branchId: true, role: true, vendorId: true },
         })
       : null;
 
@@ -132,28 +137,47 @@ export class OrdersStateService {
       const portionVendorIds = Array.from(
         new Set(fulfillments.map((f: any) => f.vendorId)),
       ) as string[];
-      const member = await this.prisma.vendorMember.findFirst({
+      const members = await this.prisma.vendorMember.findMany({
         where: {
           userId: actor.sub,
           vendorId: { in: portionVendorIds },
         },
-        select: { id: true, branchId: true, vendorId: true },
+        select: { id: true, branchId: true, role: true, vendorId: true },
       });
+      const member =
+        members.find((m) => {
+          const effBranch = m.role === 'OWNER' ? null : m.branchId;
+          return fulfillments.some(
+            (f: any) =>
+              f.vendorId === m.vendorId &&
+              (!effBranch || !f.vendorBranchId || f.vendorBranchId === effBranch),
+          );
+        }) ?? members[0];
       if (member) {
         isMember = member;
+        const effectiveBranchId =
+          member.role === 'OWNER' ? null : member.branchId;
         const vendorPortions = fulfillments.filter(
           (f: any) => f.vendorId === member.vendorId,
         );
-        matchingFulfillments = member.branchId
-          ? vendorPortions.filter((f: any) => f.vendorBranchId === member.branchId)
+        matchingFulfillments = effectiveBranchId
+          ? vendorPortions.filter(
+              (f: any) =>
+                !f.vendorBranchId || f.vendorBranchId === effectiveBranchId,
+            )
           : vendorPortions;
       }
     } else if (isMember && fulfillments.length > 0) {
+      const effectiveBranchId =
+        isMember.role === 'OWNER' ? null : isMember.branchId;
       const vendorPortions = fulfillments.filter(
         (f: any) => f.vendorId === order.vendorId,
       );
-      matchingFulfillments = isMember.branchId
-        ? vendorPortions.filter((f: any) => f.vendorBranchId === isMember!.branchId)
+      matchingFulfillments = effectiveBranchId
+        ? vendorPortions.filter(
+            (f: any) =>
+              !f.vendorBranchId || f.vendorBranchId === effectiveBranchId,
+          )
         : vendorPortions;
     }
 
@@ -167,19 +191,22 @@ export class OrdersStateService {
       matchingFulfillments = fulfillments;
     }
 
+    const memberEffectiveBranchId =
+      isMember && isMember.role !== 'OWNER' ? isMember.branchId : null;
+
     if (
       isMember &&
-      isMember.branchId &&
+      memberEffectiveBranchId &&
       fulfillments.length > 0 &&
       matchingFulfillments.length === 0
     ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
     } else if (
       isMember &&
-      isMember.branchId &&
+      memberEffectiveBranchId &&
       fulfillments.length === 0 &&
       (order as any).vendorBranchId &&
-      isMember.branchId !== (order as any).vendorBranchId
+      memberEffectiveBranchId !== (order as any).vendorBranchId
     ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
     }
@@ -379,7 +406,64 @@ export class OrdersStateService {
     }
     await this.recomputeVendorReadinessStatus(actor.sub, order.id, group.id);
 
-    return this.ordersRepository.findById(order.id);
+    const fresh = await this.ordersRepository.findById(order.id);
+    try {
+      const customerUid =
+        (fresh as any).customer?.user?.id ??
+        (fresh as any).customer?.userId ??
+        fresh.customerId;
+      const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
+        order.id,
+        fresh.vendorId,
+      );
+      const groupWithDriver = await this.prisma.orderDeliveryGroup.findUnique({
+        where: { id: group.id },
+        select: {
+          primaryDriver: { select: { userId: true } },
+          assistDriver: { select: { userId: true } },
+        },
+      });
+      const driverUserIds = [
+        groupWithDriver?.primaryDriver?.userId,
+        groupWithDriver?.assistDriver?.userId,
+      ].filter((id): id is string => Boolean(id));
+      const allFulfillments = ((fresh as any).vendorFulfillments ?? []) as any[];
+      const liveFulfillments = allFulfillments.filter(
+        (f) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+      );
+      const completedStops = liveFulfillments.filter((f) => Boolean(f.pickedUpAt)).length;
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_FULFILLMENT_UPDATED,
+        new OrderFulfillmentUpdatedEvent(
+          order.id,
+          fresh.orderNumber,
+          fulfillment.id,
+          customerUid,
+          vendorUserIds,
+          driverUserIds,
+          targetStatus,
+          null,
+          null,
+          fresh.status,
+          {
+            totalStops: liveFulfillments.length,
+            completedStops,
+            currentStopSequence: 1,
+            currentStopBranchName: null,
+            isFullyCollected: false,
+          },
+          actor.sub,
+          fresh.revision,
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to emit fulfillment production delta for ${order.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    return fresh;
   }
 
   /**
@@ -1871,6 +1955,7 @@ export class OrdersStateService {
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {
+    if (role === Role.DRIVER_MANAGER) return false;
     if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -1878,7 +1963,6 @@ export class OrdersStateService {
     });
     return !!(
       user?.permissions.includes(Permission.MANAGE_ORDERS) ||
-      user?.permissions.includes(Permission.MANAGE_DRIVERS) ||
       user?.permissions.includes(Permission.MANAGE_VENDORS)
     );
   }

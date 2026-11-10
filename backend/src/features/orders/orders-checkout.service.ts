@@ -137,6 +137,7 @@ export class OrdersCheckoutService {
     if (created.created) {
       const vendorUserIds = await this.ordersRepository.getVendorUserIds(
         dto.vendorId,
+        money.branch?.id ?? null,
       );
 
       this.eventEmitter.emit(

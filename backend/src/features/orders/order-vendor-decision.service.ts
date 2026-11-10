@@ -306,6 +306,12 @@ export class OrderVendorDecisionService {
       },
     });
 
+    await this.emitDecided(
+      fulfillment,
+      OrderVendorFulfillmentStatus.REJECTED,
+      actorSub,
+    );
+
     this.eventEmitter.emit(
       EVENTS.ORDER_VENDOR_REJECTED,
       new OrderVendorRejectedEvent(
@@ -357,10 +363,13 @@ export class OrderVendorDecisionService {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
     }
 
-    const membershipConditions = memberships.map((m) => ({
-      vendorId: m.vendorId,
-      ...(m.branchId ? { vendorBranchId: m.branchId } : {}),
-    }));
+    const membershipConditions: Prisma.OrderVendorFulfillmentWhereInput[] =
+      memberships.map((m) => ({
+        vendorId: m.vendorId,
+        ...(m.role !== VendorMemberRole.OWNER && m.branchId
+          ? { OR: [{ vendorBranchId: m.branchId }, { vendorBranchId: null }] }
+          : {}),
+      }));
     return this.prisma.orderVendorFulfillment.findMany({
       where: {
         OR: membershipConditions,
@@ -383,16 +392,21 @@ export class OrderVendorDecisionService {
 
     const member = await this.prisma.vendorMember.findUnique({
       where: { vendorId_userId: { vendorId, userId: actor.sub } },
-      select: { id: true, branchId: true },
+      select: { id: true, branchId: true, role: true },
     });
     if (!member) {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
     }
 
+    const effectiveBranchId =
+      member.role === VendorMemberRole.OWNER ? null : member.branchId;
+
     return this.prisma.orderVendorFulfillment.findMany({
       where: {
         vendorId,
-        ...(member.branchId ? { vendorBranchId: member.branchId } : {}),
+        ...(effectiveBranchId
+          ? { OR: [{ vendorBranchId: effectiveBranchId }, { vendorBranchId: null }] }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: this.fulfillmentInclude(),
@@ -450,12 +464,13 @@ export class OrderVendorDecisionService {
           where: {
             vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
           },
-          select: { id: true, branchId: true },
+          select: { id: true, branchId: true, role: true },
         });
         if (!member) {
           throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
         }
         if (
+          member.role !== VendorMemberRole.OWNER &&
           member.branchId &&
           fulfillment.vendorBranchId &&
           member.branchId !== fulfillment.vendorBranchId
@@ -492,7 +507,12 @@ export class OrderVendorDecisionService {
   }
 
   private async emitDecided(
-    fulfillment: { id: string; orderId: string; vendorId: string },
+    fulfillment: {
+      id: string;
+      orderId: string;
+      vendorId: string;
+      vendorBranchId?: string | null;
+    },
     status: OrderVendorFulfillmentStatus,
     actorUserId: string,
   ): Promise<void> {
@@ -505,7 +525,10 @@ export class OrderVendorDecisionService {
           customer: { select: { userId: true } },
         },
       }),
-      this.ordersRepository.getVendorUserIds(fulfillment.vendorId),
+      this.ordersRepository.getVendorUserIds(
+        fulfillment.vendorId,
+        fulfillment.vendorBranchId,
+      ),
     ]);
     if (!order) return;
 

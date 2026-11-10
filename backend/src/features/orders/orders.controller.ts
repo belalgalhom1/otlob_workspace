@@ -10,7 +10,9 @@ import {
   HttpCode,
   HttpStatus,
   UploadedFile,
+  ForbiddenException,
 } from '@nestjs/common';
+import { CommonErrors } from '../../common/constants/response.constants';
 import { ApiFileUpload } from '../../common/decorators/api-file-upload.decorator';
 import { OrdersService } from './orders.service';
 import { DispatchService } from '../dispatch/dispatch.service';
@@ -392,22 +394,40 @@ export class OrdersController {
 
   @ApiStandardResponse()
   @Get()
-  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, { mode: 'any' })
+  @RequirePermissions(
+    Permission.MANAGE_ORDERS,
+    Permission.MANAGE_VENDORS,
+    Permission.MANAGE_DRIVERS,
+    { mode: 'any' },
+  )
   @ApiOperation({ summary: '[Admin] List all orders with filters' })
-  adminFindAll(@Query() dto: QueryOrdersDto) {
-    return this.ordersService.adminFindAll(dto);
+  adminFindAll(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Query() dto: QueryOrdersDto,
+  ) {
+    return this.ordersService.adminFindAll(dto, actor);
   }
 
   @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/assign-driver')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions(Permission.MANAGE_ORDERS)
+  @RequirePermissions(
+    Permission.MANAGE_ORDERS,
+    Permission.MANAGE_DRIVERS,
+    { mode: 'any' },
+  )
   @ApiOperation({ summary: '[Admin] Force-assign a driver to an order' })
   async adminForceAssignDriver(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
     @Body() dto: AdminAssignDriverDto,
   ) {
+    if (actor.role === Role.DRIVER_MANAGER) {
+      const managed = await this.ordersService.getManagedDriverIdsForUser(actor.sub);
+      if (!managed.includes(dto.driverId)) {
+        throw new ForbiddenException(CommonErrors.FORBIDDEN);
+      }
+    }
     const order = await this.stateService.adminForceAssignDriver(actor, orderId, dto);
     return this.ordersService.projectOrderForRole(order, actor);
   }

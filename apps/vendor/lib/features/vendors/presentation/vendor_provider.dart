@@ -2,7 +2,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:api/api.dart';
-import 'package:dio/dio.dart';
 import 'package:built_value/json_object.dart';
 import 'package:core/core.dart';
 
@@ -30,8 +29,14 @@ class VendorNotifier extends _$VendorNotifier {
       final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
       
       if (role == 'VENDOR_MEMBER') {
-         final vId = vendorId ?? ref.read(activeVendorProvider);
-         if (vId != null) {
+         var vId = vendorId ?? ref.read(activeVendorProvider);
+         if (vId == null || vId.isEmpty) {
+           final memberships = await ref.read(sharedAuthRepositoryProvider).getVendorMemberships();
+           if (memberships.isNotEmpty && memberships.first is Map) {
+             vId = (memberships.first as Map)['vendorId']?.toString();
+           }
+         }
+         if (vId != null && vId.isNotEmpty) {
            final vendor = await ref.read(vendorProfileRepositoryProvider).vendorProfileFind(vId);
            if (vendor != null) {
              state = AsyncValue.data(VendorStateData(vendors: [vendor], total: 1));

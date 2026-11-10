@@ -240,6 +240,7 @@ export class StatisticsController {
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
   getDriverStats(
+    @CurrentUser() actor: JwtAccessPayload,
     @Param('driverId') driverId: string,
     @Query() dto: StatsQueryDto,
   ) {
@@ -249,6 +250,7 @@ export class StatisticsController {
       dto.limit,
       dto.from,
       dto.to,
+      actor,
     );
   }
 

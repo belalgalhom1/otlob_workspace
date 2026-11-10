@@ -89,6 +89,7 @@ export interface OrderFilters {
   branchId?: string;
   customerId?: string;
   driverId?: string;
+  driverIds?: string[];
   page?: number;
   limit?: number;
 }
@@ -149,7 +150,17 @@ function portionStatusFilter(
     case OrderStatus.DELIVERED:
       return {
         status: { notIn: ['REJECTED', 'CANCELLED'] },
-        deliveredAt: { not: null },
+        OR: [
+          { deliveredAt: { not: null } },
+          { order: { status: OrderStatus.DELIVERED } },
+          {
+            groups: {
+              some: {
+                deliveryGroup: { status: DeliveryGroupStatus.DELIVERED },
+              },
+            },
+          },
+        ],
       };
     case OrderStatus.CANCELLED:
       return { status: { in: ['REJECTED', 'CANCELLED'] } };
@@ -365,16 +376,29 @@ export class OrdersRepository {
     // hide it from every other vendor that owns a portion and every other
     // delivery's driver. Match those through the portions/groups too.
     const and: Prisma.OrderWhereInput[] = [];
+    const fulfillmentBranchClause: Prisma.OrderVendorFulfillmentWhereInput =
+      filters.branchId
+        ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
+        : {};
+    const orderBranchClause: Prisma.OrderWhereInput = filters.branchId
+      ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
+      : {};
+
     if (filters.status) {
       if (filters.vendorId) {
         // Vendor tabs are portion-scoped (see portionStatusFilter).
         and.push({
           OR: [
-            { vendorId: filters.vendorId, status: filters.status },
+            {
+              vendorId: filters.vendorId,
+              status: filters.status,
+              ...orderBranchClause,
+            },
             {
               vendorFulfillments: {
                 some: {
                   vendorId: filters.vendorId,
+                  ...fulfillmentBranchClause,
                   ...portionStatusFilter(filters.status),
                 },
               },
@@ -390,23 +414,50 @@ export class OrdersRepository {
         OR: [
           {
             vendorId: filters.vendorId,
-            ...(filters.branchId ? { vendorBranchId: filters.branchId } : {}),
+            ...orderBranchClause,
           },
           {
             vendorFulfillments: {
               some: {
                 vendorId: filters.vendorId,
-                ...(filters.branchId ? { vendorBranchId: filters.branchId } : {}),
+                ...fulfillmentBranchClause,
               },
             },
           },
         ],
       });
     }
-    if (filters.driverId) {
+    if (filters.driverIds !== undefined) {
+      if (filters.driverIds.length === 0) {
+        return {
+          orders: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        };
+      }
+      and.push({
+        OR: [
+          { driverId: { in: filters.driverIds } },
+          { assistDriverId: { in: filters.driverIds } },
+          {
+            deliveryGroups: {
+              some: {
+                OR: [
+                  { primaryDriverId: { in: filters.driverIds } },
+                  { assistDriverId: { in: filters.driverIds } },
+                ],
+              },
+            },
+          },
+        ],
+      });
+    } else if (filters.driverId) {
       and.push({
         OR: [
           { driverId: filters.driverId },
+          { assistDriverId: filters.driverId },
           {
             deliveryGroups: {
               some: {
@@ -1521,13 +1572,27 @@ export class OrdersRepository {
     return this.prisma.cart.deleteMany({ where: { customerId, vendorId } });
   }
 
-  async getVendorUserIds(vendorId: string | null): Promise<string[]> {
+  async getVendorUserIds(
+    vendorId: string | null,
+    branchId?: string | null,
+  ): Promise<string[]> {
     if (!vendorId) return [];
     const members = await this.prisma.vendorMember.findMany({
-      where: { vendorId },
+      where: {
+        vendorId,
+        ...(branchId
+          ? {
+              OR: [
+                { role: 'OWNER' },
+                { branchId: null },
+                { branchId },
+              ],
+            }
+          : {}),
+      },
       select: { userId: true },
     });
-    return members.map((m) => m.userId);
+    return Array.from(new Set(members.map((m) => m.userId)));
   }
 
   /**
@@ -1535,24 +1600,38 @@ export class OrdersRepository {
    *
    * Single-vendor orders resolve from the order's own vendor. Multi-vendor
    * orders carry no order-level vendor (`vendorId` is null), so the union of
-   * every portion vendor's members is returned instead — otherwise no vendor
-   * would ever receive status/socket updates for its own delivery.
+   * every portion vendor's members (scoped by branch for non-owners) is returned
+   * instead — otherwise no vendor would ever receive status/socket updates for
+   * its own delivery.
    */
   async getOrderVendorUserIds(
     orderId: string,
     orderVendorId: string | null,
+    orderBranchId?: string | null,
   ): Promise<string[]> {
-    if (orderVendorId) return this.getVendorUserIds(orderVendorId);
+    if (orderVendorId) return this.getVendorUserIds(orderVendorId, orderBranchId);
 
     const portions = await this.prisma.orderVendorFulfillment.findMany({
       where: { orderId },
-      select: { vendorId: true },
+      select: { vendorId: true, vendorBranchId: true },
     });
-    const vendorIds = Array.from(new Set(portions.map((p) => p.vendorId)));
-    if (vendorIds.length === 0) return [];
+    if (portions.length === 0) return [];
+
+    const orClauses: Prisma.VendorMemberWhereInput[] = portions.map((p) => ({
+      vendorId: p.vendorId,
+      ...(p.vendorBranchId
+        ? {
+            OR: [
+              { role: 'OWNER' },
+              { branchId: null },
+              { branchId: p.vendorBranchId },
+            ],
+          }
+        : {}),
+    }));
 
     const members = await this.prisma.vendorMember.findMany({
-      where: { vendorId: { in: vendorIds } },
+      where: { OR: orClauses },
       select: { userId: true },
     });
     return Array.from(new Set(members.map((m) => m.userId)));

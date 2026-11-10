@@ -2305,6 +2305,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final theme = Theme.of(context);
     final canManagePortions = _userRole == 'SUPER_ADMIN' ||
         _userRole == 'ADMIN' ||
+        _userRole == 'VENDOR_MEMBER' ||
         _canManageVendors ||
         _canManageOrders;
 
@@ -3820,7 +3821,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     // the only remaining vendor action is production, so the Cancel button must
     // not offer a rejection the backend will refuse.
     final isMultiVendorPortion = order['myFulfillmentStatus'] != null;
-    final canCancelPortion = !isMultiVendorPortion || status == 'PENDING';
+    final canCancelPortion = !isMultiVendorPortion || status == 'PENDING' || status == 'ACCEPTED' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT' || status == 'PREPARING' || status == 'READY_FOR_PICKUP';
 
     String mainButtonText = '';
     String nextStatus = '';
