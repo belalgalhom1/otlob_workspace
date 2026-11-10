@@ -323,7 +323,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                         color: widget.isDark ? Colors.white : Colors.black,
                         letterSpacing: -0.4,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 10),

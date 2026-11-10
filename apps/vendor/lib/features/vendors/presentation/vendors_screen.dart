@@ -624,7 +624,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                         color: theme.colorScheme.onSurface,
                         letterSpacing: -0.3,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
 
@@ -647,7 +647,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                               fontWeight: FontWeight.w500,
                               color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

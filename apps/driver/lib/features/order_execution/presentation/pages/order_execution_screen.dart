@@ -961,7 +961,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                         ? (order['pickupAddress']?.toString() ?? (isAr ? 'موقع الاستلام' : 'Pickup Location'))
                                         : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback))),
                             style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (!isDelivering && currentStop != null && (currentStop['address'] as String).isNotEmpty) ...[
@@ -969,7 +969,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                             Text(
                               currentStop['address'],
                               style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],

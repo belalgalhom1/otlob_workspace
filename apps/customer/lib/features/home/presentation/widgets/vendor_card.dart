@@ -134,7 +134,7 @@ class VendorCard extends ConsumerWidget {
                         fontWeight: FontWeight.w900,
                         fontSize: 18,
                         letterSpacing: -0.5,
-                      ), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      ), maxLines: 2, overflow: TextOverflow.ellipsis)),
                       Builder(builder: (context) {
                         double rating = double.tryParse(vendor['rating']?.toString() ?? '0') ?? 0;
                         int ratingCount = int.tryParse(vendor['ratingCount']?.toString() ?? '0') ?? 0;

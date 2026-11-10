@@ -529,7 +529,7 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
                 Expanded(
                   child: Text(
                     '${isAr ? "السبب:" : "Reason:"} ${_breakReasonLabel(l10n, pending['reason']?.toString())}',
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
@@ -774,7 +774,7 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
                     Expanded(
                       child: Text(
                         reason,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 15,

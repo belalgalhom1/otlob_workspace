@@ -237,7 +237,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                 Expanded(
                   child: Text(
                     vendorName.isNotEmpty ? vendorName : l10n.unknown,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
@@ -259,7 +259,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                   Expanded(
                     child: Text(
                       dropoffAddress,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,

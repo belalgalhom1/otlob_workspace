@@ -252,7 +252,8 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                   letterSpacing: -0.5,
                                   color: isDark ? Colors.white : Colors.black,
                                 ), 
-                                overflow: TextOverflow.ellipsis
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               )
                             ),
                             Row(children: [
@@ -305,7 +306,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                         fontWeight: FontWeight.w600,
                                         color: isDark ? Colors.white70 : Colors.black87,
                                       ),
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -760,7 +761,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             fontSize: 12,
                             height: 1.3,
                           ), 
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -810,8 +811,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             ),
                         ],
                       ),
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
                     );
                   }),
                   if (isOpen) ...[
