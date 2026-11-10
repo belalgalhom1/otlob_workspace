@@ -4,10 +4,6 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to location when open to set vendor branch locations.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs access to location to set vendor branch locations.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -30,6 +26,78 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Location Permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location when open to pinpoint vendor store branches and delivery coverage zones.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to location to pinpoint vendor store branches and delivery coverage zones.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs access to location to pinpoint vendor store branches and delivery coverage zones.</string>
+
+	<!-- Media & Camera Permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires access to your camera to capture product photos, storefront images, and menu items.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to your photo library to upload product images, store banners, and logos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app requires access to save invoices, financial reports, and product photos to your photo library.</string>
+
+	<!-- Microphone / Audio Recording Permissions -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app requires access to your microphone to record voice messages in order support chat.</string>
+
+	<!-- Background Modes for Push Notifications -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- URL Schemes to Query -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>sms</string>
+		<string>https</string>
+		<string>http</string>
+		<string>whatsapp</string>
+		<string>comgooglemaps</string>
+		<string>maps</string>
+	</array>
+
+	<!-- Supported App Languages -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ar</string>
+		<string>en</string>
+	</array>
+
+	<!-- URL Types for Google Sign-In -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.818727905926-bbsknrt1aqvpcs11u2qngf4onegrtsu0</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Network Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

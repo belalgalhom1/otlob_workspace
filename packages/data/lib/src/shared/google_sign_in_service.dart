@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleSignInService {
@@ -8,8 +10,10 @@ class GoogleSignInService {
 
   static Future<void> _ensureInitialized() async {
     if (_initialized) return;
+    final isIos = !kIsWeb && Platform.isIOS;
     await GoogleSignIn.instance.initialize(
       serverClientId: serverClientId,
+      clientId: isIos ? serverClientId : null,
     );
     _initialized = true;
   }

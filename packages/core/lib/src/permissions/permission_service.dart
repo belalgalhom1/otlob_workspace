@@ -61,6 +61,46 @@ class PermissionService {
     
     return false;
   }
+
+  /// Request Microphone permissions globally (for chat voice notes / audio recording)
+  Future<bool> requestMicrophonePermission() async {
+    if (kIsWeb) return true;
+
+    final status = await Permission.microphone.status;
+    if (status.isGranted) return true;
+
+    if (status.isDenied) {
+      final result = await Permission.microphone.request();
+      return result.isGranted;
+    }
+
+    if (status.isPermanentlyDenied) {
+      debugPrint('PermissionService: Microphone permission permanently denied.');
+      return false;
+    }
+
+    return false;
+  }
+
+  /// Request Photos permissions globally (supporting iOS 14+ limited photo library)
+  Future<bool> requestPhotosPermission() async {
+    if (kIsWeb) return true;
+
+    final status = await Permission.photos.status;
+    if (status.isGranted || status.isLimited) return true;
+
+    if (status.isDenied) {
+      final result = await Permission.photos.request();
+      return result.isGranted || result.isLimited;
+    }
+
+    if (status.isPermanentlyDenied) {
+      debugPrint('PermissionService: Photos permission permanently denied.');
+      return false;
+    }
+
+    return false;
+  }
   
   /// Open device app settings
   Future<bool> openSettings() async {

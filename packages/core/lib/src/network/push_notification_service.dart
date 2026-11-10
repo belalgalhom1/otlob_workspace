@@ -24,6 +24,14 @@ class PushNotificationService {
       debugPrint('User granted permission for push notifications');
     }
 
+    try {
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    } catch (_) {}
+
     // Initialize local notifications for foreground display
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
@@ -110,7 +118,11 @@ class PushNotificationService {
       importance: Importance.max,
       priority: Priority.high,
     );
-    const iosDetails = DarwinNotificationDetails();
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     _localNotifications.show(

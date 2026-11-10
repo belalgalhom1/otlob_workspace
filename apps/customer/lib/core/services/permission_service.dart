@@ -12,11 +12,11 @@ PermissionService permissionService(Ref ref) => PermissionService();
 class PermissionService {
   Future<bool> requestPermission(Permission permission) async {
     final status = await permission.status;
-    if (status.isGranted) return true;
+    if (status.isGranted || status.isLimited) return true;
     if (status.isPermanentlyDenied) throw PermissionPermanentlyDeniedException();
 
     final result = await permission.request();
-    return result.isGranted;
+    return result.isGranted || result.isLimited;
   }
 
   Future<bool> requestGalleryPermission() async {
