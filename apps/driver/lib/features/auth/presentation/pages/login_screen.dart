@@ -248,6 +248,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         );
                       },
                     ),
+                    const SizedBox(height: 32),
+                    Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'بتسجيل الدخول، فإنك توافق على '
+                                : 'By signing in, you agree to the ',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => context.push(
+                              '/legal-document',
+                              extra: {'type': 'TERMS_OF_USE', 'title': l10n.terms},
+                            ),
+                            child: Text(
+                              l10n.terms,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            Localizations.localeOf(context).languageCode == 'ar'
+                                ? ' و '
+                                : ' and ',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => context.push(
+                              '/legal-document',
+                              extra: {'type': 'PRIVACY_POLICY', 'title': l10n.privacy},
+                            ),
+                            child: Text(
+                              l10n.privacy,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

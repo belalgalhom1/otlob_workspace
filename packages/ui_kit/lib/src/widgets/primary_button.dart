@@ -47,10 +47,18 @@ class PrimaryButton extends StatelessWidget {
                   children: [
                     Icon(icon, size: 18, color: effectiveFg),
                     const SizedBox(width: 8),
-                    Text(text, style: TextStyle(color: effectiveFg, fontWeight: FontWeight.bold)),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(text, style: TextStyle(color: effectiveFg, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                   ],
                 )
-              : Text(text, style: TextStyle(color: effectiveFg, fontWeight: FontWeight.bold))),
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(text, style: TextStyle(color: effectiveFg, fontWeight: FontWeight.bold)),
+                )),
     );
   }
 }

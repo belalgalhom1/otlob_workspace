@@ -455,7 +455,7 @@ class LegalDocumentView extends StatelessWidget {
             text: part,
             style: baseStyle?.copyWith(
               fontWeight: FontWeight.bold,
-              color: boldColor ?? baseStyle?.color,
+              color: boldColor ?? baseStyle.color,
             ),
           ),
         );

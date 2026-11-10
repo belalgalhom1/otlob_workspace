@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 
 class TermsAcceptanceGateScreen extends ConsumerStatefulWidget {
   const TermsAcceptanceGateScreen({super.key});
@@ -125,10 +126,7 @@ class _TermsAcceptanceGateScreenState
     );
 
     if (confirmed == true && mounted) {
-      await ref.read(sharedAuthRepositoryProvider).logout();
-      if (mounted) {
-        context.go('/login');
-      }
+      await ref.read(authProvider.notifier).logout();
     }
   }
 
@@ -147,16 +145,62 @@ class _TermsAcceptanceGateScreenState
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(_error!),
-                const SizedBox(height: AppSpacing.lg),
-                PrimaryButton(
-                  text: isAr ? 'إعادة المحاولة' : 'Retry',
-                  onPressed: _fetchTerms,
-                ),
-              ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.wifi_off_rounded,
+                      size: 32,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    isAr ? 'تعذر تحميل شروط الاستخدام' : 'Unable to load Terms of Use',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    isAr
+                        ? 'يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.'
+                        : 'Please check your internet connection and try again.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: PrimaryButton(
+                      text: isAr ? 'إعادة المحاولة' : 'Retry',
+                      onPressed: _fetchTerms,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _decline,
+                      child: Text(isAr ? 'تسجيل الخروج' : 'Log Out'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -194,6 +238,13 @@ class _TermsAcceptanceGateScreenState
           isLoading: _isSubmitting,
           onAccept: _acceptTerms,
           onDecline: _decline,
+          onViewPrivacyPolicy: () => context.push(
+            '/legal-document',
+            extra: {
+              'type': 'PRIVACY_POLICY',
+              'title': isAr ? 'سياسة الخصوصية' : 'Privacy Policy',
+            },
+          ),
         ),
       ),
     );

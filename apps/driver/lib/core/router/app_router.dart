@@ -33,9 +33,10 @@ GoRouter appRouter(Ref ref) {
     initialLocation: '/',
     debugLogDiagnostics: true,
     redirect: (context, state) {
-      // App-status gates manage themselves; never redirect away from them.
+      // App-status gates and legal documents manage themselves; never redirect away from them.
       if (state.matchedLocation == '/maintenance' ||
-          state.matchedLocation == '/update-required') {
+          state.matchedLocation == '/update-required' ||
+          state.matchedLocation.startsWith('/legal-document')) {
         return null;
       }
 
@@ -132,9 +133,11 @@ GoRouter appRouter(Ref ref) {
         path: '/legal-document',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
+          final queryType = state.uri.queryParameters['type'];
+          final queryTitle = state.uri.queryParameters['title'];
           return LegalDocumentViewerPage(
-            type: extra['type']?.toString() ?? 'TERMS_OF_USE',
-            initialTitle: extra['title']?.toString(),
+            type: extra['type']?.toString() ?? queryType ?? 'TERMS_OF_USE',
+            initialTitle: extra['title']?.toString() ?? queryTitle,
           );
         },
       ),

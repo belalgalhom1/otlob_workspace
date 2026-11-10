@@ -19,6 +19,8 @@ class TermsAcceptanceDialog extends StatefulWidget {
   final bool isLoading;
   final VoidCallback onAccept;
   final VoidCallback? onDecline;
+  final VoidCallback? onViewPrivacyPolicy;
+  final String? privacyPolicyLabel;
 
   const TermsAcceptanceDialog({
     super.key,
@@ -34,6 +36,8 @@ class TermsAcceptanceDialog extends StatefulWidget {
     this.isLoading = false,
     required this.onAccept,
     this.onDecline,
+    this.onViewPrivacyPolicy,
+    this.privacyPolicyLabel,
   });
 
   @override
@@ -237,6 +241,26 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                     ),
                   ),
                 ),
+                if (widget.onViewPrivacyPolicy != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      icon: const Icon(LucideIcons.shieldCheck, size: 16),
+                      label: Text(
+                        widget.privacyPolicyLabel ??
+                            (widget.isArabic
+                                ? 'عرض سياسة الخصوصية وحماية البيانات'
+                                : 'View Privacy Policy & Data Protection'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: widget.onViewPrivacyPolicy,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.md),
 
                 // Actions: Accept / Decline (Equal Width & Balanced Height)
@@ -256,11 +280,14 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                               borderRadius: BorderRadius.circular(AppRadius.md),
                             ),
                           ),
-                          child: Text(
-                            widget.declineButtonLabel!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              widget.declineButtonLabel!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         ),

@@ -75,6 +75,11 @@ class RouterNotifier extends ChangeNotifier {
       return null;
     }
 
+    // Legal documents viewer is always accessible (unauthenticated, during registration, or terms gate)
+    if (path.startsWith(RoutePaths.legalViewer)) {
+      return null;
+    }
+
     // Phone gate: authenticated users without a phone number must complete it.
     if (path != RoutePaths.completePhone && _ref.read(needsPhoneProvider)) {
       return RoutePaths.completePhone;
@@ -342,9 +347,11 @@ GoRouter appRouter(Ref ref) {
         name: RouteNames.legalViewer,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
+          final queryType = state.uri.queryParameters['type'];
+          final queryTitle = state.uri.queryParameters['title'];
           return LegalDocumentViewerPage(
-            type: extra['type']?.toString() ?? 'TERMS_OF_USE',
-            initialTitle: extra['title']?.toString(),
+            type: extra['type']?.toString() ?? queryType ?? 'TERMS_OF_USE',
+            initialTitle: extra['title']?.toString() ?? queryTitle,
           );
         },
       ),

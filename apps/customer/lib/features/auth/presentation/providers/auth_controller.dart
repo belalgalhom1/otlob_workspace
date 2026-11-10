@@ -223,6 +223,7 @@ class AuthController extends _$AuthController {
     _logoutInProgress = true;
     ref.read(needsPhoneProvider.notifier).set(false);
     ref.read(needsAddressProvider.notifier).set(false);
+    ref.read(needsTermsProvider.notifier).set(false);
     try {
       final authRepo = ref.read(sharedAuthRepositoryProvider);
 

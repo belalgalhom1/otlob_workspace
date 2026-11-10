@@ -53,8 +53,11 @@ class _LegalDocumentViewerPageState
       }
     } catch (e) {
       if (mounted) {
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
         setState(() {
-          _error = e.toString();
+          _error = isAr
+              ? 'تعذر تحميل الوثيقة، يرجى التحقق من الاتصال بالإنترنت والمحاولة مجدداً.'
+              : 'Failed to load document. Please check your internet connection and try again.';
           _isLoading = false;
         });
       }
@@ -63,8 +66,6 @@ class _LegalDocumentViewerPageState
 
   @override
   Widget build(BuildContext context) {
-    final isArLocale = Localizations.localeOf(context).languageCode == 'ar';
-
     final title = _showArabic
         ? (_document?['titleAr'] ?? _document?['title'] ?? widget.initialTitle ?? '')
         : (_document?['title'] ?? _document?['titleAr'] ?? widget.initialTitle ?? '');
@@ -80,7 +81,7 @@ class _LegalDocumentViewerPageState
     if (publishedAt != null && publishedAt.isNotEmpty) {
       try {
         final dt = DateTime.parse(publishedAt);
-        formattedDate = isArLocale
+        formattedDate = _showArabic
             ? 'آخر تحديث: ${dt.year}/${dt.month}/${dt.day}'
             : 'Last updated: ${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
       } catch (_) {
@@ -91,10 +92,9 @@ class _LegalDocumentViewerPageState
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.initialTitle ??
-              (widget.type == 'TERMS_OF_USE'
-                  ? (isArLocale ? 'شروط الاستخدام' : 'Terms of Use')
-                  : (isArLocale ? 'سياسة الخصوصية' : 'Privacy Policy')),
+          widget.type == 'TERMS_OF_USE'
+              ? (_showArabic ? 'شروط الاستخدام' : 'Terms of Use')
+              : (_showArabic ? 'سياسة الخصوصية' : 'Privacy Policy'),
         ),
         actions: [
           IconButton(
