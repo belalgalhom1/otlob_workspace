@@ -237,7 +237,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         final vendor = order['vendor'];
         final driver = order['driver'];
         final driverUser = driver is Map ? driver['user'] : null;
-        final haystack = [
+        final haystackList = <dynamic>[
           order['orderNumber'],
           order['id'],
           order['status'],
@@ -254,7 +254,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           vendor is Map ? vendor['name'] : null,
           driver is Map ? driver['name'] : null,
           driverUser is Map ? driverUser['phone'] : null,
-        ]
+        ];
+        final fulfillments = (order['vendorFulfillments'] as List?) ?? [];
+        for (final f in fulfillments) {
+          if (f is Map && f['vendor'] is Map) {
+            final fv = f['vendor'] as Map;
+            haystackList.add(fv['storeName']);
+            haystackList.add(fv['storeNameAr']);
+            haystackList.add(fv['name']);
+          }
+          if (f is Map && f['vendorBranch'] is Map) {
+            final fb = f['vendorBranch'] as Map;
+            haystackList.add(fb['name']);
+            haystackList.add(fb['nameAr']);
+          }
+        }
+        final haystack = haystackList
             .where((e) => e != null)
             .map((e) => e.toString().toLowerCase())
             .join(' ');
@@ -918,7 +933,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
 
     final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
-    final bool isMultiVendor = fulfillments.length > 1 || (order['vendor'] == null && fulfillments.isNotEmpty);
+    final bool isMultiVendor = order['isMultiVendor'] == true ||
+        fulfillments.length > 1 ||
+        (order['vendor'] == null && fulfillments.isNotEmpty) ||
+        (order['deliveryGroups'] is List && (order['deliveryGroups'] as List).length > 1);
     String? multiVendorStoresText;
     if (isMultiVendor) {
       final names = <String>[];
@@ -1494,143 +1512,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Order items Section with sleek layout
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.02),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.05),
-                            ),
+                        // Order items / Multi-vendor stops section
+                        if (isMultiVendor && fulfillments.length > 1)
+                          _buildMultiVendorFulfillments(
+                            context,
+                            order,
+                            fulfillments,
+                            items,
+                            isArabic,
+                            statusColor,
+                          )
+                        else
+                          _buildSingleVendorItems(
+                            context,
+                            items,
+                            statusColor,
+                            isArabic,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    LucideIcons.shoppingBag,
-                                    size: 16,
-                                    color: statusColor,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    isArabic
-                                        ? 'تفاصيل الأصناف'
-                                        : 'Items Specification',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Divider(height: 1),
-                              ),
-                              ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: items.length,
-                                itemBuilder: (context, i) {
-                                  final item = items[i];
-                                  final productName =
-                                      item['productName']?.toString() ?? '';
-                                  final quantity = item['quantity'] ?? 1;
-                                  final price =
-                                      double.tryParse(
-                                        item['unitPrice']?.toString() ?? '0',
-                                      ) ??
-                                      0.0;
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 6,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: statusColor.withValues(
-                                              alpha: 0.12,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '${quantity}x',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 11,
-                                              color: statusColor,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                productName,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              for (final opt in ((item['selectedOptions']
-                                                      as List?) ??
-                                                  []))
-                                                if (opt is Map &&
-                                                    (opt['optionName']
-                                                            ?.toString()
-                                                            .isNotEmpty ??
-                                                        false))
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          top: 2,
-                                                        ),
-                                                    child: Text(
-                                                      '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: Colors.grey
-                                                            .shade600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                            ],
-                                          ),
-                                        ),
-                                        Text(
-                                          '${(price * quantity).toStringAsFixed(2)} EGP',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
                         const SizedBox(height: 16),
 
                         // Pricing breakdown
@@ -1935,10 +1833,846 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
+  Widget _buildSingleVendorItems(
+    BuildContext context,
+    List<dynamic> items,
+    Color statusColor,
+    bool isArabic,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                LucideIcons.shoppingBag,
+                size: 16,
+                color: statusColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isArabic ? 'تفاصيل الأصناف' : 'Items Specification',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1),
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              final item = items[i];
+              final productName = item['productName']?.toString() ?? '';
+              final quantity = item['quantity'] ?? 1;
+              final price = double.tryParse(item['unitPrice']?.toString() ?? '0') ?? 0.0;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${quantity}x',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            productName,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                          for (final opt in ((item['selectedOptions'] as List?) ?? []))
+                            if (opt is Map && (opt['optionName']?.toString().isNotEmpty ?? false))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${(price * quantity).toStringAsFixed(2)} EGP',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortionStatusBadge(String status, bool isArabic) {
+    Color bg;
+    Color fg;
+    String label;
+
+    switch (status) {
+      case 'PENDING':
+        bg = AppColors.warning.withValues(alpha: 0.12);
+        fg = AppColors.warning;
+        label = isArabic ? 'بانتظار القرار' : 'Pending Decision';
+        break;
+      case 'ACCEPTED':
+        bg = AppColors.info.withValues(alpha: 0.12);
+        fg = AppColors.info;
+        label = isArabic ? 'تم القبول' : 'Accepted';
+        break;
+      case 'PREPARING':
+        bg = Colors.purple.withValues(alpha: 0.12);
+        fg = Colors.purple;
+        label = isArabic ? 'قيد التحضير' : 'Preparing';
+        break;
+      case 'READY_FOR_PICKUP':
+        bg = AppColors.success.withValues(alpha: 0.12);
+        fg = AppColors.success;
+        label = isArabic ? 'جاهز للاستلام' : 'Ready for Pickup';
+        break;
+      case 'PICKED_UP':
+        bg = Colors.teal.withValues(alpha: 0.12);
+        fg = Colors.teal;
+        label = isArabic ? 'تم الاستلام' : 'Picked Up';
+        break;
+      case 'DELIVERED':
+        bg = AppColors.success.withValues(alpha: 0.15);
+        fg = AppColors.success;
+        label = isArabic ? 'تم التوصيل' : 'Delivered';
+        break;
+      case 'REJECTED':
+        bg = AppColors.error.withValues(alpha: 0.12);
+        fg = AppColors.error;
+        label = isArabic ? 'مرفوض' : 'Rejected';
+        break;
+      case 'CANCELLED':
+        bg = Colors.grey.withValues(alpha: 0.12);
+        fg = Colors.grey;
+        label = isArabic ? 'ملغي' : 'Cancelled';
+        break;
+      default:
+        bg = Colors.grey.withValues(alpha: 0.12);
+        fg = Colors.grey;
+        label = status;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: fg,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMultiVendorFulfillments(
+    BuildContext context,
+    dynamic order,
+    List<dynamic> fulfillments,
+    List<dynamic> allItems,
+    bool isArabic,
+    Color statusColor,
+  ) {
+    final theme = Theme.of(context);
+    final canManagePortions = _userRole == 'SUPER_ADMIN' || _userRole == 'ADMIN';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(LucideIcons.store, size: 16, color: AppColors.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isArabic
+                          ? 'محطات وأصناف المتاجر (${fulfillments.length} متاجر)'
+                          : 'Store Stops & Items (${fulfillments.length} Stores)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      isArabic
+                          ? 'لكل متجر محطة استلام وحالة تحضير وأصناف منفصلة'
+                          : 'Each store has a distinct stop, status, and items',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  isArabic ? 'متعدد المتاجر' : 'Multi-Vendor',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < fulfillments.length; i++) ...[
+            () {
+              final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+              final fId = f['id']?.toString() ?? '';
+              final fStatus = f['status']?.toString() ?? 'PENDING';
+              final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+              final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
+              final storeName = isArabic
+                  ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? fVendor['name'] ?? 'متجر')
+                  : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? fVendor['name'] ?? 'Store');
+              final branchName = isArabic
+                  ? (fBranch['nameAr'] ?? fBranch['name'] ?? '')
+                  : (fBranch['name'] ?? fBranch['nameAr'] ?? '');
+              final branchAddress = fBranch['address']?.toString() ?? '';
+              final isContracted = fBranch['isContracted'] ?? fVendor['isContracted'] ?? false;
+              final fSubtotal = double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
+              final commRate = double.tryParse(f['commissionRate']?.toString() ?? '10') ?? 10.0;
+              final commAmount = isContracted ? (fSubtotal * commRate / 100).roundToDouble() : 0.0;
+              final netPayout = isContracted ? (fSubtotal - commAmount) : fSubtotal;
+
+              final rawFItems = f['items'];
+              List<dynamic> portionItems = (rawFItems is List && rawFItems.isNotEmpty)
+                  ? rawFItems
+                  : allItems.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
+
+              final isRejected = fStatus == 'REJECTED' || fStatus == 'CANCELLED';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isRejected
+                      ? AppColors.error.withValues(alpha: 0.04)
+                      : theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isRejected
+                        ? AppColors.error.withValues(alpha: 0.25)
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.09),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Store portion header
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      storeName.toString(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        decoration: isRejected ? TextDecoration.lineThrough : null,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isContracted
+                                          ? AppColors.primary.withValues(alpha: 0.08)
+                                          : AppColors.warning.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      isContracted
+                                          ? (isArabic ? 'شريك معتمد' : 'Contracted')
+                                          : (isArabic ? 'دفع بالاستلام' : 'Cash at pickup'),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: isContracted ? AppColors.primary : AppColors.warning,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (branchName.toString().isNotEmpty || branchAddress.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.mapPin,
+                                      size: 11,
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        branchName.toString().isNotEmpty && branchAddress.isNotEmpty
+                                            ? '$branchName - $branchAddress'
+                                            : (branchName.toString().isNotEmpty ? branchName.toString() : branchAddress),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        _buildPortionStatusBadge(fStatus, isArabic),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1),
+                    ),
+
+                    // Items in this store portion
+                    if (portionItems.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          isArabic ? 'لا توجد أصناف مسجلة لهذا المتجر' : 'No items listed for this store',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      )
+                    else
+                      for (final item in portionItems) ...[
+                        () {
+                          final pName = item['productName']?.toString() ??
+                              item['name']?.toString() ??
+                              (isArabic ? 'صنف' : 'Item');
+                          final pQty = item['quantity'] ?? 1;
+                          final pPrice = double.tryParse(
+                                item['unitPrice']?.toString() ?? item['price']?.toString() ?? '0',
+                              ) ??
+                              0.0;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${pQty}x',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        pName,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                      ),
+                                      for (final opt in ((item['selectedOptions'] as List?) ?? []))
+                                        if (opt is Map &&
+                                            (opt['optionName']?.toString().isNotEmpty ?? false))
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 1),
+                                            child: Text(
+                                              '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '${(pPrice * pQty).toStringAsFixed(2)} EGP',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          );
+                        }(),
+                      ],
+
+                    // Portion footer: Subtotal & net payout
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            isArabic ? 'إجمالي أصناف المتجر:' : 'Store Subtotal:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          Text(
+                            '${fSubtotal.toStringAsFixed(2)} EGP',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (isContracted) ...[
+                            Text(
+                              isArabic
+                                  ? 'الصافي (${(100 - commRate).toInt()}٪): ${netPayout.toStringAsFixed(2)} EGP'
+                                  : 'Net (${(100 - commRate).toInt()}%): ${netPayout.toStringAsFixed(2)} EGP',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // Quick portion action for Super Admin / Admin if portion is PENDING
+                    if (canManagePortions && fStatus == 'PENDING') ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                ref.read(ordersProvider.notifier).acceptFulfillment(fId);
+                              },
+                              icon: const Icon(LucideIcons.checkCheck, size: 14),
+                              label: Text(
+                                isArabic ? 'قبول هذا المتجر' : 'Accept Store',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                _showRejectFulfillmentDialog(context, fId, storeName.toString(), isArabic);
+                              },
+                              icon: const Icon(LucideIcons.xCircle, size: 14),
+                              label: Text(
+                                isArabic ? 'رفض' : 'Reject',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.error,
+                                side: const BorderSide(color: AppColors.error),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showRejectFulfillmentDialog(
+    BuildContext context,
+    String fulfillmentId,
+    String storeName,
+    bool isArabic,
+  ) {
+    final controller = TextEditingController();
+    String selectedReason = isArabic ? 'نفاد الكمية' : 'Out of stock';
+    String selectedCode = 'OUT_OF_STOCK';
+
+    final reasons = [
+      {'code': 'OUT_OF_STOCK', 'ar': 'نفاد الكمية', 'en': 'Out of stock'},
+      {'code': 'TOO_BUSY', 'ar': 'المتجر مشغول جداً', 'en': 'Too busy'},
+      {'code': 'ITEM_UNAVAILABLE', 'ar': 'أصناف غير متوفرة', 'en': 'Item unavailable'},
+      {'code': 'ORDER_TOO_LARGE', 'ar': 'الطلب كبير جداً', 'en': 'Order too large'},
+      {'code': 'OTHER', 'ar': 'سبب آخر', 'en': 'Other reason'},
+    ];
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isArabic ? 'رفض محطة متجر: $storeName' : 'Reject Store Stop: $storeName',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isArabic
+                        ? 'سيتم إلغاء هذا المتجر من الطلب وإعادة قيمة أصنافه للعميل، ولن تتأثر باقي المتاجر.'
+                        : 'This store portion will be cancelled and refunded to the customer. Other stores remain unaffected.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: reasons.map((r) {
+                      final isSelected = selectedCode == r['code'];
+                      final rText = isArabic ? r['ar']! : r['en']!;
+                      return ChoiceChip(
+                        label: Text(rText, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : null)),
+                        selected: isSelected,
+                        selectedColor: AppColors.error,
+                        onSelected: (val) {
+                          if (val) {
+                            setDialogState(() {
+                              selectedCode = r['code']!;
+                              selectedReason = rText;
+                              controller.text = rText;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      hintText: isArabic ? 'اكتب سبب الرفض بالتفصيل...' : 'Enter rejection reason...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: Text(isArabic ? 'تراجع' : 'Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final reason = controller.text.trim().isNotEmpty ? controller.text.trim() : selectedReason;
+                    Navigator.pop(dialogCtx);
+                    ref.read(ordersProvider.notifier).rejectFulfillment(fulfillmentId, reason, code: selectedCode);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text(isArabic ? 'تأكيد الرفض' : 'Confirm Rejection'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildPricingBreakdown(dynamic order, bool isArabic) {
-    
+    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
+    final bool isMultiVendor = order['isMultiVendor'] == true ||
+        fulfillments.length > 1 ||
+        (order['vendor'] == null && fulfillments.isNotEmpty);
 
     final financials = order['financials'] is Map ? order['financials'] as Map : null;
+    final storePayments = (financials?['storePayments'] as List<dynamic>?) ?? [];
+
+    if (isMultiVendor && (fulfillments.length > 1 || storePayments.length > 1)) {
+      final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
+      final deliveryFee = double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0;
+      final grandTotal = double.tryParse(
+            order['grandTotal']?.toString() ?? order['total']?.toString() ?? '0',
+          ) ??
+          (subtotal + deliveryFee);
+      final totalNetPayout = double.tryParse(financials?['cashToPayStore']?.toString() ?? '0') ?? 0.0;
+
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.01),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(LucideIcons.receipt, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  isArabic ? 'تفاصيل مستحقات المتاجر والماليات' : 'Stores & Financials Breakdown',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (storePayments.isNotEmpty)
+              for (final sp in storePayments) ...[
+                () {
+                  final sMap = sp is Map ? sp : {};
+                  final sName = isArabic
+                      ? (sMap['vendorName'] ?? 'متجر')
+                      : (sMap['vendorNameEn'] ?? sMap['vendorName'] ?? 'Store');
+                  final bName = sMap['branchName']?.toString() ?? '';
+                  final sSub = double.tryParse(sMap['subtotal']?.toString() ?? '0') ?? 0.0;
+                  final sPay = double.tryParse(sMap['cashToPay']?.toString() ?? '0') ?? 0.0;
+                  final isCont = sMap['isContracted'] == true;
+                  final label = bName.isNotEmpty ? '$sName ($bName)' : sName.toString();
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${sSub.toStringAsFixed(2)} EGP',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            if (isCont)
+                              Text(
+                                isArabic ? 'صافي: ${sPay.toStringAsFixed(2)} EGP' : 'Net: ${sPay.toStringAsFixed(2)} EGP',
+                                style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }(),
+              ]
+            else
+              for (final f in fulfillments) ...[
+                () {
+                  final fMap = f is Map ? f : {};
+                  final vMap = fMap['vendor'] is Map ? fMap['vendor'] as Map : {};
+                  final bMap = fMap['vendorBranch'] is Map ? fMap['vendorBranch'] as Map : {};
+                  final sName = isArabic
+                      ? (vMap['storeNameAr'] ?? vMap['storeName'] ?? 'متجر')
+                      : (vMap['storeName'] ?? vMap['storeNameAr'] ?? 'Store');
+                  final bName = isArabic ? (bMap['nameAr'] ?? bMap['name'] ?? '') : (bMap['name'] ?? bMap['nameAr'] ?? '');
+                  final sSub = double.tryParse(fMap['subtotal']?.toString() ?? '0') ?? 0.0;
+                  final label = bName.toString().isNotEmpty ? '$sName ($bName)' : sName.toString();
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${sSub.toStringAsFixed(2)} EGP',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  );
+                }(),
+              ],
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Divider(height: 1),
+            ),
+            _buildPriceRow(isArabic ? 'إجمالي أصناف المتاجر' : 'Stores Food Subtotal', subtotal),
+            const SizedBox(height: 4),
+            _buildPriceRow(isArabic ? 'رسوم التوصيل' : 'Delivery Fee', deliveryFee),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Divider(height: 1),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isArabic ? 'إجمالي الطلب' : 'Grand Total',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(
+                  '${grandTotal.toStringAsFixed(2)} EGP',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isArabic ? 'إجمالي مستحقات المتاجر' : 'Total Stores Payout',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${totalNetPayout.toStringAsFixed(2)} EGP',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     final subtotal = financials?['storeSubtotal'] != null
         ? (double.tryParse(financials!['storeSubtotal'].toString()) ?? 0.0)
         : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0);

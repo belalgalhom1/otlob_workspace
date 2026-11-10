@@ -170,6 +170,38 @@ class OrdersNotifier extends _$OrdersNotifier {
 
     await fetchOrders(params: currentParams);
   }
+
+  Future<void> acceptFulfillment(String fulfillmentId) async {
+    Map<String, dynamic> currentParams = const {};
+    if (state.hasValue) {
+      currentParams = state.value!.params;
+    }
+
+    final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
+    if (role == 'VENDOR_MEMBER') {
+      await ref.read(vendorOrdersRepositoryProvider).acceptFulfillment(fulfillmentId);
+    } else {
+      await ref.read(adminOrdersRepositoryProvider).acceptFulfillment(fulfillmentId);
+    }
+
+    await fetchOrders(params: currentParams);
+  }
+
+  Future<void> rejectFulfillment(String fulfillmentId, String reason, {String code = 'OTHER'}) async {
+    Map<String, dynamic> currentParams = const {};
+    if (state.hasValue) {
+      currentParams = state.value!.params;
+    }
+
+    final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
+    if (role == 'VENDOR_MEMBER') {
+      await ref.read(vendorOrdersRepositoryProvider).rejectFulfillment(fulfillmentId, reason: reason, code: code);
+    } else {
+      await ref.read(adminOrdersRepositoryProvider).rejectFulfillment(fulfillmentId, reason: reason, code: code);
+    }
+
+    await fetchOrders(params: currentParams);
+  }
 }
 
 

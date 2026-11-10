@@ -35,4 +35,20 @@ class AdminOrdersRepository {
     final response = await _api.ordersControllerGetOne(orderId: orderId);
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> acceptFulfillment(String fulfillmentId) async {
+    final response = await _api.ordersControllerAcceptFulfillment(fulfillmentId: fulfillmentId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> rejectFulfillment(String fulfillmentId, {required String reason, String code = 'OTHER'}) async {
+    final dto = RejectVendorFulfillmentDto((b) => b
+      ..reason = reason
+      ..code = RejectVendorFulfillmentDtoCodeEnum.valueOf(code));
+    final response = await _api.ordersControllerRejectFulfillment(
+      fulfillmentId: fulfillmentId,
+      rejectVendorFulfillmentDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
 }

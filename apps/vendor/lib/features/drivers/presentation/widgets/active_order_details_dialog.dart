@@ -143,6 +143,11 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
         vendor['address']?.toString() ??
         '';
 
+    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
+    final bool isMultiVendor = order['isMultiVendor'] == true ||
+        fulfillments.length > 1 ||
+        (order['vendor'] == null && fulfillments.isNotEmpty);
+
     // Items
     final rawItems = order['items'];
     final items = (rawItems is List) ? rawItems : [];
@@ -317,6 +322,8 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                       deliveryAddress: deliveryAddress,
                       deliveryLat: deliveryLat,
                       deliveryLng: deliveryLng,
+                      fulfillments: fulfillments,
+                      isMultiVendor: isMultiVendor,
                     ),
                     const SizedBox(height: 16),
 
@@ -495,6 +502,58 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildMiniPortionStatus(String status, bool isArabic) {
+    Color fg;
+    Color bg;
+    String label;
+    switch (status) {
+      case 'PENDING':
+        fg = AppColors.warning;
+        bg = AppColors.warning.withValues(alpha: 0.12);
+        label = isArabic ? 'بانتظار القرار' : 'Pending';
+        break;
+      case 'ACCEPTED':
+        fg = AppColors.info;
+        bg = AppColors.info.withValues(alpha: 0.12);
+        label = isArabic ? 'مقبول' : 'Accepted';
+        break;
+      case 'PREPARING':
+        fg = Colors.purple;
+        bg = Colors.purple.withValues(alpha: 0.12);
+        label = isArabic ? 'قيد التحضير' : 'Preparing';
+        break;
+      case 'READY_FOR_PICKUP':
+        fg = AppColors.success;
+        bg = AppColors.success.withValues(alpha: 0.12);
+        label = isArabic ? 'جاهز للاستلام' : 'Ready';
+        break;
+      case 'PICKED_UP':
+        fg = Colors.teal;
+        bg = Colors.teal.withValues(alpha: 0.12);
+        label = isArabic ? 'تم الاستلام' : 'Picked Up';
+        break;
+      case 'DELIVERED':
+        fg = AppColors.success;
+        bg = AppColors.success.withValues(alpha: 0.15);
+        label = isArabic ? 'تم التوصيل' : 'Delivered';
+        break;
+      case 'REJECTED':
+        fg = AppColors.error;
+        bg = AppColors.error.withValues(alpha: 0.12);
+        label = isArabic ? 'مرفوض' : 'Rejected';
+        break;
+      default:
+        fg = Colors.grey;
+        bg = Colors.grey.withValues(alpha: 0.12);
+        label = status;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg)),
+    );
+  }
+
   Widget _buildRouteCard({
     required BuildContext context,
     required bool isDark,
@@ -509,6 +568,8 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     required String deliveryAddress,
     double? deliveryLat,
     double? deliveryLng,
+    List<dynamic> fulfillments = const [],
+    bool isMultiVendor = false,
   }) {
     final theme = Theme.of(context);
 
@@ -522,53 +583,143 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
       child: Column(
         children: [
           // Store / Pickup
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(LucideIcons.store, size: 14, color: Colors.amber),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isArabic ? 'موقع الاستلام (المتجر)' : 'Pickup Location (Store)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      branchName.isNotEmpty ? '$vendorName ($branchName)' : vendorName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    if (pickupAddress.isNotEmpty)
-                      Text(
-                        pickupAddress,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          if (isMultiVendor && fulfillments.length > 1) ...[
+            for (var i = 0; i < fulfillments.length; i++) ...[
+              () {
+                final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+                final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
+                final sName = isArabic
+                    ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
+                    : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? 'Store');
+                final bName = isArabic ? (fBranch['nameAr'] ?? fBranch['name'] ?? '') : (fBranch['name'] ?? fBranch['nameAr'] ?? '');
+                final fAddr = fBranch['address']?.toString() ?? '';
+                final fStatus = f['status']?.toString() ?? 'PENDING';
+                final isContracted = fBranch['isContracted'] ?? fVendor['isContracted'] ?? false;
+
+                return Padding(
+                  padding: EdgeInsets.only(bottom: i < fulfillments.length - 1 ? 10 : 0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber),
                         ),
                       ),
-                  ],
-                ),
-              ),
-              if (pickupLat != null && pickupLng != null)
-                IconButton(
-                  onPressed: () => _openInMaps(pickupLat, pickupLng, label: vendorName),
-                  icon: const Icon(LucideIcons.store, size: 16, color: Colors.amber),
-                  tooltip: isArabic ? 'فتح موقع المتجر في خرائط Google' : 'Open Store in Google Maps',
-                ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isArabic ? 'محطة استلام ${i + 1}' : 'Pickup Stop ${i + 1}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    bName.toString().isNotEmpty ? '$sName ($bName)' : sName.toString(),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: isContracted ? AppColors.primary.withValues(alpha: 0.1) : AppColors.warning.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    isContracted ? (isArabic ? 'شريك' : 'Contracted') : (isArabic ? 'دفع بالاستلام' : 'Cash'),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: isContracted ? AppColors.primary : AppColors.warning,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (fAddr.isNotEmpty)
+                              Text(
+                                fAddr,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      _buildMiniPortionStatus(fStatus, isArabic),
+                    ],
+                  ),
+                );
+              }(),
             ],
-          ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.store, size: 14, color: Colors.amber),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isArabic ? 'موقع الاستلام (المتجر)' : 'Pickup Location (Store)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        branchName.isNotEmpty ? '$vendorName ($branchName)' : vendorName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      if (pickupAddress.isNotEmpty)
+                        Text(
+                          pickupAddress,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (pickupLat != null && pickupLng != null)
+                  IconButton(
+                    onPressed: () => _openInMaps(pickupLat, pickupLng, label: vendorName),
+                    icon: const Icon(LucideIcons.store, size: 16, color: Colors.amber),
+                    tooltip: isArabic ? 'فتح موقع المتجر في خرائط Google' : 'Open Store in Google Maps',
+                  ),
+              ],
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: Row(

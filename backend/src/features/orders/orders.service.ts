@@ -910,15 +910,80 @@ export class OrdersService {
       isMultiVendor,
     );
 
+    const fulfillments = Array.isArray(order.vendorFulfillments) ? order.vendorFulfillments : [];
+    const isMultiVendorOrder = Boolean(
+      order.isMultiVendor ||
+      fulfillments.length > 1 ||
+      (order.deliveryGroups && order.deliveryGroups.length > 1),
+    );
+
     let vendor = order.vendor;
     let vendorBranch = order.vendorBranch;
-    if (!vendor && order.vendorFulfillments?.length > 0) {
-      vendor = order.vendorFulfillments[0].vendor;
-      vendorBranch ??= order.vendorFulfillments[0].vendorBranch;
+    let resolvedIsStorePrepaid = isStorePrepaid;
+    let resolvedCashToPayStore = cashToPayStore;
+
+    const storePayments = fulfillments.map((f: any) => {
+      const contracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+      const commRate = Number(
+        f.commissionRate ??
+        f.vendorBranch?.commissionRate ??
+        f.vendor?.commissionRate ??
+        10,
+      );
+      const sub = Number(f.subtotal ?? 0);
+      const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
+      const toPay = contracted ? Math.max(0, sub - comm) : sub;
+      return {
+        fulfillmentId: f.id,
+        vendorId: f.vendorId,
+        vendorName: f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
+        vendorNameEn: f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name ?? 'Store',
+        branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
+        address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
+        phone: f.vendorBranch?.phone ?? f.vendor?.phone ?? f.vendor?.user?.phone ?? '',
+        subtotal: sub,
+        isContracted: contracted,
+        commissionRate: commRate,
+        commissionAmount: comm,
+        cashToPay: toPay,
+        status: f.status,
+        pickedUpAt: f.pickedUpAt ?? null,
+      };
+    });
+
+    if (isMultiVendorOrder && fulfillments.length > 1) {
+      const storeNamesAr = fulfillments
+        .map((f: any) => f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name)
+        .filter(Boolean);
+      const storeNamesEn = fulfillments
+        .map((f: any) => f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name)
+        .filter(Boolean);
+
+      vendor = {
+        id: 'multi-vendor',
+        isMultiVendor: true,
+        storeName: storeNamesEn.join(' + ') || 'Multi-Vendor',
+        storeNameAr: storeNamesAr.join(' + ') || 'طلب متعدد المتاجر',
+        logo: null,
+      };
+      vendorBranch = null;
+
+      if (storePayments.length > 0) {
+        resolvedCashToPayStore = storePayments.reduce((sum: number, sp: any) => sum + sp.cashToPay, 0);
+        resolvedIsStorePrepaid = storePayments.every((sp: any) => sp.isContracted);
+      }
+    } else if (!vendor && fulfillments.length === 1) {
+      vendor = fulfillments[0].vendor;
+      vendorBranch ??= fulfillments[0].vendorBranch;
+      if (storePayments.length === 1) {
+        resolvedCashToPayStore = storePayments[0].cashToPay;
+        resolvedIsStorePrepaid = storePayments[0].isContracted;
+      }
     }
 
     return {
       ...order,
+      isMultiVendor: isMultiVendorOrder,
       driverEarnings,
       deliveryFee,
       vendor,
@@ -927,10 +992,11 @@ export class OrdersService {
         viewRole: 'ADMIN',
         cashToCollect,
         isPrepaid,
-        cashToPayStore,
-        isStorePrepaid,
+        cashToPayStore: resolvedCashToPayStore,
+        isStorePrepaid: resolvedIsStorePrepaid,
         driverEarnings,
         deliveryFee,
+        storePayments,
       },
     };
   }

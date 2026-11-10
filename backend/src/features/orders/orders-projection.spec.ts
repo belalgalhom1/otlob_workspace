@@ -250,4 +250,59 @@ describe('OrdersService financial projections & vendor isolation', () => {
       expect(vendorProjection.financials.cashToCollectFromDriver).toBe(400);
     });
   });
+
+  describe('enrichWithAdminHelpers (Super Admin multi-vendor visibility)', () => {
+    it('synthesizes multi-vendor object and full storePayments breakdown for admin', async () => {
+      const mockOrder = {
+        id: 'mv-order-1',
+        orderNumber: 'ORD-MV-100',
+        status: 'PENDING',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        subtotal: 1000,
+        deliveryFee: 50,
+        grandTotal: 1050,
+        vendorId: null,
+        vendor: null,
+        vendorBranch: null,
+        vendorFulfillments: [
+          {
+            id: 'ff-1',
+            vendorId: 'vendor-1',
+            status: 'PENDING',
+            subtotal: 600,
+            commissionRate: 20,
+            vendor: { storeName: 'Burger Joint', storeNameAr: 'برجر جوينت', isContracted: true },
+            vendorBranch: { name: 'Main Branch', nameAr: 'الفرع الرئيسي', address: 'Cairo', isContracted: true },
+          },
+          {
+            id: 'ff-2',
+            vendorId: 'vendor-2',
+            status: 'PENDING',
+            subtotal: 400,
+            commissionRate: 10,
+            vendor: { storeName: 'Juice Bar', storeNameAr: 'عصائر النعيم', isContracted: false },
+            vendorBranch: { name: 'Branch 2', nameAr: 'فرع 2', address: 'Giza', isContracted: false },
+          },
+        ],
+      };
+
+      const adminEnriched = await (ordersService as any).enrichWithAdminHelpers(mockOrder);
+
+      expect(adminEnriched.isMultiVendor).toBe(true);
+      expect(adminEnriched.vendor).toBeDefined();
+      expect(adminEnriched.vendor.isMultiVendor).toBe(true);
+      expect(adminEnriched.vendor.storeNameAr).toBe('برجر جوينت + عصائر النعيم');
+      expect(adminEnriched.vendor.storeName).toBe('Burger Joint + Juice Bar');
+      expect(adminEnriched.vendorBranch).toBeNull();
+
+      // Financials breakdown
+      expect(adminEnriched.financials.storePayments).toHaveLength(2);
+      expect(adminEnriched.financials.storePayments[0].vendorName).toBe('برجر جوينت');
+      expect(adminEnriched.financials.storePayments[0].cashToPay).toBe(480); // 600 - 20%
+      expect(adminEnriched.financials.storePayments[1].vendorName).toBe('عصائر النعيم');
+      expect(adminEnriched.financials.storePayments[1].cashToPay).toBe(400); // uncontracted full 400
+      expect(adminEnriched.financials.cashToPayStore).toBe(880);
+      expect(adminEnriched.financials.isStorePrepaid).toBe(false); // since one is uncontracted
+    });
+  });
 });

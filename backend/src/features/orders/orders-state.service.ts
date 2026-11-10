@@ -163,6 +163,10 @@ export class OrdersStateService {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
     }
 
+    if (!isMember && canManage && fulfillments.length > 0) {
+      matchingFulfillments = fulfillments;
+    }
+
     if (
       isMember &&
       isMember.branchId &&
@@ -206,7 +210,10 @@ export class OrdersStateService {
         dto.status === OrderStatus.READY_FOR_PICKUP
       ) {
         let lastResult: any = null;
-        for (const f of matchingFulfillments) {
+        const eligible = matchingFulfillments.filter(
+          (f: any) => f.status === 'ACCEPTED' || f.status === 'PREPARING',
+        );
+        for (const f of eligible) {
           lastResult = await this.applyFulfillmentProductionTransition(
             actor,
             order,
