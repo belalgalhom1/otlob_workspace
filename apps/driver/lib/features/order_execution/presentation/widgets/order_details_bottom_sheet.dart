@@ -251,7 +251,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                           l10n.localeName == 'ar'
                                               ? 'المحطة ${i + 1} من ${fulfillments.length}${isPickedUp ? ' (تم الاستلام ✓)' : ''}'
                                               : 'Stop ${i + 1} of ${fulfillments.length}${isPickedUp ? ' (Picked Up ✓)' : ''}',
-                                          maxLines: 1,
+                                          maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontSize: 12,

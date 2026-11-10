@@ -101,7 +101,7 @@ class _AddProductInChatDialogState
       );
 
       if (image != null) {
-        XFile finalImage = image;
+        XFile? finalImage;
         try {
           final cropped = await ImageCropper().cropImage(
             sourcePath: image.path,
@@ -125,12 +125,16 @@ class _AddProductInChatDialogState
               ),
             ],
           );
-          if (cropped != null) {
-            finalImage = XFile(cropped.path);
+          if (cropped == null) {
+            return;
           }
+          finalImage = XFile(cropped.path);
         } catch (cropErr) {
           debugPrint('ImageCropper failed or not available, using original image: $cropErr');
+          finalImage = image;
         }
+
+        if (finalImage == null) return;
 
         final bytes = await finalImage.readAsBytes();
         if (mounted) {

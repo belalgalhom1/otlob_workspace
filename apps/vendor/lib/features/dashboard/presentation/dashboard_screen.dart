@@ -898,6 +898,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
                                   ),
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
@@ -908,6 +909,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     ).colorScheme.onSurface,
                                     fontSize: 11,
                                   ),
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -1729,6 +1731,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                                 fontWeight: FontWeight.w500,
                                                 color: isDark ? const Color(0xFFF8FAFC) : theme.colorScheme.onSurface,
                                               ),
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),

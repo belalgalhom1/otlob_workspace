@@ -85,7 +85,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
     final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (image == null) return;
 
-    XFile finalFile = image;
+    XFile? finalFile;
     try {
       final cropped = await ImageCropper().cropImage(
         sourcePath: image.path,
@@ -111,12 +111,16 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
           ),
         ],
       );
-      if (cropped != null) {
-        finalFile = XFile(cropped.path);
+      if (cropped == null) {
+        return;
       }
+      finalFile = XFile(cropped.path);
     } catch (cropErr) {
       debugPrint('ImageCropper failed or not available, using original image: $cropErr');
+      finalFile = image;
     }
+
+    if (finalFile == null) return;
 
     setState(() {
       _isUploadingAvatar = true;

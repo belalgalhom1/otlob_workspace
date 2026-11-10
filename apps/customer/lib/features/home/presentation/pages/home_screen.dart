@@ -240,7 +240,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Flexible(
                         child: Text(
                           displayAddress.isEmpty ? s.locationName : displayAddress,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,

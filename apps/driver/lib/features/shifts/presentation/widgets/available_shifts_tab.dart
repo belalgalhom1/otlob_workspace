@@ -488,7 +488,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
               Flexible(
                 child: Text(
                   heading,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
@@ -558,7 +558,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                 Expanded(
                   child: Text(
                     spanLabel,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,

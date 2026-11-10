@@ -322,7 +322,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
