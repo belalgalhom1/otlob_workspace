@@ -1357,7 +1357,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                   Text(
                                     storeName,
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   if (branchName != null && branchName.isNotEmpty)
@@ -1368,7 +1368,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                         fontWeight: FontWeight.w600,
                                         color: isDark ? Colors.white60 : Colors.black54,
                                       ),
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                 ],
@@ -1532,7 +1532,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),

@@ -1129,7 +1129,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           Flexible(
                                             child: Text(
                                               multiVendorStoresText,
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 fontSize: 11,
@@ -1160,7 +1160,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           Flexible(
                                             child: Text(
                                               branchName.toString(),
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontSize: 11,
@@ -1210,7 +1210,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 3),
@@ -1674,7 +1674,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               if (additionalItemsCount > 0) ...[
@@ -2208,7 +2208,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           fontSize: 11,
                                           color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                         ),
-                                        maxLines: 1,
+                                        maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),

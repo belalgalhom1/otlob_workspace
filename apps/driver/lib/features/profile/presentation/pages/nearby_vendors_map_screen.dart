@@ -620,7 +620,7 @@ class _NearbyVendorsMapScreenState
                         ),
                         title: Text(
                           _vendorName(vendor, _isArabic),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,

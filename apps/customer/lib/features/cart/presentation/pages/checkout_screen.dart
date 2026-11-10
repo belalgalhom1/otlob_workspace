@@ -540,6 +540,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   child: Text(
                                     '$storeName${bName != null && bName.isNotEmpty ? ' • $bName' : ''}',
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -578,14 +579,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                         style: const TextStyle(
                                             fontSize: 12, color: Colors.grey)),
                                     const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                          '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          softWrap: false),
+                                    Text(
+                                      '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ]),
                                   if (item.selectedVariant != null)
@@ -666,14 +663,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     style: const TextStyle(
                                         fontSize: 12, color: Colors.grey)),
                                 const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                      '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false),
+                                Text(
+                                  '${item.totalPrice.toStringAsFixed(0)} ${s.egp}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ]),
                               if (item.selectedVariant != null)

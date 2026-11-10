@@ -443,7 +443,7 @@ class WalletScreen extends ConsumerWidget {
                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                     fontStyle: FontStyle.italic,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],

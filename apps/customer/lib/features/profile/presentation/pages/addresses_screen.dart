@@ -123,7 +123,7 @@ class AddressesScreen extends ConsumerWidget {
               children: [
                 Text(address['label'] ?? AppStrings.of(context).address, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
                 const SizedBox(height: 4),
-                Text(address['address'] ?? '', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey.shade600, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(address['address'] ?? '', style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey.shade600, fontSize: 13), maxLines: 4, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),

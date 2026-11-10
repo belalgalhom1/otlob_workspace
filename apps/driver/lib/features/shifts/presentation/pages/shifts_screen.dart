@@ -869,7 +869,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                 Expanded(
                   child: Text(
                     zoneName,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -895,7 +895,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                 Expanded(
                   child: Text(
                     dayLabel,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,

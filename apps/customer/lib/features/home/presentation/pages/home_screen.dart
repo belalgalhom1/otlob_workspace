@@ -1109,7 +1109,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     subtitle: Text(
                       addr['address'] ?? '',
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,

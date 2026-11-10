@@ -532,7 +532,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                 Expanded(
                   child: Text(
                     zoneName,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,

@@ -39,22 +39,25 @@ class AppMapTileLayer extends StatelessWidget {
 
   /// High-contrast color matrix applied to CartoDB Dark Matter tiles in dark mode.
   ///
-  /// Boosts the luminance of city names, street labels, and district titles
+  /// Strongly boosts the luminance of city names, street labels, and district titles
   /// to pure crisp white (#FFFFFF) while keeping the dark background deeply dark.
   static const List<double> darkWhiteTextMatrix = <double>[
-    3.0, 0.0, 0.0, 0.0, -70.0, // R
-    0.0, 3.0, 0.0, 0.0, -70.0, // G
-    0.0, 0.0, 3.0, 0.0, -70.0, // B
+    4.8, 0.0, 0.0, 0.0, -78.0, // R
+    0.0, 4.8, 0.0, 0.0, -78.0, // G
+    0.0, 0.0, 4.8, 0.0, -78.0, // B
     0.0, 0.0, 0.0, 1.0, 0.0,   // A
   ];
 
-  /// Standard dark inversion matrix used when falling back to standard OpenStreetMap.
+  /// High-contrast dark inversion matrix used when falling back to standard OpenStreetMap.
   ///
-  /// Inverts black text and white land into pure white text and dark land.
+  /// Inverts dark text labels (city names, countries, towns, streets) into pure
+  /// crisp white (#FFFFFF) with smooth anti-aliased readability, while turning
+  /// the daytime background into an elegant dark slate, water into deep navy,
+  /// and preserving distinct road networks.
   static const List<double> osmDarkInversionMatrix = <double>[
-    0.574, -1.43, -0.144, 0.0, 255.0,
-    -0.426, -0.43, -0.144, 0.0, 255.0,
-    -0.426, -1.43, 0.856, 0.0, 255.0,
+    0.832, -2.074, -0.209, 0.0, 365.0,
+    -0.618, -0.624, -0.209, 0.0, 365.0,
+    -0.618, -2.074, 1.241, 0.0, 365.0,
     0.0, 0.0, 0.0, 1.0, 0.0,
   ];
 
@@ -117,11 +120,16 @@ class AppMapTileLayer extends StatelessWidget {
         break;
     }
 
+    final isOsmTile = urlTemplate.contains('openstreetmap.org');
+    final needsDarkFilter = isDark &&
+        (effectiveStyle == AppMapStyle.navigationDark ||
+            effectiveStyle == AppMapStyle.standard);
+
     final TileBuilder? effectiveTileBuilder;
     if (tileBuilder != null) {
       effectiveTileBuilder = tileBuilder;
-    } else if (effectiveStyle == AppMapStyle.navigationDark) {
-      final matrix = hasKey ? darkWhiteTextMatrix : osmDarkInversionMatrix;
+    } else if (needsDarkFilter) {
+      final matrix = isOsmTile ? osmDarkInversionMatrix : darkWhiteTextMatrix;
       effectiveTileBuilder = (context, tileWidget, tile) {
         return ColorFiltered(
           colorFilter: ColorFilter.matrix(matrix),
