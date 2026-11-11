@@ -454,7 +454,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final List<Map<String, dynamic>> pickupStops = [];
     if (order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) {
       for (final f in (order['vendorFulfillments'] as List)) {
-        if (f is Map) {
+        if (f is Map && f['status'] != 'REJECTED' && f['status'] != 'CANCELLED') {
           final branch = f['vendorBranch'] is Map ? (f['vendorBranch'] as Map) : {};
           final v = f['vendor'] is Map ? (f['vendor'] as Map) : {};
           

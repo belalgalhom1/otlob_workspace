@@ -112,11 +112,19 @@ function portionStatusFilter(
     case OrderStatus.PENDING:
       return { status: 'PENDING' };
     case OrderStatus.ACCEPTED:
-      return { status: 'ACCEPTED', preparingAt: null, readyAt: null };
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+      };
     case OrderStatus.PREPARING:
       return {
+        pickedUpAt: null,
+        deliveredAt: null,
         OR: [
-          { status: 'PREPARING' },
+          { status: 'PREPARING', readyAt: null },
           {
             status: 'ACCEPTED',
             preparingAt: { not: null },
@@ -126,14 +134,50 @@ function portionStatusFilter(
       };
     case OrderStatus.READY_FOR_PICKUP:
       return {
+        pickedUpAt: null,
+        deliveredAt: null,
         OR: [
           { status: 'READY_FOR_PICKUP' },
           {
             status: 'ACCEPTED',
             readyAt: { not: null },
-            pickedUpAt: null,
           },
         ],
+      };
+    case OrderStatus.LOOKING_FOR_DRIVER:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        order: { status: OrderStatus.LOOKING_FOR_DRIVER },
+      };
+    case OrderStatus.DRIVER_ASSIGNED:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        groups: {
+          some: {
+            deliveryGroup: { status: DeliveryGroupStatus.DRIVER_ASSIGNED },
+          },
+        },
+      };
+    case OrderStatus.PENDING_PAYMENT:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        groups: {
+          some: {
+            deliveryGroup: { status: DeliveryGroupStatus.PENDING_PAYMENT },
+          },
+        },
       };
     case OrderStatus.PICKED_UP:
     case OrderStatus.PARTIALLY_PICKED_UP:
@@ -165,10 +209,10 @@ function portionStatusFilter(
     case OrderStatus.CANCELLED:
       return { status: { in: ['REJECTED', 'CANCELLED'] } };
     default:
-      // Dispatch-driven states (LOOKING_FOR_DRIVER, DRIVER_ASSIGNED,
-      // PENDING_PAYMENT) live at the order/delivery level, while the
-      // portion keeps its own production state. Show every live portion.
-      return { status: { notIn: ['REJECTED', 'CANCELLED'] } };
+      return {
+        status: { notIn: ['REJECTED', 'CANCELLED'] },
+        deliveredAt: null,
+      };
   }
 }
 

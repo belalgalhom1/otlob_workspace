@@ -496,8 +496,11 @@ export class OrdersService {
 
           if (order.vendorFulfillments) {
             const fulfillmentIds = new Set(allGroupItems.map((it: any) => it.fulfillmentId));
-            const myFulfillments = (order.vendorFulfillments as any[]).filter((f) =>
-              fulfillmentIds.size === 0 ? true : fulfillmentIds.has(f.id),
+            const myFulfillments = (order.vendorFulfillments as any[]).filter(
+              (f) =>
+                f.status !== 'REJECTED' &&
+                f.status !== 'CANCELLED' &&
+                (fulfillmentIds.size === 0 ? true : fulfillmentIds.has(f.id)),
             );
 
             myFulfillments.sort((a, b) => {

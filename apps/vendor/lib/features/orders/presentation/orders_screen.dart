@@ -948,7 +948,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final bool isMultiVendor = order['isMultiVendor'] == true ||
         fulfillments.length > 1 ||
         (order['vendor'] == null && fulfillments.isNotEmpty) ||
-        (order['deliveryGroups'] is List && (order['deliveryGroups'] as List).length > 1);
+        (order['deliveryGroups'] is List && (order['deliveryGroups'] as List).length > 1) ||
+        order['myFulfillmentStatus'] != null;
     String? multiVendorStoresText;
     if (isMultiVendor) {
       final names = <String>[];
@@ -2338,9 +2339,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isArabic
-                          ? 'محطات وأصناف المتاجر (${fulfillments.length} متاجر)'
-                          : 'Store Stops & Items (${fulfillments.length} Stores)',
+                      fulfillments.length == 1
+                          ? (isArabic ? 'تفاصيل المتجر والفرع والأصناف' : 'Store, Branch & Items Details')
+                          : (isArabic
+                              ? 'محطات وأصناف المتاجر (${fulfillments.length} متاجر)'
+                              : 'Store Stops & Items (${fulfillments.length} Stores)'),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -2861,8 +2864,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       ),
                     ),
 
-                    // Quick portion actions for Super Admin / Admin
-                    if (canManagePortions && !isRejected && fStatus != 'DELIVERED') ...[
+                    // Quick portion actions for Super Admin / Admin (or multi-branch Vendor Owner/Manager)
+                    if (canManagePortions &&
+                        (_userRole != 'VENDOR_MEMBER' || fulfillments.length > 1) &&
+                        !isRejected &&
+                        fStatus != 'DELIVERED') ...[
                       const SizedBox(height: 10),
                       if (fStatus == 'PENDING') ...[
                         Row(
@@ -2906,7 +2912,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             ),
                           ],
                         ),
-                      ] else if (fStatus == 'ACCEPTED' || fStatus == 'DRIVER_ASSIGNED' || fStatus == 'PENDING_PAYMENT') ...[
+                      ] else if (fStatus == 'ACCEPTED' &&
+                          (order['status'] == 'DRIVER_ASSIGNED' ||
+                              order['status'] == 'PENDING_PAYMENT' ||
+                              order['status'] == 'PREPARING' ||
+                              order['status'] == 'READY_FOR_PICKUP' ||
+                              ((order['deliveryGroups'] as List?) ?? []).any((g) =>
+                                  g is Map &&
+                                  (g['status'] == 'DRIVER_ASSIGNED' ||
+                                      g['status'] == 'PENDING_PAYMENT' ||
+                                      g['status'] == 'READY_FOR_PICKUP') &&
+                                  ((g['items'] as List?) ?? []).any((it) =>
+                                      it is Map && it['fulfillmentId'] == fId)))) ...[
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(

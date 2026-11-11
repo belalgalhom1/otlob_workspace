@@ -222,6 +222,13 @@ export class OrdersStateService {
         return this.ordersRepository.findById(orderId);
       }
       if (dto.status === OrderStatus.CANCELLED) {
+        if (!isMember && canManage) {
+          return this.cancelOrder(
+            actor,
+            orderId,
+            dto.note ?? 'Cancelled by admin',
+          );
+        }
         for (const f of matchingFulfillments) {
           if (f.status !== 'REJECTED' && f.status !== 'CANCELLED') {
             await this.vendorDecisionService.reject(actor, f.id, {
@@ -1656,6 +1663,12 @@ export class OrdersStateService {
           );
         }
       } else if (actor.role === Role.VENDOR_MEMBER) {
+        if ((((order as any).vendorFulfillments ?? []) as any[]).length > 0) {
+          return this.vendorUpdateStatus(actor, orderId, {
+            status: OrderStatus.CANCELLED,
+            note: reason,
+          });
+        }
         // A multi-vendor order has no single order-level vendor, so membership
         // must be resolved against every portion's vendor. Otherwise no vendor
         // could ever cancel their side of a multi-vendor order.

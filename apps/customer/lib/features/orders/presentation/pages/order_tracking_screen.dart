@@ -407,10 +407,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               _orderStatus = incomingOrderStatus.toString();
             }
           });
+          _fetchOrderDetails();
         }
       });
 
-      _statusSub?.cancel();
+      _fulfillmentSub?.cancel();
+    _statusSub?.cancel();
       _statusSub = socket.onEvent('order.status').listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
           // The latest transition wins: a stale socket event must not move the
@@ -573,6 +575,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         return isAr ? 'تم التوصيل' : 'Delivered';
       case 'CANCELLED':
         return isAr ? 'تم الإلغاء' : 'Cancelled';
+      case 'REJECTED':
+        return isAr ? 'مرفوض من المتجر' : 'Rejected by Store';
       case 'DRIVER_ASSIGNED':
         return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
       case 'PENDING_PAYMENT':
@@ -782,6 +786,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
         final branchName = (b['nameAr'] ?? b['name'] ?? '').toString();
         final fStatus = f['status']?.toString() ?? 'PENDING';
+        if (fStatus == 'REJECTED' || fStatus == 'CANCELLED') continue;
         final isPickedUp = fStatus == 'PICKED_UP' || f['pickedUpAt'] != null || _orderStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
 
         stops.add({
@@ -1412,6 +1417,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                             final storeName = (s.isArabic ? (v['storeNameAr'] ?? v['storeName']) : (v['storeName'] ?? v['name']))?.toString() ?? 'Store';
                             final branchName = b != null ? (s.isArabic ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
                             final fStatus = f['status']?.toString() ?? 'PENDING';
+                            final isRejected = fStatus == 'REJECTED' || fStatus == 'CANCELLED';
+                            final isReadyOrDone = fStatus == 'READY_FOR_PICKUP' || fStatus == 'PICKED_UP' || fStatus == 'DELIVERED';
+                            final rejectionReason = (s.isArabic ? (f['rejectionReasonAr'] ?? f['rejectionReason']) : (f['rejectionReason'] ?? f['rejectionReasonAr']))?.toString();
+                            final badgeColor = isRejected
+                                ? Colors.red
+                                : (isReadyOrDone
+                                    ? Colors.green
+                                    : (fStatus == 'PREPARING' ? Colors.orange : Colors.blue));
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
                               child: Row(
@@ -1421,7 +1434,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(storeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                        Text(
+                                          storeName,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            decoration: isRejected ? TextDecoration.lineThrough : null,
+                                          ),
+                                        ),
                                         if (branchName != null && branchName.isNotEmpty)
                                           Text(
                                             '${s.isArabic ? "الفرع: " : "Branch: "}$branchName',
@@ -1430,17 +1450,22 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                               color: isDark ? Colors.white54 : Colors.grey.shade600,
                                             ),
                                           ),
+                                        if (isRejected && rejectionReason != null && rejectionReason.isNotEmpty)
+                                          Text(
+                                            rejectionReason,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: fStatus == 'READY_FOR_PICKUP'
-                                          ? Colors.green.withValues(alpha: 0.15)
-                                          : (fStatus == 'PREPARING'
-                                              ? Colors.orange.withValues(alpha: 0.15)
-                                              : Colors.blue.withValues(alpha: 0.15)),
+                                      color: badgeColor.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
@@ -1448,9 +1473,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: fStatus == 'READY_FOR_PICKUP'
-                                            ? Colors.green
-                                            : (fStatus == 'PREPARING' ? Colors.orange : Colors.blue),
+                                        color: badgeColor,
                                       ),
                                     ),
                                   ),
