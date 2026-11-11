@@ -1069,10 +1069,6 @@ export class OrdersRepository {
     const written = { revision: null as number | null };
 
     await this.prisma.$transaction(async (tx) => {
-      // Serialize with recomputeTotalsAfterRejection so partial-rejection coin
-      // refunds and full-order cancellation never race or deadlock.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-money:' || ${orderId}::text))`;
-
       const updatedCount = await tx.order.updateMany({
         where: { id: orderId, status: expectedOldStatus },
         data: {
@@ -1094,12 +1090,12 @@ export class OrdersRepository {
         throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
       }
 
-      const freshOrder = await tx.order.findUnique({
-        where: { id: orderId },
-        select: { revision: true, coinsUsed: true },
-      });
-      written.revision = freshOrder?.revision ?? null;
-      const effectiveCoinsUsed = freshOrder?.coinsUsed ?? coinsUsed;
+      written.revision = (
+        await tx.order.findUnique({
+          where: { id: orderId },
+          select: { revision: true },
+        })
+      )?.revision ?? null;
 
       await tx.orderStatusEvent.create({
         data: {
@@ -1113,39 +1109,42 @@ export class OrdersRepository {
       // Refund coins atomically with the status change so a crash or a retry
       // cannot leave the order cancelled without a refund, or refund it twice.
       // The customer row lock serializes concurrent cancels of different
-      // orders for the same customer; the upsert on the unique (orderId, type)
-      // ledger key accumulates any prior partial-rejection refund without
-      // ever triggering a 23505 unique violation that would abort the PG tx.
-      if (effectiveCoinsUsed > 0) {
+      // orders for the same customer; the findFirst guard + unique ledger
+      // key make retries idempotent.
+      if (coinsUsed > 0) {
         await tx.$executeRaw`SELECT id FROM customers WHERE id = ${customerId} FOR UPDATE`;
+        // A portion rejection may already have refunded part of the coins.
+        // Refund only the remainder so partial rejection + cancellation never
+        // pays the customer back twice (nor skips coins they are still owed).
+        // The ledger has a unique (orderId, type) row, so the refund is a
+        // single accumulating REFUNDED row rather than one row per event.
         const refunded = await tx.customerCoinTransaction.aggregate({
           where: { orderId, type: 'REFUNDED' },
           _sum: { amount: true },
         });
         const alreadyRefunded = Number(refunded._sum.amount ?? 0);
-        const coinsToRefund = Math.max(0, effectiveCoinsUsed - alreadyRefunded);
+        const coinsToRefund = Math.max(0, coinsUsed - alreadyRefunded);
         if (coinsToRefund > 0) {
           const customer = await tx.customer.update({
             where: { id: customerId },
             data: { coinBalance: { increment: coinsToRefund } },
             select: { coinBalance: true },
           });
-          await tx.customerCoinTransaction.upsert({
-            where: { orderId_type: { orderId, type: 'REFUNDED' } },
-            create: {
-              customerId,
-              orderId,
-              type: 'REFUNDED',
-              amount: coinsToRefund,
-              balanceAfter: customer.coinBalance,
-              description: `Refund for cancelled order ${orderNumber}`,
-            },
-            update: {
-              amount: { increment: coinsToRefund },
-              balanceAfter: customer.coinBalance,
-              description: `Refund for cancelled order ${orderNumber}`,
-            },
-          });
+          try {
+            await tx.customerCoinTransaction.create({
+              data: {
+                customerId,
+                orderId,
+                type: 'REFUNDED',
+                amount: coinsToRefund,
+                balanceAfter: customer.coinBalance,
+                description: `Refund for cancelled order ${orderNumber}`,
+              },
+            });
+          } catch (e: any) {
+            // A concurrent cancellation refunded between our read and write.
+            if (e?.code !== 'P2002') throw e;
+          }
         }
       }
 
