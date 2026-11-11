@@ -282,6 +282,7 @@ export class EventsProcessor extends WorkerHost {
     const groupDriverRows = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId: event.orderId },
       select: {
+        status: true,
         primaryDriverId: true,
         assistDriverId: true,
         primaryDriver: { select: { userId: true } },
@@ -422,10 +423,26 @@ export class EventsProcessor extends WorkerHost {
     ];
     for (const driverId of driverUserById.keys()) {
       if (trackingStatuses.includes(event.newStatus)) {
-        await this.refreshDriverTracking(driverId, undefined, {
-          orderId: event.orderId,
-          customerUserId: event.customerUserId,
-        });
+        const hasActiveWorkOnThisOrder =
+          groupDriverRows.length > 0
+            ? groupDriverRows.some(
+                (g) =>
+                  (g.primaryDriverId === driverId ||
+                    g.assistDriverId === driverId) &&
+                  g.status !== DeliveryGroupStatus.CANCELLED &&
+                  g.status !== DeliveryGroupStatus.DELIVERED,
+              )
+            : driverId === event.driverId;
+        await this.refreshDriverTracking(
+          driverId,
+          hasActiveWorkOnThisOrder ? undefined : event.orderId,
+          hasActiveWorkOnThisOrder
+            ? {
+                orderId: event.orderId,
+                customerUserId: event.customerUserId,
+              }
+            : undefined,
+        );
       } else if (
         event.newStatus === OrderStatus.DELIVERED ||
         event.newStatus === OrderStatus.CANCELLED

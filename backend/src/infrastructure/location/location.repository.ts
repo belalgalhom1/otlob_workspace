@@ -538,12 +538,16 @@ export class LocationRepository {
           LEFT JOIN order_delivery_group_items gi ON gi."deliveryGroupId" = g.id
           LEFT JOIN order_vendor_fulfillments f ON f.id = gi."fulfillmentId"
           LEFT JOIN vendor_branches b ON b.id = f."vendorBranchId"
+          LEFT JOIN order_vendor_fulfillments of2
+            ON of2."orderId" = o.id
+            AND of2.status::text NOT IN ('REJECTED', 'CANCELLED')
+          LEFT JOIN vendor_branches ob2 ON ob2.id = of2."vendorBranchId"
           WHERE (
             (g.id IS NULL AND o."driverId" = d.id AND o.status::text IN ('DRIVER_ASSIGNED', 'PREPARING', 'READY_FOR_PICKUP', 'PENDING_PAYMENT', 'PARTIALLY_PICKED_UP', 'PICKED_UP'))
             OR ((g."primaryDriverId" = d.id OR g."assistDriverId" = d.id) AND g.status::text NOT IN ('CANCELLED', 'DELIVERED'))
           )
           AND ST_DWithin(
-            COALESCE(b."location", ob."location", o."pickupLocation")::geography,
+            COALESCE(b."location", ob."location", ob2."location", o."pickupLocation")::geography,
             ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
             ${maxVendorMeters}
           )

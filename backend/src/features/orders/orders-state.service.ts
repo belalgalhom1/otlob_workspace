@@ -1576,15 +1576,29 @@ export class OrdersStateService {
       nextStatus === OrderStatus.PENDING_PAYMENT
         ? DeliveryGroupStatus.PENDING_PAYMENT
         : DeliveryGroupStatus.DRIVER_ASSIGNED;
+    const prevGroupDrivers = await this.prisma.orderDeliveryGroup.findMany({
+      where: {
+        orderId,
+        primaryDriverId: { not: null, notIn: [driver.id] },
+        status: {
+          notIn: [
+            DeliveryGroupStatus.CANCELLED,
+            DeliveryGroupStatus.DELIVERED,
+          ],
+        },
+      },
+      select: { primaryDriverId: true },
+    });
     await this.prisma.orderDeliveryGroup.updateMany({
       where: {
         orderId,
-        primaryDriverId: null,
         status: {
           in: [
             DeliveryGroupStatus.PENDING,
             DeliveryGroupStatus.ACCEPTED,
             DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+            DeliveryGroupStatus.DRIVER_ASSIGNED,
+            DeliveryGroupStatus.PENDING_PAYMENT,
             DeliveryGroupStatus.READY_FOR_PICKUP,
           ],
         },
@@ -1598,6 +1612,13 @@ export class OrdersStateService {
         assignedAt: new Date(),
       },
     });
+    for (const prev of new Set(
+      prevGroupDrivers
+        .map((g) => g.primaryDriverId)
+        .filter((id): id is string => Boolean(id)),
+    )) {
+      await this.ordersRepository.freeDriver(prev);
+    }
 
     // The dispatch listener will catch ORDER_STATUS_CHANGED to DRIVER_ASSIGNED
     // and cancel any automated dispatch ping that might be running automatically.

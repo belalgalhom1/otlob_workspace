@@ -294,6 +294,74 @@ export class PlatformSettingsService {
       }
     }
 
+    const current = await this.prisma.platformSetting.findUnique({
+      where: { id: 'default' },
+    });
+
+    if (current) {
+      // Keep Batched/Stacked cuts (Platform + Manager + Driver = 100%) synchronized
+      const newBatchedPlatform = Number(
+        dto.batchedDeliveryCommissionRate ?? current.batchedDeliveryCommissionRate ?? 40,
+      );
+      const newBatchedManager = Number(
+        dto.batchedDriverManagerCommissionRate ?? current.batchedDriverManagerCommissionRate ?? 10,
+      );
+      const newStackedDriver = Number(
+        dto.stackedOrderDriverPercentage ?? current.stackedOrderDriverPercentage ?? 50,
+      );
+      const batchedRatesChanged =
+        (dto.batchedDeliveryCommissionRate !== undefined &&
+          dto.batchedDeliveryCommissionRate !== current.batchedDeliveryCommissionRate) ||
+        (dto.batchedDriverManagerCommissionRate !== undefined &&
+          dto.batchedDriverManagerCommissionRate !== current.batchedDriverManagerCommissionRate);
+      const stackedDriverChanged =
+        dto.stackedOrderDriverPercentage !== undefined &&
+        dto.stackedOrderDriverPercentage !== current.stackedOrderDriverPercentage;
+
+      if (batchedRatesChanged && !stackedDriverChanged) {
+        data.stackedOrderDriverPercentage = Math.max(
+          0,
+          100 - newBatchedPlatform - newBatchedManager,
+        );
+      } else if (stackedDriverChanged && !batchedRatesChanged) {
+        data.batchedDeliveryCommissionRate = Math.max(
+          0,
+          100 - newStackedDriver - newBatchedManager,
+        );
+      }
+
+      // Keep Multi-Vendor cuts (Platform + Manager + Driver = 100%) synchronized
+      const newMvPlatform = Number(
+        dto.multiVendorDeliveryCommissionRate ?? current.multiVendorDeliveryCommissionRate ?? 20,
+      );
+      const newMvManager = Number(
+        dto.multiVendorDriverManagerCommissionRate ?? current.multiVendorDriverManagerCommissionRate ?? 10,
+      );
+      const newMvDriver = Number(
+        dto.multiVendorDriverPercentage ?? current.multiVendorDriverPercentage ?? 70,
+      );
+      const mvRatesChanged =
+        (dto.multiVendorDeliveryCommissionRate !== undefined &&
+          dto.multiVendorDeliveryCommissionRate !== current.multiVendorDeliveryCommissionRate) ||
+        (dto.multiVendorDriverManagerCommissionRate !== undefined &&
+          dto.multiVendorDriverManagerCommissionRate !== current.multiVendorDriverManagerCommissionRate);
+      const mvDriverChanged =
+        dto.multiVendorDriverPercentage !== undefined &&
+        dto.multiVendorDriverPercentage !== current.multiVendorDriverPercentage;
+
+      if (mvRatesChanged && !mvDriverChanged) {
+        data.multiVendorDriverPercentage = Math.max(
+          0,
+          100 - newMvPlatform - newMvManager,
+        );
+      } else if (mvDriverChanged && !mvRatesChanged) {
+        data.multiVendorDeliveryCommissionRate = Math.max(
+          0,
+          100 - newMvDriver - newMvManager,
+        );
+      }
+    }
+
     const settings = await this.prisma.platformSetting.upsert({
       where: { id: 'default' },
       create: { id: 'default', ...(data as any) },
