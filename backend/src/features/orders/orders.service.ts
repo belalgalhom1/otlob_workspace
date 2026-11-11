@@ -251,19 +251,25 @@ export class OrdersService {
           totalPages: 0,
         };
       }
-      const result = await this.ordersRepository.findMany({
-        ...dto,
-        driverIds: dto.driverId ? undefined : managedDriverIds,
-      });
+      const [result, settings] = await Promise.all([
+        this.ordersRepository.findMany({
+          ...dto,
+          driverIds: dto.driverId ? undefined : managedDriverIds,
+        }),
+        this.platformSettings.getSettings(),
+      ]);
       result.orders = await Promise.all(
-        result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
+        result.orders.map((o: any) => this.enrichWithAdminHelpers(o, settings)),
       );
       return result;
     }
 
-    const result = await this.ordersRepository.findMany(dto);
+    const [result, settings] = await Promise.all([
+      this.ordersRepository.findMany(dto),
+      this.platformSettings.getSettings(),
+    ]);
     result.orders = await Promise.all(
-      result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
+      result.orders.map((o: any) => this.enrichWithAdminHelpers(o, settings)),
     );
     return result;
   }
@@ -392,15 +398,10 @@ export class OrdersService {
     actor: JwtAccessPayload,
     ctx?: { driverId?: string | null; driverTier?: string | null; settings?: any },
   ): Promise<any> {
-    const isPrepaid =
-      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
-      order.paymentMethod !== 'MOBILE_WALLET';
-    const orderPaid =
-      order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED';
+    const isPrepaid = order.paymentMethod !== 'CASH_ON_DELIVERY';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
-    let cashToCollect =
-      isPrepaid || orderPaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+    let cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
 
     let isStorePrepaid =
       order.vendorBranch?.isContracted ??
@@ -573,30 +574,54 @@ export class OrdersService {
               }
             }
 
-            // Total cash to collect at door: sum of all assigned stores' goods + delivery fee + first-group extras - upfront
-            const activeGroupsForSeq = order.deliveryGroups.filter(
-              (g: any) => g.status !== 'CANCELLED',
-            );
-            const firstSequence = Math.min(
-              ...(activeGroupsForSeq.length > 0 ? activeGroupsForSeq : order.deliveryGroups).map(
-                (g: any) => Number(g.sequence ?? 0),
-              ),
-            );
-            const isFirstGroup = myGroups.some((g: any) => Number(g.sequence ?? 0) === firstSequence);
-            const orderLevelExtras = isFirstGroup
-              ? Number(order.serviceFee ?? 0) +
-                Number(order.tax ?? 0) +
-                Number(order.driverBonusFee ?? 0) -
-                Number(order.discount ?? 0) -
-                upfrontAmount
-              : 0;
-            cashToCollect =
-              isPrepaid || orderPaid
-                ? 0
-                : Math.max(
-                    0,
-                    groupSubtotal + deliveryFee + orderLevelExtras,
-                  );
+            // Total cash to collect at door: deterministic sequential waterfall
+            // across active delivery groups (ordered by sequence ASC). Group 1
+            // absorbs order-level fees (serviceFee + tax + driverBonusFee) and
+            // deductions (discount + upfrontAmount). If discount + upfrontAmount
+            // exceeds Group 1's raw total, the remaining deduction carries over
+            // to subsequent groups so the sum of cashToCollect across all groups
+            // always equals Math.max(0, grandTotal - upfrontAmount).
+            const activeGroupsSorted = [...order.deliveryGroups]
+              .filter((g: any) => g.status !== 'CANCELLED')
+              .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+            const groupsForAllocation =
+              activeGroupsSorted.length > 0 ? activeGroupsSorted : [...order.deliveryGroups];
+            const myGroupIdSet = new Set(myGroups.map((g: any) => g.id));
+            const allFulfillmentsList = (order.vendorFulfillments as any[]) ?? [];
+
+            let remainingDeduction =
+              Number(order.discount ?? 0) + upfrontAmount;
+            let myDoorCash = 0;
+
+            groupsForAllocation.forEach((g: any, idx: number) => {
+              const gItemFIds = new Set(
+                (Array.isArray(g.items) ? g.items : []).map((it: any) => it.fulfillmentId),
+              );
+              const gSub = allFulfillmentsList
+                .filter(
+                  (f: any) =>
+                    f.status !== 'REJECTED' &&
+                    f.status !== 'CANCELLED' &&
+                    gItemFIds.has(f.id),
+                )
+                .reduce((s: number, f: any) => s + Number(f.subtotal ?? 0), 0);
+              const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+              const gExtras =
+                idx === 0
+                  ? Number(order.serviceFee ?? 0) +
+                    Number(order.tax ?? 0) +
+                    Number(order.driverBonusFee ?? 0)
+                  : 0;
+              const rawGroupTotal = Math.max(0, gSub + gFee + gExtras);
+              const appliedDeduction = Math.min(rawGroupTotal, remainingDeduction);
+              remainingDeduction = Math.max(0, remainingDeduction - appliedDeduction);
+              const groupCashAtDoor = Math.max(0, rawGroupTotal - appliedDeduction);
+              if (myGroupIdSet.has(g.id)) {
+                myDoorCash += groupCashAtDoor;
+              }
+            });
+
+            cashToCollect = isPrepaid ? 0 : myDoorCash;
 
             const firstFulfillment = myFulfillments[0];
             if (firstFulfillment) {
@@ -660,7 +685,7 @@ export class OrdersService {
         viewRole: 'DRIVER',
         isPrimaryCollector,
         cashToCollect,
-        isPrepaid: isPrepaid || orderPaid,
+        isPrepaid,
         cashToPayStore,
         isStorePrepaid,
         driverEarnings,
@@ -914,9 +939,7 @@ export class OrdersService {
   }
 
   private projectForCustomer(order: any): any {
-    const isPrepaid =
-      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
-      order.paymentMethod !== 'MOBILE_WALLET';
+    const isPrepaid = order.paymentMethod !== 'CASH_ON_DELIVERY';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
@@ -1012,11 +1035,12 @@ export class OrdersService {
     };
   }
 
-  private async enrichWithAdminHelpers(order: any): Promise<any> {
+  private async enrichWithAdminHelpers(
+    order: any,
+    cachedSettings?: any,
+  ): Promise<any> {
     if (!order) return order;
-    const isPrepaid =
-      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
-      order.paymentMethod !== 'MOBILE_WALLET';
+    const isPrepaid = order.paymentMethod !== 'CASH_ON_DELIVERY';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
@@ -1026,9 +1050,19 @@ export class OrdersService {
       order.vendor?.isContracted ??
       false;
     const subtotal = Number(order.subtotal ?? 0);
-    const cashToPayStore = isStorePrepaid ? 0 : subtotal;
+    const singleStoreCommRate = Number(
+      order.vendorBranch?.commissionRate ??
+      order.vendor?.commissionRate ??
+      10,
+    );
+    const singleStoreComm = isStorePrepaid
+      ? Math.round(subtotal * (singleStoreCommRate / 100))
+      : 0;
+    const cashToPayStore = isStorePrepaid
+      ? Math.max(0, subtotal - singleStoreComm)
+      : subtotal;
 
-    const settings = await this.platformSettings.getSettings();
+    const settings = cachedSettings ?? (await this.platformSettings.getSettings());
     const deliveryFee = Number(order.deliveryFee ?? 0);
     const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
     const driverEarnings = this.calculateDriverEarningsForFee(
@@ -1130,11 +1164,11 @@ export class OrdersService {
   }
 
   private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.DRIVER_MANAGER) {
-      return false;
-    }
-    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) {
+    if (role === Role.SUPER_ADMIN) {
       return true;
+    }
+    if (role !== Role.ADMIN) {
+      return false;
     }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

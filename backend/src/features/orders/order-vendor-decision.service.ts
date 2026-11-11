@@ -770,6 +770,9 @@ export class OrderVendorDecisionService {
         Math.round((newSubtotal + newServiceFee) * impliedTaxRate),
       );
 
+      const newDriverBonusFee =
+        newSubtotal === 0 && newDeliveryFee === 0 ? 0 : order.driverBonusFee;
+
       const oldPreDiscount =
         order.subtotal +
         order.deliveryFee +
@@ -779,7 +782,7 @@ export class OrderVendorDecisionService {
       const newPreDiscount =
         newSubtotal +
         newDeliveryFee +
-        order.driverBonusFee +
+        newDriverBonusFee +
         newServiceFee +
         newTax;
 
@@ -811,6 +814,7 @@ export class OrderVendorDecisionService {
         data: {
           subtotal: newSubtotal,
           deliveryFee: newDeliveryFee,
+          driverBonusFee: newDriverBonusFee,
           serviceFee: newServiceFee,
           tax: newTax,
           discount: newDiscount,
@@ -1026,7 +1030,8 @@ export class OrderVendorDecisionService {
     }
   }
   private async canManageOrders(userId: string, role: string): Promise<boolean> {
-    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
+    if (role === Role.SUPER_ADMIN) return true;
+    if (role !== Role.ADMIN) return false;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { permissions: true },
