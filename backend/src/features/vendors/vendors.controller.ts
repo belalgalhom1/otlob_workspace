@@ -24,8 +24,10 @@ import { RequirePermissions } from 'src/common/decorators/permissions.decorator'
 import { Public } from 'src/common/decorators/public.decorator';
 import { VendorMember } from 'src/common/decorators/vendor-member.decorator';
 import { CurrentVendorBranch } from 'src/common/decorators/current-vendor-branch.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { VendorErrors } from 'src/common/constants/response.constants';
-import { Permission, VendorMemberRole } from '@prisma/client';
+import { Permission, Role, VendorMemberRole } from '@prisma/client';
+import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
@@ -93,7 +95,15 @@ export class VendorsController {
   @ApiBearerAuth()
   @RequirePermissions(Permission.MANAGE_VENDORS)
   @ApiOperation({ summary: 'Create a new vendor (Admin)' })
-  create(@Body() dto: CreateVendorDto) {
+  create(
+    @Body() dto: CreateVendorDto,
+    @CurrentUser() user: JwtAccessPayload,
+  ) {
+    // Commission rate is a platform-level commercial term: only SUPER_ADMIN
+    // may set it. Other roles fall back to the platform default.
+    if (user?.role !== Role.SUPER_ADMIN) {
+      delete (dto as any).commissionRate;
+    }
     return this.service.create(dto);
   }
 
@@ -105,10 +115,16 @@ export class VendorsController {
   update(
     @Param('vendorId') vendorId: string,
     @Body() dto: UpdateVendorDto,
+    @CurrentUser() user: JwtAccessPayload,
     @CurrentVendorBranch() assignedBranchId?: string | null,
   ) {
     if (assignedBranchId)
       throw new ForbiddenException(VendorErrors.CANNOT_MODIFY_GLOBAL_SETTINGS);
+    // Vendors (and any non-super-admin) must not be able to change their own
+    // commission rate; the field is silently ignored server-side.
+    if (user?.role !== Role.SUPER_ADMIN) {
+      delete (dto as any).commissionRate;
+    }
     return this.service.update(vendorId, dto);
   }
 

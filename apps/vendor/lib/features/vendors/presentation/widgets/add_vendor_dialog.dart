@@ -42,6 +42,11 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   bool _is24Hours = false;
   List<Map<String, dynamic>> _workingHours = [];
 
+  /// Commission is a platform-level commercial term: only SUPER_ADMIN can
+  /// change it. Everyone else (including vendor members and ADMINs) sees the
+  /// current value read-only.
+  bool get _canEditCommission => widget.userRole == 'SUPER_ADMIN';
+
   @override
   void initState() {
     super.initState();
@@ -326,6 +331,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                             hint: '10',
                             icon: LucideIcons.percent,
                             keyboardType: TextInputType.number,
+                            enabled: _canEditCommission,
                           ),
                         ] else
                           Row(
@@ -348,7 +354,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                                   hint: '10',
                                   icon: LucideIcons.percent,
                                   keyboardType: TextInputType.number,
-                                  enabled: widget.userRole != 'VENDOR_MEMBER',
+                                  enabled: _canEditCommission,
                                 ),
                               ),
                             ],
@@ -1317,7 +1323,8 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         'description': _descriptionController.text,
         'descriptionAr': _descriptionArController.text,
         'taxId': _taxIdController.text,
-        'commissionRate': double.tryParse(_commissionController.text) ?? 10.0,
+        if (_canEditCommission)
+          'commissionRate': double.tryParse(_commissionController.text) ?? 10.0,
         'verticalId': _selectedVerticalId,
         'phone': _phoneController.text,
         'coverImage': _pickedImage,

@@ -574,23 +574,44 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
   bool _canManageDrivers = false;
   bool _canViewAllDriversStats = false;
+  bool _canCreateOrEditDrivers = false;
+  bool _isDriverManager = false;
 
   Future<void> _checkPermissions() async {
     final repo = ref.read(sharedAuthRepositoryProvider);
     final role = await repo.getUserRole();
-    if (role == 'SUPER_ADMIN' || role == 'DRIVER_MANAGER') {
+
+    // Driver managers oversee their assigned drivers (tracking, shifts,
+    // breaks, suspend/unsuspend) but they are not platform admins: creating
+    // or editing driver accounts is reserved for SUPER_ADMIN / ADMIN.
+    if (role == 'DRIVER_MANAGER') {
       if (mounted) {
         setState(() {
+          _isDriverManager = true;
           _canManageDrivers = true;
           _canViewAllDriversStats = true;
+          _canCreateOrEditDrivers = false;
         });
       }
       return;
     }
+
+    if (role == 'SUPER_ADMIN') {
+      if (mounted) {
+        setState(() {
+          _canManageDrivers = true;
+          _canViewAllDriversStats = true;
+          _canCreateOrEditDrivers = true;
+        });
+      }
+      return;
+    }
+
     final permissions = await repo.getUserPermissions();
     if (mounted) {
       setState(() {
         _canManageDrivers = permissions.contains('MANAGE_DRIVERS');
+        _canCreateOrEditDrivers = permissions.contains('MANAGE_DRIVERS');
       });
     }
   }
@@ -1161,33 +1182,35 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                   },
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const DriverFormDialog(),
-                  );
-                },
-                icon: const Icon(LucideIcons.userPlus, size: 16),
-                label: Text(
-                  isMobile
-                      ? (isArabic ? 'سائق جديد' : 'New')
-                      : l10n.createNewUser,
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 12 : 16,
-                    vertical: 14,
+              if (_canCreateOrEditDrivers) ...[
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const DriverFormDialog(),
+                    );
+                  },
+                  icon: const Icon(LucideIcons.userPlus, size: 16),
+                  label: Text(
+                    isMobile
+                        ? (isArabic ? 'سائق جديد' : 'New')
+                        : l10n.createNewUser,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 12 : 16,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 10),
@@ -1237,26 +1260,27 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                     ),
                     const SizedBox(width: 8),
                   ],
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const DriverManagersScreen(isEmbedded: false),
-                        ),
-                      );
-                    },
-                    icon: const Icon(LucideIcons.userCheck, size: 14),
-                    label: Text(
-                      isArabic ? 'مسؤولو السائقين' : 'Driver Managers',
-                      style: const TextStyle(fontSize: 12),
+                  if (!_isDriverManager) ...[
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DriverManagersScreen(isEmbedded: false),
+                          ),
+                        );
+                      },
+                      icon: const Icon(LucideIcons.userCheck, size: 14),
+                      label: Text(
+                        isArabic ? 'مسؤولو السائقين' : 'Driver Managers',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+                  ],
                   OutlinedButton.icon(
                     onPressed: () {
                       showDialog(
@@ -1806,18 +1830,25 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                     ),
                     const SizedBox(width: 8),
                     _buildActionPill(
-                      icon: LucideIcons.pencil,
-                      label: l10n.actionEdit,
+                      icon: _canCreateOrEditDrivers
+                          ? LucideIcons.pencil
+                          : LucideIcons.eye,
+                      label: _canCreateOrEditDrivers
+                          ? l10n.actionEdit
+                          : (isArabic ? 'عرض' : 'View'),
                       color: Colors.grey,
                       onTap: () {
                         showDialog(
                           context: context,
-                          builder: (context) => DriverFormDialog(driver: driver),
+                          builder: (context) => DriverFormDialog(
+                            driver: driver,
+                            readOnly: !_canCreateOrEditDrivers,
+                          ),
                         );
                       },
                     ),
                     const SizedBox(width: 8),
-                    if (!driver.isApproved)
+                    if (!driver.isApproved && _canCreateOrEditDrivers)
                       _buildActionPill(
                         icon: LucideIcons.checkCircle,
                         label: l10n.actionApprove,

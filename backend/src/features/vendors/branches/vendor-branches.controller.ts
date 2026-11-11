@@ -73,6 +73,8 @@ export class VendorBranchesController {
     }
     if (user?.role !== Role.ADMIN && user?.role !== Role.SUPER_ADMIN) {
       delete (dto as any).isContracted;
+    }
+    if (user?.role !== Role.SUPER_ADMIN) {
       delete (dto as any).commissionRate;
     }
     return this.service.create(vendorId, dto);
@@ -97,6 +99,8 @@ export class VendorBranchesController {
     }
     if (user?.role !== Role.ADMIN && user?.role !== Role.SUPER_ADMIN) {
       delete (dto as any).isContracted;
+    }
+    if (user?.role !== Role.SUPER_ADMIN) {
       delete (dto as any).commissionRate;
     }
     return this.service.update(vendorId, branchId, dto);
@@ -130,7 +134,13 @@ export class VendorBranchesController {
   adminCreate(
     @Param('vendorId') vendorId: string,
     @Body() dto: CreateVendorBranchDto,
+    @CurrentUser() user: JwtAccessPayload,
   ) {
+    // Branch commission is a platform-level commercial term: only SUPER_ADMIN
+    // may set it.
+    if (user?.role !== Role.SUPER_ADMIN) {
+      delete (dto as any).commissionRate;
+    }
     return this.service.create(vendorId, dto);
   }
 
@@ -143,7 +153,13 @@ export class VendorBranchesController {
     @Param('vendorId') vendorId: string,
     @Param('branchId') branchId: string,
     @Body() dto: UpdateVendorBranchDto,
+    @CurrentUser() user: JwtAccessPayload,
   ) {
+    // Branch commission is a platform-level commercial term: only SUPER_ADMIN
+    // may change it.
+    if (user?.role !== Role.SUPER_ADMIN) {
+      delete (dto as any).commissionRate;
+    }
     return this.service.update(vendorId, branchId, dto);
   }
 

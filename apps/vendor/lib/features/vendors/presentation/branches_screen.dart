@@ -15,11 +15,13 @@ import 'package:latlong2/latlong.dart';
 class BranchesScreen extends ConsumerStatefulWidget {
   final String vendorId;
   final String vendorName;
+  final String? userRole;
 
   const BranchesScreen({
     super.key,
     required this.vendorId,
     required this.vendorName,
+    this.userRole,
   });
 
   @override
@@ -493,6 +495,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
 
   void _showAddBranchDialog({dynamic branch}) async {
     final isEdit = branch != null;
+    final canEditCommission = widget.userRole == 'SUPER_ADMIN';
     final nameController = TextEditingController(text: branch?['name'] ?? '');
     final nameArController = TextEditingController(
       text: branch?['nameAr'] ?? '',
@@ -949,6 +952,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                 : 'Leave empty to inherit vendor rate',
                             keyboardType: TextInputType.number,
                             icon: LucideIcons.percent,
+                            enabled: canEditCommission,
                           ),
                           if (errorMessage != null) ...[
                             const SizedBox(height: 16),
@@ -1059,9 +1063,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             isOpen: isOpen,
                                             isContracted: isContracted,
                                             commissionRate:
-                                                commissionController.text
-                                                    .trim()
-                                                    .isNotEmpty
+                                                canEditCommission &&
+                                                    commissionController.text
+                                                        .trim()
+                                                        .isNotEmpty
                                                 ? int.tryParse(
                                                     commissionController.text
                                                         .trim(),
@@ -1093,9 +1098,10 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                             isOpen: isOpen,
                                             isContracted: isContracted,
                                             commissionRate:
-                                                commissionController.text
-                                                    .trim()
-                                                    .isNotEmpty
+                                                canEditCommission &&
+                                                    commissionController.text
+                                                        .trim()
+                                                        .isNotEmpty
                                                 ? int.tryParse(
                                                     commissionController.text
                                                         .trim(),
@@ -1158,6 +1164,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     required IconData icon,
     TextAlign textAlign = TextAlign.start,
     TextInputType? keyboardType,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1174,6 +1181,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
           controller: controller,
           textAlign: textAlign,
           keyboardType: keyboardType,
+          enabled: enabled,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: hint,

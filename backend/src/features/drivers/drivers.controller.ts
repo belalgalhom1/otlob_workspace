@@ -285,6 +285,7 @@ export class DriversController {
 
   @ApiStandardResponse()
   @Post('admin')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] Create a new driver directly' })
   async adminCreate(
@@ -309,6 +310,7 @@ export class DriversController {
 
   @ApiStandardResponse()
   @Patch(':driverId/admin')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({
     summary: '[Admin] Update driver profile and sensitive fields',

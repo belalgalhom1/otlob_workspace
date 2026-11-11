@@ -11,7 +11,11 @@ import '../../../../core/utils/error_utils.dart';
 class DriverFormDialog extends ConsumerStatefulWidget {
   final DriverProfile? driver;
 
-  const DriverFormDialog({super.key, this.driver});
+  /// When true the dialog only displays the driver's information and offers
+  /// no way to save changes (used for DRIVER_MANAGER accounts).
+  final bool readOnly;
+
+  const DriverFormDialog({super.key, this.driver, this.readOnly = false});
 
   @override
   ConsumerState<DriverFormDialog> createState() => _DriverFormDialogState();
@@ -57,7 +61,9 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
       }
       _selectedDriverManagerUserId = widget.driver!.driverManagerUserId;
     }
-    _loadManagers();
+    if (!widget.readOnly) {
+      _loadManagers();
+    }
   }
 
   Future<void> _loadManagers() async {
@@ -151,6 +157,13 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
 
   Widget _buildDriverManagerDropdown() {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    if (widget.readOnly) {
+      return _buildReadOnlyField(
+        isAr ? 'مسؤول السائقين' : 'Driver Manager',
+        LucideIcons.userCheck,
+        widget.driver?.driverManagerName,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: DropdownButtonFormField<String?>(
@@ -188,10 +201,30 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: controller,
+        readOnly: widget.readOnly,
         obscureText: isPassword,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
+          prefixIcon: Icon(icon, size: 20),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceBright,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyField(String label, IconData icon, String? value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        initialValue: (value == null || value.trim().isEmpty) ? '—' : value,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
           prefixIcon: Icon(icon, size: 20),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -237,11 +270,13 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
             child: Text(displayType),
           );
         }).toList(),
-        onChanged: (value) {
-          if (value != null) {
-            setState(() => _selectedVehicleType = value);
-          }
-        },
+        onChanged: widget.readOnly
+            ? null
+            : (value) {
+                if (value != null) {
+                  setState(() => _selectedVehicleType = value);
+                }
+              },
       ),
     );
   }
@@ -270,7 +305,11 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isNew ? l10n.createNewUser : l10n.editUserProfile,
+                      widget.readOnly
+                          ? (Localizations.localeOf(context).languageCode == 'ar'
+                              ? 'تفاصيل السائق'
+                              : 'Driver Details')
+                          : (isNew ? l10n.createNewUser : l10n.editUserProfile),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -296,7 +335,9 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
                 title: Text(l10n.driverApprovedTitle),
                 subtitle: Text(l10n.driverApprovedSubtitle),
                 value: _isApproved,
-                onChanged: (val) => setState(() => _isApproved = val),
+                onChanged: widget.readOnly
+                    ? null
+                    : (val) => setState(() => _isApproved = val),
                 contentPadding: EdgeInsets.zero,
                 activeThumbColor: AppColors.primary,
               ),
@@ -306,24 +347,26 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
                 children: [
                   TextButton(
                     onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                    child: Text(l10n.cancel),
+                    child: Text(widget.readOnly ? l10n.done : l10n.cancel),
                   ),
-                  const SizedBox(width: 12),
-                  Builder(
-                    builder: (btnCtx) => FilledButton(
-                      onPressed: _isLoading ? null : () => _submit(btnCtx),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(l10n.save),
-                  ),
-                  ),
+                  if (!widget.readOnly) ...[
+                    const SizedBox(width: 12),
+                    Builder(
+                      builder: (btnCtx) => FilledButton(
+                        onPressed: _isLoading ? null : () => _submit(btnCtx),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(l10n.save),
+                    ),
+                    ),
+                  ],
                 ],
               ),
             ],

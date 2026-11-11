@@ -462,7 +462,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
   void _openAddVendorDialog(BuildContext context) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => const AddVendorDialog(),
+      builder: (context) => AddVendorDialog(userRole: widget.userRole),
     );
     if (result != null && context.mounted) {
       try {
@@ -1532,6 +1532,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         builder: (context) => BranchesScreen(
           vendorId: v['id'] ?? '',
           vendorName: v['storeName'] ?? 'Vendor',
+          userRole: widget.userRole,
         ),
       ),
     );
