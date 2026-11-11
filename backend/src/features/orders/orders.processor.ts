@@ -75,7 +75,9 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
   }
 
   async process(job: Job): Promise<any> {
-    this.logger.debug(`Processing job [${job.name}] id=${job.id}`);
+    if (job.name !== ORDER_JOBS.OUTBOX_SWEEP) {
+      this.logger.debug(`Processing job [${job.name}] id=${job.id}`);
+    }
 
     switch (job.name) {
       case ORDER_JOBS.SETTLE:
