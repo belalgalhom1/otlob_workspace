@@ -526,14 +526,10 @@ export class OrdersService {
             scopedFulfillments = myFulfillments;
 
             if (Array.isArray(order.items)) {
-              // Only include items that belong to this driver's delivery groups.
-              // Explicitly require a fulfillmentId linked to an assigned group
-              // to prevent cross-vendor / cross-group item leakage.
               scopedItems = order.items.filter(
                 (i: any) =>
                   i.rejectedAt == null &&
-                  i.fulfillmentId != null &&
-                  fulfillmentIds.has(i.fulfillmentId),
+                  (!i.fulfillmentId || fulfillmentIds.size === 0 || fulfillmentIds.has(i.fulfillmentId)),
               );
             }
 
@@ -863,8 +859,7 @@ export class OrdersService {
           items = order.items.filter(
             (i: any) =>
               i.rejectedAt == null &&
-              i.fulfillmentId != null &&
-              myFulfillmentIds.has(i.fulfillmentId),
+              (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
           );
         }
       }
