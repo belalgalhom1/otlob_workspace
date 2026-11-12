@@ -1,3 +1,4 @@
+
 name: App Builds
 
 on:
@@ -45,12 +46,11 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
           channel: stable
           cache: true
           pub-cache: true
@@ -179,7 +179,7 @@ jobs:
             touch .env
           fi
 
-          flutter build apk --release --android-skip-build-dependency-validation
+          flutter build apk --release
 
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           OUTPUT_PATH="build/app/outputs/flutter-apk/${APP_NAME}.apk"
@@ -201,7 +201,7 @@ jobs:
           retention-days: 7
 
   release:
-    name: release
+    name:  release
     needs: build-android-apps
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -212,7 +212,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
-          pattern: '*-apk'
+          pattern: "*-apk"
           merge-multiple: true
 
       - name: Verify APK artifacts
