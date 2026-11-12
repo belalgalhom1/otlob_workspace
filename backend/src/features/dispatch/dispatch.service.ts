@@ -1072,10 +1072,9 @@ export class DispatchService {
       // Release the active slot ONLY if we still own it, so a failed accept
       // doesn't block future dispatches for this delivery until TTL expiry.
       try {
-        const current = await this.redis.get(activeKey);
-        if (current === dispatchId) {
-          await this.redis.del(activeKey);
-        }
+        // Release the active slot ONLY if we still own it (compare-and-delete),
+        // so a failed accept doesn't wipe a newer round's claim.
+        await this.releaseDispatchClaim(acceptScope, dispatchId);
         await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
       } catch {
         // best-effort cleanup
@@ -1180,7 +1179,16 @@ export class DispatchService {
     // Atomic addition to a Redis Set
     const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
     const added = await this.redis.sadd(rejectedKey, driverId);
-    if (added === 0) return; // Already rejected
+    if (added === 0) {
+      // Already rejected in Redis, but a prior attempt may have failed before
+      // persisting to Postgres. Re-check the DB before skipping, so a transient
+      // DB failure does not permanently drop the terminal row.
+      const existing = await this.prisma.orderDispatch.findFirst({
+        where: { orderId, driverId, status: DispatchStatus.REJECTED },
+      });
+      if (existing) return; // truly already persisted
+      // fall through and re-attempt persistence
+    }
 
     // Remove from driver's pending dispatches set
     await this.redis.srem(
@@ -1300,7 +1308,9 @@ export class DispatchService {
             orderId,
             orderNumber: order.orderNumber,
             attempt: nextAttempt,
-            excludeDriverIds: rejectedList,
+            excludeDriverIds: Array.from(
+              new Set([...(state?.excludeDriverIds ?? []), ...rejectedList]),
+            ),
             deliveryGroupId: groupScope,
           });
         }
@@ -1484,12 +1494,11 @@ export class DispatchService {
       await this.cancelDispatchById(id, orderId);
     }
 
-    // Always clear the per-scope keys even if a payload had already expired,
-    // so a later round is not permanently blocked by a stale claim.
-    for (const scope of scopes) {
-      await this.redis.del(`otlobegy:order-dispatch-active:${scope}`);
-      await this.redis.del(`otlobegy:dispatch-state:${scope}`);
-    }
+    // Do NOT blindly delete scope keys here: a newer dispatch round may have
+    // claimed one of these scopes between the initial GET and this cleanup, and
+    // a blind DEL would wipe its claim/state. Each cancelled round already
+    // released its own claim via releaseDispatchClaim (compare-and-delete) inside
+    // cancelDispatchById; any stale claim that was never cancelled expires by TTL.
   }
 
   /**

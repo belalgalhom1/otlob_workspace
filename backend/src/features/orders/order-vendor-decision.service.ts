@@ -66,6 +66,18 @@ export class OrderVendorDecisionService {
       fulfillmentId,
     );
 
+    const order = await this.prisma.order.findUnique({
+      where: { id: fulfillment.orderId },
+      select: { status: true },
+    });
+    if (
+      !order ||
+      order.status === OrderStatus.CANCELLED ||
+      order.status === OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(OrderErrors.FULFILLMENT_ALREADY_DECIDED);
+    }
+
     if (fulfillment.status !== OrderVendorFulfillmentStatus.PENDING) {
       throw new BadRequestException(OrderErrors.FULFILLMENT_ALREADY_DECIDED);
     }
@@ -146,6 +158,12 @@ export class OrderVendorDecisionService {
       },
     });
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
+    if (
+      order.status === OrderStatus.CANCELLED ||
+      order.status === OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(OrderErrors.FULFILLMENT_ALREADY_DECIDED);
+    }
 
     const items = await this.prisma.orderItem.findMany({
       where: { fulfillmentId, rejectedAt: null },
@@ -157,7 +175,7 @@ export class OrderVendorDecisionService {
         selectedUnit: true,
         totalPrice: true,
         productName: true,
-        product: { select: { tracksStock: true, stripsPerPackage: true } },
+        product: { select: { tracksStock: true, sellByStrip: true, stripsPerPackage: true } },
         variant: { select: { tracksStock: true } },
       },
     });
@@ -556,7 +574,7 @@ export class OrderVendorDecisionService {
       variantId: string | null;
       quantity: number;
       selectedUnit: string | null;
-      product: { tracksStock: boolean; stripsPerPackage: number | null } | null;
+      product: { tracksStock: boolean; sellByStrip: boolean | null; stripsPerPackage: number | null } | null;
       variant: { tracksStock: boolean } | null;
     }>,
   ): Promise<void> {
@@ -575,7 +593,11 @@ export class OrderVendorDecisionService {
           );
         }
       } else if (item.productId && item.product?.tracksStock) {
-        const per = Math.max(1, Number(item.product.stripsPerPackage ?? 1));
+        const per =
+          item.product.sellByStrip === true &&
+          Number(item.product.stripsPerPackage ?? 0) > 0
+            ? Math.max(1, Number(item.product.stripsPerPackage))
+            : 1;
         dividerByProductId.set(item.productId, per);
         if (item.selectedUnit === 'strip') {
           stripQtyByProductId.set(
@@ -940,7 +962,14 @@ export class OrderVendorDecisionService {
       select: { status: true },
     });
     if (anyPending && order && REOPENABLE.includes(order.status)) {
-      await this.ordersRepository.updateStatus(orderId, 'PENDING', 'system');
+      await this.ordersRepository.updateStatus(
+        orderId,
+        'PENDING',
+        'system',
+        undefined,
+        undefined,
+        order.status as any,
+      );
     }
     return false;
   }
@@ -1025,7 +1054,8 @@ export class OrderVendorDecisionService {
       // Lost a race with another decision or flow that already advanced it.
     }
   }
-  private async canManageOrders(userId: string, role: string): Promise<boolean> {
+  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
+    if (role === Role.DRIVER_MANAGER) return false;
     if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

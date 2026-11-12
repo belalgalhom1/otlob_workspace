@@ -50,6 +50,7 @@ export class OrderListener {
   async handleOrderCreated(event: OrderCreatedEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_CREATED, event, {
+        jobId: `notify_order_created_${event.orderId}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       });
@@ -100,6 +101,10 @@ export class OrderListener {
   async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_STATUS_CHANGED, event, {
+        jobId:
+          typeof event.revision === 'number'
+            ? `notify_order_status_${event.orderId}_${event.revision}`
+            : undefined,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       });
@@ -117,6 +122,7 @@ export class OrderListener {
   async handleOrderCancelled(event: OrderCancelledEvent) {
     try {
       await this.eventsQueue.add(EVENT_JOBS.ORDER_CANCELLED, event, {
+        jobId: `notify_order_cancelled_${event.orderId}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       });

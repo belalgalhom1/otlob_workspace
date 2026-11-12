@@ -1262,6 +1262,9 @@ export class OrdersStateService {
         customerId: true,
         vendorId: true,
         driverId: true,
+        paymentMethod: true,
+        upfrontAmount: true,
+        paymentStatus: true,
         customer: { select: { userId: true } },
       },
     });
@@ -1300,8 +1303,8 @@ export class OrdersStateService {
     // Never advance aggregate order status out of PENDING_PAYMENT until payment is COMPLETED
     if (
       fresh.status === OrderStatus.PENDING_PAYMENT &&
-      (order.paymentMethod === 'MOBILE_WALLET' || Number(order.upfrontAmount ?? 0) > 0) &&
-      order.paymentStatus !== 'COMPLETED'
+      (fresh.paymentMethod === 'MOBILE_WALLET' || Number(fresh.upfrontAmount ?? 0) > 0) &&
+      fresh.paymentStatus !== 'COMPLETED'
     ) {
       return;
     }
@@ -1330,6 +1333,7 @@ export class OrdersStateService {
         OrderStatus.PARTIALLY_PICKED_UP,
         OrderStatus.READY_FOR_PICKUP,
         OrderStatus.DRIVER_ASSIGNED,
+        OrderStatus.PENDING_PAYMENT,
       ],
     };
     if (!(allowedFrom[target] ?? []).includes(fresh.status)) {
@@ -1552,16 +1556,25 @@ export class OrdersStateService {
       select: { id: true },
     });
 
-    // If the order already had a driver, free them first
-    if (order.driverId && order.driverId !== driver.id) {
-      await this.ordersRepository.freeDriver(order.driverId);
-    }
+    // Do NOT free the previous driver here: assignment may still fail below,
+    // and OrdersRepository.assignDriver already releases the prior order-level
+    // driver inside its own transaction. Freeing early desyncs availability.
 
     const nextStatus =
       (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
       order.paymentStatus !== 'COMPLETED'
         ? OrderStatus.PENDING_PAYMENT
         : OrderStatus.DRIVER_ASSIGNED;
+
+    // Re-verify the order is still assignable (status may have changed since the
+    // initial read at the top of this method).
+    const freshOrder = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!freshOrder || !assignableStatuses.includes(freshOrder.status)) {
+      throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
+    }
 
     const updated = await this.ordersRepository.assignDriver(
       orderId,
@@ -1587,8 +1600,9 @@ export class OrdersStateService {
           ],
         },
       },
-      select: { primaryDriverId: true },
+      select: { primaryDriverId: true, assistDriverId: true },
     });
+    // Non-ready groups: full reassignment including status regression.
     await this.prisma.orderDeliveryGroup.updateMany({
       where: {
         orderId,
@@ -1599,7 +1613,6 @@ export class OrdersStateService {
             DeliveryGroupStatus.LOOKING_FOR_DRIVER,
             DeliveryGroupStatus.DRIVER_ASSIGNED,
             DeliveryGroupStatus.PENDING_PAYMENT,
-            DeliveryGroupStatus.READY_FOR_PICKUP,
           ],
         },
       },
@@ -1612,11 +1625,29 @@ export class OrdersStateService {
         assignedAt: new Date(),
       },
     });
-    for (const prev of new Set(
-      prevGroupDrivers
-        .map((g) => g.primaryDriverId)
-        .filter((id): id is string => Boolean(id)),
-    )) {
+    // Ready groups: assign the driver but PRESERVE the ready status (do not
+    // regress a ready delivery back to "waiting for driver").
+    await this.prisma.orderDeliveryGroup.updateMany({
+      where: {
+        orderId,
+        status: DeliveryGroupStatus.READY_FOR_PICKUP,
+      },
+      data: {
+        primaryDriverId: driver.id,
+        primaryDriverShiftId: activeShift?.id ?? null,
+        isStacked: isStackedOrder,
+        assignedByUserId: actor.sub,
+        assignedAt: new Date(),
+      },
+    });
+    // Free previously assigned drivers (primary + assist) that are no longer
+    // on any group after the reassignment.
+    const prevDrivers = new Set<string>();
+    for (const g of prevGroupDrivers) {
+      if (g.primaryDriverId && g.primaryDriverId !== driver.id) prevDrivers.add(g.primaryDriverId);
+      if (g.assistDriverId && g.assistDriverId !== driver.id) prevDrivers.add(g.assistDriverId);
+    }
+    for (const prev of prevDrivers) {
       await this.ordersRepository.freeDriver(prev);
     }
 
@@ -1966,7 +1997,10 @@ export class OrdersStateService {
       const replacementGroup = activeGroups.find((g) => g.primaryDriverId);
       await this.prisma.order.update({
         where: { id: orderId },
-        data: { driverId: replacementGroup?.primaryDriverId ?? null },
+        data: {
+          driverId: replacementGroup?.primaryDriverId ?? null,
+          revision: { increment: 1 },
+        },
       });
     }
 

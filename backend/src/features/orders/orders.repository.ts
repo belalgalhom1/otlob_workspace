@@ -1130,21 +1130,25 @@ export class OrdersRepository {
             data: { coinBalance: { increment: coinsToRefund } },
             select: { coinBalance: true },
           });
-          try {
-            await tx.customerCoinTransaction.create({
-              data: {
-                customerId,
-                orderId,
-                type: 'REFUNDED',
-                amount: coinsToRefund,
-                balanceAfter: customer.coinBalance,
-                description: `Refund for cancelled order ${orderNumber}`,
-              },
-            });
-          } catch (e: any) {
-            // A concurrent cancellation refunded between our read and write.
-            if (e?.code !== 'P2002') throw e;
-          }
+          // Accumulate into the single REFUNDED row (mirroring the rejection
+          // path), so a prior partial refund and this full-cancel remainder
+          // land on the same ledger entry instead of colliding on the unique
+          // (orderId, type) key.
+          await tx.customerCoinTransaction.upsert({
+            where: { orderId_type: { orderId, type: 'REFUNDED' } },
+            create: {
+              customerId,
+              orderId,
+              type: 'REFUNDED',
+              amount: coinsToRefund,
+              balanceAfter: customer.coinBalance,
+              description: `Refund for cancelled order ${orderNumber}`,
+            },
+            update: {
+              amount: { increment: coinsToRefund },
+              balanceAfter: customer.coinBalance,
+            },
+          });
         }
       }
 

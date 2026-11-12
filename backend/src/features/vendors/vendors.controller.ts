@@ -121,9 +121,11 @@ export class VendorsController {
     if (assignedBranchId)
       throw new ForbiddenException(VendorErrors.CANNOT_MODIFY_GLOBAL_SETTINGS);
     // Vendors (and any non-super-admin) must not be able to change their own
-    // commission rate; the field is silently ignored server-side.
+    // commission rate or contracted status; both are silently ignored server-side
+    // so a vendor cannot flip isContracted to dodge commission.
     if (user?.role !== Role.SUPER_ADMIN) {
       delete (dto as any).commissionRate;
+      delete (dto as any).isContracted;
     }
     return this.service.update(vendorId, dto);
   }

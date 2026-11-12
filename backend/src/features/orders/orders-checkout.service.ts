@@ -678,7 +678,7 @@ export class OrdersCheckoutService {
           grandTotal,
           dto.paymentMethod,
           dto.type,
-          advanced.revision,
+          0, // revision of the created row (v0); must match outbox row at orders.repository.ts:1037
         ),
       );
 
@@ -837,7 +837,7 @@ export class OrdersCheckoutService {
           null,
           actor.sub,
           'Order created by Vendor/Admin directly from chat',
-          accepted.revision,
+          0,
         ),
       );
 
@@ -853,7 +853,7 @@ export class OrdersCheckoutService {
           orderData.grandTotal,
           orderData.paymentMethod,
           orderData.type,
-          accepted.revision,
+          0,
         ),
       );
     }

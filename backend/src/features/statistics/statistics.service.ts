@@ -265,7 +265,12 @@ export class StatisticsService {
           const assistTier = tierById.get(g.assistDriverId) ?? 'GOLD';
           if (assistTier === 'BRONZE') bronzeDriverIds.add(g.assistDriverId!);
           // Assist driver gets the same delivery fee as the primary driver
-          const assistAmount = earnings;
+          const assistAmount = assistFeeFor(
+             primaryTier,
+             assistTier,
+             g.deliveryFee,
+             routeKm,
+           );
           if (assistAmount > 0) {
             assistPayouts.push({
               driverId: g.assistDriverId,
@@ -313,7 +318,12 @@ export class StatisticsService {
           bronzeDriverIds.add(orderAssist.assistDriverId);
         }
         // Assist driver gets the same delivery fee as the primary driver
-        const assistAmount = earnings;
+        const assistAmount = assistFeeFor(
+           driverTier,
+           assistTier,
+           deliveryFee,
+           distanceKm,
+         );
         if (assistAmount > 0) {
           assistPayouts.push({
             driverId: orderAssist.assistDriverId,
@@ -423,7 +433,7 @@ export class StatisticsService {
       (sum, s) => sum + s,
       0,
     );
-    platformRevenue = Math.max(0, platformRevenue - totalManagerShare);
+    platformRevenue = platformRevenue - totalManagerShare;
 
     const now = new Date();
     const periods = this.statsRepository.getPeriodsForDate(now);

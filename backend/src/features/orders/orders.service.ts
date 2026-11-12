@@ -852,7 +852,8 @@ export class OrdersService {
         } else if (order.items) {
           items = order.items.filter(
             (i: any) =>
-              i.rejectedAt == null && myFulfillmentIds.has(i.fulfillmentId),
+              i.rejectedAt == null &&
+               (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
           );
         }
       }

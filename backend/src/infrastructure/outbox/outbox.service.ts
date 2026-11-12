@@ -159,7 +159,7 @@ export class OutboxService {
         }
 
         return { relayed: count };
-      });
+      }, { timeout: 30000, maxWait: 5000 });
     } catch (err) {
       this.logger.error(
         `Failed to relay pending outbox events: ${
