@@ -579,19 +579,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Map<String, dynamic> order, AppStrings s) {
     final isCustom = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
-    final items = (order['items'] as List<dynamic>?) ?? [];
+    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
+    final rawItems = (order['items'] as List<dynamic>?) ?? [];
+    final items = rawItems.isNotEmpty
+        ? rawItems
+        : fulfillments
+            .whereType<Map>()
+            .expand((f) => (f['items'] as List<dynamic>?) ?? const [])
+            .toList();
     final vendor = order['vendor'] as Map<String, dynamic>?;
     final vendorBranch = order['vendorBranch'] as Map<String, dynamic>?;
-    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
 
     String baseVendorName;
     String? vendorLogoUrl = vendor?['logo'] as String?;
 
-    if (vendor != null && (vendor['storeName'] != null || vendor['storeNameAr'] != null)) {
-      baseVendorName = s.isArabic
-          ? (vendor['storeNameAr'] ?? vendor['storeName'] ?? s.vendor)
-          : (vendor['storeName'] ?? vendor['storeNameAr'] ?? s.vendor);
-    } else if (fulfillments.isNotEmpty) {
+    if (fulfillments.length > 1 || (vendor == null && fulfillments.isNotEmpty)) {
       final names = <String>[];
       for (final f in fulfillments) {
         if (f is Map) {
@@ -608,6 +610,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         }
       }
       baseVendorName = names.isNotEmpty ? names.join(' + ') : s.vendor;
+    } else if (vendor != null && (vendor['storeName'] != null || vendor['storeNameAr'] != null)) {
+      baseVendorName = s.isArabic
+          ? (vendor['storeNameAr'] ?? vendor['storeName'] ?? s.vendor)
+          : (vendor['storeName'] ?? vendor['storeNameAr'] ?? s.vendor);
     } else {
       baseVendorName = s.vendor;
     }

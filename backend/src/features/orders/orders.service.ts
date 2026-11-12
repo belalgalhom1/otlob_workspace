@@ -994,7 +994,10 @@ export class OrdersService {
         isFullyCollected: completedStops >= totalStops,
       };
 
-      if (!sanitized.vendor && sanitized.vendorFulfillments.length > 0) {
+      // Only a single-portion order may borrow its portion's vendor as the
+      // order-level vendor. A real multi-vendor order keeps `vendor` null so
+      // clients render every portion's store instead of just the first one.
+      if (!sanitized.vendor && sanitized.vendorFulfillments.length === 1) {
         sanitized.vendor = sanitized.vendorFulfillments[0].vendor;
         if (!sanitized.vendorBranch && sanitized.vendorFulfillments[0].vendorBranch) {
           sanitized.vendorBranch = sanitized.vendorFulfillments[0].vendorBranch;
