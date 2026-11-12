@@ -904,6 +904,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final vendor = order['vendor'] as Map<String, dynamic>?;
     final vendorBranch = order['vendorBranch'] as Map<String, dynamic>?;
 
+    // A one-store checkout made through the multi-vendor flow has
+    // order.vendorBranch = null but carries the branch on its single portion.
+    // Use it so the header still shows the branch instead of dropping it.
+    Map<String, dynamic>? effectiveBranch = vendorBranch;
+    if (effectiveBranch == null && fulfillments.length == 1) {
+      final single = fulfillments.first;
+      if (single is Map && single['vendorBranch'] is Map) {
+        effectiveBranch =
+            Map<String, dynamic>.from(single['vendorBranch'] as Map);
+      }
+    }
+
     String baseVendorName;
     String? vendorLogoUrl = vendor?['logo'] as String?;
 
@@ -932,8 +944,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       baseVendorName = s.vendor;
     }
 
-    final branchName = vendorBranch != null
-        ? (s.isArabic ? (vendorBranch['nameAr'] ?? vendorBranch['name']) : (vendorBranch['name'] ?? vendorBranch['nameAr']))?.toString()
+    final branchName = effectiveBranch != null
+        ? (s.isArabic ? (effectiveBranch['nameAr'] ?? effectiveBranch['name']) : (effectiveBranch['name'] ?? effectiveBranch['nameAr']))?.toString()
         : null;
     final vendorName = (branchName != null && branchName.isNotEmpty && fulfillments.length <= 1)
         ? '$baseVendorName • $branchName'
