@@ -466,16 +466,10 @@ export class OrdersRepository {
             },
             {
               vendorFulfillments: {
-                // AND, not a spread: both the branch restriction and several
-                // portion status filters use `OR`, so merging them into one
-                // object let the status clause overwrite the branch clause and
-                // leaked other branches' portions into a branch member's tab.
                 some: {
-                  AND: [
-                    { vendorId: filters.vendorId },
-                    fulfillmentBranchClause,
-                    portionStatusFilter(filters.status),
-                  ],
+                  vendorId: filters.vendorId,
+                  ...fulfillmentBranchClause,
+                  ...portionStatusFilter(filters.status),
                 },
               },
             },

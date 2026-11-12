@@ -21,13 +21,15 @@ export interface CustomerPoint {
 
 export interface GroupingThresholds {
   /**
-   * km. Kept for the platform settings contract. Deliveries are no longer
-   * merged, so this value does not change a plan.
+   * km. Max straight-line distance between two vendors for them to share a
+   * delivery ("close to each other"). Also the allowance for how far off the
+   * line a vendor may sit and still ride along ("on the way").
    */
   maxBranchDistanceKm: number;
   /**
-   * km. Kept for the platform settings contract. Deliveries are no longer
-   * merged, so this value does not change a plan.
+   * km. Max vendor→customer distance for a vendor to be eligible to ride along
+   * on another vendor's trip ("close to the customer"). Beyond this a vendor is
+   * a "far" anchor and always gets its own delivery.
    */
   maxVendorCustomerDistanceKm: number;
 }
@@ -80,18 +82,10 @@ export function haversineKm(
 }
 
 /**
- * Delivery planning without any road-network assumption: every distance here is
- * straight-line.
- *
- * Every vendor portion is its own delivery: one vendor = one pickup = one
- * driver. Vendors are independently fulfilled (each one decides, prepares and
- * readies its own portion), so a shared trip made portions depend on each other:
- * the driver of a merged trip could only start collecting once every vendor in
- * it was ready, a single rejection changed the route of the others, and the
- * driver app — which works one delivery at a time — only ever received one of
- * the order's deliveries. Splitting per vendor gives every vendor portion its
- * own driver, its own tracked delivery and its own fee, exactly like a
- * single-vendor order.
+ * Delivery grouping without any road-network assumption: every distance here is
+ * straight-line. Two vendors share a delivery when they are close to each other,
+ * and a vendor close to the customer may ride along on another vendor's trip as
+ * long as it is roughly on the way.
  */
 @Injectable()
 export class OrderGroupingService {
@@ -113,16 +107,24 @@ export class OrderGroupingService {
   /**
    * Divide vendor pickups into delivery groups.
    *
-   * Exactly one group per vendor portion — a vendor never shares a delivery
-   * with another vendor (see the class comment). Delivery sequence is
-   * deterministic: farthest pickup from the customer first (tie-break by
-   * branch/vendor id), so identical input always yields an identical plan.
+   *  - Vendors within `maxBranchDistanceKm` of each other ("close to each
+   *    other") always share a delivery.
+   *  - A vendor within `maxVendorCustomerDistanceKm` of the customer ("close to
+   *    the customer") may join a farther vendor's group, but only when it is
+   *    roughly on the way — see `canJoin`. This keeps the road-free model from
+   *    producing long zig-zag trips it cannot see.
+   *
+   * Deterministic: vendors are processed farthest-from-customer first (tie-break
+   * by vendorId), so the group's first member is always its distance anchor and
+   * identical input yields an identical plan.
    */
   plan(
     stops: VendorStop[],
     customer: CustomerPoint,
     thresholds: GroupingThresholds,
   ): GroupingResult {
+    const { maxBranchDistanceKm, maxVendorCustomerDistanceKm } = thresholds;
+
     if (stops.length === 0) {
       return { groups: [], isSplit: false, thresholds };
     }
@@ -136,13 +138,44 @@ export class OrderGroupingService {
       return keyA.localeCompare(keyB);
     });
 
-    const plans = ordered.map((stop, index) => ({
-      sequence: index + 1,
-      stops: [stop],
-      farthestToCustomerKm: haversineKm(stop, customer),
-      extraVendorCount: 0,
-      splitReason: 'SINGLE_VENDOR' as SplitReason,
-    }));
+    const groups: VendorStop[][] = [];
+
+    for (const stop of ordered) {
+      const stopToCustomer = haversineKm(stop, customer);
+      const near = stopToCustomer <= maxVendorCustomerDistanceKm;
+
+      let placed = false;
+      for (const group of groups) {
+        if (
+          this.canJoin(
+            group,
+            stop,
+            stopToCustomer,
+            customer,
+            maxBranchDistanceKm,
+            near,
+          )
+        ) {
+          group.push(stop);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) groups.push([stop]);
+    }
+
+    const plans = groups.map((group, index) => {
+      const farthestToCustomerKm = Math.max(
+        ...group.map((s) => haversineKm(s, customer)),
+      );
+      return {
+        sequence: index + 1,
+        stops: group,
+        farthestToCustomerKm,
+        extraVendorCount: group.length - 1,
+        splitReason: this.splitReason(group, customer, thresholds),
+      } satisfies DeliveryGroupPlan;
+    });
 
     return {
       groups: plans,
@@ -157,5 +190,57 @@ export class OrderGroupingService {
     customer: CustomerPoint,
   ): Promise<GroupingResult> {
     return this.plan(stops, customer, await this.currentThresholds());
+  }
+
+  /** May `stop` share a delivery with `group`? */
+  private canJoin(
+    group: VendorStop[],
+    stop: VendorStop,
+    stopToCustomer: number,
+    customer: CustomerPoint,
+    maxBranchDistanceKm: number,
+    near: boolean,
+  ): boolean {
+    // Never let the exact same stop (branch, or vendor if branchless) occupy one group twice.
+    const stopKey = stop.vendorBranchId ?? stop.vendorId;
+    if (group.some((s) => (s.vendorBranchId ?? s.vendorId) === stopKey)) {
+      return false;
+    }
+
+    // Safeguard for uncalibrated / (0,0) coordinates:
+    const stopHasCoords = Boolean(stop.lat && stop.lng && (stop.lat !== 0 || stop.lng !== 0));
+    const anchor = group[0];
+    const anchorHasCoords = Boolean(anchor && anchor.lat && anchor.lng && (anchor.lat !== 0 || anchor.lng !== 0));
+    if (!stopHasCoords || !anchorHasCoords) {
+      return true;
+    }
+
+    // Close to each other: within range of any existing member.
+    if (group.some((m) => haversineKm(m, stop) <= maxBranchDistanceKm)) {
+      return true;
+    }
+
+    // A vendor near the customer may ride along on a farther trip, but only if
+    // it is roughly on the way. The extra travel of detouring to it
+    // (branch→vendor→customer minus the anchor→customer leg) must stay within
+    // the branch allowance. group[0] is the anchor because stops are processed
+    // farthest-first.
+    if (!near) return false;
+    const anchorToCustomer = haversineKm(anchor, customer);
+    const detourKm =
+      haversineKm(stop, anchor) + stopToCustomer - anchorToCustomer;
+    return detourKm <= maxBranchDistanceKm;
+  }
+
+  private splitReason(
+    group: VendorStop[],
+    customer: CustomerPoint,
+    t: GroupingThresholds,
+  ): SplitReason {
+    if (group.length === 1) return 'SINGLE_VENDOR';
+    const hasFarAnchor = group.some(
+      (s) => haversineKm(s, customer) > t.maxVendorCustomerDistanceKm,
+    );
+    return hasFarAnchor ? 'FAR_FROM_CUSTOMER' : 'CLUSTERED';
   }
 }

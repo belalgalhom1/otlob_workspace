@@ -41,12 +41,9 @@ export interface MultiVendorFeeBreakdown {
   vendorIds: string[];
   vendorNames: string[];
   deliveryFee: number;
-  /** Straight-line distance of the group's pickup to the customer. */
+  /** Straight-line distance of the group's farthest pickup to the customer. */
   distanceKm: number;
-  /**
-   * Vendors beyond the first on this delivery. Always 0 now that each vendor
-   * gets its own delivery (kept for response compatibility).
-   */
+  /** Vendors beyond the first (each adds half the minimum delivery fee). */
   extraVendors: number;
   splitReason: string;
 }
@@ -57,12 +54,7 @@ export interface MultiVendorFeeBreakdown {
  * One customer checkout → exactly ONE `Order` (one charge, one idempotency
  * key) plus:
  *   - one `OrderVendorFulfillment` per vendor (independently fulfillable), and
- *   - one `OrderDeliveryGroup` per vendor (its own pickup, driver and fee), so
- *     every vendor's delivery reaches its driver independently.
- *
- * A single order keeps the customer's one charge, one cancellation policy and
- * one tracking screen, while each vendor is dispatched exactly like a
- * single-vendor order.
+ *   - one `OrderDeliveryGroup` per planned route (each may have its own driver).
  *
  * Single-vendor / custom-delivery / ride behaviour is untouched: those still go
  * through OrdersCheckoutService.
@@ -732,10 +724,9 @@ export class OrdersMultiVendorService {
       throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
 
-    // Per-delivery fee: each vendor is its own delivery, so each one is priced
-    // on its own vendor→customer distance and the deliveries are summed. The
-    // extra-vendor surcharge no longer applies (no delivery carries a second
-    // vendor), so `extraVendorCount` is always 0.
+    // Per-group fee: the group's farthest pickup to the customer (the long leg,
+    // which the customer pays for), plus the fixed extra delivery fee for every
+    // extra vendor sharing that same trip. Groups are then summed.
     const extraVendorFee = Number(
       settings.extraVendorDeliveryFee ?? Math.round(Number(settings.minDeliveryFee ?? 0) / 2),
     );
