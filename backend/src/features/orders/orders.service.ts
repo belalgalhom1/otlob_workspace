@@ -526,10 +526,14 @@ export class OrdersService {
             scopedFulfillments = myFulfillments;
 
             if (Array.isArray(order.items)) {
+              // Only include items that belong to this driver's delivery groups.
+              // Explicitly require a fulfillmentId linked to an assigned group
+              // to prevent cross-vendor / cross-group item leakage.
               scopedItems = order.items.filter(
                 (i: any) =>
                   i.rejectedAt == null &&
-                  (!i.fulfillmentId || fulfillmentIds.size === 0 || fulfillmentIds.has(i.fulfillmentId)),
+                  i.fulfillmentId != null &&
+                  fulfillmentIds.has(i.fulfillmentId),
               );
             }
 
@@ -844,16 +848,23 @@ export class OrdersService {
           isContracted = myFulfillment.vendorBranch.isContracted;
         }
         const myFulfillmentIds = new Set(vendorFulfillments.map((f: any) => f.id));
+        const myFulfillmentIdsSet = new Set(
+          vendorFulfillments.flatMap((f: any) => f.items?.map((it: any) => it.id) ?? []),
+        );
         const directItems = vendorFulfillments.flatMap((f: any) =>
           Array.isArray(f.items) ? f.items : [],
         );
         if (directItems.length > 0) {
           items = directItems;
         } else if (order.items) {
+          // Only include items that belong to this vendor's fulfillments.
+          // Explicitly reject items without a fulfillmentId (legacy items) to
+          // prevent cross-vendor leakage in multi-vendor orders.
           items = order.items.filter(
             (i: any) =>
               i.rejectedAt == null &&
-               (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
+              i.fulfillmentId != null &&
+              myFulfillmentIds.has(i.fulfillmentId),
           );
         }
       }

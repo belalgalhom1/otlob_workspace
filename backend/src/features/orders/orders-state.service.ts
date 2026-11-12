@@ -1171,6 +1171,8 @@ export class OrdersStateService {
 
     // Stamp this group's vendor portions as delivered and immediately free its
     // driver(s) so they are not held ON_DELIVERY waiting for sibling groups.
+    // However, if the same driver is assigned to other groups in this order,
+    // keep them assigned to the order so they can continue to the next group.
     if (dto.status === OrderStatus.DELIVERED) {
       await this.prisma.orderVendorFulfillment.updateMany({
         where: {
@@ -1184,8 +1186,27 @@ export class OrdersStateService {
       const groupDriverIds = [group.primaryDriverId, group.assistDriverId].filter(
         (id): id is string => Boolean(id),
       );
-      for (const did of new Set(groupDriverIds)) {
-        await this.ordersRepository.freeDriver(did);
+
+      // Check if ANY of this group's drivers have other groups in this order
+      // that are not yet delivered
+      const uniqueDriverIds = [...new Set(groupDriverIds)];
+      const driverHasOtherGroups = await this.prisma.orderDeliveryGroup.count({
+        where: {
+          orderId: order.id,
+          status: {
+            notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+          },
+          OR: uniqueDriverIds.map((did) => ({
+            OR: [{ primaryDriverId: did }, { assistDriverId: did }],
+          })),
+        },
+      });
+
+      // Only free the driver if they have NO other active groups in this order
+      if (!driverHasOtherGroups) {
+        for (const did of new Set(groupDriverIds)) {
+          await this.ordersRepository.freeDriver(did);
+        }
       }
     }
 
