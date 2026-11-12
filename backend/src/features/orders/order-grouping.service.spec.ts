@@ -76,75 +76,47 @@ describe('OrderGroupingService.plan', () => {
     expect(r.isSplit).toBe(false);
   });
 
-  it('groups two vendors close to each other into one delivery', () => {
+  it('gives every vendor its own delivery, even when they are next door', () => {
     const r = service.plan([east('a', 1), east('b', 1.2)], CUSTOMER, T());
-    expect(r.groups).toHaveLength(1);
-    expect(r.groups[0].stops).toHaveLength(2);
-    expect(r.groups[0].extraVendorCount).toBe(1);
-    expect(r.groups[0].splitReason).toBe('CLUSTERED');
-    expect(r.isSplit).toBe(false);
-  });
-
-  it('groups a far vendor with an on-the-way near vendor (one trip)', () => {
-    // a is 20 km out, b is 2 km out on the same line: detour(b) = 18 + 2 - 20 = 0.
-    const r = service.plan([east('a', 20), east('b', 2)], CUSTOMER, T());
-    expect(r.groups).toHaveLength(1);
-    expect(r.groups[0].stops).toHaveLength(2);
-    // The customer pays for the far leg, never the short one.
-    expect(r.groups[0].farthestToCustomerKm).toBeCloseTo(20, 1);
-  });
-
-  it('marks a group anchored beyond the customer range as FAR_FROM_CUSTOMER', () => {
-    const r = service.plan([east('a', 30), east('b', 2)], CUSTOMER, T());
-    expect(r.groups).toHaveLength(1);
-    expect(r.groups[0].splitReason).toBe('FAR_FROM_CUSTOMER');
-  });
-
-  it('does not merge near vendors that are off-route from each other', () => {
-    // Both 20 km from the customer but on opposite axes: the detour to combine
-    // them (~28 km) is far beyond the branch allowance, so they stay separate.
-    const r = service.plan([east('a', 20), north('b', 20)], CUSTOMER, T());
     expect(r.groups).toHaveLength(2);
-    expect(r.isSplit).toBe(true);
     expect(r.groups.every((g) => g.stops.length === 1)).toBe(true);
+    expect(r.groups.every((g) => g.extraVendorCount === 0)).toBe(true);
+    expect(r.isSplit).toBe(true);
   });
 
-  it('keeps two near clusters on opposite sides of the customer separate', () => {
+  it('never adds a second vendor to a trip, even one directly on the way', () => {
+    // a is 20 km out, b is 2 km out on the same line.
+    const r = service.plan([east('a', 20), east('b', 2)], CUSTOMER, T());
+    expect(r.groups).toHaveLength(2);
+    expect(r.groups.map((g) => g.stops[0].vendorId)).toEqual(['a', 'b']);
+    expect(r.groups[0].farthestToCustomerKm).toBeCloseTo(20, 1);
+    expect(r.groups[1].farthestToCustomerKm).toBeCloseTo(2, 1);
+  });
+
+  it('prices each delivery on its own vendor distance', () => {
+    const r = service.plan([east('far', 30), east('near', 2)], CUSTOMER, T());
+    expect(r.groups).toHaveLength(2);
+    expect(r.groups[0].splitReason).toBe('SINGLE_VENDOR');
+    expect(r.groups[1].splitReason).toBe('SINGLE_VENDOR');
+    expect(r.groups[0].farthestToCustomerKm).toBeCloseTo(30, 1);
+    expect(r.groups[1].farthestToCustomerKm).toBeCloseTo(2, 1);
+  });
+
+  it('does not merge vendors on opposite sides of the customer', () => {
     const west = stop('a', CUSTOMER.lng - 20 / KM_PER_LNG, CUSTOMER.lat);
     const eastStop = east('b', 20);
     const r = service.plan([west, eastStop], CUSTOMER, T());
     expect(r.groups).toHaveLength(2);
   });
 
-  it('honours the branch distance setting for off-route vendors', () => {
-    // a and b are ~4.2 km apart, each ~3 km from the customer, off-axis.
+  it('keeps the plan independent of the distance settings', () => {
     const stops = [east('a', 3), north('b', 3)];
-
     expect(
       service.plan(stops, CUSTOMER, T({ maxBranchDistanceKm: 5 })).groups,
-    ).toHaveLength(1);
-
-    // Tightening the same setting splits them — same inputs, different outcome.
-    expect(
-      service.plan(stops, CUSTOMER, T({ maxBranchDistanceKm: 2 })).groups,
     ).toHaveLength(2);
-  });
-
-  it('honours the vendor→customer distance limit on its own', () => {
-    // a is 30 km out, b is 40 km out on the same line (10 km apart, so they are
-    // not "close to each other"). Whether they share a trip depends purely on
-    // whether a is close enough to the customer to ride along on b's trip.
-    const stops = [north('a', 30), north('b', 40)];
-
     expect(
-      service.plan(stops, CUSTOMER, T({ maxVendorCustomerDistanceKm: 25 }))
-        .groups,
+      service.plan(stops, CUSTOMER, T({ maxBranchDistanceKm: 50 })).groups,
     ).toHaveLength(2);
-
-    expect(
-      service.plan(stops, CUSTOMER, T({ maxVendorCustomerDistanceKm: 45 }))
-        .groups,
-    ).toHaveLength(1);
   });
 
   it('is deterministic: identical input yields an identical plan', () => {

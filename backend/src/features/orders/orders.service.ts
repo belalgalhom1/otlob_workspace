@@ -427,6 +427,10 @@ export class OrdersService {
     let projectedStatus = order.status;
     let scopedItems = order.items;
     let scopedFulfillments = order.vendorFulfillments;
+    // A driver only ever sees the deliveries assigned to them. A multi-vendor
+    // order can carry several independent deliveries, so echoing every group
+    // would show this driver other drivers' routes.
+    let scopedDeliveryGroups = order.deliveryGroups;
 
     const myDriver =
       ctx?.driverId !== undefined
@@ -447,6 +451,7 @@ export class OrdersService {
         );
 
         if (myGroups.length > 0) {
+          scopedDeliveryGroups = myGroups;
           const anyPendingPayment = myGroups.some((g: any) => g.status === 'PENDING_PAYMENT');
           const allDelivered = myGroups.every((g: any) => g.status === 'DELIVERED');
           const allPickedUp = myGroups.every((g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED');
@@ -649,6 +654,7 @@ export class OrdersService {
       pickupAddress: groupPickupAddress,
       items: scopedItems,
       vendorFulfillments: scopedFulfillments,
+      deliveryGroups: scopedDeliveryGroups,
       grandTotal: cashToCollect,
       total: cashToCollect,
       cashToCollect,
@@ -1042,7 +1048,29 @@ export class OrdersService {
       isMultiVendor,
     );
 
-    const fulfillments = Array.isArray(order.vendorFulfillments) ? order.vendorFulfillments : [];
+    // A super admin must see EVERYTHING about an order, including lines a
+    // vendor has already rejected. The order queries filter rejected items out
+    // of each portion (correct for vendors/customers), so merge each portion's
+    // items back from the order's own full item list — never leave an admin
+    // staring at a portion with no items.
+    const allOrderItems: any[] = Array.isArray(order.items) ? order.items : [];
+    const fulfillments = (Array.isArray(order.vendorFulfillments)
+      ? order.vendorFulfillments
+      : []
+    ).map((f: any) => {
+      const ownItems = allOrderItems.filter(
+        (i: any) => i.fulfillmentId === f.id,
+      );
+      if (ownItems.length === 0) return f;
+      const byId = new Map<string, any>();
+      for (const item of Array.isArray(f.items) ? f.items : []) {
+        byId.set(item.id ?? `${item.productId}-${item.productName}`, item);
+      }
+      for (const item of ownItems) {
+        byId.set(item.id ?? `${item.productId}-${item.productName}`, item);
+      }
+      return { ...f, items: [...byId.values()] };
+    });
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
       fulfillments.length > 1 ||
@@ -1116,6 +1144,8 @@ export class OrdersService {
     return {
       ...order,
       isMultiVendor: isMultiVendorOrder,
+      // The admin view carries every portion with its complete item list.
+      vendorFulfillments: fulfillments,
       driverEarnings,
       deliveryFee,
       vendor,
