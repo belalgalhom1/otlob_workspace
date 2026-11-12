@@ -85,6 +85,7 @@ export interface OrderItemData {
 
 export interface OrderFilters {
   status?: OrderStatus;
+  bucket?: 'active' | 'past';
   vendorId?: string;
   branchId?: string;
   customerId?: string;
@@ -93,6 +94,31 @@ export interface OrderFilters {
   page?: number;
   limit?: number;
 }
+
+/**
+ * Customer order tabs. "active" contains every order the customer still has
+ * to receive; "past" contains terminal orders. Filtering this on the server
+ * (instead of downloading every order and filtering one page locally) keeps
+ * pagination correct: page N of a tab always contains `limit` orders of that
+ * tab.
+ */
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING,
+  OrderStatus.CHANGES_REQUESTED,
+  OrderStatus.ACCEPTED,
+  OrderStatus.PREPARING,
+  OrderStatus.LOOKING_FOR_DRIVER,
+  OrderStatus.DRIVER_ASSIGNED,
+  OrderStatus.PENDING_PAYMENT,
+  OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.PARTIALLY_PICKED_UP,
+  OrderStatus.PICKED_UP,
+];
+
+const PAST_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+];
 
 /**
  * Translate an order-level status tab into the equivalent state of ONE
@@ -452,6 +478,13 @@ export class OrdersRepository {
       } else {
         where.status = filters.status;
       }
+    } else if (filters.bucket) {
+      where.status = {
+        in:
+          filters.bucket === 'past'
+            ? PAST_ORDER_STATUSES
+            : ACTIVE_ORDER_STATUSES,
+      };
     }
     if (filters.vendorId) {
       and.push({
@@ -533,6 +566,7 @@ export class OrdersRepository {
             select: {
               id: true,
               storeName: true,
+              storeNameAr: true,
               logo: true,
               rating: true,
               ratingCount: true,

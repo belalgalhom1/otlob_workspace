@@ -9,7 +9,23 @@ class CustomerOrderRepository {
   final Dio? dio;
   CustomerOrderRepository(this._api, this._reviewsApi, {this.dio});
 
-  Future<dynamic> getMyOrders({String? status, num limit = 20, num page = 1}) async {
+  Future<dynamic> getMyOrders({String? status, String? bucket, num limit = 20, num page = 1}) async {
+    final client = dio;
+    if (bucket != null && client != null) {
+      // Use the raw endpoint so the customer tab can be filtered server-side
+      // (`bucket=active|past`). The generated client only exposes a single
+      // `status`, which cannot express a tab with several statuses.
+      final response = await client.get(
+        '/orders/my',
+        queryParameters: {
+          'bucket': bucket,
+          'page': page,
+          'limit': limit,
+          'status': ?status,
+        },
+      );
+      return ResponseParser.parseList(response);
+    }
     final response = await _api.ordersControllerGetMyOrdersAsCustomer(
       status: status,
       limit: limit,

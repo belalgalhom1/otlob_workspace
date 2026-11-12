@@ -9,6 +9,7 @@ import {
   ArrayMaxSize,
   IsNumber,
   IsInt,
+  IsIn,
   Min,
   Max,
   MaxLength,
@@ -301,6 +302,16 @@ export class QueryOrdersDto {
   @IsEnum(OrderStatus)
   @IsOptional()
   status?: OrderStatus;
+
+  @ApiProperty({
+    enum: ['active', 'past'],
+    required: false,
+    description:
+      'Customer order tab. active = in-progress orders, past = delivered/cancelled orders.',
+  })
+  @IsIn(['active', 'past'])
+  @IsOptional()
+  bucket?: 'active' | 'past';
 
   @ApiProperty({
     example: '550e8400-e29b-41d4-a716-446655440000',

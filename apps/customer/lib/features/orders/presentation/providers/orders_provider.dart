@@ -130,7 +130,7 @@ class Orders extends _$Orders {
   }
 
   static const _activeStatuses = {
-    'PENDING', 'ACCEPTED', 'PREPARING',
+    'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
     'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT',
     'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP',
   };
@@ -144,7 +144,11 @@ class Orders extends _$Orders {
   }) async {
     final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      final allOrders = await repo.getMyOrders(page: page, limit: limit);
+      final allOrders = await repo.getMyOrders(
+        page: page,
+        limit: limit,
+        bucket: isActive ? 'active' : 'past',
+      );
       if (allOrders != null) {
         final targetSet = isActive ? _activeStatuses : _pastStatuses;
         final rawList = allOrders is Map
