@@ -1075,7 +1075,8 @@ export class DispatchService {
         // Release the active slot ONLY if we still own it (compare-and-delete),
         // so a failed accept doesn't wipe a newer round's claim.
         await this.releaseDispatchClaim(acceptScope, dispatchId);
-        await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
+        // Keep the shared dispatch payload intact so other candidates can still
+        // respond; the expiry watchdog / stuck-order monitor handles retry.
       } catch {
         // best-effort cleanup
       }

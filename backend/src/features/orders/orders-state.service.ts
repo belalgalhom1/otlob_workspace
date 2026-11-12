@@ -244,9 +244,12 @@ export class OrdersStateService {
         dto.status === OrderStatus.READY_FOR_PICKUP
       ) {
         let lastResult: any = null;
-        const eligible = matchingFulfillments.filter(
+        let eligible = matchingFulfillments.filter(
           (f: any) => f.status === 'ACCEPTED' || f.status === 'PREPARING',
         );
+        if (dto.fulfillmentId) {
+          eligible = eligible.filter((f: any) => f.id === dto.fulfillmentId);
+        }
         for (const f of eligible) {
           lastResult = await this.applyFulfillmentProductionTransition(
             actor,
@@ -1691,6 +1694,9 @@ export class OrdersStateService {
     orderId: string,
     reason: string,
   ) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+    }
     const order = await this.ordersRepository.findById(orderId);
 
     if (NON_CANCELLABLE.includes(order.status)) {

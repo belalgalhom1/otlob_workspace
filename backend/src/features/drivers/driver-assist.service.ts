@@ -621,14 +621,16 @@ export class DriverAssistService {
     const assistFee = Number(group.assistFee ?? 0);
 
     if (approved) {
-      await this.prisma.orderDeliveryGroup.update({
-        where: { id: deliveryGroupId },
+      const claimed = await this.prisma.orderDeliveryGroup.updateMany({
+        where: { id: deliveryGroupId, assistCustomerApproved: null },
         data: {
           assistCustomerApproved: true,
           assistApprovedAt: new Date(),
         },
       });
-
+      if (claimed.count === 0) {
+        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+      }
       // Charge the customer: add the assistant's fee to the order total so the
       // driver collects it (cash) / it becomes part of what is owed.
       if (assistFee > 0) {
@@ -664,8 +666,8 @@ export class DriverAssistService {
       // Declined: remove the assistant, cancel the assist request, no charge.
       // The delivery group (and the order, if it was the last active one) is
       // cancelled because the driver cannot complete an oversized delivery alone.
-      await this.prisma.orderDeliveryGroup.update({
-        where: { id: deliveryGroupId },
+      const claimed = await this.prisma.orderDeliveryGroup.updateMany({
+        where: { id: deliveryGroupId, assistCustomerApproved: null },
         data: {
           assistDriverId: null,
           assistDriverShiftId: null,
@@ -677,6 +679,9 @@ export class DriverAssistService {
           status: DeliveryGroupStatus.CANCELLED,
         },
       });
+      if (claimed.count === 0) {
+        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+      }
 
       await this.prisma.driverAssistRequest.updateMany({
         where: { deliveryGroupId, status: DriverAssistRequestStatus.FULFILLED },
@@ -1040,7 +1045,13 @@ export class DriverAssistService {
 
     const assistFee = Number(order.assistFee ?? 0);
     if (approved) {
-      await this.prisma.order.update({ where: { id: orderId }, data: { assistCustomerApproved: true, assistApprovedAt: new Date(), deliveryFee: { increment: assistFee }, grandTotal: { increment: assistFee } } });
+      const claimed = await this.prisma.order.updateMany({
+        where: { id: orderId, assistCustomerApproved: null },
+        data: { assistCustomerApproved: true, assistApprovedAt: new Date(), deliveryFee: { increment: assistFee }, grandTotal: { increment: assistFee } },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+      }
       const primaryUserId = await this.resolveUserId(order.driverId);
       const assistUserId = await this.resolveUserId(order.assistDriverId);
       for (const uid of [primaryUserId, assistUserId]) {
@@ -1048,7 +1059,13 @@ export class DriverAssistService {
         try { await this.notifications.create({ userId: uid, title: 'Assisted delivery approved', titleAr: 'تمت الموافقة', body: 'Customer approved assisted delivery.', bodyAr: 'وافق العميل.', type: 'ORDER_UPDATE', data: { orderId, assistFee } }); } catch (e) { this.logWarn(e); }
       }
     } else {
-      await this.prisma.order.update({ where: { id: orderId }, data: { assistDriverId: null, assistDriverShiftId: null, assistFee: null, assistCustomerApproved: false, assistApprovedAt: new Date() } });
+      const claimed = await this.prisma.order.updateMany({
+        where: { id: orderId, assistCustomerApproved: null },
+        data: { assistDriverId: null, assistDriverShiftId: null, assistFee: null, assistCustomerApproved: false, assistApprovedAt: new Date() },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+      }
       await this.prisma.driverAssistRequest.updateMany({ where: { orderId, status: DriverAssistRequestStatus.FULFILLED }, data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() } });
       try {
         await this.ordersState.cancelOrder(null, orderId, 'Customer declined assisted delivery');

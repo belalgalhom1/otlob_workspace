@@ -1072,6 +1072,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                                         .trim(),
                                                   )
                                                 : null,
+                                          isAdmin: widget.userRole != 'VENDOR_MEMBER',
                                           ) !=
                                       null;
                                 } else {
@@ -1107,6 +1108,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                                         .trim(),
                                                   )
                                                 : null,
+                                          isAdmin: widget.userRole != 'VENDOR_MEMBER',
                                           ) !=
                                       null;
                                 }
@@ -1271,7 +1273,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                         try {
                           final result = await ref
                               .read(adminVendorsRepositoryProvider)
-                              .deleteBranch(widget.vendorId, branch['id']);
+                              .deleteBranch(widget.vendorId, branch['id'], isAdmin: widget.userRole != 'VENDOR_MEMBER');
                           if (!context.mounted) return;
                           Navigator.pop(context);
                           if (result != null) {

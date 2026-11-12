@@ -160,7 +160,7 @@ export class EventsProcessor extends WorkerHost {
       case EVENT_JOBS.ORDER_CANCELLED:
         return `notify:order_cancelled:${data.orderId}`;
       case EVENT_JOBS.ORDER_DISPATCH_SENT:
-        return `notify:dispatch_sent:${data.dispatchId}`;
+        return `notify:dispatch_sent:${data.dispatchId}:${data.driverId}`;
       case EVENT_JOBS.ORDER_DISPATCH_RESPONDED:
         // Include the driver: an expiry round emits one EXPIRED event per
         // candidate, and they must not dedupe each other away.

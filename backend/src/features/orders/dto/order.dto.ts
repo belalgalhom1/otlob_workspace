@@ -266,6 +266,10 @@ export class UpdateOrderStatusDto {
   @Type(() => Number)
   estimatedPrepTime?: number;
 
+  @IsUUID()
+  @IsOptional()
+  fulfillmentId?: string;
+
   @ApiProperty({
     description: 'Pickup proof photo URL (required when status is PICKED_UP)',
     required: false,

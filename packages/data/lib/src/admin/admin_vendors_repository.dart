@@ -133,9 +133,13 @@ class AdminVendorsRepository {
     bool? isOpen = true,
     bool? isContracted,
     int? commissionRate,
+    bool isAdmin = true,
   }) async {
+    final endpoint = isAdmin
+        ? '/vendors/$vendorId/branches/admin'
+        : '/vendors/$vendorId/branches';
     final response = await _dio.post(
-      '/vendors/$vendorId/branches/admin',
+      endpoint,
       data: {
         'name': name,
         if (nameAr != null && nameAr.isNotEmpty) 'nameAr': nameAr,
@@ -178,9 +182,12 @@ class AdminVendorsRepository {
     bool? isOpen,
     bool? isContracted,
     int? commissionRate,
+    bool isAdmin = true,
   }) async {
+    final endpoint = isAdmin
+        ? '/vendors/$vendorId/branches/admin/$branchId'
+        : '/vendors/$vendorId/branches/$branchId';
     final body = <String, dynamic>{};
-    if (name != null) body['name'] = name;
     if (nameAr != null) body['nameAr'] = nameAr;
     if (address != null) body['address'] = address;
     if (phone != null) body['phone'] = phone;
@@ -190,13 +197,17 @@ class AdminVendorsRepository {
     if (isContracted != null) body['isContracted'] = isContracted;
     if (commissionRate != null) body['commissionRate'] = commissionRate;
     final response = await _dio.patch(
-      '/vendors/$vendorId/branches/admin/$branchId',
+      endpoint,
       data: body,
     );
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> deleteBranch(String vendorId, String branchId) async {
+  Future<dynamic> deleteBranch(String vendorId, String branchId, {bool isAdmin = true}) async {
+    if (!isAdmin) {
+      final response = await _dio.delete('/vendors/$vendorId/branches/$branchId');
+      return ResponseParser.parse(response);
+    }
     final response = await _branchesApi.vendorBranchesControllerAdminRemove(
       vendorId: vendorId,
       branchId: branchId,

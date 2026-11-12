@@ -1220,7 +1220,7 @@ export class StatisticsService {
   ): Promise<void> {
     await this.enqueueStatsJob({
       name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-sent:${dispatchId}`,
+      sourceKey: `dispatch-sent:${dispatchId}:${driverId}`,
       data: { driverId, increment: { totalDispatchesReceived: 1 } },
       periods: this.statsRepository.getPeriodsForDate(new Date()),
     });
@@ -1244,7 +1244,7 @@ export class StatisticsService {
   ): Promise<void> {
     await this.enqueueStatsJob({
       name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-rejected:${dispatchId}`,
+      sourceKey: `dispatch-rejected:${dispatchId}:${driverId}`,
       data: { driverId, increment: { dispatchesRejected: 1 } },
       periods: this.statsRepository.getPeriodsForDate(new Date()),
     });

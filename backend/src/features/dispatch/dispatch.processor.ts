@@ -162,30 +162,44 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         this.logger.error(
           `Delivery group ${deliveryGroupId} on order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
         );
-        await this.prisma.orderDeliveryGroup.updateMany({
-          where: {
-            id: deliveryGroupId,
-            status: { not: DeliveryGroupStatus.CANCELLED },
-          },
-          data: { status: DeliveryGroupStatus.CANCELLED },
+        // Never cancel a group that has since been assigned a driver.
+        const group = await this.prisma.orderDeliveryGroup.findUnique({
+          where: { id: deliveryGroupId },
+          select: { primaryDriverId: true, status: true },
         });
-        const remaining = await this.prisma.orderDeliveryGroup.count({
-          where: {
-            orderId,
-            status: { not: DeliveryGroupStatus.CANCELLED },
-          },
-        });
-        if (remaining === 0) {
-          await this.stateService.cancelOrder(
-            null, // system actor
-            orderId,
-            'Auto-cancelled: No drivers accepted any delivery after maximum attempts',
-          );
+        const dispatchableGroupStates: DeliveryGroupStatus[] = [
+          DeliveryGroupStatus.PENDING,
+          DeliveryGroupStatus.ACCEPTED,
+          DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+          DeliveryGroupStatus.READY_FOR_PICKUP,
+        ];
+        const stillWaiting =
+          !!group &&
+          !group.primaryDriverId &&
+          dispatchableGroupStates.includes(group.status);
+        if (stillWaiting) {
+          await this.prisma.orderDeliveryGroup.updateMany({
+            where: { id: deliveryGroupId, primaryDriverId: null },
+            data: { status: DeliveryGroupStatus.CANCELLED },
+          });
+          const remaining = await this.prisma.orderDeliveryGroup.count({
+            where: {
+              orderId,
+              status: { not: DeliveryGroupStatus.CANCELLED },
+            },
+          });
+          if (remaining === 0) {
+            await this.stateService.cancelOrder(
+              null, // system actor
+              orderId,
+              'Auto-cancelled: No drivers accepted any delivery after maximum attempts',
+            );
+          }
         }
         return {
           noDriversFound: true,
           attempts: attempt,
-          groupCancelled: true,
+          groupCancelled: stillWaiting,
         };
       }
 

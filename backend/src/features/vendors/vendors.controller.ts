@@ -103,6 +103,7 @@ export class VendorsController {
     // may set it. Other roles fall back to the platform default.
     if (user?.role !== Role.SUPER_ADMIN) {
       delete (dto as any).commissionRate;
+      delete (dto as any).isContracted;
     }
     return this.service.create(dto);
   }

@@ -2,6 +2,7 @@ import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -232,9 +233,12 @@ export class OrdersMultiVendorService {
       if (clientOrderKey) {
         const inserted = await tx.order.findUnique({
           where: { clientOrderKey },
-          select: { id: true, orderNumber: true },
+          select: { id: true, orderNumber: true, customerId: true },
         });
         if (!inserted || inserted.id !== orderId) {
+          if (inserted && inserted.customerId !== plan.customerId) {
+            throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+          }
           // A concurrent duplicate won the race: return the row that exists
           // rather than the id we generated but never inserted.
           return {

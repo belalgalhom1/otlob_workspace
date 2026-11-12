@@ -333,6 +333,7 @@ export class OrdersController {
 
   @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/cancel')
+  @Roles(Role.CUSTOMER, Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel an order (customer or vendor)' })
   async cancelOrder(
