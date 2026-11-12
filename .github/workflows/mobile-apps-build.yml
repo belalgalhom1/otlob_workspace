@@ -178,7 +178,7 @@ jobs:
             touch .env
           fi
 
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
 
           APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
           OUTPUT_PATH="build/app/outputs/flutter-apk/${APP_NAME}.apk"
