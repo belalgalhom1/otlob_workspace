@@ -2,84 +2,84 @@ import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 
-describe('Multi-vendor fulfillment orders', () => {
-  const buildPlan = () => ({
-    customerId: 'customer-1',
-    zoneId: 'zone-1',
-    subtotal: 300,
-    deliveryFee: 20,
-    driverBonusFee: 0,
-    serviceFee: 5,
-    tax: 10,
-    coinsUsed: 0,
-    discount: 0,
-    coinsEarned: 0,
-    grandTotal: 335,
-    upfrontAmount: 0,
-    groupFees: [20],
-    portions: [
-      {
-        vendorId: 'vendor-a',
-        vendorBranchId: 'branch-a',
-        subtotal: 100,
-        commissionRate: 10,
-        items: [
-          {
-            productId: null,
-            variantId: null,
-            productName: 'Bread',
-            variantName: null,
-            unitPrice: 50,
-            quantity: 2,
-            selectedUnit: null,
-            baseUnitPrice: 50,
-            totalPrice: 100,
-            specialRequest: null,
-            options: [],
-          },
-        ],
-      },
-      {
-        vendorId: 'vendor-b',
-        vendorBranchId: 'branch-b',
-        subtotal: 200,
-        commissionRate: 15,
-        items: [
-          {
-            productId: null,
-            variantId: null,
-            productName: 'Juice',
-            variantName: null,
-            unitPrice: 100,
-            quantity: 2,
-            selectedUnit: null,
-            baseUnitPrice: 100,
-            totalPrice: 200,
-            specialRequest: null,
-            options: [],
-          },
-        ],
-      },
-    ],
-    grouping: {
-      isSplit: false,
-      groups: [
+describe('Parent/child orders (multi-vendor checkout)', () => {
+  describe('OrdersMultiVendorService.placeOrder', () => {
+    const buildPlan = () => ({
+      customerId: 'customer-1',
+      zoneId: 'zone-1',
+      subtotal: 300,
+      deliveryFee: 20,
+      driverBonusFee: 0,
+      serviceFee: 5,
+      tax: 10,
+      coinsUsed: 0,
+      discount: 0,
+      coinsEarned: 0,
+      grandTotal: 335,
+      upfrontAmount: 0,
+      groupFees: [20],
+      portions: [
         {
-          sequence: 1,
-          farthestToCustomerKm: 2,
-          extraVendorCount: 1,
-          splitReason: null,
-          stops: [
-            { vendorId: 'vendor-a', vendorBranchId: 'branch-a' },
-            { vendorId: 'vendor-b', vendorBranchId: 'branch-b' },
+          vendorId: 'vendor-a',
+          vendorBranchId: 'branch-a',
+          subtotal: 100,
+          commissionRate: 10,
+          items: [
+            {
+              productId: null,
+              variantId: null,
+              productName: 'Bread',
+              variantName: null,
+              unitPrice: 50,
+              quantity: 2,
+              selectedUnit: null,
+              baseUnitPrice: 50,
+              totalPrice: 100,
+              specialRequest: null,
+              options: [],
+            },
+          ],
+        },
+        {
+          vendorId: 'vendor-b',
+          vendorBranchId: 'branch-b',
+          subtotal: 200,
+          commissionRate: 15,
+          items: [
+            {
+              productId: null,
+              variantId: null,
+              productName: 'Juice',
+              variantName: null,
+              unitPrice: 100,
+              quantity: 2,
+              selectedUnit: null,
+              baseUnitPrice: 100,
+              totalPrice: 200,
+              specialRequest: null,
+              options: [],
+            },
           ],
         },
       ],
-    },
-  });
+      grouping: {
+        isSplit: false,
+        groups: [
+          {
+            sequence: 1,
+            farthestToCustomerKm: 2,
+            extraVendorCount: 1,
+            splitReason: null,
+            stops: [
+              { vendorId: 'vendor-a', vendorBranchId: 'branch-a' },
+              { vendorId: 'vendor-b', vendorBranchId: 'branch-b' },
+            ],
+          },
+        ],
+      },
+    });
 
-  describe('checkout', () => {
-    it('creates ONE parent order and one numbered fulfillment per vendor', async () => {
+    it('creates one parent order plus one child order per vendor', async () => {
       const plan = buildPlan();
       const parentOrderId = 'parent-order-1';
 
@@ -97,9 +97,12 @@ describe('Multi-vendor fulfillment orders', () => {
         },
         orderVendorFulfillment: {
           create: jest.fn().mockResolvedValue({}),
+          count: jest.fn().mockResolvedValue(0),
+          deleteMany: jest.fn(),
         },
         orderItem: {
           createMany: jest.fn().mockResolvedValue({ count: 1 }),
+          deleteMany: jest.fn(),
         },
         orderItemOption: {
           createMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -109,13 +112,18 @@ describe('Multi-vendor fulfillment orders', () => {
         orderDeliveryGroupItem: {
           createMany: jest.fn().mockResolvedValue({ count: 2 }),
         },
+        orderDeliveryGroupDelete: jest.fn(),
       };
 
       const prisma: any = {
         $transaction: jest.fn(async (cb: any) => cb(tx)),
       };
       const ordersRepository: any = {
-        generateOrderNumber: jest.fn().mockResolvedValue('ORD-1042'),
+        generateOrderNumber: jest
+          .fn()
+          .mockResolvedValueOnce('ORD-PARENT')
+          .mockResolvedValueOnce('ORD-CHILD-A')
+          .mockResolvedValueOnce('ORD-CHILD-B'),
         getVendorUserIds: jest.fn().mockResolvedValue([]),
         findById: jest.fn().mockResolvedValue({ id: parentOrderId }),
       };
@@ -134,213 +142,227 @@ describe('Multi-vendor fulfillment orders', () => {
         { record: jest.fn().mockResolvedValue(undefined) } as any,
       );
 
-      jest.spyOn(service as any, 'buildPlan').mockResolvedValue(plan as any);
+      jest
+        .spyOn(service as any, 'buildPlan')
+        .mockResolvedValue(plan as any);
 
-      await service.placeOrder(
-        { sub: 'user-1' } as any,
-        {
-          vendorIds: ['vendor-a', 'vendor-b'],
-          paymentMethod: 'CASH_ON_DELIVERY',
-          deliveryAddress: '1 Test Street',
-          deliveryLocation: [31.2, 30.0],
-          specialRequest: null,
-        } as any,
-      );
+      const dto: any = {
+        vendorIds: ['vendor-a', 'vendor-b'],
+        paymentMethod: 'CASH_ON_DELIVERY',
+        deliveryAddress: '1 Test Street',
+        deliveryLocation: [31.2, 30.0],
+        specialRequest: null,
+      };
 
-      // No child orders: exactly one `INSERT INTO orders`.
-      const orderInserts = tx.$executeRaw.mock.calls.filter(([strings]: any[]) =>
-        strings.join('').includes('INSERT INTO orders'),
-      );
-      expect(orderInserts).toHaveLength(1);
+      await service.placeOrder({ sub: 'user-1' } as any, dto);
 
-      // One portion per vendor, each with its own stable display number.
+      // One canonical portion per vendor on the parent order.
       expect(tx.orderVendorFulfillment.create).toHaveBeenCalledTimes(2);
-      const portions = tx.orderVendorFulfillment.create.mock.calls.map(
-        ([arg]: any[]) => arg.data,
+      const portionVendors = tx.orderVendorFulfillment.create.mock.calls.map(
+        ([arg]: any[]) => arg.data.vendorId,
       );
-      expect(portions.map((p: any) => p.vendorId).sort()).toEqual([
-        'vendor-a',
-        'vendor-b',
-      ]);
-      expect(portions.map((p: any) => p.displayNumber).sort()).toEqual([
-        'ORD-1042-V1',
-        'ORD-1042-V2',
-      ]);
-      // All portions hang off the same single parent order insert.
-      const insertedOrderId = orderInserts[0][1];
-      expect(new Set(portions.map((p: any) => p.orderId))).toEqual(
-        new Set([insertedOrderId]),
-      );
+      expect(portionVendors.sort()).toEqual(['vendor-a', 'vendor-b']);
 
-      // Every item belongs to exactly one portion.
-      const itemRows = tx.orderItem.createMany.mock.calls.flatMap(
-        ([arg]: any[]) => arg.data,
-      );
-      expect(itemRows).toHaveLength(2);
-      const portionIds = new Set(portions.map((p: any) => p.id));
-      for (const row of itemRows) {
-        expect(portionIds.has(row.fulfillmentId)).toBe(true);
-        expect(row.orderId).toBe(insertedOrderId);
+      // Parent insert + two child inserts (all raw SQL).
+      const inserts = tx.$executeRaw.mock.calls
+        .map(([strings, ...values]: any[]) => ({ strings, values }))
+        .filter((call: any) =>
+          call.strings.join('').includes('INSERT INTO orders'),
+        );
+      expect(inserts).toHaveLength(3);
+
+      const parentInsert = inserts[0];
+      expect(parentInsert.values[0]).toEqual(expect.any(String));
+
+      const childInserts = inserts.slice(1);
+      const childOrderIds = childInserts.map((c: any) => c.values[0]);
+      expect(new Set(childOrderIds).size).toBe(2);
+      expect(childOrderIds).not.toContain(parentOrderId);
+      for (const child of childInserts) {
+        // parentOrderId + sourceFulfillmentId are bound right after the child
+        // id/number/NULL client key.
+        expect(child.values[2]).toBe(parentInsert.values[0]);
+        expect(child.values[3]).toMatch(/^[0-9a-f-]{36}$/);
       }
-      const bread = itemRows.find((r: any) => r.productName === 'Bread');
-      const juice = itemRows.find((r: any) => r.productName === 'Juice');
-      expect(bread.totalPrice).toBe(100);
-      expect(juice.totalPrice).toBe(200);
 
-      // Parent status is recorded once, not once per portion.
-      expect(tx.orderStatusEvent.create).toHaveBeenCalledTimes(1);
+      // Parent items + one copy per child order.
+      const itemWrites = tx.orderItem.createMany.mock.calls.map(
+        ([arg]: any[]) => arg.data,
+      );
+      expect(itemWrites).toHaveLength(4);
+      const parentWrites = itemWrites.filter((rows: any[]) =>
+        rows.every((row) => row.orderId === parentInsert.values[0]),
+      );
+      expect(parentWrites).toHaveLength(2);
+      const childWrites = itemWrites.filter(
+        (rows: any[]) =>
+          rows.length === 1 && childOrderIds.includes(rows[0].orderId),
+      );
+      expect(childWrites).toHaveLength(2);
+
+      // Each child item copy belongs to exactly one vendor's child order and
+      // keeps the same product/quantity/price as the parent line.
+      const childA = childWrites.find(
+        (rows: any[]) => rows[0].productName === 'Bread',
+      )!;
+      const childB = childWrites.find(
+        (rows: any[]) => rows[0].productName === 'Juice',
+      )!;
+      expect(childA[0].quantity).toBe(2);
+      expect(childA[0].unitPrice).toBe(50);
+      expect(childB[0].quantity).toBe(2);
+      expect(childB[0].unitPrice).toBe(100);
+
+      // Parent status event + one PENDING event per child.
+      expect(tx.orderStatusEvent.create).toHaveBeenCalledTimes(3);
+      const eventOrderIds = tx.orderStatusEvent.create.mock.calls.map(
+        ([arg]: any[]) => arg.data.orderId,
+      );
+      for (const childId of childOrderIds) {
+        expect(eventOrderIds).toContain(childId);
+      }
     });
   });
 
-  describe('vendor list/detail isolation', () => {
-    const buildFulfillment = (vendor: 'a' | 'b') => ({
-      id: `ff-${vendor}`,
-      orderId: 'order-1',
-      displayNumber: `ORD-1042-V${vendor === 'a' ? 1 : 2}`,
-      vendorId: `vendor-${vendor}`,
-      vendorBranchId: `branch-${vendor}`,
-      status: 'PENDING',
-      subtotal: vendor === 'a' ? 100 : 200,
-      commissionRate: vendor === 'a' ? 10 : 15,
-      preparingAt: null,
-      readyAt: null,
-      pickedUpAt: null,
-      deliveredAt: null,
-      createdAt: new Date('2026-01-01T10:00:00Z'),
-      vendor: {
-        id: `vendor-${vendor}`,
-        storeName: vendor === 'a' ? 'Bakery' : 'Juice Bar',
-        storeNameAr: vendor === 'a' ? 'مخبز' : 'عصائر',
-        isContracted: true,
-      },
-      vendorBranch: {
-        id: `branch-${vendor}`,
-        name: `Branch ${vendor}`,
-        nameAr: `فرع ${vendor}`,
-        isContracted: true,
-        commissionRate: vendor === 'a' ? 10 : 15,
-      },
-      items: [
-        {
-          id: `item-${vendor}`,
-          fulfillmentId: `ff-${vendor}`,
-          productName: vendor === 'a' ? 'Bread' : 'Juice',
-          quantity: 2,
-          totalPrice: vendor === 'a' ? 100 : 200,
-        },
-      ],
-      groups: [
-        { deliveryGroup: { id: 'group-1', sequence: 1, status: 'PENDING' } },
-      ],
-      order: {
-        id: 'order-1',
-        orderNumber: 'ORD-1042',
-        status: 'PENDING',
-        paymentMethod: 'CASH_ON_DELIVERY',
-        paymentStatus: 'PENDING',
-        deliveryAddress: '1 Test Street',
-        specialRequest: 'Ring the bell',
-        createdAt: new Date('2026-01-01T10:00:00Z'),
-        customer: {
-          id: 'customer-1',
-          user: { id: 'user-customer', name: 'Customer', phone: '+201234567890' },
-        },
-      },
-    });
-
-    const buildService = (rows: any[]) => {
-      const repository: any = {
-        findMany: jest.fn(),
-        findVendorFulfillments: jest.fn(async ({ vendorId }: any) => ({
-          fulfillments: rows.filter((r) => r.vendorId === vendorId),
-          total: rows.filter((r) => r.vendorId === vendorId).length,
-          page: 1,
-          limit: 20,
-          totalPages: 1,
-        })),
-        findVendorFulfillmentById: jest.fn(async (id: string) =>
-          rows.find((r) => r.id === id) ?? null,
-        ),
-      };
+  describe('OrdersRepository.findMany scoping', () => {
+    const buildRepository = () => {
       const prisma: any = {
-        vendorMember: {
-          findUnique: jest.fn(async ({ where }: any) => ({
-            id: 'member-1',
-            vendorId: where.vendorId_userId.vendorId,
-            branchId: null,
-            role: 'OWNER',
-          })),
-          findFirst: jest.fn(),
-        },
-        user: {
-          findUnique: jest.fn().mockResolvedValue({ permissions: [] }),
+        order: {
+          findMany: jest.fn().mockResolvedValue([]),
+          count: jest.fn().mockResolvedValue(0),
         },
       };
       return {
-        service: new OrdersService(repository, prisma, {} as any),
-        repository,
+        repository: new OrdersRepository(prisma, {} as any),
+        prisma,
       };
     };
 
-    it('returns only the calling vendor’s portion, items and number', async () => {
-      const rows = [buildFulfillment('a'), buildFulfillment('b')];
-      const { service } = buildService(rows);
+    it('lists only the vendor’s own order rows and excludes the parent', async () => {
+      const { repository, prisma } = buildRepository();
 
-      const resultA: any = await service.getVendorOrders(
-        { sub: 'user-a', role: 'VENDOR_MEMBER' } as any,
-        'vendor-a',
-        {} as any,
-      );
+      await repository.findMany({ vendorId: 'vendor-a', page: 1, limit: 20 });
 
-      expect(resultA.total).toBe(1);
-      const orderA = resultA.orders[0];
-      expect(orderA.id).toBe('ff-a');
-      expect(orderA.orderId).toBe('order-1');
-      expect(orderA.myFulfillmentId).toBe('ff-a');
-      expect(orderA.displayNumber).toBe('ORD-1042-V1');
-      expect(orderA.items).toHaveLength(1);
-      expect(orderA.items[0].productName).toBe('Bread');
-      expect(orderA.items.some((i: any) => i.productName === 'Juice')).toBe(
-        false,
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      expect(where.parentOrderId).toBeUndefined();
+      expect(where.AND).toEqual(
+        expect.arrayContaining([{ vendorId: 'vendor-a' }]),
       );
-      expect(orderA.subtotal).toBe(100);
-      expect(orderA.financials.netPayout).toBe(90);
-      expect(orderA.deliveryAddress).toBe('1 Test Street');
-      expect(orderA.notes).toBe('Ring the bell');
-      // Pending portion: phone is masked.
-      expect(orderA.phone).not.toBe('+201234567890');
-      expect(orderA.customer.phone).toBe(orderA.phone);
-
-      const resultB: any = await service.getVendorOrders(
-        { sub: 'user-b', role: 'VENDOR_MEMBER' } as any,
-        'vendor-b',
-        {} as any,
-      );
-      const orderB = resultB.orders[0];
-      expect(orderB.id).toBe('ff-b');
-      expect(orderB.displayNumber).toBe('ORD-1042-V2');
-      expect(orderB.items[0].productName).toBe('Juice');
-      expect(orderB.subtotal).toBe(200);
     });
 
-    it('serves a single portion detail without leaking siblings', async () => {
-      const rows = [buildFulfillment('a'), buildFulfillment('b')];
-      const { service } = buildService(rows);
+    it('shows customers/admins/drivers only the parent aggregate', async () => {
+      const { repository, prisma } = buildRepository();
 
-      const detail: any = await service.getVendorFulfillment(
-        { sub: 'user-a', role: 'VENDOR_MEMBER' } as any,
-        'ff-a',
+      await repository.findMany({ customerId: 'customer-1', page: 1, limit: 20 });
+
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      expect(where.parentOrderId).toBeNull();
+      expect(where.customerId).toBe('customer-1');
+    });
+
+    it('filters vendor tabs by the child order status directly', async () => {
+      const { repository, prisma } = buildRepository();
+
+      await repository.findMany({
+        vendorId: 'vendor-a',
+        status: 'PENDING' as any,
+        page: 1,
+        limit: 20,
+      });
+
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      expect(where.status).toBe('PENDING');
+      expect(where.AND).toEqual(
+        expect.arrayContaining([{ vendorId: 'vendor-a' }]),
       );
+    });
 
-      expect(detail.id).toBe('ff-a');
-      expect(detail.items).toHaveLength(1);
-      expect(detail.vendorFulfillments).toHaveLength(1);
-      expect(detail.vendorFulfillments[0].id).toBe('ff-a');
+    it('keeps an admin vendor filter on parent orders', async () => {
+      const { repository, prisma } = buildRepository();
+
+      await repository.findMany({
+        vendorId: 'vendor-a',
+        parentOrdersOnly: true,
+        page: 1,
+        limit: 20,
+      });
+
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      expect(where.parentOrderId).toBeNull();
+      expect(JSON.stringify(where.AND)).toContain('vendorFulfillments');
+    });
+
+    it('matches an admin vendor status tab against that vendor’s portion', async () => {
+      const { repository, prisma } = buildRepository();
+
+      await repository.findMany({
+        vendorId: 'vendor-a',
+        parentOrdersOnly: true,
+        status: 'PENDING' as any,
+        page: 1,
+        limit: 20,
+      });
+
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      // The aggregate status is NOT used: a sibling vendor accepting must not
+      // move this vendor's PENDING portion out of the New tab.
+      expect(where.status).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain('"status":"PENDING"');
+      expect(JSON.stringify(where.AND)).toContain('vendorFulfillments');
     });
   });
 
-  describe('admin projection', () => {
-    it('includes items, fulfilments and a per-vendor breakdown', async () => {
+  describe('OrdersService vendor projection', () => {
+    it('projects a child order with only that vendor’s items and a synthetic fulfillment', async () => {
+      const service = new OrdersService(
+        {} as any,
+        { vendorMember: { findFirst: jest.fn() } } as any,
+        {} as any,
+      );
+
+      const childOrder = {
+        id: 'child-a',
+        orderNumber: 'ORD-CHILD-A',
+        parentOrderId: 'parent-1',
+        sourceFulfillmentId: 'ff-a',
+        vendorId: 'vendor-a',
+        vendorBranchId: 'branch-a',
+        status: 'PREPARING',
+        subtotal: 100,
+        grandTotal: 100,
+        items: [
+          {
+            id: 'child-item-a',
+            productName: 'Bread',
+            quantity: 2,
+            unitPrice: 50,
+            totalPrice: 100,
+          },
+        ],
+        vendor: { storeName: 'Bakery', isContracted: true, commissionRate: 10 },
+        vendorBranch: { name: 'Branch A', isContracted: true, commissionRate: 10 },
+      };
+
+      const projected = await (service as any).projectForVendor(
+        childOrder,
+        { sub: 'user-vendor-a' } as any,
+        'vendor-a',
+      );
+
+      expect(projected.isChildOrder).toBe(true);
+      expect(projected.items).toHaveLength(1);
+      expect(projected.items[0].productName).toBe('Bread');
+      expect(projected.myFulfillmentId).toBe('ff-a');
+      expect(projected.vendorFulfillments).toHaveLength(1);
+      expect(projected.vendorFulfillments[0].id).toBe('ff-a');
+      expect(projected.vendorFulfillments[0].orderId).toBe('parent-1');
+      expect(projected.subtotal).toBe(100);
+      expect(projected.grandTotal).toBe(100);
+    });
+  });
+
+  describe('OrdersService.enrichWithAdminHelpers', () => {
+    it('exposes both vendor child orders inside one parent order', async () => {
       const service = new OrdersService(
         {} as any,
         {} as any,
@@ -353,8 +375,8 @@ describe('Multi-vendor fulfillment orders', () => {
       );
 
       const parent = {
-        id: 'order-1',
-        orderNumber: 'ORD-1042',
+        id: 'parent-1',
+        orderNumber: 'ORD-PARENT',
         status: 'PENDING',
         paymentMethod: 'CASH_ON_DELIVERY',
         paymentStatus: 'PENDING',
@@ -368,11 +390,9 @@ describe('Multi-vendor fulfillment orders', () => {
         vendorId: null,
         vendor: null,
         vendorBranch: null,
-        items: [],
         vendorFulfillments: [
           {
             id: 'ff-a',
-            displayNumber: 'ORD-1042-V1',
             vendorId: 'vendor-a',
             status: 'PENDING',
             subtotal: 100,
@@ -387,19 +407,10 @@ describe('Multi-vendor fulfillment orders', () => {
               nameAr: 'فرع أ',
               isContracted: true,
             },
-            items: [
-              {
-                id: 'item-a',
-                productName: 'Bread',
-                quantity: 2,
-                unitPrice: 50,
-                totalPrice: 100,
-              },
-            ],
+            items: [],
           },
           {
             id: 'ff-b',
-            displayNumber: 'ORD-1042-V2',
             vendorId: 'vendor-b',
             status: 'ACCEPTED',
             subtotal: 200,
@@ -414,9 +425,45 @@ describe('Multi-vendor fulfillment orders', () => {
               nameAr: 'فرع ب',
               isContracted: true,
             },
+            items: [],
+          },
+        ],
+        childOrders: [
+          {
+            id: 'child-a',
+            orderNumber: 'ORD-CHILD-A',
+            parentOrderId: 'parent-1',
+            vendorId: 'vendor-a',
+            status: 'PENDING',
+            subtotal: 100,
+            grandTotal: 100,
+            paymentStatus: 'PENDING',
+            vendor: { storeName: 'Bakery', storeNameAr: 'مخبز' },
+            vendorBranch: { name: 'Branch A', nameAr: 'فرع أ' },
             items: [
               {
-                id: 'item-b',
+                id: 'child-item-a',
+                productName: 'Bread',
+                quantity: 2,
+                unitPrice: 50,
+                totalPrice: 100,
+              },
+            ],
+          },
+          {
+            id: 'child-b',
+            orderNumber: 'ORD-CHILD-B',
+            parentOrderId: 'parent-1',
+            vendorId: 'vendor-b',
+            status: 'ACCEPTED',
+            subtotal: 200,
+            grandTotal: 200,
+            paymentStatus: 'PENDING',
+            vendor: { storeName: 'Juice Bar', storeNameAr: 'عصائر' },
+            vendorBranch: { name: 'Branch B', nameAr: 'فرع ب' },
+            items: [
+              {
+                id: 'child-item-b',
                 productName: 'Juice',
                 quantity: 2,
                 unitPrice: 100,
@@ -425,79 +472,36 @@ describe('Multi-vendor fulfillment orders', () => {
             ],
           },
         ],
+        items: [],
       };
 
-      const admin: any = await (service as any).enrichWithAdminHelpers(parent);
+      const admin = await (service as any).enrichWithAdminHelpers(parent);
 
       expect(admin.isMultiVendor).toBe(true);
-      expect(admin.items).toHaveLength(2);
+      expect(admin.vendorOrders).toHaveLength(2);
+
+      const [orderA, orderB] = admin.vendorOrders;
+      expect(orderA.vendorName).toBe('مخبز');
+      expect(orderA.status).toBe('PENDING');
+      expect(orderA.items[0]).toMatchObject({
+        productName: 'Bread',
+        quantity: 2,
+        unitPrice: 50,
+        totalPrice: 100,
+      });
+
+      expect(orderB.vendorName).toBe('عصائر');
+      expect(orderB.status).toBe('ACCEPTED');
+      expect(orderB.items[0]).toMatchObject({
+        productName: 'Juice',
+        quantity: 2,
+        unitPrice: 100,
+        totalPrice: 200,
+      });
+
+      // The parent still carries the canonical fulfillments for settlement.
       expect(admin.vendorFulfillments).toHaveLength(2);
-      expect(admin.vendorBreakdown).toHaveLength(2);
-
-      const [a, b] = admin.vendorBreakdown;
-      expect(a.displayNumber).toBe('ORD-1042-V1');
-      expect(a.vendorName).toBe('مخبز');
-      expect(a.items[0].productName).toBe('Bread');
-      expect(a.netPayout).toBe(90);
-
-      expect(b.displayNumber).toBe('ORD-1042-V2');
-      expect(b.vendorName).toBe('عصائر');
-      expect(b.items[0].productName).toBe('Juice');
-      expect(b.status).toBe('ACCEPTED');
-
       expect(admin.financials.storePayments).toHaveLength(2);
-    });
-  });
-
-  describe('vendor status derivation', () => {
-    it('derives status from the portion, not the aggregate order', async () => {
-      const service = new OrdersService({} as any, {} as any, {} as any);
-      const base = {
-        id: 'ff-a',
-        orderId: 'order-1',
-        displayNumber: 'ORD-1042-V1',
-        vendorId: 'vendor-a',
-        vendorBranchId: 'branch-a',
-        status: 'PREPARING',
-        subtotal: 100,
-        commissionRate: 10,
-        preparingAt: new Date('2026-01-01T10:05:00Z'),
-        readyAt: null,
-        pickedUpAt: null,
-        deliveredAt: null,
-        vendor: { storeName: 'Bakery', isContracted: true },
-        vendorBranch: { name: 'Branch A', isContracted: true },
-        items: [],
-        groups: [
-          { deliveryGroup: { id: 'g1', status: 'READY_FOR_PICKUP' } },
-        ],
-        order: {
-          id: 'order-1',
-          orderNumber: 'ORD-1042',
-          // Another vendor already pushed the aggregate to PREPARING.
-          status: 'PREPARING',
-          paymentMethod: 'CASH_ON_DELIVERY',
-          paymentStatus: 'PENDING',
-          customer: { user: { phone: '+201234567890' } },
-          createdAt: new Date('2026-01-01T10:00:00Z'),
-        },
-      };
-
-      const projected: any = (service as any).projectFulfillmentForVendor({
-        ...base,
-      });
-      expect(projected.status).toBe('READY_FOR_PICKUP');
-      expect(projected.orderStatus).toBe('PREPARING');
-
-      const delivered: any = (service as any).projectFulfillmentForVendor({
-        ...base,
-        status: 'PICKED_UP',
-        pickedUpAt: new Date('2026-01-01T10:30:00Z'),
-        groups: [{ deliveryGroup: { id: 'g1', status: 'PICKED_UP' } }],
-      });
-      expect(delivered.status).toBe('PICKED_UP');
-      // Phone becomes visible once the portion left PENDING.
-      expect(delivered.phone).toBe('+201234567890');
     });
   });
 });

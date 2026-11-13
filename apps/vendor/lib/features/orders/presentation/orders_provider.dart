@@ -148,27 +148,6 @@ class OrdersNotifier extends _$OrdersNotifier {
     }
   }
 
-  /// Resolves the vendor list row (portion id) to the parent order id and the
-  /// fulfillment id the backend status endpoint expects.
-  Map<String, String?> _vendorTargets(String id) {
-    if (state.hasValue) {
-      for (final o in state.value!.orders) {
-        if (o is Map && o['id']?.toString() == id) {
-          final parent =
-              o['orderId']?.toString() ?? o['parentOrderId']?.toString();
-          final fulfillment =
-              o['myFulfillmentId']?.toString() ?? o['id']?.toString();
-          return {
-            'orderId':
-                (parent != null && parent.isNotEmpty) ? parent : id,
-            'fulfillmentId': fulfillment,
-          };
-        }
-      }
-    }
-    return {'orderId': id, 'fulfillmentId': null};
-  }
-
   Future<void> updateOrderStatus(
     String orderId,
     String nextStatus, {
@@ -181,13 +160,11 @@ class OrdersNotifier extends _$OrdersNotifier {
 
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
     if (role == 'VENDOR_MEMBER') {
-       final targets = _vendorTargets(orderId);
        await ref.read(vendorOrdersRepositoryProvider).ordersUpdate(
-         orderId: targets['orderId']!,
+         orderId: orderId,
          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
           ..status = UpdateOrderStatusDtoStatusEnum.valueOf(nextStatus)
           ..estimatedPrepTime = estimatedPrepTime?.toDouble()
-          ..fulfillmentId = targets['fulfillmentId']
          ),
        );
     } else {
@@ -211,13 +188,11 @@ class OrdersNotifier extends _$OrdersNotifier {
 
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
     if (role == 'VENDOR_MEMBER') {
-       final targets = _vendorTargets(orderId);
        await ref.read(vendorOrdersRepositoryProvider).ordersUpdate(
-         orderId: targets['orderId']!,
+         orderId: orderId,
          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
           ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
           ..note = reason
-          ..fulfillmentId = targets['fulfillmentId']
          ),
        );
     } else {

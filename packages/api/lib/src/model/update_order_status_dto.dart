@@ -30,10 +30,6 @@ abstract class UpdateOrderStatusDto implements Built<UpdateOrderStatusDto, Updat
   @BuiltValueField(wireName: r'estimatedPrepTime')
   num? get estimatedPrepTime;
 
-  /// The vendor portion this status applies to (multi-vendor orders).
-  @BuiltValueField(wireName: r'fulfillmentId')
-  String? get fulfillmentId;
-
   /// Pickup proof photo URL (required when status is PICKED_UP)
   @BuiltValueField(wireName: r'pickupImageUrl')
   String? get pickupImageUrl;
@@ -82,13 +78,6 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
       yield serializers.serialize(
         object.estimatedPrepTime,
         specifiedType: const FullType(num),
-      );
-    }
-    if (object.fulfillmentId != null) {
-      yield r'fulfillmentId';
-      yield serializers.serialize(
-        object.fulfillmentId,
-        specifiedType: const FullType(String),
       );
     }
     if (object.pickupImageUrl != null) {
@@ -148,13 +137,6 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
             specifiedType: const FullType(num),
           ) as num;
           result.estimatedPrepTime = valueDes;
-          break;
-        case r'fulfillmentId':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.fulfillmentId = valueDes;
           break;
         case r'pickupImageUrl':
           final valueDes = serializers.deserialize(

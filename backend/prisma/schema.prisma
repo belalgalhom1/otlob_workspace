@@ -1041,10 +1041,6 @@ model OrderItemOption {
 model OrderVendorFulfillment {
   id             String                    @id @default(uuid())
   orderId        String
-  /// Stable, human-readable per-vendor order number, e.g. `ORD-1042-V1`.
-  /// Generated once at checkout and never renumbered, so vendors can reference
-  /// their portion even while the parent order number stays shared.
-  displayNumber  String                    @unique
   vendorId       String
   vendorBranchId String?
   status         OrderVendorFulfillmentStatus @default(PENDING)

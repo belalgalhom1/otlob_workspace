@@ -213,14 +213,8 @@ export class OrdersStateService {
 
     // For multi-vendor / multi-branch orders, accept / cancel / production are per-fulfillment decisions
     if (matchingFulfillments.length > 0) {
-      const scopedFulfillments = dto.fulfillmentId
-        ? matchingFulfillments.filter((f: any) => f.id === dto.fulfillmentId)
-        : matchingFulfillments;
-      if (dto.fulfillmentId && scopedFulfillments.length === 0) {
-        throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-      }
       if (dto.status === OrderStatus.ACCEPTED) {
-        for (const f of scopedFulfillments) {
+        for (const f of matchingFulfillments) {
           if (f.status === 'PENDING') {
             await this.vendorDecisionService.accept(actor, f.id);
           }
@@ -235,7 +229,7 @@ export class OrdersStateService {
             dto.note ?? 'Cancelled by admin',
           );
         }
-        for (const f of scopedFulfillments) {
+        for (const f of matchingFulfillments) {
           if (f.status !== 'REJECTED' && f.status !== 'CANCELLED') {
             await this.vendorDecisionService.reject(actor, f.id, {
               code: 'VENDOR_CANCELLED',
@@ -250,7 +244,7 @@ export class OrdersStateService {
         dto.status === OrderStatus.READY_FOR_PICKUP
       ) {
         let lastResult: any = null;
-        let eligible = scopedFulfillments.filter(
+        let eligible = matchingFulfillments.filter(
           (f: any) => f.status === 'ACCEPTED' || f.status === 'PREPARING',
         );
         if (dto.fulfillmentId) {

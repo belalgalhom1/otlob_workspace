@@ -302,17 +302,6 @@ export class OrdersController {
   }
 
   @ApiStandardResponse()
-  @Get('vendor-fulfillments/:fulfillmentId')
-  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get one vendor fulfillment portion (vendor or admin)' })
-  getVendorFulfillment(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('fulfillmentId') fulfillmentId: string,
-  ) {
-    return this.ordersService.getVendorFulfillment(actor, fulfillmentId);
-  }
-
-  @ApiStandardResponse()
   @Patch('vendor/:orderId/status')
   @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
