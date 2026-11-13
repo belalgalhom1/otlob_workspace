@@ -179,17 +179,21 @@ export class OrdersMultiVendorService {
           const portionCount = await tx.orderVendorFulfillment.count({
             where: { orderId: existing.id },
           });
+          const itemCount = await tx.orderItem.count({
+            where: { orderId: existing.id },
+          });
           this.logger.log(
-            `placeOrder idempotency hit existing=${existing.id} portionCount=${portionCount}`,
+            `placeOrder idempotency hit existing=${existing.id} portionCount=${portionCount} itemCount=${itemCount}`,
           );
-          // Self-heal: if the existing order has no portions, drop it and
+          // Self-heal: if the existing order has no portions/items, drop it and
           // create a fresh one instead of returning an empty order.
-          if (portionCount === 0) {
+          if (portionCount === 0 || itemCount === 0) {
             this.logger.warn(
               `placeOrder self-healing empty order ${existing.id} for key ${clientOrderKey}`,
             );
             await tx.orderVendorFulfillment.deleteMany({ where: { orderId: existing.id } });
             await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
+            await tx.orderStatusEvent.deleteMany({ where: { orderId: existing.id } });
             await tx.orderDeliveryGroup.deleteMany({ where: { orderId: existing.id } });
             await tx.order.delete({ where: { id: existing.id } });
           } else {
