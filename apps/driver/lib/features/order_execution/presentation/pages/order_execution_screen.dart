@@ -1656,7 +1656,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      l10n.localeName == 'ar'
+                      allAr
                           ? 'يجب جمع جميع أوامر المتاجر قبل التوصيل'
                           : 'All vendor orders must be collected before delivery',
                       style: TextStyle(
@@ -1684,7 +1684,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      l10n.localeName == 'ar'
+                      allAr
                           ? 'يجب زيارة جميع المتاجر وجمع الطلبات قبل التوصيل'
                           : 'All vendor orders must be collected before delivery. Please collect remaining vendor stops first.',
                     ),
