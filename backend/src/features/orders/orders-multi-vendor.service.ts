@@ -161,18 +161,23 @@ export class OrdersMultiVendorService {
             id: true,
             orderNumber: true,
             customerId: true,
-            _count: { select: { vendorFulfillments: true } },
           },
         });
         if (existing) {
           if (existing.customerId !== plan.customerId) {
             throw new BadRequestException(OrderErrors.NOT_AUTHORIZED_VIEW);
           }
-          // A previous (possibly failed/partial) attempt left an empty order
-          // row with this key. Self-heal: drop the stale empty row and fall
-          // through to a fresh insert instead of returning an order with no
-          // portions, which would leave vendors/admin/drivers with nothing.
-          if ((existing._count?.vendorFulfillments ?? 0) === 0) {
+          // Count portions directly (avoid relying on _count select, which
+          // has been unreliable inside transactions).
+          const portionCount = await tx.orderVendorFulfillment.count({
+            where: { orderId: existing.id },
+          });
+          this.logger.log(
+            `placeOrder idempotency hit existing=${existing.id} portionCount=${portionCount}`,
+          );
+          // Self-heal: if the existing order has no portions, drop it and
+          // create a fresh one instead of returning an empty order.
+          if (portionCount === 0) {
             this.logger.warn(
               `placeOrder self-healing empty order ${existing.id} for key ${clientOrderKey}`,
             );
