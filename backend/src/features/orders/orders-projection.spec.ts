@@ -108,119 +108,65 @@ describe('OrdersService financial projections & vendor isolation', () => {
       expect(projected.financials.cashToPayStore).toBe(700);
     });
 
-    const buildMultiGroupOrder = (group1Status = 'DRIVER_ASSIGNED') => ({
-      id: 'order-multigroup',
-      status: 'DRIVER_ASSIGNED',
-      paymentMethod: 'CASH_ON_DELIVERY',
-      paymentStatus: 'PENDING',
-      deliveryFee: 60,
-      serviceFee: 10,
-      tax: 5,
-      driverBonusFee: 1,
-      discount: 2,
-      deliveryGroups: [
-        {
-          id: 'group-1',
-          sequence: 1,
-          primaryDriverId: 'driver-1',
-          deliveryFee: 30,
-          status: group1Status,
-          items: [{ fulfillmentId: 'ff-store-1', sequence: 1 }],
-        },
-        {
-          id: 'group-2',
-          sequence: 2,
-          primaryDriverId: 'driver-1',
-          deliveryFee: 30,
-          status: 'DRIVER_ASSIGNED',
-          items: [{ fulfillmentId: 'ff-store-2', sequence: 1 }],
-        },
-      ],
-      vendorFulfillments: [
-        {
-          id: 'ff-store-1',
-          vendorId: 'vendor-1',
-          subtotal: 200,
-          commissionRate: 10,
-          vendor: { name: 'Store 1', isContracted: true },
-          vendorBranch: { name: 'Branch 1', isContracted: true },
-        },
-        {
-          id: 'ff-store-2',
-          vendorId: 'vendor-2',
-          subtotal: 300,
-          commissionRate: 10,
-          vendor: { name: 'Store 2', isContracted: false },
-          vendorBranch: { name: 'Branch 2', isContracted: false },
-        },
-      ],
-      items: [
-        { id: 'i1', fulfillmentId: 'ff-store-1' },
-        { id: 'i2', fulfillmentId: 'ff-store-2' },
-      ],
-    });
-
-    it('scopes a grouped order to the current delivery group only', async () => {
+    it('aggregates multiple delivery groups when assigned to the same driver', async () => {
       const actor = { sub: 'user-driver-1' } as any;
       mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1' });
 
-      const projected = await (ordersService as any).projectForDriver(
-        buildMultiGroupOrder(),
-        actor,
-      );
+      const mockOrder = {
+        id: 'order-multigroup',
+        status: 'DRIVER_ASSIGNED',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        paymentStatus: 'PENDING',
+        deliveryFee: 60,
+        deliveryGroups: [
+          {
+            id: 'group-1',
+            sequence: 1,
+            primaryDriverId: 'driver-1',
+            deliveryFee: 30,
+            status: 'DRIVER_ASSIGNED',
+            items: [{ fulfillmentId: 'ff-store-1', sequence: 1 }],
+          },
+          {
+            id: 'group-2',
+            sequence: 2,
+            primaryDriverId: 'driver-1',
+            deliveryFee: 30,
+            status: 'DRIVER_ASSIGNED',
+            items: [{ fulfillmentId: 'ff-store-2', sequence: 1 }],
+          },
+        ],
+        vendorFulfillments: [
+          {
+            id: 'ff-store-1',
+            vendorId: 'vendor-1',
+            subtotal: 200,
+            commissionRate: 10,
+            vendor: { name: 'Store 1', isContracted: true },
+            vendorBranch: { name: 'Branch 1', isContracted: true },
+          },
+          {
+            id: 'ff-store-2',
+            vendorId: 'vendor-2',
+            subtotal: 300,
+            commissionRate: 10,
+            vendor: { name: 'Store 2', isContracted: false },
+            vendorBranch: { name: 'Branch 2', isContracted: false },
+          },
+        ],
+        items: [
+          { id: 'i1', fulfillmentId: 'ff-store-1' },
+          { id: 'i2', fulfillmentId: 'ff-store-2' },
+        ],
+      };
 
-      // The driver is working delivery 1, so only its store/items are visible.
-      expect(projected.vendorFulfillments).toHaveLength(1);
-      expect(projected.vendorFulfillments[0].id).toBe('ff-store-1');
-      expect(projected.financials.storePayments).toHaveLength(1);
-      expect(projected.items).toHaveLength(1);
-      expect(projected.items[0].id).toBe('i1');
-      expect(projected.deliveryFee).toBe(30);
-      expect(projected.subtotal).toBe(200);
-      // Goods 200 + group delivery 30 + order extras (10 + 5 + 1 - 2) = 244
-      expect(projected.grandTotal).toBe(244);
-      expect(projected.currentDeliveryGroupId).toBe('group-1');
-      expect(projected.deliveryGroups).toHaveLength(2);
-    });
+      const projected = await (ordersService as any).projectForDriver(mockOrder, actor);
 
-    it('advances to the next group after delivery and charges order extras only once', async () => {
-      const actor = { sub: 'user-driver-1' } as any;
-      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1' });
-
-      const projected = await (ordersService as any).projectForDriver(
-        buildMultiGroupOrder('DELIVERED'),
-        actor,
-      );
-
-      // Delivery 1 is done: the projection points the app at delivery 2.
-      expect(projected.currentDeliveryGroupId).toBe('group-2');
-      expect(projected.vendorFulfillments).toHaveLength(1);
-      expect(projected.vendorFulfillments[0].id).toBe('ff-store-2');
-      expect(projected.items).toHaveLength(1);
-      expect(projected.items[0].id).toBe('i2');
-      expect(projected.deliveryFee).toBe(30);
-      // Goods 300 + group delivery 30, no order-level extras a second time.
-      expect(projected.grandTotal).toBe(330);
-      expect(projected.deliveryGroups).toHaveLength(2);
-    });
-
-    it('reports DELIVERED with no work once every assigned group is delivered', async () => {
-      const actor = { sub: 'user-driver-1' } as any;
-      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1' });
-
-      const order = buildMultiGroupOrder('DELIVERED');
-      order.deliveryGroups[1].status = 'DELIVERED';
-
-      const projected = await (ordersService as any).projectForDriver(order, actor);
-
-      expect(projected.status).toBe('DELIVERED');
-      expect(projected.currentDeliveryGroupId).toBeNull();
-      expect(projected.items).toHaveLength(0);
-      expect(projected.vendorFulfillments).toHaveLength(0);
-      expect(projected.financials.storePayments).toHaveLength(0);
-      expect(projected.grandTotal).toBe(0);
-      expect(projected.driverEarnings).toBe(0);
-      expect(projected.deliveryGroups).toHaveLength(2);
+      expect(projected.vendorFulfillments).toHaveLength(2);
+      expect(projected.financials.storePayments).toHaveLength(2);
+      // Combined goods (200 + 300) + combined delivery fee (30 + 30) = 560
+      expect(projected.grandTotal).toBe(560);
+      expect(projected.items).toHaveLength(2);
     });
     it('calculates driverEarnings matching dispatch and settlement commission rates (net 70%)', async () => {
       const actor = { sub: 'user-driver-1' } as any;
@@ -303,109 +249,6 @@ describe('OrdersService financial projections & vendor isolation', () => {
       expect(vendorProjection.financials.netPayout).toBe(400);
       expect(vendorProjection.financials.cashToCollectFromDriver).toBe(400);
     });
-
-    it('never leaks items whose fulfillment is unknown or unlinked', async () => {
-      const actor = { sub: 'user-vendor-1' } as any;
-
-      const mockOrder = {
-        id: 'order-unlinked',
-        status: 'PENDING',
-        vendorFulfillments: [
-          {
-            id: 'ff-vendor-1',
-            vendorId: 'vendor-1',
-            subtotal: 100,
-            commissionRate: 20,
-            vendor: { name: 'My Bakery', isContracted: true },
-            vendorBranch: { name: 'Branch Downtown', isContracted: true },
-          },
-        ],
-        deliveryGroups: [],
-        items: [
-          { id: 'item-unlinked', name: 'Mystery Item', price: 100, quantity: 1, fulfillmentId: null },
-          { id: 'item-other', name: 'Other Store Item', price: 50, quantity: 1, fulfillmentId: 'ff-other' },
-        ],
-      };
-
-      const vendorProjection = await (ordersService as any).projectForVendor(
-        mockOrder,
-        actor,
-        'vendor-1',
-      );
-
-      expect(vendorProjection.items).toHaveLength(0);
-      expect(vendorProjection.vendorFulfillments).toHaveLength(1);
-      expect(vendorProjection.vendorFulfillments[0].id).toBe('ff-vendor-1');
-    });
-
-    it('exposes only the delivery groups carrying this vendor portion', async () => {
-      const actor = { sub: 'user-vendor-1' } as any;
-
-      const mockOrder = {
-        id: 'order-vendor-groups',
-        status: 'READY_FOR_PICKUP',
-        vendorFulfillments: [
-          {
-            id: 'ff-vendor-1',
-            vendorId: 'vendor-1',
-            status: 'READY_FOR_PICKUP',
-            subtotal: 200,
-            commissionRate: 20,
-            vendor: { name: 'My Bakery', isContracted: true },
-            vendorBranch: { id: 'branch-1', name: 'Branch Downtown', isContracted: true },
-          },
-          {
-            id: 'ff-vendor-2',
-            vendorId: 'vendor-2',
-            status: 'PREPARING',
-            subtotal: 300,
-            commissionRate: 10,
-            vendor: { name: 'Other Store', isContracted: false },
-            vendorBranch: { id: 'branch-2', name: 'Branch Other', isContracted: false },
-          },
-        ],
-        deliveryGroups: [
-          {
-            id: 'group-vendor-2',
-            sequence: 1,
-            status: 'PREPARING',
-            primaryDriverId: 'driver-2',
-            items: [{ fulfillmentId: 'ff-vendor-2', sequence: 1 }],
-          },
-          {
-            id: 'group-vendor-1',
-            sequence: 2,
-            status: 'READY_FOR_PICKUP',
-            primaryDriverId: 'driver-1',
-            estimatedPrepTime: 25,
-            items: [
-              { fulfillmentId: 'ff-vendor-1', sequence: 1 },
-              { fulfillmentId: 'ff-vendor-2', sequence: 2 },
-            ],
-          },
-        ],
-        items: [
-          { id: 'item-1', name: 'Croissant', fulfillmentId: 'ff-vendor-1' },
-          { id: 'item-2', name: 'Secret Perfume', fulfillmentId: 'ff-vendor-2' },
-        ],
-      };
-
-      const vendorProjection = await (ordersService as any).projectForVendor(
-        mockOrder,
-        actor,
-        'vendor-1',
-      );
-
-      expect(vendorProjection.deliveryGroups).toHaveLength(1);
-      const [group] = vendorProjection.deliveryGroups;
-      expect(group.id).toBe('group-vendor-1');
-      expect(group.primaryDriverId).toBe('driver-1');
-      expect(group.estimatedPrepTime).toBe(25);
-      expect(group.items).toHaveLength(1);
-      expect(group.items[0].fulfillmentId).toBe('ff-vendor-1');
-      // Never reveal the other vendor's route details.
-      expect(group.details).toBeUndefined();
-    });
   });
 
   describe('enrichWithAdminHelpers (Super Admin multi-vendor visibility)', () => {
@@ -460,48 +303,6 @@ describe('OrdersService financial projections & vendor isolation', () => {
       expect(adminEnriched.financials.storePayments[1].cashToPay).toBe(400); // uncontracted full 400
       expect(adminEnriched.financials.cashToPayStore).toBe(880);
       expect(adminEnriched.financials.isStorePrepaid).toBe(false); // since one is uncontracted
-    });
-
-    it('merges rejected lines back into each portion for full admin visibility', async () => {
-      const mockOrder = {
-        id: 'mv-order-2',
-        orderNumber: 'ORD-MV-200',
-        status: 'PENDING',
-        paymentMethod: 'CASH_ON_DELIVERY',
-        subtotal: 100,
-        deliveryFee: 20,
-        grandTotal: 120,
-        vendorId: null,
-        vendor: null,
-        vendorBranch: null,
-        vendorFulfillments: [
-          {
-            id: 'ff-1',
-            vendorId: 'vendor-1',
-            status: 'PENDING',
-            subtotal: 100,
-            commissionRate: 20,
-            vendor: { storeName: 'Burger Joint', isContracted: true },
-            vendorBranch: { name: 'Main Branch', isContracted: true },
-            // Repository filters rejected rows out of this list.
-            items: [{ id: 'item-kept', productName: 'Burger', quantity: 1, fulfillmentId: 'ff-1' }],
-          },
-        ],
-        items: [
-          { id: 'item-kept', productName: 'Burger', quantity: 1, fulfillmentId: 'ff-1' },
-          { id: 'item-rejected', productName: 'Sold Out', quantity: 2, fulfillmentId: 'ff-1', rejectedAt: new Date() },
-        ],
-      };
-
-      const adminEnriched = await (ordersService as any).enrichWithAdminHelpers(mockOrder);
-
-      expect(adminEnriched.vendorFulfillments).toHaveLength(1);
-      const portion = adminEnriched.vendorFulfillments[0];
-      expect(portion.items).toHaveLength(2);
-      expect(portion.items.map((i: any) => i.id).sort()).toEqual([
-        'item-kept',
-        'item-rejected',
-      ]);
     });
   });
 });

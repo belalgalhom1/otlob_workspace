@@ -343,7 +343,7 @@ export class CustomersService {
 
     // Last 5 orders for quick overview panel
     const recentOrders = await this.prisma.order.findMany({
-      where: { customerId, parentOrderId: null },
+      where: { customerId },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: {
@@ -444,7 +444,7 @@ export class CustomersService {
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
-        where: { customerId, parentOrderId: null },
+        where: { customerId },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -463,7 +463,7 @@ export class CustomersService {
           driver: { select: { id: true, name: true } },
         },
       }),
-      this.prisma.order.count({ where: { customerId, parentOrderId: null } }),
+      this.prisma.order.count({ where: { customerId } }),
     ]);
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };

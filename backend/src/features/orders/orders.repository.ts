@@ -91,12 +91,6 @@ export interface OrderFilters {
   customerId?: string;
   driverId?: string;
   driverIds?: string[];
-  /**
-   * Admin/driver/customer views: only the parent aggregate row is listed, even
-   * when a `vendorId` filter is supplied (match it through the portions).
-   * Vendor views leave this false so they receive their own child order rows.
-   */
-  parentOrdersOnly?: boolean;
   page?: number;
   limit?: number;
 }
@@ -127,45 +121,124 @@ const PAST_ORDER_STATUSES: OrderStatus[] = [
 ];
 
 /**
- * Translate an order-level tab into the equivalent state of ONE vendor's
- * portion. Used when an admin filters the parent-order list by store: the
- * aggregate status flips as soon as any vendor moves, so a tab must match the
- * selected vendor's portion instead.
+ * Translate an order-level status tab into the equivalent state of ONE
+ * vendor's portion.
+ *
+ * A vendor's order list must be filtered by its own portion, not by the
+ * aggregate order status: on a multi-vendor order the aggregate flips as soon
+ * as any vendor moves, so filtering on it would drop a vendor's portion from
+ * the tab that actually describes it (for example, vendor A accepts while
+ * vendor B is still deciding — the order is still PENDING, but B's portion is
+ * the only one that belongs in the "New" tab).
  */
-function portionStatusForOrderStatus(
+function portionStatusFilter(
   status: OrderStatus,
-): Prisma.OrderVendorFulfillmentWhereInput | null {
+): Prisma.OrderVendorFulfillmentWhereInput {
   switch (status) {
     case OrderStatus.PENDING:
-    case OrderStatus.CHANGES_REQUESTED:
-      return { status: OrderVendorFulfillmentStatus.PENDING };
+      return { status: 'PENDING' };
     case OrderStatus.ACCEPTED:
-    case OrderStatus.LOOKING_FOR_DRIVER:
-    case OrderStatus.DRIVER_ASSIGNED:
-    case OrderStatus.PENDING_PAYMENT:
-      // Dispatch states belong to the shared delivery, not a new decision.
-      return { status: OrderVendorFulfillmentStatus.ACCEPTED };
-    case OrderStatus.PREPARING:
-      return { status: OrderVendorFulfillmentStatus.PREPARING };
-    case OrderStatus.READY_FOR_PICKUP:
-      return { status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP };
-    case OrderStatus.PARTIALLY_PICKED_UP:
-    case OrderStatus.PICKED_UP:
-      return { status: OrderVendorFulfillmentStatus.PICKED_UP };
-    case OrderStatus.DELIVERED:
-      // A portion stays PICKED_UP; delivery is recorded by `deliveredAt`.
-      return { status: OrderVendorFulfillmentStatus.PICKED_UP };
-    case OrderStatus.CANCELLED:
       return {
-        status: {
-          in: [
-            OrderVendorFulfillmentStatus.CANCELLED,
-            OrderVendorFulfillmentStatus.REJECTED,
-          ],
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+      };
+    case OrderStatus.PREPARING:
+      return {
+        pickedUpAt: null,
+        deliveredAt: null,
+        OR: [
+          { status: 'PREPARING', readyAt: null },
+          {
+            status: 'ACCEPTED',
+            preparingAt: { not: null },
+            readyAt: null,
+          },
+        ],
+      };
+    case OrderStatus.READY_FOR_PICKUP:
+      return {
+        pickedUpAt: null,
+        deliveredAt: null,
+        OR: [
+          { status: 'READY_FOR_PICKUP' },
+          {
+            status: 'ACCEPTED',
+            readyAt: { not: null },
+          },
+        ],
+      };
+    case OrderStatus.LOOKING_FOR_DRIVER:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        order: { status: OrderStatus.LOOKING_FOR_DRIVER },
+      };
+    case OrderStatus.DRIVER_ASSIGNED:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        groups: {
+          some: {
+            deliveryGroup: { status: DeliveryGroupStatus.DRIVER_ASSIGNED },
+          },
         },
       };
+    case OrderStatus.PENDING_PAYMENT:
+      return {
+        status: 'ACCEPTED',
+        preparingAt: null,
+        readyAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        groups: {
+          some: {
+            deliveryGroup: { status: DeliveryGroupStatus.PENDING_PAYMENT },
+          },
+        },
+      };
+    case OrderStatus.PICKED_UP:
+    case OrderStatus.PARTIALLY_PICKED_UP:
+      return {
+        OR: [
+          { status: 'PICKED_UP', deliveredAt: null },
+          {
+            status: { notIn: ['REJECTED', 'CANCELLED'] },
+            pickedUpAt: { not: null },
+            deliveredAt: null,
+          },
+        ],
+      };
+    case OrderStatus.DELIVERED:
+      return {
+        status: { notIn: ['REJECTED', 'CANCELLED'] },
+        OR: [
+          { deliveredAt: { not: null } },
+          { order: { status: OrderStatus.DELIVERED } },
+          {
+            groups: {
+              some: {
+                deliveryGroup: { status: DeliveryGroupStatus.DELIVERED },
+              },
+            },
+          },
+        ],
+      };
+    case OrderStatus.CANCELLED:
+      return { status: { in: ['REJECTED', 'CANCELLED'] } };
     default:
-      return null;
+      return {
+        status: { notIn: ['REJECTED', 'CANCELLED'] },
+        deliveredAt: null,
+      };
   }
 }
 
@@ -281,46 +354,6 @@ const ORDER_INCLUDE = {
       },
     },
   },
-  // Per-vendor child orders created by a multi-vendor checkout. The admin
-  // response exposes them as `vendorOrders`; each carries its own vendor,
-  // items, subtotal and status.
-  childOrders: {
-    orderBy: { createdAt: 'asc' as const },
-    include: {
-      vendor: {
-        select: {
-          id: true,
-          storeName: true,
-          storeNameAr: true,
-          logo: true,
-          phone: true,
-          isContracted: true,
-          commissionRate: true,
-        },
-      },
-      vendorBranch: {
-        select: {
-          id: true,
-          name: true,
-          nameAr: true,
-          address: true,
-          phone: true,
-          isContracted: true,
-          commissionRate: true,
-        },
-      },
-      items: {
-        include: {
-          selectedOptions: true,
-          product: { select: { imageUrl: true } },
-        },
-      },
-      statusEvents: {
-        orderBy: { createdAt: 'desc' as const },
-        take: 5,
-      },
-    },
-  },
   statusEvents: {
     orderBy: { createdAt: 'desc' as const },
     take: 10,
@@ -408,68 +441,36 @@ export class OrdersRepository {
     const where: Prisma.OrderWhereInput = { deletedAt: null };
     if (filters.customerId) where.customerId = filters.customerId;
 
+    // A multi-vendor order has vendorId = NULL and only mirrors the FIRST
+    // delivery's driver onto the order, so an order-level filter alone would
+    // hide it from every other vendor that owns a portion and every other
+    // delivery's driver. Match those through the portions/groups too.
     const and: Prisma.OrderWhereInput[] = [];
+    const fulfillmentBranchClause: Prisma.OrderVendorFulfillmentWhereInput =
+      filters.branchId
+        ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
+        : {};
+    const orderBranchClause: Prisma.OrderWhereInput = filters.branchId
+      ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
+      : {};
 
-    if (filters.vendorId && !filters.parentOrdersOnly) {
-      // Vendors see their OWN order row. Single-vendor orders already carry
-      // vendorId; every multi-vendor checkout now also creates one child order
-      // per vendor (with vendorId set). The parent aggregate has vendorId =
-      // null, so it never leaks into a vendor's list as a duplicate.
-      and.push({ vendorId: filters.vendorId });
-      if (filters.branchId) {
-        and.push({
-          OR: [
-            { vendorBranchId: filters.branchId },
-            { vendorBranchId: null },
-          ],
-        });
-      }
-    } else {
-      // Customers, admins and drivers see the single parent aggregate. The
-      // per-vendor child orders are an internal vendor-facing view.
-      where.parentOrderId = null;
+    if (filters.status) {
       if (filters.vendorId) {
-        // An admin may still filter the parent list by store; match through
-        // the parent's canonical portions rather than returning child rows.
+        // Vendor tabs are portion-scoped (see portionStatusFilter).
         and.push({
           OR: [
-            { vendorId: filters.vendorId },
+            {
+              vendorId: filters.vendorId,
+              status: filters.status,
+              ...orderBranchClause,
+            },
             {
               vendorFulfillments: {
                 some: {
                   vendorId: filters.vendorId,
-                  ...(filters.branchId
-                    ? {
-                        OR: [
-                          { vendorBranchId: filters.branchId },
-                          { vendorBranchId: null },
-                        ],
-                      }
-                    : {}),
+                  ...fulfillmentBranchClause,
+                  ...portionStatusFilter(filters.status),
                 },
-              },
-            },
-          ],
-        });
-      }
-    }
-
-    if (filters.status) {
-      // Vendor child orders carry a normal order status, so their tabs filter
-      // on it directly. An admin filtering PARENT orders by store must match
-      // that store's portion instead, because the aggregate status flips as
-      // soon as any vendor moves.
-      const portionFilter =
-        filters.parentOrdersOnly && filters.vendorId
-          ? portionStatusForOrderStatus(filters.status)
-          : null;
-      if (portionFilter) {
-        and.push({
-          OR: [
-            { status: filters.status, vendorId: filters.vendorId },
-            {
-              vendorFulfillments: {
-                some: { vendorId: filters.vendorId, ...portionFilter },
               },
             },
           ],
@@ -484,6 +485,24 @@ export class OrdersRepository {
             ? PAST_ORDER_STATUSES
             : ACTIVE_ORDER_STATUSES,
       };
+    }
+    if (filters.vendorId) {
+      and.push({
+        OR: [
+          {
+            vendorId: filters.vendorId,
+            ...orderBranchClause,
+          },
+          {
+            vendorFulfillments: {
+              some: {
+                vendorId: filters.vendorId,
+                ...fulfillmentBranchClause,
+              },
+            },
+          },
+        ],
+      });
     }
     if (filters.driverIds !== undefined) {
       if (filters.driverIds.length === 0) {
@@ -610,43 +629,6 @@ export class OrdersRepository {
               primaryDriverId: true,
               assistDriverId: true,
               items: { select: { fulfillmentId: true, sequence: true } },
-            },
-          },
-          childOrders: {
-            orderBy: { createdAt: 'asc' as const },
-            include: {
-              vendor: {
-                select: {
-                  id: true,
-                  storeName: true,
-                  storeNameAr: true,
-                  logo: true,
-                  phone: true,
-                  isContracted: true,
-                  commissionRate: true,
-                },
-              },
-              vendorBranch: {
-                select: {
-                  id: true,
-                  name: true,
-                  nameAr: true,
-                  address: true,
-                  phone: true,
-                  isContracted: true,
-                  commissionRate: true,
-                },
-              },
-              items: {
-                include: {
-                  selectedOptions: true,
-                  product: { select: { imageUrl: true } },
-                },
-              },
-              statusEvents: {
-                orderBy: { createdAt: 'desc' as const },
-                take: 5,
-              },
             },
           },
           driver: {
@@ -778,7 +760,6 @@ export class OrdersRepository {
         const liveActiveCount = await tx.order.count({
           where: {
             customerId: data.customerId,
-            parentOrderId: null,
             status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
           },
         });
@@ -787,7 +768,7 @@ export class OrdersRepository {
         }
         if (requirePriorDelivery && liveActiveCount > 0) {
           const hasCompletedOrder = await tx.order.findFirst({
-            where: { customerId: data.customerId, parentOrderId: null, status: OrderStatus.DELIVERED },
+            where: { customerId: data.customerId, status: OrderStatus.DELIVERED },
             select: { id: true },
           });
           if (!hasCompletedOrder) {

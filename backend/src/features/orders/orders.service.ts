@@ -253,7 +253,6 @@ export class OrdersService {
       }
       const result = await this.ordersRepository.findMany({
         ...dto,
-        parentOrdersOnly: true,
         driverIds: dto.driverId ? undefined : managedDriverIds,
       });
       result.orders = await Promise.all(
@@ -262,10 +261,7 @@ export class OrdersService {
       return result;
     }
 
-    const result = await this.ordersRepository.findMany({
-      ...dto,
-      parentOrdersOnly: true,
-    });
+    const result = await this.ordersRepository.findMany(dto);
     result.orders = await Promise.all(
       result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
     );
@@ -410,7 +406,7 @@ export class OrdersService {
       order.vendorBranch?.isContracted ??
       order.vendor?.isContracted ??
       false;
-    const subtotal = Number(order.subtotal ?? 0);
+    let subtotal = Number(order.subtotal ?? 0);
     const singleStoreCommRate = Number(
       order.vendorBranch?.commissionRate ??
       order.vendor?.commissionRate ??
@@ -423,14 +419,14 @@ export class OrdersService {
 
     let deliveryFee = Number(order.deliveryFee ?? 0);
     let projectedIsStacked = Boolean(order.isStacked);
-    let projectedStatus = order.status;
-    let scopedItems = order.items;
-    let scopedFulfillments = order.vendorFulfillments;
-    let scopedSubtotal = subtotal;
+    let customDriverEarnings: number | null = null;
     let groupVendor = order.vendor;
     let groupVendorBranch = order.vendorBranch;
     let groupPickupLocation = order.pickupLocation;
     let groupPickupAddress = order.pickupAddress;
+    let projectedStatus = order.status;
+    let scopedItems = order.items;
+    let scopedFulfillments = order.vendorFulfillments;
 
     const myDriver =
       ctx?.driverId !== undefined
@@ -440,234 +436,196 @@ export class OrdersService {
             select: { id: true, tier: true },
           });
 
-    const allGroups: any[] = Array.isArray(order.deliveryGroups)
-      ? order.deliveryGroups
-      : [];
-
-    // A driver only ever sees the deliveries assigned to them. On a multi-vendor
-    // order the deliveries are independent, so echoing every group let a driver
-    // see other drivers' routes and could leave the app stuck on a group that
-    // was already completed.
-    const myGroups: any[] = myDriver
-      ? allGroups
-          .filter(
-            (g: any) =>
-              g.primaryDriverId === myDriver.id ||
-              g.assistDriverId === myDriver.id ||
-              (order.driverId === myDriver.id && !g.primaryDriverId),
-          )
-          .sort(
-            (a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
-          )
-      : [];
-
-    const liveGroups = myGroups.filter((g: any) => g.status !== 'CANCELLED');
-    const activeMyGroups = liveGroups.filter(
-      (g: any) => g.status !== 'DELIVERED',
-    );
-    // The driver works one delivery at a time. Once a group is delivered the
-    // projection moves to the next active group of the same order, so the
-    // client can advance automatically instead of leaving the order.
-    const currentGroup: any | null = activeMyGroups[0] ?? null;
-    const currentDeliveryGroupId: string | null = currentGroup?.id ?? null;
-    let customDriverEarnings: number | null = null;
-
-    if (myGroups.length > 0) {
-      const orderHasGroupItems = allGroups.some(
-        (g: any) => Array.isArray(g.items) && g.items.length > 0,
-      );
-
-      if (!currentGroup) {
-        // Every delivery assigned to this driver is finished. The order itself
-        // may still be live for other drivers, so report this driver's work as
-        // done and send no stores/items back — the app then stops showing it as
-        // active work instead of leaving the driver on a dead delivery.
-        projectedStatus = 'DELIVERED';
-        scopedItems = [];
-        scopedFulfillments = [];
-        scopedSubtotal = 0;
-        deliveryFee = 0;
-        projectedIsStacked = false;
-        customDriverEarnings = 0;
-        cashToCollect = 0;
-        cashToPayStore = 0;
-        isStorePrepaid = false;
-      } else {
-        const groupItems = (
-          Array.isArray(currentGroup.items) ? currentGroup.items : []
-        )
-          .slice()
-          .sort(
-            (a: any, b: any) =>
-              Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
-          );
-        const myFulfillmentIds = new Set<string>(
-          groupItems
-            .map((it: any) => it.fulfillmentId)
-            .filter((id: any): id is string => Boolean(id)),
+    if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
+      if (myDriver) {
+        // Collect all groups assigned to this driver (or if the driver is assigned at order level, all groups)
+        const myGroups = order.deliveryGroups.filter(
+          (g: any) =>
+            g.primaryDriverId === myDriver.id ||
+            g.assistDriverId === myDriver.id ||
+            (order.driverId === myDriver.id && !g.primaryDriverId),
         );
-        const allFulfillments: any[] = Array.isArray(order.vendorFulfillments)
-          ? order.vendorFulfillments
-          : [];
 
-        let myFulfillments = allFulfillments.filter(
-          (f: any) =>
-            myFulfillmentIds.has(f.id) &&
-            f.status !== 'REJECTED' &&
-            f.status !== 'CANCELLED',
-        );
-        // Very old orders can have groups without item links. Only then fall
-        // back to every live portion; once links exist, anything outside this
-        // group belongs to another delivery and must not leak into this one.
-        if (myFulfillments.length === 0 && !orderHasGroupItems) {
-          myFulfillments = allFulfillments.filter(
-            (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
-          );
-        }
+        if (myGroups.length > 0) {
+          const anyPendingPayment = myGroups.some((g: any) => g.status === 'PENDING_PAYMENT');
+          const allDelivered = myGroups.every((g: any) => g.status === 'DELIVERED');
+          const allPickedUp = myGroups.every((g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED');
+          const somePickedUp = myGroups.some((g: any) => g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP');
+          const allReady = myGroups.every((g: any) => g.status === 'READY_FOR_PICKUP' || g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP' || g.status === 'DELIVERED');
 
-        const sequenceByFulfillment = new Map<string, number>();
-        for (const it of groupItems) {
-          if (!it?.fulfillmentId || sequenceByFulfillment.has(it.fulfillmentId)) {
-            continue;
+          if (anyPendingPayment) {
+            projectedStatus = 'PENDING_PAYMENT';
+          } else if (allDelivered) {
+            projectedStatus = 'DELIVERED';
+          } else if (allPickedUp) {
+            projectedStatus = 'PICKED_UP';
+          } else if (somePickedUp) {
+            projectedStatus = 'PARTIALLY_PICKED_UP';
+          } else if (allReady) {
+            projectedStatus = 'READY_FOR_PICKUP';
+          } else if (myGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')) {
+            projectedStatus = 'DRIVER_ASSIGNED';
+          } else {
+            projectedStatus = myGroups[0].status ?? order.status;
           }
-          sequenceByFulfillment.set(
-            it.fulfillmentId,
-            Number(it.sequence ?? 0),
+
+          deliveryFee = myGroups.reduce(
+            (sum: number, g: any) => sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
+            0,
           );
-        }
-        myFulfillments.sort(
-          (a: any, b: any) =>
-            (sequenceByFulfillment.get(a.id) ?? 0) -
-            (sequenceByFulfillment.get(b.id) ?? 0),
-        );
+          projectedIsStacked = myGroups.some((g: any) => Boolean(g.isStacked));
+          const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
+          customDriverEarnings = myGroups.reduce((sum: number, g: any) => {
+            const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            const isGroupStacked = Boolean(g.isStacked);
+            return (
+              sum +
+              this.calculateDriverEarningsForFee(
+                gFee,
+                settings,
+                isGroupStacked,
+                isMultiVendor,
+                myDriver?.tier,
+              )
+            );
+          }, 0);
 
-        scopedFulfillments = myFulfillments;
+          const allGroupItems = myGroups.flatMap((g: any) =>
+            Array.isArray(g.items) ? g.items : [],
+          );
 
-        // Items are strictly scoped to this delivery's portions. Rejected
-        // lines are audit rows and never part of the driver's work.
-        scopedItems = (Array.isArray(order.items) ? order.items : []).filter(
-          (i: any) => {
-            if (i.rejectedAt != null) return false;
-            if (myFulfillmentIds.size > 0) {
-              return i.fulfillmentId != null && myFulfillmentIds.has(i.fulfillmentId);
+          if (order.vendorFulfillments) {
+            const fulfillmentIds = new Set(allGroupItems.map((it: any) => it.fulfillmentId));
+            const myFulfillments = (order.vendorFulfillments as any[]).filter(
+              (f) =>
+                f.status !== 'REJECTED' &&
+                f.status !== 'CANCELLED' &&
+                (fulfillmentIds.size === 0 ? true : fulfillmentIds.has(f.id)),
+            );
+
+            myFulfillments.sort((a, b) => {
+              const seqA = allGroupItems.find((it: any) => it.fulfillmentId === a.id)?.sequence ?? 0;
+              const seqB = allGroupItems.find((it: any) => it.fulfillmentId === b.id)?.sequence ?? 0;
+              return seqA - seqB;
+            });
+
+            for (const f of myFulfillments) {
+              f.isContracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              const commRate = Number(
+                f.commissionRate ??
+                f.vendorBranch?.commissionRate ??
+                f.vendor?.commissionRate ??
+                10,
+              );
+              f.commissionRate = commRate;
+              const sub = Number(f.subtotal ?? 0);
+              const comm = f.isContracted ? Math.round(sub * (commRate / 100)) : 0;
+              f.commissionAmount = comm;
+              f.cashToPay = f.isContracted ? Math.max(0, sub - comm) : sub;
             }
-            // Legacy order with no group links at all: no scoping information
-            // exists, so keep the historical behaviour.
-            return !orderHasGroupItems;
-          },
-        );
+            scopedFulfillments = myFulfillments;
 
-        // Group state is the authority on dispatch progress. The portions refine
-        // it while the driver is collecting the goods.
-        const isPicked = (f: any) =>
-          Boolean(f.pickedUpAt) ||
-          f.status === 'PICKED_UP' ||
-          f.status === 'DELIVERED';
-        const anyPicked = myFulfillments.some(isPicked);
-        const allPicked =
-          myFulfillments.length > 0 && myFulfillments.every(isPicked);
-        if (currentGroup.status === 'PENDING_PAYMENT') {
-          projectedStatus = 'PENDING_PAYMENT';
-        } else if (allPicked) {
-          projectedStatus = 'PICKED_UP';
-        } else if (anyPicked) {
-          projectedStatus = 'PARTIALLY_PICKED_UP';
-        } else {
-          projectedStatus = String(currentGroup.status ?? order.status);
-        }
+            if (Array.isArray(order.items)) {
+              scopedItems = order.items.filter(
+                (i: any) =>
+                  i.rejectedAt == null &&
+                  (!i.fulfillmentId || fulfillmentIds.size === 0 || fulfillmentIds.has(i.fulfillmentId)),
+              );
+            }
 
-        deliveryFee = Number(currentGroup.deliveryFee ?? 0);
-        projectedIsStacked = Boolean(currentGroup.isStacked);
-        const isMultiVendorOrder = allGroups.length > 1;
-        customDriverEarnings = this.calculateDriverEarningsForFee(
-          deliveryFee,
-          settings,
-          projectedIsStacked,
-          isMultiVendorOrder,
-          myDriver?.tier,
-        );
+            cashToPayStore = 0;
+            let allContracted = myFulfillments.length > 0;
+            let groupSubtotal = 0;
+            for (const f of myFulfillments) {
+              groupSubtotal += Number(f.subtotal ?? 0);
+              cashToPayStore += Number(f.cashToPay ?? 0);
+              if (!f.isContracted) allContracted = false;
+            }
+            isStorePrepaid = allContracted;
 
-        cashToPayStore = 0;
-        let groupSubtotal = 0;
-        let allContracted = myFulfillments.length > 0;
-        for (const f of myFulfillments) {
-          f.isContracted =
-            f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
-          const commRate = Number(
-            f.commissionRate ??
-              f.vendorBranch?.commissionRate ??
-              f.vendor?.commissionRate ??
-              10,
-          );
-          f.commissionRate = commRate;
-          const sub = Number(f.subtotal ?? 0);
-          const comm = f.isContracted ? Math.round(sub * (commRate / 100)) : 0;
-          f.commissionAmount = comm;
-          f.cashToPay = f.isContracted ? Math.max(0, sub - comm) : sub;
-          groupSubtotal += sub;
-          cashToPayStore += Number(f.cashToPay ?? 0);
-          if (!f.isContracted) allContracted = false;
-        }
-        scopedSubtotal = groupSubtotal;
-        if (myFulfillments.length > 0) {
-          isStorePrepaid = allContracted;
-        }
+            const liveFulfillments = myFulfillments.filter(
+              (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+            );
+            const nextUnpicked = liveFulfillments.find(
+              (f: any) => f.status !== 'PICKED_UP' && f.status !== 'DELIVERED' && !f.pickedUpAt,
+            );
+            const anyPicked = liveFulfillments.some(
+              (f: any) => f.status === 'PICKED_UP' || Boolean(f.pickedUpAt),
+            );
+            if (
+              projectedStatus !== 'PENDING_PAYMENT' &&
+              projectedStatus !== 'DELIVERED' &&
+              projectedStatus !== 'PICKED_UP'
+            ) {
+              if (anyPicked) {
+                projectedStatus = 'PARTIALLY_PICKED_UP';
+              } else if (
+                nextUnpicked &&
+                (nextUnpicked.status === 'READY_FOR_PICKUP' || Boolean(nextUnpicked.readyAt))
+              ) {
+                projectedStatus = 'READY_FOR_PICKUP';
+              } else if (
+                liveFulfillments.some(
+                  (f: any) => f.status === 'PREPARING' || Boolean(f.preparingAt),
+                )
+              ) {
+                projectedStatus = 'PREPARING';
+              }
+            }
 
-        // Order-level extras (service fee, tax, discount, deposit) are charged
-        // exactly once, on the first delivery of the whole order — never again
-        // when the same driver moves on to a later group.
-        const activeWholeGroups = allGroups.filter(
-          (g: any) => g.status !== 'CANCELLED',
-        );
-        const firstGroupSequence = Math.min(
-          ...(activeWholeGroups.length > 0 ? activeWholeGroups : allGroups).map(
-            (g: any) => Number(g.sequence ?? 0),
-          ),
-        );
-        const isFirstGroup =
-          Number(currentGroup.sequence ?? 0) === firstGroupSequence;
-        const orderLevelExtras = isFirstGroup
-          ? Number(order.serviceFee ?? 0) +
-            Number(order.tax ?? 0) +
-            Number(order.driverBonusFee ?? 0) -
-            Number(order.discount ?? 0) -
-            upfrontAmount
-          : 0;
-        cashToCollect =
-          isPrepaid || orderPaid
-            ? 0
-            : Math.max(0, groupSubtotal + deliveryFee + orderLevelExtras);
+            // Total cash to collect at door: sum of all assigned stores' goods + delivery fee + first-group extras - upfront
+            const activeGroupsForSeq = order.deliveryGroups.filter(
+              (g: any) => g.status !== 'CANCELLED',
+            );
+            const firstSequence = Math.min(
+              ...(activeGroupsForSeq.length > 0 ? activeGroupsForSeq : order.deliveryGroups).map(
+                (g: any) => Number(g.sequence ?? 0),
+              ),
+            );
+            const isFirstGroup = myGroups.some((g: any) => Number(g.sequence ?? 0) === firstSequence);
+            const orderLevelExtras = isFirstGroup
+              ? Number(order.serviceFee ?? 0) +
+                Number(order.tax ?? 0) +
+                Number(order.driverBonusFee ?? 0) -
+                Number(order.discount ?? 0) -
+                upfrontAmount
+              : 0;
+            cashToCollect =
+              isPrepaid || orderPaid
+                ? 0
+                : Math.max(
+                    0,
+                    groupSubtotal + deliveryFee + orderLevelExtras,
+                  );
 
-        const firstFulfillment = myFulfillments[0];
-        if (firstFulfillment) {
-          if (!groupVendor && firstFulfillment.vendor) {
-            groupVendor = firstFulfillment.vendor;
-          }
-          if (!groupVendorBranch && firstFulfillment.vendorBranch) {
-            groupVendorBranch = firstFulfillment.vendorBranch;
-          }
-          if (!groupPickupLocation && firstFulfillment.vendorBranch?.location) {
-            groupPickupLocation = firstFulfillment.vendorBranch.location;
-          }
-          if (!groupPickupAddress && firstFulfillment.vendorBranch?.address) {
-            groupPickupAddress = firstFulfillment.vendorBranch.address;
+            const firstFulfillment = myFulfillments[0];
+            if (firstFulfillment) {
+              if (!groupVendor && firstFulfillment.vendor) {
+                groupVendor = firstFulfillment.vendor;
+              }
+              if (!groupVendorBranch && firstFulfillment.vendorBranch) {
+                groupVendorBranch = firstFulfillment.vendorBranch;
+              }
+              if (!groupPickupLocation && firstFulfillment.vendorBranch?.location) {
+                groupPickupLocation = firstFulfillment.vendorBranch.location;
+              }
+              if (!groupPickupAddress && firstFulfillment.vendorBranch?.address) {
+                groupPickupAddress = firstFulfillment.vendorBranch.address;
+              }
+            }
           }
         }
       }
     }
+    const activeDeliveryGroups = (Array.isArray(order.deliveryGroups) ? order.deliveryGroups : [])
+      .filter((g: any) => g.status !== 'CANCELLED' && g.primaryDriverId)
+      .sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const primaryCollectorId =
+      order.driverId ?? activeDeliveryGroups[0]?.primaryDriverId;
+    const isPrimaryCollector =
+      Boolean(myDriver?.id && primaryCollectorId === myDriver.id);
 
-    // Whoever owns the delivery being worked is the collector for that
-    // delivery. For a group-less legacy order this is the order's own driver.
-    const isPrimaryCollector = Boolean(
-      myDriver?.id &&
-        (currentGroup
-          ? currentGroup.primaryDriverId
-            ? currentGroup.primaryDriverId === myDriver.id
-            : order.driverId === myDriver.id
-          : myGroups.length === 0 && order.driverId === myDriver.id),
-    );
-
-    const isMultiVendor = allGroups.length > 1;
+    const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
     const driverEarnings =
       customDriverEarnings ??
       this.calculateDriverEarningsForFee(
@@ -678,77 +636,10 @@ export class OrdersService {
         myDriver?.tier,
       );
 
-    const storePayments =
-      scopedFulfillments && scopedFulfillments.length > 0
-        ? scopedFulfillments.map((f: any) => {
-            const contracted =
-              f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
-            const commRate = Number(
-              f.commissionRate ??
-                f.vendorBranch?.commissionRate ??
-                f.vendor?.commissionRate ??
-                10,
-            );
-            const sub = Number(f.subtotal ?? 0);
-            const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
-            const toPay = contracted ? Math.max(0, sub - comm) : sub;
-            return {
-              fulfillmentId: f.id,
-              vendorId: f.vendorId,
-              vendorName:
-                f.vendor?.storeNameAr ??
-                f.vendor?.storeName ??
-                f.vendor?.name ??
-                'Store',
-              branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
-              address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
-              phone:
-                f.vendorBranch?.phone ??
-                f.vendor?.phone ??
-                f.vendor?.user?.phone ??
-                '',
-              subtotal: sub,
-              isContracted: contracted,
-              commissionRate: commRate,
-              commissionAmount: comm,
-              cashToPay: toPay,
-              pickedUpAt: f.pickedUpAt ?? null,
-              pickupImageUrl: f.pickupImageUrl ?? null,
-            };
-          })
-        : myGroups.length === 0
-          ? [
-              {
-                vendorId: order.vendorId,
-                vendorName:
-                  order.vendor?.storeNameAr ??
-                  order.vendor?.storeName ??
-                  order.vendor?.name ??
-                  'Store',
-                branchName:
-                  order.vendorBranch?.nameAr ?? order.vendorBranch?.name ?? '',
-                address: order.vendorBranch?.address ?? order.vendor?.address ?? '',
-                phone:
-                  order.vendorBranch?.phone ??
-                  order.vendor?.phone ??
-                  order.vendor?.user?.phone ??
-                  '',
-                subtotal: subtotal,
-                isContracted: isStorePrepaid,
-                commissionRate: singleStoreCommRate,
-                commissionAmount: singleStoreComm,
-                cashToPay: cashToPayStore,
-                pickedUpAt: order.pickedUpAt ?? null,
-                pickupImageUrl: order.pickupImageUrl ?? null,
-              },
-            ]
-          : [];
-
     return {
       ...order,
       driverEarnings,
       deliveryFee,
-      subtotal: scopedSubtotal,
       isPrimaryCollector,
       status: projectedStatus,
       isStacked: projectedIsStacked,
@@ -758,10 +649,6 @@ export class OrdersService {
       pickupAddress: groupPickupAddress,
       items: scopedItems,
       vendorFulfillments: scopedFulfillments,
-      // Only this driver's deliveries, plus the one they are working now, so
-      // the app can advance group by group without guessing.
-      deliveryGroups: myGroups,
-      currentDeliveryGroupId,
       grandTotal: cashToCollect,
       total: cashToCollect,
       cashToCollect,
@@ -778,7 +665,48 @@ export class OrdersService {
         isStorePrepaid,
         driverEarnings,
         deliveryFee,
-        storePayments,
+        storePayments: (scopedFulfillments && scopedFulfillments.length > 0)
+          ? scopedFulfillments.map((f: any) => {
+              const contracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              const commRate = Number(
+                f.commissionRate ??
+                f.vendorBranch?.commissionRate ??
+                f.vendor?.commissionRate ??
+                10,
+              );
+              const sub = Number(f.subtotal ?? 0);
+              const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
+              const toPay = contracted ? Math.max(0, sub - comm) : sub;
+              return {
+                fulfillmentId: f.id,
+                vendorId: f.vendorId,
+                vendorName: f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
+                branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
+                address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
+                phone: f.vendorBranch?.phone ?? f.vendor?.phone ?? f.vendor?.user?.phone ?? '',
+                subtotal: sub,
+                isContracted: contracted,
+                commissionRate: commRate,
+                commissionAmount: comm,
+                cashToPay: toPay,
+                pickedUpAt: f.pickedUpAt ?? null,
+                pickupImageUrl: f.pickupImageUrl ?? null,
+              };
+            })
+          : [{
+              vendorId: order.vendorId,
+              vendorName: order.vendor?.storeNameAr ?? order.vendor?.storeName ?? order.vendor?.name ?? 'Store',
+              branchName: order.vendorBranch?.nameAr ?? order.vendorBranch?.name ?? '',
+              address: order.vendorBranch?.address ?? order.vendor?.address ?? '',
+              phone: order.vendorBranch?.phone ?? order.vendor?.phone ?? order.vendor?.user?.phone ?? '',
+              subtotal: subtotal,
+              isContracted: isStorePrepaid,
+              commissionRate: singleStoreCommRate,
+              commissionAmount: singleStoreComm,
+              cashToPay: cashToPayStore,
+              pickedUpAt: order.pickedUpAt ?? null,
+              pickupImageUrl: order.pickupImageUrl ?? null,
+            }],
       },
     };
   }
@@ -789,13 +717,6 @@ export class OrdersService {
     vendorIdScope?: string,
     ctx?: { vendorId?: string; memberBranchId?: string | null },
   ): Promise<any> {
-    // A multi-vendor checkout creates one CHILD order per vendor. The vendor
-    // app must see that order (its own items/subtotal/status) — not the parent
-    // aggregate that carries every store's lines.
-    if (order.parentOrderId) {
-      return this.projectChildVendorOrder(order);
-    }
-
     let vendorId = vendorIdScope ?? ctx?.vendorId;
     let memberBranchId: string | null = ctx?.memberBranchId ?? null;
     if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
@@ -923,21 +844,24 @@ export class OrdersService {
           isContracted = myFulfillment.vendorBranch.isContracted;
         }
         const myFulfillmentIds = new Set(vendorFulfillments.map((f: any) => f.id));
+        const myFulfillmentIdsSet = new Set(
+          vendorFulfillments.flatMap((f: any) => f.items?.map((it: any) => it.id) ?? []),
+        );
         const directItems = vendorFulfillments.flatMap((f: any) =>
           Array.isArray(f.items) ? f.items : [],
         );
-        // Only include items that belong to this vendor's fulfillments.
-        // Items without a fulfillmentId are legacy rows: accepting them would
-        // leak every other store's lines into this vendor's portion.
-        const fallbackItems = (
-          Array.isArray(order.items) ? order.items : []
-        ).filter(
-          (i: any) =>
-            i.rejectedAt == null &&
-            i.fulfillmentId != null &&
-            myFulfillmentIds.has(i.fulfillmentId),
-        );
-        items = directItems.length > 0 ? directItems : fallbackItems;
+        if (directItems.length > 0) {
+          items = directItems;
+        } else if (order.items) {
+          // Only include items that belong to this vendor's fulfillments.
+          // Explicitly reject items without a fulfillmentId (legacy items) to
+          // prevent cross-vendor leakage in multi-vendor orders.
+          items = order.items.filter(
+            (i: any) =>
+              i.rejectedAt == null &&
+              (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
+          );
+        }
       }
     }
 
@@ -949,9 +873,8 @@ export class OrdersService {
       : vendorSubtotal;
 
     // Strict Vendor & Branch Isolation: Only expose the vendor's own fulfillment
-    // (and if branch-scoped, only that branch's fulfillment), plus the delivery
-    // that actually carries it. Other stores, their routes and their drivers
-    // must never leak into a vendor's response.
+    // (and if branch-scoped, only that branch's fulfillment).
+    // Strip other stores and delivery groups to prevent any cross-vendor/branch data leakage.
     const myFulfillmentOnly = (order.vendorFulfillments ?? []).filter(
       (f: any) =>
         f.vendorId === vendorId &&
@@ -961,34 +884,6 @@ export class OrdersService {
       myFulfillmentOnly[0] ??
       order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId);
 
-    const myFulfillmentIdSet = new Set(
-      myFulfillmentOnly.map((f: any) => f.id),
-    );
-    const myDeliveryGroups = (order.deliveryGroups ?? [])
-      .filter((g: any) =>
-        (Array.isArray(g.items) ? g.items : []).some(
-          (it: any) =>
-            it?.fulfillmentId && myFulfillmentIdSet.has(it.fulfillmentId),
-        ),
-      )
-      .map((g: any) => ({
-        id: g.id,
-        sequence: g.sequence,
-        status: g.status,
-        estimatedPrepTime: g.estimatedPrepTime ?? null,
-        primaryDriverId: g.primaryDriverId ?? null,
-        assistDriverId: g.assistDriverId ?? null,
-        items: (Array.isArray(g.items) ? g.items : [])
-          .filter(
-            (it: any) =>
-              it?.fulfillmentId && myFulfillmentIdSet.has(it.fulfillmentId),
-          )
-          .map((it: any) => ({
-            fulfillmentId: it.fulfillmentId,
-            sequence: it.sequence ?? 0,
-          })),
-      }));
-
     return {
       ...order,
       vendorId: vendorId ?? order.vendorId,
@@ -997,9 +892,6 @@ export class OrdersService {
       // aggregate stays available as `orderStatus`.
       status: portionStatus ?? order.status,
       orderStatus: order.status,
-      isMultiVendor:
-        (order.vendorFulfillments?.length ?? 0) > 1 ||
-        (order.deliveryGroups?.length ?? 0) > 1,
       myFulfillmentId,
       myFulfillmentStatus: portionStatus,
       items,
@@ -1012,7 +904,7 @@ export class OrdersService {
       grandTotal: vendorSubtotal,
       total: vendorSubtotal,
       vendorFulfillments: myFulfillmentOnly,
-      deliveryGroups: myDeliveryGroups,
+      deliveryGroups: [],
       vendor: primaryFulfillment?.vendor ?? order.vendor,
       vendorBranch: primaryFulfillment?.vendorBranch ?? order.vendorBranch,
       financials: {
@@ -1026,131 +918,6 @@ export class OrdersService {
         payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
       },
     };
-  }
-
-  /**
-   * Vendor projection for a per-vendor CHILD order.
-   *
-   * The child already contains only this vendor's items and subtotal, so no
-   * cross-vendor filtering is needed. We still expose a single synthetic
-   * fulfillment (`myFulfillmentId` = the parent's canonical portion) because
-   * the vendor app uses it for accept/reject and per-portion status actions.
-   */
-  private projectChildVendorOrder(order: any): any {
-    const vendorSubtotal = Number(order.subtotal ?? 0);
-    const commissionRate = Number(
-      order.vendorBranch?.commissionRate ??
-        order.vendor?.commissionRate ??
-        10,
-    );
-    const isContracted =
-      order.vendorBranch?.isContracted ??
-      order.vendor?.isContracted ??
-      false;
-    const commissionAmount = isContracted
-      ? Math.round(vendorSubtotal * (commissionRate / 100))
-      : 0;
-    const netPayout = isContracted
-      ? Math.max(0, vendorSubtotal - commissionAmount)
-      : vendorSubtotal;
-
-    const status = String(order.status ?? 'PENDING');
-    const items = (Array.isArray(order.items) ? order.items : []).filter(
-      (i: any) => i.rejectedAt == null,
-    );
-    const fulfillmentStatus = this.orderStatusToFulfillmentStatus(status);
-    const isPreparingOrLater = [
-      'PREPARING',
-      'READY_FOR_PICKUP',
-      'PICKED_UP',
-      'PARTIALLY_PICKED_UP',
-      'DELIVERED',
-    ].includes(status);
-    const isReadyOrLater = [
-      'READY_FOR_PICKUP',
-      'PICKED_UP',
-      'PARTIALLY_PICKED_UP',
-      'DELIVERED',
-    ].includes(status);
-
-    const syntheticFulfillment = {
-      id: order.sourceFulfillmentId,
-      orderId: order.parentOrderId,
-      vendorId: order.vendorId,
-      vendorBranchId: order.vendorBranchId,
-      status: fulfillmentStatus,
-      subtotal: vendorSubtotal,
-      commissionRate,
-      preparingAt: isPreparingOrLater
-        ? (order.preparedAt ?? order.acceptedAt ?? null)
-        : null,
-      readyAt: isReadyOrLater ? (order.preparedAt ?? null) : null,
-      pickedUpAt: order.pickedUpAt ?? null,
-      deliveredAt: order.actualDeliveryTime ?? null,
-      items,
-      vendor: order.vendor,
-      vendorBranch: order.vendorBranch,
-    };
-
-    return {
-      ...order,
-      status,
-      orderStatus: status,
-      isMultiVendor: true,
-      isChildOrder: true,
-      parentOrderId: order.parentOrderId,
-      myFulfillmentId: order.sourceFulfillmentId ?? null,
-      myFulfillmentStatus: status,
-      items,
-      subtotal: vendorSubtotal,
-      deliveryFee: 0,
-      serviceFee: 0,
-      tax: 0,
-      driverBonusFee: 0,
-      discount: 0,
-      grandTotal: vendorSubtotal,
-      total: vendorSubtotal,
-      vendorFulfillments: [syntheticFulfillment],
-      deliveryGroups: [],
-      vendor: order.vendor,
-      vendorBranch: order.vendorBranch,
-      financials: {
-        viewRole: 'VENDOR',
-        storeSubtotal: vendorSubtotal,
-        commissionRate,
-        commissionAmount,
-        netPayout,
-        cashToCollectFromDriver: netPayout,
-        isContracted,
-        payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
-      },
-    };
-  }
-
-  private orderStatusToFulfillmentStatus(status: string): string {
-    switch (status) {
-      case 'ACCEPTED':
-        return 'ACCEPTED';
-      case 'LOOKING_FOR_DRIVER':
-      case 'DRIVER_ASSIGNED':
-      case 'PENDING_PAYMENT':
-        // The vendor already accepted its portion; these are dispatch states of
-        // the shared delivery, not a new portion decision.
-        return 'ACCEPTED';
-      case 'PREPARING':
-        return 'PREPARING';
-      case 'READY_FOR_PICKUP':
-        return 'READY_FOR_PICKUP';
-      case 'PICKED_UP':
-      case 'PARTIALLY_PICKED_UP':
-        return 'PICKED_UP';
-      case 'DELIVERED':
-        return 'DELIVERED';
-      case 'CANCELLED':
-        return 'CANCELLED';
-      default:
-        return 'PENDING';
-    }
   }
 
   private projectForCustomer(order: any): any {
@@ -1281,104 +1048,12 @@ export class OrdersService {
       isMultiVendor,
     );
 
-    // A super admin must see EVERYTHING about an order, including lines a
-    // vendor has already rejected. The order queries filter rejected items out
-    // of each portion (correct for vendors/customers), so merge each portion's
-    // items back from the order's own full item list — never leave an admin
-    // staring at a portion with no items.
-    const allOrderItems: any[] = Array.isArray(order.items) ? order.items : [];
-    const rawFulfillments = Array.isArray(order.vendorFulfillments)
-      ? order.vendorFulfillments
-      : [];
-    const fulfillments = rawFulfillments.map((f: any) => {
-      const ownItems = allOrderItems.filter(
-        (i: any) => i.fulfillmentId === f.id,
-      );
-      if (ownItems.length === 0) return f;
-      const byId = new Map<string, any>();
-      for (const item of Array.isArray(f.items) ? f.items : []) {
-        byId.set(item.id ?? `${item.productId}-${item.productName}`, item);
-      }
-      for (const item of ownItems) {
-        byId.set(item.id ?? `${item.productId}-${item.productName}`, item);
-      }
-      return { ...f, items: [...byId.values()] };
-    });
-    const childOrders: any[] = Array.isArray(order.childOrders)
-      ? order.childOrders
-      : [];
+    const fulfillments = Array.isArray(order.vendorFulfillments) ? order.vendorFulfillments : [];
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
       fulfillments.length > 1 ||
-      childOrders.length > 1 ||
       (order.deliveryGroups && order.deliveryGroups.length > 1),
     );
-
-    // The super-admin view of a multi-vendor checkout: ONE parent order with
-    // both vendor orders inside it. Each entry is the vendor's own order row
-    // (number, store, items, quantities, prices and individual status).
-    // Orders created before child orders existed fall back to their canonical
-    // portions so the admin still sees one block per vendor.
-    const vendorOrders =
-      childOrders.length > 0
-        ? childOrders.map((child: any) => ({
-            id: child.id,
-            orderNumber: child.orderNumber,
-            parentOrderId: child.parentOrderId,
-            vendorId: child.vendorId,
-            vendorName:
-              child.vendor?.storeNameAr ??
-              child.vendor?.storeName ??
-              'Store',
-            vendorNameEn:
-              child.vendor?.storeName ??
-              child.vendor?.storeNameAr ??
-              'Store',
-            branchName: child.vendorBranch?.nameAr ?? child.vendorBranch?.name ?? '',
-            status: child.status,
-            subtotal: Number(child.subtotal ?? 0),
-            grandTotal: Number(child.grandTotal ?? 0),
-            paymentStatus: child.paymentStatus,
-            createdAt: child.createdAt,
-            items: (Array.isArray(child.items) ? child.items : []).map((i: any) => ({
-              id: i.id,
-              productId: i.productId,
-              productName: i.productName,
-              variantName: i.variantName,
-              quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              totalPrice: i.totalPrice,
-              selectedOptions: i.selectedOptions ?? [],
-            })),
-          }))
-        : fulfillments.length > 1
-          ? fulfillments.map((f: any) => ({
-              id: f.id,
-              orderNumber: order.orderNumber,
-              parentOrderId: order.id,
-              vendorId: f.vendorId,
-              vendorName:
-                f.vendor?.storeNameAr ?? f.vendor?.storeName ?? 'Store',
-              vendorNameEn:
-                f.vendor?.storeName ?? f.vendor?.storeNameAr ?? 'Store',
-              branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
-              status: f.status,
-              subtotal: Number(f.subtotal ?? 0),
-              grandTotal: Number(f.subtotal ?? 0),
-              paymentStatus: order.paymentStatus,
-              createdAt: f.createdAt ?? order.createdAt,
-              items: (Array.isArray(f.items) ? f.items : []).map((i: any) => ({
-                id: i.id,
-                productId: i.productId,
-                productName: i.productName,
-                variantName: i.variantName,
-                quantity: i.quantity,
-                unitPrice: i.unitPrice,
-                totalPrice: i.totalPrice,
-                selectedOptions: i.selectedOptions ?? [],
-              })),
-            }))
-          : [];
 
     let vendor = order.vendor;
     let vendorBranch = order.vendorBranch;
@@ -1447,11 +1122,6 @@ export class OrdersService {
     return {
       ...order,
       isMultiVendor: isMultiVendorOrder,
-      // The admin view carries every portion with its complete item list.
-      vendorFulfillments: fulfillments,
-      // Per-vendor child orders (names, items, quantities, prices, statuses).
-      childOrders,
-      vendorOrders,
       driverEarnings,
       deliveryFee,
       vendor,

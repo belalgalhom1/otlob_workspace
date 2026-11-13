@@ -32,11 +32,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   int _currentStopIndex = 0;
   final Set<int> _collectedStopIndices = <int>{};
 
-  /// Delivery the screen is currently showing. A multi-vendor order keeps the
-  /// same order id across deliveries, so the id change is what tells us to
-  /// reset the pickup progress when the backend advances to the next group.
-  String? _currentDeliveryGroupId;
-
   Future<void> _callPhone(BuildContext context, String? phone) async {
     final digits = (phone ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
     if (digits.isEmpty) {
@@ -188,25 +183,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     ref.listen<AsyncValue<dynamic>>(
       orderExecutionProvider,
       (previous, state) {
-        final prevValue = previous?.value;
-        final nextValue = state.value;
-        final prevId = prevValue is Map ? prevValue['id']?.toString() : null;
-        final nextId = nextValue is Map ? nextValue['id']?.toString() : null;
-        final nextGroupId = nextValue is Map
-            ? nextValue['currentDeliveryGroupId']?.toString()
-            : null;
-        // Reset the stop progress both when the order changes and when the SAME
-        // order advances to its next delivery group (multi-vendor orders). The
-        // old indices belong to the previous delivery and would otherwise make
-        // the screen skip the new group's stops or offer a stale one.
-        final groupChanged =
-            nextGroupId != null && nextGroupId != _currentDeliveryGroupId;
-        if (mounted && groupChanged) {
-          _currentDeliveryGroupId = nextGroupId;
-        }
-        if (mounted &&
-            ((prevId != null && nextId != null && prevId != nextId) ||
-                groupChanged)) {
+        final prevId = previous?.value is Map ? previous!.value['id']?.toString() : null;
+        final nextId = state.value is Map ? state.value['id']?.toString() : null;
+        if (prevId != null && nextId != null && prevId != nextId && mounted) {
           setState(() {
             _currentStopIndex = 0;
             _collectedStopIndices.clear();
@@ -531,50 +510,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             vendorLng = bLng;
           }
         }
-      }
-    }
-
-    // Driver-side pickup order: start with the FARTHEST vendor from the
-    // CUSTOMER, then move to the next farthest, until every vendor has been
-    // collected. Only then navigate to the customer. This matches the
-    // backend grouping's farthest-first anchor ordering. Sorting here keeps
-    // the map, stop chips and auto-advance all consistent.
-    if (pickupStops.length > 1) {
-      double cLat = 0.0;
-      double cLng = 0.0;
-      final dl = order['deliveryLocation'] ??
-          order['customer']?['location'] ??
-          order['destinationLocation'];
-      if (dl is List && dl.length > 1) {
-        cLng = double.tryParse(dl[0].toString()) ?? 0.0;
-        cLat = double.tryParse(dl[1].toString()) ?? 0.0;
-      } else if (dl is Map && dl['coordinates'] is List && (dl['coordinates'] as List).length > 1) {
-        final coords = dl['coordinates'] as List;
-        cLng = double.tryParse(coords[0].toString()) ?? 0.0;
-        cLat = double.tryParse(coords[1].toString()) ?? 0.0;
-      }
-      double hav(double lat1, double lng1, double lat2, double lng2) {
-        const r = 6371.0;
-        final dLatR = (lat2 - lat1) * 3.141592653589793 / 180.0;
-        final dLngR = (lng2 - lng1) * 3.141592653589793 / 180.0;
-        final a = math.sin(dLatR / 2) * math.sin(dLatR / 2) +
-            math.cos(lat1 * 3.141592653589793 / 180.0) *
-                math.cos(lat2 * 3.141592653589793 / 180.0) *
-                math.sin(dLngR / 2) *
-                math.sin(dLngR / 2);
-        return 2 * r * math.asin(math.sqrt(a));
-      }
-      // Only customer distance matters; never fall back to driver location.
-      if (cLat != 0.0 || cLng != 0.0) {
-        pickupStops.sort((a, b) {
-          final aLat = (a['lat'] as num?)?.toDouble() ?? 0.0;
-          final aLng = (a['lng'] as num?)?.toDouble() ?? 0.0;
-          final bLat = (b['lat'] as num?)?.toDouble() ?? 0.0;
-          final bLng = (b['lng'] as num?)?.toDouble() ?? 0.0;
-          final da = hav(cLat, cLng, aLat, aLng);
-          final db = hav(cLat, cLng, bLat, bLng);
-          return db.compareTo(da); // farthest from customer first
-        });
       }
     }
 
@@ -1708,36 +1643,43 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 photo = await _captureDeliveryPhoto();
                 if (photo == null) return;
               }
-              final deliveryGroupId =
-                  order['currentDeliveryGroupId']?.toString();
               await ref
                   .read(orderExecutionProvider.notifier)
-                  .confirmDeliveryWithPhoto(
-                    photo,
-                    deliveryGroupId: deliveryGroupId,
-                  );
+                  .confirmDeliveryWithPhoto(photo);
               if (!mounted) return;
 
-              // The provider refetches the order right after delivery. When the
-              // driver has another delivery in the same order, the projection
-              // now points at it and this screen advances by itself (the group
-              // listener resets the stop progress). Otherwise the active order
-              // is gone and `_maybeLeaveForDashboard` takes the driver home.
-              final next = ref.read(orderExecutionProvider).value;
-              final advanced = next is Map &&
-                  next['id']?.toString() == order['id']?.toString();
-              if (!advanced) return;
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    l10n.localeName == 'ar'
-                        ? 'تم تسليم هذه الشحنة بنجاح! جاري التوجه للتسليم التالي في نفس الطلب'
-                        : 'Delivery completed! Moving to the next delivery in this order',
-                  ),
-                  backgroundColor: AppColors.success,
-                ),
-              );
+              // Check if driver has more active orders or remaining stops
+              final repo = ref.read(driverOrdersRepositoryProvider);
+              final activeOrders = await repo.getActiveDriverOrders();
+
+              if (activeOrders.isNotEmpty) {
+                final currentId = order['id']?.toString();
+                final remaining = activeOrders
+                    .where((o) => o['id']?.toString() != currentId)
+                    .toList();
+                if (remaining.isNotEmpty) {
+                  final nextOrder = remaining.first;
+                  final nextId = nextOrder['id']?.toString();
+                  if (nextId != null) {
+                    ref.read(orderExecutionProvider.notifier).selectOrder(nextId);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          l10n.localeName == 'ar'
+                              ? 'تم تسليم الطلب بنجاح! جاري التوجه للمحطة التالية (${remaining.length} متبقي)'
+                              : 'Order delivered successfully! Moving to next stop (${remaining.length} remaining)',
+                        ),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                    return;
+                  }
+                }
+              }
+
+              // No remaining active orders in the route — return to dashboard
+              if (context.mounted) context.go('/dashboard');
             }),
           ),
           const SizedBox(height: 8),

@@ -214,9 +214,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           }
           _showSuccess(s, orderId);
         } else {
-          // Drop the idempotency key on failure so a retry creates a fresh
-          // order instead of re-returning a stale/empty one.
-          _clientOrderKey = null;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
               backgroundColor: Colors.red,

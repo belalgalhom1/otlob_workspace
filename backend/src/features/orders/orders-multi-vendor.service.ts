@@ -5,7 +5,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
@@ -62,8 +61,6 @@ export interface MultiVendorFeeBreakdown {
  */
 @Injectable()
 export class OrdersMultiVendorService {
-  private readonly logger = new Logger(OrdersMultiVendorService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
@@ -123,9 +120,7 @@ export class OrdersMultiVendorService {
   ) {
     const vendorIds = this.normaliseVendorIds(dto.vendorIds);
     const clientOrderKey = idempotencyKey?.trim() || null;
-    this.logger.log(`placeOrder start vendors=${vendorIds.join(',')} key=${clientOrderKey}`);
     const plan = await this.buildPlan(actor, vendorIds, dto);
-    this.logger.log(`placeOrder plan portions=${plan.portions.length} groups=${plan.grouping.groups.length}`);
 
     // Same fast-path gate as single-vendor checkout. The authoritative re-check
     // runs inside the transaction below (under the per-customer advisory lock),
@@ -136,13 +131,6 @@ export class OrdersMultiVendorService {
 
     const orderId = randomUUID();
     const orderNumber = await this.ordersRepository.generateOrderNumber();
-    // Every vendor portion also becomes its OWN order row (a child order linked
-    // to this checkout's parent order). The vendor app queries and acts on the
-    // child; customers/admins/drivers keep seeing the single parent order.
-    const childOrderIds = plan.portions.map(() => randomUUID());
-    const childOrderNumbers = await Promise.all(
-      plan.portions.map(() => this.ordersRepository.generateOrderNumber()),
-    );
 
     const vendorUserIds = Array.from(
       new Set(
@@ -160,63 +148,31 @@ export class OrdersMultiVendorService {
     );
 
     const created = await this.prisma.$transaction(async (tx) => {
-      // Serialize concurrent checkouts for the same customer FIRST, so the
-      // idempotency check below cannot race between two retries with the same
-      // clientOrderKey.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
-
       // Idempotency: the same clientOrderKey can never create a second order.
       if (clientOrderKey) {
         const existing = await tx.order.findUnique({
           where: { clientOrderKey },
-          select: {
-            id: true,
-            orderNumber: true,
-            customerId: true,
-          },
+          select: { id: true, orderNumber: true, customerId: true },
         });
         if (existing) {
           if (existing.customerId !== plan.customerId) {
             throw new BadRequestException(OrderErrors.NOT_AUTHORIZED_VIEW);
           }
-          // Count portions directly (avoid relying on _count select, which
-          // has been unreliable inside transactions).
-          const portionCount = await tx.orderVendorFulfillment.count({
-            where: { orderId: existing.id },
-          });
-          const itemCount = await tx.orderItem.count({
-            where: { orderId: existing.id },
-          });
-          this.logger.log(
-            `placeOrder idempotency hit existing=${existing.id} portionCount=${portionCount} itemCount=${itemCount}`,
-          );
-          // Self-heal: if the existing order has no portions/items, drop it and
-          // create a fresh one instead of returning an empty order.
-          if (portionCount === 0 || itemCount === 0) {
-            this.logger.warn(
-              `placeOrder self-healing empty order ${existing.id} for key ${clientOrderKey}`,
-            );
-            await tx.orderVendorFulfillment.deleteMany({ where: { orderId: existing.id } });
-            await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
-            await tx.orderStatusEvent.deleteMany({ where: { orderId: existing.id } });
-            await tx.orderDeliveryGroup.deleteMany({ where: { orderId: existing.id } });
-            await tx.order.delete({ where: { id: existing.id } });
-          } else {
-            return {
-              id: existing.id,
-              orderNumber: existing.orderNumber,
-              created: false,
-            };
-          }
+          return {
+            id: existing.id,
+            orderNumber: existing.orderNumber,
+            created: false,
+          };
         }
       }
 
-      // Re-check the active-order policy against committed rows. Mirrors
+      // Serialize concurrent checkouts for the same customer, then re-check the
+      // active-order policy against committed rows. Mirrors
       // OrdersRepository.createOrder so the multi-vendor path cannot bypass it.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
       const liveActiveCount = await tx.order.count({
         where: {
           customerId: plan.customerId,
-          parentOrderId: null,
           status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         },
       });
@@ -230,7 +186,6 @@ export class OrdersMultiVendorService {
         const hasCompletedOrder = await tx.order.findFirst({
           where: {
             customerId: plan.customerId,
-            parentOrderId: null,
             status: OrderStatus.DELIVERED,
           },
           select: { id: true },
@@ -327,8 +282,7 @@ export class OrdersMultiVendorService {
         });
       }
 
-      // Vendor portions — the independently fulfillable units on the PARENT
-      // order. These stay the canonical lifecycle/settlement rows.
+      // Vendor portions — the independently fulfillable units.
       const fulfillmentIds = new Map<string, string>();
       for (const portion of plan.portions) {
         const fulfillmentId = randomUUID();
@@ -351,44 +305,16 @@ export class OrdersMultiVendorService {
         });
       }
 
-      // Parent items + one child order (and child item copies) per vendor.
-      for (const [index, portion] of plan.portions.entries()) {
+      // Items carry their owning portion (null keeps legacy rows compatible).
+      for (const portion of plan.portions) {
         const portionKey = portion.vendorBranchId ?? portion.vendorId;
         const fulfillmentId = fulfillmentIds.get(portionKey)!;
-        const childOrderId = childOrderIds[index];
-        const childOrderNumber = childOrderNumbers[index];
-
-        // The child order is what the vendor app lists and acts on. It carries
-        // only this vendor's items/subtotal and links back to the parent.
-        await tx.$executeRaw`
-          INSERT INTO orders (
-            id, "orderNumber", "clientOrderKey", "parentOrderId",
-            "sourceFulfillmentId", type, "customerId", "vendorId",
-            "vendorBranchId", "zoneId", status, "paymentMethod", "paymentStatus",
-            "deliveryAddress", "deliveryLocation",
-            subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax,
-            discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
-            "specialRequest", "updatedAt"
-          ) VALUES (
-            ${childOrderId}, ${childOrderNumber}, NULL, ${orderId},
-            ${fulfillmentId}, 'STANDARD'::"OrderType", ${plan.customerId},
-            ${portion.vendorId}, ${portion.vendorBranchId}, ${plan.zoneId},
-            'PENDING'::"OrderStatus", ${dto.paymentMethod}::"PaymentMethod",
-            ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
-            ${dto.deliveryAddress},
-            ST_SetSRID(ST_MakePoint(${dto.deliveryLocation[0]}, ${dto.deliveryLocation[1]}), 4326),
-            ${portion.subtotal}, 0, 0, 0, 0, 0, 0, 0,
-            ${portion.subtotal}, 0,
-            ${dto.specialRequest ?? null}, NOW()
-          )
-        `;
 
         // Allocate an id per item up-front so its options can be attached
         // deterministically (createMany does not preserve/return input order).
         const itemRows = portion.items.map((item) => ({
           ...item,
           id: randomUUID(),
-          childItemId: randomUUID(),
         }));
 
         await tx.orderItem.createMany({
@@ -409,28 +335,8 @@ export class OrdersMultiVendorService {
           })),
         });
 
-        // The vendor's own copy of its items (no fulfillmentId: the parent
-        // fulfillment is the canonical lifecycle row).
-        await tx.orderItem.createMany({
-          data: itemRows.map((item) => ({
-            id: item.childItemId,
-            orderId: childOrderId,
-            fulfillmentId: null,
-            productId: item.productId,
-            variantId: item.variantId,
-            productName: item.productName,
-            variantName: item.variantName,
-            unitPrice: Math.round(item.unitPrice),
-            quantity: item.quantity,
-            selectedUnit: item.selectedUnit,
-            baseUnitPrice: Math.round(item.baseUnitPrice),
-            totalPrice: Math.round(item.totalPrice),
-            specialRequest: item.specialRequest,
-          })),
-        });
-
-        const options = itemRows.flatMap((item) => [
-          ...item.options.map((o) => ({
+        const options = itemRows.flatMap((item) =>
+          item.options.map((o) => ({
             id: randomUUID(),
             orderItemId: item.id,
             optionId: o.optionId,
@@ -438,22 +344,10 @@ export class OrdersMultiVendorService {
             groupName: o.groupName,
             priceAdded: Math.round(o.priceAdded),
           })),
-          ...item.options.map((o) => ({
-            id: randomUUID(),
-            orderItemId: item.childItemId,
-            optionId: o.optionId,
-            optionName: o.optionName,
-            groupName: o.groupName,
-            priceAdded: Math.round(o.priceAdded),
-          })),
-        ]);
+        );
         if (options.length > 0) {
           await tx.orderItemOption.createMany({ data: options });
         }
-
-        await tx.orderStatusEvent.create({
-          data: { orderId: childOrderId, status: 'PENDING', createdBy: actor.sub },
-        });
       }
 
       // Reserved stock must move exactly like the single-vendor path, so a
@@ -520,7 +414,6 @@ export class OrdersMultiVendorService {
       return { id: orderId, orderNumber, created: true };
     });
 
-    this.logger.log(`placeOrder tx done created=${created.created} id=${created.id}`);
     if (created.created) {
       // Carts for all vendors are cleared, matching the single-vendor listener.
       await Promise.all(

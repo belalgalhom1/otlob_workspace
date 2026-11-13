@@ -864,13 +864,6 @@ model Order {
   id                   String                    @id @default(uuid())
   orderNumber          String                    @unique @default(dbgenerated("'ORD-'::text || nextval('order_number_seq'::regclass)"))
   clientOrderKey       String?                   @unique
-  /// Set on a per-vendor child order created from one multi-vendor checkout.
-  /// The parent order is the customer/admin/driver-facing aggregate; the child
-  /// order is the vendor's own independently actionable order.
-  parentOrderId        String?
-  /// On a child order, points at the parent order's vendor fulfillment so
-  /// accept/reject/production actions can be routed to the canonical portion.
-  sourceFulfillmentId  String?
   type                 OrderType                 @default(STANDARD)
   customerId           String
   vendorId             String?
@@ -946,14 +939,7 @@ model Order {
   vendorFulfillments   OrderVendorFulfillment[]
   deliveryGroups       OrderDeliveryGroup[]
   assistRequests       DriverAssistRequest[]
-  // ─── Parent/child orders ────────────────────────────────────────────────
-  // A multi-vendor checkout creates ONE parent order plus one child order per
-  // vendor. Vendors query their child order; customers/admins/drivers see the
-  // parent (which aggregates the children).
-  parentOrder          Order?                    @relation("OrderChildren", fields: [parentOrderId], references: [id], onDelete: Cascade)
-  childOrders          Order[]                   @relation("OrderChildren")
 
-  @@index([parentOrderId])
   @@index([customerId])
   @@index([zoneId])
   @@index([vendorId, status])

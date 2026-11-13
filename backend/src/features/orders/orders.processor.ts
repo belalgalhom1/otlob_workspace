@@ -291,7 +291,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       const staleOrders = await this.prisma.order.findMany({
         where: {
           status: OrderStatus.PENDING,
-          parentOrderId: null,
           deletedAt: null,
           createdAt: { lt: cutoff },
           vendorFulfillments: { none: {} },
@@ -332,7 +331,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     const stuckOrders = await this.prisma.order.findMany({
       where: {
-        parentOrderId: null,
         updatedAt: { lt: cutoff },
         OR: [
           {
@@ -439,7 +437,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     );
     const stuckPaymentOrders = await this.prisma.order.findMany({
       where: {
-        parentOrderId: null,
         updatedAt: { lt: paymentCutoff },
         status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         OR: [
@@ -566,7 +563,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     // To do this efficiently, we query orders that are DELIVERED and updated before cutoff.
     const deliveredOrders = await this.prisma.order.findMany({
       where: {
-        parentOrderId: null,
         status: OrderStatus.DELIVERED,
         settledAt: null,
         updatedAt: { lt: cutoff },

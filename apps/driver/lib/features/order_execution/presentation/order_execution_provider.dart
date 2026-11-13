@@ -73,7 +73,7 @@ class OrderExecution extends _$OrderExecution {
         _selectedOrderId = null;
       }
       await _fetchActiveOrder();
-
+      
       if (newStatus == 'DELIVERED') {
         // Automatically go offline or online based on logic, or just let them stay on Dashboard
         ref.read(driverProfileProvider.notifier).fetchProfile();

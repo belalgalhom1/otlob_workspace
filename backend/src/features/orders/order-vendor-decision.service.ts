@@ -102,7 +102,6 @@ export class OrderVendorDecisionService {
       OrderVendorFulfillmentStatus.ACCEPTED,
       actor.sub,
     );
-    await this.stateService.syncChildOrderStatusForFulfillment(fulfillmentId);
     await this.maybeAdvanceToDispatch(fulfillment.orderId);
     return this.findById(fulfillmentId);
   }
@@ -283,10 +282,6 @@ export class OrderVendorDecisionService {
     );
 
     const allRejected = await this.recomputeOrderStatus(fulfillment.orderId);
-
-    // Reflect the rejection on this vendor's own order row. When every vendor
-    // rejected, cancelOrder below also syncs all children.
-    await this.stateService.syncChildOrderStatusForFulfillment(fulfillmentId);
 
     if (allRejected) {
       // Every vendor said no → reuse the existing cancellation/refund workflow
