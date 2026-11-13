@@ -4,9 +4,7 @@ name: App Builds
 on:
   push:
     branches:
-      - main
-      - master
-      - develop
+      - '**'
     paths-ignore:
       - 'backend/**'
   pull_request:
