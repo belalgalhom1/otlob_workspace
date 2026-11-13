@@ -136,6 +136,13 @@ export class OrdersMultiVendorService {
 
     const orderId = randomUUID();
     const orderNumber = await this.ordersRepository.generateOrderNumber();
+    // Every vendor portion also becomes its OWN order row (a child order linked
+    // to this checkout's parent order). The vendor app queries and acts on the
+    // child; customers/admins/drivers keep seeing the single parent order.
+    const childOrderIds = plan.portions.map(() => randomUUID());
+    const childOrderNumbers = await Promise.all(
+      plan.portions.map(() => this.ordersRepository.generateOrderNumber()),
+    );
 
     const vendorUserIds = Array.from(
       new Set(
@@ -311,7 +318,8 @@ export class OrdersMultiVendorService {
         });
       }
 
-      // Vendor portions — the independently fulfillable units.
+      // Vendor portions — the independently fulfillable units on the PARENT
+      // order. These stay the canonical lifecycle/settlement rows.
       const fulfillmentIds = new Map<string, string>();
       for (const portion of plan.portions) {
         const fulfillmentId = randomUUID();
@@ -334,16 +342,44 @@ export class OrdersMultiVendorService {
         });
       }
 
-      // Items carry their owning portion (null keeps legacy rows compatible).
-      for (const portion of plan.portions) {
+      // Parent items + one child order (and child item copies) per vendor.
+      for (const [index, portion] of plan.portions.entries()) {
         const portionKey = portion.vendorBranchId ?? portion.vendorId;
         const fulfillmentId = fulfillmentIds.get(portionKey)!;
+        const childOrderId = childOrderIds[index];
+        const childOrderNumber = childOrderNumbers[index];
+
+        // The child order is what the vendor app lists and acts on. It carries
+        // only this vendor's items/subtotal and links back to the parent.
+        await tx.$executeRaw`
+          INSERT INTO orders (
+            id, "orderNumber", "clientOrderKey", "parentOrderId",
+            "sourceFulfillmentId", type, "customerId", "vendorId",
+            "vendorBranchId", "zoneId", status, "paymentMethod", "paymentStatus",
+            "deliveryAddress", "deliveryLocation",
+            subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax,
+            discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
+            "specialRequest", "updatedAt"
+          ) VALUES (
+            ${childOrderId}, ${childOrderNumber}, NULL, ${orderId},
+            ${fulfillmentId}, 'STANDARD'::"OrderType", ${plan.customerId},
+            ${portion.vendorId}, ${portion.vendorBranchId}, ${plan.zoneId},
+            'PENDING'::"OrderStatus", ${dto.paymentMethod}::"PaymentMethod",
+            ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
+            ${dto.deliveryAddress},
+            ST_SetSRID(ST_MakePoint(${dto.deliveryLocation[0]}, ${dto.deliveryLocation[1]}), 4326),
+            ${portion.subtotal}, 0, 0, 0, 0, 0, 0, 0,
+            ${portion.subtotal}, 0,
+            ${dto.specialRequest ?? null}, NOW()
+          )
+        `;
 
         // Allocate an id per item up-front so its options can be attached
         // deterministically (createMany does not preserve/return input order).
         const itemRows = portion.items.map((item) => ({
           ...item,
           id: randomUUID(),
+          childItemId: randomUUID(),
         }));
 
         await tx.orderItem.createMany({
@@ -364,8 +400,28 @@ export class OrdersMultiVendorService {
           })),
         });
 
-        const options = itemRows.flatMap((item) =>
-          item.options.map((o) => ({
+        // The vendor's own copy of its items (no fulfillmentId: the parent
+        // fulfillment is the canonical lifecycle row).
+        await tx.orderItem.createMany({
+          data: itemRows.map((item) => ({
+            id: item.childItemId,
+            orderId: childOrderId,
+            fulfillmentId: null,
+            productId: item.productId,
+            variantId: item.variantId,
+            productName: item.productName,
+            variantName: item.variantName,
+            unitPrice: Math.round(item.unitPrice),
+            quantity: item.quantity,
+            selectedUnit: item.selectedUnit,
+            baseUnitPrice: Math.round(item.baseUnitPrice),
+            totalPrice: Math.round(item.totalPrice),
+            specialRequest: item.specialRequest,
+          })),
+        });
+
+        const options = itemRows.flatMap((item) => [
+          ...item.options.map((o) => ({
             id: randomUUID(),
             orderItemId: item.id,
             optionId: o.optionId,
@@ -373,10 +429,22 @@ export class OrdersMultiVendorService {
             groupName: o.groupName,
             priceAdded: Math.round(o.priceAdded),
           })),
-        );
+          ...item.options.map((o) => ({
+            id: randomUUID(),
+            orderItemId: item.childItemId,
+            optionId: o.optionId,
+            optionName: o.optionName,
+            groupName: o.groupName,
+            priceAdded: Math.round(o.priceAdded),
+          })),
+        ]);
         if (options.length > 0) {
           await tx.orderItemOption.createMany({ data: options });
         }
+
+        await tx.orderStatusEvent.create({
+          data: { orderId: childOrderId, status: 'PENDING', createdBy: actor.sub },
+        });
       }
 
       // Reserved stock must move exactly like the single-vendor path, so a

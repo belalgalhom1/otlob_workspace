@@ -911,6 +911,26 @@ export class DispatchService {
           throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
         }
 
+        // Keep the per-vendor child orders in step: a driver is now committed
+        // to this delivery, so each vendor whose portion it carries may start
+        // preparing. Only children still awaiting a driver are moved, so a
+        // vendor that already started production is never walked backwards.
+        const childGroupStatus =
+          nextStatus === OrderStatus.PENDING_PAYMENT
+            ? OrderStatus.PENDING_PAYMENT
+            : OrderStatus.DRIVER_ASSIGNED;
+        await tx.$executeRaw`
+          UPDATE orders
+             SET status = ${childGroupStatus}::"OrderStatus", "updatedAt" = NOW()
+           WHERE "parentOrderId" = ${order.id}
+             AND status = 'ACCEPTED'::"OrderStatus"
+             AND "sourceFulfillmentId" IN (
+               SELECT gi."fulfillmentId"
+                 FROM order_delivery_group_items gi
+                WHERE gi."deliveryGroupId" = ${groupId}
+             )
+        `;
+
         // Only the first assigned group becomes the order-level collector.
         await tx.order.updateMany({
           where: { id: order.id, driverId: null },

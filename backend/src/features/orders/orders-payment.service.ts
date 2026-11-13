@@ -225,6 +225,20 @@ export class OrdersPaymentService {
           });
         }
 
+        // Payment is per-order: every child order that was parked in
+        // PENDING_PAYMENT leaves it together with its delivery.
+        const childStatusAfterPayment =
+          nextStatus === OrderStatus.PICKED_UP ||
+          nextStatus === OrderStatus.PARTIALLY_PICKED_UP
+            ? OrderStatus.PICKED_UP
+            : OrderStatus.DRIVER_ASSIGNED;
+        await tx.$executeRaw`
+          UPDATE orders
+             SET status = ${childStatusAfterPayment}::"OrderStatus", "updatedAt" = NOW()
+           WHERE "parentOrderId" = ${orderId}
+             AND status = 'PENDING_PAYMENT'::"OrderStatus"
+        `;
+
         // Payment is a per-order fact: record it regardless of where the
         // aggregate status currently sits.
         await tx.order.updateMany({

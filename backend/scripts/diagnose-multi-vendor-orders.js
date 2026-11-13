@@ -1,14 +1,14 @@
 /* eslint-disable */
-// READ-ONLY diagnostic for multi-vendor orders.
+// READ-ONLY diagnostic for multi-vendor parent/child orders.
 //
 // Usage (from the backend folder, on the server that has DATABASE_URL):
-//   node scripts/diagnose-multi-vendor-orders.js            -> last 5 orders with vendorId = NULL
+//   node scripts/diagnose-multi-vendor-orders.js            -> last 5 parent orders
 //   node scripts/diagnose-multi-vendor-orders.js ORD-12345  -> one order by orderNumber
 //
-// It only runs SELECT queries. It prints, per order, how many vendor portions
-// (fulfillments) and items exist and how items are linked to portions, which
-// tells us whether a "1 vendor / no items" order is a data problem (creation)
-// or a display problem (projection / apps).
+// It only runs SELECT queries. For every parent order it prints the vendor
+// portions, the per-vendor CHILD orders (with their items) and the delivery
+// groups. That tells us whether a "1 vendor / no items" order is a data
+// problem (creation) or a display problem (projection / apps).
 require('dotenv').config();
 const { Client } = require('pg');
 
@@ -21,13 +21,14 @@ const { Client } = require('pg');
   const orderNumber = process.argv[2];
   const { rows: orders } = orderNumber
     ? await db.query(
-        `SELECT id, "orderNumber", "vendorId", type, status, "createdAt"
+        `SELECT id, "orderNumber", "vendorId", "parentOrderId", type, status, "createdAt"
            FROM orders WHERE "orderNumber" = $1`,
         [orderNumber],
       )
     : await db.query(
-        `SELECT id, "orderNumber", "vendorId", type, status, "createdAt"
-           FROM orders WHERE "vendorId" IS NULL AND type = 'STANDARD'
+        `SELECT id, "orderNumber", "vendorId", "parentOrderId", type, status, "createdAt"
+           FROM orders
+          WHERE "parentOrderId" IS NULL AND "vendorId" IS NULL AND type = 'STANDARD'
           ORDER BY "createdAt" DESC LIMIT 5`,
       );
 
@@ -50,6 +51,16 @@ const { Client } = require('pg');
          FROM order_items WHERE "orderId" = $1`,
       [o.id],
     );
+    const { rows: children } = await db.query(
+      `SELECT c.id, c."orderNumber", c."vendorId", v."storeName",
+              c.status, c.subtotal, c."grandTotal",
+              (SELECT count(*)::int FROM order_items i WHERE i."orderId" = c.id) AS items,
+              (SELECT sum(i.quantity)::int FROM order_items i WHERE i."orderId" = c.id) AS units
+         FROM orders c
+         LEFT JOIN vendors v ON v.id = c."vendorId"
+        WHERE c."parentOrderId" = $1 ORDER BY c."createdAt"`,
+      [o.id],
+    );
     const { rows: groups } = await db.query(
       `SELECT g.sequence, g.status,
               (SELECT count(*)::int FROM order_delivery_group_items gi WHERE gi."deliveryGroupId" = g.id) AS stops
@@ -58,10 +69,20 @@ const { Client } = require('pg');
     );
 
     console.log('\n==========================================================');
-    console.log(`Order ${o.orderNumber}  status=${o.status}  vendorId=${o.vendorId}  created=${o.createdAt.toISOString()}`);
+    console.log(`Order ${o.orderNumber}  status=${o.status}  vendorId=${o.vendorId}  parentOrderId=${o.parentOrderId}  created=${o.createdAt.toISOString()}`);
     console.log(`Items: total=${counts.total} withoutPortion=${counts.without_portion} rejected=${counts.rejected}`);
     console.log(`Vendor portions (${ff.length}):`);
     console.table(ff.map((f) => ({ store: f.storeName, status: f.status, branch: f.vendorBranchId, items: f.items, liveItems: f.live_items })));
+    console.log(`Child orders (${children.length}):`);
+    console.table(children.map((c) => ({
+      orderNumber: c.orderNumber,
+      store: c.storeName,
+      status: c.status,
+      subtotal: c.subtotal,
+      grandTotal: c.grandTotal,
+      items: c.items,
+      units: c.units,
+    })));
     console.log(`Delivery groups (${groups.length}):`);
     console.table(groups);
   }

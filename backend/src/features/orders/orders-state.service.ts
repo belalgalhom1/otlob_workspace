@@ -116,6 +116,19 @@ export class OrdersStateService {
   ) {
     const order = await this.ordersRepository.findById(orderId);
 
+    // The vendor app now lists/acts on its own CHILD order. Route the action to
+    // the parent order's canonical fulfillment, then mirror the resulting
+    // portion state onto the child so the vendor's list stays accurate.
+    if (order.parentOrderId) {
+      await this.vendorUpdateStatus(actor, order.parentOrderId, dto);
+      await this.syncChildOrderStatus(
+        order.parentOrderId,
+        order.vendorId!,
+        order.vendorBranchId,
+      );
+      return this.ordersRepository.findById(orderId);
+    }
+
     let isMember: {
       id: string;
       branchId: string | null;
@@ -282,6 +295,174 @@ export class OrdersStateService {
   }
 
   /**
+   * Mirror the parent order's portion state onto its per-vendor child order(s).
+   * Called after any decision/transition that changes a fulfillment so the
+   * vendor's own order row (and its tab filters) stays in sync.
+   */
+  async syncChildOrdersFromParent(orderId: string): Promise<void> {
+    const children = await this.prisma.order.findMany({
+      where: { parentOrderId: orderId },
+      select: { vendorId: true, vendorBranchId: true },
+    });
+    for (const child of children) {
+      await this.syncChildOrderStatus(
+        orderId,
+        child.vendorId!,
+        child.vendorBranchId,
+      );
+    }
+  }
+
+  async syncChildOrderStatusForFulfillment(
+    fulfillmentId: string,
+  ): Promise<void> {
+    const fulfillment = await this.prisma.orderVendorFulfillment.findUnique({
+      where: { id: fulfillmentId },
+      select: { orderId: true, vendorId: true, vendorBranchId: true },
+    });
+    if (!fulfillment) return;
+    await this.syncChildOrderStatus(
+      fulfillment.orderId,
+      fulfillment.vendorId,
+      fulfillment.vendorBranchId,
+    );
+  }
+
+  private async syncChildOrderStatus(
+    parentOrderId: string,
+    vendorId: string,
+    vendorBranchId: string | null,
+  ): Promise<void> {
+    const fulfillment = await this.prisma.orderVendorFulfillment.findFirst({
+      where: {
+        orderId: parentOrderId,
+        vendorId,
+        ...(vendorBranchId
+          ? {
+              OR: [
+                { vendorBranchId },
+                { vendorBranchId: null },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        subtotal: true,
+        decidedAt: true,
+        preparingAt: true,
+        readyAt: true,
+        pickedUpAt: true,
+        deliveredAt: true,
+        groups: {
+          select: { deliveryGroup: { select: { status: true } } },
+        },
+      },
+    });
+    if (!fulfillment) return;
+
+    const child = await this.prisma.order.findFirst({
+      where: {
+        parentOrderId,
+        vendorId,
+        ...(vendorBranchId ? { vendorBranchId } : {}),
+      },
+      select: { id: true },
+    });
+    if (!child) return;
+
+    // The delivery that carries this portion is the authority on dispatch
+    // progress: a driver assigned to it lets the vendor start preparing, even
+    // while the aggregate order is still waiting on a sibling delivery.
+    const groupStatus =
+      (fulfillment.groups?.[0]?.deliveryGroup?.status as string | undefined) ??
+      undefined;
+    const status = this.fulfillmentToOrderStatus(fulfillment, groupStatus);
+    await this.prisma.order.update({
+      where: { id: child.id },
+      data: {
+        status,
+        subtotal: fulfillment.subtotal,
+        acceptedAt: fulfillment.decidedAt ?? undefined,
+        preparedAt: fulfillment.readyAt ?? fulfillment.preparingAt ?? undefined,
+        pickedUpAt: fulfillment.pickedUpAt ?? undefined,
+        actualDeliveryTime: fulfillment.deliveredAt ?? undefined,
+      },
+    });
+
+    if (
+      status === OrderStatus.CANCELLED &&
+      (fulfillment.status === 'REJECTED' ||
+        fulfillment.status === 'CANCELLED')
+    ) {
+      await this.prisma.orderItem.updateMany({
+        where: { orderId: child.id, rejectedAt: null },
+        data: { rejectedAt: new Date() },
+      });
+    }
+  }
+
+  private fulfillmentToOrderStatus(
+    fulfillment: {
+      status: string;
+      pickedUpAt?: Date | null;
+      deliveredAt?: Date | null;
+      preparingAt?: Date | null;
+      readyAt?: Date | null;
+    },
+    groupStatus?: string,
+  ): OrderStatus {
+    if (
+      fulfillment.status === 'REJECTED' ||
+      fulfillment.status === 'CANCELLED'
+    ) {
+      return OrderStatus.CANCELLED;
+    }
+    if (
+      fulfillment.deliveredAt ||
+      groupStatus === DeliveryGroupStatus.DELIVERED
+    ) {
+      return OrderStatus.DELIVERED;
+    }
+    if (
+      fulfillment.pickedUpAt ||
+      fulfillment.status === 'PICKED_UP' ||
+      groupStatus === DeliveryGroupStatus.PICKED_UP ||
+      groupStatus === DeliveryGroupStatus.PARTIALLY_PICKED_UP
+    ) {
+      return OrderStatus.PICKED_UP;
+    }
+    if (
+      fulfillment.readyAt ||
+      fulfillment.status === 'READY_FOR_PICKUP' ||
+      groupStatus === DeliveryGroupStatus.READY_FOR_PICKUP
+    ) {
+      return OrderStatus.READY_FOR_PICKUP;
+    }
+    if (
+      fulfillment.preparingAt ||
+      fulfillment.status === 'PREPARING'
+    ) {
+      return OrderStatus.PREPARING;
+    }
+    if (
+      fulfillment.status === 'ACCEPTED' &&
+      groupStatus === DeliveryGroupStatus.DRIVER_ASSIGNED
+    ) {
+      return OrderStatus.DRIVER_ASSIGNED;
+    }
+    if (
+      fulfillment.status === 'ACCEPTED' &&
+      groupStatus === DeliveryGroupStatus.PENDING_PAYMENT
+    ) {
+      return OrderStatus.PENDING_PAYMENT;
+    }
+    if (fulfillment.status === 'ACCEPTED') return OrderStatus.ACCEPTED;
+    return OrderStatus.PENDING;
+  }
+
+  /**
    * Move ONE vendor's portion through production without touching the
    * aggregate order status.
    *
@@ -415,6 +596,7 @@ export class OrdersStateService {
       await this.markGroupReadyIfAllPortionsReady(group.id);
     }
     await this.recomputeVendorReadinessStatus(actor.sub, order.id, group.id);
+    await this.syncChildOrderStatusForFulfillment(fulfillment.id);
 
     const fresh = await this.ordersRepository.findById(order.id);
     try {
@@ -1026,6 +1208,8 @@ export class OrdersStateService {
         });
       }
 
+      await this.syncChildOrderStatusForFulfillment(fulfillmentId);
+
       const finalOrder = await this.ordersRepository.findById(orderId);
       await this.prisma.orderStatusEvent.create({
         data: {
@@ -1187,6 +1371,8 @@ export class OrdersStateService {
       for (const did of new Set(groupDriverIds)) {
         await this.ordersRepository.freeDriver(did);
       }
+      // Keep each vendor's own order row in step with the delivery it shares.
+      await this.syncChildOrdersFromParent(order.id);
     }
 
     await this.prisma.orderStatusEvent.create({
@@ -1784,6 +1970,10 @@ export class OrdersStateService {
       order.orderNumber,
       allDriverIds,
     );
+
+    // Cancelling the parent cancels every vendor's child order too, so no
+    // vendor is left with an actionable order that the customer no longer has.
+    await this.syncChildOrdersFromParent(orderId);
 
     const orderWithRelations = updatedOrder as {
       driver: { userId: string } | null;

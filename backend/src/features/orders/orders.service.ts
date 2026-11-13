@@ -253,6 +253,7 @@ export class OrdersService {
       }
       const result = await this.ordersRepository.findMany({
         ...dto,
+        parentOrdersOnly: true,
         driverIds: dto.driverId ? undefined : managedDriverIds,
       });
       result.orders = await Promise.all(
@@ -261,7 +262,10 @@ export class OrdersService {
       return result;
     }
 
-    const result = await this.ordersRepository.findMany(dto);
+    const result = await this.ordersRepository.findMany({
+      ...dto,
+      parentOrdersOnly: true,
+    });
     result.orders = await Promise.all(
       result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
     );
@@ -785,6 +789,13 @@ export class OrdersService {
     vendorIdScope?: string,
     ctx?: { vendorId?: string; memberBranchId?: string | null },
   ): Promise<any> {
+    // A multi-vendor checkout creates one CHILD order per vendor. The vendor
+    // app must see that order (its own items/subtotal/status) — not the parent
+    // aggregate that carries every store's lines.
+    if (order.parentOrderId) {
+      return this.projectChildVendorOrder(order);
+    }
+
     let vendorId = vendorIdScope ?? ctx?.vendorId;
     let memberBranchId: string | null = ctx?.memberBranchId ?? null;
     if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
@@ -1017,6 +1028,131 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Vendor projection for a per-vendor CHILD order.
+   *
+   * The child already contains only this vendor's items and subtotal, so no
+   * cross-vendor filtering is needed. We still expose a single synthetic
+   * fulfillment (`myFulfillmentId` = the parent's canonical portion) because
+   * the vendor app uses it for accept/reject and per-portion status actions.
+   */
+  private projectChildVendorOrder(order: any): any {
+    const vendorSubtotal = Number(order.subtotal ?? 0);
+    const commissionRate = Number(
+      order.vendorBranch?.commissionRate ??
+        order.vendor?.commissionRate ??
+        10,
+    );
+    const isContracted =
+      order.vendorBranch?.isContracted ??
+      order.vendor?.isContracted ??
+      false;
+    const commissionAmount = isContracted
+      ? Math.round(vendorSubtotal * (commissionRate / 100))
+      : 0;
+    const netPayout = isContracted
+      ? Math.max(0, vendorSubtotal - commissionAmount)
+      : vendorSubtotal;
+
+    const status = String(order.status ?? 'PENDING');
+    const items = (Array.isArray(order.items) ? order.items : []).filter(
+      (i: any) => i.rejectedAt == null,
+    );
+    const fulfillmentStatus = this.orderStatusToFulfillmentStatus(status);
+    const isPreparingOrLater = [
+      'PREPARING',
+      'READY_FOR_PICKUP',
+      'PICKED_UP',
+      'PARTIALLY_PICKED_UP',
+      'DELIVERED',
+    ].includes(status);
+    const isReadyOrLater = [
+      'READY_FOR_PICKUP',
+      'PICKED_UP',
+      'PARTIALLY_PICKED_UP',
+      'DELIVERED',
+    ].includes(status);
+
+    const syntheticFulfillment = {
+      id: order.sourceFulfillmentId,
+      orderId: order.parentOrderId,
+      vendorId: order.vendorId,
+      vendorBranchId: order.vendorBranchId,
+      status: fulfillmentStatus,
+      subtotal: vendorSubtotal,
+      commissionRate,
+      preparingAt: isPreparingOrLater
+        ? (order.preparedAt ?? order.acceptedAt ?? null)
+        : null,
+      readyAt: isReadyOrLater ? (order.preparedAt ?? null) : null,
+      pickedUpAt: order.pickedUpAt ?? null,
+      deliveredAt: order.actualDeliveryTime ?? null,
+      items,
+      vendor: order.vendor,
+      vendorBranch: order.vendorBranch,
+    };
+
+    return {
+      ...order,
+      status,
+      orderStatus: status,
+      isMultiVendor: true,
+      isChildOrder: true,
+      parentOrderId: order.parentOrderId,
+      myFulfillmentId: order.sourceFulfillmentId ?? null,
+      myFulfillmentStatus: status,
+      items,
+      subtotal: vendorSubtotal,
+      deliveryFee: 0,
+      serviceFee: 0,
+      tax: 0,
+      driverBonusFee: 0,
+      discount: 0,
+      grandTotal: vendorSubtotal,
+      total: vendorSubtotal,
+      vendorFulfillments: [syntheticFulfillment],
+      deliveryGroups: [],
+      vendor: order.vendor,
+      vendorBranch: order.vendorBranch,
+      financials: {
+        viewRole: 'VENDOR',
+        storeSubtotal: vendorSubtotal,
+        commissionRate,
+        commissionAmount,
+        netPayout,
+        cashToCollectFromDriver: netPayout,
+        isContracted,
+        payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
+      },
+    };
+  }
+
+  private orderStatusToFulfillmentStatus(status: string): string {
+    switch (status) {
+      case 'ACCEPTED':
+        return 'ACCEPTED';
+      case 'LOOKING_FOR_DRIVER':
+      case 'DRIVER_ASSIGNED':
+      case 'PENDING_PAYMENT':
+        // The vendor already accepted its portion; these are dispatch states of
+        // the shared delivery, not a new portion decision.
+        return 'ACCEPTED';
+      case 'PREPARING':
+        return 'PREPARING';
+      case 'READY_FOR_PICKUP':
+        return 'READY_FOR_PICKUP';
+      case 'PICKED_UP':
+      case 'PARTIALLY_PICKED_UP':
+        return 'PICKED_UP';
+      case 'DELIVERED':
+        return 'DELIVERED';
+      case 'CANCELLED':
+        return 'CANCELLED';
+      default:
+        return 'PENDING';
+    }
+  }
+
   private projectForCustomer(order: any): any {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
@@ -1168,11 +1304,81 @@ export class OrdersService {
       }
       return { ...f, items: [...byId.values()] };
     });
+    const childOrders: any[] = Array.isArray(order.childOrders)
+      ? order.childOrders
+      : [];
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
       fulfillments.length > 1 ||
+      childOrders.length > 1 ||
       (order.deliveryGroups && order.deliveryGroups.length > 1),
     );
+
+    // The super-admin view of a multi-vendor checkout: ONE parent order with
+    // both vendor orders inside it. Each entry is the vendor's own order row
+    // (number, store, items, quantities, prices and individual status).
+    // Orders created before child orders existed fall back to their canonical
+    // portions so the admin still sees one block per vendor.
+    const vendorOrders =
+      childOrders.length > 0
+        ? childOrders.map((child: any) => ({
+            id: child.id,
+            orderNumber: child.orderNumber,
+            parentOrderId: child.parentOrderId,
+            vendorId: child.vendorId,
+            vendorName:
+              child.vendor?.storeNameAr ??
+              child.vendor?.storeName ??
+              'Store',
+            vendorNameEn:
+              child.vendor?.storeName ??
+              child.vendor?.storeNameAr ??
+              'Store',
+            branchName: child.vendorBranch?.nameAr ?? child.vendorBranch?.name ?? '',
+            status: child.status,
+            subtotal: Number(child.subtotal ?? 0),
+            grandTotal: Number(child.grandTotal ?? 0),
+            paymentStatus: child.paymentStatus,
+            createdAt: child.createdAt,
+            items: (Array.isArray(child.items) ? child.items : []).map((i: any) => ({
+              id: i.id,
+              productId: i.productId,
+              productName: i.productName,
+              variantName: i.variantName,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              totalPrice: i.totalPrice,
+              selectedOptions: i.selectedOptions ?? [],
+            })),
+          }))
+        : fulfillments.length > 1
+          ? fulfillments.map((f: any) => ({
+              id: f.id,
+              orderNumber: order.orderNumber,
+              parentOrderId: order.id,
+              vendorId: f.vendorId,
+              vendorName:
+                f.vendor?.storeNameAr ?? f.vendor?.storeName ?? 'Store',
+              vendorNameEn:
+                f.vendor?.storeName ?? f.vendor?.storeNameAr ?? 'Store',
+              branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
+              status: f.status,
+              subtotal: Number(f.subtotal ?? 0),
+              grandTotal: Number(f.subtotal ?? 0),
+              paymentStatus: order.paymentStatus,
+              createdAt: f.createdAt ?? order.createdAt,
+              items: (Array.isArray(f.items) ? f.items : []).map((i: any) => ({
+                id: i.id,
+                productId: i.productId,
+                productName: i.productName,
+                variantName: i.variantName,
+                quantity: i.quantity,
+                unitPrice: i.unitPrice,
+                totalPrice: i.totalPrice,
+                selectedOptions: i.selectedOptions ?? [],
+              })),
+            }))
+          : [];
 
     let vendor = order.vendor;
     let vendorBranch = order.vendorBranch;
@@ -1243,6 +1449,9 @@ export class OrdersService {
       isMultiVendor: isMultiVendorOrder,
       // The admin view carries every portion with its complete item list.
       vendorFulfillments: fulfillments,
+      // Per-vendor child orders (names, items, quantities, prices, statuses).
+      childOrders,
+      vendorOrders,
       driverEarnings,
       deliveryFee,
       vendor,
