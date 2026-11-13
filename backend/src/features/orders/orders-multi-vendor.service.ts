@@ -168,11 +168,25 @@ export class OrdersMultiVendorService {
           if (existing.customerId !== plan.customerId) {
             throw new BadRequestException(OrderErrors.NOT_AUTHORIZED_VIEW);
           }
-          return {
-            id: existing.id,
-            orderNumber: existing.orderNumber,
-            created: false,
-          };
+          // A previous (possibly failed/partial) attempt left an empty order
+          // row with this key. Self-heal: drop the stale empty row and fall
+          // through to a fresh insert instead of returning an order with no
+          // portions, which would leave vendors/admin/drivers with nothing.
+          if ((existing._count?.vendorFulfillments ?? 0) === 0) {
+            this.logger.warn(
+              `placeOrder self-healing empty order ${existing.id} for key ${clientOrderKey}`,
+            );
+            await tx.orderVendorFulfillment.deleteMany({ where: { orderId: existing.id } });
+            await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
+            await tx.orderDeliveryGroup.deleteMany({ where: { orderId: existing.id } });
+            await tx.order.delete({ where: { id: existing.id } });
+          } else {
+            return {
+              id: existing.id,
+              orderNumber: existing.orderNumber,
+              created: false,
+            };
+          }
         }
       }
 
