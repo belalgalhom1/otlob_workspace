@@ -1039,38 +1039,41 @@ model OrderItemOption {
 /// One vendor's independently-fulfillable portion of a customer order. This is
 /// the unit that accepts/rejects, settles, and gets picked up in a delivery.
 model OrderVendorFulfillment {
-  id             String                    @id @default(uuid())
-  orderId        String
-  vendorId       String
-  vendorBranchId String?
-  status         OrderVendorFulfillmentStatus @default(PENDING)
+  id                     String                    @id @default(uuid())
+  orderId                String
+  vendorId               String
+  vendorBranchId         String?
+  status                 OrderVendorFulfillmentStatus @default(PENDING)
   /// Money snapshot for this vendor only (EGP, whole pounds) — the sum of its
   /// non-rejected items' totalPrice.
-  subtotal       Int                       @default(0)
+  subtotal               Int                       @default(0)
   /// Commission rate captured at checkout so settlement never re-reads a
   /// mutable vendor setting.
-  commissionRate Int                       @default(10)
-  rejectionCode  String?
-  rejectionReason String?
-  rejectionReasonAr String?
-  decidedByUserId String?
-  decidedAt      DateTime?                 @db.Timestamptz(3)
+  commissionRate         Int                       @default(10)
+  /// Human-readable per-vendor display number (e.g. ORD-1042-V1). Stored on
+  /// the fulfillment row; the customer sees the parent order number only.
+  displayNumber          String?
+  rejectionCode          String?
+  rejectionReason        String?
+  rejectionReasonAr      String?
+  decidedByUserId        String?
+  decidedAt              DateTime?                 @db.Timestamptz(3)
   /// When THIS portion entered production. Per-portion on purpose: several
   /// vendors can share one delivery, so one vendor starting to cook must not
   /// make another vendor's portion look like it is being prepared.
-  preparingAt    DateTime?                 @db.Timestamptz(3)
+  preparingAt            DateTime?                 @db.Timestamptz(3)
   /// When THIS portion was declared ready for pickup. The shared delivery
   /// group only becomes READY_FOR_PICKUP once every live portion in it is ready.
-  readyAt        DateTime?                 @db.Timestamptz(3)
+  readyAt                DateTime?                 @db.Timestamptz(3)
   /// Proof photo the driver uploaded when picking up this specific vendor portion.
-  pickupImageUrl String?
+  pickupImageUrl         String?
   /// When the driver confirmed collection of this vendor portion.
-  pickedUpAt     DateTime?                 @db.Timestamptz(3)
+  pickedUpAt             DateTime?                 @db.Timestamptz(3)
   /// Driver who confirmed collection of this vendor portion.
-  pickedUpByDriverId String?
-  deliveredAt    DateTime?                 @db.Timestamptz(3)
-  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)
+  pickedUpByDriverId     String?
+  deliveredAt            DateTime?                 @db.Timestamptz(3)
+  createdAt              DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                  @updatedAt @db.Timestamptz(3)
 
   order      Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   vendor     Vendor                    @relation(fields: [vendorId], references: [id])
@@ -1082,7 +1085,7 @@ model OrderVendorFulfillment {
   @@index([vendorId, status])
   @@index([status, createdAt])
   @@map("order_vendor_fulfillments")
-}
+
 
 /// A single physical delivery of a customer order: one primary driver, one or
 /// more vendor fulfillments, one customer drop-off.
