@@ -79,113 +79,21 @@ export class OrdersService {
         ? isMember.branchId
         : undefined;
 
-    // Query OrderVendorFulfillment filtered by vendorId, include items and parent Order data
-    const [fulfillments, total] = await Promise.all([
-      this.prisma.orderVendorFulfillment.findMany({
-        where: {
+    const result = await this.ordersRepository.findMany({
+      ...dto,
+      vendorId: targetVendorId,
+      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+    });
+    result.orders = await Promise.all(
+      result.orders.map((o: any) =>
+        this.projectOrderForRole(o, actor, targetVendorId, {
+          canManage,
           vendorId: targetVendorId,
-          order: { deletedAt: null },
-          ...(effectiveBranchId ? { vendorBranchId: effectiveBranchId } : {}),
-        },
-        include: {
-          items: {
-            where: { rejectedAt: null },
-            select: {
-              id: true,
-              fulfillmentId: true,
-              productId: true,
-              productName: true,
-              variantName: true,
-              quantity: true,
-              selectedUnit: true,
-              unitPrice: true,
-              totalPrice: true,
-              specialRequest: true,
-              selectedOptions: {
-                select: {
-                  optionId: true,
-                  optionName: true,
-                  priceAdded: true,
-                },
-              },
-              product: {
-                select: {
-                  imageUrl: true,
-                },
-              },
-            },
-          },
-          order: {
-            select: {
-              id: true,
-              deliveryAddress: true,
-              paymentMethod: true,
-              paymentStatus: true,
-              createdAt: true,
-              customer: {
-                select: {
-                  user: { select: { phone: true } },
-                },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' as const },
-        skip: ((dto.page ?? 1) - 1) * (dto.limit ?? 20),
-        take: dto.limit ?? 20,
-      }),
-      this.prisma.orderVendorFulfillment.count({
-        where: {
-          vendorId: targetVendorId,
-          order: { deletedAt: null },
-          ...(effectiveBranchId ? { vendorBranchId: effectiveBranchId } : {}),
-        },
-      }),
-    ]);
-
-    // Map each fulfillment to vendor-facing DTO
-    const orders = await Promise.all(
-      fulfillments.map((f: any) => {
-        const order = f.order;
-        const subtotal = Number(f.subtotal ?? 0);
-        const commissionRate = Number(f.commissionRate ?? 10);
-        const isContracted =
-          f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
-        const commissionAmount = isContracted
-          ? Math.round(subtotal * (commissionRate / 100))
-          : 0;
-        const netPayout = isContracted
-          ? Math.max(0, subtotal - commissionAmount)
-          : subtotal;
-
-        return {
-          id: f.id,
-          displayNumber: f.displayNumber,
-          items: f.items,
-          subtotal,
-          netStorePayout: netPayout,
-          status: f.status,
-          deliveryAddress: order?.deliveryAddress,
-          phone: order?.customer?.user?.phone,
-          paymentMethod: order?.paymentMethod,
-          paymentStatus: order?.paymentStatus,
-          placedAt: order?.createdAt,
-          vendorId: f.vendorId,
-          vendorBranchId: f.vendorBranchId,
-          // Derived vendor totals
-          commissionAmount,
-          netPayout,
-        };
-      }),
+          memberBranchId: effectiveBranchId ?? null,
+        }),
+      ),
     );
-
-    return {
-      orders,
-      total,
-      page: dto.page ?? 1,
-      limit: dto.limit ?? 20,
-      totalPages: Math.ceil(total / (dto.limit ?? 20)),
-    };
+    return result;
   }
 
   async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
@@ -936,22 +844,16 @@ export class OrdersService {
           isContracted = myFulfillment.vendorBranch.isContracted;
         }
         const myFulfillmentIds = new Set(vendorFulfillments.map((f: any) => f.id));
-        const myFulfillmentIdsSet = new Set(
-          vendorFulfillments.flatMap((f: any) => f.items?.map((it: any) => it.id) ?? []),
-        );
         const directItems = vendorFulfillments.flatMap((f: any) =>
           Array.isArray(f.items) ? f.items : [],
         );
         if (directItems.length > 0) {
           items = directItems;
         } else if (order.items) {
-          // Only include items that belong to this vendor's fulfillments.
-          // Explicitly reject items without a fulfillmentId (legacy items) to
-          // prevent cross-vendor leakage in multi-vendor orders.
           items = order.items.filter(
             (i: any) =>
               i.rejectedAt == null &&
-              (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
+               (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
           );
         }
       }

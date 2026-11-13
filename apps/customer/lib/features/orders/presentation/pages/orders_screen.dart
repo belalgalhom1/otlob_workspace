@@ -34,7 +34,6 @@ class OrdersScreen extends ConsumerStatefulWidget {
 String _translateStatus(String status, bool isArabic) {
   switch (status) {
     case 'PENDING': return isArabic ? 'قيد الانتظار' : 'Pending';
-    case 'CHANGES_REQUESTED': return isArabic ? 'مطلوب تعديلات' : 'Changes Requested';
     case 'ACCEPTED': return isArabic ? 'مقبول' : 'Accepted';
     case 'PREPARING': return isArabic ? 'قيد التحضير' : 'Preparing';
     case 'LOOKING_FOR_DRIVER': return isArabic ? 'جاري البحث عن مندوب' : 'Looking for Driver';
@@ -578,310 +577,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     ];
   }
 
-  String _fulfillmentStatusLabel(String status, bool isArabic) {
-    switch (status) {
-      case 'PENDING':
-        return isArabic ? 'قيد الانتظار' : 'Pending';
-      case 'ACCEPTED':
-        return isArabic ? 'مقبول' : 'Accepted';
-      case 'PREPARING':
-        return isArabic ? 'قيد التحضير' : 'Preparing';
-      case 'READY_FOR_PICKUP':
-        return isArabic ? 'جاهز' : 'Ready';
-      case 'PICKED_UP':
-        return isArabic ? 'تم الاستلام' : 'Picked Up';
-      case 'DELIVERED':
-        return isArabic ? 'تم التوصيل' : 'Delivered';
-      case 'REJECTED':
-        return isArabic ? 'مرفوض' : 'Rejected';
-      case 'CANCELLED':
-        return isArabic ? 'ملغي' : 'Cancelled';
-      default:
-        return status.replaceAll('_', ' ');
-    }
-  }
-
-  Widget _buildFulfillmentBadge(String status, AppStrings s, bool isDark) {
-    final isRejected = status == 'REJECTED' || status == 'CANCELLED';
-    final isReady = status == 'READY_FOR_PICKUP' ||
-        status == 'PICKED_UP' ||
-        status == 'DELIVERED';
-    final color = isRejected
-        ? Colors.red
-        : (isReady
-            ? AppColors.success
-            : (status == 'PREPARING' ? Colors.orange : Colors.blue));
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        _fulfillmentStatusLabel(status, s.isArabic),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  /// Renders one section per vendor portion for a multi-vendor order, so the
-  /// customer can see which store each item belongs to and how far along that
-  /// store's portion is.
-  List<Widget> _buildVendorSections(
-    List<dynamic> fulfillments,
-    AppStrings s,
-    bool isDark,
-  ) {
-    final sections = <Widget>[];
-    for (final raw in fulfillments) {
-      if (raw is! Map) continue;
-      final vendor = raw['vendor'] is Map ? raw['vendor'] as Map : const {};
-      final branch =
-          raw['vendorBranch'] is Map ? raw['vendorBranch'] as Map : null;
-      final storeName = (s.isArabic
-              ? (vendor['storeNameAr'] ?? vendor['storeName'])
-              : (vendor['storeName'] ?? vendor['storeNameAr']))
-          ?.toString();
-      final branchName = branch == null
-          ? null
-          : (s.isArabic
-                  ? (branch['nameAr'] ?? branch['name'])
-                  : (branch['name'] ?? branch['nameAr']))
-              ?.toString();
-      final rawStatus = raw['status']?.toString() ?? 'PENDING';
-      // A portion's status enum stops at PICKED_UP, but the backend stamps
-      // `deliveredAt` when its delivery group is delivered. In the Past tab
-      // that is the truthful per-store state, so prefer it.
-      final status =
-          raw['deliveredAt'] != null &&
-                  rawStatus != 'REJECTED' &&
-                  rawStatus != 'CANCELLED'
-              ? 'DELIVERED'
-              : rawStatus;
-      final isRejected = status == 'REJECTED' || status == 'CANCELLED';
-      final portionItems =
-          (raw['items'] as List<dynamic>?) ?? const <dynamic>[];
-      final portionSubtotal = _parseDouble(raw['subtotal']);
-      final rejectionReason = (s.isArabic
-              ? (raw['rejectionReasonAr'] ?? raw['rejectionReason'])
-              : (raw['rejectionReason'] ?? raw['rejectionReasonAr']))
-          ?.toString();
-
-      sections.add(Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.03)
-              : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? Colors.white12 : Colors.grey.shade200,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.storefront_rounded,
-                    size: 16, color: AppColors.primary),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        (storeName == null || storeName.trim().isEmpty)
-                            ? s.vendor
-                            : storeName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          decoration:
-                              isRejected ? TextDecoration.lineThrough : null,
-                          color: isRejected
-                              ? Colors.grey
-                              : (isDark ? Colors.white : Colors.black87),
-                        ),
-                      ),
-                      if (branchName != null && branchName.isNotEmpty)
-                        Text(
-                          branchName,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                isDark ? Colors.white54 : Colors.grey.shade600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                _buildFulfillmentBadge(status, s, isDark),
-              ],
-            ),
-            if (isRejected &&
-                rejectionReason != null &&
-                rejectionReason.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  rejectionReason,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.red,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            if (portionItems.isEmpty && !isRejected)
-              // A rejected portion has no live items left (the list query drops
-              // them); its badge and reason already explain what happened, so
-              // "No items" would only add noise.
-              Text(
-                s.isArabic ? 'لا توجد منتجات' : 'No items',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.white38 : Colors.grey.shade500,
-                ),
-              )
-            else if (portionItems.isNotEmpty) ...[
-              ...portionItems.whereType<Map>().map((item) {
-                final product =
-                    item['product'] is Map ? item['product'] as Map : null;
-                final imageUrl = product?['imageUrl']?.toString();
-                final name =
-                    (item['productName'] ?? item['name'] ?? '').toString();
-                final variant = item['variantName']?.toString();
-                final quantity = item['quantity'] ?? 1;
-                final price = _parseDouble(item['totalPrice'] ??
-                    item['price'] ??
-                    item['unitPrice']);
-                final itemRejected = item['rejectedAt'] != null;
-                final options = (item['selectedOptions'] as List?) ?? const [];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: (imageUrl == null || imageUrl.isEmpty)
-                            ? Container(
-                                height: 28,
-                                width: 28,
-                                color: isDark
-                                    ? Colors.white12
-                                    : Colors.grey.shade100,
-                                child: const Icon(Icons.fastfood,
-                                    size: 14, color: Colors.grey),
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: ImageUtils.thumbnailUrl(imageUrl),
-                                height: 28,
-                                width: 28,
-                                fit: BoxFit.cover,
-                              ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${quantity}x $name${variant != null && variant.isNotEmpty ? ' ($variant)' : ''}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: itemRejected
-                                    ? Colors.grey
-                                    : (isDark
-                                        ? Colors.white70
-                                        : Colors.black87),
-                                decoration: itemRejected
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
-                            ),
-                            for (final opt in options)
-                              if (opt is Map &&
-                                  (opt['optionName']
-                                          ?.toString()
-                                          .isNotEmpty ??
-                                      false))
-                                Text(
-                                  '+ ${opt['optionName']}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.grey.shade600,
-                                  ),
-                                ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '${price.toStringAsFixed(0)} ${s.egp}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: itemRejected
-                              ? Colors.grey
-                              : (isDark
-                                  ? Colors.white60
-                                  : Colors.grey.shade700),
-                          decoration: itemRejected
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-              if (portionSubtotal > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          s.isArabic ? 'إجمالي المتجر' : 'Store subtotal',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color:
-                                isDark ? Colors.white54 : Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${portionSubtotal.toStringAsFixed(0)} ${s.egp}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ],
-        ),
-      ));
-    }
-    return sections;
-  }
-
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Map<String, dynamic> order, AppStrings s) {
     final isCustom = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
     final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
@@ -892,29 +587,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             .whereType<Map>()
             .expand((f) => (f['items'] as List<dynamic>?) ?? const [])
             .toList();
-    // Render one box per store only when the portions actually carry their own
-    // items. Very old multi-vendor rows can have the items linked to the order
-    // but not to a portion; showing per-store boxes for them would render empty
-    // cards, so fall back to the flat item list in that case.
-    final portionsHaveItems = fulfillments.whereType<Map>().any(
-          (f) => ((f['items'] as List<dynamic>?) ?? const []).isNotEmpty,
-        );
-    final useVendorSections =
-        fulfillments.length > 1 && (portionsHaveItems || items.isEmpty);
     final vendor = order['vendor'] as Map<String, dynamic>?;
     final vendorBranch = order['vendorBranch'] as Map<String, dynamic>?;
-
-    // A one-store checkout made through the multi-vendor flow has
-    // order.vendorBranch = null but carries the branch on its single portion.
-    // Use it so the header still shows the branch instead of dropping it.
-    Map<String, dynamic>? effectiveBranch = vendorBranch;
-    if (effectiveBranch == null && fulfillments.length == 1) {
-      final single = fulfillments.first;
-      if (single is Map && single['vendorBranch'] is Map) {
-        effectiveBranch =
-            Map<String, dynamic>.from(single['vendorBranch'] as Map);
-      }
-    }
 
     String baseVendorName;
     String? vendorLogoUrl = vendor?['logo'] as String?;
@@ -944,8 +618,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       baseVendorName = s.vendor;
     }
 
-    final branchName = effectiveBranch != null
-        ? (s.isArabic ? (effectiveBranch['nameAr'] ?? effectiveBranch['name']) : (effectiveBranch['name'] ?? effectiveBranch['nameAr']))?.toString()
+    final branchName = vendorBranch != null
+        ? (s.isArabic ? (vendorBranch['nameAr'] ?? vendorBranch['name']) : (vendorBranch['name'] ?? vendorBranch['nameAr']))?.toString()
         : null;
     final vendorName = (branchName != null && branchName.isNotEmpty && fulfillments.length <= 1)
         ? '$baseVendorName • $branchName'
@@ -1121,9 +795,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 ),
               ],
             ),
-          ] else if (useVendorSections)
-            ..._buildVendorSections(fulfillments, s, isDark)
-          else
+          ] else
             ...items.map((i) {
               final product = i['product'] as Map<String, dynamic>?;
               final productImgUrl = product?['imageUrl'] as String?;
@@ -1206,7 +878,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       ),
                     ),
                     Text(
-                      '${_parseDouble(i['totalPrice'] ?? i['price'] ?? i['unitPrice']).toStringAsFixed(0)} ${s.egp}',
+                      '${_parseDouble(i['price'] ?? i['unitPrice']).toStringAsFixed(0)} ${s.egp}',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -1416,9 +1088,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               if (order['driver'] != null && order['driver']['mobileWallets'] != null && (order['driver']['mobileWallets'] as List).isNotEmpty)
                 ..._buildUpfrontSection(order, s),
             ],
-          ],
-          if (status == 'DELIVERED' && order['review'] == null) ...[
-            const SizedBox(height: 12),
+          ] else if (status == 'DELIVERED' && order['review'] == null) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
