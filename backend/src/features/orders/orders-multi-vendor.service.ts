@@ -284,7 +284,7 @@ export class OrdersMultiVendorService {
 
       // Vendor portions — the independently fulfillable units.
       const fulfillmentIds = new Map<string, string>();
-      for (const portion of plan.portions) {
+      for (const [portionIndex, portion] of plan.portions.entries()) {
         const fulfillmentId = randomUUID();
         const portionKey = portion.vendorBranchId ?? portion.vendorId;
         fulfillmentIds.set(portionKey, fulfillmentId);
@@ -294,6 +294,10 @@ export class OrdersMultiVendorService {
           data: {
             id: fulfillmentId,
             orderId,
+            // Stable per-vendor number: the parent number plus this portion's
+            // position on the order (e.g. ORD-1042-V1). Portions are created in
+            // plan order, so this is deterministic for a given checkout.
+            displayNumber: `${orderNumber}-V${portionIndex + 1}`,
             vendorId: portion.vendorId,
             vendorBranchId: portion.vendorBranchId,
             status: 'PENDING',

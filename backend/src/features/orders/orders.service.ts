@@ -70,7 +70,7 @@ export class OrdersService {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
     }
 
-    if (!targetVendorId) {
+    if (!targetVendorId || targetVendorId === 'my') {
       return { orders: [], total: 0, page: dto.page ?? 1, limit: dto.limit ?? 20, totalPages: 0 };
     }
 
@@ -79,21 +79,220 @@ export class OrdersService {
         ? isMember.branchId
         : undefined;
 
-    const result = await this.ordersRepository.findMany({
-      ...dto,
+    // The portion is the unit of the vendor list: filter/branch/status and
+    // pagination all happen on OrderVendorFulfillment, so a multi-vendor order
+    // yields exactly one row per vendor instead of the whole aggregate.
+    const result = await this.ordersRepository.findVendorFulfillments({
       vendorId: targetVendorId,
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+      branchId: effectiveBranchId ?? null,
+      status: dto.status,
+      bucket: dto.bucket,
+      page: dto.page ?? 1,
+      limit: dto.limit ?? 20,
     });
-    result.orders = await Promise.all(
-      result.orders.map((o: any) =>
-        this.projectOrderForRole(o, actor, targetVendorId, {
-          canManage,
-          vendorId: targetVendorId,
-          memberBranchId: effectiveBranchId ?? null,
-        }),
+
+    return {
+      orders: result.fulfillments.map((f: any) =>
+        this.projectFulfillmentForVendor(f),
       ),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+    };
+  }
+
+  /**
+   * Single vendor portion detail. Authorised by vendor membership (or an admin
+   * permission), never by a client-supplied vendor id.
+   */
+  async getVendorFulfillment(actor: JwtAccessPayload, fulfillmentId: string) {
+    const fulfillment = await this.ordersRepository.findVendorFulfillmentById(
+      fulfillmentId,
     );
-    return result;
+    if (!fulfillment) {
+      throw new NotFoundException(OrderErrors.FULFILLMENT_NOT_FOUND);
+    }
+
+    const canManage = await this.canManageOrders(actor.sub, actor.role);
+    if (!canManage) {
+      const member = await this.prisma.vendorMember.findUnique({
+        where: {
+          vendorId_userId: {
+            vendorId: (fulfillment as any).vendorId,
+            userId: actor.sub,
+          },
+        },
+        select: { id: true, branchId: true, role: true },
+      });
+      if (!member) {
+        throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
+      }
+      const effectiveBranch =
+        member.role !== 'OWNER' ? (member.branchId ?? null) : null;
+      const branchId = (fulfillment as any).vendorBranchId ?? null;
+      if (effectiveBranch && branchId && effectiveBranch !== branchId) {
+        throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
+      }
+    }
+
+    return this.projectFulfillmentForVendor(fulfillment);
+  }
+
+  /**
+   * Vendor-facing projection of one portion.
+   *
+   * `id` is the fulfillment id (what the vendor acts on); `orderId` is the
+   * parent order id (what the existing status endpoint needs). Only this
+   * vendor's items and money are exposed, while the parent order contributes
+   * the shared delivery context (address, customer phone, payment, notes).
+   */
+  private projectFulfillmentForVendor(fulfillment: any): any {
+    const order = fulfillment.order ?? {};
+    const items = Array.isArray(fulfillment.items) ? fulfillment.items : [];
+    const subtotal = Number(fulfillment.subtotal ?? 0);
+    const commissionRate = Number(
+      fulfillment.commissionRate ??
+        fulfillment.vendorBranch?.commissionRate ??
+        fulfillment.vendor?.commissionRate ??
+        10,
+    );
+    const isContracted =
+      fulfillment.vendorBranch?.isContracted ??
+      fulfillment.vendor?.isContracted ??
+      false;
+    const commissionAmount = isContracted
+      ? Math.round(subtotal * (commissionRate / 100))
+      : 0;
+    const netPayout = isContracted
+      ? Math.max(0, subtotal - commissionAmount)
+      : subtotal;
+
+    // Portion state is authoritative for production; the shared delivery and
+    // the aggregate order only fill in dispatch/delivery progress.
+    const groupStatuses = ((fulfillment.groups ?? []) as any[])
+      .map((g) => (g?.deliveryGroup?.status ? String(g.deliveryGroup.status) : ''))
+      .filter(Boolean);
+    const aggregateStatus = String(order.status ?? 'PENDING');
+    const rawStatus = String(fulfillment.status ?? 'PENDING');
+    const isDead = rawStatus === 'REJECTED' || rawStatus === 'CANCELLED';
+    const groupDelivered = groupStatuses.includes('DELIVERED');
+    const groupPickedUp = groupStatuses.some((s) =>
+      ['PICKED_UP', 'PARTIALLY_PICKED_UP'].includes(s),
+    );
+    const groupReady = groupStatuses.includes('READY_FOR_PICKUP');
+    const groupAssigned = groupStatuses.find((s) =>
+      ['DRIVER_ASSIGNED', 'PENDING_PAYMENT'].includes(s),
+    );
+
+    let status: string;
+    if (isDead) {
+      status = 'CANCELLED';
+    } else if (
+      fulfillment.deliveredAt ||
+      aggregateStatus === 'DELIVERED' ||
+      groupDelivered
+    ) {
+      status = 'DELIVERED';
+    } else if (
+      fulfillment.pickedUpAt ||
+      rawStatus === 'PICKED_UP' ||
+      aggregateStatus === 'PICKED_UP' ||
+      aggregateStatus === 'PARTIALLY_PICKED_UP' ||
+      groupPickedUp
+    ) {
+      status = 'PICKED_UP';
+    } else if (fulfillment.readyAt || groupReady) {
+      status = 'READY_FOR_PICKUP';
+    } else if (fulfillment.preparingAt) {
+      status = 'PREPARING';
+    } else if (groupAssigned) {
+      status = groupAssigned;
+    } else {
+      status = rawStatus;
+    }
+
+    // Contact details stay masked until the vendor has accepted the portion:
+    // a pending decision must not leak the customer's phone to every store in
+    // a multi-vendor basket.
+    const accepted = rawStatus !== 'PENDING';
+    const customerUser = order.customer?.user ?? {};
+    const rawPhone = customerUser.phone ?? null;
+    const phone = accepted ? rawPhone : this.maskPhone(rawPhone);
+
+    const publicFulfillment = { ...fulfillment };
+    delete (publicFulfillment as any).order;
+
+    return {
+      // Vendor-facing id: the portion they own and act on.
+      id: fulfillment.id,
+      orderId: order.id ?? fulfillment.orderId,
+      parentOrderId: order.id ?? fulfillment.orderId,
+      myFulfillmentId: fulfillment.id,
+      myFulfillmentStatus: status,
+      displayNumber: fulfillment.displayNumber ?? null,
+      displayOrderNumber: fulfillment.displayNumber ?? null,
+      orderNumber:
+        fulfillment.displayNumber ?? order.orderNumber ?? fulfillment.orderId,
+      parentOrderNumber: order.orderNumber ?? null,
+      vendorId: fulfillment.vendorId,
+      vendorBranchId: fulfillment.vendorBranchId ?? null,
+      vendor: fulfillment.vendor ?? null,
+      vendorBranch: fulfillment.vendorBranch ?? null,
+      status,
+      orderStatus: aggregateStatus,
+      isMultiVendor: true,
+      items,
+      vendorFulfillments: [publicFulfillment],
+      deliveryGroups: [],
+      subtotal,
+      total: subtotal,
+      grandTotal: subtotal,
+      deliveryFee: 0,
+      serviceFee: 0,
+      tax: 0,
+      driverBonusFee: 0,
+      discount: 0,
+      deliveryAddress: order.deliveryAddress ?? null,
+      paymentMethod: order.paymentMethod ?? null,
+      paymentStatus: order.paymentStatus ?? null,
+      placedAt: order.createdAt ?? fulfillment.createdAt ?? null,
+      createdAt: order.createdAt ?? fulfillment.createdAt ?? null,
+      specialRequest: order.specialRequest ?? null,
+      notes: order.specialRequest ?? null,
+      customer: {
+        ...(order.customer ?? {}),
+        id: order.customer?.id ?? null,
+        phone,
+        user: {
+          ...customerUser,
+          id: customerUser.id ?? null,
+          name: customerUser.name ?? null,
+          phone,
+        },
+      },
+      phone,
+      financials: {
+        viewRole: 'VENDOR',
+        storeSubtotal: subtotal,
+        commissionRate,
+        commissionAmount,
+        netPayout,
+        cashToCollectFromDriver: netPayout,
+        isContracted,
+        payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
+      },
+    };
+  }
+
+  private maskPhone(phone?: string | null): string | null {
+    const value = (phone ?? '').trim();
+    if (!value) return null;
+    if (value.length <= 6) return '*'.repeat(value.length);
+    const visible = 3;
+    return `${value.slice(0, visible)}${'*'.repeat(
+      Math.max(0, value.length - visible * 2),
+    )}${value.slice(-visible)}`;
   }
 
   async getMyOrdersAsDriver(actor: JwtAccessPayload, dto: QueryOrdersDto) {
@@ -1073,6 +1272,7 @@ export class OrdersService {
       const toPay = contracted ? Math.max(0, sub - comm) : sub;
       return {
         fulfillmentId: f.id,
+        displayNumber: f.displayNumber ?? null,
         vendorId: f.vendorId,
         vendorName: f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
         vendorNameEn: f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name ?? 'Store',
@@ -1119,13 +1319,60 @@ export class OrdersService {
       }
     }
 
+    // Explicit per-vendor breakdown for the admin UI. `vendorFulfillments` is
+    // kept for compatibility, but the breakdown is the stable contract that
+    // lists each portion's own items, status and money.
+    const vendorBreakdown = fulfillments.map((f: any) => {
+      const contracted =
+        f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+      const commRate = Number(
+        f.commissionRate ??
+          f.vendorBranch?.commissionRate ??
+          f.vendor?.commissionRate ??
+          10,
+      );
+      const sub = Number(f.subtotal ?? 0);
+      const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
+      return {
+        fulfillmentId: f.id,
+        orderId: order.id,
+        displayNumber: f.displayNumber ?? null,
+        vendorId: f.vendorId,
+        vendor: f.vendor ?? null,
+        vendorName: f.vendor?.storeNameAr ?? f.vendor?.storeName ?? 'Store',
+        vendorNameEn: f.vendor?.storeName ?? f.vendor?.storeNameAr ?? 'Store',
+        vendorBranch: f.vendorBranch ?? null,
+        branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
+        status: f.status,
+        items: Array.isArray(f.items) ? f.items : [],
+        subtotal: sub,
+        commissionRate: commRate,
+        commissionAmount: comm,
+        netPayout: contracted ? Math.max(0, sub - comm) : sub,
+        isContracted: contracted,
+      };
+    });
+
+    // Some legacy/multi-vendor rows never mirrored their lines onto the parent
+    // order. Flattening the portions keeps the admin item list populated instead
+    // of showing an empty order with money attached.
+    const parentItems = Array.isArray(order.items) ? order.items : [];
+    const flattenedItems =
+      parentItems.length > 0
+        ? parentItems
+        : fulfillments.flatMap((f: any) =>
+            Array.isArray(f.items) ? f.items : [],
+          );
+
     return {
       ...order,
+      items: flattenedItems,
       isMultiVendor: isMultiVendorOrder,
       driverEarnings,
       deliveryFee,
       vendor,
       vendorBranch,
+      vendorBreakdown,
       financials: {
         viewRole: 'ADMIN',
         cashToCollect,
