@@ -290,6 +290,10 @@ export class OrdersMultiVendorService {
         fulfillmentIds.set(portionKey, fulfillmentId);
         fulfillmentIds.set(portion.vendorId, fulfillmentId);
 
+        // Generate a per-vendor display number: ORD-{orderNumber}-V{vendorIndex}
+        const vendorIndex = plan.portions.indexOf(portion) + 1;
+        const displayNumber = `ORD-${orderNumber}-V${vendorIndex}`;
+
         await tx.orderVendorFulfillment.create({
           data: {
             id: fulfillmentId,
@@ -298,6 +302,7 @@ export class OrdersMultiVendorService {
             vendorBranchId: portion.vendorBranchId,
             status: 'PENDING',
             subtotal: portion.subtotal,
+            displayNumber,
             // Capture the rate now so a later vendor edit cannot change
             // settlement of an order that is already placed.
             commissionRate: portion.commissionRate,
