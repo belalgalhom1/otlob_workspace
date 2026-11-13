@@ -778,6 +778,7 @@ export class OrdersRepository {
         const liveActiveCount = await tx.order.count({
           where: {
             customerId: data.customerId,
+            parentOrderId: null,
             status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
           },
         });
@@ -786,7 +787,7 @@ export class OrdersRepository {
         }
         if (requirePriorDelivery && liveActiveCount > 0) {
           const hasCompletedOrder = await tx.order.findFirst({
-            where: { customerId: data.customerId, status: OrderStatus.DELIVERED },
+            where: { customerId: data.customerId, parentOrderId: null, status: OrderStatus.DELIVERED },
             select: { id: true },
           });
           if (!hasCompletedOrder) {

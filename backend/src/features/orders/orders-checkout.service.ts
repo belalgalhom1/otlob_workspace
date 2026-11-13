@@ -873,6 +873,7 @@ export class OrdersCheckoutService {
     const activeCount = await this.prisma.order.count({
       where: {
         customerId,
+        parentOrderId: null,
         status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
       },
     });
@@ -889,6 +890,7 @@ export class OrdersCheckoutService {
       const hasCompletedOrder = await this.prisma.order.findFirst({
         where: {
           customerId,
+          parentOrderId: null,
           status: OrderStatus.DELIVERED,
         },
         select: { id: true },

@@ -209,6 +209,7 @@ export class OrdersMultiVendorService {
       const liveActiveCount = await tx.order.count({
         where: {
           customerId: plan.customerId,
+          parentOrderId: null,
           status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         },
       });
@@ -222,6 +223,7 @@ export class OrdersMultiVendorService {
         const hasCompletedOrder = await tx.order.findFirst({
           where: {
             customerId: plan.customerId,
+            parentOrderId: null,
             status: OrderStatus.DELIVERED,
           },
           select: { id: true },
