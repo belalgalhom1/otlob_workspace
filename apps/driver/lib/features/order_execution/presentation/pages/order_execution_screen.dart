@@ -1612,13 +1612,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         ],
       );
     } else if (status == 'PICKED_UP') {
-      // For multi-vendor orders, verify ALL vendor fulfillments have been picked up
-      // before allowing delivery. Count collected stops vs total stops.
-      final allStopsCollected = pickupStops.isEmpty ||
-          _collectedStopIndices.length >= pickupStops.length;
-      final anyRemainingUncollected = pickupStops.isNotEmpty &&
-          _collectedStopIndices.length < pickupStops.length;
-
       String? label;
       if (isCashOnDelivery) {
         final totalStr = order['total']?.toString() ?? order['grandTotal']?.toString() ?? order['totalFee']?.toString() ?? '0.00';
@@ -1642,33 +1635,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Warning if not all stops collected yet
-          if (!allStopsCollected && anyRemainingUncollected)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    LucideIcons.alertTriangle,
-                    color: AppColors.warning,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      allAr
-                          ? 'يجب جمع جميع أوامر المتاجر قبل التوصيل'
-                          : 'All vendor orders must be collected before delivery',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.warning,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           PrimaryButton(
             text: label,
             onPressed: () => handleAction(() async {
@@ -1676,22 +1642,6 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               if (photo == null) {
                 photo = await _captureDeliveryPhoto();
                 if (photo == null) return;
-              }
-              // For multi-vendor orders, confirm that all stops are collected
-              // before marking delivery complete
-              if (!allStopsCollected && anyRemainingUncollected) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      allAr
-                          ? 'يجب زيارة جميع المتاجر وجمع الطلبات قبل التوصيل'
-                          : 'All vendor orders must be collected before delivery. Please collect remaining vendor stops first.',
-                    ),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-                return;
               }
               await ref
                   .read(orderExecutionProvider.notifier)

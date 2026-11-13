@@ -501,17 +501,6 @@ export class OrdersRepository {
               },
             },
           },
-          {
-            // Also include multi-vendor orders where vendorId is NULL
-            // but the order has fulfillments for this vendor
-            vendorId: null,
-            vendorFulfillments: {
-              some: {
-                vendorId: filters.vendorId,
-                ...fulfillmentBranchClause,
-              },
-            },
-          },
         ],
       });
     }
