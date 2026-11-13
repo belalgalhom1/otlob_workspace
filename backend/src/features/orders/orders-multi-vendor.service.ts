@@ -160,6 +160,11 @@ export class OrdersMultiVendorService {
     );
 
     const created = await this.prisma.$transaction(async (tx) => {
+      // Serialize concurrent checkouts for the same customer FIRST, so the
+      // idempotency check below cannot race between two retries with the same
+      // clientOrderKey.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
+
       // Idempotency: the same clientOrderKey can never create a second order.
       if (clientOrderKey) {
         const existing = await tx.order.findUnique({
@@ -206,10 +211,8 @@ export class OrdersMultiVendorService {
         }
       }
 
-      // Serialize concurrent checkouts for the same customer, then re-check the
-      // active-order policy against committed rows. Mirrors
+      // Re-check the active-order policy against committed rows. Mirrors
       // OrdersRepository.createOrder so the multi-vendor path cannot bypass it.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
       const liveActiveCount = await tx.order.count({
         where: {
           customerId: plan.customerId,
