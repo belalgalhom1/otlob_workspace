@@ -119,16 +119,19 @@ export class OrdersService {
             select: {
               id: true,
               deliveryAddress: true,
-              phone: true,
               paymentMethod: true,
               paymentStatus: true,
               createdAt: true,
-              notes: true,
+              customer: {
+                select: {
+                  user: { select: { phone: true } },
+                },
+              },
             },
           },
         },
         orderBy: { createdAt: 'desc' as const },
-        skip: (dto.page - 1) * (dto.limit ?? 20),
+        skip: ((dto.page ?? 1) - 1) * (dto.limit ?? 20),
         take: dto.limit ?? 20,
       }),
       this.prisma.orderVendorFulfillment.count({
@@ -163,11 +166,10 @@ export class OrdersService {
           netStorePayout: netPayout,
           status: f.status,
           deliveryAddress: order?.deliveryAddress,
-          phone: order?.phone,
+          phone: order?.customer?.user?.phone,
           paymentMethod: order?.paymentMethod,
           paymentStatus: order?.paymentStatus,
           placedAt: order?.createdAt,
-          notes: order?.notes,
           vendorId: f.vendorId,
           vendorBranchId: f.vendorBranchId,
           // Derived vendor totals
