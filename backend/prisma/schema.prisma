@@ -1085,6 +1085,7 @@ model OrderVendorFulfillment {
   @@index([vendorId, status])
   @@index([status, createdAt])
   @@map("order_vendor_fulfillments")
+}
 
 
 /// A single physical delivery of a customer order: one primary driver, one or
