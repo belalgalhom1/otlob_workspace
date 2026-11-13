@@ -69,9 +69,9 @@ class OrderExecution extends _$OrderExecution {
       final repository = ref.read(driverOrdersRepositoryProvider);
 
       await repository.updateOrderStatus(orderId, newStatus);
-      // Do NOT drop the selection here: a multi-vendor order can still have
-      // another delivery assigned to this driver. The refetch below resolves
-      // the next group (or clears the selection when the order is really done).
+      if (newStatus == 'DELIVERED' || newStatus == 'CANCELLED') {
+        _selectedOrderId = null;
+      }
       await _fetchActiveOrder();
 
       if (newStatus == 'DELIVERED') {
@@ -150,9 +150,7 @@ class OrderExecution extends _$OrderExecution {
           ? '?deliveryGroupId=$deliveryGroupId'
           : '';
       await dio.post('/orders/driver/$orderId/delivery$query', data: formData);
-      // Keep the order selected: when this driver is assigned to more than one
-      // delivery in the same order, the refetch projects the NEXT delivery
-      // automatically. Only a genuinely finished order returns no active order.
+      _selectedOrderId = null;
       await _fetchActiveOrder();
       if (ref.mounted) {
         ref.read(driverProfileProvider.notifier).fetchProfile();

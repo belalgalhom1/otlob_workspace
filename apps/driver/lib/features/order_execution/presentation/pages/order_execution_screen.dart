@@ -534,6 +534,50 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
     }
 
+    // Driver-side pickup order: start with the FARTHEST vendor from the
+    // CUSTOMER, then move to the next farthest, until every vendor has been
+    // collected. Only then navigate to the customer. This matches the
+    // backend grouping's farthest-first anchor ordering. Sorting here keeps
+    // the map, stop chips and auto-advance all consistent.
+    if (pickupStops.length > 1) {
+      double cLat = 0.0;
+      double cLng = 0.0;
+      final dl = order['deliveryLocation'] ??
+          order['customer']?['location'] ??
+          order['destinationLocation'];
+      if (dl is List && dl.length > 1) {
+        cLng = double.tryParse(dl[0].toString()) ?? 0.0;
+        cLat = double.tryParse(dl[1].toString()) ?? 0.0;
+      } else if (dl is Map && dl['coordinates'] is List && (dl['coordinates'] as List).length > 1) {
+        final coords = dl['coordinates'] as List;
+        cLng = double.tryParse(coords[0].toString()) ?? 0.0;
+        cLat = double.tryParse(coords[1].toString()) ?? 0.0;
+      }
+      double hav(double lat1, double lng1, double lat2, double lng2) {
+        const r = 6371.0;
+        final dLatR = (lat2 - lat1) * 3.141592653589793 / 180.0;
+        final dLngR = (lng2 - lng1) * 3.141592653589793 / 180.0;
+        final a = math.sin(dLatR / 2) * math.sin(dLatR / 2) +
+            math.cos(lat1 * 3.141592653589793 / 180.0) *
+                math.cos(lat2 * 3.141592653589793 / 180.0) *
+                math.sin(dLngR / 2) *
+                math.sin(dLngR / 2);
+        return 2 * r * math.asin(math.sqrt(a));
+      }
+      // Only customer distance matters; never fall back to driver location.
+      if (cLat != 0.0 || cLng != 0.0) {
+        pickupStops.sort((a, b) {
+          final aLat = (a['lat'] as num?)?.toDouble() ?? 0.0;
+          final aLng = (a['lng'] as num?)?.toDouble() ?? 0.0;
+          final bLat = (b['lat'] as num?)?.toDouble() ?? 0.0;
+          final bLng = (b['lng'] as num?)?.toDouble() ?? 0.0;
+          final da = hav(cLat, cLng, aLat, aLng);
+          final db = hav(cLat, cLng, bLat, bLng);
+          return db.compareTo(da); // farthest from customer first
+        });
+      }
+    }
+
     if (pickupStops.isEmpty && (vendorLat != 0.0 || vendorData is Map || isCustomOrRide)) {
       final storeName = (vendorData is Map ? (vendorData['storeNameAr'] ?? vendorData['storeName'] ?? vendorData['name']) : (isCustomOrRide ? (isAr ? 'موقع الاستلام' : 'Pickup Location') : 'Store')).toString();
       final branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : {};

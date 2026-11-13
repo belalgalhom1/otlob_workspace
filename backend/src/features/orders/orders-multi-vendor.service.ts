@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
@@ -61,6 +62,8 @@ export interface MultiVendorFeeBreakdown {
  */
 @Injectable()
 export class OrdersMultiVendorService {
+  private readonly logger = new Logger(OrdersMultiVendorService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
@@ -120,7 +123,9 @@ export class OrdersMultiVendorService {
   ) {
     const vendorIds = this.normaliseVendorIds(dto.vendorIds);
     const clientOrderKey = idempotencyKey?.trim() || null;
+    this.logger.log(`placeOrder start vendors=${vendorIds.join(',')} key=${clientOrderKey}`);
     const plan = await this.buildPlan(actor, vendorIds, dto);
+    this.logger.log(`placeOrder plan portions=${plan.portions.length} groups=${plan.grouping.groups.length}`);
 
     // Same fast-path gate as single-vendor checkout. The authoritative re-check
     // runs inside the transaction below (under the per-customer advisory lock),
@@ -152,7 +157,12 @@ export class OrdersMultiVendorService {
       if (clientOrderKey) {
         const existing = await tx.order.findUnique({
           where: { clientOrderKey },
-          select: { id: true, orderNumber: true, customerId: true },
+          select: {
+            id: true,
+            orderNumber: true,
+            customerId: true,
+            _count: { select: { vendorFulfillments: true } },
+          },
         });
         if (existing) {
           if (existing.customerId !== plan.customerId) {
@@ -414,6 +424,7 @@ export class OrdersMultiVendorService {
       return { id: orderId, orderNumber, created: true };
     });
 
+    this.logger.log(`placeOrder tx done created=${created.created} id=${created.id}`);
     if (created.created) {
       // Carts for all vendors are cleared, matching the single-vendor listener.
       await Promise.all(
