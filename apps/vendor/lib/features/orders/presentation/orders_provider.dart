@@ -38,33 +38,7 @@ class OrdersNotifier extends _$OrdersNotifier {
     return const AsyncValue.loading();
   }
 
-  void clear() {
-    ref.read(orderRevisionTrackerProvider).clear();
-    state = AsyncValue.data(OrdersStateData([], 0, {}));
-  }
-
-  Future<void> fetchOrders({Map<String, dynamic> params = const {}}) async {
-    final authRepo = ref.read(sharedAuthRepositoryProvider);
-    if (!await authRepo.isLoggedIn()) {
-      clear();
-      return;
-    }
-    final effectiveParams =
-        (params.isEmpty && state.hasValue && state.value!.params.isNotEmpty)
-            ? state.value!.params
-            : params;
-    final isInitialLoad = !state.hasValue;
-    if (isInitialLoad) {
-      state = const AsyncValue.loading();
-    }
-
-    try {
-      final role = await authRepo.getUserRole();
-      final status = effectiveParams['status'];
-      final page = effectiveParams['page'] ?? 1;
-      final limit = effectiveParams['limit'] ?? 20;
-
-      dynamic result;
+  dynamic result;
       if (role == 'VENDOR_MEMBER') {
         String? vendorId = ref.read(activeVendorProvider);
         if (vendorId == null || vendorId.isEmpty) {
@@ -78,8 +52,10 @@ class OrdersNotifier extends _$OrdersNotifier {
             }
           }
         }
-        final targetVendorId =
-            (vendorId != null && vendorId.isNotEmpty) ? vendorId : 'my';
+        // Use vendorId directly; if empty/falls back to 'my', the repository
+        // OR condition will include multi-vendor orders where vendorFulfillments
+        // belong to this vendor. The 'my' sentinel is handled by the repository.
+        final targetVendorId = vendorId ?? 'my';
         result = await ref.read(vendorOrdersRepositoryProvider).ordersFindAll(
           vendorId: targetVendorId,
           page: page,
