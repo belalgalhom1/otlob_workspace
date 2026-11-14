@@ -9,7 +9,16 @@ import {
   tzDayStart,
   tzParts,
 } from 'src/common/utils/timezone';
-import type { VendorProductSalesOptions } from './statistics.repository';
+export interface VendorProductSalesOptions {
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  branchId?: string;
+  sortBy?: 'revenue' | 'quantity' | 'orders' | 'net' | 'name';
+  sortOrder?: 'asc' | 'desc';
+}
 
 @Injectable()
 export class StatisticsAnalyticsRepository {

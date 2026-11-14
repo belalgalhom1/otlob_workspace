@@ -13,6 +13,11 @@ import {
 import { EVENT_JOBS, QUEUES } from '../../infrastructure/queue/queues.constants';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 
+/**
+ * Handles post-commit Driver Assist side effects (offer broadcasts, customer
+ * proposals, driver assignment sockets, customer decisions, and timeouts).
+ * Initial request/decision admin alerts remain on NotificationListener.
+ */
 @Injectable()
 export class DriverAssistListener {
   private readonly logger = new Logger(DriverAssistListener.name);

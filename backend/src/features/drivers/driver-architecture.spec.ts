@@ -59,6 +59,10 @@ describe('Drivers & Assist Clean Architecture', () => {
         path.resolve(__dirname, '../statistics/statistics.module.ts'),
         'utf8',
       );
+      const driverShiftsModuleSrc = fs.readFileSync(
+        path.resolve(__dirname, '../driver-shifts/driver-shifts.module.ts'),
+        'utf8',
+      );
       const orderSettlementSrc = fs.readFileSync(
         path.resolve(__dirname, '../orders/order-settlement.service.ts'),
         'utf8',
@@ -79,12 +83,16 @@ describe('Drivers & Assist Clean Architecture', () => {
       expect(ordersModuleSrc).toContain('ORDER_ASSIST_CANCELLATION_PORT');
 
       expect(statisticsModuleSrc).not.toContain('SocketModule');
+      expect(statisticsModuleSrc).not.toContain('PlatformSettingsModule');
       expect(statisticsModuleSrc).not.toContain('OrderSettlementService');
 
       expect(driversModuleSrc).not.toContain('forwardRef');
       expect(driversModuleSrc).not.toContain('SocketModule');
       expect(driversModuleSrc).toContain('OrdersModule');
       expect(driversModuleSrc).toContain('OrderAssistDecisionController');
+
+      expect(driverShiftsModuleSrc).not.toContain('NotificationsModule');
+      expect(driverShiftsModuleSrc).not.toContain('SocketModule');
 
       expect(orderSettlementSrc).not.toContain('SocketService');
       expect(orderSettlementSrc).not.toContain('StatisticsRepository');
@@ -794,7 +802,7 @@ describe('Drivers & Assist Clean Architecture', () => {
             customerId: 'cust-1',
             orderNumber: 'ORD-SV',
           }),
-          update: jest.fn().mockResolvedValue({}),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         customer: {
           findUnique: jest.fn().mockResolvedValue({ userId: 'cust-user-1' }),
@@ -830,6 +838,13 @@ describe('Drivers & Assist Clean Architecture', () => {
 
       await assist.autoDeclineExpiredOrderAssists();
 
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'order-sv-exp', assistCustomerApproved: null },
+        data: expect.objectContaining({
+          assistDriverId: null,
+          assistCustomerApproved: false,
+        }),
+      });
       expect(ordersState.cancelOrder).toHaveBeenCalledWith(
         null,
         'order-sv-exp',
@@ -845,6 +860,14 @@ describe('Drivers & Assist Clean Architecture', () => {
           'u-a',
         ),
       );
+
+      // If the customer already decided concurrently, CAS updateMany returns count: 0 -> skip cleanly
+      ordersState.cancelOrder.mockClear();
+      eventEmit.mockClear();
+      prisma.order.updateMany.mockResolvedValueOnce({ count: 0 });
+      await assist.autoDeclineExpiredOrderAssists();
+      expect(ordersState.cancelOrder).not.toHaveBeenCalled();
+      expect(eventEmit).not.toHaveBeenCalled();
     });
   });
 

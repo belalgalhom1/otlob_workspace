@@ -671,8 +671,8 @@ export class DriverAssistService {
 
     for (const g of expired) {
       try {
-        await this.prisma.orderDeliveryGroup.update({
-          where: { id: g.id },
+        const claimed = await this.prisma.orderDeliveryGroup.updateMany({
+          where: { id: g.id, assistCustomerApproved: null },
           data: {
             assistDriverId: null,
             assistDriverShiftId: null,
@@ -681,17 +681,14 @@ export class DriverAssistService {
             assistFee: null,
             assistCustomerApproved: false,
             assistApprovedAt: new Date(),
+            status: DeliveryGroupStatus.CANCELLED,
           },
         });
+        if (claimed.count === 0) continue;
 
         await this.prisma.driverAssistRequest.updateMany({
           where: { deliveryGroupId: g.id, status: DriverAssistRequestStatus.FULFILLED },
           data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() },
-        });
-
-        await this.prisma.orderDeliveryGroup.update({
-          where: { id: g.id },
-          data: { status: DeliveryGroupStatus.CANCELLED },
         });
         const remaining = await this.prisma.orderDeliveryGroup.count({
           where: { orderId: g.orderId, status: { not: DeliveryGroupStatus.CANCELLED } },
@@ -959,7 +956,18 @@ export class DriverAssistService {
     });
     for (const o of expired) {
       try {
-        await this.prisma.order.update({ where: { id: o.id }, data: { assistDriverId: null, assistDriverShiftId: null, assistFee: null, assistCustomerApproved: false, assistApprovedAt: new Date() } });
+        const claimed = await this.prisma.order.updateMany({
+          where: { id: o.id, assistCustomerApproved: null },
+          data: {
+            assistDriverId: null,
+            assistDriverShiftId: null,
+            assistFee: null,
+            assistCustomerApproved: false,
+            assistApprovedAt: new Date(),
+          },
+        });
+        if (claimed.count === 0) continue;
+
         await this.prisma.driverAssistRequest.updateMany({ where: { orderId: o.id, status: DriverAssistRequestStatus.FULFILLED }, data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() } });
         try {
           await this.ordersState.cancelOrder(null, o.id, 'Assist decision timed out');

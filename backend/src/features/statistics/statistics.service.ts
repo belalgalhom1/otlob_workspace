@@ -18,12 +18,14 @@ import {
   STATS_JOBS,
 } from '../../infrastructure/queue/queues.constants';
 import {
-  StatisticsRepository,
-  type StatPeriodRange,
+  StatisticsAnalyticsRepository,
   type VendorProductSalesOptions,
-} from './statistics.repository';
-import { StatisticsAnalyticsRepository } from './statistics-analytics.repository';
-import { enqueueStatsJob } from '../../common/queues/stats-queue.helper';
+} from './statistics-analytics.repository';
+import {
+  enqueueStatsJob,
+  getStatsPeriodsForDate,
+  type StatPeriodRange,
+} from '../../common/queues/stats-queue.helper';
 
 export type { StatPeriodRange, VendorProductSalesOptions };
 
@@ -32,7 +34,6 @@ export class StatisticsService {
   private readonly logger = new Logger(StatisticsService.name);
 
   constructor(
-    private readonly statsRepository: StatisticsRepository,
     private readonly analyticsRepository: StatisticsAnalyticsRepository,
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -46,7 +47,7 @@ export class StatisticsService {
     vendorId: string | null,
     driverId: string | null,
   ): Promise<void> {
-    const periods = this.statsRepository.getPeriodsForDate(new Date());
+    const periods = getStatsPeriodsForDate(new Date());
 
     await Promise.all([
       enqueueStatsJob(this.statsQueue, {
@@ -90,52 +91,61 @@ export class StatisticsService {
 
   // ─── Dispatch counters ────────────────────────────────────────────────────
 
+  private async enqueueDriverCounter(
+    sourceKey: string,
+    driverId: string,
+    increment: Record<string, number>,
+  ): Promise<void> {
+    await enqueueStatsJob(this.statsQueue, {
+      name: STATS_JOBS.UPDATE_DRIVER,
+      sourceKey,
+      data: { driverId, increment },
+      periods: getStatsPeriodsForDate(new Date()),
+    });
+  }
+
   async recordDispatchSent(
     dispatchId: string,
     driverId: string,
   ): Promise<void> {
-    await enqueueStatsJob(this.statsQueue, {
-      name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-sent:${dispatchId}:${driverId}`,
-      data: { driverId, increment: { totalDispatchesReceived: 1 } },
-      periods: this.statsRepository.getPeriodsForDate(new Date()),
-    });
+    await this.enqueueDriverCounter(
+      `dispatch-sent:${dispatchId}:${driverId}`,
+      driverId,
+      { totalDispatchesReceived: 1 },
+    );
   }
 
   async recordDispatchAccepted(
     dispatchId: string,
     driverId: string,
   ): Promise<void> {
-    await enqueueStatsJob(this.statsQueue, {
-      name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-accepted:${dispatchId}`,
-      data: { driverId, increment: { dispatchesAccepted: 1 } },
-      periods: this.statsRepository.getPeriodsForDate(new Date()),
-    });
+    await this.enqueueDriverCounter(
+      `dispatch-accepted:${dispatchId}`,
+      driverId,
+      { dispatchesAccepted: 1 },
+    );
   }
 
   async recordDispatchRejected(
     dispatchId: string,
     driverId: string,
   ): Promise<void> {
-    await enqueueStatsJob(this.statsQueue, {
-      name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-rejected:${dispatchId}:${driverId}`,
-      data: { driverId, increment: { dispatchesRejected: 1 } },
-      periods: this.statsRepository.getPeriodsForDate(new Date()),
-    });
+    await this.enqueueDriverCounter(
+      `dispatch-rejected:${dispatchId}:${driverId}`,
+      driverId,
+      { dispatchesRejected: 1 },
+    );
   }
 
   async recordDispatchExpired(
     dispatchId: string,
     driverId: string,
   ): Promise<void> {
-    await enqueueStatsJob(this.statsQueue, {
-      name: STATS_JOBS.UPDATE_DRIVER,
-      sourceKey: `dispatch-expired:${dispatchId}:${driverId}`,
-      data: { driverId, increment: { dispatchesExpired: 1 } },
-      periods: this.statsRepository.getPeriodsForDate(new Date()),
-    });
+    await this.enqueueDriverCounter(
+      `dispatch-expired:${dispatchId}:${driverId}`,
+      driverId,
+      { dispatchesExpired: 1 },
+    );
   }
 
   // ─── Online hours ─────────────────────────────────────────────────────────
@@ -192,9 +202,7 @@ export class StatisticsService {
       const hours = Math.max(0, (Date.now() - Number(startedAtMs)) / 3_600_000);
       if (hours <= 0) return;
 
-      const periods = this.statsRepository.getPeriodsForDate(
-        new Date(Number(startedAtMs)),
-      );
+      const periods = getStatsPeriodsForDate(new Date(Number(startedAtMs)));
       await enqueueStatsJob(this.statsQueue, {
         name: STATS_JOBS.UPDATE_DRIVER,
         sourceKey: `online:${event.driverId}:${startedAtMs}`,

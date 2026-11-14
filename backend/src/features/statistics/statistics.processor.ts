@@ -3,6 +3,7 @@ import { Job, UnrecoverableError } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { StatisticPeriod } from '@prisma/client';
 import { StatisticsRepository } from './statistics.repository';
+import { getStatsPeriodsForDate } from '../../common/queues/stats-queue.helper';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QUEUES, STATS_JOBS } from '../../infrastructure/queue/queues.constants';
 
@@ -153,6 +154,6 @@ export class StatisticsProcessor extends WorkerHost {
         endDate: new Date(p.endDate),
       }));
     }
-    return this.statsRepository.getPeriodsForDate(new Date());
+    return getStatsPeriodsForDate(new Date());
   }
 }

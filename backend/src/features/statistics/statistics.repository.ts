@@ -1,23 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { Prisma, StatisticPeriod } from '@prisma/client';
-import {
-  getStatsPeriodsForDate,
-  type StatPeriodRange,
-} from '../../common/queues/stats-queue.helper';
-
-export type { StatPeriodRange };
-
-export interface VendorProductSalesOptions {
-  from?: string;
-  to?: string;
-  page?: number;
-  limit?: number;
-  search?: string;
-  branchId?: string;
-  sortBy?: 'revenue' | 'quantity' | 'orders' | 'net' | 'name';
-  sortOrder?: 'asc' | 'desc';
-}
 
 /**
  * Write-side repository for statistics idempotency markers and atomic bucket
@@ -50,14 +33,6 @@ export class StatisticsRepository {
       where: { createdAt: { lt: olderThan } },
     });
     return result.count;
-  }
-
-  // ─── Period helpers ───────────────────────────────────────────────────────
-
-  // Only the finest grain (DAILY) is materialized by the incremental worker.
-  // WEEKLY/MONTHLY/YEARLY are computed from DAILY rows on read.
-  getPeriodsForDate(date: Date): StatPeriodRange[] {
-    return getStatsPeriodsForDate(date);
   }
 
   // ─── Vendor stats — atomic upsert ─────────────────────────────────────────

@@ -4,11 +4,9 @@ import { StatisticsController } from './statistics.controller';
 import { StatisticsService } from './statistics.service';
 import { StatisticsRepository } from './statistics.repository';
 import { StatisticsAnalyticsRepository } from './statistics-analytics.repository';
-import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 
 @Global()
 @Module({
-  imports: [PlatformSettingsModule],
   controllers: [StatisticsController],
   providers: [
     StatisticsService,

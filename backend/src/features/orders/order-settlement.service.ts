@@ -104,7 +104,7 @@ type DriverWalletTxType =
  * Owns post-delivery financial settlement:
  * - Multi-vendor & single-vendor driver payout calculation (including Bronze/Silver/Gold + assist rules)
  * - Transactional wallet ledger updates with strict lock ordering (`order -> drivers -> vendors -> managers`)
- * - Asynchronous stat queue fan-out and post-commit socket/event notifications.
+ * - Asynchronous stat queue fan-out and post-commit domain events (ORDER_SETTLED, DRIVER_STATUS_CHANGED).
  */
 @Injectable()
 export class OrderSettlementService {
