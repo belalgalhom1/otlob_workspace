@@ -158,6 +158,8 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
   @override
   final num? estimatedPrepTime;
   @override
+  final String? fulfillmentId;
+  @override
   final String? pickupImageUrl;
   @override
   final String? deliveryImageUrl;
@@ -170,6 +172,7 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
     required this.status,
     this.note,
     this.estimatedPrepTime,
+    this.fulfillmentId,
     this.pickupImageUrl,
     this.deliveryImageUrl,
   }) : super._();
@@ -189,6 +192,7 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
         status == other.status &&
         note == other.note &&
         estimatedPrepTime == other.estimatedPrepTime &&
+        fulfillmentId == other.fulfillmentId &&
         pickupImageUrl == other.pickupImageUrl &&
         deliveryImageUrl == other.deliveryImageUrl;
   }
@@ -199,6 +203,7 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, note.hashCode);
     _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
+    _$hash = $jc(_$hash, fulfillmentId.hashCode);
     _$hash = $jc(_$hash, pickupImageUrl.hashCode);
     _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
     _$hash = $jf(_$hash);
@@ -211,6 +216,7 @@ class _$UpdateOrderStatusDto extends UpdateOrderStatusDto {
           ..add('status', status)
           ..add('note', note)
           ..add('estimatedPrepTime', estimatedPrepTime)
+          ..add('fulfillmentId', fulfillmentId)
           ..add('pickupImageUrl', pickupImageUrl)
           ..add('deliveryImageUrl', deliveryImageUrl))
         .toString();
@@ -234,6 +240,11 @@ class UpdateOrderStatusDtoBuilder
   set estimatedPrepTime(num? estimatedPrepTime) =>
       _$this._estimatedPrepTime = estimatedPrepTime;
 
+  String? _fulfillmentId;
+  String? get fulfillmentId => _$this._fulfillmentId;
+  set fulfillmentId(String? fulfillmentId) =>
+      _$this._fulfillmentId = fulfillmentId;
+
   String? _pickupImageUrl;
   String? get pickupImageUrl => _$this._pickupImageUrl;
   set pickupImageUrl(String? pickupImageUrl) =>
@@ -254,6 +265,7 @@ class UpdateOrderStatusDtoBuilder
       _status = $v.status;
       _note = $v.note;
       _estimatedPrepTime = $v.estimatedPrepTime;
+      _fulfillmentId = $v.fulfillmentId;
       _pickupImageUrl = $v.pickupImageUrl;
       _deliveryImageUrl = $v.deliveryImageUrl;
       _$v = null;
@@ -285,6 +297,7 @@ class UpdateOrderStatusDtoBuilder
           ),
           note: note,
           estimatedPrepTime: estimatedPrepTime,
+          fulfillmentId: fulfillmentId,
           pickupImageUrl: pickupImageUrl,
           deliveryImageUrl: deliveryImageUrl,
         );

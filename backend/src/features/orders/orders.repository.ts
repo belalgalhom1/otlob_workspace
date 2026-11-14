@@ -118,17 +118,30 @@ function portionStatusFilter(
         readyAt: null,
         pickedUpAt: null,
         deliveredAt: null,
+        groups: {
+          none: {
+            deliveryGroup: {
+              status: {
+                in: [
+                  DeliveryGroupStatus.DRIVER_ASSIGNED,
+                  DeliveryGroupStatus.PENDING_PAYMENT,
+                  DeliveryGroupStatus.READY_FOR_PICKUP,
+                ],
+              },
+            },
+          },
+        },
       };
     case OrderStatus.PREPARING:
       return {
         pickedUpAt: null,
         deliveredAt: null,
+        readyAt: null,
         OR: [
-          { status: 'PREPARING', readyAt: null },
+          { status: 'PREPARING' },
           {
             status: 'ACCEPTED',
             preparingAt: { not: null },
-            readyAt: null,
           },
         ],
       };
@@ -136,11 +149,16 @@ function portionStatusFilter(
       return {
         pickedUpAt: null,
         deliveredAt: null,
+        status: { notIn: ['REJECTED', 'CANCELLED', 'PICKED_UP'] },
         OR: [
           { status: 'READY_FOR_PICKUP' },
+          { readyAt: { not: null } },
           {
-            status: 'ACCEPTED',
-            readyAt: { not: null },
+            groups: {
+              some: {
+                deliveryGroup: { status: DeliveryGroupStatus.READY_FOR_PICKUP },
+              },
+            },
           },
         ],
       };
@@ -268,7 +286,7 @@ const ORDER_INCLUDE = {
     orderBy: { createdAt: 'asc' as const },
     include: {
       vendor: {
-        select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true, phone: true },
+        select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true, commissionRate: true, phone: true },
       },
       vendorBranch: {
         select: {
@@ -533,7 +551,10 @@ export class OrdersRepository {
             select: {
               id: true,
               storeName: true,
+              storeNameAr: true,
               logo: true,
+              isContracted: true,
+              commissionRate: true,
               rating: true,
               ratingCount: true,
             },
@@ -550,8 +571,9 @@ export class OrdersRepository {
             },
           },
           vendorFulfillments: {
+            orderBy: { createdAt: 'asc' as const },
             include: {
-              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true, phone: true } },
+              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true, isContracted: true, commissionRate: true, phone: true } },
               vendorBranch: {
                 select: {
                   id: true,
@@ -592,9 +614,39 @@ export class OrdersRepository {
               sequence: true,
               status: true,
               deliveryFee: true,
+              isStacked: true,
+              pickupImageUrl: true,
+              deliveryImageUrl: true,
+              pickedUpAt: true,
+              deliveredAt: true,
               primaryDriverId: true,
               assistDriverId: true,
-              items: { select: { fulfillmentId: true, sequence: true } },
+              items: {
+                orderBy: { sequence: 'asc' as const },
+                select: { fulfillmentId: true, sequence: true },
+              },
+              primaryDriver: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                  vehicleType: true,
+                  vehiclePlate: true,
+                  userId: true,
+                  user: { select: { phone: true } },
+                },
+              },
+              assistDriver: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                  vehicleType: true,
+                  vehiclePlate: true,
+                  userId: true,
+                  user: { select: { phone: true } },
+                },
+              },
             },
           },
           driver: {

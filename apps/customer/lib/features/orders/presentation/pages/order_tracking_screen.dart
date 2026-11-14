@@ -411,8 +411,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         }
       });
 
-      _fulfillmentSub?.cancel();
-    _statusSub?.cancel();
+      _statusSub?.cancel();
       _statusSub = socket.onEvent('order.status').listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
           // The latest transition wins: a stale socket event must not move the

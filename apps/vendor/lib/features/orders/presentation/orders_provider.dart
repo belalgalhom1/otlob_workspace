@@ -123,6 +123,7 @@ class OrdersNotifier extends _$OrdersNotifier {
     String orderId,
     String newStatus, {
     bool isFulfillmentDelta = false,
+    String? fulfillmentId,
   }) {
     if (state.hasValue) {
       final currentData = state.value!;
@@ -132,11 +133,40 @@ class OrdersNotifier extends _$OrdersNotifier {
         final Map<String, dynamic> updatedOrder =
             Map<String, dynamic>.from(newOrders[index]);
         final isMultiVendorPortion = updatedOrder['myFulfillmentStatus'] != null;
-        if (!isMultiVendorPortion || isFulfillmentDelta) {
+        final myFulfillmentId = updatedOrder['myFulfillmentId']?.toString();
+
+        if (isFulfillmentDelta &&
+            fulfillmentId != null &&
+            updatedOrder['vendorFulfillments'] is List) {
+          final fulfillments = List<dynamic>.from(updatedOrder['vendorFulfillments'] as List);
+          bool updatedChild = false;
+          for (int i = 0; i < fulfillments.length; i++) {
+            final f = fulfillments[i];
+            if (f is Map && f['id']?.toString() == fulfillmentId) {
+              fulfillments[i] = {...f, 'status': newStatus};
+              updatedChild = true;
+            }
+          }
+          if (updatedChild) {
+            updatedOrder['vendorFulfillments'] = fulfillments;
+          }
+        }
+
+        final matchesMyFulfillment = fulfillmentId == null ||
+            myFulfillmentId == null ||
+            myFulfillmentId == fulfillmentId;
+
+        if ((!isMultiVendorPortion && !isFulfillmentDelta) ||
+            (isFulfillmentDelta && matchesMyFulfillment && isMultiVendorPortion)) {
           updatedOrder['status'] = newStatus;
           if (isFulfillmentDelta && isMultiVendorPortion) {
             updatedOrder['myFulfillmentStatus'] = newStatus;
           }
+          newOrders[index] = updatedOrder;
+          state = AsyncValue.data(
+            OrdersStateData(newOrders, currentData.total, currentData.params),
+          );
+        } else if (isFulfillmentDelta && !isMultiVendorPortion) {
           newOrders[index] = updatedOrder;
           state = AsyncValue.data(
             OrdersStateData(newOrders, currentData.total, currentData.params),
@@ -150,6 +180,7 @@ class OrdersNotifier extends _$OrdersNotifier {
     String orderId,
     String nextStatus, {
     int? estimatedPrepTime,
+    String? fulfillmentId,
   }) async {
     Map<String, dynamic> currentParams = const {};
     if (state.hasValue) {
@@ -163,6 +194,7 @@ class OrdersNotifier extends _$OrdersNotifier {
          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
           ..status = UpdateOrderStatusDtoStatusEnum.valueOf(nextStatus)
           ..estimatedPrepTime = estimatedPrepTime?.toDouble()
+          ..fulfillmentId = fulfillmentId
          ),
        );
     } else {
@@ -171,6 +203,7 @@ class OrdersNotifier extends _$OrdersNotifier {
          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
           ..status = UpdateOrderStatusDtoStatusEnum.valueOf(nextStatus)
           ..estimatedPrepTime = estimatedPrepTime?.toDouble()
+          ..fulfillmentId = fulfillmentId
          ),
        );
     }
@@ -178,7 +211,11 @@ class OrdersNotifier extends _$OrdersNotifier {
     await fetchOrders(params: currentParams);
   }
 
-  Future<void> cancelOrder(String orderId, String reason) async {
+  Future<void> cancelOrder(
+    String orderId,
+    String reason, {
+    String? fulfillmentId,
+  }) async {
     Map<String, dynamic> currentParams = const {};
     if (state.hasValue) {
       currentParams = state.value!.params;
@@ -191,6 +228,7 @@ class OrdersNotifier extends _$OrdersNotifier {
          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
           ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
           ..note = reason
+          ..fulfillmentId = fulfillmentId
          ),
        );
     } else {
@@ -199,6 +237,7 @@ class OrdersNotifier extends _$OrdersNotifier {
          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
           ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
           ..note = reason
+          ..fulfillmentId = fulfillmentId
          ),
        );
     }

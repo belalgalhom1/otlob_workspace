@@ -194,12 +194,22 @@ export class OrdersPaymentService {
       // Each group returns to the state it held before the payment detour
       // (PICKED_UP if it had already been picked up, else DRIVER_ASSIGNED).
       const fulfillments = (order as any).vendorFulfillments ?? [];
-      const hasAnyPickup = Boolean((order as any).pickedUpAt) || fulfillments.some((f: any) => Boolean(f.pickedUpAt));
-      const allPickedUp = Boolean((order as any).pickedUpAt) || (fulfillments.length > 0 && fulfillments.every((f: any) => Boolean(f.pickedUpAt) || f.status === 'REJECTED' || f.status === 'CANCELLED'));
+      const liveOrderFulfillments = fulfillments.filter(
+        (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+      );
+      const hasAnyPickup = Boolean((order as any).pickedUpAt) || liveOrderFulfillments.some((f: any) => Boolean(f.pickedUpAt));
+      const allPickedUp = Boolean((order as any).pickedUpAt) || (liveOrderFulfillments.length > 0 && liveOrderFulfillments.every((f: any) => Boolean(f.pickedUpAt)));
+      const allReady =
+        liveOrderFulfillments.length > 0 &&
+        liveOrderFulfillments.every(
+          (f: any) => f.status === 'READY_FOR_PICKUP' || Boolean(f.readyAt) || Boolean(f.pickedUpAt),
+        );
 
       const nextStatus = allPickedUp
         ? OrderStatus.PICKED_UP
-        : (hasAnyPickup ? OrderStatus.PARTIALLY_PICKED_UP : OrderStatus.DRIVER_ASSIGNED);
+        : (hasAnyPickup
+            ? OrderStatus.PARTIALLY_PICKED_UP
+            : (allReady ? OrderStatus.READY_FOR_PICKUP : OrderStatus.DRIVER_ASSIGNED));
 
       // Captured inside the transaction that bumps it, so the event revision is
       // exactly the value this transition wrote (never a later concurrent one).
@@ -209,13 +219,20 @@ export class OrdersPaymentService {
         for (const g of groups) {
           if (g.status !== DeliveryGroupStatus.PENDING_PAYMENT) continue;
           const groupFulfillmentIds = new Set((g.items ?? []).map((it: any) => it.fulfillmentId));
-          const groupFulfillments = fulfillments.filter((f: any) => groupFulfillmentIds.has(f.id));
+          const groupFulfillments = liveOrderFulfillments.filter((f: any) => groupFulfillmentIds.has(f.id));
           const groupHasPickup = Boolean(g.pickedUpAt) || groupFulfillments.some((f: any) => Boolean(f.pickedUpAt));
-          const groupAllPickedUp = Boolean(g.pickedUpAt) || (groupFulfillments.length > 0 && groupFulfillments.every((f: any) => Boolean(f.pickedUpAt) || f.status === 'REJECTED' || f.status === 'CANCELLED'));
+          const groupAllPickedUp = Boolean(g.pickedUpAt) || (groupFulfillments.length > 0 && groupFulfillments.every((f: any) => Boolean(f.pickedUpAt)));
+          const groupAllReady =
+            groupFulfillments.length > 0 &&
+            groupFulfillments.every(
+              (f: any) => f.status === 'READY_FOR_PICKUP' || Boolean(f.readyAt) || Boolean(f.pickedUpAt),
+            );
 
           const groupNextStatus = groupAllPickedUp
             ? DeliveryGroupStatus.PICKED_UP
-            : (groupHasPickup ? DeliveryGroupStatus.PARTIALLY_PICKED_UP : DeliveryGroupStatus.DRIVER_ASSIGNED);
+            : (groupHasPickup
+                ? DeliveryGroupStatus.PARTIALLY_PICKED_UP
+                : (groupAllReady ? DeliveryGroupStatus.READY_FOR_PICKUP : DeliveryGroupStatus.DRIVER_ASSIGNED));
 
           await tx.orderDeliveryGroup.updateMany({
             where: { id: g.id, status: DeliveryGroupStatus.PENDING_PAYMENT },

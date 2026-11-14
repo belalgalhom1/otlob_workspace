@@ -221,7 +221,7 @@ export class OrdersMultiVendorService {
           'PENDING'::"OrderStatus", ${dto.paymentMethod}::"PaymentMethod",
           ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
           ${dto.deliveryAddress},
-          ST_SetSRID(ST_MakePoint(${dto.deliveryLocation[0]}, ${dto.deliveryLocation[1]}), 4326),
+          ST_SetSRID(ST_MakePoint(${plan.deliveryLng}, ${plan.deliveryLat}), 4326),
           ${plan.subtotal}, ${plan.deliveryFee}, ${plan.driverBonusFee},
           ${plan.serviceFee}, ${plan.tax}, ${plan.discount},
           ${plan.coinsUsed}, ${plan.coinsEarned}, ${plan.grandTotal}, ${plan.upfrontAmount},
@@ -580,9 +580,15 @@ export class OrdersMultiVendorService {
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
     }
 
+    const deliveryLng = Number(dto.deliveryLocation?.[0]);
+    const deliveryLat = Number(dto.deliveryLocation?.[1]);
+    if (!Number.isFinite(deliveryLng) || !Number.isFinite(deliveryLat)) {
+      throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
+    }
+
     const zone = await this.ordersRepository.getZoneAtLocation(
-      dto.deliveryLocation[0],
-      dto.deliveryLocation[1],
+      deliveryLng,
+      deliveryLat,
     );
     if (!zone) {
       throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
@@ -629,8 +635,8 @@ export class OrdersMultiVendorService {
       ];
       const branch = await this.ordersRepository.getNearestOpenBranchLocation(
         vendorId,
-        dto.deliveryLocation[0],
-        dto.deliveryLocation[1],
+        deliveryLng,
+        deliveryLat,
         zone.id,
         productIds,
       );
@@ -641,8 +647,8 @@ export class OrdersMultiVendorService {
           const anyOpenBranch =
             await this.ordersRepository.getNearestOpenBranchLocation(
               vendorId,
-              dto.deliveryLocation[0],
-              dto.deliveryLocation[1],
+              deliveryLng,
+              deliveryLat,
               zone.id,
             );
           if (anyOpenBranch) {
@@ -702,7 +708,7 @@ export class OrdersMultiVendorService {
 
     const grouping: GroupingResult = await this.grouping.planForCheckout(
       portions.map((p) => p.stop),
-      { lng: dto.deliveryLocation[0], lat: dto.deliveryLocation[1] },
+      { lng: deliveryLng, lat: deliveryLat },
     );
     if (grouping.groups.length === 0) {
       throw new BadRequestException(OrderErrors.NO_DELIVERY_GROUPS);
@@ -816,6 +822,8 @@ export class OrdersMultiVendorService {
     return {
       customerId: customer.id,
       zoneId: zone.id,
+      deliveryLng,
+      deliveryLat,
       portions,
       grouping,
       groupFees,

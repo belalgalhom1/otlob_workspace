@@ -502,8 +502,34 @@ export class OrderVendorDecisionService {
 
   private fulfillmentInclude() {
     return {
-      items: { where: { rejectedAt: null }, select: { id: true, productName: true, quantity: true, totalPrice: true } },
-      vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+      items: {
+        where: { rejectedAt: null },
+        select: {
+          id: true,
+          fulfillmentId: true,
+          productId: true,
+          productName: true,
+          variantName: true,
+          quantity: true,
+          selectedUnit: true,
+          unitPrice: true,
+          totalPrice: true,
+          specialRequest: true,
+          selectedOptions: true,
+          product: { select: { imageUrl: true } },
+        },
+      },
+      vendor: {
+        select: {
+          id: true,
+          storeName: true,
+          storeNameAr: true,
+          logo: true,
+          isContracted: true,
+          commissionRate: true,
+          phone: true,
+        },
+      },
       vendorBranch: {
         select: {
           id: true,
@@ -512,6 +538,7 @@ export class OrderVendorDecisionService {
           address: true,
           phone: true,
           isContracted: true,
+          commissionRate: true,
         },
       },
       groups: {

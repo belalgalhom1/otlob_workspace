@@ -451,9 +451,33 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     }
 
     final allItems = (order['items'] as List?) ?? [];
+    final Map<String, int> stopSequenceByFulfillmentId = {};
+    if (order['deliveryGroups'] is List) {
+      int baseSeq = 0;
+      for (final grp in (order['deliveryGroups'] as List)) {
+        if (grp is Map && grp['items'] is List) {
+          for (final gi in (grp['items'] as List)) {
+            if (gi is Map && gi['fulfillmentId'] != null) {
+              final seq = (gi['sequence'] as num?)?.toInt() ?? 0;
+              stopSequenceByFulfillmentId[gi['fulfillmentId'].toString()] =
+                  baseSeq + seq;
+            }
+          }
+          baseSeq += 1000;
+        }
+      }
+    }
     final List<Map<String, dynamic>> pickupStops = [];
     if (order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) {
-      for (final f in (order['vendorFulfillments'] as List)) {
+      final rawFulfillments = List<dynamic>.from(order['vendorFulfillments'] as List);
+      rawFulfillments.sort((a, b) {
+        final aId = (a is Map ? a['id'] : null)?.toString() ?? '';
+        final bId = (b is Map ? b['id'] : null)?.toString() ?? '';
+        final aSeq = stopSequenceByFulfillmentId[aId] ?? 999999;
+        final bSeq = stopSequenceByFulfillmentId[bId] ?? 999999;
+        return aSeq.compareTo(bSeq);
+      });
+      for (final f in rawFulfillments) {
         if (f is Map && f['status'] != 'REJECTED' && f['status'] != 'CANCELLED') {
           final branch = f['vendorBranch'] is Map ? (f['vendorBranch'] as Map) : {};
           final v = f['vendor'] is Map ? (f['vendor'] as Map) : {};
@@ -504,6 +528,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             'cashToPay': cashToPay,
             'items': stopItems,
             'status': f['status']?.toString() ?? 'PENDING',
+            'pickedUpAt': f['pickedUpAt'],
+            'pickupImageUrl': f['pickupImageUrl']?.toString(),
           });
           if (vendorLat == 0.0 && vendorLng == 0.0 && bLat != 0.0 && bLng != 0.0) {
             vendorLat = bLat;
@@ -570,16 +596,21 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       if (_currentStopIndex >= pickupStops.length) {
         _currentStopIndex = pickupStops.length - 1;
       }
+      _collectedStopIndices.clear();
+      int firstPendingIndex = -1;
       for (int i = 0; i < pickupStops.length; i++) {
-        if (pickupStops[i]['status'] == 'PICKED_UP') {
+        final sStatus = pickupStops[i]['status']?.toString();
+        final isPickedUp = sStatus == 'PICKED_UP' || pickupStops[i]['pickedUpAt'] != null;
+        if (isPickedUp) {
           _collectedStopIndices.add(i);
+        } else if (firstPendingIndex == -1) {
+          firstPendingIndex = i;
         }
       }
-      if (pickupStops.length > 1) {
-        while (_currentStopIndex < pickupStops.length - 1 &&
-            pickupStops[_currentStopIndex]['status'] == 'PICKED_UP') {
-          _currentStopIndex++;
-        }
+      if (pickupStops.length > 1 &&
+          firstPendingIndex != -1 &&
+          _collectedStopIndices.contains(_currentStopIndex)) {
+        _currentStopIndex = firstPendingIndex;
       }
     }
     final currentStop = pickupStops.isNotEmpty ? pickupStops[_currentStopIndex] : null;
@@ -1236,12 +1267,25 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
         ? (pickupStops[_currentStopIndex]['status']?.toString() ?? status)
         : status;
+    final currentStopPickedUp = (pickupStops.isNotEmpty && !isCustomOrRide) &&
+        (currentStopStatus == 'PICKED_UP' || pickupStops[_currentStopIndex]['pickedUpAt'] != null);
     final showCapture = (status == 'DRIVER_ASSIGNED' ||
             status == 'PREPARING' ||
             status == 'READY_FOR_PICKUP' ||
             status == 'PARTIALLY_PICKED_UP') &&
-        (isCustomOrRide || currentStopStatus == 'READY_FOR_PICKUP');
-    final remoteUrl = order['pickupImageUrl']?.toString();
+        (isCustomOrRide || (!currentStopPickedUp && currentStopStatus == 'READY_FOR_PICKUP'));
+    String? remoteUrl = order['pickupImageUrl']?.toString();
+    if ((remoteUrl == null || remoteUrl.isEmpty) && pickupStops.isNotEmpty) {
+      remoteUrl = pickupStops[_currentStopIndex]['pickupImageUrl']?.toString();
+    }
+    if ((remoteUrl == null || remoteUrl.isEmpty) && order['deliveryGroups'] is List) {
+      for (final grp in (order['deliveryGroups'] as List)) {
+        if (grp is Map && grp['pickupImageUrl'] != null && grp['pickupImageUrl'].toString().isNotEmpty) {
+          remoteUrl = grp['pickupImageUrl'].toString();
+          break;
+        }
+      }
+    }
 
     // After pickup show the proof photo, tappable to view full screen.
     if (!showCapture && remoteUrl != null && remoteUrl.isNotEmpty) {
@@ -1317,7 +1361,15 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     Map<String, dynamic> order,
   ) {
     final showCapture = status == 'PICKED_UP';
-    final remoteUrl = order['deliveryImageUrl']?.toString();
+    String? remoteUrl = order['deliveryImageUrl']?.toString();
+    if ((remoteUrl == null || remoteUrl.isEmpty) && order['deliveryGroups'] is List) {
+      for (final grp in (order['deliveryGroups'] as List)) {
+        if (grp is Map && grp['deliveryImageUrl'] != null && grp['deliveryImageUrl'].toString().isNotEmpty) {
+          remoteUrl = grp['deliveryImageUrl'].toString();
+          break;
+        }
+      }
+    }
 
     // After delivery show the proof photo, tappable to view full screen.
     if (!showCapture && remoteUrl != null && remoteUrl.isNotEmpty) {
@@ -1519,6 +1571,68 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
           ? (pickupStops[_currentStopIndex]['status']?.toString() ?? status)
           : status;
+      final currentStopPickedUp = (pickupStops.isNotEmpty && !isCustomOrRide) &&
+          (currentStopStatus == 'PICKED_UP' ||
+              pickupStops[_currentStopIndex]['pickedUpAt'] != null ||
+              _collectedStopIndices.contains(_currentStopIndex));
+
+      int firstPendingIndex = -1;
+      int remainingPendingCount = 0;
+      for (int i = 0; i < pickupStops.length; i++) {
+        final sStatus = pickupStops[i]['status']?.toString();
+        final collected = sStatus == 'PICKED_UP' ||
+            pickupStops[i]['pickedUpAt'] != null ||
+            _collectedStopIndices.contains(i);
+        if (!collected) {
+          remainingPendingCount++;
+          if (firstPendingIndex == -1) {
+            firstPendingIndex = i;
+          }
+        }
+      }
+
+      if (!isCustomOrRide && currentStopPickedUp) {
+        return PrimaryButton(
+          text: firstPendingIndex != -1
+              ? (l10n.localeName == 'ar'
+                  ? 'تم استلام هذه المحطة ✓ (الانتقال للمحطة ${firstPendingIndex + 1})'
+                  : 'Stop Collected ✓ (Go to Stop ${firstPendingIndex + 1})')
+              : (l10n.localeName == 'ar'
+                  ? 'تم استلام هذه المحطة ✓'
+                  : 'Stop Collected ✓'),
+          onPressed: firstPendingIndex != -1
+              ? () {
+                  setState(() => _currentStopIndex = firstPendingIndex);
+                  final next = pickupStops[firstPendingIndex];
+                  final sLat = next['lat'] as double;
+                  final sLng = next['lng'] as double;
+                  if (sLat != 0 && sLng != 0 && _isMapReady) {
+                    _mapController.move(LatLng(sLat, sLng), 15);
+                  }
+                }
+              : null,
+        );
+      }
+
+      if (!isCustomOrRide &&
+          firstPendingIndex != -1 &&
+          firstPendingIndex < _currentStopIndex) {
+        return PrimaryButton(
+          text: l10n.localeName == 'ar'
+              ? 'يجب استلام المحطة ${firstPendingIndex + 1} أولاً'
+              : 'Collect Stop ${firstPendingIndex + 1} First',
+          onPressed: () {
+            setState(() => _currentStopIndex = firstPendingIndex);
+            final next = pickupStops[firstPendingIndex];
+            final sLat = next['lat'] as double;
+            final sLng = next['lng'] as double;
+            if (sLat != 0 && sLng != 0 && _isMapReady) {
+              _mapController.move(LatLng(sLat, sLng), 15);
+            }
+          },
+        );
+      }
+
       if (!isCustomOrRide && currentStopStatus != 'READY_FOR_PICKUP') {
         return PrimaryButton(
           text: l10n.localeName == 'ar'
@@ -1528,9 +1642,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         );
       }
       final bool hasMultiple = pickupStops.length > 1;
-      final bool isLastStop = _currentStopIndex >= pickupStops.length - 1;
+      final bool isFinalRemainingStop = remainingPendingCount <= 1;
 
-      if (hasMultiple && !isLastStop) {
+      if (hasMultiple && !isFinalRemainingStop) {
         return PrimaryButton(
           text: l10n.localeName == 'ar'
               ? 'تأكيد استلام المحطة ${_currentStopIndex + 1} مع الصورة'
@@ -1545,13 +1659,24 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             await ref
                 .read(orderExecutionProvider.notifier)
                 .confirmPickupWithPhoto(photo, fulfillmentId: curFulfillmentId);
+            int nextPending = -1;
             setState(() {
               _collectedStopIndices.add(_currentStopIndex);
-              _currentStopIndex++;
               _pickupPhoto = null;
+              for (int i = 0; i < pickupStops.length; i++) {
+                if (!_collectedStopIndices.contains(i) &&
+                    pickupStops[i]['status']?.toString() != 'PICKED_UP' &&
+                    pickupStops[i]['pickedUpAt'] == null) {
+                  nextPending = i;
+                  break;
+                }
+              }
+              if (nextPending != -1) {
+                _currentStopIndex = nextPending;
+              }
             });
-            if (_currentStopIndex < pickupStops.length) {
-              final next = pickupStops[_currentStopIndex];
+            if (nextPending != -1) {
+              final next = pickupStops[nextPending];
               final sLat = next['lat'] as double;
               final sLng = next['lng'] as double;
               if (sLat != 0 && sLng != 0 && _isMapReady) {
@@ -1561,8 +1686,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(l10n.localeName == 'ar'
-                      ? 'تم تأكيد استلام المحطة $_currentStopIndex! توجه الآن إلى ${next['name'] ?? next['storeName']}'
-                      : 'Stop $_currentStopIndex confirmed! Proceed to ${next['name'] ?? next['storeName']}'),
+                      ? 'تم تأكيد استلام المحطة! توجه الآن إلى ${next['name'] ?? next['storeName']}'
+                      : 'Stop confirmed! Proceed to ${next['name'] ?? next['storeName']}'),
                   backgroundColor: AppColors.success,
                 ),
               );

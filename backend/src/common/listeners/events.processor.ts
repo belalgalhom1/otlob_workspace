@@ -313,9 +313,9 @@ export class EventsProcessor extends WorkerHost {
 
     // Customer push notification for key status changes
     const customerMsg = this.buildCustomerStatusMessage(event.newStatus);
-    if (customerMsg) {
+    if (customerMsg && customerUserId) {
       await this.notificationsService.create({
-        userId: event.customerUserId,
+        userId: customerUserId,
         title: customerMsg.en,
         titleAr: customerMsg.ar,
         body: `Order ${event.orderNumber}`,
@@ -596,15 +596,17 @@ export class EventsProcessor extends WorkerHost {
     );
 
     // Notify customer via push
-    await this.notificationsService.create({
-      userId: event.customerUserId,
-      title: 'Order Cancelled',
-      titleAr: 'تم إلغاء الطلب',
-      body: event.reason,
-      bodyAr: event.reason,
-      type: NotificationType.ORDER_UPDATE,
-      data: { orderId: event.orderId, orderNumber: event.orderNumber },
-    });
+    if (customerUserId) {
+      await this.notificationsService.create({
+        userId: customerUserId,
+        title: 'Order Cancelled',
+        titleAr: 'تم إلغاء الطلب',
+        body: event.reason,
+        bodyAr: event.reason,
+        type: NotificationType.ORDER_UPDATE,
+        data: { orderId: event.orderId, orderNumber: event.orderNumber },
+      });
+    }
 
     await this.conversationsService
       .closeSystemOrderConversation(event.orderId)

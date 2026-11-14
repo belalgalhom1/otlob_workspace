@@ -107,11 +107,23 @@ export class DispatchRepository {
         "requestedVehicleType",
         COALESCE(
           ST_X("pickupLocation"::geometry),
+          (SELECT ST_X(location::geometry) FROM vendor_branches WHERE id = orders."vendorBranchId"),
+          (SELECT ST_X(vb.location::geometry)
+           FROM order_vendor_fulfillments ovf
+           JOIN vendor_branches vb ON vb.id = ovf."vendorBranchId"
+           WHERE ovf."orderId" = orders.id AND ovf.status NOT IN ('REJECTED', 'CANCELLED')
+           ORDER BY ovf."createdAt" ASC LIMIT 1),
           (SELECT ST_X(location::geometry) FROM vendors WHERE id = orders."vendorId"),
           ST_X("deliveryLocation"::geometry)
         ) AS lng,
         COALESCE(
           ST_Y("pickupLocation"::geometry),
+          (SELECT ST_Y(location::geometry) FROM vendor_branches WHERE id = orders."vendorBranchId"),
+          (SELECT ST_Y(vb.location::geometry)
+           FROM order_vendor_fulfillments ovf
+           JOIN vendor_branches vb ON vb.id = ovf."vendorBranchId"
+           WHERE ovf."orderId" = orders.id AND ovf.status NOT IN ('REJECTED', 'CANCELLED')
+           ORDER BY ovf."createdAt" ASC LIMIT 1),
           (SELECT ST_Y(location::geometry) FROM vendors WHERE id = orders."vendorId"),
           ST_Y("deliveryLocation"::geometry)
         ) AS lat,

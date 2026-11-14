@@ -56,6 +56,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
         return;
       }
       final fulfillmentStatus = data['fulfillmentStatus'];
+      final fulfillmentId = data['fulfillmentId']?.toString();
       final newStatus = fulfillmentStatus ?? data['newStatus'] ?? data['status'];
       if (newStatus != null) {
         ref
@@ -64,6 +65,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
               orderId,
               newStatus.toString(),
               isFulfillmentDelta: fulfillmentStatus != null,
+              fulfillmentId: fulfillmentId,
             );
       }
       fetchOrders();

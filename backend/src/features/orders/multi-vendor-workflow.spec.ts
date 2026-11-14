@@ -1,0 +1,576 @@
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  DeliveryGroupStatus,
+  OrderStatus,
+  OrderVendorFulfillmentStatus,
+  PaymentMethod,
+  Role,
+  VendorMemberRole,
+} from '@prisma/client';
+import { OrdersStateService } from './orders-state.service';
+import { OrdersService } from './orders.service';
+import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+
+describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => {
+  describe('1. Single-vendor backward compatibility & multi-vendor driver collection gates (OrdersStateService)', () => {
+    let stateService: OrdersStateService;
+    let mockOrdersRepo: any;
+    let mockPrisma: any;
+    let mockStorage: any;
+    let mockEventEmitter: any;
+    let mockVendorDecisionService: any;
+
+    const driverActor = { sub: 'user-driver-1', role: Role.DRIVER } as any;
+    const vendorOwnerA = { sub: 'user-owner-a', role: Role.VENDOR_MEMBER } as any;
+    const vendorOwnerB = { sub: 'user-owner-b', role: Role.VENDOR_MEMBER } as any;
+    const superAdminActor = { sub: 'user-admin', role: Role.SUPER_ADMIN } as any;
+
+    beforeEach(() => {
+      mockOrdersRepo = {
+        findById: jest.fn(),
+        updateStatus: jest.fn().mockResolvedValue({ revision: 2 }),
+        freeDriver: jest.fn().mockResolvedValue(undefined),
+        getOrderVendorUserIds: jest.fn().mockResolvedValue(['user-owner-a', 'user-owner-b']),
+        assignDriver: jest.fn(),
+      };
+      mockVendorDecisionService = {
+        accept: jest.fn().mockResolvedValue({}),
+        reject: jest.fn().mockResolvedValue({}),
+      };
+      mockEventEmitter = { emit: jest.fn() };
+      mockStorage = {
+        upload: jest.fn().mockResolvedValue('https://cdn.test/proof.jpg'),
+        delete: jest.fn().mockResolvedValue(undefined),
+      };
+      mockPrisma = {
+        driver: { findUnique: jest.fn().mockResolvedValue({ id: 'driver-1', userId: 'user-driver-1' }) },
+        vendorMember: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        user: { findUnique: jest.fn().mockResolvedValue({ permissions: [] }) },
+        order: {
+          findUnique: jest.fn(),
+          updateMany: jest.fn(),
+        },
+        orderVendorFulfillment: {
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+          update: jest.fn().mockResolvedValue({}),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        orderDeliveryGroup: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          update: jest.fn().mockResolvedValue({}),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        orderDeliveryGroupItem: {
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+        },
+        orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
+      };
+
+      stateService = new OrdersStateService(
+        mockOrdersRepo,
+        {} as any,
+        mockVendorDecisionService,
+        mockEventEmitter,
+        mockPrisma,
+        mockStorage,
+      );
+    });
+
+    it('1-vendor order: allows READY_FOR_PICKUP -> PICKED_UP -> DELIVERED with proof photos', async () => {
+      const singleOrder = {
+        id: 'ord-single',
+        orderNumber: 'OTL-1001',
+        type: 'STANDARD',
+        status: OrderStatus.READY_FOR_PICKUP,
+        customerId: 'cust-1',
+        vendorId: 'vendor-1',
+        driverId: 'driver-1',
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        paymentStatus: 'PENDING',
+        upfrontAmount: 0,
+        deliveryGroups: [],
+        vendorFulfillments: [],
+        customer: { userId: 'user-cust-1', user: { id: 'user-cust-1' } },
+        vendor: { userId: 'user-vendor-1', user: { id: 'user-vendor-1' } },
+      };
+
+      mockOrdersRepo.findById.mockResolvedValue(singleOrder);
+      mockOrdersRepo.updateStatus.mockResolvedValueOnce({ ...singleOrder, status: OrderStatus.PICKED_UP, revision: 3 });
+
+      await stateService.driverUpdateStatus(driverActor, 'ord-single', {
+        status: OrderStatus.PICKED_UP,
+        pickupImageUrl: 'https://cdn.test/pickup-1.jpg',
+      });
+      expect(mockOrdersRepo.updateStatus).toHaveBeenCalledWith(
+        'ord-single',
+        OrderStatus.PICKED_UP,
+        'user-driver-1',
+        undefined,
+        expect.objectContaining({ pickupImageUrl: 'https://cdn.test/pickup-1.jpg' }),
+        OrderStatus.READY_FOR_PICKUP,
+      );
+
+      mockOrdersRepo.findById.mockResolvedValue({ ...singleOrder, status: OrderStatus.PICKED_UP, pickupImageUrl: 'https://cdn.test/pickup-1.jpg' });
+      mockOrdersRepo.updateStatus.mockResolvedValueOnce({ ...singleOrder, status: OrderStatus.DELIVERED, revision: 4 });
+
+      await stateService.driverUpdateStatus(driverActor, 'ord-single', {
+        status: OrderStatus.DELIVERED,
+        deliveryImageUrl: 'https://cdn.test/delivery-1.jpg',
+      });
+      expect(mockOrdersRepo.updateStatus).toHaveBeenCalledWith(
+        'ord-single',
+        OrderStatus.DELIVERED,
+        'user-driver-1',
+        undefined,
+        expect.objectContaining({ deliveryImageUrl: 'https://cdn.test/delivery-1.jpg' }),
+        OrderStatus.PICKED_UP,
+      );
+    });
+
+    it('2-vendor order: blocks driver from picking up a stop before vendor marks READY_FOR_PICKUP', async () => {
+      const mvOrder = {
+        id: 'ord-mv-2',
+        orderNumber: 'OTL-2001',
+        type: 'STANDARD',
+        status: OrderStatus.DRIVER_ASSIGNED,
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        paymentStatus: 'PENDING',
+        upfrontAmount: 0,
+        driverId: 'driver-1',
+      };
+      mockOrdersRepo.findById.mockResolvedValue(mvOrder);
+      mockPrisma.orderVendorFulfillment.findFirst.mockResolvedValue({
+        id: 'ff-1',
+        orderId: 'ord-mv-2',
+        status: OrderVendorFulfillmentStatus.PREPARING,
+        readyAt: null,
+        pickedUpAt: null,
+        groups: [
+          {
+            deliveryGroupId: 'grp-1',
+            deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null },
+          },
+        ],
+      });
+
+      await expect(
+        stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-2', 'ff-1', {} as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockStorage.upload).not.toHaveBeenCalled();
+    });
+
+    it('2-vendor order: blocks skipping Stop 1 and blocks marking PARTIALLY_PICKED_UP order as DELIVERED or PICKED_UP while Stop 2 uncollected', async () => {
+      const mvOrder = {
+        id: 'ord-mv-2',
+        orderNumber: 'OTL-2001',
+        type: 'STANDARD',
+        status: OrderStatus.PARTIALLY_PICKED_UP,
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        paymentStatus: 'PENDING',
+        upfrontAmount: 0,
+        driverId: 'driver-1',
+        deliveryGroups: [
+          {
+            id: 'grp-1',
+            sequence: 1,
+            status: DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+            primaryDriverId: 'driver-1',
+            assistDriverId: null,
+          },
+        ],
+      };
+      mockOrdersRepo.findById.mockResolvedValue(mvOrder);
+
+      // Trying to pick up Stop 2 before Stop 1 is collected
+      mockPrisma.orderVendorFulfillment.findFirst.mockResolvedValue({
+        id: 'ff-2',
+        orderId: 'ord-mv-2',
+        status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+        readyAt: new Date(),
+        pickedUpAt: null,
+        groups: [
+          {
+            deliveryGroupId: 'grp-1',
+            deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null },
+          },
+        ],
+      });
+      mockPrisma.orderDeliveryGroupItem.findMany.mockResolvedValue([
+        {
+          fulfillmentId: 'ff-1',
+          sequence: 1,
+          fulfillment: { id: 'ff-1', status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, pickedUpAt: null },
+        },
+        {
+          fulfillmentId: 'ff-2',
+          sequence: 2,
+          fulfillment: { id: 'ff-2', status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, pickedUpAt: null },
+        },
+      ]);
+
+      await expect(
+        stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-2', 'ff-2', {} as any),
+      ).rejects.toThrow('Earlier vendor pickup stop must be completed first');
+
+      // Trying to mark order DELIVERED directly from PARTIALLY_PICKED_UP
+      await expect(
+        stateService.driverUpdateStatus(driverActor, 'ord-mv-2', {
+          status: OrderStatus.DELIVERED,
+          deliveryImageUrl: 'https://cdn.test/del.jpg',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      // Trying to mark order PICKED_UP via PATCH status while Stop 2 has not been picked up
+      mockPrisma.orderDeliveryGroupItem.findMany.mockResolvedValue([
+        {
+          fulfillmentId: 'ff-1',
+          sequence: 1,
+          fulfillment: { id: 'ff-1', status: OrderVendorFulfillmentStatus.PICKED_UP, readyAt: new Date(), pickedUpAt: new Date() },
+        },
+        {
+          fulfillmentId: 'ff-2',
+          sequence: 2,
+          fulfillment: { id: 'ff-2', status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, readyAt: new Date(), pickedUpAt: null },
+        },
+      ]);
+      await expect(
+        stateService.driverUpdateStatus(driverActor, 'ord-mv-2', {
+          status: OrderStatus.PICKED_UP,
+          pickupImageUrl: 'https://cdn.test/pick.jpg',
+        }),
+      ).rejects.toThrow('All vendor pickup stops must be collected before marking group picked up');
+    });
+
+    it('3-vendor order: sequential collection Stop 1 -> Stop 2 -> Stop 3 transitions PARTIALLY_PICKED_UP -> PICKED_UP -> DELIVERED', async () => {
+      const baseOrder = {
+        id: 'ord-mv-3',
+        orderNumber: 'OTL-3001',
+        type: 'STANDARD',
+        status: OrderStatus.READY_FOR_PICKUP,
+        customerId: 'cust-1',
+        vendorId: null,
+        driverId: 'driver-1',
+        revision: 1,
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        paymentStatus: 'PENDING',
+        upfrontAmount: 0,
+        customer: { userId: 'user-cust-1' },
+      };
+
+      const makeStop = (id: string, seq: number, pickedUp: boolean, branchName: string) => ({
+        fulfillmentId: id,
+        sequence: seq,
+        fulfillment: {
+          id,
+          status: pickedUp ? OrderVendorFulfillmentStatus.PICKED_UP : OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+          readyAt: new Date(),
+          pickedUpAt: pickedUp ? new Date() : null,
+          vendorBranch: { name: branchName, nameAr: branchName },
+        },
+      });
+
+      // Stop 1 pickup -> PARTIALLY_PICKED_UP
+      mockOrdersRepo.findById.mockResolvedValue({ ...baseOrder, revision: 2, status: OrderStatus.PARTIALLY_PICKED_UP });
+      mockPrisma.orderVendorFulfillment.findFirst.mockResolvedValue({
+        id: 'ff-1',
+        orderId: 'ord-mv-3',
+        status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+        readyAt: new Date(),
+        pickedUpAt: null,
+        groups: [{ deliveryGroupId: 'grp-1', deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null } }],
+      });
+      mockPrisma.orderDeliveryGroupItem.findMany
+        .mockResolvedValueOnce([makeStop('ff-1', 1, false, 'Branch 1'), makeStop('ff-2', 2, false, 'Branch 2'), makeStop('ff-3', 3, false, 'Branch 3')])
+        .mockResolvedValueOnce([makeStop('ff-1', 1, true, 'Branch 1'), makeStop('ff-2', 2, false, 'Branch 2'), makeStop('ff-3', 3, false, 'Branch 3')]);
+      mockPrisma.orderDeliveryGroup.findMany.mockResolvedValue([
+        { id: 'grp-1', status: DeliveryGroupStatus.PARTIALLY_PICKED_UP, primaryDriverId: 'driver-1', assistDriverId: null },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValue({ ...baseOrder, status: OrderStatus.READY_FOR_PICKUP, revision: 1 });
+      mockOrdersRepo.updateStatus.mockResolvedValue({ revision: 2 });
+
+      await stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-3', 'ff-1', {} as any);
+      expect(mockPrisma.orderDeliveryGroup.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: DeliveryGroupStatus.PARTIALLY_PICKED_UP } }),
+      );
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'order.fulfillment.updated',
+        expect.objectContaining({
+          fulfillmentId: 'ff-1',
+          fulfillmentSummary: expect.objectContaining({
+            totalStops: 3,
+            completedStops: 1,
+            currentStopSequence: 2,
+            currentStopBranchName: 'Branch 2',
+            isFullyCollected: false,
+          }),
+        }),
+      );
+
+      // Stop 3 pickup (Stops 1 & 2 already picked up) -> PICKED_UP
+      jest.clearAllMocks();
+      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1', userId: 'user-driver-1' });
+      mockOrdersRepo.findById.mockResolvedValue({ ...baseOrder, revision: 4, status: OrderStatus.PICKED_UP });
+      mockPrisma.orderVendorFulfillment.findFirst.mockResolvedValue({
+        id: 'ff-3',
+        orderId: 'ord-mv-3',
+        status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+        readyAt: new Date(),
+        pickedUpAt: null,
+        groups: [{ deliveryGroupId: 'grp-1', deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null } }],
+      });
+      mockPrisma.orderDeliveryGroupItem.findMany
+        .mockResolvedValueOnce([makeStop('ff-1', 1, true, 'Branch 1'), makeStop('ff-2', 2, true, 'Branch 2'), makeStop('ff-3', 3, false, 'Branch 3')])
+        .mockResolvedValueOnce([makeStop('ff-1', 1, true, 'Branch 1'), makeStop('ff-2', 2, true, 'Branch 2'), makeStop('ff-3', 3, true, 'Branch 3')]);
+      mockPrisma.orderDeliveryGroup.findMany.mockResolvedValue([
+        { id: 'grp-1', status: DeliveryGroupStatus.PICKED_UP, primaryDriverId: 'driver-1', assistDriverId: null },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValue({ ...baseOrder, status: OrderStatus.PARTIALLY_PICKED_UP, revision: 3 });
+      mockOrdersRepo.updateStatus.mockResolvedValue({ revision: 4 });
+
+      await stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-3', 'ff-3', {} as any);
+      expect(mockPrisma.orderDeliveryGroup.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: DeliveryGroupStatus.PICKED_UP }),
+        }),
+      );
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'order.fulfillment.updated',
+        expect.objectContaining({
+          fulfillmentId: 'ff-3',
+          fulfillmentSummary: expect.objectContaining({
+            totalStops: 3,
+            completedStops: 3,
+            isFullyCollected: true,
+          }),
+        }),
+      );
+    });
+
+    it('Super Admin updating one store with fulfillmentId ONLY updates that store portion, and rejects cross-vendor updates', async () => {
+      const mvOrder = {
+        id: 'ord-mv-2',
+        orderNumber: 'OTL-2002',
+        type: 'STANDARD',
+        status: OrderStatus.DRIVER_ASSIGNED,
+        vendorId: null,
+        vendorFulfillments: [
+          { id: 'ff-a', vendorId: 'vendor-a', vendorBranchId: 'br-a', status: OrderVendorFulfillmentStatus.ACCEPTED },
+          { id: 'ff-b', vendorId: 'vendor-b', vendorBranchId: 'br-b', status: OrderVendorFulfillmentStatus.ACCEPTED },
+        ],
+      };
+      mockOrdersRepo.findById.mockResolvedValue(mvOrder);
+      mockPrisma.user.findUnique.mockResolvedValue({ permissions: ['MANAGE_ORDERS'] });
+      mockPrisma.orderDeliveryGroupItem.findFirst.mockResolvedValue({ deliveryGroupId: 'grp-1' });
+      mockPrisma.orderDeliveryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        sequence: 1,
+        status: DeliveryGroupStatus.DRIVER_ASSIGNED,
+        estimatedPrepTime: null,
+        primaryDriver: null,
+        assistDriver: null,
+      });
+      mockPrisma.orderVendorFulfillment.findMany.mockResolvedValue([
+        { status: OrderVendorFulfillmentStatus.PREPARING, readyAt: null },
+        { status: OrderVendorFulfillmentStatus.ACCEPTED, readyAt: null },
+      ]);
+      mockPrisma.orderDeliveryGroup.findMany.mockResolvedValue([
+        { id: 'grp-1', status: DeliveryGroupStatus.DRIVER_ASSIGNED },
+      ]);
+
+      await stateService.vendorUpdateStatus(superAdminActor, 'ord-mv-2', {
+        status: OrderStatus.PREPARING,
+        estimatedPrepTime: 15,
+        fulfillmentId: 'ff-b',
+      });
+
+      expect(mockPrisma.orderVendorFulfillment.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.orderVendorFulfillment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'ff-b' }) }),
+      );
+
+      // Branch-scoped manager at Branch A cannot update Branch B of the same vendor
+      mockPrisma.vendorMember.findMany.mockResolvedValue([
+        { id: 'vm-a', vendorId: 'vendor-a', branchId: 'br-a', role: VendorMemberRole.MANAGER },
+      ]);
+      mockOrdersRepo.findById.mockResolvedValue({
+        ...mvOrder,
+        vendorFulfillments: [
+          { id: 'ff-a2', vendorId: 'vendor-a', vendorBranchId: 'br-a2', status: OrderVendorFulfillmentStatus.ACCEPTED },
+        ],
+      });
+      await expect(
+        stateService.vendorUpdateStatus(vendorOwnerA, 'ord-mv-2', {
+          status: OrderStatus.PREPARING,
+          fulfillmentId: 'ff-a2',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('2. Multi-vendor coordinate normalization & single-order creation (OrdersMultiVendorService)', () => {
+    it('coerces stringified deliveryLocation coordinates from client API DTOs into numeric coordinates', async () => {
+      const mockPrisma: any = {
+        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', coinBalance: 0 }) },
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'v1',
+            status: 'OPEN',
+            commissionRate: 15,
+            isContracted: true,
+            deletedAt: null,
+          }),
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'v1', isContracted: true, commissionRate: 15 },
+            { id: 'v2', isContracted: false, commissionRate: 10 },
+          ]),
+        },
+        vendorBranch: { findMany: jest.fn().mockResolvedValue([]) },
+      };
+      const mockRepo: any = {
+        getZoneAtLocation: jest.fn().mockResolvedValue({ id: 'zone-1' }),
+        getNearestOpenBranchLocation: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'b1', lng: 31.2, lat: 30.0, commissionRate: 15 })
+          .mockResolvedValueOnce({ id: 'b2', lng: 31.21, lat: 30.01, commissionRate: 10 }),
+      };
+      const mockCart: any = {
+        validateForCheckout: jest.fn().mockResolvedValue({
+          cart: {
+            subtotal: 200,
+            items: [
+              {
+                productId: 'p1',
+                variantId: null,
+                product: { name: 'Item' },
+                unitPrice: 100,
+                quantity: 2,
+                totalPrice: 200,
+                options: [],
+              },
+            ],
+          },
+        }),
+        assertItemsAvailableAtBranch: jest.fn().mockResolvedValue(undefined),
+      };
+      const mockGrouping: any = {
+        planForCheckout: jest.fn().mockResolvedValue({
+          isSplit: false,
+          groups: [
+            {
+              sequence: 1,
+              stops: [
+                { vendorId: 'v1', vendorBranchId: 'b1', lng: 31.2, lat: 30.0 },
+                { vendorId: 'v2', vendorBranchId: 'b2', lng: 31.21, lat: 30.01 },
+              ],
+              farthestToCustomerKm: 4.5,
+              extraVendorCount: 1,
+              splitReason: null,
+            },
+          ],
+        }),
+      };
+
+      const svc = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        {
+          getSettings: jest.fn().mockResolvedValue({
+            baseDeliveryFee: 20,
+            feePerKm: 5,
+            multiVendorExtraStopFee: 10,
+            defaultTaxRate: 0,
+            maxDeliveryRadiusKm: 50,
+            serviceFeeEnabled: false,
+          }),
+          calculateDeliveryFee: jest.fn().mockResolvedValue(20),
+        } as any,
+        {} as any,
+        mockRepo,
+        mockGrouping,
+        { emit: jest.fn() } as any,
+        {} as any,
+      );
+
+      const est = await svc.estimate(
+        { sub: 'user-cust', role: Role.CUSTOMER } as any,
+        {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: ['31.33', '30.0444'] as any,
+        },
+      );
+
+      expect(mockRepo.getZoneAtLocation).toHaveBeenCalledWith(31.33, 30.0444);
+      expect(mockGrouping.planForCheckout).toHaveBeenCalledWith(
+        expect.any(Array),
+        { lng: 31.33, lat: 30.0444 },
+      );
+      expect(est.vendorCount).toBe(2);
+      expect(est.deliveryCount).toBe(1);
+    });
+  });
+
+  describe('3. Super Admin, Vendor, and Driver projections for 3-vendor & partially rejected orders (OrdersService)', () => {
+    it('excludes rejected vendor payout from Super Admin cashToPayStore while showing all 3 vendors & items', async () => {
+      const ordersService = new OrdersService(
+        {} as any,
+        { vendorMember: { findMany: jest.fn() }, driver: { findUnique: jest.fn() } } as any,
+        { getSettings: jest.fn().mockResolvedValue({ deliveryCommissionRate: 20, driverManagerCommissionRate: 10 }) } as any,
+      );
+
+      const enriched = await (ordersService as any).enrichWithAdminHelpers({
+        id: 'mv-3',
+        orderNumber: 'OTL-3009',
+        status: OrderStatus.READY_FOR_PICKUP,
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        subtotal: 700,
+        deliveryFee: 40,
+        grandTotal: 740,
+        vendorId: null,
+        vendor: null,
+        vendorBranch: null,
+        vendorFulfillments: [
+          {
+            id: 'ff-1',
+            vendorId: 'v1',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            subtotal: 500,
+            commissionRate: 20,
+            vendor: { storeName: 'Store 1', storeNameAr: 'متجر 1', isContracted: true },
+            vendorBranch: { name: 'B1', isContracted: true },
+          },
+          {
+            id: 'ff-2',
+            vendorId: 'v2',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            subtotal: 200,
+            commissionRate: 10,
+            vendor: { storeName: 'Store 2', storeNameAr: 'متجر 2', isContracted: false },
+            vendorBranch: { name: 'B2', isContracted: false },
+          },
+          {
+            id: 'ff-3',
+            vendorId: 'v3',
+            status: OrderVendorFulfillmentStatus.REJECTED,
+            subtotal: 300,
+            commissionRate: 10,
+            vendor: { storeName: 'Store 3', storeNameAr: 'متجر 3', isContracted: false },
+            vendorBranch: { name: 'B3', isContracted: false },
+          },
+        ],
+      });
+
+      expect(enriched.financials.storePayments).toHaveLength(3);
+      expect(enriched.financials.storePayments[2].cashToPay).toBe(0);
+      // 400 (Store 1 net) + 200 (Store 2) + 0 (rejected Store 3) = 600
+      expect(enriched.financials.cashToPayStore).toBe(600);
+    });
+  });
+});

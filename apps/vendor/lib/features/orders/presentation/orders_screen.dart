@@ -1452,10 +1452,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       titleAr: 'إيصال التحويل (العميل)',
                                     ),
                                   ],
-                                  if (order['pickupImageUrl'] != null &&
-                                      order['pickupImageUrl']
-                                          .toString()
-                                          .isNotEmpty) ...[
+                                  if (_resolveOrderProofUrl(order, 'pickupImageUrl').isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     _buildProofPhotoRow(
                                       context,
@@ -1466,10 +1463,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       titleAr: 'صورة الاستلام',
                                     ),
                                   ],
-                                  if (order['deliveryImageUrl'] != null &&
-                                      order['deliveryImageUrl']
-                                          .toString()
-                                          .isNotEmpty) ...[
+                                  if (_resolveOrderProofUrl(order, 'deliveryImageUrl').isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     _buildProofPhotoRow(
                                       context,
@@ -2913,14 +2907,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           ],
                         ),
                       ] else if (fStatus == 'ACCEPTED' &&
+                          !(((order['status'] == 'PENDING_PAYMENT' ||
+                                      order['paymentMethod'] == 'MOBILE_WALLET' ||
+                                      (double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0) > 0) &&
+                                  order['paymentStatus'] != 'COMPLETED')) &&
                           (order['status'] == 'DRIVER_ASSIGNED' ||
-                              order['status'] == 'PENDING_PAYMENT' ||
                               order['status'] == 'PREPARING' ||
                               order['status'] == 'READY_FOR_PICKUP' ||
                               ((order['deliveryGroups'] as List?) ?? []).any((g) =>
                                   g is Map &&
                                   (g['status'] == 'DRIVER_ASSIGNED' ||
-                                      g['status'] == 'PENDING_PAYMENT' ||
                                       g['status'] == 'READY_FOR_PICKUP') &&
                                   ((g['items'] as List?) ?? []).any((it) =>
                                       it is Map && it['fulfillmentId'] == fId)))) ...[
@@ -2928,7 +2924,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              _showPrepTimeDialog(context, order['id']);
+                              _showPrepTimeDialog(
+                                context,
+                                order['id'],
+                                fulfillmentId: fId,
+                              );
                             },
                             icon: const Icon(LucideIcons.chefHat, size: 14),
                             label: Text(
@@ -2948,7 +2948,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              ref.read(ordersProvider.notifier).updateOrderStatus(order['id'], 'READY_FOR_PICKUP');
+                              ref.read(ordersProvider.notifier).updateOrderStatus(
+                                order['id'],
+                                'READY_FOR_PICKUP',
+                                fulfillmentId: fId,
+                              );
                             },
                             icon: const Icon(LucideIcons.packageCheck, size: 14),
                             label: Text(
@@ -3425,6 +3429,30 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
+  String _resolveOrderProofUrl(dynamic order, String field) {
+    final direct = order[field]?.toString() ?? '';
+    if (direct.isNotEmpty) return direct;
+    final myFulfillmentId = order['myFulfillmentId']?.toString();
+    if (order['vendorFulfillments'] is List) {
+      for (final f in (order['vendorFulfillments'] as List)) {
+        if (f is Map &&
+            (myFulfillmentId == null || f['id']?.toString() == myFulfillmentId)) {
+          final fUrl = f[field]?.toString() ?? '';
+          if (fUrl.isNotEmpty) return fUrl;
+        }
+      }
+    }
+    if (order['deliveryGroups'] is List) {
+      for (final grp in (order['deliveryGroups'] as List)) {
+        if (grp is Map) {
+          final gUrl = grp[field]?.toString() ?? '';
+          if (gUrl.isNotEmpty) return gUrl;
+        }
+      }
+    }
+    return '';
+  }
+
   Widget _buildProofPhotoRow(
     BuildContext context,
     dynamic order,
@@ -3433,7 +3461,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     required String title,
     required String titleAr,
   }) {
-    final rawUrl = order[field]?.toString() ?? '';
+    final rawUrl = _resolveOrderProofUrl(order, field);
     if (rawUrl.isEmpty) return const SizedBox.shrink();
     final baseUrl = ref.read(dioProvider).options.baseUrl;
     final cleanBaseUrl = baseUrl.endsWith('/')
@@ -3838,6 +3866,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     // the only remaining vendor action is production, so the Cancel button must
     // not offer a rejection the backend will refuse.
     final isMultiVendorPortion = order['myFulfillmentStatus'] != null;
+    final myFulfillmentId = order['myFulfillmentId']?.toString();
     final canCancelPortion = !isMultiVendorPortion || status == 'PENDING' || status == 'ACCEPTED' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT' || status == 'PREPARING' || status == 'READY_FOR_PICKUP';
 
     String mainButtonText = '';
@@ -3849,14 +3878,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       nextStatus = 'ACCEPTED';
       icon = LucideIcons.checkCheck;
     } else if (status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
-      // Mobile-wallet orders must be paid first: the button stays disabled
-      // until the customer pays AND the driver confirms receipt
-      // (paymentStatus == COMPLETED). Cash orders can prepare right away.
+      // Mobile-wallet and upfront-payment orders must be paid first: the button stays disabled
+      // until payment is completed (paymentStatus == COMPLETED).
       final isMobileWallet =
           (order['paymentMethod']?.toString() ?? '') == 'MOBILE_WALLET';
+      final upfrontAmount =
+          double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
       final isPaymentCompleted =
           (order['paymentStatus']?.toString() ?? '') == 'COMPLETED';
-      if (isMobileWallet && !isPaymentCompleted) {
+      if ((status == 'PENDING_PAYMENT' || isMobileWallet || upfrontAmount > 0) &&
+          !isPaymentCompleted) {
         mainButtonText = isArabic ? 'بانتظار الدفع' : 'Waiting for Payment';
         icon = LucideIcons.clock;
       } else {
@@ -3898,11 +3929,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 onPressed: nextStatus.isEmpty ? null : () {
                   if (nextStatus == 'PREPARING') {
                     // Beautiful dialog prompt for Prep Time
-                    _showPrepTimeDialog(context, order['id']);
+                    _showPrepTimeDialog(
+                      context,
+                      order['id'],
+                      fulfillmentId: myFulfillmentId,
+                    );
                   } else {
                     ref
                         .read(ordersProvider.notifier)
-                        .updateOrderStatus(order['id'], nextStatus);
+                        .updateOrderStatus(
+                          order['id'],
+                          nextStatus,
+                          fulfillmentId: myFulfillmentId,
+                        );
                   }
                 },
                 icon: Icon(icon, size: 16, color: Colors.white),
@@ -3925,7 +3964,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           Expanded(
             flex: 1,
             child: OutlinedButton.icon(
-              onPressed: () => _showCancelDialog(context, order['id'], isArabic),
+              onPressed: () => _showCancelDialog(
+                context,
+                order['id'],
+                isArabic,
+                fulfillmentId: myFulfillmentId,
+              ),
               icon: const Icon(LucideIcons.xCircle, size: 16),
               label: Text(isArabic ? 'إلغاء' : 'Cancel'),
               style: OutlinedButton.styleFrom(
@@ -3973,7 +4017,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }
   }
 
-  void _showPrepTimeDialog(BuildContext context, String orderId) {
+  void _showPrepTimeDialog(
+    BuildContext context,
+    String orderId, {
+    String? fulfillmentId,
+  }) {
     int prepTime = 20; // Default
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
@@ -4088,6 +4136,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           orderId,
                           'PREPARING',
                           estimatedPrepTime: prepTime,
+                          fulfillmentId: fulfillmentId,
                         );
                   },
                   style: ElevatedButton.styleFrom(
@@ -4106,7 +4155,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  void _showCancelDialog(BuildContext context, String orderId, bool isArabic) {
+  void _showCancelDialog(
+    BuildContext context,
+    String orderId,
+    bool isArabic, {
+    String? fulfillmentId,
+  }) {
     final reasonController = TextEditingController();
 
     showDialog(
@@ -4180,6 +4234,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     .cancelOrder(
                       orderId,
                       reason.isNotEmpty ? reason : 'Cancelled by vendor/admin',
+                      fulfillmentId: fulfillmentId,
                     );
               },
               style: ElevatedButton.styleFrom(

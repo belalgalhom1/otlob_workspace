@@ -15,6 +15,7 @@ part 'update_order_status_dto.g.dart';
 /// * [status] 
 /// * [note] 
 /// * [estimatedPrepTime] - Estimated prep time in minutes (for ACCEPTED)
+/// * [fulfillmentId] - Optional vendor fulfillment ID when updating a specific portion of a multi-vendor or multi-branch order
 /// * [pickupImageUrl] - Pickup proof photo URL (required when status is PICKED_UP)
 /// * [deliveryImageUrl] - Delivery proof photo URL (required when status is DELIVERED)
 @BuiltValue()
@@ -29,6 +30,10 @@ abstract class UpdateOrderStatusDto implements Built<UpdateOrderStatusDto, Updat
   /// Estimated prep time in minutes (for ACCEPTED)
   @BuiltValueField(wireName: r'estimatedPrepTime')
   num? get estimatedPrepTime;
+
+  /// Optional vendor fulfillment ID when updating a specific portion of a multi-vendor or multi-branch order
+  @BuiltValueField(wireName: r'fulfillmentId')
+  String? get fulfillmentId;
 
   /// Pickup proof photo URL (required when status is PICKED_UP)
   @BuiltValueField(wireName: r'pickupImageUrl')
@@ -78,6 +83,13 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
       yield serializers.serialize(
         object.estimatedPrepTime,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.fulfillmentId != null) {
+      yield r'fulfillmentId';
+      yield serializers.serialize(
+        object.fulfillmentId,
+        specifiedType: const FullType(String),
       );
     }
     if (object.pickupImageUrl != null) {
@@ -137,6 +149,13 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
             specifiedType: const FullType(num),
           ) as num;
           result.estimatedPrepTime = valueDes;
+          break;
+        case r'fulfillmentId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.fulfillmentId = valueDes;
           break;
         case r'pickupImageUrl':
           final valueDes = serializers.deserialize(

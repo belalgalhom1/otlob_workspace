@@ -720,13 +720,44 @@ export class OrdersService {
     let vendorId = vendorIdScope ?? ctx?.vendorId;
     let memberBranchId: string | null = ctx?.memberBranchId ?? null;
     if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
-      const membership = await this.prisma.vendorMember.findFirst({
-        where: {
-          userId: actor.sub,
-          ...(vendorId ? { vendorId } : {}),
-        },
-        select: { vendorId: true, branchId: true, role: true },
-      });
+      const fulfillments = Array.isArray(order.vendorFulfillments)
+        ? order.vendorFulfillments
+        : [];
+      const portionVendorIds = vendorId
+        ? [vendorId]
+        : order.vendorId
+          ? [order.vendorId]
+          : Array.from(
+              new Set(
+                fulfillments
+                  .map((f: any) => f.vendorId)
+                  .filter((id: any): id is string => Boolean(id)),
+              ),
+            );
+      const memberships =
+        portionVendorIds.length > 0
+          ? await this.prisma.vendorMember.findMany({
+              where: {
+                userId: actor.sub,
+                vendorId: { in: portionVendorIds },
+              },
+              select: { vendorId: true, branchId: true, role: true },
+            })
+          : await this.prisma.vendorMember.findMany({
+              where: { userId: actor.sub },
+              take: 1,
+              select: { vendorId: true, branchId: true, role: true },
+            });
+      const membership =
+        memberships.find((m) => {
+          const effBranch = m.role === 'OWNER' ? null : (m.branchId ?? null);
+          if (fulfillments.length === 0) return true;
+          return fulfillments.some(
+            (f: any) =>
+              f.vendorId === m.vendorId &&
+              (!effBranch || !f.vendorBranchId || f.vendorBranchId === effBranch),
+          );
+        }) ?? memberships[0] ?? null;
       if (!vendorId) {
         vendorId = order.vendorId ?? membership?.vendorId;
       }
@@ -1055,6 +1086,8 @@ export class OrdersService {
     let resolvedCashToPayStore = cashToPayStore;
 
     const storePayments = fulfillments.map((f: any) => {
+      const isCancelledOrRejected =
+        f.status === 'REJECTED' || f.status === 'CANCELLED';
       const contracted = f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
       const commRate = Number(
         f.commissionRate ??
@@ -1063,8 +1096,12 @@ export class OrdersService {
         10,
       );
       const sub = Number(f.subtotal ?? 0);
-      const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
-      const toPay = contracted ? Math.max(0, sub - comm) : sub;
+      const comm = isCancelledOrRejected
+        ? 0
+        : (contracted ? Math.round(sub * (commRate / 100)) : 0);
+      const toPay = isCancelledOrRejected
+        ? 0
+        : (contracted ? Math.max(0, sub - comm) : sub);
       return {
         fulfillmentId: f.id,
         vendorId: f.vendorId,
@@ -1100,9 +1137,14 @@ export class OrdersService {
       };
       vendorBranch = null;
 
-      if (storePayments.length > 0) {
-        resolvedCashToPayStore = storePayments.reduce((sum: number, sp: any) => sum + sp.cashToPay, 0);
-        resolvedIsStorePrepaid = storePayments.every((sp: any) => sp.isContracted);
+      const activeStorePayments = storePayments.filter(
+        (sp: any) => sp.status !== 'REJECTED' && sp.status !== 'CANCELLED',
+      );
+      if (activeStorePayments.length > 0) {
+        resolvedCashToPayStore = activeStorePayments.reduce((sum: number, sp: any) => sum + sp.cashToPay, 0);
+        resolvedIsStorePrepaid = activeStorePayments.every((sp: any) => sp.isContracted);
+      } else if (storePayments.length > 0) {
+        resolvedCashToPayStore = 0;
       }
     } else if (!vendor && fulfillments.length === 1) {
       vendor = fulfillments[0].vendor;

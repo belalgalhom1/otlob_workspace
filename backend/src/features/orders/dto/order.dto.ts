@@ -266,6 +266,11 @@ export class UpdateOrderStatusDto {
   @Type(() => Number)
   estimatedPrepTime?: number;
 
+  @ApiProperty({
+    description:
+      'Optional vendor fulfillment ID when updating a specific portion of a multi-vendor or multi-branch order',
+    required: false,
+  })
   @IsUUID()
   @IsOptional()
   fulfillmentId?: string;
