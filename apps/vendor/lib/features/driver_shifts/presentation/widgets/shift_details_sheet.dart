@@ -69,7 +69,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       ),
       child: DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.72,
+        initialChildSize: 0.80,
         minChildSize: 0.4,
         maxChildSize: 0.95,
         builder: (context, scrollController) => CustomScrollView(
@@ -126,6 +126,8 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                   children: [
                     Text(
                       l10n.shiftManagement,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -133,11 +135,13 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                     ),
                     Text(
                       DateFormat('EEEE, MMMM d, yyyy').format(pool.shiftDate),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
                         color: Theme.of(
                           context,
-                        ).colorScheme.onSurface,
+                        ).colorScheme.onSurface.withValues(alpha: 0.72),
                       ),
                     ),
                     if ((pool.localizedTitle(
@@ -151,6 +155,8 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                           pool.localizedTitle(
                             Localizations.localeOf(context).languageCode,
                           )!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -225,12 +231,16 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         children: [
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -251,40 +261,50 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
           ),
           if (widget.allPoolIds.length > 1) ...[
             const SizedBox(height: 8),
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => setState(() => _assignToAll = !_assignToAll),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.25),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => setState(() => _assignToAll = !_assignToAll),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _assignToAll
-                          ? LucideIcons.checkSquare
-                          : LucideIcons.square,
-                      size: 18,
-                      color: AppColors.primary,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(
+                      alpha: _assignToAll ? 0.12 : 0.05,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        l10n.localeName == 'ar'
-                            ? 'تعيين لكل الورديات (${widget.allPoolIds.length})'
-                            : 'Assign to all shifts (${widget.allPoolIds.length})',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(
+                        alpha: _assignToAll ? 0.45 : 0.22,
                       ),
                     ),
-                  ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _assignToAll
+                            ? LucideIcons.checkSquare
+                            : LucideIcons.square,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          l10n.localeName == 'ar'
+                              ? 'تعيين لكل الورديات (${widget.allPoolIds.length})'
+                              : 'Assign to all shifts (${widget.allPoolIds.length})',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -320,12 +340,13 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 180,
+            height: 140,
             child: driversAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Text(
                   ErrorUtils.translate(context, e),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(color: AppColors.error),
                 ),
               ),
@@ -359,11 +380,20 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
     DriverProfile driver,
     ShiftPool pool,
   ) {
-    final isAlreadyAssigned = pool.driverShifts.any(
-      (s) => s.driverId == driver.id,
-    );
+    DriverShift? assignedShift;
+    for (final s in pool.driverShifts) {
+      if (s.driverId == driver.id) {
+        assignedShift = s;
+        break;
+      }
+    }
+    final hasGroup = widget.allPoolIds.length > 1;
+    final defaultBulkRemove = hasGroup && (_removeFromAll || _assignToAll);
+    final matchedShift = assignedShift;
+
     return ListTile(
       dense: true,
+      horizontalTitleGap: 10,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       leading: CircleAvatar(
         radius: 18,
@@ -378,27 +408,97 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       ),
       title: Text(
         driver.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         driver.status,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 11,
-          color: Theme.of(context).colorScheme.onSurface,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
         ),
       ),
-      trailing: isAlreadyAssigned
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(
-                LucideIcons.check,
-                size: 14,
-                color: AppColors.success,
-              ),
+      trailing: matchedShift != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    LucideIcons.check,
+                    size: 13,
+                    color: AppColors.success,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: defaultBulkRemove
+                      ? l10n.removeFromAllShifts(widget.allPoolIds.length)
+                      : l10n.removeDriver,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: _isRemoving
+                          ? null
+                          : () => _removeDriver(
+                              matchedShift,
+                              defaultRemoveFromAll: defaultBulkRemove,
+                            ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(
+                            alpha: _isRemoving ? 0.04 : 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppColors.error.withValues(
+                              alpha: _isRemoving ? 0.15 : 0.28,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.userX,
+                              size: 13,
+                              color: _isRemoving
+                                  ? AppColors.error.withValues(alpha: 0.4)
+                                  : AppColors.error,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.remove,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _isRemoving
+                                    ? AppColors.error.withValues(alpha: 0.4)
+                                    : AppColors.error,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             )
           : TextButton(
               onPressed: () => _assignDriver(l10n, driver, pool),
@@ -427,96 +527,121 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         children: [
           Row(
             children: [
-              Text(
-                l10n.assignedDrivers,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${pool.driverShifts.length}',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              if (pool.driverShifts.isNotEmpty)
-                InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: _isRemoving ? null : () => _removeAllDrivers(l10n, pool),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withValues(
-                        alpha: _isRemoving ? 0.04 : 0.08,
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Tooltip(
-                      message: l10n.removeAllDrivers,
-                      child: Icon(
-                        LucideIcons.userX,
-                        size: 14,
-                        color: _isRemoving
-                            ? AppColors.error.withValues(alpha: 0.4)
-                            : AppColors.error,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          if (hasGroup && pool.driverShifts.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: _isRemoving
-                  ? null
-                  : () => setState(() => _removeFromAll = !_removeFromAll),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(
-                    alpha: _removeFromAll ? 0.08 : 0.04,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.error.withValues(
-                      alpha: _removeFromAll ? 0.4 : 0.22,
-                    ),
-                  ),
-                ),
+              Expanded(
                 child: Row(
                   children: [
-                    Icon(
-                      _removeFromAll
-                          ? LucideIcons.checkSquare
-                          : LucideIcons.square,
-                      size: 18,
-                      color: AppColors.error,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
+                    Flexible(
                       child: Text(
-                        l10n.removeFromAllShifts(widget.allPoolIds.length),
+                        l10n.assignedDrivers,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${pool.driverShifts.length}',
+                        style: const TextStyle(
+                          color: AppColors.primary,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
+                ),
+              ),
+              if (pool.driverShifts.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: l10n.removeAllDrivers,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: _isRemoving
+                          ? null
+                          : () => _removeAllDrivers(l10n, pool),
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(
+                            alpha: _isRemoving ? 0.04 : 0.08,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          LucideIcons.userX,
+                          size: 15,
+                          color: _isRemoving
+                              ? AppColors.error.withValues(alpha: 0.4)
+                              : AppColors.error,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (hasGroup && pool.driverShifts.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: _isRemoving
+                    ? null
+                    : () => setState(() => _removeFromAll = !_removeFromAll),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(
+                      alpha: _removeFromAll ? 0.10 : 0.04,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.error.withValues(
+                        alpha: _removeFromAll ? 0.45 : 0.22,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _removeFromAll
+                            ? LucideIcons.checkSquare
+                            : LucideIcons.square,
+                        size: 18,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          l10n.removeFromAllShifts(widget.allPoolIds.length),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -600,21 +725,35 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               children: [
                 Text(
                   driverName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
                 ),
-                Text(
-                  '${DateFormat('hh:mm a').format(shift.startTime)} – ${DateFormat('hh:mm a').format(shift.endTime)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurface,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      '${DateFormat('hh:mm a').format(shift.startTime)} – ${DateFormat('hh:mm a').format(shift.endTime)}',
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.72),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
@@ -623,6 +762,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             ),
             child: Text(
               shift.status,
+              maxLines: 1,
               style: TextStyle(
                 fontSize: 10,
                 color: statusColor,
@@ -630,46 +770,56 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          InkWell(
-            borderRadius: BorderRadius.circular(6),
-            onTap: () => _exportShiftPdf(shift),
-            child: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Tooltip(
-                message: Localizations.localeOf(context).languageCode == 'ar'
-                    ? 'تصدير تقرير الوردية (PDF)'
-                    : 'Export Shift Report (PDF)',
-                child: const Icon(LucideIcons.fileSpreadsheet, size: 13, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Tooltip(
+            message: Localizations.localeOf(context).languageCode == 'ar'
+                ? 'تصدير تقرير الوردية (PDF)'
+                : 'Export Shift Report (PDF)',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _exportShiftPdf(shift),
+                child: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    LucideIcons.fileSpreadsheet,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           Tooltip(
             message: _removeFromAll && hasGroup
                 ? l10n.removeFromAllShifts(widget.allPoolIds.length)
                 : l10n.removeDriver,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: _isRemoving ? null : () => _removeDriver(shift),
-              child: Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(
-                    alpha: _isRemoving ? 0.04 : 0.08,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: _isRemoving ? null : () => _removeDriver(shift),
+                child: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(
+                      alpha: _isRemoving ? 0.04 : 0.08,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  LucideIcons.userX,
-                  size: 12,
-                  color: _isRemoving
-                      ? AppColors.error.withValues(alpha: 0.4)
-                      : AppColors.error,
+                  child: Icon(
+                    LucideIcons.userX,
+                    size: 14,
+                    color: _isRemoving
+                        ? AppColors.error.withValues(alpha: 0.4)
+                        : AppColors.error,
+                  ),
                 ),
               ),
             ),
@@ -679,7 +829,10 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
     );
   }
 
-  Future<void> _removeDriver(DriverShift shift) async {
+  Future<void> _removeDriver(
+    DriverShift shift, {
+    bool? defaultRemoveFromAll,
+  }) async {
     if (_isRemoving) return;
     final l10n = AppLocalizations.of(context)!;
     final hasGroup = widget.allPoolIds.length > 1;
@@ -692,7 +845,8 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
     final removeFromAllChoice = await showDialog<bool?>(
       context: context,
       builder: (ctx) {
-        var removeFromAll = _removeFromAll && hasGroup;
+        var removeFromAll =
+            (defaultRemoveFromAll ?? _removeFromAll) && hasGroup;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
             shape: RoundedRectangleBorder(
@@ -752,48 +906,51 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                 ),
                 if (hasGroup) ...[
                   const SizedBox(height: 12),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () =>
-                        setDialogState(() => removeFromAll = !removeFromAll),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(
-                          alpha: removeFromAll ? 0.08 : 0.04,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () =>
+                          setDialogState(() => removeFromAll = !removeFromAll),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
                         ),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
+                        decoration: BoxDecoration(
                           color: AppColors.error.withValues(
-                            alpha: removeFromAll ? 0.4 : 0.22,
+                            alpha: removeFromAll ? 0.10 : 0.04,
                           ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            removeFromAll
-                                ? LucideIcons.checkSquare
-                                : LucideIcons.square,
-                            size: 18,
-                            color: AppColors.error,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              l10n.removeFromAllShifts(
-                                widget.allPoolIds.length,
-                              ),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.error.withValues(
+                              alpha: removeFromAll ? 0.45 : 0.22,
                             ),
                           ),
-                        ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              removeFromAll
+                                  ? LucideIcons.checkSquare
+                                  : LucideIcons.square,
+                              size: 18,
+                              color: AppColors.error,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                l10n.removeFromAllShifts(
+                                  widget.allPoolIds.length,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -806,7 +963,10 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                 child: Text(l10n.cancel),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () => Navigator.pop(ctx, removeFromAll),
                 child: Text(l10n.delete),
               ),
@@ -892,7 +1052,10 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(l10n.delete),
           ),

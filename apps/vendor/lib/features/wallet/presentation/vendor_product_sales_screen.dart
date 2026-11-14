@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'vendor_product_sales_provider.dart';
 
 class VendorProductSalesScreen extends ConsumerStatefulWidget {
@@ -26,6 +27,8 @@ class _VendorProductSalesScreenState
     'net',
     'name',
   ];
+  static final _moneyFmt = NumberFormat('#,##0.00', 'en_US');
+  static final _intFmt = NumberFormat('#,##0', 'en_US');
 
   final _searchController = TextEditingController();
 
@@ -40,6 +43,49 @@ class _VendorProductSalesScreenState
 
   bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
 
+  Color _borderColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.borderDark
+      : AppColors.borderLight;
+
+  Color _positiveTextColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+      ? AppColors.success
+      : const Color(0xFF047857);
+
+  Color _negativeTextColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+      ? AppColors.error
+      : const Color(0xFFB91C1C);
+
+  Color _amberTextColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.primary
+      : const Color(0xFF92400E);
+
+  Color _infoTextColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.info
+      : const Color(0xFF1D4ED8);
+
+  Widget _scaledFigure(
+    String text,
+    TextStyle style, {
+    AlignmentDirectional alignment = AlignmentDirectional.centerStart,
+  }) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: style.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -48,7 +94,7 @@ class _VendorProductSalesScreenState
 
   String _money(dynamic value) {
     final n = double.tryParse(value?.toString() ?? '0') ?? 0;
-    return '${n.toStringAsFixed(2)} EGP';
+    return '${n < 0 ? '-' : ''}${_moneyFmt.format(n.abs())} EGP';
   }
 
   int _int(dynamic value) {
@@ -81,15 +127,29 @@ class _VendorProductSalesScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final vendorId = widget.vendorId ?? ref.watch(activeVendorProvider);
 
     if (vendorId == null) {
       return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
-          title: Text(_isArabic ? 'المنتجات المباعة' : 'Products Sold'),
+          backgroundColor: theme.scaffoldBackgroundColor,
+          surfaceTintColor: Colors.transparent,
+          title: Text(
+            _isArabic ? 'المنتجات المباعة' : 'Products Sold',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         body: Center(
-          child: Text(_isArabic ? 'لم يتم اختيار متجر' : 'No vendor selected.'),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              _isArabic ? 'لم يتم اختيار متجر' : 'No vendor selected.',
+              textAlign: TextAlign.center,
+            ),
+          ),
         ),
       );
     }
@@ -108,17 +168,16 @@ class _VendorProductSalesScreenState
     final data = async.asData?.value;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_isArabic ? 'المنتجات المباعة' : 'Products Sold'}'
-              '${widget.vendorName != null ? ' - ${widget.vendorName}' : ''}',
-              style: const TextStyle(fontSize: 16),
-            ),
-          ],
+        backgroundColor: theme.scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          '${_isArabic ? 'المنتجات المباعة' : 'Products Sold'}'
+          '${widget.vendorName != null ? ' - ${widget.vendorName}' : ''}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         actions: [
           if (data != null && data['products'] is List)
@@ -144,38 +203,49 @@ class _VendorProductSalesScreenState
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                LucideIcons.alertTriangle,
-                color: AppColors.error,
-                size: 48,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _isArabic
-                    ? 'تعذر تحميل تقرير المبيعات'
-                    : 'Could not load the sales report',
-                style: const TextStyle(color: AppColors.error),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$err',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.alertTriangle,
+                  color: AppColors.error,
+                  size: 48,
                 ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () =>
-                    ref.invalidate(vendorProductSalesProvider(args)),
-                icon: const Icon(LucideIcons.refreshCw, size: 16),
-                label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  _isArabic
+                      ? 'تعذر تحميل تقرير المبيعات'
+                      : 'Could not load the sales report',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _negativeTextColor(theme),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  ErrorUtils.translate(context, err),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(vendorProductSalesProvider(args)),
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                  label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         data: (data) {
@@ -192,62 +262,74 @@ class _VendorProductSalesScreenState
             onRefresh: () async =>
                 ref.invalidate(vendorProductSalesProvider(args)),
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
               children: [
                 _filters(context, theme),
                 const SizedBox(height: 16),
                 _summary(theme, totals),
                 const SizedBox(height: 24),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      _isArabic ? 'المنتجات' : 'Products',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        _isArabic ? 'المنتجات' : 'Products',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       _isArabic
-                          ? '${_int(totals['productCount'])} منتج'
-                          : '${_int(totals['productCount'])} products',
+                          ? '${_intFmt.format(_int(totals['productCount']))} منتج'
+                          : '${_intFmt.format(_int(totals['productCount']))} products',
                       style: TextStyle(
                         fontSize: 13,
                         color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
+                          alpha: 0.65,
                         ),
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 if (products.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 48),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            LucideIcons.packageSearch,
-                            size: 48,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 40,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _borderColor(theme)),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          LucideIcons.packageSearch,
+                          size: 46,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.25,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _isArabic
+                              ? 'لا توجد مبيعات في هذه الفترة'
+                              : 'No sales in this period',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
                             color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.2,
+                              alpha: 0.6,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _isArabic
-                                ? 'لا توجد مبيعات في هذه الفترة'
-                                : 'No sales in this period',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   )
                 else ...[
@@ -264,6 +346,7 @@ class _VendorProductSalesScreenState
 
   Widget _pager(ThemeData theme, int currentPage, int totalPages) {
     if (totalPages <= 1) return const SizedBox.shrink();
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return Center(
       child: Padding(
@@ -274,7 +357,10 @@ class _VendorProductSalesScreenState
             IconButton.outlined(
               onPressed: currentPage > 1 ? () => setState(() => _page--) : null,
               tooltip: _isArabic ? 'السابق' : 'Previous',
-              icon: const Icon(LucideIcons.chevronLeft, size: 18),
+              icon: Icon(
+                isRtl ? LucideIcons.chevronRight : LucideIcons.chevronLeft,
+                size: 18,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -284,7 +370,8 @@ class _VendorProductSalesScreenState
                     : 'Page $currentPage of $totalPages',
                 style: TextStyle(
                   fontSize: 13,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
@@ -293,7 +380,12 @@ class _VendorProductSalesScreenState
                   ? () => setState(() => _page++)
                   : null,
               tooltip: _isArabic ? 'التالي' : 'Next',
-              icon: const AppAdaptiveChevron(size: 18),
+              icon: AppAdaptiveChevron(
+                size: 18,
+                color: currentPage < totalPages
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              ),
             ),
           ],
         ),
@@ -315,215 +407,276 @@ class _VendorProductSalesScreenState
         _sortBy != 'revenue' ||
         _sortOrder != 'desc';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+    final searchField = TextField(
+      controller: _searchController,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        labelText: _isArabic ? 'بحث عن منتج' : 'Search products',
+        prefixIcon: const Icon(LucideIcons.search, size: 18),
+        suffixIcon: _search != null
+            ? IconButton(
+                icon: const Icon(LucideIcons.x, size: 16),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _search = null;
+                    _page = 1;
+                  });
+                },
+              )
+            : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
       ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(
-            width: 240,
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                labelText: _isArabic ? 'بحث عن منتج' : 'Search products',
-                prefixIcon: const Icon(LucideIcons.search, size: 18),
-                suffixIcon: _search != null
-                    ? IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _search = null;
-                            _page = 1;
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+      onSubmitted: (value) {
+        final trimmed = value.trim();
+        setState(() {
+          _search = trimmed.isEmpty ? null : trimmed;
+          _page = 1;
+        });
+      },
+    );
+
+    final sortDropdown = InputDecorator(
+      decoration: InputDecoration(
+        labelText: _isArabic ? 'ترتيب حسب' : 'Sort by',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _sortBy,
+          isExpanded: true,
+          isDense: true,
+          items: _sortOptions
+              .map(
+                (key) => DropdownMenuItem<String>(
+                  value: key,
+                  child: Text(
+                    _sortLabel(key),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-              onSubmitted: (value) {
-                final trimmed = value.trim();
-                setState(() {
-                  _search = trimmed.isEmpty ? null : trimmed;
-                  _page = 1;
-                });
-              },
-            ),
-          ),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final range = await showDateRangePicker(
-                context: context,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-                initialDateRange: _from != null && _to != null
-                    ? DateTimeRange(start: _from!, end: _to!)
-                    : null,
-              );
-              if (range != null) {
-                setState(() {
-                  _from = range.start;
-                  _to = range.end;
-                  _page = 1;
-                });
-              }
-            },
-            icon: const Icon(LucideIcons.calendar, size: 18),
-            label: Text(dateLabel),
-          ),
-          SizedBox(
-            width: 170,
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: _isArabic ? 'ترتيب حسب' : 'Sort by',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _sortBy,
-                  isExpanded: true,
-                  isDense: true,
-                  items: _sortOptions
-                      .map(
-                        (key) => DropdownMenuItem<String>(
-                          value: key,
-                          child: Text(_sortLabel(key)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _sortBy = value;
-                      _page = 1;
-                    });
-                  },
-                ),
-              ),
-            ),
-          ),
-          IconButton.outlined(
-            tooltip: _sortOrder == 'desc'
-                ? (_isArabic ? 'تنازلي' : 'Descending')
-                : (_isArabic ? 'تصاعدي' : 'Ascending'),
-            onPressed: () => setState(() {
-              _sortOrder = _sortOrder == 'desc' ? 'asc' : 'desc';
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _sortBy = value;
               _page = 1;
-            }),
-            icon: Icon(
-              _sortOrder == 'desc'
-                  ? LucideIcons.arrowDownWideNarrow
-                  : LucideIcons.arrowUpWideNarrow,
-              size: 18,
+            });
+          },
+        ),
+      ),
+    );
+
+    final sortOrderButton = IconButton.outlined(
+      tooltip: _sortOrder == 'desc'
+          ? (_isArabic ? 'تنازلي' : 'Descending')
+          : (_isArabic ? 'تصاعدي' : 'Ascending'),
+      onPressed: () => setState(() {
+        _sortOrder = _sortOrder == 'desc' ? 'asc' : 'desc';
+        _page = 1;
+      }),
+      icon: Icon(
+        _sortOrder == 'desc'
+            ? LucideIcons.arrowDownWideNarrow
+            : LucideIcons.arrowUpWideNarrow,
+        size: 18,
+      ),
+    );
+
+    final dateButton = OutlinedButton.icon(
+      onPressed: () async {
+        final range = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(2020),
+          lastDate: DateTime.now(),
+          initialDateRange: _from != null && _to != null
+              ? DateTimeRange(start: _from!, end: _to!)
+              : null,
+        );
+        if (range != null) {
+          setState(() {
+            _from = range.start;
+            _to = range.end;
+            _page = 1;
+          });
+        }
+      },
+      icon: const Icon(LucideIcons.calendar, size: 17),
+      label: Directionality(
+        textDirection: (_from != null || _to != null)
+            ? TextDirection.ltr
+            : Directionality.of(context),
+        child: Text(dateLabel),
+      ),
+    );
+
+    final clearButton = hasFilters
+        ? TextButton.icon(
+            onPressed: () {
+              _searchController.clear();
+              setState(() {
+                _from = null;
+                _to = null;
+                _search = null;
+                _sortBy = 'revenue';
+                _sortOrder = 'desc';
+                _page = 1;
+              });
+            },
+            icon: const Icon(LucideIcons.x, size: 17),
+            label: Text(_isArabic ? 'مسح الفلاتر' : 'Clear filters'),
+            style: TextButton.styleFrom(
+              foregroundColor: _negativeTextColor(theme),
             ),
-          ),
-          if (hasFilters)
-            TextButton.icon(
-              onPressed: () {
-                _searchController.clear();
-                setState(() {
-                  _from = null;
-                  _to = null;
-                  _search = null;
-                  _sortBy = 'revenue';
-                  _sortOrder = 'desc';
-                  _page = 1;
-                });
-              },
-              icon: const Icon(LucideIcons.x, size: 18),
-              label: Text(_isArabic ? 'مسح الفلاتر' : 'Clear filters'),
-            ),
-        ],
+          )
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor(theme)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                searchField,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: sortDropdown),
+                    const SizedBox(width: 8),
+                    sortOrderButton,
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [dateButton, if (clearButton != null) clearButton],
+                ),
+              ],
+            );
+          }
+
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(width: 240, child: searchField),
+              dateButton,
+              SizedBox(width: 175, child: sortDropdown),
+              sortOrderButton,
+              if (clearButton != null) clearButton,
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _summary(ThemeData theme, Map<String, dynamic> totals) {
-    Widget card(IconData icon, String label, String value, Color color) {
+    Widget card(
+      IconData icon,
+      String label,
+      String value,
+      Color accentColor,
+      Color valueColor,
+    ) {
       return Expanded(
         child: _statCard(
           theme,
           icon: icon,
           label: label,
           value: value,
-          color: color,
+          accentColor: accentColor,
+          valueColor: valueColor,
         ),
       );
     }
 
     return Column(
       children: [
-        Row(
-          children: [
-            card(
-              LucideIcons.package,
-              _isArabic ? 'المنتجات' : 'Products',
-              '${_int(totals['productCount'])}',
-              AppColors.primary,
-            ),
-            const SizedBox(width: 12),
-            card(
-              LucideIcons.shoppingBag,
-              _isArabic ? 'الوحدات المباعة' : 'Units sold',
-              '${_int(totals['quantitySold'])}',
-              AppColors.info,
-            ),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              card(
+                LucideIcons.package,
+                _isArabic ? 'المنتجات' : 'Products',
+                _intFmt.format(_int(totals['productCount'])),
+                AppColors.primary,
+                _amberTextColor(theme),
+              ),
+              const SizedBox(width: 12),
+              card(
+                LucideIcons.shoppingBag,
+                _isArabic ? 'الوحدات المباعة' : 'Units sold',
+                _intFmt.format(_int(totals['quantitySold'])),
+                AppColors.info,
+                _infoTextColor(theme),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            card(
-              LucideIcons.shoppingCart,
-              _isArabic ? 'الطلبات' : 'Orders',
-              '${_int(totals['ordersCount'])}',
-              AppColors.warning,
-            ),
-            const SizedBox(width: 12),
-            card(
-              LucideIcons.dollarSign,
-              _isArabic ? 'إجمالي الإيرادات' : 'Gross revenue',
-              _money(totals['grossRevenue']),
-              AppColors.success,
-            ),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              card(
+                LucideIcons.shoppingCart,
+                _isArabic ? 'الطلبات' : 'Orders',
+                _intFmt.format(_int(totals['ordersCount'])),
+                AppColors.warning,
+                _amberTextColor(theme),
+              ),
+              const SizedBox(width: 12),
+              card(
+                LucideIcons.dollarSign,
+                _isArabic ? 'إجمالي الإيرادات' : 'Gross revenue',
+                _money(totals['grossRevenue']),
+                AppColors.success,
+                _positiveTextColor(theme),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            card(
-              LucideIcons.percent,
-              _isArabic ? 'العمولة' : 'Commission',
-              _money(totals['commission']),
-              AppColors.error,
-            ),
-            const SizedBox(width: 12),
-            card(
-              LucideIcons.trendingUp,
-              _isArabic ? 'صافي الربح' : 'Net profit',
-              _money(totals['netRevenue']),
-              AppColors.success,
-            ),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              card(
+                LucideIcons.percent,
+                _isArabic ? 'العمولة' : 'Commission',
+                _money(totals['commission']),
+                AppColors.error,
+                _negativeTextColor(theme),
+              ),
+              const SizedBox(width: 12),
+              card(
+                LucideIcons.trendingUp,
+                _isArabic ? 'صافي الربح' : 'Net profit',
+                _money(totals['netRevenue']),
+                AppColors.success,
+                _positiveTextColor(theme),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -534,55 +687,55 @@ class _VendorProductSalesScreenState
     required IconData icon,
     required String label,
     required String value,
-    required Color color,
+    required Color accentColor,
+    required Color valueColor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: _borderColor(theme)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 17, color: valueColor),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: color,
-              letterSpacing: -0.5,
+          SizedBox(
+            width: double.infinity,
+            child: _scaledFigure(
+              value,
+              TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -595,116 +748,156 @@ class _VendorProductSalesScreenState
     final quantity = _int(product['quantitySold']);
     final orders = _int(product['ordersCount']);
     final gross = _money(product['grossRevenue']);
-    final commission = _money(product['commission']);
+    final commissionVal =
+        double.tryParse(product['commission']?.toString() ?? '0') ?? 0;
+    final commission = '${_moneyFmt.format(commissionVal.abs())} EGP';
     final net = _money(product['netRevenue']);
+    final netVal =
+        double.tryParse(product['netRevenue']?.toString() ?? '0') ?? 0;
+    final borderColor = _borderColor(theme);
+
+    Widget metricCol(String label, String value, Color valueColor) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+            ),
+          ),
+          const SizedBox(height: 3),
+          SizedBox(
+            width: double.infinity,
+            child: _scaledFigure(
+              value,
+              TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+        border: Border.all(color: borderColor),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: image != null && image.isNotEmpty
-                ? Image.network(
-                    image,
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _imagePlaceholder(theme),
-                  )
-                : _imagePlaceholder(theme),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _isArabic
-                      ? '$quantity وحدة • $orders طلب'
-                      : '$quantity sold • $orders orders',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: image != null && image.isNotEmpty
+                    ? Image.network(
+                        image,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _imagePlaceholder(theme),
+                      )
+                    : _imagePlaceholder(theme),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _metric(
-                      _isArabic ? 'إجمالي' : 'Gross',
-                      gross,
-                      theme.colorScheme.onSurface,
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
-                    _metric(
-                      _isArabic ? 'عمولة' : 'Commission',
-                      '-$commission',
-                      AppColors.error,
+                    const SizedBox(height: 4),
+                    Text(
+                      _isArabic
+                          ? '${_intFmt.format(quantity)} وحدة • ${_intFmt.format(orders)} طلب'
+                          : '${_intFmt.format(quantity)} sold • ${_intFmt.format(orders)} orders',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.65,
+                        ),
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _isArabic ? 'صافي الربح' : 'Net profit',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                net,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.success,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
+          Divider(height: 20, color: borderColor),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final grossLabel = _isArabic ? 'الإجمالي' : 'Gross';
+              final commissionLabel = _isArabic ? 'العمولة' : 'Commission';
+              final netLabel = _isArabic ? 'صافي الربح' : 'Net profit';
+              final netColor = netVal < 0
+                  ? _negativeTextColor(theme)
+                  : _positiveTextColor(theme);
 
-  Widget _metric(String label, String value, Color color) {
-    return RichText(
-      text: TextSpan(
-        style: DefaultTextStyle.of(context).style,
-        children: [
-          TextSpan(
-            text: '$label: ',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-          ),
-          TextSpan(
-            text: value,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+              if (constraints.maxWidth < 260) {
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 10,
+                  children: [
+                    metricCol(
+                      grossLabel,
+                      gross,
+                      theme.colorScheme.onSurface,
+                    ),
+                    metricCol(
+                      commissionLabel,
+                      '-$commission',
+                      _negativeTextColor(theme),
+                    ),
+                    metricCol(netLabel, net, netColor),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: metricCol(
+                      grossLabel,
+                      gross,
+                      theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: metricCol(
+                      commissionLabel,
+                      '-$commission',
+                      _negativeTextColor(theme),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: metricCol(netLabel, net, netColor),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -715,11 +908,11 @@ class _VendorProductSalesScreenState
     return Container(
       width: 48,
       height: 48,
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
       child: Icon(
         LucideIcons.package,
         size: 22,
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
       ),
     );
   }

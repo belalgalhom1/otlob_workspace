@@ -2614,4 +2614,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String removeDriverFromGroupAction(int count) {
     return 'إزالة الكل ($count)';
   }
+
+  @override
+  String get remove => 'إزالة';
 }

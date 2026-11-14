@@ -159,26 +159,37 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                AppFilterBarButton(
-                  label: l10n.filterAction,
-                  activeCount: _activeFilterCount,
-                  onTap: _openFilterSheet,
-                ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: () => _showGenerateDialog(context),
-                  icon: const Icon(LucideIcons.plus, size: 16),
-                  label: Text(l10n.generateShifts),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  AppFilterBarButton(
+                    label: l10n.filterAction,
+                    activeCount: _activeFilterCount,
+                    onTap: _openFilterSheet,
                   ),
-                ),
-              ],
+                  FilledButton.icon(
+                    onPressed: () => _showGenerateDialog(context),
+                    icon: const Icon(LucideIcons.plus, size: 16),
+                    label: Text(l10n.generateShifts),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -515,7 +526,10 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             onPressed: () => ref.read(shiftPoolsProvider.notifier).refresh(),
             icon: const Icon(LucideIcons.refreshCw, size: 16),
             label: Text(l10n.retry),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+            ),
           ),
         ],
       ),
@@ -552,7 +566,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             label: Text(l10n.generateShifts),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
@@ -760,7 +774,18 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -808,7 +833,12 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             const SizedBox(width: 10),
             Text(
               '$assignedCount/${pool.maxDrivers}',
-              style: TextStyle(fontSize: 12, color: occupancyColor, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 12,
+                color: occupancyColor,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
             const SizedBox(width: 6),
             InkWell(
@@ -890,7 +920,10 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               try {

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -24,156 +24,166 @@ class WalletDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
     final isDriverManager = (userRole ?? '') == 'DRIVER_MANAGER';
     final isVendor = (userRole ?? '') == 'VENDOR_MEMBER';
-    final showAdminTabs = !isVendor && !isDriverManager && canManageFinance == true;
+    final showAdminTabs =
+        !isVendor && !isDriverManager && canManageFinance == true;
 
-    return DefaultTabController(
-      length: showAdminTabs ? 2 : 1,
-      child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
+    final subtitleText = isVendor
+        ? (isArabic
+              ? 'تابع رصيد متجرك والمعاملات المالية ومبيعات المنتجات والإحصائيات'
+              : 'Track your store balance, financial transactions, product sales, and statistics')
+        : isDriverManager
+        ? (isArabic
+              ? 'تابع أرباح عمولات منطقتك وسجل المعاملات المالية'
+              : 'Track your zone commission earnings and wallet transaction history')
+        : l10n.financialsSubtitle;
+
+    final header = Padding(
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 12 : 20,
+        isMobile ? 16 : 24,
+        showAdminTabs ? 12 : 8,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(isMobile ? 16 : 22),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(isMobile ? 18 : 22),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.walletAndFinancials,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: isMobile ? 22 : 28,
+                fontWeight: FontWeight.w800,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: isArabic ? null : -0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitleText,
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!showAdminTabs) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Section matching PromotionsScreen
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.05),
-                  ),
-                ),
-                child: Flex(
-                  direction: isMobile ? Axis.vertical : Axis.horizontal,
-                  crossAxisAlignment: isMobile
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      flex: isMobile ? 0 : 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.walletAndFinancials,
-                            style: TextStyle(
-                              fontSize: isMobile ? 24 : 32,
-                              fontWeight: FontWeight.w900,
-                              color: theme.colorScheme.onSurface,
-                              letterSpacing: -1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            l10n.financialsSubtitle,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            header,
+            Expanded(
+              child: isDriverManager
+                  ? const DriverManagerWalletScreen()
+                  : const VendorWalletScreen(),
             ),
-            // Tab bar
+          ],
+        ),
+      );
+    }
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            header,
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
               child: TabBar(
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
                 indicatorWeight: 3,
-                dividerColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                dividerColor: theme.colorScheme.onSurface.withValues(
+                  alpha: 0.1,
+                ),
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
-                tabs: showAdminTabs
-                    ? [
-                        Tab(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(LucideIcons.clock, size: 18),
-                              const SizedBox(width: 8),
-                              Text(l10n.pendingTopUps),
-                            ],
-                          ),
-                        ),
-                        Tab(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(LucideIcons.wallet, size: 18),
-                              const SizedBox(width: 8),
-                              Text(l10n.platformWallets),
-                            ],
-                          ),
-                        ),
-                      ]
-                    : [
-                        Tab(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(LucideIcons.wallet, size: 18),
-                              const SizedBox(width: 8),
-                              Text(isDriverManager
-                                  ? (Localizations.localeOf(context).languageCode == 'ar'
-                                      ? 'محفظة الإدارة'
-                                      : 'Manager Wallet')
-                                  : l10n.walletAndFinancials),
-                            ],
-                          ),
-                        ),
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.clock, size: 18),
+                        const SizedBox(width: 8),
+                        Text(l10n.pendingTopUps),
                       ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.wallet, size: 18),
+                        const SizedBox(width: 8),
+                        Text(l10n.platformWallets),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            // Platform statistics shortcut (admin only)
-            if (showAdminTabs && canViewStatistics == true)
+            const SizedBox(height: 12),
+            if (canViewStatistics == true)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const PlatformStatisticsScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(LucideIcons.chartNoAxesCombined,
-                          size: 18),
-                      label: Text(
-                        Localizations.localeOf(context).languageCode == 'ar'
-                            ? 'إحصائيات المنصة'
-                            : 'Platform Statistics',
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PlatformStatisticsScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(
+                          LucideIcons.chartNoAxesCombined,
+                          size: 18,
+                        ),
+                        label: Text(
+                          isArabic ? 'إحصائيات المنصة' : 'Platform Statistics',
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            // Tab content
-            Expanded(
+            const Expanded(
               child: TabBarView(
-                children: showAdminTabs
-                    ? [const PendingTopUpsScreen(), const PlatformWalletsScreen()]
-                    : [isDriverManager ? const DriverManagerWalletScreen() : const VendorWalletScreen()],
+                children: [PendingTopUpsScreen(), PlatformWalletsScreen()],
               ),
             ),
           ],

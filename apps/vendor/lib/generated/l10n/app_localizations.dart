@@ -5101,6 +5101,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove All ({count})'**
   String removeDriverFromGroupAction(int count);
+
+  /// No description provided for @remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get remove;
 }
 
 class _AppLocalizationsDelegate

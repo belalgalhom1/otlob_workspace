@@ -932,5 +932,6 @@
   "removeDriverGroupHistoricalOnly": "لا توجد ورديات قابلة للإزالة — تم الاحتفاظ بالورديات السابقة المكتملة أو الفائتة ({skipped}).",
   "removeDriverGroupNoneFound": "ليس لدى السائق ورديات لإزالتها في هذه المجموعة.",
   "removeDriverFromGroupTitle": "إزالة من مجموعة الورديات",
-  "removeDriverFromGroupAction": "إزالة الكل ({count})"
+  "removeDriverFromGroupAction": "إزالة الكل ({count})",
+  "remove": "إزالة"
 }

@@ -163,12 +163,19 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               children: [
                 Text(
                   AppLocalizations.of(context)!.driverShiftsEnabled,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                Text(widget.driver.name, style: const TextStyle(fontSize: 13)),
+                Text(
+                  widget.driver.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13),
+                ),
               ],
             ),
           ),
@@ -244,29 +251,38 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
     if (_shifts.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.calendarX,
-              size: 48,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.2),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              AppLocalizations.of(context)!.noShiftsFound,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              AppLocalizations.of(context)!.driverNoScheduledShifts,
-              style: const TextStyle(),
-            ),
-            const SizedBox(height: 24),
-            _buildBookWeekButton(context, l10n),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.calendarX,
+                size: 48,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.2),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.noShiftsFound,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppLocalizations.of(context)!.driverNoScheduledShifts,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildBookWeekButton(context, l10n),
+            ],
+          ),
         ),
       );
     }
@@ -342,7 +358,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         },
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -494,21 +510,20 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                     );
                                   }
                                 } catch (e) {
-      if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          ErrorUtils.translate(context, e),
-                                        ),
-                                        backgroundColor: AppColors.error,
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ErrorUtils.translate(context, e),
                                       ),
-                                    );
-                                  
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
                                 }
                               },
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
+                                foregroundColor: AppColors.onPrimary,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 10,
                                 ),
@@ -540,13 +555,12 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
       );
     } catch (e) {
       if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ErrorUtils.translate(context, e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ErrorUtils.translate(context, e)),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -603,6 +617,8 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           ),
           title: Text(
             title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
           subtitle: Column(
@@ -611,6 +627,8 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               if (zone.isNotEmpty)
                 Text(
                   zone,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(
@@ -792,21 +810,37 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  dateFormat.format(shift.shiftDate),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(
+                                    dateFormat.format(shift.shiftDate),
+                                    maxLines: 1,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
-                                  '${timeFormat.format(shift.startTime)} - ${timeFormat.format(shift.endTime)}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      '${timeFormat.format(shift.startTime)} - ${timeFormat.format(shift.endTime)}',
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -840,13 +874,25 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                       color: AppColors.textMuted,
                                     ),
                                     const SizedBox(width: 5),
-                                    Text(
-                                      '${shift.totalDeliveries} ${AppLocalizations.of(context)!.deliveries}',
-                                      style: const TextStyle(fontSize: 12),
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: AlignmentDirectional.centerStart,
+                                        child: Text(
+                                          '${NumberFormat('#,##0', 'en_US').format(shift.totalDeliveries)} ${AppLocalizations.of(context)!.deliveries}',
+                                          maxLines: 1,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontFeatures: [FontFeature.tabularFigures()],
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
+                            if (shift.totalDeliveries != null && shift.totalEarnings != null)
+                              const SizedBox(width: 12),
                             if (shift.totalEarnings != null)
                               Expanded(
                                 child: Row(
@@ -857,9 +903,22 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                       color: AppColors.textMuted,
                                     ),
                                     const SizedBox(width: 5),
-                                    Text(
-                                      '${shift.totalEarnings} ${AppLocalizations.of(context)!.egp}',
-                                      style: const TextStyle(fontSize: 12),
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: AlignmentDirectional.centerStart,
+                                        child: Directionality(
+                                          textDirection: TextDirection.ltr,
+                                          child: Text(
+                                            '${NumberFormat('#,##0.##', 'en_US').format(shift.totalEarnings)} ${AppLocalizations.of(context)!.egp}',
+                                            maxLines: 1,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontFeatures: [FontFeature.tabularFigures()],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -889,9 +948,13 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                isAr ? 'صورة بدء الوردية (اضغط للعرض)' : 'Shift start photo (tap to view)',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              Expanded(
+                                child: Text(
+                                  isAr ? 'صورة بدء الوردية (اضغط للعرض)' : 'Shift start photo (tap to view)',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                ),
                               ),
                             ],
                           ),
@@ -966,15 +1029,23 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   ),
                 ),
               ),
-              const Spacer(),
-              if (shift.zoneName != null)
-                Text(
-                  shift.zoneName!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: shift.zoneName != null
+                    ? Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Text(
+                          shift.zoneName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
               const SizedBox(width: 4),
               IconButton(
                 onPressed: _isBulkRemoving
@@ -1002,13 +1073,19 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(shift.shiftDate),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        DateFormat('MMM dd, yyyy').format(shift.shiftDate),
+                        maxLines: 1,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1018,9 +1095,20 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '${DateFormat('hh:mm a').format(shift.startTime)} - ${DateFormat('hh:mm a').format(shift.endTime)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          '${DateFormat('hh:mm a').format(shift.startTime)} - ${DateFormat('hh:mm a').format(shift.endTime)}',
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1044,13 +1132,25 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                           color: AppColors.textMuted,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          '${shift.totalDeliveries} ${AppLocalizations.of(context)!.deliveries}',
-                          style: const TextStyle(fontSize: 13),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              '${NumberFormat('#,##0', 'en_US').format(shift.totalDeliveries)} ${AppLocalizations.of(context)!.deliveries}',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
+                if (shift.totalDeliveries != null && shift.totalEarnings != null)
+                  const SizedBox(width: 12),
                 if (shift.totalEarnings != null)
                   Expanded(
                     child: Row(
@@ -1061,9 +1161,22 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                           color: AppColors.textMuted,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          '${shift.totalEarnings} ${AppLocalizations.of(context)!.egp}',
-                          style: const TextStyle(fontSize: 13),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                '${NumberFormat('#,##0.##', 'en_US').format(shift.totalEarnings)} ${AppLocalizations.of(context)!.egp}',
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1184,7 +1297,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               try {
@@ -1201,14 +1317,13 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   );
                 }
               } catch (e) {
-      if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ErrorUtils.translate(context, e)),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(ErrorUtils.translate(context, e)),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
               }
             },
             child: Text(l10n.delete),
@@ -1235,7 +1350,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(l10n.delete),
           ),

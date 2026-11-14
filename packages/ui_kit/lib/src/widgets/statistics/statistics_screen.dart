@@ -97,20 +97,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
+    final textColor = theme.colorScheme.onSurface;
+    final accentTextColor = isDark ? AppColors.primary : const Color(0xFF92400E);
     final config = widget.config;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
         title: Text(
           _isArabic ? config.titleAr : config.titleEn,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
         ),
         actions: [
           IconButton(
-            tooltip: 'Export',
+            tooltip: _isArabic ? 'تصدير' : 'Export',
             icon: Icon(LucideIcons.download, color: textColor),
             onPressed: () => _export(context),
           ),
@@ -142,63 +146,85 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _pickRange,
-                  icon: const Icon(LucideIcons.calendar, size: 16),
-                  label: Text(
-                    _isArabic ? 'فترة مخصصة' : 'Custom range',
-                    style: const TextStyle(fontSize: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _pickRange,
+                    icon: const Icon(LucideIcons.calendar, size: 16),
+                    label: Text(
+                      _isArabic ? 'فترة مخصصة' : 'Custom range',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                ),
-                if (_customRange != null) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
+                  if (_customRange != null)
+                    Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
+                        color: AppColors.primary.withValues(
+                          alpha: isDark ? 0.14 : 0.16,
+                        ),
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Text(
-                              '${DateFormat('yyyy-MM-dd').format(_customRange!.start)}'
-                              ' - '
-                              '${DateFormat('yyyy-MM-dd').format(_customRange!.end)}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
+                          Flexible(
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                '${DateFormat('yyyy-MM-dd').format(_customRange!.start)}'
+                                ' - '
+                                '${DateFormat('yyyy-MM-dd').format(_customRange!.end)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: accentTextColor,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          InkWell(
-                            onTap: () => setState(() {
-                              _customRange = null;
-                              _future = _startFetch();
-                            }),
-                            child: const Icon(
-                              Icons.close,
-                              size: 16,
-                              color: AppColors.primary,
+                          const SizedBox(width: 6),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => setState(() {
+                                _customRange = null;
+                                _future = _startFetch();
+                              }),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: accentTextColor,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
           const Divider(height: 1),
@@ -211,50 +237,80 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 }
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text(
-                      '${snapshot.error}',
-                      style: const TextStyle(color: AppColors.error),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.alertTriangle,
+                            color: AppColors.error,
+                            size: 44,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppColors.error),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _reload,
+                            icon: const Icon(LucideIcons.refreshCw, size: 16),
+                            label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.onPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
                 final rows = _filterRows(snapshot.data ?? const []);
                 if (rows.isEmpty) {
                   return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.chartNoAxesCombined,
-                          size: 52,
-                          color: textColor.withValues(alpha: 0.15),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _isArabic
-                              ? 'لا توجد بيانات في هذه الفترة'
-                              : 'No data for this period',
-                          style: TextStyle(
-                            color: textColor.withValues(alpha: 0.4),
-                            fontSize: 15,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            LucideIcons.chartNoAxesCombined,
+                            size: 52,
+                            color: textColor.withValues(alpha: 0.2),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Text(
+                            _isArabic
+                                ? 'لا توجد بيانات في هذه الفترة'
+                                : 'No data for this period',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: textColor.withValues(alpha: 0.55),
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
 
+                final fallbackEpoch = DateTime.fromMillisecondsSinceEpoch(0);
                 final chartRows = [...rows]..sort((a, b) =>
-                    DateTime.parse(a['startDate'].toString())
-                        .compareTo(DateTime.parse(b['startDate'].toString())));
+                    (_startDate(a) ?? fallbackEpoch)
+                        .compareTo(_startDate(b) ?? fallbackEpoch));
                 final dateFormat = DateFormat('MMM d');
                 final chartValues = [
                   for (final r in chartRows) config.amount(r)
                 ];
                 final chartLabels = [
                   for (final r in chartRows)
-                    dateFormat.format(
-                      DateTime.parse(r['startDate'].toString()).toLocal(),
-                    )
+                    _startDate(r) != null
+                        ? dateFormat.format(_startDate(r)!)
+                        : ''
                 ];
 
                 return ListView(
@@ -295,7 +351,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Future<void> _export(BuildContext context) async {
     final isArabic = _isArabic;
     final config = widget.config;
-    final rows = _filterRows(await _future);
+    final List<dynamic> rawRows;
+    try {
+      rawRows = await _future;
+    } catch (_) {
+      return;
+    }
+    final rows = _filterRows(rawRows);
     if (!context.mounted) return;
 
     final headers = [
@@ -386,17 +448,15 @@ class _TrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF252525) : Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
       ),
       child: Column(
@@ -404,10 +464,12 @@ class _TrendCard extends StatelessWidget {
         children: [
           Text(
             title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
-              color: textColor,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 14),
@@ -436,32 +498,41 @@ class _PeriodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary
-              : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.04)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.transparent,
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
             color: selected
-                ? const Color(0xFF0F172A)
-                : (isDark ? Colors.white : Colors.black87),
+                ? AppColors.primary
+                : theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary
+                  : (isDark ? AppColors.borderDark : AppColors.borderLight),
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: selected
+                    ? AppColors.onPrimary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
           ),
         ),
       ),
@@ -503,70 +574,97 @@ class _SummaryCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                isArabic ? 'إجماليات الفترة' : 'Period Totals',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.4),
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  isArabic ? 'ملخص إحصائي' : 'Executive Summary',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          for (final item in items)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Icon(item.icon, color: AppColors.primary, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isArabic ? item.labelAr : item.labelEn,
-                      style: const TextStyle(
-                        color: Color(0xFFCBD5E1),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    item.value(rows),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    isArabic ? 'إجماليات الفترة' : 'Period Totals',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.4),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    isArabic ? 'ملخص إحصائي' : 'Executive Summary',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-        ],
+            const SizedBox(height: 12),
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Icon(item.icon, color: AppColors.primary, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isArabic ? item.labelAr : item.labelEn,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFCBD5E1),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.52,
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            item.value(rows),
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -587,71 +685,100 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
+    final textColor = theme.colorScheme.onSurface;
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     final start = config.amount(row);
     final details = config.rowDetails(row);
+    final amountColor = start < 0
+        ? (isDark ? AppColors.error : const Color(0xFFB91C1C))
+        : (isDark ? AppColors.success : const Color(0xFF047857));
+    final amountText =
+        '${NumberFormat('#,##0.00', 'en_US').format(start)}'
+        '${config.tooltipSuffix.isEmpty ? '' : ' ${config.tooltipSuffix}'}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF252525) : Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.06),
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${_fmt(_parse(row['startDate']), dateFormat)}'
-                      ' - ${_fmt(_parse(row['endDate']), dateFormat)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: textColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_fmt(_parse(row['startDate']), dateFormat)}'
+                        ' - ${_fmt(_parse(row['endDate']), dateFormat)}',
+                        maxLines: 2,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: textColor,
+                        ),
+                      ),
+                      if (details.length == 1) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          details.first,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textColor.withValues(alpha: 0.72),
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.45,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        amountText,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: amountColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
-                    if (details.length == 1) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        details.first,
-                        style: TextStyle(fontSize: 12, color: textColor),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-              Text(
-                '${start.toStringAsFixed(2)} ${config.tooltipSuffix}',
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+              ],
+            ),
+            if (details.length > 1) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final detail in details) _statChip(context, detail),
+                ],
               ),
             ],
-          ),
-          if (details.length > 1) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [for (final detail in details) _statChip(detail)],
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -665,19 +792,25 @@ class _StatRow extends StatelessWidget {
     return dt != null ? format.format(dt) : '';
   }
 
-  Widget _statChip(String text) {
+  Widget _statChip(BuildContext context, String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chipTextColor = isDark ? AppColors.primary : const Color(0xFF92400E);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: AppColors.primary.withValues(alpha: isDark ? 0.14 : 0.16),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.35),
+        ),
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
-          color: AppColors.primary,
+          color: chipTextColor,
           fontWeight: FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );

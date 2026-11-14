@@ -26,7 +26,49 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     'ADJUSTMENT',
   ];
 
+  static final _moneyFmt = NumberFormat('#,##0.00', 'en_US');
+  static final _intFmt = NumberFormat('#,##0', 'en_US');
+
   bool get _isArabic => Localizations.localeOf(context).languageCode == 'ar';
+
+  Color _borderColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.borderDark
+      : AppColors.borderLight;
+
+  Color _positiveTextColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+      ? AppColors.success
+      : const Color(0xFF047857);
+
+  Color _negativeTextColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+      ? AppColors.error
+      : const Color(0xFFB91C1C);
+
+  Color _amberTextColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.primary
+      : const Color(0xFF92400E);
+
+  Widget _scaledMoneyText(
+    String text,
+    TextStyle style, {
+    AlignmentDirectional alignment = AlignmentDirectional.centerStart,
+  }) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: style.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
+  }
 
   String _typeLabel(String type) {
     switch (type) {
@@ -53,41 +95,53 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     final state = ref.watch(vendorWalletDataProvider);
     final notifier = ref.read(vendorWalletDataProvider.notifier);
     final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final borderColor = _borderColor(theme);
 
     return state.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              LucideIcons.alertTriangle,
-              size: 48,
-              color: AppColors.error,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              ErrorUtils.translate(context, err),
-              style: const TextStyle(color: AppColors.error),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => ref.invalidate(vendorWalletDataProvider),
-              icon: const Icon(LucideIcons.refreshCw, size: 16),
-              label: Text(l10n.retry),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                LucideIcons.alertTriangle,
+                size: 48,
+                color: AppColors.error,
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                ErrorUtils.translate(context, err),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _negativeTextColor(theme)),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => ref.invalidate(vendorWalletDataProvider),
+                icon: const Icon(LucideIcons.refreshCw, size: 16),
+                label: Text(l10n.retry),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       data: (data) {
         if (data.isEmpty) {
           return Center(
-            child: Text(
-              _isArabic ? 'لم يتم اختيار متجر' : 'No vendor selected or found.',
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                _isArabic
+                    ? 'لم يتم اختيار متجر'
+                    : 'No vendor selected or found.',
+                textAlign: TextAlign.center,
+              ),
             ),
           );
         }
@@ -108,97 +162,143 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         return RefreshIndicator(
           onRefresh: notifier.refresh,
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.fromLTRB(
+              isMobile ? 16 : 24,
+              isMobile ? 8 : 12,
+              isMobile ? 16 : 24,
+              24,
+            ),
             children: [
-              _buildBalanceCard(context, balance, theme),
+              _buildBalanceCard(context, balance, theme, isMobile),
               const SizedBox(height: 16),
               _buildFilterBar(context, notifier, theme, branches),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               _buildSummary(context, data, theme),
               const SizedBox(height: 24),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  Text(
-                    _isArabic ? 'المعاملات' : 'Transactions',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 10,
+                  children: [
+                    Text(
+                      _isArabic ? 'المعاملات' : 'Transactions',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      if (transactions.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: () => _exportTransactions(
-                            context,
-                            balance,
-                            transactions,
-                          ),
-                          icon: const Icon(Icons.download, size: 18),
-                          label: Text(_isArabic ? 'تصدير' : 'Export'),
-                        ),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const VendorProductSalesScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(LucideIcons.package, size: 18),
-                        label: Text(
-                          _isArabic ? 'المنتجات المباعة' : 'Products sold',
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const VendorFinanceStatisticsScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(
-                          LucideIcons.chartNoAxesCombined,
-                          size: 18,
-                        ),
-                        label: Text(_isArabic ? 'الإحصائيات' : 'Statistics'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (transactions.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Icon(
-                          LucideIcons.receipt,
-                          size: 48,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.2,
+                        if (transactions.isNotEmpty)
+                          OutlinedButton.icon(
+                            onPressed: () => _exportTransactions(
+                              context,
+                              balance,
+                              transactions,
+                            ),
+                            icon: const Icon(Icons.download, size: 16),
+                            label: Text(_isArabic ? 'تصدير' : 'Export'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.onSurface,
+                              side: BorderSide(color: borderColor),
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const VendorProductSalesScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(LucideIcons.package, size: 16),
+                          label: Text(
+                            _isArabic ? 'المنتجات المباعة' : 'Products sold',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(color: borderColor),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _isArabic ? 'لا توجد معاملات' : 'No transactions yet',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const VendorFinanceStatisticsScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            LucideIcons.chartNoAxesCombined,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _isArabic ? 'الإحصائيات' : 'Statistics',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(color: borderColor),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
                           ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (transactions.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 36,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        LucideIcons.receipt,
+                        size: 44,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.25,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _isArabic ? 'لا توجد معاملات' : 'No transactions yet',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               else ...[
@@ -246,122 +346,164 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               ' - '
               '${to != null ? DateFormat('yyyy-MM-dd').format(to) : '...'}';
 
+    final typeDropdown = InputDecorator(
+      decoration: InputDecoration(
+        labelText: _isArabic ? 'نوع المعاملة' : 'Transaction type',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedType,
+          isExpanded: true,
+          isDense: true,
+          items: [
+            DropdownMenuItem<String>(
+              value: null,
+              child: Text(
+                _isArabic ? 'كل الأنواع' : 'All types',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            ..._transactionTypes.map(
+              (type) => DropdownMenuItem<String>(
+                value: type,
+                child: Text(
+                  _typeLabel(type),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
+          onChanged: notifier.setType,
+        ),
+      ),
+    );
+
+    final branchDropdown = InputDecorator(
+      decoration: InputDecoration(
+        labelText: _isArabic ? 'الفرع' : 'Branch',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value:
+              branches.any(
+                (b) => b is Map && b['id']?.toString() == selectedBranchId,
+              )
+              ? selectedBranchId
+              : null,
+          isExpanded: true,
+          isDense: true,
+          items: [
+            DropdownMenuItem<String>(
+              value: null,
+              child: Text(
+                _isArabic ? 'كل الفروع' : 'All branches',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            ...branches.whereType<Map>().map((b) {
+              final id = b['id']?.toString() ?? '';
+              final name = _isArabic
+                  ? (b['nameAr'] ?? b['name'] ?? id).toString()
+                  : (b['name'] ?? b['nameAr'] ?? id).toString();
+              return DropdownMenuItem<String>(
+                value: id,
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+          ],
+          onChanged: notifier.setBranch,
+        ),
+      ),
+    );
+
+    final dateButton = OutlinedButton.icon(
+      onPressed: () async {
+        final now = DateTime.now();
+        final range = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(2020),
+          lastDate: now,
+          initialDateRange: from != null && to != null
+              ? DateTimeRange(start: from, end: to)
+              : null,
+        );
+        if (range != null) {
+          await notifier.setDateRange(range.start, range.end);
+        }
+      },
+      icon: const Icon(LucideIcons.calendar, size: 17),
+      label: Directionality(
+        textDirection: (from != null || to != null)
+            ? TextDirection.ltr
+            : Directionality.of(context),
+        child: Text(dateLabel),
+      ),
+    );
+
+    final clearButton = hasFilters
+        ? TextButton.icon(
+            onPressed: notifier.clearFilters,
+            icon: const Icon(LucideIcons.x, size: 17),
+            label: Text(_isArabic ? 'مسح الفلاتر' : 'Clear filters'),
+            style: TextButton.styleFrom(
+              foregroundColor: _negativeTextColor(theme),
+            ),
+          )
+        : null;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+        border: Border.all(color: _borderColor(theme)),
       ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(
-            width: 200,
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: _isArabic ? 'نوع المعاملة' : 'Transaction type',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 520) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                typeDropdown,
+                if (branches.length > 1) ...[
+                  const SizedBox(height: 12),
+                  branchDropdown,
+                ],
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [dateButton, if (clearButton != null) clearButton],
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selectedType,
-                  isExpanded: true,
-                  isDense: true,
-                  items: [
-                    DropdownMenuItem<String>(
-                      value: null,
-                      child: Text(_isArabic ? 'كل الأنواع' : 'All types'),
-                    ),
-                    ..._transactionTypes.map(
-                      (type) => DropdownMenuItem<String>(
-                        value: type,
-                        child: Text(_typeLabel(type)),
-                      ),
-                    ),
-                  ],
-                  onChanged: notifier.setType,
-                ),
-              ),
-            ),
-          ),
-          if (branches.length > 1)
-            SizedBox(
-              width: 200,
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: _isArabic ? 'الفرع' : 'Branch',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: branches.any(
-                      (b) => b is Map && b['id']?.toString() == selectedBranchId,
-                    )
-                        ? selectedBranchId
-                        : null,
-                    isExpanded: true,
-                    isDense: true,
-                    items: [
-                      DropdownMenuItem<String>(
-                        value: null,
-                        child: Text(_isArabic ? 'كل الفروع' : 'All branches'),
-                      ),
-                      ...branches.whereType<Map>().map((b) {
-                        final id = b['id']?.toString() ?? '';
-                        final name = _isArabic
-                            ? (b['nameAr'] ?? b['name'] ?? id).toString()
-                            : (b['name'] ?? b['nameAr'] ?? id).toString();
-                        return DropdownMenuItem<String>(
-                          value: id,
-                          child: Text(name, overflow: TextOverflow.ellipsis),
-                        );
-                      }),
-                    ],
-                    onChanged: notifier.setBranch,
-                  ),
-                ),
-              ),
-            ),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final now = DateTime.now();
-              final range = await showDateRangePicker(
-                context: context,
-                firstDate: DateTime(2020),
-                lastDate: now,
-                initialDateRange: from != null && to != null
-                    ? DateTimeRange(start: from, end: to)
-                    : null,
-              );
-              if (range != null) {
-                await notifier.setDateRange(range.start, range.end);
-              }
-            },
-            icon: const Icon(LucideIcons.calendar, size: 18),
-            label: Text(dateLabel),
-          ),
-          if (hasFilters)
-            TextButton.icon(
-              onPressed: notifier.clearFilters,
-              icon: const Icon(LucideIcons.x, size: 18),
-              label: Text(_isArabic ? 'مسح الفلاتر' : 'Clear filters'),
-            ),
-        ],
+              ],
+            );
+          }
+
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(width: 210, child: typeDropdown),
+              if (branches.length > 1)
+                SizedBox(width: 210, child: branchDropdown),
+              dateButton,
+              if (clearButton != null) clearButton,
+            ],
+          );
+        },
       ),
     );
   }
@@ -381,7 +523,11 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     final debits =
         double.tryParse(summary['totalDebits']?.toString() ?? '0') ?? 0;
     final net = double.tryParse(summary['netChange']?.toString() ?? '0') ?? 0;
-    final count = summary['transactionCount'] ?? 0;
+    final count =
+        int.tryParse(
+          (summary['transactionCount'] ?? 0).toString().split('.').first,
+        ) ??
+        0;
 
     final byType = summary['byType'];
     final hasByType = byType is List && byType.isNotEmpty;
@@ -389,48 +535,57 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                theme,
-                label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
-                value: '+${credits.toStringAsFixed(2)} EGP',
-                color: AppColors.success,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _summaryCard(
+                  theme,
+                  label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
+                  value: '+${_moneyFmt.format(credits)} EGP',
+                  color: _positiveTextColor(theme),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _summaryCard(
-                theme,
-                label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
-                value: '-${debits.toStringAsFixed(2)} EGP',
-                color: AppColors.error,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _summaryCard(
+                  theme,
+                  label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
+                  value: '-${_moneyFmt.format(debits.abs())} EGP',
+                  color: _negativeTextColor(theme),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                theme,
-                label: _isArabic ? 'صافي التغير' : 'Net change',
-                value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} EGP',
-                color: net >= 0 ? AppColors.success : AppColors.error,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _summaryCard(
+                  theme,
+                  label: _isArabic ? 'صافي التغير' : 'Net change',
+                  value:
+                      '${net > 0 ? '+' : net < 0 ? '-' : ''}${_moneyFmt.format(net.abs())} EGP',
+                  color: net >= 0
+                      ? _positiveTextColor(theme)
+                      : _negativeTextColor(theme),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _summaryCard(
-                theme,
-                label: _isArabic ? 'عدد المعاملات' : 'Transactions',
-                value: '$count',
-                color: AppColors.primary,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _summaryCard(
+                  theme,
+                  label: _isArabic ? 'عدد المعاملات' : 'Transactions',
+                  value: _intFmt.format(count),
+                  color: _amberTextColor(theme),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (hasByType) ...[
           const SizedBox(height: 16),
@@ -439,7 +594,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
             ),
           ),
           const SizedBox(height: 8),
@@ -449,16 +604,27 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
             children: [
               for (final entry in byType)
                 if (entry is Map) ...[
-                  _typeChip(
-                    context,
-                    theme,
-                    '${_typeLabel(entry['type']?.toString() ?? '')}: '
-                    '${(double.tryParse(entry['total']?.toString() ?? '0') ?? 0).toStringAsFixed(2)} EGP',
-                    (double.tryParse(entry['total']?.toString() ?? '0') ?? 0)
-                            .isNegative
+                  () {
+                    final total =
+                        double.tryParse(entry['total']?.toString() ?? '0') ?? 0;
+                    final sign = total > 0
+                        ? '+'
+                        : total < 0
+                        ? '-'
+                        : '';
+                    final baseColor = total.isNegative
                         ? AppColors.error
-                        : AppColors.success,
-                  ),
+                        : AppColors.success;
+                    final textColor = total.isNegative
+                        ? _negativeTextColor(theme)
+                        : _positiveTextColor(theme);
+                    return _typeChip(
+                      _typeLabel(entry['type']?.toString() ?? ''),
+                      '$sign${_moneyFmt.format(total.abs())} EGP',
+                      baseColor,
+                      textColor,
+                    );
+                  }(),
                 ],
             ],
           ),
@@ -474,42 +640,37 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: _borderColor(theme)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
             ),
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
+          SizedBox(
+            width: double.infinity,
+            child: _scaledMoneyText(
+              value,
+              TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -517,25 +678,48 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
   }
 
   Widget _typeChip(
-    BuildContext context,
-    ThemeData theme,
     String label,
-    Color color,
+    String amountText,
+    Color baseColor,
+    Color textColor,
   ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: baseColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: baseColor.withValues(alpha: 0.28)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              '$label:',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              amountText,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -557,16 +741,17 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     final rows = [
       for (final tx in transactions)
         [
-          tx['createdAt'] != null
-              ? dateFormat.format(
-                  DateTime.parse(tx['createdAt'].toString()).toLocal(),
-                )
-              : '',
+          () {
+            final dt = DateTime.tryParse(
+              tx['createdAt']?.toString() ?? '',
+            )?.toLocal();
+            return dt != null ? dateFormat.format(dt) : '';
+          }(),
           _typeLabel(tx['type']?.toString() ?? ''),
           tx['description']?.toString() ?? '',
-          '${(double.tryParse(tx['amount']?.toString() ?? '0') ?? 0).toStringAsFixed(2)} EGP',
+          '${_moneyFmt.format(double.tryParse(tx['amount']?.toString() ?? '0') ?? 0)} EGP',
           tx['balanceAfter'] != null
-              ? '${(double.tryParse(tx['balanceAfter'].toString()) ?? 0).toStringAsFixed(2)} EGP'
+              ? '${_moneyFmt.format(double.tryParse(tx['balanceAfter'].toString()) ?? 0)} EGP'
               : '',
         ],
     ];
@@ -575,8 +760,8 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
       context,
       title: isArabic ? 'كشف حساب المعاملات المالية' : 'Financial Transactions',
       subtitle: isArabic
-          ? 'الرصيد المتاح: ${balance.toStringAsFixed(2)} EGP'
-          : 'Available balance: ${balance.toStringAsFixed(2)} EGP',
+          ? 'الرصيد المتاح: ${_moneyFmt.format(balance)} EGP'
+          : 'Available balance: ${_moneyFmt.format(balance)} EGP',
       headers: headers,
       rows: rows,
       filename: 'financial_transactions',
@@ -587,24 +772,19 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     BuildContext context,
     double balance,
     ThemeData theme,
+    bool isMobile,
   ) {
+    final isNegative = balance < 0;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary,
-            AppColors.primary.withValues(alpha: 0.85),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -616,13 +796,13 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: AppColors.onPrimary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   LucideIcons.wallet,
-                  color: Colors.white,
-                  size: 26,
+                  color: AppColors.onPrimary,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 14),
@@ -632,59 +812,86 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                   children: [
                     Text(
                       _isArabic ? 'الرصيد المتاح' : 'Available Balance',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.onPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: _isArabic ? null : 0.2,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      balance >= 0
-                          ? (_isArabic
-                                ? 'رصيدك متاح للسحب'
-                                : 'Available for withdrawal')
-                          : (_isArabic ? 'رصيد سلبي' : 'Negative balance'),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    if (isNegative)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _isArabic ? 'رصيد سلبي' : 'Negative balance',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        _isArabic
+                            ? 'رصيدك متاح للسحب'
+                            : 'Available for withdrawal',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.onPrimary.withValues(alpha: 0.78),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 26),
+          SizedBox(height: isMobile ? 20 : 24),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                '${balance.toStringAsFixed(2)} EGP',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -1.5,
+              Flexible(
+                child: _scaledMoneyText(
+                  '${isNegative ? '-' : ''}${_moneyFmt.format(balance.abs())}',
+                  TextStyle(
+                    color: AppColors.onPrimary,
+                    fontSize: isMobile ? 32 : 38,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: AppColors.onPrimary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.onPrimary.withValues(alpha: 0.18),
+                  ),
                 ),
-                child: Text(
-                  balance >= 0 ? 'EGP' : 'EGP',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                child: const Text(
+                  'EGP',
+                  style: TextStyle(
+                    color: AppColors.onPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -702,13 +909,22 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
   ) {
     final type = tx['type'] ?? 'UNKNOWN';
     final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
-    final date = tx['createdAt'] != null
-        ? DateTime.parse(tx['createdAt'].toString()).toLocal()
-        : DateTime.now();
+    final hasBalanceAfter = tx['balanceAfter'] != null;
+    final balanceAfter = hasBalanceAfter
+        ? (double.tryParse(tx['balanceAfter'].toString()) ?? 0.0)
+        : 0.0;
+    final date =
+        DateTime.tryParse(tx['createdAt']?.toString() ?? '')?.toLocal() ??
+        DateTime.now();
     final description = tx['description'] as String? ?? '';
+    final orderObj = tx['order'] is Map ? tx['order'] as Map : null;
+    final orderNumber = orderObj?['orderNumber']?.toString() ?? '';
 
     final isCredit = amount >= 0;
-    final color = isCredit ? AppColors.success : AppColors.error;
+    final iconBgColor = isCredit ? AppColors.success : AppColors.error;
+    final amountTextColor = isCredit
+        ? _positiveTextColor(theme)
+        : _negativeTextColor(theme);
     final icon = isCredit
         ? LucideIcons.arrowDownLeft
         : LucideIcons.arrowUpRight;
@@ -716,66 +932,129 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+        border: Border.all(color: _borderColor(theme)),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconBgColor.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: amountTextColor, size: 18),
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _typeLabel(type.toString()),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _typeLabel(type.toString()),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (orderNumber.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '#$orderNumber',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: _amberTextColor(theme),
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ),
-                if (description.isNotEmpty) ...[
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.65,
+                        ),
+                        fontSize: 12.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Text(
-                    description,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      fontSize: 13,
-                    ),
+                    DateFormat('MMM dd, yyyy - hh:mm a').format(date),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.55,
+                      ),
+                      fontSize: 11.5,
+                    ),
                   ),
                 ],
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('MMM dd, yyyy - hh:mm a').format(date),
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                    fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.42),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _scaledMoneyText(
+                    '$sign${_moneyFmt.format(amount.abs())} EGP',
+                    TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: amountTextColor,
+                      fontSize: 15,
+                    ),
+                    alignment: AlignmentDirectional.centerEnd,
                   ),
-                ),
-              ],
+                  if (hasBalanceAfter) ...[
+                    const SizedBox(height: 3),
+                    _scaledMoneyText(
+                      '${_isArabic ? 'الرصيد: ' : 'Bal: '}${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
+                      TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
+                        ),
+                      ),
+                      alignment: AlignmentDirectional.centerEnd,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          Text(
-            '$sign${amount.abs().toStringAsFixed(2)} EGP',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontSize: 16,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

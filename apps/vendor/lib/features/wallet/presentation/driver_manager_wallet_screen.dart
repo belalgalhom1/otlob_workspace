@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:data/providers.dart';
 import 'package:intl/intl.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class DriverManagerWalletScreen extends ConsumerStatefulWidget {
   const DriverManagerWalletScreen({super.key});
@@ -15,8 +16,11 @@ class DriverManagerWalletScreen extends ConsumerStatefulWidget {
 
 class _DriverManagerWalletScreenState
     extends ConsumerState<DriverManagerWalletScreen> {
+  static final _moneyFmt = NumberFormat('#,##0.00', 'en_US');
+  static final _intFmt = NumberFormat('#,##0', 'en_US');
+
   bool _isLoading = true;
-  String? _error;
+  Object? _error;
   double _walletBalance = 0.0;
   List<dynamic> _transactions = [];
   int _page = 1;
@@ -37,23 +41,28 @@ class _DriverManagerWalletScreenState
     try {
       final repo = ref.read(adminDriversRepositoryProvider);
       final res = await repo.getDriverManagerTransactions(page: page);
-      if (res is Map && mounted) {
+      if (!mounted) return;
+      if (res is Map) {
         final bal = res['walletBalance'];
-        final balNum = bal is num ? bal.toDouble() : double.tryParse(bal?.toString() ?? '0') ?? 0.0;
+        final balNum = bal is num
+            ? bal.toDouble()
+            : double.tryParse(bal?.toString() ?? '0') ?? 0.0;
         final list = res['data'] is List ? (res['data'] as List) : [];
         final meta = res['meta'] is Map ? (res['meta'] as Map) : {};
         setState(() {
           _walletBalance = balNum;
           _transactions = list;
-          _page = meta['page'] is int ? meta['page'] as int : 1;
-          _totalPages = meta['totalPages'] is int ? meta['totalPages'] as int : 1;
+          _page = (meta['page'] as num?)?.toInt() ?? 1;
+          _totalPages = (meta['totalPages'] as num?)?.toInt() ?? 1;
           _isLoading = false;
         });
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = e;
           _isLoading = false;
         });
       }
@@ -62,14 +71,50 @@ class _DriverManagerWalletScreenState
 
   bool get _isAr => Localizations.localeOf(context).languageCode == 'ar';
 
+  Color _borderColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.borderDark
+      : AppColors.borderLight;
+
+  Color _positiveTextColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+      ? AppColors.success
+      : const Color(0xFF047857);
+
+  Color _negativeTextColor(ThemeData theme) =>
+      theme.brightness == Brightness.dark
+      ? AppColors.error
+      : const Color(0xFFB91C1C);
+
+  Color _amberTextColor(ThemeData theme) => theme.brightness == Brightness.dark
+      ? AppColors.primary
+      : const Color(0xFF92400E);
+
+  Widget _scaledMoneyText(
+    String text,
+    TextStyle style, {
+    AlignmentDirectional alignment = AlignmentDirectional.centerStart,
+  }) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: style.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatDate(dynamic dateStr) {
     if (dateStr == null) return '';
-    try {
-      final dt = DateTime.parse(dateStr.toString()).toLocal();
-      return DateFormat('yyyy-MM-dd HH:mm').format(dt);
-    } catch (_) {
-      return dateStr.toString();
-    }
+    final dt = DateTime.tryParse(dateStr.toString())?.toLocal();
+    if (dt == null) return dateStr.toString();
+    return DateFormat('yyyy-MM-dd HH:mm').format(dt);
   }
 
   String _typeLabel(String type) {
@@ -89,6 +134,9 @@ class _DriverManagerWalletScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final borderColor = _borderColor(theme);
 
     if (_isLoading && _transactions.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -101,19 +149,40 @@ class _DriverManagerWalletScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.circleAlert, color: Colors.red, size: 48),
+              const Icon(
+                LucideIcons.circleAlert,
+                color: AppColors.error,
+                size: 48,
+              ),
               const SizedBox(height: 16),
               Text(
-                _isAr ? 'فشل تحميل بيانات المحفظة' : 'Failed to load wallet data',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                _isAr
+                    ? 'فشل تحميل بيانات المحفظة'
+                    : 'Failed to load wallet data',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
+              Text(
+                ErrorUtils.translate(context, _error),
+                style: TextStyle(
+                  color: _negativeTextColor(theme),
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => _loadData(),
                 icon: const Icon(LucideIcons.refreshCw, size: 16),
                 label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                ),
               ),
             ],
           ),
@@ -121,14 +190,21 @@ class _DriverManagerWalletScreenState
       );
     }
 
+    final isNegativeBalance = _walletBalance < 0;
+
     return RefreshIndicator(
       onRefresh: () => _loadData(page: 1),
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 16 : 24,
+          isMobile ? 8 : 12,
+          isMobile ? 16 : 24,
+          24,
+        ),
         children: [
           // Balance Card
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isMobile ? 20 : 24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isDark
@@ -137,10 +213,10 @@ class _DriverManagerWalletScreenState
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.teal.withValues(alpha: 0.25),
+                  color: Colors.teal.withValues(alpha: 0.22),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -150,45 +226,91 @@ class _DriverManagerWalletScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(LucideIcons.wallet, color: Colors.white70, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isAr ? 'محفظة مسؤول السائقين' : 'Driver Manager Wallet',
-                          style: const TextStyle(
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.wallet,
                             color: Colors.white70,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                            size: 20,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _isAr
+                                  ? 'محفظة مسؤول السائقين'
+                                  : 'Driver Manager Wallet',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(LucideIcons.refreshCw, color: Colors.white, size: 18),
+                      icon: const Icon(
+                        LucideIcons.refreshCw,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                       tooltip: _isAr ? 'تحديث' : 'Refresh',
                       onPressed: () => _loadData(page: _page),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  '${_walletBalance.toStringAsFixed(2)} ${_isAr ? "ج.م" : "EGP"}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 34,
-                    letterSpacing: -0.5,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: _scaledMoneyText(
+                        '${isNegativeBalance ? '-' : ''}${_moneyFmt.format(_walletBalance.abs())}',
+                        TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: isMobile ? 32 : 38,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: const Text(
+                        'EGP',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   _isAr
                       ? 'يتم إضافة نسبة عمولة الإدارة تلقائياً عن كل طلب مكتمل في منطقتك'
                       : 'Manager commissions from completed zone orders are credited automatically',
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -198,15 +320,28 @@ class _DriverManagerWalletScreenState
 
           // Ledger Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _isAr ? 'سجل المعاملات' : 'Transaction History',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              Expanded(
+                child: Text(
+                  _isAr ? 'سجل المعاملات' : 'Transaction History',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
-                '${_transactions.length} ${_isAr ? "معاملة" : "transactions"}',
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                _isAr
+                    ? '${_intFmt.format(_transactions.length)} معاملة'
+                    : '${_intFmt.format(_transactions.length)} transactions',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                  fontSize: 13,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ],
           ),
@@ -215,15 +350,27 @@ class _DriverManagerWalletScreenState
 
           if (_transactions.isEmpty)
             Container(
-              padding: const EdgeInsets.all(40),
-              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderColor),
+              ),
               child: Column(
                 children: [
-                  Icon(LucideIcons.receiptText, size: 48, color: Colors.grey.shade400),
+                  Icon(
+                    LucideIcons.receiptText,
+                    size: 44,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     _isAr ? 'لا توجد معاملات بعد' : 'No transactions yet',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -231,107 +378,201 @@ class _DriverManagerWalletScreenState
           else
             ..._transactions.map((tx) {
               if (tx is! Map) return const SizedBox.shrink();
-              final amountNum = (tx['amount'] is num) ? (tx['amount'] as num).toDouble() : 0.0;
+              final amountNum = (tx['amount'] is num)
+                  ? (tx['amount'] as num).toDouble()
+                  : double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
               final isCredit = amountNum >= 0;
-              final balanceAfter = (tx['balanceAfter'] is num) ? (tx['balanceAfter'] as num).toDouble() : 0.0;
+              final hasBalanceAfter = tx['balanceAfter'] != null;
+              final balanceAfter = (tx['balanceAfter'] is num)
+                  ? (tx['balanceAfter'] as num).toDouble()
+                  : double.tryParse(tx['balanceAfter']?.toString() ?? '0') ??
+                        0.0;
               final type = tx['type']?.toString() ?? 'TRANSACTION';
               final desc = tx['description']?.toString() ?? '';
               final orderId = tx['orderId']?.toString();
               final createdAt = tx['createdAt'];
+              final iconBgColor = isCredit ? AppColors.success : AppColors.error;
+              final amountColor = isCredit
+                  ? _positiveTextColor(theme)
+                  : _negativeTextColor(theme);
 
               return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+                  border: Border.all(color: borderColor),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: (isCredit ? Colors.green : Colors.red).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: iconBgColor.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isCredit
+                              ? LucideIcons.arrowDownLeft
+                              : LucideIcons.arrowUpRight,
+                          color: amountColor,
+                          size: 18,
+                        ),
                       ),
-                      child: Icon(
-                        isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight,
-                        color: isCredit ? Colors.green : Colors.red,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            desc.isNotEmpty
-                                ? desc
-                                : _typeLabel(type),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                _formatDate(createdAt),
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              desc.isNotEmpty ? desc : _typeLabel(type),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                              if (orderId != null && orderId.isNotEmpty) ...[
-                                const Text(' • ', style: TextStyle(color: Colors.grey)),
+                            ),
+                            const SizedBox(height: 5),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
                                 Text(
-                                  '#${orderId.substring(0, orderId.length > 8 ? 8 : orderId.length).toUpperCase()}',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                  _formatDate(createdAt),
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.55),
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
                                 ),
+                                if (orderId != null && orderId.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '#${orderId.substring(0, orderId.length > 8 ? 8 : orderId.length).toUpperCase()}',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        color: _amberTextColor(theme),
+                                        fontWeight: FontWeight.w700,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                               ],
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${isCredit ? "+" : ""}${amountNum.toStringAsFixed(2)} ${_isAr ? "ج.م" : "EGP"}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            color: isCredit ? Colors.green : Colors.red,
-                          ),
+                      const SizedBox(width: 12),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth * 0.42,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_isAr ? "الرصيد: " : "Bal: "}${balanceAfter.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            _scaledMoneyText(
+                              '${isCredit ? '+' : '-'}${_moneyFmt.format(amountNum.abs())} EGP',
+                              TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: amountColor,
+                              ),
+                              alignment: AlignmentDirectional.centerEnd,
+                            ),
+                            if (hasBalanceAfter) ...[
+                              const SizedBox(height: 3),
+                              _scaledMoneyText(
+                                '${_isAr ? 'الرصيد: ' : 'Bal: '}${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
+                                TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                ),
+                                alignment: AlignmentDirectional.centerEnd,
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),
 
           // Pagination controls
-          if (_totalPages > 1) ...[
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(LucideIcons.chevronLeft),
-                  onPressed: _page > 1 ? () => _loadData(page: _page - 1) : null,
+          if (_totalPages > 1)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton.outlined(
+                      tooltip: _isAr ? 'السابق' : 'Previous',
+                      icon: Icon(
+                        isRtl
+                            ? LucideIcons.chevronRight
+                            : LucideIcons.chevronLeft,
+                        size: 18,
+                      ),
+                      onPressed: _page > 1
+                          ? () => _loadData(page: _page - 1)
+                          : null,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        _isAr
+                            ? 'صفحة $_page من $_totalPages'
+                            : 'Page $_page of $_totalPages',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.7,
+                          ),
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    IconButton.outlined(
+                      tooltip: _isAr ? 'التالي' : 'Next',
+                      icon: AppAdaptiveChevron(
+                        size: 18,
+                        color: _page < _totalPages
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.35,
+                              ),
+                      ),
+                      onPressed: _page < _totalPages
+                          ? () => _loadData(page: _page + 1)
+                          : null,
+                    ),
+                  ],
                 ),
-                Text('$_page / $_totalPages', style: const TextStyle(fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: const AppAdaptiveChevron(),
-                  onPressed: _page < _totalPages ? () => _loadData(page: _page + 1) : null,
-                ),
-              ],
+              ),
             ),
-          ],
         ],
       ),
     );

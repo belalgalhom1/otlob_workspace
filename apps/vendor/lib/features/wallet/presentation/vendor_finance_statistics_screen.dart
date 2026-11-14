@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 
 import 'vendor_finance_statistics_provider.dart';
@@ -13,6 +14,8 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     bool isArabic() =>
         Localizations.localeOf(context).languageCode == 'ar';
+    final moneyFmt = NumberFormat('#,##0.00', 'en_US');
+    final intFmt = NumberFormat('#,##0', 'en_US');
 
     return StatisticsScreen(
       config: StatisticsConfig(
@@ -36,35 +39,39 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
             labelEn: 'Total Revenue',
             icon: Icons.trending_up,
             value: (rows) =>
-                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue'])).toStringAsFixed(2)} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue'])))} EGP',
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي الطلبات',
             labelEn: 'Total Orders',
             icon: Icons.shopping_bag_outlined,
-            value: (rows) =>
-                '${rows.fold<int>(0, (s, r) => s + StatisticsFormat.intOf(r['totalOrders']))}',
+            value: (rows) => intFmt.format(
+              rows.fold<int>(
+                0,
+                (s, r) => s + StatisticsFormat.intOf(r['totalOrders']),
+              ),
+            ),
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي العمولة',
             labelEn: 'Total Commission',
             icon: Icons.account_balance_wallet_outlined,
             value: (rows) =>
-                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalCommission'])).toStringAsFixed(2)} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalCommission'])))} EGP',
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي الضريبة',
             labelEn: 'Total Tax',
             icon: Icons.receipt_long_outlined,
             value: (rows) =>
-                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalTax'])).toStringAsFixed(2)} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalTax'])))} EGP',
           ),
           StatisticSummaryItem(
             labelAr: 'صافي الربح',
             labelEn: 'Net Profit',
             icon: Icons.savings_outlined,
             value: (rows) =>
-                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue']) - StatisticsFormat.numOf(r['totalCommission'])).toStringAsFixed(2)} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue']) - StatisticsFormat.numOf(r['totalCommission'])))} EGP',
           ),
         ],
         exportColumns: [
@@ -110,17 +117,17 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
             value: (row) => '${StatisticsFormat.intOf(row['cancelledOrders'])}',
           ),
         ],
-        rowDetails: (row) => [
-          isArabic()
-              ? '${row['totalOrders'] ?? 0} طلب'
-              : '${row['totalOrders'] ?? 0} orders',
-          isArabic()
-              ? 'عمولة ${row['totalCommission'] ?? 0}'
-              : 'Commission ${row['totalCommission'] ?? 0}',
-          isArabic()
-              ? 'ضريبة ${row['totalTax'] ?? 0}'
-              : 'Tax ${row['totalTax'] ?? 0}',
-        ],
+        rowDetails: (row) {
+          final orders = intFmt.format(StatisticsFormat.intOf(row['totalOrders']));
+          final commission =
+              moneyFmt.format(StatisticsFormat.numOf(row['totalCommission']));
+          final tax = moneyFmt.format(StatisticsFormat.numOf(row['totalTax']));
+          return [
+            isArabic() ? '$orders طلب' : '$orders orders',
+            isArabic() ? 'عمولة $commission EGP' : 'Commission $commission EGP',
+            isArabic() ? 'ضريبة $tax EGP' : 'Tax $tax EGP',
+          ];
+        },
       ),
     );
   }

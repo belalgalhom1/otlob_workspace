@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 
 import 'platform_statistics_provider.dart';
@@ -11,6 +12,8 @@ class PlatformStatisticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     bool isArabic() =>
         Localizations.localeOf(context).languageCode == 'ar';
+    final moneyFmt = NumberFormat('#,##0.00', 'en_US');
+    final intFmt = NumberFormat('#,##0', 'en_US');
 
     return StatisticsScreen(
       config: StatisticsConfig(
@@ -32,22 +35,26 @@ class PlatformStatisticsScreen extends ConsumerWidget {
             labelAr: 'إجمالي الطلبات',
             labelEn: 'Total Orders',
             icon: Icons.shopping_bag_outlined,
-            value: (rows) =>
-                '${rows.fold<int>(0, (s, r) => s + StatisticsFormat.intOf(r['totalOrders']))}',
+            value: (rows) => intFmt.format(
+              rows.fold<int>(
+                0,
+                (s, r) => s + StatisticsFormat.intOf(r['totalOrders']),
+              ),
+            ),
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي أرباح المنصة',
             labelEn: 'Total Admin Revenue',
             icon: Icons.trending_up,
             value: (rows) =>
-                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalAdminRevenue'])).toStringAsFixed(2)} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalAdminRevenue'])))} EGP',
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي رسوم التوصيل',
             labelEn: 'Total Delivery Fees',
             icon: Icons.local_shipping_outlined,
             value: (rows) =>
-                '${rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDeliveryFees'])).toStringAsFixed(2)} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDeliveryFees'])))} EGP',
           ),
         ],
         exportColumns: [
@@ -69,11 +76,10 @@ class PlatformStatisticsScreen extends ConsumerWidget {
                 .toStringAsFixed(2),
           ),
         ],
-        rowDetails: (row) => [
-          isArabic()
-              ? '${row['totalOrders'] ?? 0} طلب'
-              : '${row['totalOrders'] ?? 0} orders',
-        ],
+        rowDetails: (row) {
+          final orders = intFmt.format(StatisticsFormat.intOf(row['totalOrders']));
+          return [isArabic() ? '$orders طلب' : '$orders orders'];
+        },
       ),
     );
   }

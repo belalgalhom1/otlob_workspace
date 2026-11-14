@@ -2630,4 +2630,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String removeDriverFromGroupAction(int count) {
     return 'Remove All ($count)';
   }
+
+  @override
+  String get remove => 'Remove';
 }

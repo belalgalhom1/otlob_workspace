@@ -34,9 +34,9 @@ class TrendBarChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final labelColor =
-        isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black54;
+        isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black54;
     final gridColor =
-        isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black12;
+        isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black12;
 
     if (values.isEmpty) {
       return SizedBox(
@@ -54,21 +54,29 @@ class TrendBarChart extends StatelessWidget {
       );
     }
 
-    final maxValue = values.reduce((a, b) => math.max(a, b));
+    final minRaw = values.reduce(math.min);
+    final maxRaw = values.reduce(math.max);
+    final minY = minRaw < 0 ? minRaw * 1.15 : 0.0;
+    final maxY = (maxRaw == 0 && minRaw == 0)
+        ? 1.0
+        : (maxRaw <= 0 ? 0.0 : maxRaw * 1.15);
+    final span = math.max(maxRaw.abs(), minRaw.abs());
     final labelStep =
-        ((labels.length / 8).ceil()).clamp(1, labels.length).toInt();
+        ((labels.length / 7).ceil()).clamp(1, labels.length).toInt();
     final barWidth = values.length > 20 ? 6.0 : (values.length > 10 ? 10.0 : 16.0);
+    final compactFmt = NumberFormat.compact();
+    final tooltipFmt = NumberFormat('#,##0.##', 'en_US');
 
     return SizedBox(
       height: height,
       child: BarChart(
         BarChartData(
-          minY: 0,
-          maxY: maxValue == 0 ? 1 : maxValue * 1.15,
+          minY: minY,
+          maxY: maxY,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: _niceInterval(maxValue),
+            horizontalInterval: _niceInterval(span),
             getDrawingHorizontalLine: (value) =>
                 FlLine(color: gridColor, strokeWidth: 1),
           ),
@@ -81,14 +89,33 @@ class TrendBarChart extends StatelessWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 42,
+                reservedSize: 52,
                 getTitlesWidget: (value, meta) {
-                  if (value == meta.min) return const SizedBox.shrink();
+                  if (value == meta.min && minRaw >= 0) {
+                    return const SizedBox.shrink();
+                  }
                   return SideTitleWidget(
                     meta: meta,
-                    child: Text(
-                      NumberFormat.compact().format(value),
-                      style: TextStyle(fontSize: 10, color: labelColor),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 46),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            compactFmt.format(value),
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: labelColor,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -97,21 +124,24 @@ class TrendBarChart extends StatelessWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 26,
+                reservedSize: 28,
                 interval: labelStep.toDouble(),
                 getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index < 0 || index >= labels.length) {
+                  final index = value.round();
+                  if ((value - index).abs() > 0.01 ||
+                      index < 0 ||
+                      index >= labels.length ||
+                      index % labelStep != 0) {
                     return const SizedBox.shrink();
                   }
-                  if (index % labelStep != 0) return const SizedBox.shrink();
                   return SideTitleWidget(
                     meta: meta,
+                    fitInside: SideTitleFitInsideData.fromTitleMeta(meta),
                     child: Text(
                       labels[index],
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 9, color: labelColor),
+                      style: TextStyle(fontSize: 9.5, color: labelColor),
                     ),
                   );
                 },
@@ -120,19 +150,22 @@ class TrendBarChart extends StatelessWidget {
           ),
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
               getTooltipColor: (_) =>
-                  isDark ? const Color(0xFF383838) : Colors.white,
+                  isDark ? const Color(0xFF1E293B) : Colors.white,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final label = groupIndex >= 0 && groupIndex < labels.length
                     ? labels[groupIndex]
                     : '';
                 return BarTooltipItem(
-                  '$label\n${NumberFormat('#,##0').format(rod.toY)}'
+                  '$label\n${tooltipFmt.format(rod.toY)}'
                   '${tooltipSuffix.isEmpty ? '' : ' $tooltipSuffix'}',
                   TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 );
               },
