@@ -11,7 +11,11 @@ import {
   NotificationType,
   Role,
 } from '@prisma/client';
-import { DriverErrors } from '../../common/constants/response.constants';
+import {
+  DriverErrors,
+  WalletErrors,
+} from '../../common/constants/response.constants';
+import { WalletService } from '../wallet/wallet.service';
 import {
   DriverAssistAssignedEvent,
   DriverAssistCustomerDecidedEvent,
@@ -979,6 +983,162 @@ describe('Drivers & Assist Clean Architecture', () => {
         ),
       );
       expect(eventsQueue.add).toHaveBeenCalledTimes(3);
+    });
+
+    it('rejects declining assist on PARTIALLY_PICKED_UP group with ASSIST_DELIVERY_ALREADY_STARTED', async () => {
+      const prisma: any = {
+        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', userId: 'cust-user-1' }) },
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ord-a-1',
+            customerId: 'cust-1',
+            orderNumber: 'ORD-A1',
+            status: 'PARTIALLY_PICKED_UP',
+          }),
+        },
+        orderDeliveryGroup: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'grp-a-1',
+            orderId: 'ord-a-1',
+            status: DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+            assistDriverId: 'drv-a',
+            assistFee: 20,
+            assistCustomerApproved: null,
+            primaryDriverId: 'drv-p',
+          }),
+        },
+      };
+      const assist = new DriverAssistService(
+        prisma,
+        { emit: jest.fn() } as any,
+        { getSettings: jest.fn().mockResolvedValue({}) } as any,
+        { clearOffer: jest.fn() } as any,
+        {} as any,
+      );
+
+      await expect(
+        assist.customerDecideAssist(customerActor, 'ord-a-1', 'grp-a-1', false),
+      ).rejects.toThrow(
+        new BadRequestException(DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED),
+      );
+    });
+  });
+
+  describe('WalletService hardening (topup locks & manual adjustment idempotency)', () => {
+    it('locks driver row FOR UPDATE and sets topup idempotencyKey during reviewTopUpRequest', async () => {
+      const executeRaw = jest.fn().mockResolvedValue(1);
+      const createWalletTx = jest.fn().mockResolvedValue({});
+      const tx: any = {
+        $executeRaw: executeRaw,
+        walletTopUpRequest: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUnique: jest.fn().mockResolvedValue({ id: 'req-1', status: 'APPROVED' }),
+        },
+        driver: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'drv-1',
+            userId: 'u-drv-1',
+            status: DriverStatus.SUSPENDED,
+            hasUnpaidCommission: true,
+          }),
+          update: jest.fn().mockResolvedValue({
+            walletBalance: 100,
+            userId: 'u-drv-1',
+            status: DriverStatus.SUSPENDED,
+          }),
+        },
+        platformSetting: {
+          findFirst: jest.fn().mockResolvedValue({ maxNegativeDriverBalance: 500 }),
+        },
+        driverWalletTransaction: { create: createWalletTx },
+      };
+
+      const prisma: any = {
+        walletTopUpRequest: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'req-1',
+            driverId: 'drv-1',
+            amount: 600,
+            status: 'PENDING',
+          }),
+        },
+        $transaction: jest.fn((cb: any) => cb(tx)),
+      };
+      const eventEmit = jest.fn();
+      const wallet = new WalletService(
+        prisma,
+        { emit: eventEmit } as unknown as EventEmitter2,
+        {} as any,
+        {} as any,
+      );
+
+      await wallet.reviewTopUpRequest('admin-1', 'req-1', {
+        status: 'APPROVED',
+      } as any);
+
+      expect(executeRaw).toHaveBeenCalledTimes(1);
+      expect(createWalletTx).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          driverId: 'drv-1',
+          idempotencyKey: 'topup:req-1',
+          amount: 600,
+        }),
+      });
+      expect(eventEmit).toHaveBeenCalledWith(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        expect.objectContaining({
+          driverId: 'drv-1',
+          oldStatus: DriverStatus.SUSPENDED,
+          newStatus: DriverStatus.OFFLINE,
+          reason: 'UNPAID_COMMISSION_SETTLED',
+        }),
+      );
+    });
+
+    it('rejects settle: idempotency keys and always acquires FOR UPDATE lock in processDriverTransaction', async () => {
+      const queryRaw = jest.fn().mockResolvedValue([{ walletBalance: 50 }]);
+      const createWalletTx = jest.fn().mockImplementation(({ data }: any) => ({
+        id: 'tx-1',
+        ...data,
+      }));
+      const tx: any = {
+        $queryRaw: queryRaw,
+        driver: { update: jest.fn().mockResolvedValue({ walletBalance: 150 }) },
+        driverWalletTransaction: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: createWalletTx,
+        },
+      };
+      const prisma: any = {
+        driver: { findUnique: jest.fn().mockResolvedValue({ id: 'drv-1', walletBalance: 50 }) },
+        $transaction: jest.fn((cb: any) => cb(tx)),
+      };
+      const wallet = new WalletService(
+        prisma,
+        { emit: jest.fn() } as unknown as EventEmitter2,
+        {} as any,
+        {} as any,
+      );
+
+      await expect(
+        wallet.processDriverTransaction('drv-1', {
+          type: 'BONUS',
+          amount: 100,
+          idempotencyKey: 'settle:order-1:BONUS:drv-1',
+        } as any),
+      ).rejects.toThrow(new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE));
+
+      await wallet.processDriverTransaction('drv-1', {
+        type: 'BONUS',
+        amount: 100,
+      } as any);
+
+      expect(queryRaw).toHaveBeenCalledTimes(1);
+      expect(createWalletTx).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          idempotencyKey: expect.stringMatching(/^admin:driver:drv-1:/),
+        }),
+      });
     });
   });
 });

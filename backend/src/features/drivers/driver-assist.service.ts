@@ -56,6 +56,7 @@ export interface AssignAssistDriverDto {
  * being lifted, so reassigning now would strand goods mid-route.
  */
 const ASSIGNMENT_CLOSED_STATUSES: DeliveryGroupStatus[] = [
+  DeliveryGroupStatus.PARTIALLY_PICKED_UP,
   DeliveryGroupStatus.PICKED_UP,
   DeliveryGroupStatus.DELIVERED,
   DeliveryGroupStatus.CANCELLED,
@@ -537,6 +538,7 @@ export class DriverAssistService {
       select: {
         id: true,
         orderId: true,
+        status: true,
         assistDriverId: true,
         assistFee: true,
         assistCustomerApproved: true,
@@ -551,6 +553,11 @@ export class DriverAssistService {
     }
     if (group.assistCustomerApproved !== null) {
       throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+    }
+    if (!approved && ASSIGNMENT_CLOSED_STATUSES.includes(group.status)) {
+      throw new BadRequestException(
+        DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED,
+      );
     }
 
     const assistFee = Number(group.assistFee ?? 0);
@@ -656,6 +663,7 @@ export class DriverAssistService {
         assistDriverId: { not: null },
         assistCustomerApproved: null,
         assignedAt: { not: null, lt: cutoff },
+        status: { notIn: ASSIGNMENT_CLOSED_STATUSES },
       },
       select: {
         id: true,

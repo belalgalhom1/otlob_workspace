@@ -43,6 +43,7 @@ const DISPATCHABLE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.ACCEPTED,
   OrderStatus.PREPARING,
   OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.PARTIALLY_PICKED_UP,
 ];
 
 /**
@@ -652,7 +653,7 @@ export class DispatchLifecycleService {
       customerId: string;
       distanceKm: unknown;
       customer: { userId: string } | null;
-      deliveryGroups: Array<{ id: string }>;
+      deliveryGroups: Array<{ id: string; status?: DeliveryGroupStatus }>;
     };
     groupId: string;
     singleVendorId: string | null;
@@ -753,13 +754,16 @@ export class DispatchLifecycleService {
           order.status === OrderStatus.READY_FOR_PICKUP ||
           nextOrderStatus === OrderStatus.PENDING_PAYMENT;
 
+        const activeGroupCount = order.deliveryGroups.filter(
+          (g) => g.status !== DeliveryGroupStatus.CANCELLED,
+        ).length;
         const updatedOrder = await tx.order.update({
           where: { id: order.id },
           data: {
             ...(shouldAdvanceOrderStatus && order.status !== nextOrderStatus
               ? { status: nextOrderStatus }
               : {}),
-            ...(order.distanceKm == null && order.deliveryGroups.length <= 1
+            ...(order.distanceKm == null && activeGroupCount <= 1
               ? { distanceKm: totalDistanceKm }
               : {}),
             revision: { increment: 1 },

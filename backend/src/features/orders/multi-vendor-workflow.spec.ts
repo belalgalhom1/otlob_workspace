@@ -1555,5 +1555,101 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       expect(enriched.vendor.storeName).toBe('Al Baik (Nasr City) + Al Baik (Maadi)');
       expect(enriched.vendor.storeNameAr).toBe('البيك (مدينة نصر) + البيك (المعادي)');
     });
+
+    it('resolves branch, commission override, distanceKm, decidedByUserId, and branch vendor users in adminPlaceDirectOrder', async () => {
+      const createOrderMock = jest.fn().mockResolvedValue({
+        id: 'direct-ord-1',
+        orderNumber: 'OTL-DIR-1',
+        status: OrderStatus.ACCEPTED,
+        created: true,
+      });
+      const getVendorUserIdsMock = jest.fn().mockResolvedValue(['u-branch-mgr']);
+      const fulfillmentUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
+      const groupUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
+
+      const checkoutSvc = new OrdersCheckoutService(
+        {
+          getZoneAtLocation: jest.fn().mockResolvedValue({ id: 'zone-1' }),
+          getNearestOpenBranchLocation: jest.fn().mockResolvedValue({
+            id: 'br-direct-1',
+            zoneId: 'zone-1',
+            commissionRate: 18,
+            isContracted: true,
+            lng: 31.2,
+            lat: 30.0,
+          }),
+          getDistanceKm: jest.fn().mockResolvedValue(4.2),
+          generateOrderNumber: jest.fn().mockResolvedValue('OTL-DIR-1'),
+          createOrder: createOrderMock,
+          updateStatus: jest.fn().mockResolvedValue({ revision: 2 }),
+          getVendorUserIds: getVendorUserIdsMock,
+          findById: jest.fn().mockResolvedValue({ id: 'direct-ord-1' }),
+        } as any,
+        {} as any,
+        {
+          getSettings: jest.fn().mockResolvedValue({
+            defaultCommissionRate: 10,
+            defaultTaxRate: 14,
+            baseDeliveryFee: 20,
+            pricePerKm: 5,
+          }),
+        } as any,
+        { emit: jest.fn() } as any,
+        {
+          customer: {
+            findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', userId: 'u-cust-1' }),
+          },
+          order: {
+            count: jest.fn().mockResolvedValue(0),
+          },
+          vendor: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'v-1',
+              status: 'OPEN',
+              deletedAt: null,
+              commissionRate: 12,
+              isContracted: false,
+            }),
+          },
+          orderVendorFulfillment: { updateMany: fulfillmentUpdateManyMock },
+          orderDeliveryGroup: { updateMany: groupUpdateManyMock },
+        } as any,
+        {} as any,
+      );
+
+      await checkoutSvc.adminPlaceDirectOrder(
+        { sub: 'admin-1', role: Role.SUPER_ADMIN } as any,
+        {
+          customerId: 'u-cust-1',
+          vendorId: 'v-1',
+          price: 100,
+          quantity: 2,
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Maadi',
+          deliveryLocation: [31.25, 29.96],
+        } as any,
+      );
+
+      expect(createOrderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vendorBranchId: 'br-direct-1',
+          distanceKm: 4.2,
+          commissionRate: 18,
+          isContracted: true,
+        }),
+        expect.any(Array),
+        'admin-1',
+      );
+      expect(fulfillmentUpdateManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'ACCEPTED',
+            decidedByUserId: 'admin-1',
+            decidedAt: expect.any(Date),
+          }),
+        }),
+      );
+      expect(getVendorUserIdsMock).toHaveBeenCalledWith('v-1', 'br-direct-1');
+    });
   });
 });

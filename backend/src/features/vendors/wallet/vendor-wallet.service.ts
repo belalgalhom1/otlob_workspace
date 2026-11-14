@@ -69,6 +69,8 @@ export class VendorWalletService {
               orderNumber: true,
               vendorFulfillments: {
                 where: { vendorId },
+                orderBy: { createdAt: 'asc' },
+                take: 1,
                 select: {
                   id: true,
                   vendorBranchId: true,
@@ -191,7 +193,24 @@ export class VendorWalletService {
         {
           fulfillmentId: null,
           order: {
-            vendorFulfillments: { some: { vendorId, vendorBranchId: dto.branchId } },
+            AND: [
+              {
+                vendorFulfillments: {
+                  some: { vendorId, vendorBranchId: dto.branchId },
+                },
+              },
+              {
+                vendorFulfillments: {
+                  none: {
+                    vendorId,
+                    OR: [
+                      { vendorBranchId: null },
+                      { vendorBranchId: { not: dto.branchId } },
+                    ],
+                  },
+                },
+              },
+            ],
           },
         },
       ];

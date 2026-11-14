@@ -86,16 +86,19 @@ CREATE TYPE "VendorTransactionType" AS ENUM ('ORDER_REVENUE', 'COMMISSION_DEDUCT
 CREATE TYPE "StatisticPeriod" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY');
 
 -- CreateEnum
-CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "OrderType" AS ENUM ('STANDARD', 'CUSTOM_DELIVERY', 'RIDE');
 
 -- CreateEnum
-CREATE TYPE "OrderVendorFulfillmentStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED');
+CREATE TYPE "OrderVendorFulfillmentStatus" AS ENUM ('PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'PICKED_UP', 'REJECTED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "DeliveryGroupStatus" AS ENUM ('PENDING', 'ACCEPTED', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
+CREATE TYPE "DeliveryGroupStatus" AS ENUM ('PENDING', 'ACCEPTED', 'PREPARING', 'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT', 'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP', 'DELIVERED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "ReviewTargetType" AS ENUM ('VENDOR_FULFILLMENT', 'DELIVERY_GROUP');
 
 -- CreateEnum
 CREATE TYPE "DriverAssistReason" AS ENUM ('TOO_LARGE', 'TOO_HEAVY', 'MULTI_STOP_COMPLEXITY', 'LONG_DISTANCE', 'ACCESS_RESTRICTED', 'OTHER');
@@ -132,6 +135,9 @@ CREATE TYPE "WalletType" AS ENUM ('VODAFONE', 'ORANGE', 'WE', 'ETISALAT', 'INSTA
 
 -- CreateEnum
 CREATE TYPE "TopUpStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "LegalDocumentType" AS ENUM ('TERMS_OF_USE', 'PRIVACY_POLICY');
 
 -- CreateTable
 CREATE TABLE "platform_settings" (
@@ -180,6 +186,7 @@ CREATE TABLE "platform_settings" (
     "autoCancelPendingMins" INTEGER NOT NULL DEFAULT 15,
     "mobileWalletTimeoutMins" INTEGER NOT NULL DEFAULT 15,
     "driverAcceptTimeoutSecs" INTEGER NOT NULL DEFAULT 30,
+    "dispatchHandoffDedupeTtlSecs" INTEGER NOT NULL DEFAULT 300,
     "assistDecisionTimeoutSecs" INTEGER NOT NULL DEFAULT 120,
     "isMaintenanceMode" BOOLEAN NOT NULL DEFAULT false,
     "androidMinVersion" TEXT NOT NULL DEFAULT '1.0.0',
@@ -223,9 +230,18 @@ CREATE TABLE "platform_settings" (
     "fallbackOrderDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 3.0,
     "groupingMaxBranchDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 5.0,
     "groupingMaxVendorCustomerDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 25.0,
+    "maxMultiVendorVendors" INTEGER NOT NULL DEFAULT 5,
     "customOrderPlatformFee" INTEGER NOT NULL DEFAULT 10,
     "maxDispatchBatchSize" INTEGER NOT NULL DEFAULT 20,
     "maxActiveOrdersPerDriver" INTEGER NOT NULL DEFAULT 1,
+    "stackedOrderDriverPercentage" INTEGER NOT NULL DEFAULT 50,
+    "batchedDeliveryCommissionRate" INTEGER DEFAULT 40,
+    "batchedDriverManagerCommissionRate" INTEGER DEFAULT 10,
+    "multiVendorDeliveryCommissionRate" INTEGER DEFAULT 20,
+    "multiVendorDriverManagerCommissionRate" INTEGER DEFAULT 10,
+    "multiVendorDriverPercentage" INTEGER DEFAULT 70,
+    "batchMaxVendorDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 2.0,
+    "batchMaxCustomerDistanceKm" DOUBLE PRECISION NOT NULL DEFAULT 2.5,
     "coinValue" INTEGER NOT NULL DEFAULT 1,
     "amountSpentPerCoin" INTEGER NOT NULL DEFAULT 10,
     "minCoinsToUse" INTEGER NOT NULL DEFAULT 1,
@@ -559,6 +575,7 @@ CREATE TABLE "vendor_wallet_transactions" (
     "id" TEXT NOT NULL,
     "vendorId" TEXT NOT NULL,
     "orderId" TEXT,
+    "fulfillmentId" TEXT,
     "type" "VendorTransactionType" NOT NULL,
     "amount" INTEGER NOT NULL,
     "balanceAfter" INTEGER NOT NULL,
@@ -769,17 +786,9 @@ CREATE TABLE "orders" (
     "clientOrderKey" TEXT,
     "type" "OrderType" NOT NULL DEFAULT 'STANDARD',
     "customerId" TEXT NOT NULL,
-    "vendorId" TEXT,
-    "vendorBranchId" TEXT,
-    "driverId" TEXT,
     "zoneId" TEXT,
-    "driverShiftId" TEXT,
-    "assistDriverId" TEXT,
-    "assistDriverShiftId" TEXT,
-    "assistFee" INTEGER,
-    "assistCustomerApproved" BOOLEAN,
-    "assistApprovedAt" TIMESTAMPTZ(3),
     "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "revision" INTEGER NOT NULL DEFAULT 0,
     "paymentMethod" "PaymentMethod" NOT NULL,
     "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "deliveryAddress" TEXT NOT NULL,
@@ -799,17 +808,10 @@ CREATE TABLE "orders" (
     "grandTotal" INTEGER NOT NULL,
     "upfrontAmount" INTEGER NOT NULL DEFAULT 0,
     "specialRequest" TEXT,
-    "estimatedPrepTime" INTEGER,
     "distanceKm" DOUBLE PRECISION,
     "deletedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
-    "acceptedAt" TIMESTAMPTZ(3),
-    "preparedAt" TIMESTAMPTZ(3),
-    "driverAssignedAt" TIMESTAMPTZ(3),
-    "pickedUpAt" TIMESTAMPTZ(3),
-    "pickupImageUrl" TEXT,
-    "deliveryImageUrl" TEXT,
     "paymentReceiptUrl" TEXT,
     "actualDeliveryTime" TIMESTAMPTZ(3),
     "settledAt" TIMESTAMPTZ(3),
@@ -821,12 +823,31 @@ CREATE TABLE "orders" (
 CREATE TABLE "order_status_events" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
+    "fulfillmentId" TEXT,
+    "deliveryGroupId" TEXT,
     "status" "OrderStatus" NOT NULL,
     "note" TEXT,
     "createdBy" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "order_status_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "outbox" (
+    "id" TEXT NOT NULL,
+    "aggregateType" TEXT NOT NULL,
+    "aggregateId" TEXT NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 0,
+    "eventType" TEXT NOT NULL,
+    "jobName" TEXT NOT NULL,
+    "dedupeKey" TEXT,
+    "queueName" TEXT,
+    "payload" JSONB NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "processedAt" TIMESTAMPTZ(3),
+
+    CONSTRAINT "outbox_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -870,11 +891,18 @@ CREATE TABLE "order_vendor_fulfillments" (
     "status" "OrderVendorFulfillmentStatus" NOT NULL DEFAULT 'PENDING',
     "subtotal" INTEGER NOT NULL DEFAULT 0,
     "commissionRate" INTEGER NOT NULL DEFAULT 10,
+    "isContracted" BOOLEAN NOT NULL DEFAULT false,
+    "estimatedPrepTime" INTEGER,
     "rejectionCode" TEXT,
     "rejectionReason" TEXT,
     "rejectionReasonAr" TEXT,
     "decidedByUserId" TEXT,
     "decidedAt" TIMESTAMPTZ(3),
+    "preparingAt" TIMESTAMPTZ(3),
+    "readyAt" TIMESTAMPTZ(3),
+    "pickupImageUrl" TEXT,
+    "pickedUpAt" TIMESTAMPTZ(3),
+    "pickedUpByDriverId" TEXT,
     "deliveredAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
@@ -895,6 +923,8 @@ CREATE TABLE "order_delivery_groups" (
     "assistFee" INTEGER,
     "assistCustomerApproved" BOOLEAN,
     "assistApprovedAt" TIMESTAMPTZ(3),
+    "isStacked" BOOLEAN NOT NULL DEFAULT false,
+    "isPaymentCollector" BOOLEAN NOT NULL DEFAULT false,
     "assignedByUserId" TEXT,
     "assignedAt" TIMESTAMPTZ(3),
     "distanceKm" DOUBLE PRECISION,
@@ -924,7 +954,7 @@ CREATE TABLE "driver_assist_requests" (
     "id" TEXT NOT NULL,
     "driverId" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "deliveryGroupId" TEXT,
+    "deliveryGroupId" TEXT NOT NULL,
     "reason" "DriverAssistReason" NOT NULL DEFAULT 'OTHER',
     "note" TEXT,
     "status" "DriverAssistRequestStatus" NOT NULL DEFAULT 'PENDING',
@@ -1063,6 +1093,7 @@ CREATE TABLE "driver_manager_wallet_transactions" (
     "id" TEXT NOT NULL,
     "managerId" TEXT NOT NULL,
     "orderId" TEXT,
+    "deliveryGroupId" TEXT,
     "type" "DriverManagerTransactionType" NOT NULL,
     "amount" INTEGER NOT NULL,
     "balanceAfter" INTEGER NOT NULL,
@@ -1079,6 +1110,7 @@ CREATE TABLE "driver_wallet_transactions" (
     "id" TEXT NOT NULL,
     "driverId" TEXT NOT NULL,
     "orderId" TEXT,
+    "deliveryGroupId" TEXT,
     "driverShiftId" TEXT,
     "type" "WalletTransactionType" NOT NULL,
     "amount" INTEGER NOT NULL,
@@ -1117,7 +1149,7 @@ CREATE TABLE "driver_statistics" (
 CREATE TABLE "order_dispatches" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "deliveryGroupId" TEXT,
+    "deliveryGroupId" TEXT NOT NULL,
     "driverId" TEXT NOT NULL,
     "driverShiftId" TEXT,
     "type" "OrderType" NOT NULL DEFAULT 'STANDARD',
@@ -1243,12 +1275,15 @@ CREATE TABLE "order_reviews" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
+    "targetType" "ReviewTargetType" NOT NULL,
+    "fulfillmentId" TEXT,
+    "deliveryGroupId" TEXT,
     "vendorId" TEXT,
     "driverId" TEXT,
-    "vendorRating" DOUBLE PRECISION,
-    "driverRating" DOUBLE PRECISION,
+    "rating" DOUBLE PRECISION NOT NULL,
     "comment" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "order_reviews_pkey" PRIMARY KEY ("id")
 );
@@ -1261,6 +1296,39 @@ CREATE TABLE "accounts" (
     "providerAccountId" TEXT NOT NULL,
 
     CONSTRAINT "accounts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "legal_documents" (
+    "id" TEXT NOT NULL,
+    "type" "LegalDocumentType" NOT NULL,
+    "title" TEXT NOT NULL,
+    "titleAr" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "contentAr" TEXT NOT NULL,
+    "version" TEXT NOT NULL,
+    "isPublished" BOOLEAN NOT NULL DEFAULT false,
+    "publishedAt" TIMESTAMPTZ(3),
+    "createdById" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+    "deletedAt" TIMESTAMPTZ(3),
+
+    CONSTRAINT "legal_documents_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_legal_acceptances" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "documentType" "LegalDocumentType" NOT NULL,
+    "version" TEXT NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "acceptedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "user_legal_acceptances_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -1438,10 +1506,13 @@ CREATE INDEX "vendor_wallet_transactions_vendorId_type_createdAt_idx" ON "vendor
 CREATE INDEX "vendor_wallet_transactions_orderId_idx" ON "vendor_wallet_transactions"("orderId");
 
 -- CreateIndex
+CREATE INDEX "vendor_wallet_transactions_fulfillmentId_idx" ON "vendor_wallet_transactions"("fulfillmentId");
+
+-- CreateIndex
 CREATE INDEX "vendor_wallet_transactions_createdAt_idx" ON "vendor_wallet_transactions"("createdAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "vendor_wallet_transactions_orderId_type_vendorId_key" ON "vendor_wallet_transactions"("orderId", "type", "vendorId");
+CREATE UNIQUE INDEX "vendor_wallet_transactions_fulfillmentId_type_key" ON "vendor_wallet_transactions"("fulfillmentId", "type");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "vendor_wallet_transactions_vendorId_idempotencyKey_key" ON "vendor_wallet_transactions"("vendorId", "idempotencyKey");
@@ -1522,12 +1593,6 @@ CREATE INDEX "orders_customerId_idx" ON "orders"("customerId");
 CREATE INDEX "orders_zoneId_idx" ON "orders"("zoneId");
 
 -- CreateIndex
-CREATE INDEX "orders_vendorId_status_idx" ON "orders"("vendorId", "status");
-
--- CreateIndex
-CREATE INDEX "orders_driverId_idx" ON "orders"("driverId");
-
--- CreateIndex
 CREATE INDEX "orders_status_idx" ON "orders"("status");
 
 -- CreateIndex
@@ -1546,19 +1611,28 @@ CREATE INDEX "orders_status_updatedAt_idx" ON "orders"("status", "updatedAt");
 CREATE INDEX "orders_customerId_createdAt_idx" ON "orders"("customerId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "orders_vendorId_createdAt_idx" ON "orders"("vendorId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "orders_driverId_createdAt_idx" ON "orders"("driverId", "createdAt");
-
--- CreateIndex
 CREATE INDEX "orders_customerId_status_idx" ON "orders"("customerId", "status");
 
 -- CreateIndex
 CREATE INDEX "orders_deliveryLocation_idx" ON "orders" USING GIST ("deliveryLocation");
 
 -- CreateIndex
+CREATE INDEX "orders_pickupLocation_idx" ON "orders" USING GIST ("pickupLocation");
+
+-- CreateIndex
 CREATE INDEX "order_status_events_orderId_createdAt_idx" ON "order_status_events"("orderId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "order_status_events_fulfillmentId_idx" ON "order_status_events"("fulfillmentId");
+
+-- CreateIndex
+CREATE INDEX "order_status_events_deliveryGroupId_idx" ON "order_status_events"("deliveryGroupId");
+
+-- CreateIndex
+CREATE INDEX "outbox_processedAt_createdAt_idx" ON "outbox"("processedAt", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "outbox_aggregateType_aggregateId_version_idx" ON "outbox"("aggregateType", "aggregateId", "version");
 
 -- CreateIndex
 CREATE INDEX "order_items_orderId_idx" ON "order_items"("orderId");
@@ -1567,13 +1641,22 @@ CREATE INDEX "order_items_orderId_idx" ON "order_items"("orderId");
 CREATE INDEX "order_items_fulfillmentId_idx" ON "order_items"("fulfillmentId");
 
 -- CreateIndex
+CREATE INDEX "order_items_fulfillmentId_rejectedAt_idx" ON "order_items"("fulfillmentId", "rejectedAt");
+
+-- CreateIndex
 CREATE INDEX "order_item_options_orderItemId_idx" ON "order_item_options"("orderItemId");
 
 -- CreateIndex
 CREATE INDEX "order_vendor_fulfillments_orderId_idx" ON "order_vendor_fulfillments"("orderId");
 
 -- CreateIndex
+CREATE INDEX "order_vendor_fulfillments_orderId_status_idx" ON "order_vendor_fulfillments"("orderId", "status");
+
+-- CreateIndex
 CREATE INDEX "order_vendor_fulfillments_vendorId_status_idx" ON "order_vendor_fulfillments"("vendorId", "status");
+
+-- CreateIndex
+CREATE INDEX "order_vendor_fulfillments_vendorBranchId_status_idx" ON "order_vendor_fulfillments"("vendorBranchId", "status");
 
 -- CreateIndex
 CREATE INDEX "order_vendor_fulfillments_status_createdAt_idx" ON "order_vendor_fulfillments"("status", "createdAt");
@@ -1582,13 +1665,25 @@ CREATE INDEX "order_vendor_fulfillments_status_createdAt_idx" ON "order_vendor_f
 CREATE INDEX "order_delivery_groups_orderId_idx" ON "order_delivery_groups"("orderId");
 
 -- CreateIndex
+CREATE INDEX "order_delivery_groups_orderId_status_idx" ON "order_delivery_groups"("orderId", "status");
+
+-- CreateIndex
 CREATE INDEX "order_delivery_groups_primaryDriverId_idx" ON "order_delivery_groups"("primaryDriverId");
+
+-- CreateIndex
+CREATE INDEX "order_delivery_groups_primaryDriverId_status_idx" ON "order_delivery_groups"("primaryDriverId", "status");
+
+-- CreateIndex
+CREATE INDEX "order_delivery_groups_assistDriverId_status_idx" ON "order_delivery_groups"("assistDriverId", "status");
 
 -- CreateIndex
 CREATE INDEX "order_delivery_groups_status_idx" ON "order_delivery_groups"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "order_delivery_groups_orderId_sequence_key" ON "order_delivery_groups"("orderId", "sequence");
+
+-- CreateIndex
+CREATE INDEX "order_delivery_group_items_deliveryGroupId_sequence_idx" ON "order_delivery_group_items"("deliveryGroupId", "sequence");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "order_delivery_group_items_fulfillmentId_key" ON "order_delivery_group_items"("fulfillmentId");
@@ -1604,6 +1699,12 @@ CREATE INDEX "driver_assist_requests_status_createdAt_idx" ON "driver_assist_req
 
 -- CreateIndex
 CREATE INDEX "driver_assist_requests_deliveryGroupId_idx" ON "driver_assist_requests"("deliveryGroupId");
+
+-- CreateIndex
+CREATE INDEX "driver_assist_requests_deliveryGroupId_status_idx" ON "driver_assist_requests"("deliveryGroupId", "status");
+
+-- CreateIndex
+CREATE INDEX "driver_assist_requests_assignedDriverId_status_idx" ON "driver_assist_requests"("assignedDriverId", "status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "drivers_userId_key" ON "drivers"("userId");
@@ -1684,7 +1785,10 @@ CREATE INDEX "driver_manager_wallet_transactions_managerId_createdAt_idx" ON "dr
 CREATE INDEX "driver_manager_wallet_transactions_orderId_idx" ON "driver_manager_wallet_transactions"("orderId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "driver_manager_wallet_transactions_orderId_type_managerId_key" ON "driver_manager_wallet_transactions"("orderId", "type", "managerId");
+CREATE INDEX "driver_manager_wallet_transactions_deliveryGroupId_idx" ON "driver_manager_wallet_transactions"("deliveryGroupId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "driver_manager_wallet_transactions_deliveryGroupId_type_man_key" ON "driver_manager_wallet_transactions"("deliveryGroupId", "type", "managerId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "driver_manager_wallet_transactions_managerId_idempotencyKey_key" ON "driver_manager_wallet_transactions"("managerId", "idempotencyKey");
@@ -1696,13 +1800,16 @@ CREATE INDEX "driver_wallet_transactions_driverId_idx" ON "driver_wallet_transac
 CREATE INDEX "driver_wallet_transactions_orderId_idx" ON "driver_wallet_transactions"("orderId");
 
 -- CreateIndex
+CREATE INDEX "driver_wallet_transactions_deliveryGroupId_idx" ON "driver_wallet_transactions"("deliveryGroupId");
+
+-- CreateIndex
 CREATE INDEX "driver_wallet_transactions_createdAt_idx" ON "driver_wallet_transactions"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "driver_wallet_transactions_driverShiftId_idx" ON "driver_wallet_transactions"("driverShiftId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "driver_wallet_transactions_orderId_type_driverId_key" ON "driver_wallet_transactions"("orderId", "type", "driverId");
+CREATE UNIQUE INDEX "driver_wallet_transactions_deliveryGroupId_type_driverId_key" ON "driver_wallet_transactions"("deliveryGroupId", "type", "driverId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "driver_wallet_transactions_driverId_idempotencyKey_key" ON "driver_wallet_transactions"("driverId", "idempotencyKey");
@@ -1720,6 +1827,9 @@ CREATE INDEX "order_dispatches_orderId_idx" ON "order_dispatches"("orderId");
 CREATE INDEX "order_dispatches_deliveryGroupId_idx" ON "order_dispatches"("deliveryGroupId");
 
 -- CreateIndex
+CREATE INDEX "order_dispatches_deliveryGroupId_status_idx" ON "order_dispatches"("deliveryGroupId", "status");
+
+-- CreateIndex
 CREATE INDEX "order_dispatches_driverId_idx" ON "order_dispatches"("driverId");
 
 -- CreateIndex
@@ -1727,6 +1837,9 @@ CREATE INDEX "order_dispatches_driverShiftId_idx" ON "order_dispatches"("driverS
 
 -- CreateIndex
 CREATE INDEX "order_dispatches_status_idx" ON "order_dispatches"("status");
+
+-- CreateIndex
+CREATE INDEX "order_dispatches_status_expiresAt_idx" ON "order_dispatches"("status", "expiresAt");
 
 -- CreateIndex
 CREATE INDEX "order_dispatches_createdAt_idx" ON "order_dispatches"("createdAt");
@@ -1786,7 +1899,13 @@ CREATE INDEX "wallet_top_up_requests_platformWalletId_idx" ON "wallet_top_up_req
 CREATE INDEX "wallet_top_up_requests_approvedById_idx" ON "wallet_top_up_requests"("approvedById");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "order_reviews_orderId_key" ON "order_reviews"("orderId");
+CREATE INDEX "order_reviews_orderId_idx" ON "order_reviews"("orderId");
+
+-- CreateIndex
+CREATE INDEX "order_reviews_fulfillmentId_idx" ON "order_reviews"("fulfillmentId");
+
+-- CreateIndex
+CREATE INDEX "order_reviews_deliveryGroupId_idx" ON "order_reviews"("deliveryGroupId");
 
 -- CreateIndex
 CREATE INDEX "order_reviews_vendorId_idx" ON "order_reviews"("vendorId");
@@ -1798,10 +1917,28 @@ CREATE INDEX "order_reviews_driverId_idx" ON "order_reviews"("driverId");
 CREATE INDEX "order_reviews_customerId_idx" ON "order_reviews"("customerId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "order_reviews_orderId_fulfillmentId_key" ON "order_reviews"("orderId", "fulfillmentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "order_reviews_orderId_deliveryGroupId_key" ON "order_reviews"("orderId", "deliveryGroupId");
+
+-- CreateIndex
 CREATE INDEX "accounts_userId_idx" ON "accounts"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "accounts_provider_providerAccountId_key" ON "accounts"("provider", "providerAccountId");
+
+-- CreateIndex
+CREATE INDEX "legal_documents_type_isPublished_idx" ON "legal_documents"("type", "isPublished");
+
+-- CreateIndex
+CREATE INDEX "legal_documents_deletedAt_idx" ON "legal_documents"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "user_legal_acceptances_userId_documentType_idx" ON "user_legal_acceptances"("userId", "documentType");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_legal_acceptances_userId_documentType_version_key" ON "user_legal_acceptances"("userId", "documentType", "version");
 
 -- AddForeignKey
 ALTER TABLE "devices" ADD CONSTRAINT "devices_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1861,6 +1998,9 @@ ALTER TABLE "customers" ADD CONSTRAINT "customers_userId_fkey" FOREIGN KEY ("use
 ALTER TABLE "customer_coin_transactions" ADD CONSTRAINT "customer_coin_transactions_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "customer_coin_transactions" ADD CONSTRAINT "customer_coin_transactions_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "favorite_vendors" ADD CONSTRAINT "favorite_vendors_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1895,6 +2035,9 @@ ALTER TABLE "vendor_branches" ADD CONSTRAINT "vendor_branches_zoneId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "vendor_wallet_transactions" ADD CONSTRAINT "vendor_wallet_transactions_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "vendor_wallet_transactions" ADD CONSTRAINT "vendor_wallet_transactions_fulfillmentId_fkey" FOREIGN KEY ("fulfillmentId") REFERENCES "order_vendor_fulfillments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "vendor_wallet_transactions" ADD CONSTRAINT "vendor_wallet_transactions_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1960,28 +2103,16 @@ ALTER TABLE "cart_item_options" ADD CONSTRAINT "cart_item_options_optionId_fkey"
 ALTER TABLE "orders" ADD CONSTRAINT "orders_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "orders" ADD CONSTRAINT "orders_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "orders" ADD CONSTRAINT "orders_driverShiftId_fkey" FOREIGN KEY ("driverShiftId") REFERENCES "driver_shifts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "orders" ADD CONSTRAINT "orders_assistDriverId_fkey" FOREIGN KEY ("assistDriverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "orders" ADD CONSTRAINT "orders_assistDriverShiftId_fkey" FOREIGN KEY ("assistDriverShiftId") REFERENCES "driver_shifts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "orders" ADD CONSTRAINT "orders_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "orders" ADD CONSTRAINT "orders_vendorBranchId_fkey" FOREIGN KEY ("vendorBranchId") REFERENCES "vendor_branches"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_zoneId_fkey" FOREIGN KEY ("zoneId") REFERENCES "zones"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order_status_events" ADD CONSTRAINT "order_status_events_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_status_events" ADD CONSTRAINT "order_status_events_fulfillmentId_fkey" FOREIGN KEY ("fulfillmentId") REFERENCES "order_vendor_fulfillments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_status_events" ADD CONSTRAINT "order_status_events_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order_items" ADD CONSTRAINT "order_items_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2038,7 +2169,7 @@ ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_driv
 ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "driver_assist_requests" ADD CONSTRAINT "driver_assist_requests_assignedDriverId_fkey" FOREIGN KEY ("assignedDriverId") REFERENCES "drivers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -2089,6 +2220,9 @@ ALTER TABLE "driver_manager_wallet_transactions" ADD CONSTRAINT "driver_manager_
 ALTER TABLE "driver_manager_wallet_transactions" ADD CONSTRAINT "driver_manager_wallet_transactions_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "driver_manager_wallet_transactions" ADD CONSTRAINT "driver_manager_wallet_transactions_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "driver_wallet_transactions" ADD CONSTRAINT "driver_wallet_transactions_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -2096,6 +2230,9 @@ ALTER TABLE "driver_wallet_transactions" ADD CONSTRAINT "driver_wallet_transacti
 
 -- AddForeignKey
 ALTER TABLE "driver_wallet_transactions" ADD CONSTRAINT "driver_wallet_transactions_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "driver_wallet_transactions" ADD CONSTRAINT "driver_wallet_transactions_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "driver_statistics" ADD CONSTRAINT "driver_statistics_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "drivers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2155,10 +2292,16 @@ ALTER TABLE "wallet_top_up_requests" ADD CONSTRAINT "wallet_top_up_requests_plat
 ALTER TABLE "wallet_top_up_requests" ADD CONSTRAINT "wallet_top_up_requests_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_fulfillmentId_fkey" FOREIGN KEY ("fulfillmentId") REFERENCES "order_vendor_fulfillments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_deliveryGroupId_fkey" FOREIGN KEY ("deliveryGroupId") REFERENCES "order_delivery_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -2168,3 +2311,56 @@ ALTER TABLE "order_reviews" ADD CONSTRAINT "order_reviews_driverId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "legal_documents" ADD CONSTRAINT "legal_documents_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_legal_acceptances" ADD CONSTRAINT "user_legal_acceptances_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_legal_acceptances" ADD CONSTRAINT "user_legal_acceptances_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "legal_documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreatePartialUniqueIndex: at most one open (PENDING or APPROVED) assist request per driver and delivery group
+CREATE UNIQUE INDEX "driver_assist_requests_open_uidx"
+  ON "driver_assist_requests"("driverId", "deliveryGroupId")
+  WHERE "status" IN ('PENDING', 'APPROVED');
+
+-- CreatePartialUniqueIndex: at most one active (non-CANCELLED) payment collector delivery group per order
+CREATE UNIQUE INDEX "order_delivery_groups_one_collector_uidx"
+  ON "order_delivery_groups"("orderId")
+  WHERE "isPaymentCollector" = true AND "status" <> 'CANCELLED';
+
+-- AddCheckConstraint: enforce mutually exclusive review target (either vendor fulfillment OR delivery group)
+ALTER TABLE "order_reviews"
+  ADD CONSTRAINT "order_reviews_target_check"
+  CHECK (
+    ("targetType" = 'VENDOR_FULFILLMENT' AND "fulfillmentId" IS NOT NULL AND "deliveryGroupId" IS NULL)
+    OR
+    ("targetType" = 'DELIVERY_GROUP' AND "deliveryGroupId" IS NOT NULL AND "fulfillmentId" IS NULL)
+  );
+
+-- CreateFunction & CreateTrigger: enforce monotonic Order.revision and auto-increment on status transitions
+CREATE FUNCTION "orders_enforce_revision"()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW."revision" < OLD."revision" THEN
+    RAISE EXCEPTION
+      'orders.revision cannot decrease (order %, % -> %)',
+      OLD."id", OLD."revision", NEW."revision"
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW."status" IS DISTINCT FROM OLD."status"
+     AND NEW."revision" = OLD."revision" THEN
+    NEW."revision" := OLD."revision" + 1;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "orders_enforce_revision"
+  BEFORE UPDATE OF "status", "revision" ON "orders"
+  FOR EACH ROW
+  EXECUTE FUNCTION "orders_enforce_revision"();

@@ -3,7 +3,13 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { v4 as uuidv4 } from 'uuid';
-import { DeliveryGroupStatus, OrderStatus, OrderType } from '@prisma/client';
+import {
+  DeliveryGroupStatus,
+  OrderStatus,
+  OrderType,
+  OrderVendorFulfillmentStatus,
+  Prisma,
+} from '@prisma/client';
 import { QUEUES, ORDER_JOBS } from '../../infrastructure/queue/queues.constants';
 import { EVENTS } from '../../common/events/event-names';
 import { OrderDispatchSentEvent } from '../../common/events';
@@ -41,6 +47,7 @@ const DISPATCHABLE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.ACCEPTED,
   OrderStatus.PREPARING,
   OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.PARTIALLY_PICKED_UP,
 ];
 
 const DISPATCHABLE_GROUP_STATUSES: DeliveryGroupStatus[] = [
@@ -92,7 +99,13 @@ export class DispatchService implements DispatchPort {
     );
     if (!target) return 'invalid';
 
-    const { order, group, dispatchContext, dispatchDeliveryFee } = target;
+    const {
+      order,
+      group,
+      totalGroupsCount,
+      dispatchContext,
+      dispatchDeliveryFee,
+    } = target;
     const settings = await this.platformSettings.getSettings();
 
     const radiusKm = Math.min(
@@ -106,12 +119,15 @@ export class DispatchService implements DispatchPort {
       MAX_DISPATCH_BATCH_SIZE,
     );
 
-    const orderDistanceKm = await this.locationRepository.getDistanceKm(
-      dispatchContext.lng,
-      dispatchContext.lat,
-      dispatchContext.deliveryLng,
-      dispatchContext.deliveryLat,
-    );
+    const orderDistanceKm =
+      group.distanceKm != null && Number(group.distanceKm) > 0
+        ? Number(group.distanceKm)
+        : await this.locationRepository.getDistanceKm(
+            dispatchContext.lng,
+            dispatchContext.lat,
+            dispatchContext.deliveryLng,
+            dispatchContext.deliveryLat,
+          );
 
     const allowedVehicleTypes = this.resolveAllowedVehicleTypes(
       dispatchContext.requestedVehicleType,
@@ -160,6 +176,7 @@ export class DispatchService implements DispatchPort {
       selectedDrivers,
       order,
       group,
+      totalGroupsCount,
       dispatchContext,
       orderDistanceKm,
       dispatchDeliveryFee,
@@ -308,18 +325,6 @@ export class DispatchService implements DispatchPort {
     orderNumber: string,
     deliveryGroupId: string | null,
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        id: true,
-        status: true,
-        type: true,
-        pickupAddress: true,
-        deliveryFee: true,
-        customer: { select: { user: { select: { name: true } } } },
-      },
-    });
-
     const groupSelect = {
       id: true,
       orderId: true,
@@ -328,34 +333,68 @@ export class DispatchService implements DispatchPort {
       deliveryFee: true,
       distanceKm: true,
       primaryDriverId: true,
-      fulfillments: {
-        where: { status: { notIn: ['CANCELLED', 'REJECTED'] as any[] } },
-        orderBy: { stopSequence: 'asc' as const },
-        select: {
-          vendorBranch: {
-            select: { name: true, nameAr: true, address: true },
+      items: {
+        where: {
+          fulfillment: {
+            status: {
+              notIn: [
+                OrderVendorFulfillmentStatus.CANCELLED,
+                OrderVendorFulfillmentStatus.REJECTED,
+              ],
+            },
           },
-          vendor: {
-            select: { storeName: true, storeNameAr: true },
+        },
+        orderBy: { sequence: 'asc' },
+        select: {
+          sequence: true,
+          fulfillment: {
+            select: {
+              id: true,
+              vendorBranch: {
+                select: { name: true, nameAr: true, address: true },
+              },
+              vendor: {
+                select: { storeName: true, storeNameAr: true },
+              },
+            },
           },
         },
       },
-    };
+    } satisfies Prisma.OrderDeliveryGroupSelect;
 
-    const group = deliveryGroupId
-      ? await this.prisma.orderDeliveryGroup.findUnique({
-          where: { id: deliveryGroupId },
-          select: groupSelect,
-        })
-      : await this.prisma.orderDeliveryGroup.findFirst({
-          where: {
-            orderId,
-            primaryDriverId: null,
-            status: { in: DISPATCHABLE_GROUP_STATUSES },
-          },
-          orderBy: { sequence: 'asc' },
-          select: groupSelect,
-        });
+    const [order, totalGroupsCount, group] = await Promise.all([
+      this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          id: true,
+          status: true,
+          type: true,
+          pickupAddress: true,
+          deliveryFee: true,
+          customer: { select: { user: { select: { name: true } } } },
+        },
+      }),
+      this.prisma.orderDeliveryGroup.count({
+        where: {
+          orderId,
+          status: { not: DeliveryGroupStatus.CANCELLED },
+        },
+      }),
+      deliveryGroupId
+        ? this.prisma.orderDeliveryGroup.findUnique({
+            where: { id: deliveryGroupId },
+            select: groupSelect,
+          })
+        : this.prisma.orderDeliveryGroup.findFirst({
+            where: {
+              orderId,
+              primaryDriverId: null,
+              status: { in: DISPATCHABLE_GROUP_STATUSES },
+            },
+            orderBy: { sequence: 'asc' },
+            select: groupSelect,
+          }),
+    ]);
 
     if (!group || group.orderId !== orderId) {
       this.logger.warn(
@@ -413,6 +452,7 @@ export class DispatchService implements DispatchPort {
     return {
       order,
       group,
+      totalGroupsCount,
       dispatchContext,
       dispatchDeliveryFee: Number(group.deliveryFee ?? order.deliveryFee ?? 0),
     };
@@ -475,11 +515,16 @@ export class DispatchService implements DispatchPort {
     group: {
       id: string;
       sequence: number;
-      fulfillments: Array<{
-        vendorBranch: { name: string; nameAr: string | null; address: string } | null;
-        vendor: { storeName: string; storeNameAr: string | null };
+      items: Array<{
+        sequence: number;
+        fulfillment: {
+          id: string;
+          vendorBranch: { name: string; nameAr: string | null; address: string } | null;
+          vendor: { storeName: string; storeNameAr: string | null };
+        };
       }>;
     };
+    totalGroupsCount: number;
     dispatchContext: { requestedVehicleType: string | null };
     orderDistanceKm: number;
     dispatchDeliveryFee: number;
@@ -490,6 +535,7 @@ export class DispatchService implements DispatchPort {
       selectedDrivers,
       order,
       group,
+      totalGroupsCount,
       dispatchContext,
       orderDistanceKm,
       dispatchDeliveryFee,
@@ -497,22 +543,10 @@ export class DispatchService implements DispatchPort {
       settings,
     } = params;
 
-    const totalGroupsCount = await this.prisma.orderDeliveryGroup.count({
-      where: {
-        orderId: (
-          await this.prisma.orderDeliveryGroup.findUnique({
-            where: { id: group.id },
-            select: { orderId: true },
-          })
-        )?.orderId,
-        status: { not: DeliveryGroupStatus.CANCELLED },
-      },
-    });
-
     const pickupNames = Array.from(
       new Set(
-        group.fulfillments
-          .map((f) => {
+        group.items
+          .map(({ fulfillment: f }) => {
             const store = f.vendor.storeName || f.vendor.storeNameAr;
             const branch = f.vendorBranch?.name || f.vendorBranch?.nameAr;
             return branch && store ? `${store} (${branch})` : store || branch;
@@ -529,7 +563,8 @@ export class DispatchService implements DispatchPort {
       selectedDrivers.map(async (candidate) => {
         const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
         const isCandidateStacked = Boolean(candidate.isOnDelivery);
-        const isCandidateMultiVendor = totalGroupsCount > 1 || group.fulfillments.length > 1;
+        const isCandidateMultiVendor =
+          totalGroupsCount > 1 || group.items.length > 1;
 
         const estimatedEarnings =
           await this.earnings.calculateEstimatedEarningsFromDistance({

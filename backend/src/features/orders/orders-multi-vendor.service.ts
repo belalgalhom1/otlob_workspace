@@ -318,6 +318,13 @@ export class OrdersMultiVendorService {
         }
       }
 
+      const orderDistanceKm = this.round2(
+        Math.max(
+          0,
+          ...plan.grouping.groups.map((g) => g.farthestToCustomerKm),
+        ),
+      );
+
       await tx.$executeRaw`
         INSERT INTO orders (
           id, "orderNumber", "clientOrderKey", type, "customerId",
@@ -325,7 +332,7 @@ export class OrdersMultiVendorService {
           "deliveryAddress", "deliveryLocation",
           subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax,
           discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
-          "specialRequest", "updatedAt"
+          "specialRequest", "distanceKm", "updatedAt"
         ) VALUES (
           ${orderId}, ${orderNumber}, ${clientOrderKey}, 'STANDARD'::"OrderType",
           ${plan.customerId}, ${plan.zoneId},
@@ -336,7 +343,7 @@ export class OrdersMultiVendorService {
           ${plan.subtotal}, ${plan.deliveryFee}, ${plan.driverBonusFee},
           ${plan.serviceFee}, ${plan.tax}, ${plan.discount},
           ${plan.coinsUsed}, ${plan.coinsEarned}, ${plan.grandTotal}, ${plan.upfrontAmount},
-          ${dto.specialRequest ?? null}, NOW()
+          ${dto.specialRequest ?? null}, ${orderDistanceKm}, NOW()
         )
         ON CONFLICT ("clientOrderKey") DO NOTHING
       `;

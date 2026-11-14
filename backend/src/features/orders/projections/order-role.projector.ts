@@ -849,7 +849,10 @@ export class OrderRoleProjector {
     };
   }
 
-  async enrichWithAdminHelpers(order: any): Promise<any> {
+  async enrichWithAdminHelpers(
+    order: any,
+    prefetchedSettings?: any,
+  ): Promise<any> {
     if (!order) return order;
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
@@ -871,21 +874,37 @@ export class OrderRoleProjector {
       Boolean(g.isStacked),
     );
 
-    const settings = await this.platformSettings.getSettings();
-    const deliveryFee = Number(order.deliveryFee ?? 0);
-    const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
-    const driverEarnings = this.earnings.calculateDriverEarningsForFee(
-      deliveryFee,
-      settings,
-      {
-        isStacked,
-        isMultiVendor,
-      },
-    );
-
     const fulfillments = Array.isArray(order.vendorFulfillments)
       ? order.vendorFulfillments
       : [];
+    const activeFulfillmentsCount = fulfillments.filter(
+      (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+    ).length;
+    const settings =
+      prefetchedSettings ?? (await this.platformSettings.getSettings());
+    const deliveryFee = Number(order.deliveryFee ?? 0);
+    const isMultiVendor = Boolean(
+      activeDeliveryGroups.length > 1 || activeFulfillmentsCount > 1,
+    );
+    const driverEarnings =
+      activeDeliveryGroups.length > 0
+        ? activeDeliveryGroups.reduce((sum: number, g: any) => {
+            const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            return (
+              sum +
+              this.earnings.calculateDriverEarningsForFee(gFee, settings, {
+                isStacked: Boolean(g.isStacked),
+                isMultiVendor,
+                driverTier: g.primaryDriver?.tier ?? order.driver?.tier,
+              })
+            );
+          }, 0)
+        : this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
+            isStacked: Boolean(order.isStacked),
+            isMultiVendor: false,
+            driverTier: order.driver?.tier,
+          });
+
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
         fulfillments.length > 1 ||

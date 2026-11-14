@@ -796,15 +796,82 @@ export class OrdersCheckoutService {
     });
     if (!vendor) throw new NotFoundException(OrderErrors.NOT_AUTHORIZED_VENDOR);
 
+    const hasDeliveryCoords =
+      Array.isArray(dto.deliveryLocation) &&
+      dto.deliveryLocation.length === 2 &&
+      Number.isFinite(Number(dto.deliveryLocation[0])) &&
+      Number.isFinite(Number(dto.deliveryLocation[1]));
+    const deliveryLng = hasDeliveryCoords ? Number(dto.deliveryLocation![0]) : 0;
+    const deliveryLat = hasDeliveryCoords ? Number(dto.deliveryLocation![1]) : 0;
+
+    const zone = hasDeliveryCoords
+      ? await this.ordersRepository.getZoneAtLocation(deliveryLng, deliveryLat)
+      : null;
+
+    let branch =
+      (hasDeliveryCoords
+        ? await this.ordersRepository.getNearestOpenBranchLocation(
+            dto.vendorId,
+            deliveryLng,
+            deliveryLat,
+            zone?.id,
+            dto.productId ? [dto.productId] : [],
+          )
+        : null) ??
+      (hasDeliveryCoords
+        ? await this.ordersRepository.getNearestOpenBranchLocation(
+            dto.vendorId,
+            deliveryLng,
+            deliveryLat,
+          )
+        : null);
+
+    if (!branch) {
+      const fallbackBranch = await this.prisma.vendorBranch.findFirst({
+        where: { vendorId: dto.vendorId },
+        orderBy: [{ isOpen: 'desc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          zoneId: true,
+          isContracted: true,
+          commissionRate: true,
+        },
+      });
+      if (!fallbackBranch) {
+        throw new BadRequestException(OrderErrors.NO_OPEN_BRANCH);
+      }
+      branch = {
+        id: fallbackBranch.id,
+        zoneId: fallbackBranch.zoneId,
+        isContracted: fallbackBranch.isContracted,
+        commissionRate: fallbackBranch.commissionRate,
+        lng: 0,
+        lat: 0,
+      };
+    }
+
+    const distanceKm =
+      hasDeliveryCoords && (branch.lng !== 0 || branch.lat !== 0)
+        ? await this.ordersRepository.getDistanceKm(
+            branch.lng,
+            branch.lat,
+            deliveryLng,
+            deliveryLat,
+          )
+        : 0;
+
     const settings = await this.platformSettings.getSettings();
 
     const subtotal = dto.price * (dto.quantity ?? 1);
     const vendorCommission =
-      vendor.commissionRate != null
-        ? Number(vendor.commissionRate)
-        : Number(settings.defaultCommissionRate ?? 10);
+      branch.commissionRate != null
+        ? Number(branch.commissionRate)
+        : vendor.commissionRate != null
+          ? Number(vendor.commissionRate)
+          : Number(settings.defaultCommissionRate ?? 10);
     const commissionRate = vendorCommission / 100;
-    const isContracted = vendor.isContracted;
+    const isContracted =
+      branch.isContracted != null ? branch.isContracted : vendor.isContracted;
     const serviceFee = !isContracted
       ? Math.round(subtotal * commissionRate)
       : 0;
@@ -818,12 +885,12 @@ export class OrdersCheckoutService {
       clientOrderKey,
       customerId: customer.id,
       vendorId: dto.vendorId,
-      vendorBranchId: null,
-      zoneId: null,
+      vendorBranchId: branch.id,
+      zoneId: zone?.id ?? branch.zoneId ?? null,
       paymentMethod: dto.paymentMethod ?? PaymentMethod.CASH_ON_DELIVERY,
       deliveryAddress: dto.deliveryAddress ?? 'Pending Customer Update',
-      deliveryLng: dto.deliveryLocation?.[0] ?? 0,
-      deliveryLat: dto.deliveryLocation?.[1] ?? 0,
+      deliveryLng,
+      deliveryLat,
       subtotal,
       deliveryFee: 0,
       driverBonusFee: 0,
@@ -836,7 +903,7 @@ export class OrdersCheckoutService {
       upfrontAmount: 0,
       specialRequest: dto.specialRequest ?? null,
       type: 'STANDARD',
-      distanceKm: 0,
+      distanceKm,
       pickupAddress: null,
       pickupLng: null,
       pickupLat: null,
@@ -879,6 +946,8 @@ export class OrdersCheckoutService {
         },
         data: {
           status: OrderVendorFulfillmentStatus.ACCEPTED,
+          decidedByUserId: actor.sub,
+          decidedAt: new Date(),
         },
       });
       await this.prisma.orderDeliveryGroup.updateMany({
@@ -896,7 +965,10 @@ export class OrdersCheckoutService {
       );
 
       const vendorUserIds = orderData.vendorId
-        ? await this.ordersRepository.getVendorUserIds(orderData.vendorId)
+        ? await this.ordersRepository.getVendorUserIds(
+            orderData.vendorId,
+            orderData.vendorBranchId,
+          )
         : [];
 
       this.eventEmitter.emit(

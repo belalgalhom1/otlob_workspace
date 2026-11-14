@@ -220,6 +220,7 @@ export class OrderRejectionRecomputor {
           coinsEarned: newCoinsEarned,
           grandTotal: newGrandTotal,
           upfrontAmount: newUpfront,
+          revision: { increment: 1 },
         },
       });
       if (updated.count === 0) return;

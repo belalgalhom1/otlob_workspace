@@ -548,14 +548,16 @@ export class DeliveryGroupTransitionService {
     ) {
       const replacementCollector =
         activeGroups.find((g) => g.primaryDriverId) ?? activeGroups[0];
-      await this.prisma.orderDeliveryGroup.updateMany({
-        where: { id: replacementCollector.id },
-        data: { isPaymentCollector: true },
-      });
-      await this.prisma.orderDeliveryGroup.updateMany({
-        where: { orderId, id: { not: replacementCollector.id } },
-        data: { isPaymentCollector: false },
-      });
+      await this.prisma.$transaction([
+        this.prisma.orderDeliveryGroup.updateMany({
+          where: { orderId, id: { not: replacementCollector.id } },
+          data: { isPaymentCollector: false },
+        }),
+        this.prisma.orderDeliveryGroup.updateMany({
+          where: { id: replacementCollector.id },
+          data: { isPaymentCollector: true },
+        }),
+      ]);
     }
 
     const activeDriverSet = new Set(
@@ -584,6 +586,128 @@ export class DeliveryGroupTransitionService {
       { sub: 'system', role: Role.SUPER_ADMIN } as JwtAccessPayload,
       order,
     );
+
+    if (
+      activeGroups.length > 0 &&
+      !activeGroups.some(
+        (g) =>
+          g.status === DeliveryGroupStatus.PICKED_UP ||
+          g.status === DeliveryGroupStatus.PARTIALLY_PICKED_UP ||
+          g.status === DeliveryGroupStatus.DELIVERED,
+      )
+    ) {
+      const fresh = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          status: true,
+          customerId: true,
+          customer: { select: { userId: true } },
+          vendorFulfillments: {
+            where: {
+              status: {
+                notIn: [
+                  OrderVendorFulfillmentStatus.CANCELLED,
+                  OrderVendorFulfillmentStatus.REJECTED,
+                ],
+              },
+            },
+            select: { vendorId: true },
+          },
+        },
+      });
+      if (
+        fresh &&
+        fresh.status !== OrderStatus.CANCELLED &&
+        fresh.status !== OrderStatus.DELIVERED &&
+        fresh.status !== OrderStatus.PICKED_UP &&
+        fresh.status !== OrderStatus.PARTIALLY_PICKED_UP
+      ) {
+        let prePickupTarget: OrderStatus | null = null;
+        if (
+          activeGroups.every(
+            (g) => g.status === DeliveryGroupStatus.READY_FOR_PICKUP,
+          )
+        ) {
+          prePickupTarget = OrderStatus.READY_FOR_PICKUP;
+        } else if (
+          activeGroups.some(
+            (g) =>
+              g.status === DeliveryGroupStatus.PREPARING ||
+              g.status === DeliveryGroupStatus.READY_FOR_PICKUP,
+          )
+        ) {
+          prePickupTarget = OrderStatus.PREPARING;
+        } else if (
+          activeGroups.some(
+            (g) => g.status === DeliveryGroupStatus.PENDING_PAYMENT,
+          )
+        ) {
+          prePickupTarget = OrderStatus.PENDING_PAYMENT;
+        } else if (
+          activeGroups.some(
+            (g) =>
+              g.status === DeliveryGroupStatus.DRIVER_ASSIGNED ||
+              g.primaryDriverId != null,
+          )
+        ) {
+          prePickupTarget = OrderStatus.DRIVER_ASSIGNED;
+        } else if (
+          activeGroups.some(
+            (g) => g.status === DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+          )
+        ) {
+          prePickupTarget = OrderStatus.LOOKING_FOR_DRIVER;
+        } else if (
+          activeGroups.some((g) => g.status === DeliveryGroupStatus.ACCEPTED)
+        ) {
+          prePickupTarget = OrderStatus.ACCEPTED;
+        }
+
+        if (prePickupTarget && prePickupTarget !== fresh.status) {
+          try {
+            const updated = await this.ordersRepository.updateStatus(
+              orderId,
+              prePickupTarget,
+              'system',
+              'Recomputed order status after delivery group cancellation',
+              undefined,
+              fresh.status,
+            );
+            const uniqueVendorIds = Array.from(
+              new Set(fresh.vendorFulfillments.map((f) => f.vendorId)),
+            );
+            const singleVendorId =
+              uniqueVendorIds.length === 1 ? uniqueVendorIds[0] : null;
+            const collectorDriverId =
+              activeGroups.find((g) => g.isPaymentCollector)?.primaryDriverId ??
+              activeGroups.find((g) => g.primaryDriverId)?.primaryDriverId ??
+              null;
+            const vendorUserIds =
+              await this.ordersRepository.getOrderVendorUserIds(orderId, null);
+            this.eventEmitter.emit(
+              EVENTS.ORDER_STATUS_CHANGED,
+              new OrderStatusChangedEvent(
+                orderId,
+                order.orderNumber,
+                fresh.status,
+                prePickupTarget,
+                fresh.customerId,
+                fresh.customer?.userId ?? fresh.customerId,
+                singleVendorId,
+                vendorUserIds,
+                collectorDriverId,
+                null,
+                'system',
+                'Recomputed order status after delivery group cancellation',
+                updated.revision,
+              ),
+            );
+          } catch {
+            // Concurrent transition won
+          }
+        }
+      }
+    }
   }
 
   /**

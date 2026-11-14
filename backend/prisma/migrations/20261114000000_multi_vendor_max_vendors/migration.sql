@@ -1,2 +1,0 @@
-ALTER TABLE "platform_settings"
-ADD COLUMN IF NOT EXISTS "maxMultiVendorVendors" INTEGER NOT NULL DEFAULT 5;

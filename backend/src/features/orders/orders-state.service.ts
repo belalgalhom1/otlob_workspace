@@ -371,8 +371,10 @@ export class OrdersStateService {
       ) {
         const myGroups = (order as any).deliveryGroups.filter(
           (g: any) =>
-            g.primaryDriverId === driver.id ||
-            g.assistDriverId === driver.id,
+            g.status !== DeliveryGroupStatus.CANCELLED &&
+            g.status !== DeliveryGroupStatus.DELIVERED &&
+            (g.primaryDriverId === driver.id ||
+              g.assistDriverId === driver.id),
         );
         const myGroupItems = myGroups
           .flatMap((g: any) => (Array.isArray(g.items) ? g.items : []))
@@ -829,12 +831,18 @@ export class OrdersStateService {
     reason: string,
     extraDriverIds: Array<string | null | undefined> = [],
   ): Promise<void> {
-    await this.deliveryGroup.cancelDeliveryGroupAndRecompute({
+    const result = await this.deliveryGroup.cancelDeliveryGroupAndRecompute({
       orderId,
       deliveryGroupId,
       reason,
       extraDriverIds,
       requireDriverless: false,
     });
+    if (!result.groupCancelled) {
+      await this.deliveryGroup.recomputeGroupedOrderStatusAfterCancel(
+        orderId,
+        extraDriverIds,
+      );
+    }
   }
 }

@@ -38,6 +38,9 @@ export function portionStatusFilter(
         readyAt: null,
         pickedUpAt: null,
         deliveredAt: null,
+        order: {
+          status: { not: OrderStatus.LOOKING_FOR_DRIVER },
+        },
         groups: {
           none: {
             deliveryGroup: {
@@ -48,6 +51,9 @@ export function portionStatusFilter(
                   DeliveryGroupStatus.PENDING_PAYMENT,
                   DeliveryGroupStatus.PREPARING,
                   DeliveryGroupStatus.READY_FOR_PICKUP,
+                  DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+                  DeliveryGroupStatus.PICKED_UP,
+                  DeliveryGroupStatus.DELIVERED,
                 ],
               },
             },
@@ -92,7 +98,27 @@ export function portionStatusFilter(
         pickedUpAt: null,
         deliveredAt: null,
         OR: [
-          { order: { status: OrderStatus.LOOKING_FOR_DRIVER } },
+          {
+            order: { status: OrderStatus.LOOKING_FOR_DRIVER },
+            groups: {
+              none: {
+                deliveryGroup: {
+                  status: {
+                    in: [
+                      DeliveryGroupStatus.DRIVER_ASSIGNED,
+                      DeliveryGroupStatus.PENDING_PAYMENT,
+                      DeliveryGroupStatus.PREPARING,
+                      DeliveryGroupStatus.READY_FOR_PICKUP,
+                      DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+                      DeliveryGroupStatus.PICKED_UP,
+                      DeliveryGroupStatus.DELIVERED,
+                      DeliveryGroupStatus.CANCELLED,
+                    ],
+                  },
+                },
+              },
+            },
+          },
           {
             groups: {
               some: {
@@ -178,6 +204,7 @@ const ORDER_DRIVER_SELECT = {
   id: true,
   name: true,
   avatar: true,
+  tier: true,
   vehicleType: true,
   vehiclePlate: true,
   rating: true,

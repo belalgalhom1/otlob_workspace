@@ -529,4 +529,166 @@ describe('OrderSettlementService', () => {
       reason: 'SETTLEMENT_REQUIRED',
     });
   });
+
+  it('uses single-vendor driverShare and supervisorCommissionRate when a grouped order has 1 group and 1 fulfillment', async () => {
+    const h = createHarness({
+      driverFindMany: [{ id: 'd-1', tier: 'GOLD' }],
+      groups: [
+        {
+          id: 'grp-1',
+          sequence: 1,
+          deliveryFee: 50,
+          distanceKm: 5,
+          primaryDriverId: 'd-1',
+          primaryDriverShiftId: 'shift-1',
+          assistDriverId: null,
+          assistDriverShiftId: null,
+          assistCustomerApproved: null,
+          isStacked: false,
+          isPaymentCollector: true,
+        },
+      ],
+      fulfillments: [
+        {
+          id: 'ff-1',
+          vendorId: 'v-1',
+          subtotal: 200,
+          commissionRate: 10,
+          isContracted: true,
+          vendor: { isContracted: true },
+          vendorBranch: { name: 'Main', isContracted: true },
+        },
+      ],
+      managerAssignment: { driverManagerId: 'mgr-1' },
+    });
+
+    await h.service.settleOrder(
+      makePayload({
+        vendorId: null,
+        driverId: 'd-1',
+        paymentMethod: 'CREDIT_CARD',
+        deliveryFee: 50,
+        subtotal: 200,
+        grandTotal: 250,
+        coinsEarned: 0,
+      }),
+    );
+
+    const feeTx = h.walletTxCreates.find((t) => t.type === 'DELIVERY_FEE');
+    expect(feeTx?.amount).toBe(40); // 50 * 0.8 (driverShare), NOT 43 (0.85)
+    expect(feeTx?.idempotencyKey).toBe('settle:order-1:DELIVERY_FEE:d-1');
+
+    expect(h.managerTxCreates).toHaveLength(1);
+    expect(h.managerTxCreates[0]).toMatchObject({
+      managerId: 'mgr-1',
+      amount: 5, // round(50 * 0.1), NOT 6 (0.12)
+      idempotencyKey: 'settle:order-1:DELIVERY_SHARE:mgr-1',
+    });
+  });
+
+  it('subtracts totalAssistEarnings from platformRevenue and credits BONUS to collector primary driver even when payload.driverId is null', async () => {
+    const h = createHarness({
+      driverFindMany: [
+        { id: 'd-primary', tier: 'GOLD' },
+        { id: 'd-assist', tier: 'BRONZE' },
+      ],
+      groups: [
+        {
+          id: 'grp-1',
+          sequence: 1,
+          deliveryFee: 40,
+          distanceKm: 2,
+          primaryDriverId: 'd-primary',
+          primaryDriverShiftId: 'shift-1',
+          assistDriverId: 'd-assist',
+          assistDriverShiftId: 'shift-2',
+          assistCustomerApproved: true,
+          isStacked: false,
+          isPaymentCollector: true,
+        },
+        {
+          id: 'grp-2',
+          sequence: 2,
+          deliveryFee: 20,
+          distanceKm: 2,
+          primaryDriverId: 'd-primary',
+          primaryDriverShiftId: 'shift-1',
+          assistDriverId: null,
+          assistDriverShiftId: null,
+          assistCustomerApproved: null,
+          isStacked: true,
+          isPaymentCollector: false,
+        },
+      ],
+      fulfillments: [
+        {
+          id: 'ff-1',
+          vendorId: 'v-1',
+          subtotal: 150,
+          commissionRate: 10,
+          vendor: { isContracted: true },
+          vendorBranch: { name: 'B1', isContracted: true },
+        },
+        {
+          id: 'ff-2',
+          vendorId: 'v-2',
+          subtotal: 100,
+          commissionRate: 20,
+          vendor: { isContracted: false },
+          vendorBranch: null,
+        },
+      ],
+      managerAssignment: { driverManagerId: 'mgr-1' },
+    });
+
+    await h.service.settleOrder(
+      makePayload({
+        vendorId: null,
+        driverId: null as unknown as string,
+        driverShiftId: null,
+        paymentMethod: 'CREDIT_CARD',
+        deliveryFee: 60,
+        driverBonusFee: 15,
+        subtotal: 250,
+        grandTotal: 325,
+        coinsEarned: 0,
+      }),
+    );
+
+    const bonusTx = h.walletTxCreates.find((t) => t.type === 'BONUS');
+    expect(bonusTx).toMatchObject({
+      driverId: 'd-primary',
+      driverShiftId: 'shift-1',
+      deliveryGroupId: 'grp-1',
+      amount: 15,
+      idempotencyKey: 'settle:order-1:BONUS:d-primary',
+    });
+
+    const appJobCall = (h.statsQueue.add as jest.Mock).mock.calls.find(
+      (c) => c[0] === STATS_JOBS.UPDATE_APP,
+    );
+    // platformFee(25) + (deliveryFee 60 - primary 49) - totalAssist 28 - manager 7 = 1
+    expect(appJobCall?.[1]?.increment?.totalAdminRevenue).toBe(1);
+  });
+
+  it('scopes transaction idempotency checks to settle: or null keys', async () => {
+    const h = createHarness();
+    await h.service.settleOrder(makePayload());
+
+    const feeLookupCall = h.txClient.driverWalletTransaction.findFirst.mock.calls.find(
+      (c: any[]) => c[0]?.where?.type === 'DELIVERY_FEE',
+    );
+    expect(feeLookupCall?.[0]?.where?.OR).toEqual([
+      { idempotencyKey: null },
+      { idempotencyKey: { startsWith: 'settle:' } },
+    ]);
+    expect(
+      h.walletTxCreates.every((t) => t.idempotencyKey?.startsWith('settle:')),
+    ).toBe(true);
+    expect(
+      h.vendorWalletTxCreates.every((t) =>
+        t.idempotencyKey?.startsWith('settle:'),
+      ),
+    ).toBe(true);
+  });
 });

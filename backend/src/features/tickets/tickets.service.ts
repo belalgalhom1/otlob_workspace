@@ -81,6 +81,8 @@ export class TicketsService implements OnModuleInit {
           where: { id: dto.orderId },
           select: {
             vendorFulfillments: {
+              where: { status: { notIn: ['REJECTED', 'CANCELLED'] } },
+              orderBy: { createdAt: 'asc' },
               take: 1,
               select: { vendorId: true },
             },
@@ -407,7 +409,12 @@ export class TicketsService implements OnModuleInit {
       const order = await this.prisma.order.findUnique({
         where: { id: ticket.orderId },
         select: {
-          vendorFulfillments: { take: 1, select: { vendorId: true } },
+          vendorFulfillments: {
+            where: { status: { notIn: ['REJECTED', 'CANCELLED'] } },
+            orderBy: { createdAt: 'asc' },
+            take: 1,
+            select: { vendorId: true },
+          },
         },
       });
       const firstVendorId = order?.vendorFulfillments?.[0]?.vendorId;

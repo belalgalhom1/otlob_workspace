@@ -267,19 +267,25 @@ export class OrdersService {
           totalPages: 0,
         };
       }
-      const result = await this.ordersRepository.findMany({
-        ...dto,
-        driverIds: dto.driverId ? undefined : managedDriverIds,
-      });
+      const [result, settings] = await Promise.all([
+        this.ordersRepository.findMany({
+          ...dto,
+          driverIds: dto.driverId ? undefined : managedDriverIds,
+        }),
+        this.platformSettings.getSettings(),
+      ]);
       result.orders = await Promise.all(
-        result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
+        result.orders.map((o: any) => this.enrichWithAdminHelpers(o, settings)),
       );
       return result;
     }
 
-    const result = await this.ordersRepository.findMany(dto);
+    const [result, settings] = await Promise.all([
+      this.ordersRepository.findMany(dto),
+      this.platformSettings.getSettings(),
+    ]);
     result.orders = await Promise.all(
-      result.orders.map((o: any) => this.enrichWithAdminHelpers(o)),
+      result.orders.map((o: any) => this.enrichWithAdminHelpers(o, settings)),
     );
     return result;
   }
@@ -352,7 +358,7 @@ export class OrdersService {
     return this.projector.projectForCustomer(order);
   }
 
-  private enrichWithAdminHelpers(order: any): Promise<any> {
-    return this.projector.enrichWithAdminHelpers(order);
+  private enrichWithAdminHelpers(order: any, settings?: any): Promise<any> {
+    return this.projector.enrichWithAdminHelpers(order, settings);
   }
 }

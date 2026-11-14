@@ -115,7 +115,10 @@ export class ReviewsService {
           comment: entry.comment ?? dto.comment,
         });
       }
-    } else if (dto.vendorRating !== undefined && deliveredFulfillments.length > 0) {
+    } else if (dto.vendorRating !== undefined) {
+      if (deliveredFulfillments.length === 0) {
+        throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+      }
       const target = deliveredFulfillments.find(
         (f) => !existingFulfillmentIds.has(f.id),
       );
@@ -155,7 +158,10 @@ export class ReviewsService {
           comment: entry.comment ?? dto.comment,
         });
       }
-    } else if (dto.driverRating !== undefined && deliveredGroups.length > 0) {
+    } else if (dto.driverRating !== undefined) {
+      if (deliveredGroups.length === 0) {
+        throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+      }
       const target = deliveredGroups.find((g) => !existingGroupIds.has(g.id));
       if (!target || !target.primaryDriverId) {
         throw new BadRequestException(ReviewErrors.ALREADY_RATED);
@@ -175,7 +181,18 @@ export class ReviewsService {
       throw new BadRequestException(ReviewErrors.ALREADY_RATED);
     }
 
-    await this.prisma.orderReview.createMany({ data: rowsToCreate });
+    try {
+      await this.prisma.orderReview.createMany({ data: rowsToCreate });
+    } catch (e: unknown) {
+      const code =
+        typeof e === 'object' && e !== null && 'code' in e
+          ? (e as { code?: string }).code
+          : undefined;
+      if (code === 'P2002') {
+        throw new BadRequestException(ReviewErrors.ALREADY_RATED);
+      }
+      throw e;
+    }
 
     const ratedVendorIds = Array.from(
       new Set(rowsToCreate.map((r) => r.vendorId).filter(Boolean)),

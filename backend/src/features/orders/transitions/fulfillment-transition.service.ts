@@ -85,6 +85,7 @@ export class FulfillmentTransitionService {
     }
 
     const STARTABLE: DeliveryGroupStatus[] = [
+      DeliveryGroupStatus.PENDING,
       DeliveryGroupStatus.DRIVER_ASSIGNED,
       DeliveryGroupStatus.PENDING_PAYMENT,
       DeliveryGroupStatus.ACCEPTED,
@@ -376,8 +377,17 @@ export class FulfillmentTransitionService {
     const imageUrl = await this.storage.upload(file, 'pickups');
     try {
       const now = new Date();
-      await this.prisma.orderVendorFulfillment.update({
-        where: { id: fulfillmentId },
+      const claimed = await this.prisma.orderVendorFulfillment.updateMany({
+        where: {
+          id: fulfillmentId,
+          pickedUpAt: null,
+          status: {
+            notIn: [
+              OrderVendorFulfillmentStatus.CANCELLED,
+              OrderVendorFulfillmentStatus.REJECTED,
+            ],
+          },
+        },
         data: {
           status: OrderVendorFulfillmentStatus.PICKED_UP,
           pickedUpAt: now,
@@ -385,6 +395,9 @@ export class FulfillmentTransitionService {
           pickedUpByDriverId: driver.id,
         },
       });
+      if (claimed.count === 0) {
+        throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
+      }
 
       if (groupItem) {
         const remaining = await this.prisma.orderDeliveryGroupItem.findMany({
@@ -509,6 +522,8 @@ export class FulfillmentTransitionService {
       await this.prisma.orderStatusEvent.create({
         data: {
           orderId,
+          fulfillmentId,
+          deliveryGroupId: groupItem?.deliveryGroupId ?? null,
           status: finalOrder.status,
           note: `Driver picked up fulfillment stop ${fulfillmentId}`,
           createdBy: actor.sub,
@@ -540,6 +555,7 @@ export class FulfillmentTransitionService {
         id: groupId,
         status: {
           in: [
+            DeliveryGroupStatus.PENDING,
             DeliveryGroupStatus.DRIVER_ASSIGNED,
             DeliveryGroupStatus.LOOKING_FOR_DRIVER,
             DeliveryGroupStatus.PREPARING,

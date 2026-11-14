@@ -304,5 +304,61 @@ describe('OrdersService financial projections & vendor isolation', () => {
       expect(adminEnriched.financials.cashToPayStore).toBe(880);
       expect(adminEnriched.financials.isStorePrepaid).toBe(false); // since one is uncontracted
     });
+
+    it('sums per-group driverEarnings with per-group stacked flag & tier and reuses prefetched settings', async () => {
+      const getSettingsMock = jest.fn().mockResolvedValue({
+        deliveryCommissionRate: 20,
+        driverManagerCommissionRate: 10,
+        stackedOrderDriverPercentage: 50,
+        multiVendorDeliveryCommissionRate: 15,
+        multiVendorDriverManagerCommissionRate: 10,
+      });
+
+      const scopedService = new OrdersService(
+        {} as any,
+        mockPrisma,
+        { getSettings: getSettingsMock } as any,
+      );
+
+      const prefetched = await getSettingsMock();
+      expect(getSettingsMock).toHaveBeenCalledTimes(1);
+
+      const mockOrder = {
+        id: 'mv-order-2',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        grandTotal: 260,
+        deliveryFee: 60,
+        vendorFulfillments: [{ id: 'f1' }, { id: 'f2' }],
+        deliveryGroups: [
+          {
+            id: 'g1',
+            sequence: 1,
+            status: 'DRIVER_ASSIGNED',
+            isStacked: false,
+            deliveryFee: 40,
+            primaryDriver: { tier: 'GOLD' },
+          },
+          {
+            id: 'g2',
+            sequence: 2,
+            status: 'DRIVER_ASSIGNED',
+            isStacked: true,
+            deliveryFee: 20,
+            primaryDriver: { tier: 'BRONZE' },
+          },
+        ],
+      };
+
+      const enriched = await (scopedService as any).enrichWithAdminHelpers(
+        mockOrder,
+        prefetched,
+      );
+
+      // getSettings was NOT called again per order!
+      expect(getSettingsMock).toHaveBeenCalledTimes(1);
+      // g1 (GOLD, multi-vendor non-stacked): 40 * (1 - (15+10)/100 = 0.75) = 30
+      // g2 (BRONZE, stacked): (20 - 2) * 0.5 = 9
+      expect(enriched.financials.driverEarnings).toBe(39);
+    });
   });
 });

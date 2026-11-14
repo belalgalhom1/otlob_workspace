@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   WalletErrors,
@@ -176,111 +177,125 @@ export class WalletService {
   ) {
     const request = await this.prisma.walletTopUpRequest.findUnique({
       where: { id: requestId },
-      include: { driver: true },
     });
 
     if (!request) throw new NotFoundException(WalletErrors.REQUEST_NOT_FOUND);
     if (request.status !== 'PENDING')
       throw new BadRequestException(WalletErrors.REQUEST_ALREADY_PROCESSED);
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const updatedCount = await tx.walletTopUpRequest.updateMany({
-        where: { id: requestId, status: 'PENDING' },
-        data: { status: dto.status, approvedById: actorUserId },
-      });
-
-      if (updatedCount.count === 0) {
-        throw new BadRequestException(WalletErrors.REQUEST_ALREADY_PROCESSED);
-      }
-
-      const updated = await tx.walletTopUpRequest.findUnique({
-        where: { id: requestId },
-      });
-
-      if (dto.status === 'APPROVED') {
-        // Update driver's total wallet balance FIRST
-        const updatedDriver = await tx.driver.update({
-          where: { id: request.driverId },
-          data: { walletBalance: { increment: request.amount } },
-          select: { walletBalance: true, userId: true, status: true },
+    const { updated, unlockNotification } = await this.prisma.$transaction(
+      async (tx) => {
+        const updatedCount = await tx.walletTopUpRequest.updateMany({
+          where: { id: requestId, status: 'PENDING' },
+          data: { status: dto.status, approvedById: actorUserId },
         });
 
-        // Verify if they still owe too much
-        const settings = await tx.platformSetting.findFirst();
-        const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
-        const isStillNegative = updatedDriver.walletBalance < -maxNegative;
-
-        // Unblock the driver ONLY if they cleared their negative threshold AND were financially locked!
-        let statusUpdate = {};
-        if (
-          !isStillNegative &&
-          request.driver?.status === DriverStatus.SUSPENDED &&
-          request.driver?.hasUnpaidCommission
-        ) {
-          statusUpdate = { status: DriverStatus.OFFLINE };
+        if (updatedCount.count === 0) {
+          throw new BadRequestException(WalletErrors.REQUEST_ALREADY_PROCESSED);
         }
 
-        const cycleData = isStillNegative
-          ? {} // Still in debt — do NOT restart the settlement counter so the settle flow stays blocked
-          : { ordersSinceSettlement: 0 }; // Restart the settlement cycle only after the debt is cleared
-
-        await tx.driver.update({
-          where: { id: request.driverId },
-          data: {
-            hasUnpaidCommission: isStillNegative, // Keep them locked if they still owe
-            ...cycleData,
-            ...statusUpdate,
-          },
+        const updated = await tx.walletTopUpRequest.findUnique({
+          where: { id: requestId },
         });
 
-        // Also add a positive wallet transaction for the payment amount
-        await tx.driverWalletTransaction.create({
-          data: {
-            driverId: request.driverId,
-            type: 'ADJUSTMENT', // Or we could add a TOP_UP enum
-            amount: request.amount,
-            balanceAfter: updatedDriver.walletBalance,
-            description: 'Approved Top-up transfer',
-            referenceId: request.id,
-          },
-        });
-      }
+        let unlockNotification: {
+          driverId: string;
+          userId: string;
+          prevStatus: DriverStatus;
+          nextStatus: DriverStatus;
+        } | null = null;
 
-      return updated;
-    });
+        if (dto.status === 'APPROVED') {
+          await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${request.driverId} FOR UPDATE`;
 
-    // Send notifications after transaction succeeds
-    if (dto.status === 'APPROVED') {
-      const settings = await this.prisma.platformSetting.findFirst();
-      const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
+          const lockedDriver = await tx.driver.findUnique({
+            where: { id: request.driverId },
+            select: {
+              id: true,
+              userId: true,
+              status: true,
+              hasUnpaidCommission: true,
+            },
+          });
 
-      const updatedDriver = await this.prisma.driver.findUnique({
-        where: { id: request.driverId },
-        select: { walletBalance: true, status: true },
-      });
+          const updatedDriver = await tx.driver.update({
+            where: { id: request.driverId },
+            data: { walletBalance: { increment: request.amount } },
+            select: { walletBalance: true, userId: true, status: true },
+          });
 
-      const isNowUnlocked = (updatedDriver?.walletBalance ?? 0) >= -maxNegative;
+          const settings = await tx.platformSetting.findFirst({
+            select: { maxNegativeDriverBalance: true },
+          });
+          const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
+          const isStillNegative = updatedDriver.walletBalance < -maxNegative;
 
-      if (request.driver?.hasUnpaidCommission && isNowUnlocked) {
-        const wasSuspended = request.driver?.status === DriverStatus.SUSPENDED;
-        this.eventEmitter.emit(
-          EVENTS.DRIVER_STATUS_CHANGED,
-          new DriverStatusChangedEvent(
-            request.driver.id,
-            request.driver.userId,
-            wasSuspended
-              ? DriverStatus.SUSPENDED
-              : (request.driver?.status ?? DriverStatus.ONLINE),
-            updatedDriver?.status ?? DriverStatus.OFFLINE,
-            'UNPAID_COMMISSION_SETTLED',
-          ),
-        );
-      }
+          let nextStatus = lockedDriver?.status ?? DriverStatus.OFFLINE;
+          let statusUpdate: { status?: DriverStatus } = {};
+          if (
+            !isStillNegative &&
+            lockedDriver?.status === DriverStatus.SUSPENDED &&
+            lockedDriver?.hasUnpaidCommission
+          ) {
+            statusUpdate = { status: DriverStatus.OFFLINE };
+            nextStatus = DriverStatus.OFFLINE;
+          }
+
+          const cycleData = isStillNegative
+            ? {} // Still in debt — do NOT restart the settlement counter so the settle flow stays blocked
+            : { ordersSinceSettlement: 0 }; // Restart the settlement cycle only after the debt is cleared
+
+          await tx.driver.update({
+            where: { id: request.driverId },
+            data: {
+              hasUnpaidCommission: isStillNegative, // Keep them locked if they still owe
+              ...cycleData,
+              ...statusUpdate,
+            },
+          });
+
+          await tx.driverWalletTransaction.create({
+            data: {
+              driverId: request.driverId,
+              type: 'ADJUSTMENT',
+              amount: request.amount,
+              balanceAfter: updatedDriver.walletBalance,
+              description: 'Approved Top-up transfer',
+              referenceId: request.id,
+              idempotencyKey: `topup:${request.id}`,
+            },
+          });
+
+          if (lockedDriver?.hasUnpaidCommission && !isStillNegative) {
+            unlockNotification = {
+              driverId: lockedDriver.id,
+              userId: lockedDriver.userId,
+              prevStatus: lockedDriver.status,
+              nextStatus,
+            };
+          }
+        }
+
+        return { updated, unlockNotification };
+      },
+    );
+
+    if (unlockNotification) {
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          unlockNotification.driverId,
+          unlockNotification.userId,
+          unlockNotification.prevStatus,
+          unlockNotification.nextStatus,
+          'UNPAID_COMMISSION_SETTLED',
+        ),
+      );
     }
 
     return {
       message: CommonSuccess.RESOURCE_UPDATED,
-      data: result,
+      data: updated,
     };
   }
 
@@ -310,6 +325,12 @@ export class WalletService {
       'vendor',
     );
 
+    if (dto.idempotencyKey?.startsWith('settle:')) {
+      throw new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE);
+    }
+    const effectiveIdempotencyKey =
+      dto.idempotencyKey ?? `admin:vendor:${vendorId}:${randomUUID()}`;
+
     // Idempotency: a retried/double-submitted request with the same key must
     // not create a second ledger row (or move the balance twice).
     if (dto.idempotencyKey) {
@@ -337,11 +358,28 @@ export class WalletService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Explicit row lock first to serialize concurrent manual adjustments and retries.
+      const lockedRows: any = await tx.$queryRaw`
+        SELECT "walletBalance" FROM "vendors" WHERE "id" = ${vendorId} FOR UPDATE
+      `;
+      if (dto.idempotencyKey) {
+        const existingInTx = await tx.vendorWalletTransaction.findUnique({
+          where: {
+            vendorId_idempotencyKey: {
+              vendorId,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+        });
+        if (existingInTx) {
+          return {
+            message: CommonSuccess.RESOURCE_UPDATED,
+            data: existingInTx,
+          };
+        }
+      }
+
       if (dto.amount < 0) {
-        // Explicit row lock to read the authoritative current balance
-        const lockedRows: any = await tx.$queryRaw`
-          SELECT "walletBalance" FROM "vendors" WHERE "id" = ${vendorId} FOR UPDATE
-        `;
         const currentBalance = Number(lockedRows?.[0]?.walletBalance ?? 0);
         if (currentBalance + dto.amount < 0) {
           throw new BadRequestException(WalletErrors.NEGATIVE_BALANCE_EXCEEDED);
@@ -367,7 +405,7 @@ export class WalletService {
           description: dto.description || 'Manual Admin Transaction',
           orderId,
           referenceId,
-          idempotencyKey: dto.idempotencyKey ?? null,
+          idempotencyKey: effectiveIdempotencyKey,
         },
       });
     });
@@ -434,6 +472,12 @@ export class WalletService {
       }
     }
 
+    if (dto.idempotencyKey?.startsWith('settle:')) {
+      throw new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE);
+    }
+    const effectiveIdempotencyKey =
+      dto.idempotencyKey ?? `admin:driver:${driverId}:${randomUUID()}`;
+
     if (dto.idempotencyKey) {
       const existing = await this.prisma.driverWalletTransaction.findUnique({
         where: {
@@ -452,11 +496,28 @@ export class WalletService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Explicit row lock first to serialize concurrent manual adjustments and retries.
+      const lockedRows: any = await tx.$queryRaw`
+        SELECT "walletBalance" FROM "drivers" WHERE "id" = ${driverId} FOR UPDATE
+      `;
+      if (dto.idempotencyKey) {
+        const existingInTx = await tx.driverWalletTransaction.findUnique({
+          where: {
+            driverId_idempotencyKey: {
+              driverId,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+        });
+        if (existingInTx) {
+          return {
+            message: CommonSuccess.RESOURCE_UPDATED,
+            data: existingInTx,
+          };
+        }
+      }
+
       if (dto.amount < 0) {
-        // Explicit row lock to read the authoritative current balance
-        const lockedRows: any = await tx.$queryRaw`
-          SELECT "walletBalance" FROM "drivers" WHERE "id" = ${driverId} FOR UPDATE
-        `;
         const currentBalance = Number(lockedRows?.[0]?.walletBalance ?? 0);
         const settings = await tx.platformSetting.findFirst({
           select: { maxNegativeDriverBalance: true },
@@ -492,7 +553,7 @@ export class WalletService {
           description: dto.description || 'Manual Admin Transaction',
           orderId,
           referenceId,
-          idempotencyKey: dto.idempotencyKey ?? null,
+          idempotencyKey: effectiveIdempotencyKey,
         },
       });
     });

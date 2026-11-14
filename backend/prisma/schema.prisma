@@ -414,6 +414,7 @@ model CustomerCoinTransaction {
   description  String?
   createdAt    DateTime            @default(now()) @db.Timestamptz(3)
   customer     Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order        Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([customerId])
   @@index([orderId])
@@ -587,9 +588,9 @@ model VendorWalletTransaction {
   referenceId    String?
   idempotencyKey String?
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
-  order          Order?                 @relation(fields: [orderId], references: [id])
+  order          Order?                  @relation(fields: [orderId], references: [id], onDelete: SetNull)
   fulfillment    OrderVendorFulfillment? @relation(fields: [fulfillmentId], references: [id], onDelete: SetNull)
-  vendor         Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor         Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@unique([fulfillmentId, type])
   @@unique([vendorId, idempotencyKey])
@@ -911,6 +912,7 @@ model Order {
   supportTickets       SupportTicket[]
   conversations        Conversation[]
   vendorTransactions   VendorWalletTransaction[]
+  coinTransactions     CustomerCoinTransaction[]
   reviews              OrderReview[]
   vendorFulfillments   OrderVendorFulfillment[]
   deliveryGroups       OrderDeliveryGroup[]
@@ -931,17 +933,21 @@ model Order {
 }
 
 model OrderStatusEvent {
-  id              String      @id @default(uuid())
+  id              String                  @id @default(uuid())
   orderId         String
   fulfillmentId   String?
   deliveryGroupId String?
   status          OrderStatus
   note            String?
   createdBy       String?
-  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
-  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fulfillment     OrderVendorFulfillment? @relation(fields: [fulfillmentId], references: [id], onDelete: SetNull)
+  deliveryGroup   OrderDeliveryGroup?     @relation(fields: [deliveryGroupId], references: [id], onDelete: SetNull)
 
   @@index([orderId, createdAt])
+  @@index([fulfillmentId])
+  @@index([deliveryGroupId])
   @@map("order_status_events")
 }
 
@@ -986,13 +992,14 @@ model OrderItem {
   // the original price snapshot survive.
   rejectedAt      DateTime?         @db.Timestamptz(3)
   selectedOptions OrderItemOption[]
-  order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  fulfillment     OrderVendorFulfillment? @relation(fields: [fulfillmentId], references: [id])
-  product         Product?          @relation(fields: [productId], references: [id])
-  variant         ProductVariant?   @relation(fields: [variantId], references: [id])
+  order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fulfillment     OrderVendorFulfillment? @relation(fields: [fulfillmentId], references: [id], onDelete: SetNull)
+  product         Product?                @relation(fields: [productId], references: [id])
+  variant         ProductVariant?         @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
   @@index([fulfillmentId])
+  @@index([fulfillmentId, rejectedAt])
   @@map("order_items")
 }
 
@@ -1043,8 +1050,10 @@ model OrderVendorFulfillment {
   groups             OrderDeliveryGroupItem[]
   walletTransactions VendorWalletTransaction[]
   reviews            OrderReview[]
+  statusEvents       OrderStatusEvent[]
 
   @@index([orderId])
+  @@index([orderId, status])
   @@index([vendorId, status])
   @@index([vendorBranchId, status])
   @@index([status, createdAt])
@@ -1088,12 +1097,16 @@ model OrderDeliveryGroup {
   assistRequests                DriverAssistRequest[]
   dispatches                    OrderDispatch[]
   reviews                       OrderReview[]
+  statusEvents                  OrderStatusEvent[]
   driverWalletTransactions      DriverWalletTransaction[]
   driverManagerWalletTransactions DriverManagerWalletTransaction[]
 
   @@unique([orderId, sequence])
   @@index([orderId])
+  @@index([orderId, status])
   @@index([primaryDriverId])
+  @@index([primaryDriverId, status])
+  @@index([assistDriverId, status])
   @@index([status])
   @@map("order_delivery_groups")
 }
@@ -1110,6 +1123,7 @@ model OrderDeliveryGroupItem {
   /// A vendor portion rides in exactly one delivery — unique so it can never be
   /// dispatched twice by two groups.
   @@unique([fulfillmentId])
+  @@index([deliveryGroupId, sequence])
   @@map("order_delivery_group_items")
 }
 
@@ -1140,6 +1154,8 @@ model DriverAssistRequest {
   @@index([driverId, createdAt])
   @@index([status, createdAt])
   @@index([deliveryGroupId])
+  @@index([deliveryGroupId, status])
+  @@index([assignedDriverId, status])
   @@map("driver_assist_requests")
 }
 
@@ -1354,7 +1370,7 @@ model DriverWalletTransaction {
   createdAt       DateTime              @default(now()) @db.Timestamptz(3)
   driver          Driver                @relation(fields: [driverId], references: [id], onDelete: Cascade)
   driverShift     DriverShift?          @relation(fields: [driverShiftId], references: [id])
-  order           Order?                @relation(fields: [orderId], references: [id])
+  order           Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
   deliveryGroup   OrderDeliveryGroup?   @relation(fields: [deliveryGroupId], references: [id], onDelete: SetNull)
 
   @@index([driverId])
@@ -1411,9 +1427,11 @@ model OrderDispatch {
 
   @@index([orderId])
   @@index([deliveryGroupId])
+  @@index([deliveryGroupId, status])
   @@index([driverId])
   @@index([driverShiftId])
   @@index([status])
+  @@index([status, expiresAt])
   @@index([createdAt])
   @@index([driverId, status])
   @@map("order_dispatches")
@@ -1903,6 +1921,8 @@ model OrderReview {
   @@unique([orderId, fulfillmentId])
   @@unique([orderId, deliveryGroupId])
   @@index([orderId])
+  @@index([fulfillmentId])
+  @@index([deliveryGroupId])
   @@index([vendorId])
   @@index([driverId])
   @@index([customerId])

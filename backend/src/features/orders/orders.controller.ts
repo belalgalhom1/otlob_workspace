@@ -441,7 +441,7 @@ export class OrdersController {
     return this.multiVendorService.estimate(actor, dto);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(OrderResponseDto)
   @Post('multi-vendor')
   @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
   @Throttle({

@@ -77,6 +77,7 @@ export class OrdersPaymentService {
       const updated = await this.prisma.order.updateMany({
         where: {
           id: orderId,
+          paymentStatus: { not: 'COMPLETED' },
           ...(hasPendingPaymentGroup
             ? {
                 status: {
@@ -440,6 +441,7 @@ export class OrdersPaymentService {
       const updated = await this.prisma.order.updateMany({
         where: {
           id: orderId,
+          paymentStatus: { not: 'COMPLETED' },
           ...(groups.length > 0
             ? {
                 status: {

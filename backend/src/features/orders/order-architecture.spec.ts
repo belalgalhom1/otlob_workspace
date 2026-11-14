@@ -23,9 +23,19 @@ import { DispatchService } from '../dispatch/dispatch.service';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import { StockService } from './helpers/stock.service';
+import {
+  ORDER_INCLUDE,
+  OrderQueriesRepository,
+  portionStatusFilter,
+} from './repositories/order-queries.repository';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
 import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
+import { ReviewsService } from '../reviews/reviews.service';
+import {
+  OrderErrors,
+  ReviewErrors,
+} from '../../common/constants/response.constants';
 
 describe('Order & Dispatch Clean Architecture Units', () => {
   describe('OrderAuthorizationHelper', () => {
@@ -583,6 +593,271 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         }),
       );
       expect(outbox.markProcessed).toHaveBeenCalledWith('ORDER', 'ord-acc-1', 2);
+    });
+
+    it('DispatchService.resolveDispatchTarget queries group items/fulfillment and prefetches totalGroupsCount in parallel', async () => {
+      const orderFindUnique = jest.fn().mockResolvedValue({
+        id: 'ord-disp-1',
+        orderNumber: 'OTL-DISP-1',
+        type: 'STANDARD',
+        status: OrderStatus.PARTIALLY_PICKED_UP,
+        paymentMethod: 'CASH_ON_DELIVERY',
+        deliveryAddress: 'Nasr City',
+        subtotal: 200,
+        deliveryFee: 30,
+        deliveryCommissionRate: null,
+        grandTotal: 230,
+        isStacked: false,
+        distanceKm: 4.5,
+        vendorId: null,
+        vendorBranchId: null,
+        vendor: null,
+        vendorBranch: null,
+      });
+      const groupCount = jest.fn().mockResolvedValue(2);
+      const groupFindUnique = jest.fn().mockResolvedValue({
+        id: 'grp-disp-1',
+        orderId: 'ord-disp-1',
+        sequence: 1,
+        status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+        primaryDriverId: null,
+        deliveryFee: 20,
+        distanceKm: 3.1,
+        isStacked: false,
+        isPaymentCollector: true,
+        items: [
+          {
+            sequence: 1,
+            fulfillment: {
+              id: 'ff-1',
+              vendorId: 'v-1',
+              subtotal: 120,
+              vendor: { id: 'v-1', storeName: 'V1', storeNameAr: 'م1', zoneId: 'z1' },
+              vendorBranch: { id: 'b-1', name: 'B1', nameAr: 'ف1', zoneId: 'z1' },
+            },
+          },
+        ],
+      });
+
+      const prisma: any = {
+        order: { findUnique: orderFindUnique },
+        orderDeliveryGroup: { count: groupCount, findUnique: groupFindUnique },
+      };
+
+      const settingsSvc: any = {
+        getSettings: jest.fn().mockResolvedValue({ deliveryCommissionRate: 20 }),
+      };
+      const service = new DispatchService(
+        {} as any,
+        {} as any,
+        settingsSvc,
+        { emit: jest.fn() } as any,
+        prisma,
+        {
+          getOrderLocationContext: jest.fn().mockResolvedValue({
+            lng: 31.2,
+            lat: 30.0,
+            deliveryLng: 31.25,
+            deliveryLat: 30.05,
+          }),
+          getDeliveryGroupPickupLocation: jest
+            .fn()
+            .mockResolvedValue({ lng: 31.21, lat: 30.01 }),
+          getDistanceKm: jest.fn(),
+        } as any,
+        { findNearbyDrivers: jest.fn() } as any,
+        new OrderEarningsCalculator(settingsSvc),
+        { add: jest.fn() } as any,
+      );
+
+      const target = await (service as any).resolveDispatchTarget(
+        'ord-disp-1',
+        'OTL-DISP-1',
+        'grp-disp-1',
+      );
+
+      expect(target).not.toBeNull();
+      expect(target.totalGroupsCount).toBe(2);
+      expect(target.group.distanceKm).toBe(3.1);
+      expect(groupCount).toHaveBeenCalledTimes(1);
+      const selectArg = groupFindUnique.mock.calls[0][0].select;
+      expect(selectArg.items).toBeDefined();
+      expect(selectArg.fulfillments).toBeUndefined();
+      expect(selectArg.stopSequence).toBeUndefined();
+    });
+  });
+
+  describe('OrderQueriesRepository filters, cancellation recompute, and ReviewsService guards', () => {
+    it('keeps ACCEPTED and LOOKING_FOR_DRIVER portionStatusFilter mutually exclusive and hydrates driver tier', () => {
+      const acceptedFilter = portionStatusFilter(OrderStatus.ACCEPTED);
+      expect(acceptedFilter.order).toEqual({
+        status: { not: OrderStatus.LOOKING_FOR_DRIVER },
+      });
+      expect(
+        (acceptedFilter.groups as any).none.deliveryGroup.status.in,
+      ).toEqual(
+        expect.arrayContaining([
+          DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+          DeliveryGroupStatus.PICKED_UP,
+          DeliveryGroupStatus.DELIVERED,
+        ]),
+      );
+
+      const lookingFilter = portionStatusFilter(OrderStatus.LOOKING_FOR_DRIVER);
+      const orderLevelBranch = (lookingFilter.OR as any[])[0];
+      expect(orderLevelBranch.groups.none.deliveryGroup.status.in).toEqual(
+        expect.arrayContaining([
+          DeliveryGroupStatus.DRIVER_ASSIGNED,
+          DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+          DeliveryGroupStatus.PICKED_UP,
+        ]),
+      );
+      expect(ORDER_INCLUDE.deliveryGroups.include.primaryDriver.select.tier).toBe(
+        true,
+      );
+    });
+
+    it('recomputes pre-pickup order status & re-elects payment collector in transaction after group cancel', async () => {
+      const groupUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const freeDriver = jest.fn().mockResolvedValue(undefined);
+      const orderRepo = {
+        freeDriver,
+        updateStatus: jest.fn().mockResolvedValue({ revision: 5 }),
+        getOrderVendorUserIds: jest.fn().mockResolvedValue(['uv-1']),
+      };
+      const emitter = { emit: jest.fn() };
+
+      const prisma: any = {
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ord-c-1',
+            orderNumber: 'OTL-C-1',
+            status: OrderStatus.LOOKING_FOR_DRIVER,
+            customerId: 'c1',
+            customer: { userId: 'uc1' },
+            vendorId: null,
+            vendorFulfillments: [{ vendorId: 'v1' }],
+          }),
+        },
+        orderVendorFulfillment: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        orderDeliveryGroup: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'grp-1',
+              sequence: 1,
+              status: DeliveryGroupStatus.CANCELLED,
+              primaryDriverId: 'd1',
+              assistDriverId: null,
+              isPaymentCollector: false,
+            },
+            {
+              id: 'grp-2',
+              sequence: 2,
+              status: DeliveryGroupStatus.DRIVER_ASSIGNED,
+              primaryDriverId: 'd2',
+              assistDriverId: null,
+              isPaymentCollector: false,
+            },
+          ]),
+          updateMany: groupUpdateMany,
+        },
+        $transaction: jest.fn((ops: Promise<any>[]) => Promise.all(ops)),
+      };
+
+      const repoQuery = new OrderQueriesRepository({} as any);
+      expect(repoQuery).toBeDefined();
+
+      const groupSvc = new DeliveryGroupTransitionService(
+        prisma,
+        orderRepo as any,
+        emitter as any,
+      );
+
+      await groupSvc.recomputeGroupedOrderStatusAfterCancel('ord-c-1', ['d1']);
+
+      expect(groupUpdateMany).toHaveBeenCalledWith({
+        where: { orderId: 'ord-c-1', id: { not: 'grp-2' } },
+        data: { isPaymentCollector: false },
+      });
+      expect(groupUpdateMany).toHaveBeenCalledWith({
+        where: { id: 'grp-2' },
+        data: { isPaymentCollector: true },
+      });
+      expect(freeDriver).toHaveBeenCalledWith('d1');
+      expect(orderRepo.updateStatus).toHaveBeenCalledWith(
+        'ord-c-1',
+        OrderStatus.DRIVER_ASSIGNED,
+        'system',
+        expect.any(String),
+        undefined,
+        OrderStatus.LOOKING_FOR_DRIVER,
+      );
+      expect(emitter.emit).toHaveBeenCalledWith(
+        EVENTS.ORDER_STATUS_CHANGED,
+        expect.objectContaining({
+          orderId: 'ord-c-1',
+          newStatus: OrderStatus.DRIVER_ASSIGNED,
+          revision: 5,
+        }),
+      );
+    });
+
+    it('ReviewsService rejects missing eligible fulfillments with INVALID_TRANSITION and translates P2002 to ALREADY_RATED', async () => {
+      const baseOrder = {
+        id: 'ord-rev-1',
+        status: OrderStatus.DELIVERED,
+        customerId: 'cust-1',
+        vendorId: 'v-1',
+        driverId: 'd-1',
+        vendorFulfillments: [] as any[],
+        deliveryGroups: [
+          {
+            id: 'grp-1',
+            sequence: 1,
+            status: DeliveryGroupStatus.DELIVERED,
+            primaryDriverId: 'd-1',
+          },
+        ],
+        reviews: [],
+      };
+      const createMany = jest
+        .fn()
+        .mockRejectedValue(Object.assign(new Error('Unique'), { code: 'P2002' }));
+
+      const prisma: any = {
+        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
+        order: { findFirst: jest.fn().mockResolvedValue(baseOrder) },
+        orderReview: { createMany },
+      };
+
+      const reviewsSvc = new ReviewsService(prisma, { emit: jest.fn() } as any);
+
+      await expect(
+        reviewsSvc.submitReview(
+          { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
+          'ord-rev-1',
+          { vendorRating: 5 } as any,
+        ),
+      ).rejects.toThrow(OrderErrors.INVALID_TRANSITION);
+
+      baseOrder.vendorFulfillments = [
+        {
+          id: 'ff-1',
+          vendorId: 'v-1',
+          status: OrderVendorFulfillmentStatus.PICKED_UP,
+          deliveredAt: new Date(),
+        },
+      ];
+
+      await expect(
+        reviewsSvc.submitReview(
+          { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
+          'ord-rev-1',
+          { vendorRating: 5 } as any,
+        ),
+      ).rejects.toThrow(ReviewErrors.ALREADY_RATED);
     });
   });
 });

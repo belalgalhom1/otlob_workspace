@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
+  DeliveryGroupStatus,
   OrderStatus,
   OrderVendorFulfillmentStatus,
   Prisma,
@@ -733,6 +734,17 @@ export class OrderVendorDecisionService {
     if (!advanceable.includes(order.status)) return;
 
     try {
+      await this.prisma.orderDeliveryGroup.updateMany({
+        where: {
+          orderId,
+          primaryDriverId: null,
+          status: {
+            in: [DeliveryGroupStatus.PENDING, DeliveryGroupStatus.ACCEPTED],
+          },
+        },
+        data: { status: DeliveryGroupStatus.LOOKING_FOR_DRIVER },
+      });
+
       const updated = await this.ordersRepository.updateStatus(
         orderId,
         OrderStatus.LOOKING_FOR_DRIVER,

@@ -385,7 +385,14 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
           // that delivery is never retried again.
           {
             status: {
-              in: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP],
+              in: [
+                OrderStatus.DRIVER_ASSIGNED,
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.PREPARING,
+                OrderStatus.READY_FOR_PICKUP,
+                OrderStatus.PARTIALLY_PICKED_UP,
+                OrderStatus.PICKED_UP,
+              ],
             },
             deliveryGroups: {
               some: {
@@ -554,14 +561,17 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       .filter(hasAssignedDriver)
       .map((o) => o.id);
 
-    const settledRows = await this.prisma.driverWalletTransaction.findMany({
-      where: {
-        orderId: { in: deliveredOrderIds },
-        type: 'DELIVERY_FEE',
-      },
-      select: { orderId: true },
-      distinct: ['orderId'],
-    });
+    const settledRows =
+      deliveredOrderIds.length > 0
+        ? await this.prisma.driverWalletTransaction.findMany({
+            where: {
+              orderId: { in: deliveredOrderIds },
+              idempotencyKey: { startsWith: 'settle:' },
+            },
+            select: { orderId: true },
+            distinct: ['orderId'],
+          })
+        : [];
     const settledOrderIds = new Set(settledRows.map((r) => r.orderId));
 
     let recovered = 0;

@@ -269,7 +269,7 @@ export class OrdersRepository {
           "deliveryAddress", "deliveryLocation",
           subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax, discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
           "itemDetails", "requestedVehicleType",
-          "specialRequest", "updatedAt"
+          "specialRequest", "distanceKm", "updatedAt"
         ) VALUES (
           ${orderId},
           ${data.orderNumber},
@@ -301,6 +301,7 @@ export class OrdersRepository {
           ${data.itemDetails ?? null},
           ${data.requestedVehicleType ? Prisma.sql`${data.requestedVehicleType}::"VehicleType"` : Prisma.sql`NULL`},
           ${data.specialRequest ?? null},
+          ${data.distanceKm ?? null},
           NOW()
         )
         ON CONFLICT ("clientOrderKey") DO NOTHING
@@ -805,6 +806,11 @@ export class OrdersRepository {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
 
+      const currentOrder = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { status: true },
+      });
+
       const activeGroups = await tx.orderDeliveryGroup.findMany({
         where: {
           orderId,
@@ -814,6 +820,7 @@ export class OrdersRepository {
           id: true,
           status: true,
           primaryDriverId: true,
+          assistDriverId: true,
           items: {
             select: {
               fulfillment: { select: { status: true } },
@@ -835,15 +842,20 @@ export class OrdersRepository {
         targetGroup.primaryDriverId &&
         targetGroup.primaryDriverId !== driverId
       ) {
+        const prevId = targetGroup.primaryDriverId;
+        const hasSiblingActiveInOrder = activeGroups.some(
+          (g) =>
+            g.id !== targetGroup.id &&
+            g.status !== DeliveryGroupStatus.DELIVERED &&
+            (g.primaryDriverId === prevId || g.assistDriverId === prevId),
+        );
         if (
-          (await this.driverWorkload.countActiveUnits(
-            tx,
-            targetGroup.primaryDriverId,
-            orderId,
-          )) === 0
+          !hasSiblingActiveInOrder &&
+          (await this.driverWorkload.countActiveUnits(tx, prevId, orderId)) ===
+            0
         ) {
           await tx.driver.update({
-            where: { id: targetGroup.primaryDriverId },
+            where: { id: prevId },
             data: { status: DriverStatus.ONLINE },
           });
         }
@@ -868,11 +880,45 @@ export class OrdersRepository {
       const groupNextStatus =
         nextStatus === OrderStatus.PENDING_PAYMENT
           ? DeliveryGroupStatus.PENDING_PAYMENT
-          : allGroupReady
+          : allGroupReady || targetGroup.status === DeliveryGroupStatus.READY_FOR_PICKUP
             ? DeliveryGroupStatus.READY_FOR_PICKUP
-            : anyGroupPreparingOrReady
+            : anyGroupPreparingOrReady ||
+                targetGroup.status === DeliveryGroupStatus.PREPARING
               ? DeliveryGroupStatus.PREPARING
               : DeliveryGroupStatus.DRIVER_ASSIGNED;
+
+      const allOrderLiveFulfillments = activeGroups.flatMap((g) =>
+        g.items
+          .map((it) => it.fulfillment)
+          .filter((f) => f.status !== 'CANCELLED' && f.status !== 'REJECTED'),
+      );
+      const allOrderReady =
+        allOrderLiveFulfillments.length > 0 &&
+        allOrderLiveFulfillments.every((f) => f.status === 'READY_FOR_PICKUP');
+      const anyOrderPreparingOrReady = allOrderLiveFulfillments.some(
+        (f) => f.status === 'PREPARING' || f.status === 'READY_FOR_PICKUP',
+      );
+
+      const currentOrderStatus = currentOrder?.status;
+      let resolvedOrderStatus: OrderStatus = nextStatus;
+      if (
+        currentOrderStatus === OrderStatus.PARTIALLY_PICKED_UP ||
+        currentOrderStatus === OrderStatus.PICKED_UP
+      ) {
+        resolvedOrderStatus = currentOrderStatus;
+      } else if (nextStatus === OrderStatus.PENDING_PAYMENT) {
+        resolvedOrderStatus = OrderStatus.PENDING_PAYMENT;
+      } else if (
+        allOrderReady ||
+        currentOrderStatus === OrderStatus.READY_FOR_PICKUP
+      ) {
+        resolvedOrderStatus = OrderStatus.READY_FOR_PICKUP;
+      } else if (
+        anyOrderPreparingOrReady ||
+        currentOrderStatus === OrderStatus.PREPARING
+      ) {
+        resolvedOrderStatus = OrderStatus.PREPARING;
+      }
 
       await tx.orderDeliveryGroup.update({
         where: { id: targetGroup.id },
@@ -881,6 +927,7 @@ export class OrdersRepository {
           primaryDriverShiftId: driverShiftId,
           isStacked: activeCount > 0,
           status: groupNextStatus,
+          assignedByUserId: actorUserId,
           assignedAt: new Date(),
         },
       });
@@ -889,7 +936,9 @@ export class OrdersRepository {
         await tx.order.update({
           where: { id: orderId },
           data: {
-            status: nextStatus,
+            ...(currentOrderStatus !== resolvedOrderStatus
+              ? { status: resolvedOrderStatus }
+              : {}),
             revision: { increment: 1 },
           },
           select: { revision: true },
@@ -900,9 +949,9 @@ export class OrdersRepository {
         data: {
           orderId,
           deliveryGroupId: targetGroup.id,
-          status: nextStatus,
+          status: resolvedOrderStatus,
           createdBy: actorUserId,
-          note: `Driver manually assigned by admin. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
+          note: `Driver manually assigned by admin. ${resolvedOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
         },
       });
 
