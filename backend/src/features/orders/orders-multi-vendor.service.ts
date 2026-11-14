@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -61,6 +62,8 @@ export interface MultiVendorFeeBreakdown {
  */
 @Injectable()
 export class OrdersMultiVendorService {
+  private readonly logger = new Logger(OrdersMultiVendorService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
@@ -297,7 +300,7 @@ export class OrdersMultiVendorService {
             vendorId: portion.vendorId,
             vendorBranchId: portion.vendorBranchId,
             status: 'PENDING',
-            subtotal: portion.subtotal,
+            subtotal: Math.round(portion.subtotal),
             // Capture the rate now so a later vendor edit cannot change
             // settlement of an order that is already placed.
             commissionRate: portion.commissionRate,
@@ -415,16 +418,8 @@ export class OrdersMultiVendorService {
     });
 
     if (created.created) {
-      // Carts for all vendors are cleared, matching the single-vendor listener.
-      await Promise.all(
-        vendorIds.map((vendorId) =>
-          this.cartService.clearCart(actor.sub, vendorId),
-        ),
-      );
-
       // Notify every vendor's staff that a new order is waiting for their
       // portion decision.
-
       this.eventEmitter.emit(
         EVENTS.ORDER_CREATED,
         new OrderCreatedEvent(
@@ -437,6 +432,18 @@ export class OrdersMultiVendorService {
           plan.grandTotal,
           dto.paymentMethod,
           'STANDARD',
+        ),
+      );
+
+      this.logger.log(
+        `Multi-vendor order placed: ${created.orderNumber} (${plan.portions.length} portions, ${plan.grouping.groups.length} groups, ${vendorUserIds.length} vendor users) by user ${actor.sub}`,
+      );
+
+      // Carts for all vendors are cleared best-effort after emitting ORDER_CREATED,
+      // matching the single-vendor checkout flow without blocking notifications.
+      await Promise.allSettled(
+        vendorIds.map((vendorId) =>
+          this.cartService.clearCart(actor.sub, vendorId),
         ),
       );
     }

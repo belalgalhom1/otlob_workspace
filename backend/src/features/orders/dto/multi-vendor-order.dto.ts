@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   ArrayNotEmpty,
   ArrayUnique,
@@ -6,12 +7,14 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentMethod } from '@prisma/client';
 
@@ -44,9 +47,19 @@ export class PlaceMultiVendorOrderDto {
   @ApiProperty({
     example: [31.3300, 30.0444],
     description: '[longitude, latitude]',
+    type: [Number],
   })
   @IsArray()
   @ArrayMinSize(2)
+  @ArrayMaxSize(2)
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value.map((v) =>
+          typeof v === 'string' && v.trim() !== '' ? Number(v) : v,
+        )
+      : value,
+  )
+  @IsNumber({}, { each: true })
   deliveryLocation: [number, number];
 
   @ApiProperty({ example: 'Please ring the bell twice', required: false })

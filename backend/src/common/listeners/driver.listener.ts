@@ -120,7 +120,7 @@ export class DriverListener {
     if (!dto) return;
 
     try {
-      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto }, { attempts: 1 });
+      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto });
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue driver status notification: ${error instanceof Error ? error.message : String(error)}`,
@@ -193,7 +193,7 @@ export class DriverListener {
     };
 
     try {
-      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto }, { attempts: 1 });
+      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto });
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue break notification: ${error instanceof Error ? error.message : String(error)}`,

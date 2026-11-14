@@ -1523,7 +1523,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         const SizedBox(height: 20),
 
                         // Order items / Multi-vendor stops section
-                        if (isMultiVendor || fulfillments.length > 1)
+                        if ((isMultiVendor && fulfillments.isNotEmpty) ||
+                            fulfillments.length > 1)
                           _buildMultiVendorFulfillments(
                             context,
                             order,

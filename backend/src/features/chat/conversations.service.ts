@@ -78,14 +78,19 @@ export class ConversationsService {
       const members = await this.prisma.vendorMember.findMany({
         where: {
           vendorId: order.vendorId,
-          OR: [
-            { branchId: null },
-            { branchId: order.vendorBranchId ?? undefined },
-          ],
+          ...(order.vendorBranchId
+            ? {
+                OR: [
+                  { role: 'OWNER' },
+                  { branchId: null },
+                  { branchId: order.vendorBranchId },
+                ],
+              }
+            : {}),
         },
         select: { userId: true },
       });
-      return members.map((m) => m.userId);
+      return Array.from(new Set(members.map((m) => m.userId)));
     }
 
     const portions = await this.prisma.orderVendorFulfillment.findMany({
@@ -94,19 +99,20 @@ export class ConversationsService {
     });
     if (portions.length === 0) return [];
 
-    const vendorIds = Array.from(new Set(portions.map((p) => p.vendorId)));
-    const branchIds = Array.from(
-      new Set(
-        portions
-          .map((p) => p.vendorBranchId)
-          .filter((b): b is string => !!b),
-      ),
-    );
+    const orClauses = portions.map((p) => ({
+      vendorId: p.vendorId,
+      ...(p.vendorBranchId
+        ? {
+            OR: [
+              { role: 'OWNER' as const },
+              { branchId: null },
+              { branchId: p.vendorBranchId },
+            ],
+          }
+        : {}),
+    }));
     const members = await this.prisma.vendorMember.findMany({
-      where: {
-        vendorId: { in: vendorIds },
-        OR: [{ branchId: null }, { branchId: { in: branchIds } }],
-      },
+      where: { OR: orClauses },
       select: { userId: true },
     });
     return Array.from(new Set(members.map((m) => m.userId)));

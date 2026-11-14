@@ -55,7 +55,7 @@ export class NotificationListener {
     data?: Record<string, any>;
   }) {
     try {
-      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto }, { attempts: 1 });
+      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, { dto });
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue notification: ${error instanceof Error ? error.message : String(error)}`,

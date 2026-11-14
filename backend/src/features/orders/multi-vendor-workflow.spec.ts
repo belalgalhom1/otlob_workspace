@@ -1,4 +1,6 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import {
   DeliveryGroupStatus,
   OrderStatus,
@@ -11,7 +13,10 @@ import { OrdersStateService } from './orders-state.service';
 import { OrdersService } from './orders.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
+import { PlaceMultiVendorOrderDto } from './dto/multi-vendor-order.dto';
 import { EventsProcessor } from '../../common/listeners/events.processor';
+import { NotificationListener } from '../../common/listeners/notification.listener';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 
 describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => {
@@ -734,6 +739,77 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           reason: 'Timed out',
         }),
       ).resolves.toMatchObject({ id: 'ff-2', status: OrderVendorFulfillmentStatus.REJECTED });
+    });
+
+    it('normalizes and validates PlaceMultiVendorOrderDto coordinates for numbers and legacy string tuples', async () => {
+      const base = {
+        vendorIds: [
+          '11111111-1111-4111-8111-111111111111',
+          '22222222-2222-4222-8222-222222222222',
+        ],
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        deliveryAddress: '15 El Gomhoria St, Cairo',
+      };
+
+      const fromStrings = plainToInstance(PlaceMultiVendorOrderDto, {
+        ...base,
+        deliveryLocation: ['31.33', '30.0444'],
+      });
+      expect(fromStrings.deliveryLocation).toEqual([31.33, 30.0444]);
+      expect(await validate(fromStrings)).toHaveLength(0);
+
+      const fromBadStrings = plainToInstance(PlaceMultiVendorOrderDto, {
+        ...base,
+        deliveryLocation: ['not-a-lng', '30.0444'],
+      });
+      expect(await validate(fromBadStrings)).not.toHaveLength(0);
+    });
+
+    it('enqueues EVENT_JOBS.NOTIFY with queue default retries and keeps socket/push failures non-fatal', async () => {
+      const add = jest.fn().mockResolvedValue(undefined);
+      const listener = new NotificationListener({ add } as any);
+      await listener.handleFulfillmentDecided({
+        customerUserId: 'cust-u-1',
+        orderId: 'ord-1',
+        orderNumber: 'OTL-1',
+        fulfillmentId: 'ff-1',
+        status: OrderVendorFulfillmentStatus.ACCEPTED,
+      } as any);
+
+      expect(add).toHaveBeenCalledWith(
+        EVENT_JOBS.NOTIFY,
+        expect.objectContaining({ dto: expect.objectContaining({ userId: 'cust-u-1' }) }),
+      );
+
+      const notifSvc = new NotificationsService(
+        {
+          notification: {
+            create: jest.fn().mockResolvedValue({
+              id: 'notif-1',
+              title: 't',
+              titleAr: null,
+              body: null,
+              bodyAr: null,
+              type: 'ORDER_UPDATE',
+              data: null,
+              createdAt: new Date(),
+            }),
+          },
+          user: {
+            findUnique: jest.fn().mockRejectedValue(new Error('Push lookup transient error')),
+          },
+        } as any,
+        {} as any,
+        { emitToUser: jest.fn().mockRejectedValue(new Error('Socket transient error')) } as any,
+      );
+
+      await expect(
+        notifSvc.create({
+          userId: 'cust-u-1',
+          title: 't',
+          type: 'ORDER_UPDATE' as any,
+        }),
+      ).resolves.toMatchObject({ id: 'notif-1' });
     });
   });
 });

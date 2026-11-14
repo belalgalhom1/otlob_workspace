@@ -316,7 +316,152 @@ export class OrdersController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SHARED
+  // ADMIN (static & list routes — must precede `:orderId` routes)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @ApiStandardResponse()
+  @Get()
+  @RequirePermissions(
+    Permission.MANAGE_ORDERS,
+    Permission.MANAGE_VENDORS,
+    Permission.MANAGE_DRIVERS,
+    { mode: 'any' },
+  )
+  @ApiOperation({ summary: '[Admin] List all orders with filters' })
+  adminFindAll(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Query() dto: QueryOrdersDto,
+  ) {
+    return this.ordersService.adminFindAll(dto, actor);
+  }
+
+  @ApiStandardResponse(OrderResponseDto)
+  @Throttle({
+    short: { limit: 3, ttl: 60000 },
+    medium: { limit: 10, ttl: 300000 },
+  })
+  @Post('admin/direct')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.VENDOR_MEMBER)
+  @ApiOperation({
+    summary: '[Admin/Vendor] Create a pending order directly for a customer',
+  })
+  async adminPlaceDirectOrder(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: PlaceDirectOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    const order = await this.checkoutService.adminPlaceDirectOrder(
+      actor,
+      dto,
+      idempotencyKey,
+    );
+    return this.ordersService.projectOrderForRole(order, actor);
+  }
+
+  // ─── Vendor portions (multi-vendor orders) ────────────────────────────────
+  // NOTE: static `vendor-decisions/*` paths must stay ABOVE the `:orderId`
+  // param routes, otherwise Express captures the literal segment as an id.
+
+  @ApiArrayResponse()
+  @Get('vendor-decisions/pending')
+  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary: '[Vendor] My vendor portions awaiting my accept/reject decision',
+  })
+  myPendingDecisions(@CurrentUser() actor: JwtAccessPayload) {
+    return this.vendorDecisionService.listPendingForVendor(actor);
+  }
+
+  @ApiArrayResponse()
+  @Get('vendor-decisions/vendor/:vendorId')
+  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: '[Vendor] All my portions for one vendor' })
+  listVendorDecisions(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('vendorId') vendorId: string,
+  ) {
+    return this.vendorDecisionService.listForVendor(actor, vendorId);
+  }
+
+  @ApiArrayResponse()
+  @Get('vendor-decisions/order/:orderId')
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, { mode: 'any' })
+  @ApiOperation({ summary: '[Admin] Vendor portions and their states for an order' })
+  listOrderDecisions(@Param('orderId') orderId: string) {
+    return this.vendorDecisionService.listForOrder(orderId);
+  }
+
+  @ApiStandardResponse()
+  @Patch('vendor-decisions/:fulfillmentId/accept')
+  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Vendor] Accept ONLY my portion — other vendors are unaffected',
+  })
+  acceptFulfillment(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('fulfillmentId') fulfillmentId: string,
+  ) {
+    return this.vendorDecisionService.accept(actor, fulfillmentId);
+  }
+
+  @ApiStandardResponse()
+  @Patch('vendor-decisions/:fulfillmentId/reject')
+  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      '[Vendor] Reject only my portion with an auditable reason; the customer is notified and the totals are adjusted',
+  })
+  rejectFulfillment(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('fulfillmentId') fulfillmentId: string,
+    @Body() dto: RejectVendorFulfillmentDto,
+  ) {
+    return this.vendorDecisionService.reject(actor, fulfillmentId, dto);
+  }
+
+  // ─── Multi-vendor checkout ────────────────────────────────────────────────
+  // NOTE: `multi-vendor/*` static paths must stay ABOVE the `:orderId` routes.
+
+  @ApiStandardResponse()
+  @Post('multi-vendor/fee-estimate')
+  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits',
+  })
+  estimateMultiVendor(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: PlaceMultiVendorOrderDto,
+  ) {
+    return this.multiVendorService.estimate(actor, dto);
+  }
+
+  @ApiStandardResponse()
+  @Post('multi-vendor')
+  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
+  @Throttle({
+    short: { limit: 3, ttl: 60000 },
+    medium: { limit: 10, ttl: 300000 },
+  })
+  @ApiOperation({
+    summary:
+      'Place one order containing multiple vendors, grouped into deliveries',
+  })
+  async placeMultiVendorOrder(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: PlaceMultiVendorOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    const order = await this.multiVendorService.placeOrder(actor, dto, idempotencyKey);
+    return this.ordersService.projectOrderForRole(order, actor);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SHARED (`:orderId` parameterized routes)
   // ═══════════════════════════════════════════════════════════════════════════
 
   @ApiStandardResponse(OrderResponseDto)
@@ -389,26 +534,6 @@ export class OrdersController {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ADMIN
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  @ApiStandardResponse()
-  @Get()
-  @RequirePermissions(
-    Permission.MANAGE_ORDERS,
-    Permission.MANAGE_VENDORS,
-    Permission.MANAGE_DRIVERS,
-    { mode: 'any' },
-  )
-  @ApiOperation({ summary: '[Admin] List all orders with filters' })
-  adminFindAll(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Query() dto: QueryOrdersDto,
-  ) {
-    return this.ordersService.adminFindAll(dto, actor);
-  }
-
   @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/assign-driver')
   @HttpCode(HttpStatus.OK)
@@ -430,131 +555,6 @@ export class OrdersController {
       }
     }
     const order = await this.stateService.adminForceAssignDriver(actor, orderId, dto);
-    return this.ordersService.projectOrderForRole(order, actor);
-  }
-
-  // ─── Order Item Modifications & Direct Orders ────────────────────────────────
-
-  @ApiStandardResponse(OrderResponseDto)
-  @Throttle({
-    short: { limit: 3, ttl: 60000 },
-    medium: { limit: 10, ttl: 300000 },
-  })
-  @Post('admin/direct')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.VENDOR_MEMBER)
-  @ApiOperation({
-    summary: '[Admin/Vendor] Create a pending order directly for a customer',
-  })
-  async adminPlaceDirectOrder(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Body() dto: PlaceDirectOrderDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
-    const order = await this.checkoutService.adminPlaceDirectOrder(
-      actor,
-      dto,
-      idempotencyKey,
-    );
-    return this.ordersService.projectOrderForRole(order, actor);
-  }
-  // ─── Vendor portions (multi-vendor orders) ────────────────────────────────
-  // NOTE: static `vendor-decisions/*` paths must stay ABOVE the `:orderId`
-  // param routes, otherwise Express captures the literal segment as an id.
-
-  @ApiArrayResponse()
-  @Get('vendor-decisions/pending')
-  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
-  @ApiOperation({
-    summary: '[Vendor] My vendor portions awaiting my accept/reject decision',
-  })
-  myPendingDecisions(@CurrentUser() actor: JwtAccessPayload) {
-    return this.vendorDecisionService.listPendingForVendor(actor);
-  }
-
-  @ApiArrayResponse()
-  @Get('vendor-decisions/vendor/:vendorId')
-  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: '[Vendor] All my portions for one vendor' })
-  listVendorDecisions(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('vendorId') vendorId: string,
-  ) {
-    return this.vendorDecisionService.listForVendor(actor, vendorId);
-  }
-
-  @ApiArrayResponse()
-  @Get('vendor-decisions/order/:orderId')
-  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, { mode: 'any' })
-  @ApiOperation({ summary: '[Admin] Vendor portions and their states for an order' })
-  listOrderDecisions(@Param('orderId') orderId: string) {
-    return this.vendorDecisionService.listForOrder(orderId);
-  }
-
-  @ApiStandardResponse()
-  @Patch('vendor-decisions/:fulfillmentId/accept')
-  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      '[Vendor] Accept ONLY my portion — other vendors are unaffected',
-  })
-  acceptFulfillment(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('fulfillmentId') fulfillmentId: string,
-  ) {
-    return this.vendorDecisionService.accept(actor, fulfillmentId);
-  }
-
-  @ApiStandardResponse()
-  @Patch('vendor-decisions/:fulfillmentId/reject')
-  @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      '[Vendor] Reject only my portion with an auditable reason; the customer is notified and the totals are adjusted',
-  })
-  rejectFulfillment(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Param('fulfillmentId') fulfillmentId: string,
-    @Body() dto: RejectVendorFulfillmentDto,
-  ) {
-    return this.vendorDecisionService.reject(actor, fulfillmentId, dto);
-  }
-  // ─── Multi-vendor checkout ────────────────────────────────────────────────
-  // NOTE: `multi-vendor/*` static paths must stay ABOVE the `:orderId` routes.
-
-  @ApiStandardResponse()
-  @Post('multi-vendor/fee-estimate')
-  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      'Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits',
-  })
-  estimateMultiVendor(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Body() dto: PlaceMultiVendorOrderDto,
-  ) {
-    return this.multiVendorService.estimate(actor, dto);
-  }
-
-  @ApiStandardResponse()
-  @Post('multi-vendor')
-  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
-  @Throttle({
-    short: { limit: 3, ttl: 60000 },
-    medium: { limit: 10, ttl: 300000 },
-  })
-  @ApiOperation({
-    summary:
-      'Place one order containing multiple vendors, grouped into deliveries',
-  })
-  async placeMultiVendorOrder(
-    @CurrentUser() actor: JwtAccessPayload,
-    @Body() dto: PlaceMultiVendorOrderDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
-    const order = await this.multiVendorService.placeOrder(actor, dto, idempotencyKey);
     return this.ordersService.projectOrderForRole(order, actor);
   }
 }

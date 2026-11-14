@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Inject,
   forwardRef,
@@ -46,6 +47,8 @@ export interface RejectFulfillmentDto {
  */
 @Injectable()
 export class OrderVendorDecisionService {
+  private readonly logger = new Logger(OrderVendorDecisionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersRepository: OrdersRepository,
@@ -96,6 +99,10 @@ export class OrderVendorDecisionService {
     if (claimed.count === 0) {
       throw new BadRequestException(OrderErrors.FULFILLMENT_ALREADY_DECIDED);
     }
+
+    this.logger.log(
+      `Fulfillment ${fulfillmentId} for order ${fulfillment.orderId} ACCEPTED by ${actor.sub}`,
+    );
 
     await this.emitDecided(
       fulfillment,
@@ -279,6 +286,10 @@ export class OrderVendorDecisionService {
       refundAmount,
       result.deliveryFeeDelta,
       serviceFeeDelta,
+    );
+
+    this.logger.log(
+      `Fulfillment ${fulfillmentId} for order ${fulfillment.orderId} REJECTED by ${actorSub} (${dto.code})`,
     );
 
     const allRejected = await this.recomputeOrderStatus(fulfillment.orderId);

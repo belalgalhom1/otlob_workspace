@@ -55,30 +55,42 @@ export class NotificationsService {
       },
     });
 
-    await this.socketService.emitToUser(
-      dto.userId,
-      SOCKET_EVENTS.NOTIFICATION,
-      {
-        id: notification.id,
-        title: notification.title,
-        titleAr: notification.titleAr,
-        body: notification.body,
-        bodyAr: notification.bodyAr,
-        type: notification.type,
-        data: notification.data,
-        createdAt: notification.createdAt,
-      },
-    );
+    try {
+      await this.socketService.emitToUser(
+        dto.userId,
+        SOCKET_EVENTS.NOTIFICATION,
+        {
+          id: notification.id,
+          title: notification.title,
+          titleAr: notification.titleAr,
+          body: notification.body,
+          bodyAr: notification.bodyAr,
+          type: notification.type,
+          data: notification.data,
+          createdAt: notification.createdAt,
+        },
+      );
+    } catch (err) {
+      this.logger.error(
+        `Socket emit failed for user ${dto.userId}: ${(err as Error).message}`,
+      );
+    }
 
-    await this.dispatchPush(
-      dto.userId,
-      dto.type,
-      dto.title,
-      dto.titleAr ?? null,
-      dto.body ?? null,
-      dto.bodyAr ?? null,
-      dto.data as Record<string, string> | undefined,
-    );
+    try {
+      await this.dispatchPush(
+        dto.userId,
+        dto.type,
+        dto.title,
+        dto.titleAr ?? null,
+        dto.body ?? null,
+        dto.bodyAr ?? null,
+        dto.data as Record<string, string> | undefined,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Push dispatch failed for user ${dto.userId}: ${(err as Error).message}`,
+      );
+    }
 
     return notification;
   }
