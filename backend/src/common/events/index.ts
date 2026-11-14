@@ -292,6 +292,7 @@ export class ShiftDisabledEvent {
     public readonly driverUserId: string,
     public readonly shiftId: string,
     public readonly reason: 'admin' | 'self' = 'admin',
+    public readonly count: number = 1,
   ) {}
 }
 

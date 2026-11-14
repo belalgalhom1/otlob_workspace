@@ -87,4 +87,28 @@ class ShiftPools extends _$ShiftPools {
     });
     await refresh();
   }
+
+  Future<BulkRemoveShiftsResult> removeDriverFromPools(
+    String driverId,
+    List<String> poolIds,
+  ) async {
+    final uniquePoolIds = poolIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (uniquePoolIds.isEmpty) {
+      return const BulkRemoveShiftsResult(removed: 0, skippedHistorical: 0);
+    }
+    final dio = ref.read(dioProvider);
+    final response = await dio.post(
+      '/driver-shifts/admin/remove-bulk',
+      data: {
+        'driverId': driverId,
+        'shiftPoolIds': uniquePoolIds,
+      },
+    );
+    final raw = response.data is Map
+        ? Map<String, dynamic>.from(response.data as Map)
+        : <String, dynamic>{};
+    final result = BulkRemoveShiftsResult.fromJson(raw);
+    await refresh();
+    return result;
+  }
 }

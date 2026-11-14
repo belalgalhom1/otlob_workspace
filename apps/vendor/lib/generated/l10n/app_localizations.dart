@@ -5053,6 +5053,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View pickup photo'**
   String get viewPickupPhoto;
+
+  /// No description provided for @removeFromAllShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from all shifts ({count})'**
+  String removeFromAllShifts(int count);
+
+  /// No description provided for @removeDriverGroupConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove this driver from all {count} shifts in this group? Past completed or missed shifts will be kept.'**
+  String removeDriverGroupConfirm(int count);
+
+  /// No description provided for @removeDriverGroupSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver removed from {count} shifts in this group'**
+  String removeDriverGroupSuccess(int count);
+
+  /// No description provided for @removeDriverGroupPartialSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed {removed} shifts — past completed or missed shifts kept ({skipped}).'**
+  String removeDriverGroupPartialSuccess(int removed, int skipped);
+
+  /// No description provided for @removeDriverGroupHistoricalOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'No removable shifts found — past completed or missed shifts kept ({skipped}).'**
+  String removeDriverGroupHistoricalOnly(int skipped);
+
+  /// No description provided for @removeDriverGroupNoneFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver has no shifts to remove in this group.'**
+  String get removeDriverGroupNoneFound;
+
+  /// No description provided for @removeDriverFromGroupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from Shift Group'**
+  String get removeDriverFromGroupTitle;
+
+  /// No description provided for @removeDriverFromGroupAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove All ({count})'**
+  String removeDriverFromGroupAction(int count);
 }
 
 class _AppLocalizationsDelegate

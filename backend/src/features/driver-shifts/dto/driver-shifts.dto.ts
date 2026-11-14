@@ -201,6 +201,21 @@ export class AdminBulkAssignShiftsDto {
   shiftPoolIds!: string[];
 }
 
+export class AdminBulkRemoveShiftsDto {
+  @ApiProperty({ example: 'driver-id' })
+  @IsString()
+  @IsNotEmpty()
+  driverId!: string;
+
+  @ApiProperty({ example: ['pool-id-1', 'pool-id-2'], type: [String] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  shiftPoolIds!: string[];
+}
+
 export class AdminBookWeeklyShiftsDto {
   @ApiProperty({ example: 'driver-id' })
   @IsString()

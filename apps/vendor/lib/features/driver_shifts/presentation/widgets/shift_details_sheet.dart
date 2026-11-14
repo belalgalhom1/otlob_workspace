@@ -16,7 +16,7 @@ class ShiftDetailsSheet extends ConsumerStatefulWidget {
   final VoidCallback onAssigned;
 
   /// Every pool in the same generated batch. When there is more than one the
-  /// UI offers to assign the driver to the whole group in a single action.
+  /// UI offers to assign or remove the driver for the whole group in a single action.
   final List<String> allPoolIds;
 
   const ShiftDetailsSheet({
@@ -33,6 +33,8 @@ class ShiftDetailsSheet extends ConsumerStatefulWidget {
 class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   final TextEditingController _searchController = TextEditingController();
   bool _assignToAll = false;
+  bool _removeFromAll = false;
+  bool _isRemoving = false;
 
   @override
   void initState() {
@@ -417,6 +419,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   }
 
   Widget _buildAssignedDriversList(AppLocalizations l10n, ShiftPool pool) {
+    final hasGroup = widget.allPoolIds.length > 1;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -451,25 +454,73 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               if (pool.driverShifts.isNotEmpty)
                 InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  onTap: () => _removeAllDrivers(l10n, pool),
+                  onTap: _isRemoving ? null : () => _removeAllDrivers(l10n, pool),
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.08),
+                      color: AppColors.error.withValues(
+                        alpha: _isRemoving ? 0.04 : 0.08,
+                      ),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Tooltip(
                       message: l10n.removeAllDrivers,
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.userX,
                         size: 14,
-                        color: AppColors.error,
+                        color: _isRemoving
+                            ? AppColors.error.withValues(alpha: 0.4)
+                            : AppColors.error,
                       ),
                     ),
                   ),
                 ),
             ],
           ),
+          if (hasGroup && pool.driverShifts.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: _isRemoving
+                  ? null
+                  : () => setState(() => _removeFromAll = !_removeFromAll),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(
+                    alpha: _removeFromAll ? 0.08 : 0.04,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.error.withValues(
+                      alpha: _removeFromAll ? 0.4 : 0.22,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _removeFromAll
+                          ? LucideIcons.checkSquare
+                          : LucideIcons.square,
+                      size: 18,
+                      color: AppColors.error,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.removeFromAllShifts(widget.allPoolIds.length),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           if (pool.driverShifts.isEmpty)
             Container(
@@ -499,21 +550,25 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             )
           else
             ...pool.driverShifts.map(
-              (shift) => _buildAssignedDriverTile(shift),
+              (shift) => _buildAssignedDriverTile(l10n, shift),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildAssignedDriverTile(DriverShift shift) {
+  Widget _buildAssignedDriverTile(AppLocalizations l10n, DriverShift shift) {
     final driverName =
-        shift.driver?.user.name ?? shift.driverId.substring(0, 8);
+        shift.driver?.user.name ??
+        (shift.driverId.length >= 8
+            ? shift.driverId.substring(0, 8)
+            : shift.driverId);
     final statusColor = shift.status == 'ACTIVE'
         ? AppColors.success
         : shift.status == 'SCHEDULED'
         ? AppColors.info
         : Theme.of(context).colorScheme.onSurface;
+    final hasGroup = widget.allPoolIds.length > 1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -594,16 +649,29 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             ),
           ),
           const SizedBox(width: 4),
-          InkWell(
-            borderRadius: BorderRadius.circular(6),
-            onTap: () => _removeDriver(shift),
-            child: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
+          Tooltip(
+            message: _removeFromAll && hasGroup
+                ? l10n.removeFromAllShifts(widget.allPoolIds.length)
+                : l10n.removeDriver,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: _isRemoving ? null : () => _removeDriver(shift),
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(
+                    alpha: _isRemoving ? 0.04 : 0.08,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  LucideIcons.userX,
+                  size: 12,
+                  color: _isRemoving
+                      ? AppColors.error.withValues(alpha: 0.4)
+                      : AppColors.error,
+                ),
               ),
-              child: const Icon(LucideIcons.userX, size: 12, color: AppColors.error),
             ),
           ),
         ],
@@ -612,37 +680,188 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   }
 
   Future<void> _removeDriver(DriverShift shift) async {
+    if (_isRemoving) return;
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
+    final hasGroup = widget.allPoolIds.length > 1;
+    final driverName =
+        shift.driver?.user.name ??
+        (shift.driverId.length >= 8
+            ? shift.driverId.substring(0, 8)
+            : shift.driverId);
+
+    final removeFromAllChoice = await showDialog<bool?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(l10n.removeDriver),
-        content: Text(l10n.removeDriverConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await ref.read(shiftPoolsProvider.notifier).removeDriverFromShift(shift.id);
-      widget.onAssigned();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.removeDriverSuccess),
-            backgroundColor: AppColors.success,
+      builder: (ctx) {
+        var removeFromAll = _removeFromAll && hasGroup;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Text(
+              removeFromAll && hasGroup
+                  ? l10n.removeDriverFromGroupTitle
+                  : l10n.removeDriver,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (driverName.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.user,
+                          size: 13,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            driverName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Text(
+                  removeFromAll && hasGroup
+                      ? l10n.removeDriverGroupConfirm(widget.allPoolIds.length)
+                      : l10n.removeDriverConfirm,
+                ),
+                if (hasGroup) ...[
+                  const SizedBox(height: 12),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () =>
+                        setDialogState(() => removeFromAll = !removeFromAll),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(
+                          alpha: removeFromAll ? 0.08 : 0.04,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.error.withValues(
+                            alpha: removeFromAll ? 0.4 : 0.22,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            removeFromAll
+                                ? LucideIcons.checkSquare
+                                : LucideIcons.square,
+                            size: 18,
+                            color: AppColors.error,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              l10n.removeFromAllShifts(
+                                widget.allPoolIds.length,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+                onPressed: () => Navigator.pop(ctx, removeFromAll),
+                child: Text(l10n.delete),
+              ),
+            ],
           ),
         );
+      },
+    );
+    if (removeFromAllChoice == null || !mounted) return;
+
+    setState(() => _isRemoving = true);
+    try {
+      if (removeFromAllChoice && hasGroup) {
+        final result = await ref
+            .read(shiftPoolsProvider.notifier)
+            .removeDriverFromPools(shift.driverId, widget.allPoolIds);
+        widget.onAssigned();
+        if (mounted) {
+          final String msg;
+          final Color bgColor;
+          if (result.removed > 0 && result.skippedHistorical > 0) {
+            msg = l10n.removeDriverGroupPartialSuccess(
+              result.removed,
+              result.skippedHistorical,
+            );
+            bgColor = AppColors.success;
+          } else if (result.removed > 0) {
+            msg = l10n.removeDriverGroupSuccess(result.removed);
+            bgColor = AppColors.success;
+          } else if (result.skippedHistorical > 0) {
+            msg = l10n.removeDriverGroupHistoricalOnly(
+              result.skippedHistorical,
+            );
+            bgColor = AppColors.warning;
+          } else {
+            msg = l10n.removeDriverGroupNoneFound;
+            bgColor = AppColors.warning;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: bgColor),
+          );
+        }
+      } else {
+        await ref
+            .read(shiftPoolsProvider.notifier)
+            .removeDriverFromShift(shift.id);
+        widget.onAssigned();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.removeDriverSuccess),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -652,6 +871,10 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             backgroundColor: AppColors.error,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRemoving = false);
       }
     }
   }

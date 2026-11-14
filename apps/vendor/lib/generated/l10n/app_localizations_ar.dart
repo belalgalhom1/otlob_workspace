@@ -2577,4 +2577,41 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get viewPickupPhoto => 'عرض صورة الاستلام';
+
+  @override
+  String removeFromAllShifts(int count) {
+    return 'إزالة من كل الورديات ($count)';
+  }
+
+  @override
+  String removeDriverGroupConfirm(int count) {
+    return 'هل أنت متأكد من إزالة هذا السائق من جميع ورديات هذه المجموعة ($count)؟ سيتم الاحتفاظ بالورديات المكتملة أو الفائتة السابقة.';
+  }
+
+  @override
+  String removeDriverGroupSuccess(int count) {
+    return 'تمت إزالة السائق من $count ورديات في المجموعة';
+  }
+
+  @override
+  String removeDriverGroupPartialSuccess(int removed, int skipped) {
+    return 'تمت إزالة $removed ورديات — تم الاحتفاظ بالورديات السابقة المكتملة أو الفائتة ($skipped).';
+  }
+
+  @override
+  String removeDriverGroupHistoricalOnly(int skipped) {
+    return 'لا توجد ورديات قابلة للإزالة — تم الاحتفاظ بالورديات السابقة المكتملة أو الفائتة ($skipped).';
+  }
+
+  @override
+  String get removeDriverGroupNoneFound =>
+      'ليس لدى السائق ورديات لإزالتها في هذه المجموعة.';
+
+  @override
+  String get removeDriverFromGroupTitle => 'إزالة من مجموعة الورديات';
+
+  @override
+  String removeDriverFromGroupAction(int count) {
+    return 'إزالة الكل ($count)';
+  }
 }

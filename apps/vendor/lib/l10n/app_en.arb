@@ -999,5 +999,58 @@
   "analyticsCoins": "Coins",
   "noActiveOrdersFound": "No active orders found",
   "pickupPhoto": "Pickup photo",
-  "viewPickupPhoto": "View pickup photo"
+  "viewPickupPhoto": "View pickup photo",
+  "removeFromAllShifts": "Remove from all shifts ({count})",
+  "@removeFromAllShifts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDriverGroupConfirm": "Are you sure you want to remove this driver from all {count} shifts in this group? Past completed or missed shifts will be kept.",
+  "@removeDriverGroupConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDriverGroupSuccess": "Driver removed from {count} shifts in this group",
+  "@removeDriverGroupSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDriverGroupPartialSuccess": "Removed {removed} shifts — past completed or missed shifts kept ({skipped}).",
+  "@removeDriverGroupPartialSuccess": {
+    "placeholders": {
+      "removed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDriverGroupHistoricalOnly": "No removable shifts found — past completed or missed shifts kept ({skipped}).",
+  "@removeDriverGroupHistoricalOnly": {
+    "placeholders": {
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "removeDriverGroupNoneFound": "Driver has no shifts to remove in this group.",
+  "removeDriverFromGroupTitle": "Remove from Shift Group",
+  "removeDriverFromGroupAction": "Remove All ({count})",
+  "@removeDriverFromGroupAction": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

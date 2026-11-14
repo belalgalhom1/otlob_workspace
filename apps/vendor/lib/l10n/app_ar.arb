@@ -924,5 +924,13 @@
   "analyticsCoins": "الكوينز",
   "noActiveOrdersFound": "لا توجد طلبات نشطة",
   "pickupPhoto": "صورة الاستلام",
-  "viewPickupPhoto": "عرض صورة الاستلام"
+  "viewPickupPhoto": "عرض صورة الاستلام",
+  "removeFromAllShifts": "إزالة من كل الورديات ({count})",
+  "removeDriverGroupConfirm": "هل أنت متأكد من إزالة هذا السائق من جميع ورديات هذه المجموعة ({count})؟ سيتم الاحتفاظ بالورديات المكتملة أو الفائتة السابقة.",
+  "removeDriverGroupSuccess": "تمت إزالة السائق من {count} ورديات في المجموعة",
+  "removeDriverGroupPartialSuccess": "تمت إزالة {removed} ورديات — تم الاحتفاظ بالورديات السابقة المكتملة أو الفائتة ({skipped}).",
+  "removeDriverGroupHistoricalOnly": "لا توجد ورديات قابلة للإزالة — تم الاحتفاظ بالورديات السابقة المكتملة أو الفائتة ({skipped}).",
+  "removeDriverGroupNoneFound": "ليس لدى السائق ورديات لإزالتها في هذه المجموعة.",
+  "removeDriverFromGroupTitle": "إزالة من مجموعة الورديات",
+  "removeDriverFromGroupAction": "إزالة الكل ({count})"
 }

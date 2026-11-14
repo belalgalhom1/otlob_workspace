@@ -129,14 +129,25 @@ export class NotificationListener {
   async handleShiftDisabled(event: ShiftDisabledEvent) {
     if (event.reason !== 'admin') return;
 
+    const count = event.count ?? 1;
+    const isBulk = count > 1;
+
     await this.enqueueNotification({
       userId: event.driverUserId,
-      title: 'Shift Removed',
-      titleAr: 'تم إزالة الوردية',
-      body: 'A shift assigned to you was removed by the vendor. Open the app to see your updated schedule.',
-      bodyAr: 'تم إزالة وردية مسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.',
+      title: isBulk ? 'Shifts Removed' : 'Shift Removed',
+      titleAr: isBulk ? 'تم إزالة الورديات' : 'تم إزالة الوردية',
+      body: isBulk
+        ? `${count} shifts assigned to you were removed by the vendor. Open the app to see your updated schedule.`
+        : 'A shift assigned to you was removed by the vendor. Open the app to see your updated schedule.',
+      bodyAr: isBulk
+        ? `تم إزالة ${count} من الورديات المسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.`
+        : 'تم إزالة وردية مسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.',
       type: NotificationType.SYSTEM,
-      data: { shiftId: event.shiftId, type: 'SHIFT_REMOVED' },
+      data: {
+        shiftId: event.shiftId,
+        type: 'SHIFT_REMOVED',
+        ...(isBulk ? { count } : {}),
+      },
     });
   }
 

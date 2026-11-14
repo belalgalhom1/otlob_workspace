@@ -25,6 +25,7 @@ import {
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
   AdminBulkAssignShiftsDto,
+  AdminBulkRemoveShiftsDto,
   AdminBookWeeklyShiftsDto,
   JoinWaitlistDto,
 } from './dto/driver-shifts.dto';
@@ -84,6 +85,20 @@ export class DriverShiftsController {
     @Body() dto: AdminBulkAssignShiftsDto,
   ) {
     return this.shiftsService.adminAssignShiftBulk(dto, actor);
+  }
+
+  @ApiStandardResponse()
+  @Post('admin/remove-bulk')
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '[Admin] Remove a driver from a generated group of shift pools',
+  })
+  adminRemoveDriverBulk(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Body() dto: AdminBulkRemoveShiftsDto,
+  ) {
+    return this.shiftsService.adminRemoveDriverBulk(dto, actor);
   }
 
   @ApiStandardResponse()

@@ -28,6 +28,7 @@ import {
   QueryShiftPoolsDto,
   AdminAssignShiftDto,
   AdminBulkAssignShiftsDto,
+  AdminBulkRemoveShiftsDto,
   AdminBookWeeklyShiftsDto,
   UpdateShiftPoolDto,
 } from './dto/driver-shifts.dto';
@@ -540,6 +541,153 @@ export class DriverShiftsService {
       success: true,
       assigned: assignments.length,
       alreadyAssigned: shiftPoolIds.length - assignments.length,
+    };
+  }
+
+  async adminRemoveDriverBulk(
+    dto: AdminBulkRemoveShiftsDto,
+    actor?: JwtAccessPayload,
+  ) {
+    if (actor?.role === Role.DRIVER_MANAGER) {
+      await this.assertManagesDriver(actor.sub, dto.driverId);
+    }
+    const shiftPoolIds = [...new Set(dto.shiftPoolIds)];
+    if (shiftPoolIds.length !== dto.shiftPoolIds.length) {
+      throw new BadRequestException(DriverErrors.SHIFT_POOL_IDS_MUST_BE_UNIQUE);
+    }
+
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: dto.driverId },
+      select: { id: true, userId: true },
+    });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const txResult = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id IN (${Prisma.join(shiftPoolIds)}) FOR UPDATE`;
+
+      const pools = await tx.shiftPool.findMany({
+        where: { id: { in: shiftPoolIds } },
+        select: { id: true },
+      });
+      if (pools.length !== shiftPoolIds.length) {
+        throw new NotFoundException(DriverErrors.SHIFT_POOL_MISSING);
+      }
+
+      const txDriver = await tx.driver.findUnique({
+        where: { id: driver.id },
+        select: { id: true, userId: true, status: true },
+      });
+      if (!txDriver)
+        throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+      const shifts = await tx.driverShift.findMany({
+        where: { driverId: driver.id, shiftPoolId: { in: shiftPoolIds } },
+        select: { id: true, shiftPoolId: true, status: true },
+      });
+
+      // Historical shifts (COMPLETED, MISSED) are preserved for attendance &
+      // earnings history; SCHEDULED, ACTIVE, and CANCELLED shifts are removed.
+      const removable = shifts.filter(
+        (s) =>
+          s.status === DriverShiftStatus.SCHEDULED ||
+          s.status === DriverShiftStatus.ACTIVE ||
+          s.status === DriverShiftStatus.CANCELLED,
+      );
+      const skippedHistorical = shifts.length - removable.length;
+
+      const activeShifts = removable.filter(
+        (s) => s.status === DriverShiftStatus.ACTIVE,
+      );
+      if (
+        activeShifts.length > 0 &&
+        txDriver.status === DriverStatus.ON_DELIVERY
+      ) {
+        throw new BadRequestException(
+          DriverErrors.CANNOT_END_WHILE_ON_DELIVERY,
+        );
+      }
+
+      if (removable.length === 0) {
+        return {
+          removed: [] as { id: string; shiftPoolId: string | null }[],
+          skippedHistorical,
+          previousStatus: null as DriverStatus | null,
+        };
+      }
+
+      let previousStatus: DriverStatus | null = null;
+      if (activeShifts.length > 0 && txDriver.status !== DriverStatus.OFFLINE) {
+        previousStatus = txDriver.status;
+        await tx.driver.update({
+          where: { id: driver.id },
+          data: { status: DriverStatus.OFFLINE },
+        });
+      }
+
+      const removableIds = removable.map((s) => s.id);
+
+      await tx.shiftSwapRequest.updateMany({
+        where: {
+          driverShiftId: { in: removableIds },
+          status: SwapRequestStatus.PENDING,
+        },
+        data: { status: SwapRequestStatus.CANCELLED },
+      });
+
+      await tx.driverShift.deleteMany({
+        where: { id: { in: removableIds } },
+      });
+
+      return {
+        removed: removable.map((s) => ({
+          id: s.id,
+          shiftPoolId: s.shiftPoolId,
+        })),
+        skippedHistorical,
+        previousStatus,
+      };
+    });
+
+    if (txResult.previousStatus !== null) {
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        new DriverStatusChangedEvent(
+          driver.id,
+          driver.userId,
+          txResult.previousStatus,
+          DriverStatus.OFFLINE,
+          'Removed from shift group by admin.',
+        ),
+      );
+    }
+
+    if (txResult.removed.length > 0) {
+      this.eventEmitter.emit(
+        EVENTS.SHIFT_DISABLED,
+        new ShiftDisabledEvent(
+          driver.userId,
+          txResult.removed[0].id,
+          'admin',
+          txResult.removed.length,
+        ),
+      );
+
+      const freedPoolIds = [
+        ...new Set(
+          txResult.removed
+            .map((s) => s.shiftPoolId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      for (const poolId of freedPoolIds) {
+        await this.promoteFromWaitlist(poolId);
+      }
+    }
+
+    return {
+      success: true,
+      removed: txResult.removed.length,
+      skippedHistorical: txResult.skippedHistorical,
     };
   }
 

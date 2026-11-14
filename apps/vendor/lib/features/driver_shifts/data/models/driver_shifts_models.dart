@@ -282,3 +282,23 @@ class AdminAssignShiftRequest {
         'driverId': driverId,
       };
 }
+
+class BulkRemoveShiftsResult {
+  final int removed;
+  final int skippedHistorical;
+
+  const BulkRemoveShiftsResult({
+    required this.removed,
+    required this.skippedHistorical,
+  });
+
+  factory BulkRemoveShiftsResult.fromJson(Map<String, dynamic> json) {
+    final payload = json['data'] is Map
+        ? Map<String, dynamic>.from(json['data'] as Map)
+        : json;
+    return BulkRemoveShiftsResult(
+      removed: (payload['removed'] as num?)?.toInt() ?? 0,
+      skippedHistorical: (payload['skippedHistorical'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

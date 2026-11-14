@@ -840,15 +840,17 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
 
   void _showShiftDetails(ShiftPool pool) {
     // Pools generated in one batch (e.g. a 1–3 shift that repeats across days)
-    // share a batchId. Allow assigning a driver to the whole group at once.
+    // share a batchId. Allow assigning or removing a driver for the whole group at once.
     final pools = ref
         .read(shiftPoolsProvider)
         .maybeWhen(data: (p) => p, orElse: () => const <ShiftPool>[]);
-    final batchPoolIds = pool.batchId == null
+    final batchId = pool.batchId;
+    final batchPoolIds = (batchId == null || batchId.isEmpty)
         ? <String>[pool.id]
         : pools
-              .where((p) => p.batchId == pool.batchId)
+              .where((p) => p.batchId == batchId)
               .map((p) => p.id)
+              .toSet()
               .toList();
     showModalBottomSheet(
       context: context,

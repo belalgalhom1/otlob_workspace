@@ -7,6 +7,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
+import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 
@@ -30,6 +31,7 @@ class _ShiftListItem {
 
 class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
   bool _isLoading = true;
+  bool _isBulkRemoving = false;
   String? _error;
   List<DriverShift> _shifts = [];
 
@@ -561,6 +563,17 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     final timeFormat = DateFormat('HH:mm');
 
     final isAr = locale == 'ar';
+    final removablePoolIds = shifts
+        .where(
+          (s) =>
+              (s.status == 'SCHEDULED' ||
+                  s.status == 'ACTIVE' ||
+                  s.status == 'CANCELLED') &&
+              (s.shiftPoolId ?? '').isNotEmpty,
+        )
+        .map((s) => s.shiftPoolId!)
+        .toSet()
+        .toList();
 
     return Card(
       elevation: 0,
@@ -634,50 +647,82 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             const Divider(height: 1),
             const SizedBox(height: 14),
             Container(
+              width: double.infinity,
               margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isAr ? 'تقرير الأداء الإجمالي للأسبوع' : 'Weekly Aggregated Performance',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isAr
-                              ? 'إجمالي ${shifts.length} ورديات مسجلة'
-                              : 'Total ${shifts.length} scheduled shifts',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    isAr ? 'تقرير الأداء الإجمالي للأسبوع' : 'Weekly Aggregated Performance',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isAr
+                        ? 'إجمالي ${shifts.length} ورديات مسجلة'
+                        : 'Total ${shifts.length} scheduled shifts',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () => _exportWeeklyBatchPdf(shifts, title),
-                    icon: const Icon(LucideIcons.fileSpreadsheet, size: 14),
-                    label: Text(
-                      isAr ? 'تصدير الأسبوع (PDF)' : 'Export Week (PDF)',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      visualDensity: VisualDensity.compact,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _isBulkRemoving
+                            ? null
+                            : () => _exportWeeklyBatchPdf(shifts, title),
+                        icon: const Icon(LucideIcons.fileSpreadsheet, size: 14),
+                        label: Text(
+                          isAr ? 'تصدير الأسبوع (PDF)' : 'Export Week (PDF)',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                          side: BorderSide(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (removablePoolIds.isNotEmpty)
+                        OutlinedButton.icon(
+                          onPressed: _isBulkRemoving
+                              ? null
+                              : () => _confirmRemoveGroup(removablePoolIds),
+                          icon: _isBulkRemoving
+                              ? const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.error,
+                                  ),
+                                )
+                              : const Icon(LucideIcons.trash2, size: 14),
+                          label: Text(
+                            l10n.removeDriverFromGroupAction(removablePoolIds.length),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            visualDensity: VisualDensity.compact,
+                            side: BorderSide(
+                              color: AppColors.error.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -768,7 +813,9 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                             ),
                           ),
                           IconButton(
-                            onPressed: () => _confirmDelete(context, shift),
+                            onPressed: _isBulkRemoving
+                                ? null
+                                : () => _confirmDelete(context, shift),
                             tooltip: AppLocalizations.of(context)!.deleteShift,
                             visualDensity: VisualDensity.compact,
                             icon: const Icon(
@@ -930,7 +977,9 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                 ),
               const SizedBox(width: 4),
               IconButton(
-                onPressed: () => _confirmDelete(context, shift),
+                onPressed: _isBulkRemoving
+                    ? null
+                    : () => _confirmDelete(context, shift),
                 tooltip: AppLocalizations.of(context)!.deleteShift,
                 visualDensity: VisualDensity.compact,
                 icon: const Icon(
@@ -1167,6 +1216,88 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmRemoveGroup(List<String> poolIds) async {
+    final uniquePoolIds = poolIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (_isBulkRemoving || uniquePoolIds.isEmpty) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(l10n.removeDriverFromGroupTitle),
+        content: Text(l10n.removeDriverGroupConfirm(uniquePoolIds.length)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isBulkRemoving = true);
+    try {
+      final response = await ref.read(dioProvider).post(
+        '/driver-shifts/admin/remove-bulk',
+        data: {
+          'driverId': widget.driver.id,
+          'shiftPoolIds': uniquePoolIds,
+        },
+      );
+      final raw = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : <String, dynamic>{};
+      final result = BulkRemoveShiftsResult.fromJson(raw);
+      if (result.removed > 0) {
+        ref.invalidate(shiftPoolsProvider);
+      }
+      await _fetchShifts();
+      if (!mounted) return;
+
+      final String msg;
+      final Color bgColor;
+      if (result.removed > 0 && result.skippedHistorical > 0) {
+        msg = l10n.removeDriverGroupPartialSuccess(
+          result.removed,
+          result.skippedHistorical,
+        );
+        bgColor = AppColors.success;
+      } else if (result.removed > 0) {
+        msg = l10n.removeDriverGroupSuccess(result.removed);
+        bgColor = AppColors.success;
+      } else if (result.skippedHistorical > 0) {
+        msg = l10n.removeDriverGroupHistoricalOnly(result.skippedHistorical);
+        bgColor = AppColors.warning;
+      } else {
+        msg = l10n.removeDriverGroupNoneFound;
+        bgColor = AppColors.warning;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: bgColor),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ErrorUtils.translate(context, e)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isBulkRemoving = false);
+      }
+    }
   }
 
   Color _getStatusColor(String status) {

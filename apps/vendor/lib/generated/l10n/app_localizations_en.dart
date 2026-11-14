@@ -2593,4 +2593,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get viewPickupPhoto => 'View pickup photo';
+
+  @override
+  String removeFromAllShifts(int count) {
+    return 'Remove from all shifts ($count)';
+  }
+
+  @override
+  String removeDriverGroupConfirm(int count) {
+    return 'Are you sure you want to remove this driver from all $count shifts in this group? Past completed or missed shifts will be kept.';
+  }
+
+  @override
+  String removeDriverGroupSuccess(int count) {
+    return 'Driver removed from $count shifts in this group';
+  }
+
+  @override
+  String removeDriverGroupPartialSuccess(int removed, int skipped) {
+    return 'Removed $removed shifts — past completed or missed shifts kept ($skipped).';
+  }
+
+  @override
+  String removeDriverGroupHistoricalOnly(int skipped) {
+    return 'No removable shifts found — past completed or missed shifts kept ($skipped).';
+  }
+
+  @override
+  String get removeDriverGroupNoneFound =>
+      'Driver has no shifts to remove in this group.';
+
+  @override
+  String get removeDriverFromGroupTitle => 'Remove from Shift Group';
+
+  @override
+  String removeDriverFromGroupAction(int count) {
+    return 'Remove All ($count)';
+  }
 }
