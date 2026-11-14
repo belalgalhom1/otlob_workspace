@@ -125,12 +125,12 @@ export class OrderVendorDecisionService {
       `Fulfillment ${fulfillmentId} for order ${fulfillment.orderId} ACCEPTED by ${actor.sub}`,
     );
 
+    await this.maybeAdvanceToDispatch(fulfillment.orderId);
     await this.emitDecided(
       fulfillment,
       OrderVendorFulfillmentStatus.ACCEPTED,
       actor.sub,
     );
-    await this.maybeAdvanceToDispatch(fulfillment.orderId);
     return this.findById(fulfillmentId);
   }
 
@@ -611,6 +611,8 @@ export class OrderVendorDecisionService {
         where: { id: fulfillment.orderId },
         select: {
           orderNumber: true,
+          status: true,
+          revision: true,
           customerId: true,
           customer: { select: { userId: true } },
         },
@@ -634,6 +636,9 @@ export class OrderVendorDecisionService {
         vendorUserIds,
         status,
         actorUserId,
+        [],
+        order.status,
+        order.revision,
       ),
     );
   }

@@ -114,6 +114,12 @@ export class OrderFeeEstimateDto {
 
   @ApiPropertyOptional()
   deliveryCount?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether the customer pays driverBonusFee inside grandTotal (false when platform-funded)',
+  })
+  driverBonusPaidByCustomer?: boolean;
 }
 
 export class PlaceCustomOrderDto {
@@ -389,4 +395,15 @@ export class ConfirmPaymentDto {
   @ApiProperty({ example: true })
   @IsNotEmpty()
   received!: boolean;
+}
+
+export class CancelOrderDto {
+  @ApiPropertyOptional({
+    example: 'Changed my mind',
+    description: 'Optional reason for cancelling the order',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(300)
+  reason?: string;
 }

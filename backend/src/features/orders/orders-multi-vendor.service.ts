@@ -853,6 +853,7 @@ export class OrdersMultiVendorService {
       grandTotal,
       upfrontAmount,
       driverBonusFee,
+      driverBonusPaidByCustomer: Boolean(settings.driverBonusPaidByCustomer),
     };
   }
 

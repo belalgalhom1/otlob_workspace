@@ -258,6 +258,30 @@ export class OrderListener {
       vendorId: event.vendorId,
       status: event.status,
       fulfillmentStatus: event.status,
+      ...(event.parentStatus
+        ? {
+            parentStatus: event.parentStatus,
+            orderStatus: event.parentStatus,
+          }
+        : {}),
+      ...(event.revision !== undefined ? { revision: event.revision } : {}),
+    };
+
+    const statusPayload = {
+      orderId: event.orderId,
+      orderNumber: event.orderNumber,
+      fulfillmentId: event.fulfillmentId,
+      fulfillmentStatus: event.status,
+      vendorId: event.vendorId,
+      ...(event.parentStatus
+        ? {
+            status: event.parentStatus,
+            newStatus: event.parentStatus,
+            parentStatus: event.parentStatus,
+            orderStatus: event.parentStatus,
+          }
+        : {}),
+      ...(event.revision !== undefined ? { revision: event.revision } : {}),
     };
 
     notifyUserIds.forEach((uid) => {
@@ -266,13 +290,7 @@ export class OrderListener {
         .emitToUser(uid, 'order.fulfillment_updated', deltaPayload)
         .catch(() => {});
       this.socketService
-        .emitToUser(uid, WS.ORDER_STATUS, {
-          orderId: event.orderId,
-          orderNumber: event.orderNumber,
-          fulfillmentId: event.fulfillmentId,
-          fulfillmentStatus: event.status,
-          vendorId: event.vendorId,
-        })
+        .emitToUser(uid, WS.ORDER_STATUS, statusPayload)
         .catch(() => {});
     });
   }
@@ -290,11 +308,13 @@ export class OrderListener {
       orderNumber: event.orderNumber,
       fulfillmentId: event.fulfillmentId,
       status: event.status,
+      fulfillmentStatus: event.status,
       pickedUpAt: event.pickedUpAt,
       pickupImageUrl: event.pickupImageUrl,
       parentStatus: event.parentStatus,
       orderStatus: event.parentStatus,
       fulfillmentSummary: event.fulfillmentSummary,
+      ...(event.revision !== undefined ? { revision: event.revision } : {}),
     };
 
     const notifyUserIds = new Set<string>([
@@ -320,6 +340,8 @@ export class OrderListener {
           orderNumber: event.orderNumber,
           oldStatus: event.parentStatus,
           newStatus: event.parentStatus,
+          parentStatus: event.parentStatus,
+          orderStatus: event.parentStatus,
           fulfillmentId: event.fulfillmentId,
           fulfillmentStatus: event.status,
           pickedUpAt: event.pickedUpAt,

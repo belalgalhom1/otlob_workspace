@@ -56,19 +56,20 @@ export class OrdersService {
   }
 
   async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
-    const [customer, canManage] = await Promise.all([
+    const [customer, canManage, settings] = await Promise.all([
       this.prisma.customer.findUnique({
         where: { userId: actor.sub },
         select: { id: true },
       }),
       this.auth.canManageOrders(actor.sub, actor.role),
+      this.platformSettings.getSettings(),
     ]);
     if (!customer)
       return { orders: [], total: 0, page: 1, limit: 20, totalPages: 0 };
     const result = await this.ordersRepository.findMany({ ...dto, customerId: customer.id });
     result.orders = await Promise.all(
       result.orders.map((o: any) =>
-        this.projectOrderForRole(o, actor, undefined, { canManage }),
+        this.projectOrderForRole(o, actor, undefined, { canManage, settings }),
       ),
     );
     return result;
@@ -354,8 +355,8 @@ export class OrdersService {
     return this.projector.projectForVendor(order, actor, vendorIdScope, ctx);
   }
 
-  private projectForCustomer(order: any): any {
-    return this.projector.projectForCustomer(order);
+  private projectForCustomer(order: any, ctx?: RoleProjectionContext): any {
+    return this.projector.projectForCustomer(order, ctx);
   }
 
   private enrichWithAdminHelpers(order: any, settings?: any): Promise<any> {

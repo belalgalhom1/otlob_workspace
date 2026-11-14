@@ -213,6 +213,7 @@ export class MessagesService {
         formatted.replyTo,
         message.sender.title ?? null,
         message.sender.titleAr ?? null,
+        conversation.orderId ?? null,
       ),
     );
 
@@ -231,6 +232,7 @@ export class MessagesService {
       where: { id: conversationId },
       select: {
         id: true,
+        orderId: true,
         type: true,
         status: true,
         participants: { select: { userId: true } },
@@ -270,6 +272,7 @@ export class MessagesService {
         null,
         null,
         null,
+        conversation.orderId ?? null,
       ),
     );
 
@@ -339,6 +342,7 @@ export class MessagesService {
         null,
         message.sender.title ?? null,
         message.sender.titleAr ?? null,
+        conversation.orderId ?? null,
       ),
     );
 

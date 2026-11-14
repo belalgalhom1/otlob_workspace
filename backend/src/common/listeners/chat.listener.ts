@@ -34,6 +34,7 @@ export class ChatListener {
       messageId: event.messageId,
       id: event.messageId,
       conversationId: event.conversationId,
+      orderId: event.orderId ?? null,
       senderId: event.senderId,
       senderName: event.senderName,
       senderRole: event.senderRole,
@@ -87,6 +88,7 @@ export class ChatListener {
       type: NotificationType.CHAT_MESSAGE,
       data: {
         conversationId: event.conversationId,
+        orderId: event.orderId ?? null,
         messageId: event.messageId,
         senderId: event.senderId,
         chatType: event.conversationType ?? null,

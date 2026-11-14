@@ -57,6 +57,9 @@ export class DriverAssistMatchingService {
         status: true,
         orderId: true,
         deliveryGroupId: true,
+        reason: true,
+        order: { select: { orderNumber: true } },
+        deliveryGroup: { select: { deliveryFee: true, assistFee: true } },
       },
     });
     if (!request) {
@@ -84,6 +87,11 @@ export class DriverAssistMatchingService {
       throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
     }
 
+    const orderNumber = request.order?.orderNumber ?? '';
+    const proposedAssistFee = Number(
+      request.deliveryGroup?.assistFee ?? request.deliveryGroup?.deliveryFee ?? 0,
+    );
+
     const ttlSecs = 15;
     const expiresAt = new Date(Date.now() + ttlSecs * 1000);
     const offerKey = `assist:offer:${requestId}`;
@@ -92,6 +100,10 @@ export class DriverAssistMatchingService {
       JSON.stringify({
         driverIds,
         orderId: request.orderId,
+        orderNumber,
+        deliveryGroupId: request.deliveryGroupId ?? null,
+        reason: request.reason ?? '',
+        proposedAssistFee,
         expiresAt: expiresAt.toISOString(),
       }),
       ttlSecs,
@@ -113,6 +125,10 @@ export class DriverAssistMatchingService {
           request.orderId,
           targetUserIds,
           expiresAt.toISOString(),
+          orderNumber,
+          request.reason ?? '',
+          proposedAssistFee,
+          request.deliveryGroupId ?? null,
         ),
       );
     }
@@ -184,10 +200,18 @@ export class DriverAssistMatchingService {
 
     const keys = await this.redis.scanKeys('assist:offer:*');
     const offers: Array<{
+      id: string;
       requestId: string;
       orderId: string;
+      orderNumber: string;
+      deliveryGroupId: string | null;
+      reason: string;
+      proposedAssistFee: number;
       expiresAt: string;
+      order: { id: string; orderNumber: string };
     }> = [];
+    const needsHydration: string[] = [];
+
     for (const key of keys) {
       const raw = await this.redis.get(key);
       if (!raw) continue;
@@ -195,20 +219,67 @@ export class DriverAssistMatchingService {
         const offer = JSON.parse(raw) as {
           driverIds?: string[];
           orderId: string;
+          orderNumber?: string;
+          deliveryGroupId?: string | null;
+          reason?: string;
+          proposedAssistFee?: number;
           expiresAt: string;
         };
         if (!offer.driverIds?.includes(driver.id)) continue;
         if (Date.now() > new Date(offer.expiresAt).getTime()) continue;
         const requestId = key.replace('assist:offer:', '');
+        if (
+          offer.orderNumber === undefined ||
+          offer.proposedAssistFee === undefined
+        ) {
+          needsHydration.push(requestId);
+        }
+        const orderNumber = offer.orderNumber ?? '';
         offers.push({
+          id: requestId,
           requestId,
           orderId: offer.orderId,
+          orderNumber,
+          deliveryGroupId: offer.deliveryGroupId ?? null,
+          reason: offer.reason ?? '',
+          proposedAssistFee: Number(offer.proposedAssistFee ?? 0),
           expiresAt: offer.expiresAt,
+          order: { id: offer.orderId, orderNumber },
         });
       } catch {
         // ignore malformed offer
       }
     }
+
+    if (
+      needsHydration.length > 0 &&
+      typeof this.prisma.driverAssistRequest?.findMany === 'function'
+    ) {
+      const dbRows = await this.prisma.driverAssistRequest.findMany({
+        where: { id: { in: needsHydration } },
+        select: {
+          id: true,
+          deliveryGroupId: true,
+          reason: true,
+          order: { select: { orderNumber: true } },
+          deliveryGroup: { select: { deliveryFee: true, assistFee: true } },
+        },
+      });
+      const byId = new Map(dbRows.map((r) => [r.id, r]));
+      for (const offer of offers) {
+        const row = byId.get(offer.requestId);
+        if (!row) continue;
+        const orderNumber = row.order?.orderNumber ?? offer.orderNumber;
+        offer.orderNumber = orderNumber;
+        offer.order = { id: offer.orderId, orderNumber };
+        offer.deliveryGroupId = row.deliveryGroupId ?? offer.deliveryGroupId;
+        offer.reason = row.reason ?? offer.reason;
+        offer.proposedAssistFee = Number(
+          row.deliveryGroup?.assistFee ?? row.deliveryGroup?.deliveryFee ?? 0,
+        );
+      }
+    }
+
     return offers;
   }
 

@@ -35,6 +35,7 @@ export class ChatMessageSentEvent {
     public readonly replyTo?: Record<string, unknown> | null,
     public readonly senderTitle?: string | null,
     public readonly senderTitleAr?: string | null,
+    public readonly orderId?: string | null,
   ) {}
 }
 
@@ -353,6 +354,10 @@ export class DriverAssistOfferedEvent {
     public readonly orderId: string,
     public readonly targetUserIds: string[],
     public readonly expiresAt: string,
+    public readonly orderNumber?: string,
+    public readonly reason?: string,
+    public readonly proposedAssistFee?: number,
+    public readonly deliveryGroupId?: string | null,
   ) {}
 }
 
@@ -402,6 +407,8 @@ export class OrderFulfillmentDecidedEvent {
     public readonly status: OrderVendorFulfillmentStatus,
     public readonly actorUserId: string,
     public readonly driverUserIds: string[] = [],
+    public readonly parentStatus?: OrderStatus,
+    public readonly revision?: number,
   ) {}
 }
 

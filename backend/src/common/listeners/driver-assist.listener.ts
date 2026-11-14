@@ -31,9 +31,18 @@ export class DriverAssistListener {
   async handleAssistOffered(event: DriverAssistOfferedEvent): Promise<void> {
     for (const userId of event.targetUserIds) {
       await this.emitSocket(userId, 'assist.offer', {
+        id: event.requestId,
         requestId: event.requestId,
         orderId: event.orderId,
+        orderNumber: event.orderNumber ?? '',
+        deliveryGroupId: event.deliveryGroupId ?? null,
+        reason: event.reason ?? '',
+        proposedAssistFee: event.proposedAssistFee ?? 0,
         expiresAt: event.expiresAt,
+        order: {
+          id: event.orderId,
+          orderNumber: event.orderNumber ?? '',
+        },
       });
       await this.enqueueNotification({
         userId,
@@ -44,6 +53,10 @@ export class DriverAssistListener {
         data: {
           requestId: event.requestId,
           orderId: event.orderId,
+          orderNumber: event.orderNumber ?? '',
+          deliveryGroupId: event.deliveryGroupId ?? null,
+          reason: event.reason ?? '',
+          proposedAssistFee: event.proposedAssistFee ?? 0,
           action: 'assist_offer',
         },
       });

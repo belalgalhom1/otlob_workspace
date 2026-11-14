@@ -65,7 +65,14 @@ export class OrderRoleProjector {
     }
 
     if (actor.role === Role.CUSTOMER) {
-      return this.projectForCustomer(order);
+      const resolvedCtx =
+        ctx?.settings !== undefined
+          ? ctx
+          : Number(order.driverBonusFee ?? 0) > 0 &&
+              typeof this.platformSettings?.getSettings === 'function'
+            ? { ...ctx, settings: await this.platformSettings.getSettings() }
+            : ctx;
+      return this.projectForCustomer(order, resolvedCtx);
     }
 
     return order;
@@ -79,8 +86,10 @@ export class OrderRoleProjector {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
       order.paymentMethod !== 'MOBILE_WALLET';
-    const orderPaid =
-      order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED';
+    // Customer marking PAID is only a transfer claim until the collector driver
+    // confirms COMPLETED — keep cashToCollect / grandTotal non-zero until then
+    // so the driver confirmation dialog displays the actual amount due.
+    const orderPaid = order.paymentStatus === 'COMPLETED';
     const isOrderSettledPrepaid =
       isPrepaid || (order.paymentMethod === 'MOBILE_WALLET' && orderPaid);
     const grandTotal = Number(order.grandTotal ?? 0);
@@ -169,6 +178,8 @@ export class OrderRoleProjector {
       collectorGroup?.primaryDriverId ??
       activeDeliveryGroups.find((g: any) => g.primaryDriverId)?.primaryDriverId ??
       null;
+    let isPrimaryDriver = true;
+    let isAssistDriver = false;
     let projectedPickedUpAt: Date | string | null =
       collectorGroup?.pickedUpAt ??
       singleBaselineFulfillment?.pickedUpAt ??
@@ -208,55 +219,47 @@ export class OrderRoleProjector {
           const openMyGroups = myGroups.filter(
             (g: any) => g.status !== 'DELIVERED' && g.status !== 'CANCELLED',
           );
+          const nonCancelledClosed = myGroups.filter(
+            (g: any) => g.status !== 'CANCELLED',
+          );
           const scopedGroups =
-            openMyGroups.length > 0 ? openMyGroups : myGroups;
+            openMyGroups.length > 0
+              ? openMyGroups
+              : nonCancelledClosed.length > 0
+                ? nonCancelledClosed
+                : myGroups;
 
-          activeDeliveryGroupId = scopedGroups[0]?.id ?? activeDeliveryGroupId;
-          projectedDriverId = scopedGroups[0]?.primaryDriverId ?? myDriver.id;
+          const activeGroup =
+            scopedGroups.find((g: any) => g.status === 'PENDING_PAYMENT') ??
+            scopedGroups.find((g: any) => g.status === 'PICKED_UP') ??
+            scopedGroups.find((g: any) => g.status === 'PARTIALLY_PICKED_UP') ??
+            scopedGroups.find((g: any) => g.status === 'READY_FOR_PICKUP') ??
+            scopedGroups[0];
+
+          activeDeliveryGroupId = activeGroup?.id ?? activeDeliveryGroupId;
+          projectedDriverId = activeGroup?.primaryDriverId ?? myDriver.id;
+          isAssistDriver = Boolean(
+            activeGroup &&
+              activeGroup.assistDriverId === myDriver.id &&
+              activeGroup.primaryDriverId !== myDriver.id,
+          );
+          isPrimaryDriver = !isAssistDriver;
           projectedPickedUpAt =
-            scopedGroups[0]?.pickedUpAt ?? projectedPickedUpAt;
+            activeGroup?.pickedUpAt ?? projectedPickedUpAt;
           projectedPickupImageUrl =
-            scopedGroups[0]?.pickupImageUrl ?? projectedPickupImageUrl;
+            activeGroup?.pickupImageUrl ?? projectedPickupImageUrl;
           projectedDeliveryImageUrl =
-            scopedGroups[0]?.deliveryImageUrl ?? projectedDeliveryImageUrl;
+            activeGroup?.deliveryImageUrl ?? projectedDeliveryImageUrl;
 
-          const anyPendingPayment = scopedGroups.some(
-            (g: any) => g.status === 'PENDING_PAYMENT',
-          );
-          const allDelivered = scopedGroups.every(
-            (g: any) => g.status === 'DELIVERED',
-          );
-          const allPickedUp = scopedGroups.every(
-            (g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED',
-          );
-          const somePickedUp = scopedGroups.some(
-            (g: any) =>
-              g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP',
-          );
-          const allReady = scopedGroups.every(
-            (g: any) =>
-              g.status === 'READY_FOR_PICKUP' ||
-              g.status === 'PARTIALLY_PICKED_UP' ||
-              g.status === 'PICKED_UP' ||
-              g.status === 'DELIVERED',
-          );
-
-          if (anyPendingPayment) {
-            projectedStatus = 'PENDING_PAYMENT';
-          } else if (allDelivered) {
-            projectedStatus = 'DELIVERED';
-          } else if (allPickedUp) {
-            projectedStatus = 'PICKED_UP';
-          } else if (somePickedUp) {
-            projectedStatus = 'PARTIALLY_PICKED_UP';
-          } else if (allReady) {
-            projectedStatus = 'READY_FOR_PICKUP';
-          } else if (
-            scopedGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')
-          ) {
-            projectedStatus = 'DRIVER_ASSIGNED';
+          if (openMyGroups.length > 0 && activeGroup) {
+            projectedStatus = activeGroup.status ?? order.status;
           } else {
-            projectedStatus = scopedGroups[0].status ?? order.status;
+            const allDelivered = scopedGroups.every(
+              (g: any) => g.status === 'DELIVERED',
+            );
+            projectedStatus = allDelivered
+              ? 'DELIVERED'
+              : (activeGroup?.status ?? order.status);
           }
 
           deliveryFee = scopedGroups.reduce(
@@ -270,6 +273,13 @@ export class OrderRoleProjector {
           const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
           customDriverEarnings = scopedGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            if (
+              g.assistDriverId === myDriver.id &&
+              g.primaryDriverId !== myDriver.id
+            ) {
+              const assistAmt = Number(g.assistFee ?? 0);
+              return sum + (assistAmt > 0 ? assistAmt : gFee);
+            }
             const isGroupStacked = Boolean(g.isStacked);
             return (
               sum +
@@ -281,14 +291,33 @@ export class OrderRoleProjector {
             );
           }, 0);
 
-          const allGroupItems = scopedGroups.flatMap((g: any) =>
-            Array.isArray(g.items) ? g.items : [],
+          const groupItemMetaByFulfillmentId = new Map<
+            string,
+            { deliveryGroupId: string; stopSequence: number; groupSequence: number }
+          >();
+          for (const g of scopedGroups) {
+            const gSeq = Number(g.sequence ?? 0);
+            const gItems = Array.isArray(g.items) ? g.items : [];
+            for (const it of gItems) {
+              if (!it?.fulfillmentId) continue;
+              groupItemMetaByFulfillmentId.set(it.fulfillmentId, {
+                deliveryGroupId: g.id,
+                stopSequence: Number(it.sequence ?? 0),
+                groupSequence: gSeq,
+              });
+            }
+          }
+          const activeGroupItems = Array.isArray(activeGroup?.items)
+            ? activeGroup.items
+            : [];
+          const activeGroupFulfillmentIds = new Set(
+            activeGroupItems
+              .map((it: any) => it.fulfillmentId)
+              .filter(Boolean),
           );
 
           if (order.vendorFulfillments) {
-            const fulfillmentIds = new Set(
-              allGroupItems.map((it: any) => it.fulfillmentId),
-            );
+            const fulfillmentIds = new Set(groupItemMetaByFulfillmentId.keys());
             const myFulfillments = (order.vendorFulfillments as any[]).filter(
               (f) =>
                 f.status !== 'REJECTED' &&
@@ -297,16 +326,23 @@ export class OrderRoleProjector {
             );
 
             myFulfillments.sort((a, b) => {
-              const seqA =
-                allGroupItems.find((it: any) => it.fulfillmentId === a.id)
-                  ?.sequence ?? 0;
-              const seqB =
-                allGroupItems.find((it: any) => it.fulfillmentId === b.id)
-                  ?.sequence ?? 0;
-              return seqA - seqB;
+              const metaA = groupItemMetaByFulfillmentId.get(a.id);
+              const metaB = groupItemMetaByFulfillmentId.get(b.id);
+              const isActiveA = a.id && activeGroupFulfillmentIds.has(a.id) ? 0 : 1;
+              const isActiveB = b.id && activeGroupFulfillmentIds.has(b.id) ? 0 : 1;
+              if (isActiveA !== isActiveB) return isActiveA - isActiveB;
+              if ((metaA?.groupSequence ?? 0) !== (metaB?.groupSequence ?? 0)) {
+                return (metaA?.groupSequence ?? 0) - (metaB?.groupSequence ?? 0);
+              }
+              return (metaA?.stopSequence ?? 0) - (metaB?.stopSequence ?? 0);
             });
 
             for (const f of myFulfillments) {
+              const meta = groupItemMetaByFulfillmentId.get(f.id);
+              if (meta) {
+                f.deliveryGroupId = meta.deliveryGroupId;
+                f.stopSequence = meta.stopSequence;
+              }
               f.isContracted =
                 f.isContracted ??
                 f.vendorBranch?.isContracted ??
@@ -351,13 +387,19 @@ export class OrderRoleProjector {
             const liveFulfillments = myFulfillments.filter(
               (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
             );
-            const nextUnpicked = liveFulfillments.find(
+            const statusFulfillments =
+              activeGroupFulfillmentIds.size > 0
+                ? liveFulfillments.filter((f: any) =>
+                    activeGroupFulfillmentIds.has(f.id),
+                  )
+                : liveFulfillments;
+            const nextUnpicked = statusFulfillments.find(
               (f: any) =>
                 f.status !== 'PICKED_UP' &&
                 f.status !== 'DELIVERED' &&
                 !f.pickedUpAt,
             );
-            const anyPicked = liveFulfillments.some(
+            const anyPicked = statusFulfillments.some(
               (f: any) => f.status === 'PICKED_UP' || Boolean(f.pickedUpAt),
             );
             if (
@@ -374,7 +416,7 @@ export class OrderRoleProjector {
               ) {
                 projectedStatus = 'READY_FOR_PICKUP';
               } else if (
-                liveFulfillments.some(
+                statusFulfillments.some(
                   (f: any) =>
                     f.status === 'PREPARING' || Boolean(f.preparingAt),
                 )
@@ -384,11 +426,12 @@ export class OrderRoleProjector {
             }
 
             const isCollectorGroup = Boolean(
-              collectorGroup &&
+              !isAssistDriver &&
+                collectorGroup &&
                 scopedGroups.some((g: any) => g.id === collectorGroup.id),
             );
             projectedUpfrontAmount = isCollectorGroup ? upfrontAmount : 0;
-            if (isOrderSettledPrepaid) {
+            if (isAssistDriver || isOrderSettledPrepaid) {
               cashToCollect = 0;
             } else if (order.paymentMethod === 'MOBILE_WALLET') {
               cashToCollect = isCollectorGroup
@@ -469,7 +512,10 @@ export class OrderRoleProjector {
       deliveryImageUrl: projectedDeliveryImageUrl,
       driverEarnings,
       deliveryFee,
+      isPrimaryDriver,
+      isAssistDriver,
       isPrimaryCollector,
+      viewingDriverId: myDriver?.id ?? projectedDriverId,
       status: projectedStatus,
       isStacked: projectedIsStacked,
       vendor: groupVendor,
@@ -487,10 +533,12 @@ export class OrderRoleProjector {
       discount: 0,
       financials: {
         viewRole: 'DRIVER',
+        isPrimaryDriver,
+        isAssistDriver,
         isPrimaryCollector,
         cashToCollect,
         isPrepaid: isOrderSettledPrepaid,
-        cashToPayStore,
+        cashToPayStore: isAssistDriver ? 0 : cashToPayStore,
         isStorePrepaid,
         driverEarnings,
         deliveryFee,
@@ -500,6 +548,9 @@ export class OrderRoleProjector {
                 ...omitKeys(this.buildStorePaymentBase(f, false), [
                   'vendorNameEn',
                 ]),
+                ...(isAssistDriver ? { cashToPay: 0 } : {}),
+                deliveryGroupId: f.deliveryGroupId ?? null,
+                stopSequence: f.stopSequence ?? null,
                 pickupImageUrl: f.pickupImageUrl ?? null,
               }))
             : [],
@@ -650,17 +701,22 @@ export class OrderRoleProjector {
         const activeVendorFulfillments = vendorFulfillments.filter(
           (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
         );
+        const isAllDeadPortion =
+          vendorFulfillments.length > 0 && activeVendorFulfillments.length === 0;
         const subtotalBasis =
           activeVendorFulfillments.length > 0
             ? activeVendorFulfillments
             : vendorFulfillments;
 
-        vendorSubtotal = subtotalBasis.reduce(
-          (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
-          0,
-        );
-        const totalCalculatedCommission = subtotalBasis.reduce(
-          (sum: number, f: any) => {
+        vendorSubtotal = isAllDeadPortion
+          ? 0
+          : subtotalBasis.reduce(
+              (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
+              0,
+            );
+        const totalCalculatedCommission = isAllDeadPortion
+          ? 0
+          : subtotalBasis.reduce((sum: number, f: any) => {
             const fContracted =
               f.isContracted ??
               f.vendorBranch?.isContracted ??
@@ -722,8 +778,19 @@ export class OrderRoleProjector {
         f.status !== 'REJECTED' &&
         f.status !== 'CANCELLED',
     );
-    const commissionAmount =
-      activeFulfillmentsForCommission.length > 0
+    const allVendorFulfillments = fulfillments.filter(
+      (f: any) =>
+        f.vendorId === vendorId &&
+        (!memberBranchId ||
+          !f.vendorBranchId ||
+          f.vendorBranchId === memberBranchId),
+    );
+    const allVendorPortionsDead =
+      allVendorFulfillments.length > 0 &&
+      activeFulfillmentsForCommission.length === 0;
+    const commissionAmount = allVendorPortionsDead
+      ? 0
+      : activeFulfillmentsForCommission.length > 0
         ? activeFulfillmentsForCommission.reduce((sum: number, f: any) => {
             const fContracted =
               f.isContracted ??
@@ -789,13 +856,21 @@ export class OrderRoleProjector {
     };
   }
 
-  projectForCustomer(order: any): any {
+  projectForCustomer(order: any, ctx?: RoleProjectionContext): any {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
       order.paymentMethod !== 'MOBILE_WALLET';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+    const driverBonusPaidByCustomer = Boolean(
+      order.driverBonusPaidByCustomer ??
+        ctx?.settings?.driverBonusPaidByCustomer ??
+        false,
+    );
+    const customerDriverBonusFee = driverBonusPaidByCustomer
+      ? Number(order.driverBonusFee ?? 0)
+      : 0;
 
     const sanitized: any = { ...order };
     if (Array.isArray(sanitized.items)) {
@@ -915,12 +990,16 @@ export class OrderRoleProjector {
 
     return {
       ...sanitized,
+      driverBonusPaidByCustomer,
+      customerDriverBonusFee,
       driver: primaryDriver ?? null,
       fulfillmentSummary,
       financials: {
         viewRole: 'CUSTOMER',
         cashToPayAtDoor,
         isPrepaid,
+        driverBonusPaidByCustomer,
+        customerDriverBonusFee,
       },
     };
   }

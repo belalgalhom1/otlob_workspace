@@ -466,6 +466,7 @@ export class OrdersCheckoutService {
       coinsEarned,
       grandTotal,
       upfrontAmount,
+      driverBonusPaidByCustomer: Boolean(settings.driverBonusPaidByCustomer),
     };
   }
 
@@ -615,6 +616,7 @@ export class OrdersCheckoutService {
       coinsEarned,
       grandTotal,
       upfrontAmount,
+      driverBonusPaidByCustomer: Boolean(settings.driverBonusPaidByCustomer),
     };
   }
 

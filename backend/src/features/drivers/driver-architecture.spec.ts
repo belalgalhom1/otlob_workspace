@@ -902,15 +902,25 @@ describe('Drivers & Assist Clean Architecture', () => {
           'order-1',
           ['u-cand-1', 'u-cand-2'],
           '2026-11-14T10:00:00.000Z',
+          'ORD-101',
+          'Heavy bags',
+          40,
+          'grp-1',
         ),
       );
       expect(socketService.emitToUser).toHaveBeenCalledWith(
         'u-cand-1',
         'assist.offer',
         {
+          id: 'req-1',
           requestId: 'req-1',
           orderId: 'order-1',
+          orderNumber: 'ORD-101',
+          deliveryGroupId: 'grp-1',
+          reason: 'Heavy bags',
+          proposedAssistFee: 40,
           expiresAt: '2026-11-14T10:00:00.000Z',
+          order: { id: 'order-1', orderNumber: 'ORD-101' },
         },
       );
       expect(eventsQueue.add).toHaveBeenCalledWith(
@@ -922,6 +932,10 @@ describe('Drivers & Assist Clean Architecture', () => {
             data: {
               requestId: 'req-1',
               orderId: 'order-1',
+              orderNumber: 'ORD-101',
+              deliveryGroupId: 'grp-1',
+              reason: 'Heavy bags',
+              proposedAssistFee: 40,
               action: 'assist_offer',
             },
           }),

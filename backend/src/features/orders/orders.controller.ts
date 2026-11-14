@@ -27,6 +27,7 @@ import {
   PlaceCustomOrderDto,
   PlaceDirectOrderDto,
   ConfirmPaymentDto,
+  CancelOrderDto,
   OrderFeeEstimateDto,
 } from './dto/order.dto';
 import { RejectVendorFulfillmentDto } from './dto/vendor-decision.dto';
@@ -485,12 +486,13 @@ export class OrdersController {
   async cancelOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
-    @Body('reason') reason?: string,
+    @Body() dto?: CancelOrderDto,
   ) {
+    const reason = dto?.reason?.trim() || 'Cancelled by user';
     const order = await this.stateService.cancelOrder(
       actor,
       orderId,
-      reason ?? 'Cancelled by user',
+      reason,
     );
     return this.ordersService.projectOrderForRole(order, actor);
   }

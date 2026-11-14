@@ -182,23 +182,25 @@ export class DriverAssistService {
     });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
-    return this.prisma.driverAssistRequest.findMany({
+    const rows = await this.prisma.driverAssistRequest.findMany({
       where: { driverId: driver.id },
       orderBy: { createdAt: 'desc' },
       include: this.includeShape(),
     });
+    return rows.map((r) => this.formatAssistRequest(r));
   }
 
   async listForOrder(orderId: string) {
-    return this.prisma.driverAssistRequest.findMany({
+    const rows = await this.prisma.driverAssistRequest.findMany({
       where: { orderId },
       orderBy: { createdAt: 'desc' },
       include: this.includeShape(),
     });
+    return rows.map((r) => this.formatAssistRequest(r));
   }
 
   async listPending() {
-    return this.prisma.driverAssistRequest.findMany({
+    const rows = await this.prisma.driverAssistRequest.findMany({
       where: {
         status: {
           in: [
@@ -211,6 +213,7 @@ export class DriverAssistService {
       take: 100,
       include: this.includeShape(),
     });
+    return rows.map((r) => this.formatAssistRequest(r));
   }
 
   // ─── Support / admin workflow ──────────────────────────────────────────────
@@ -778,7 +781,7 @@ export class DriverAssistService {
     });
     if (!request)
       throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
-    return request;
+    return this.formatAssistRequest(request);
   }
 
   private includeShape() {
@@ -790,6 +793,7 @@ export class DriverAssistService {
           name: true,
           vehicleType: true,
           status: true,
+          user: { select: { name: true, phone: true } },
         },
       },
       assignedDriver: {
@@ -799,6 +803,7 @@ export class DriverAssistService {
           name: true,
           vehicleType: true,
           status: true,
+          user: { select: { name: true, phone: true } },
         },
       },
       order: { select: { id: true, orderNumber: true, status: true } },
@@ -809,9 +814,27 @@ export class DriverAssistService {
           status: true,
           primaryDriverId: true,
           assistDriverId: true,
+          deliveryFee: true,
+          assistFee: true,
         },
       },
     } satisfies Prisma.DriverAssistRequestInclude;
+  }
+
+  private formatAssistRequest<
+    T extends {
+      deliveryGroup?: {
+        deliveryFee?: unknown;
+        assistFee?: unknown;
+      } | null;
+    },
+  >(r: T): T & { proposedAssistFee: number } {
+    return {
+      ...r,
+      proposedAssistFee: Number(
+        r.deliveryGroup?.assistFee ?? r.deliveryGroup?.deliveryFee ?? 0,
+      ),
+    };
   }
 
   private async requireEligibleAssistCandidate(driverId: string) {

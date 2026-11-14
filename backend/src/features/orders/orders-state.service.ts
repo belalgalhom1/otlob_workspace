@@ -519,6 +519,7 @@ export class OrdersStateService {
       OrderStatus.PREPARING,
       OrderStatus.READY_FOR_PICKUP,
       OrderStatus.LOOKING_FOR_DRIVER,
+      OrderStatus.DRIVER_ASSIGNED,
       OrderStatus.PARTIALLY_PICKED_UP,
     ];
     if (!assignableStatuses.includes(order.status)) {

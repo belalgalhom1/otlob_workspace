@@ -230,6 +230,13 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
           plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 21 }),
         ),
       ).not.toHaveLength(0);
+      expect(
+        await validate(
+          plainToInstance(UpdatePlatformSettingsDto, {
+            driverLocationPrecisionMeters: 0,
+          }),
+        ),
+      ).toHaveLength(0);
     });
   });
 });

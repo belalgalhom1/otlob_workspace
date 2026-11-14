@@ -343,7 +343,7 @@ export class UpdatePlatformSettingsDto {
 
   @ApiProperty({ example: 100, required: false, description: 'Location precision reduction in meters for customer-facing tracking (0 = exact).' })
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @IsOptional()
   @Type(() => Number)
   driverLocationPrecisionMeters?: number;

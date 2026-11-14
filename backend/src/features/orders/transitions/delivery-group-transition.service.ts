@@ -59,7 +59,7 @@ export class DeliveryGroupTransitionService {
   ) {
     const activeGroups = groups.filter(
       (g) =>
-        g.primaryDriverId === driverId &&
+        (g.primaryDriverId === driverId || g.assistDriverId === driverId) &&
         g.status !== DeliveryGroupStatus.CANCELLED,
     );
     const group = (dto as any).deliveryGroupId
@@ -67,6 +67,13 @@ export class DeliveryGroupTransitionService {
       : (activeGroups.find((g) => g.status !== DeliveryGroupStatus.DELIVERED) ??
         activeGroups[0]);
     if (!group) {
+      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
+    }
+    if (
+      group.primaryDriverId !== driverId &&
+      (dto.status === OrderStatus.DELIVERED ||
+        dto.status === OrderStatus.PENDING_PAYMENT)
+    ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
