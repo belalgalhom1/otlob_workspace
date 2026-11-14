@@ -3,18 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:data/data.dart';
-import 'package:api/api.dart';
 import '../orders_provider.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 
 class AssignDriverSheet extends ConsumerStatefulWidget {
   final String orderId;
   final String orderCode;
+  final List<dynamic>? deliveryGroups;
+  final String? initialDeliveryGroupId;
 
   const AssignDriverSheet({
     super.key,
     required this.orderId,
     required this.orderCode,
+    this.deliveryGroups,
+    this.initialDeliveryGroupId,
   });
 
   @override
@@ -25,10 +28,27 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
   bool _isFetching = true;
   bool _isAssigning = false;
   List<dynamic> _drivers = [];
+  String? _selectedGroupId;
+
+  List<Map<String, dynamic>> get _assignableGroups {
+    final raw = widget.deliveryGroups;
+    if (raw == null) return const [];
+    return raw
+        .whereType<Map>()
+        .where((g) {
+          final st = g['status']?.toString() ?? '';
+          return st != 'CANCELLED' && st != 'DELIVERED';
+        })
+        .map((g) => Map<String, dynamic>.from(g))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
+    final groups = _assignableGroups;
+    _selectedGroupId = widget.initialDeliveryGroupId ??
+        (groups.isNotEmpty ? groups.first['id']?.toString() : null);
     _fetchDrivers();
   }
 
@@ -37,7 +57,7 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
       final repo = ref.read(adminDriversRepositoryProvider);
       // Fetch online drivers
       final result = await repo.getDrivers(status: 'ONLINE', limit: 100);
-      
+
       if (mounted) {
         setState(() {
           _drivers = result['drivers'] ?? result['items'] ?? [];
@@ -60,10 +80,11 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
   Future<void> _assignDriver(String driverId) async {
     setState(() => _isAssigning = true);
     try {
-      final repo = ref.read(adminDriversRepositoryProvider);
-      await repo.ordersAdminForceAssignDriver(
+      final repo = ref.read(adminOrdersRepositoryProvider);
+      await repo.assignDriver(
         orderId: widget.orderId,
-        adminAssignDriverDto: AdminAssignDriverDto((b) => b..driverId = driverId),
+        driverId: driverId,
+        deliveryGroupId: _selectedGroupId,
       );
 
       if (mounted) {
@@ -71,7 +92,9 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
         ref.read(ordersProvider.notifier).fetchOrders();
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.driverAssignedSuccess)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.driverAssignedSuccess),
+          ),
         );
       }
     } catch (e) {
@@ -90,6 +113,9 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final groups = _assignableGroups;
+
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -106,7 +132,9 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Assign Driver to Order #${widget.orderCode}',
+                      isAr
+                          ? 'تعيين سائق للطلب #${widget.orderCode}'
+                          : 'Assign Driver to Order #${widget.orderCode}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -118,6 +146,35 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                   ),
                 ],
               ),
+              if (groups.length > 1) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedGroupId,
+                  decoration: InputDecoration(
+                    labelText: isAr ? 'مجموعة التوصيل / الشحنة' : 'Delivery Group / Trip',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: groups.map((g) {
+                    final gid = g['id']?.toString() ?? '';
+                    final seq = g['sequence'] ?? 1;
+                    final drv = g['primaryDriver'] ?? g['driver'];
+                    final drvName = drv is Map ? drv['name']?.toString() : null;
+                    final label = (drvName != null && drvName.isNotEmpty)
+                        ? (isAr
+                            ? 'شحنة #$seq (الحالي: $drvName)'
+                            : 'Trip #$seq (Current: $drvName)')
+                        : (isAr ? 'شحنة #$seq' : 'Trip #$seq');
+                    return DropdownMenuItem<String>(
+                      value: gid,
+                      child: Text(label, overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: _isAssigning
+                      ? null
+                      : (val) => setState(() => _selectedGroupId = val),
+                ),
+              ],
               const SizedBox(height: 16),
               if (_isFetching)
                 const Padding(
@@ -129,7 +186,7 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 32.0),
                   child: Center(
                     child: Text(
-                      'No online drivers found',
+                      isAr ? 'لا يوجد سائقون متصلون حالياً' : 'No online drivers found',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -143,9 +200,20 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                     itemCount: _drivers.length,
                     itemBuilder: (context, index) {
                       final driver = _drivers[index];
-                      final name = (driver['name'] ?? (driver['user'] is Map ? driver['user']['name'] : null) ?? 'Unknown').toString();
-                      final phone = (driver['phone'] ?? driver['phoneNumber'] ?? (driver['user'] is Map ? driver['user']['phone'] : null) ?? '').toString();
-                      
+                      final name = (driver['name'] ??
+                              (driver['user'] is Map
+                                  ? driver['user']['name']
+                                  : null) ??
+                              'Unknown')
+                          .toString();
+                      final phone = (driver['phone'] ??
+                              driver['phoneNumber'] ??
+                              (driver['user'] is Map
+                                  ? driver['user']['phone']
+                                  : null) ??
+                              '')
+                          .toString();
+
                       return ListTile(
                         leading: const CircleAvatar(
                           child: Icon(Icons.person),
@@ -153,8 +221,10 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                         title: Text(name),
                         subtitle: Text(phone),
                         trailing: ElevatedButton(
-                          onPressed: _isAssigning ? null : () => _assignDriver(driver['id']),
-                          child: const Text('Assign'),
+                          onPressed: _isAssigning
+                              ? null
+                              : () => _assignDriver(driver['id'].toString()),
+                          child: Text(isAr ? 'تعيين' : 'Assign'),
                         ),
                       );
                     },

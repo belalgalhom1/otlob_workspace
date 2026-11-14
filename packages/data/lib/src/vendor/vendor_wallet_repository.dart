@@ -21,6 +21,7 @@ class VendorWalletRepository {
   Future<dynamic> vendorWalletGetTransactions(
     String vendorId, {
     String? type,
+    String? branchId,
     String? from,
     String? to,
     int page = 1,
@@ -32,6 +33,7 @@ class VendorWalletRepository {
         '/vendors/$vendorId/wallet/transactions',
         queryParameters: {
           'type': ?type,
+          'branchId': ?branchId,
           'from': ?from,
           'to': ?to,
           'page': page,
@@ -43,6 +45,7 @@ class VendorWalletRepository {
     final response = await _api.vendorWalletControllerListTransactions(
       vendorId: vendorId,
       type: type,
+      branchId: branchId,
       from: from,
       to: to,
       page: page,
@@ -51,25 +54,35 @@ class VendorWalletRepository {
     return ResponseParser.parseList(response);
   }
 
-  /// Aggregated totals for the active filters. The endpoint is newer than the
-  /// generated client, so it is called through Dio.
+  /// Aggregated totals for the active filters.
   Future<dynamic> vendorWalletGetSummary(
     String vendorId, {
     String? type,
+    String? branchId,
     String? from,
     String? to,
   }) async {
     final dio = _dio;
-    if (dio == null) return null;
-    final response = await dio.get<dynamic>(
-      '/vendors/$vendorId/wallet/summary',
-      queryParameters: {
-        'type': ?type,
-        'from': ?from,
-        'to': ?to,
-      },
+    if (dio != null) {
+      final response = await dio.get<dynamic>(
+        '/vendors/$vendorId/wallet/summary',
+        queryParameters: {
+          'type': ?type,
+          'branchId': ?branchId,
+          'from': ?from,
+          'to': ?to,
+        },
+      );
+      return _unwrap(response.data);
+    }
+    final response = await _api.vendorWalletControllerGetSummary(
+      vendorId: vendorId,
+      type: type,
+      branchId: branchId,
+      from: from,
+      to: to,
     );
-    return _unwrap(response.data);
+    return ResponseParser.parse(response);
   }
 
   Future<dynamic> uploadReceipt(MultipartFile file) async {

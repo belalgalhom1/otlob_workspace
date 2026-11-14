@@ -22,6 +22,7 @@ class CartScreen extends ConsumerStatefulWidget {
 class _CartScreenState extends ConsumerState<CartScreen> {
   /// Server estimates per vendor basket (same source as checkout).
   final Map<String, Map<String, dynamic>?> _estimates = {};
+  final Map<String, String> _estimateKeys = {};
   final Map<String, bool> _estimating = {};
   bool _isCheckingOut = false;
 
@@ -35,13 +36,37 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     });
   }
 
-  Future<void> _fetchBasketEstimate(String vendorId) async {
+  String _basketFingerprint(
+    Map<String, dynamic>? address,
+    List<CartItem> items,
+  ) {
+    final addrId = address?['id']?.toString() ?? '';
+    final itemSig = items
+        .map((i) {
+          final pid = i.backendId ?? i.product.id;
+          final vid = i.selectedVariant?.id ?? '';
+          final opts = i.selectedOptions
+              .map((o) => o.id)
+              .where((id) => id.isNotEmpty)
+              .toList()
+            ..sort();
+          return '$pid|$vid|${i.quantity}|${i.selectedUnit}|${opts.join(',')}';
+        })
+        .join(';');
+    return '$addrId::$itemSig';
+  }
+
+  Future<void> _fetchBasketEstimate(
+    String vendorId,
+    List<CartItem> items,
+  ) async {
     if (_estimating[vendorId] == true) return;
     final address = ref.read(activeDeliveryAddressProvider);
     if (address == null) {
       if (mounted) {
         setState(() {
           _estimates[vendorId] = null;
+          _estimateKeys.remove(vendorId);
         });
       }
       return;
@@ -59,10 +84,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       if (mounted) {
         setState(() {
           _estimates[vendorId] = null;
+          _estimateKeys.remove(vendorId);
         });
       }
       return;
     }
+    final requestKey = _basketFingerprint(address, items);
     _estimating[vendorId] = true;
     try {
       final result = await ref
@@ -76,6 +103,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       if (mounted) {
         setState(() {
           _estimates[vendorId] = result;
+          _estimateKeys[vendorId] = requestKey;
           _estimating[vendorId] = false;
         });
       }
@@ -83,6 +111,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       if (mounted) {
         setState(() {
           _estimates[vendorId] = null;
+          _estimateKeys[vendorId] = requestKey;
           _estimating[vendorId] = false;
         });
       }
@@ -108,6 +137,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       if (prevId != nextId) {
         setState(() {
           _estimates.clear();
+          _estimateKeys.clear();
           _estimating.clear();
         });
       }
@@ -148,6 +178,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         color: AppColors.primary,
         onRefresh: () async {
           _estimates.clear();
+          _estimateKeys.clear();
           _estimating.clear();
           await ref.read(cartProvider.notifier).loadCarts(force: true);
         },
@@ -579,18 +610,29 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final subtotal = ref.read(cartProvider).getVendorSubtotal(vendorId);
     final canCheckout = isVendorOpen && !hasInactiveItems;
 
-    final hasAddress = ref.watch(activeDeliveryAddressProvider) != null;
+    final activeAddress = ref.watch(activeDeliveryAddressProvider);
+    final hasAddress = activeAddress != null;
 
     // In multi-vendor carts, delivery fee is determined holistically at checkout.
-    // In single-vendor carts, server estimate is fetched once for the active address.
-    final triedEstimate = _estimates.containsKey(vendorId);
+    // In single-vendor carts, server estimate tracks the active address and basket items.
+    final currentKey = _basketFingerprint(activeAddress, items);
+    final needsEstimate =
+        !isMultiVendor &&
+        hasAddress &&
+        _estimateKeys[vendorId] != currentKey &&
+        _estimating[vendorId] != true;
     final est = isMultiVendor ? null : _estimates[vendorId];
     final estimating = isMultiVendor ? false : (_estimating[vendorId] == true);
-    if (!isMultiVendor && hasAddress && !triedEstimate && !estimating) {
+    if (needsEstimate) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _fetchBasketEstimate(vendorId);
+        if (mounted) _fetchBasketEstimate(vendorId, items);
       });
     }
+    final isSplitEstimate =
+        est != null &&
+        (est['isSplit'] == true ||
+            ((est['branchCount'] as num?)?.toInt() ?? 1) > 1 ||
+            ((est['deliveryCount'] as num?)?.toInt() ?? 1) > 1);
     final selectedBranch = ref.watch(selectedBranchProvider)[vendorId];
     final branchName = selectedBranch?.localizedName(s.isArabic);
     double toNum(dynamic v) =>
@@ -701,7 +743,35 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
-                        if (branchName != null && branchName.isNotEmpty)
+                        if (isSplitEstimate)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.local_shipping_outlined,
+                                  size: 13,
+                                  color: Colors.blue,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    s.isArabic
+                                        ? '${est['branchCount'] ?? 1} فروع • ${est['deliveryCount'] ?? 1} رحلات توصيل'
+                                        : '${est['branchCount'] ?? 1} branches • ${est['deliveryCount'] ?? 1} deliveries',
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (branchName != null && branchName.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Row(
@@ -1081,13 +1151,16 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         fit: BoxFit.cover,
                       ),
               ),
-              Positioned(
+              PositionedDirectional(
                 top: 0,
-                right: 0,
+                end: 0,
                 child: GestureDetector(
                   onTap: () {
                     final vid = item.product.vendorId;
-                    if (vid != null) _estimates.remove(vid);
+                    if (vid != null) {
+                      _estimates.remove(vid);
+                      _estimateKeys.remove(vid);
+                    }
                     ref.read(cartProvider.notifier).updateQuantity(item, 0);
                   },
                   child: Container(

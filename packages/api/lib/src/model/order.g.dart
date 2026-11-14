@@ -26,8 +26,6 @@ class _$Order extends Order {
   @override
   final String? zoneId;
   @override
-  final String? driverShiftId;
-  @override
   final OrderStatus status;
   @override
   final num revision;
@@ -66,8 +64,6 @@ class _$Order extends Order {
   @override
   final String? specialRequest;
   @override
-  final num? estimatedPrepTime;
-  @override
   final num? distanceKm;
   @override
   final DateTime? deletedAt;
@@ -76,21 +72,11 @@ class _$Order extends Order {
   @override
   final DateTime updatedAt;
   @override
-  final DateTime? acceptedAt;
-  @override
-  final DateTime? preparedAt;
-  @override
-  final DateTime? driverAssignedAt;
-  @override
-  final DateTime? pickedUpAt;
-  @override
-  final String? pickupImageUrl;
-  @override
-  final String? deliveryImageUrl;
-  @override
   final String? paymentReceiptUrl;
   @override
   final DateTime? actualDeliveryTime;
+  @override
+  final DateTime? settledAt;
 
   factory _$Order([void Function(OrderBuilder)? updates]) =>
       (OrderBuilder()..update(updates))._build();
@@ -105,7 +91,6 @@ class _$Order extends Order {
     this.vendorBranchId,
     this.driverId,
     this.zoneId,
-    this.driverShiftId,
     required this.status,
     required this.revision,
     required this.paymentMethod,
@@ -125,19 +110,13 @@ class _$Order extends Order {
     required this.grandTotal,
     required this.upfrontAmount,
     this.specialRequest,
-    this.estimatedPrepTime,
     this.distanceKm,
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
-    this.acceptedAt,
-    this.preparedAt,
-    this.driverAssignedAt,
-    this.pickedUpAt,
-    this.pickupImageUrl,
-    this.deliveryImageUrl,
     this.paymentReceiptUrl,
     this.actualDeliveryTime,
+    this.settledAt,
   }) : super._();
   @override
   Order rebuild(void Function(OrderBuilder) updates) =>
@@ -159,7 +138,6 @@ class _$Order extends Order {
         vendorBranchId == other.vendorBranchId &&
         driverId == other.driverId &&
         zoneId == other.zoneId &&
-        driverShiftId == other.driverShiftId &&
         status == other.status &&
         revision == other.revision &&
         paymentMethod == other.paymentMethod &&
@@ -179,19 +157,13 @@ class _$Order extends Order {
         grandTotal == other.grandTotal &&
         upfrontAmount == other.upfrontAmount &&
         specialRequest == other.specialRequest &&
-        estimatedPrepTime == other.estimatedPrepTime &&
         distanceKm == other.distanceKm &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt &&
-        acceptedAt == other.acceptedAt &&
-        preparedAt == other.preparedAt &&
-        driverAssignedAt == other.driverAssignedAt &&
-        pickedUpAt == other.pickedUpAt &&
-        pickupImageUrl == other.pickupImageUrl &&
-        deliveryImageUrl == other.deliveryImageUrl &&
         paymentReceiptUrl == other.paymentReceiptUrl &&
-        actualDeliveryTime == other.actualDeliveryTime;
+        actualDeliveryTime == other.actualDeliveryTime &&
+        settledAt == other.settledAt;
   }
 
   @override
@@ -206,7 +178,6 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, vendorBranchId.hashCode);
     _$hash = $jc(_$hash, driverId.hashCode);
     _$hash = $jc(_$hash, zoneId.hashCode);
-    _$hash = $jc(_$hash, driverShiftId.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, revision.hashCode);
     _$hash = $jc(_$hash, paymentMethod.hashCode);
@@ -226,19 +197,13 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, grandTotal.hashCode);
     _$hash = $jc(_$hash, upfrontAmount.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
-    _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
     _$hash = $jc(_$hash, distanceKm.hashCode);
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, acceptedAt.hashCode);
-    _$hash = $jc(_$hash, preparedAt.hashCode);
-    _$hash = $jc(_$hash, driverAssignedAt.hashCode);
-    _$hash = $jc(_$hash, pickedUpAt.hashCode);
-    _$hash = $jc(_$hash, pickupImageUrl.hashCode);
-    _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
     _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
+    _$hash = $jc(_$hash, settledAt.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -255,7 +220,6 @@ class _$Order extends Order {
           ..add('vendorBranchId', vendorBranchId)
           ..add('driverId', driverId)
           ..add('zoneId', zoneId)
-          ..add('driverShiftId', driverShiftId)
           ..add('status', status)
           ..add('revision', revision)
           ..add('paymentMethod', paymentMethod)
@@ -275,19 +239,13 @@ class _$Order extends Order {
           ..add('grandTotal', grandTotal)
           ..add('upfrontAmount', upfrontAmount)
           ..add('specialRequest', specialRequest)
-          ..add('estimatedPrepTime', estimatedPrepTime)
           ..add('distanceKm', distanceKm)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt)
-          ..add('acceptedAt', acceptedAt)
-          ..add('preparedAt', preparedAt)
-          ..add('driverAssignedAt', driverAssignedAt)
-          ..add('pickedUpAt', pickedUpAt)
-          ..add('pickupImageUrl', pickupImageUrl)
-          ..add('deliveryImageUrl', deliveryImageUrl)
           ..add('paymentReceiptUrl', paymentReceiptUrl)
-          ..add('actualDeliveryTime', actualDeliveryTime))
+          ..add('actualDeliveryTime', actualDeliveryTime)
+          ..add('settledAt', settledAt))
         .toString();
   }
 }
@@ -332,11 +290,6 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   String? _zoneId;
   String? get zoneId => _$this._zoneId;
   set zoneId(String? zoneId) => _$this._zoneId = zoneId;
-
-  String? _driverShiftId;
-  String? get driverShiftId => _$this._driverShiftId;
-  set driverShiftId(String? driverShiftId) =>
-      _$this._driverShiftId = driverShiftId;
 
   OrderStatus? _status;
   OrderStatus? get status => _$this._status;
@@ -422,11 +375,6 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
-  num? _estimatedPrepTime;
-  num? get estimatedPrepTime => _$this._estimatedPrepTime;
-  set estimatedPrepTime(num? estimatedPrepTime) =>
-      _$this._estimatedPrepTime = estimatedPrepTime;
-
   num? _distanceKm;
   num? get distanceKm => _$this._distanceKm;
   set distanceKm(num? distanceKm) => _$this._distanceKm = distanceKm;
@@ -443,33 +391,6 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  DateTime? _acceptedAt;
-  DateTime? get acceptedAt => _$this._acceptedAt;
-  set acceptedAt(DateTime? acceptedAt) => _$this._acceptedAt = acceptedAt;
-
-  DateTime? _preparedAt;
-  DateTime? get preparedAt => _$this._preparedAt;
-  set preparedAt(DateTime? preparedAt) => _$this._preparedAt = preparedAt;
-
-  DateTime? _driverAssignedAt;
-  DateTime? get driverAssignedAt => _$this._driverAssignedAt;
-  set driverAssignedAt(DateTime? driverAssignedAt) =>
-      _$this._driverAssignedAt = driverAssignedAt;
-
-  DateTime? _pickedUpAt;
-  DateTime? get pickedUpAt => _$this._pickedUpAt;
-  set pickedUpAt(DateTime? pickedUpAt) => _$this._pickedUpAt = pickedUpAt;
-
-  String? _pickupImageUrl;
-  String? get pickupImageUrl => _$this._pickupImageUrl;
-  set pickupImageUrl(String? pickupImageUrl) =>
-      _$this._pickupImageUrl = pickupImageUrl;
-
-  String? _deliveryImageUrl;
-  String? get deliveryImageUrl => _$this._deliveryImageUrl;
-  set deliveryImageUrl(String? deliveryImageUrl) =>
-      _$this._deliveryImageUrl = deliveryImageUrl;
-
   String? _paymentReceiptUrl;
   String? get paymentReceiptUrl => _$this._paymentReceiptUrl;
   set paymentReceiptUrl(String? paymentReceiptUrl) =>
@@ -479,6 +400,10 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   DateTime? get actualDeliveryTime => _$this._actualDeliveryTime;
   set actualDeliveryTime(DateTime? actualDeliveryTime) =>
       _$this._actualDeliveryTime = actualDeliveryTime;
+
+  DateTime? _settledAt;
+  DateTime? get settledAt => _$this._settledAt;
+  set settledAt(DateTime? settledAt) => _$this._settledAt = settledAt;
 
   OrderBuilder() {
     Order._defaults(this);
@@ -496,7 +421,6 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _vendorBranchId = $v.vendorBranchId;
       _driverId = $v.driverId;
       _zoneId = $v.zoneId;
-      _driverShiftId = $v.driverShiftId;
       _status = $v.status;
       _revision = $v.revision;
       _paymentMethod = $v.paymentMethod;
@@ -516,19 +440,13 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _grandTotal = $v.grandTotal;
       _upfrontAmount = $v.upfrontAmount;
       _specialRequest = $v.specialRequest;
-      _estimatedPrepTime = $v.estimatedPrepTime;
       _distanceKm = $v.distanceKm;
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _acceptedAt = $v.acceptedAt;
-      _preparedAt = $v.preparedAt;
-      _driverAssignedAt = $v.driverAssignedAt;
-      _pickedUpAt = $v.pickedUpAt;
-      _pickupImageUrl = $v.pickupImageUrl;
-      _deliveryImageUrl = $v.deliveryImageUrl;
       _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
+      _settledAt = $v.settledAt;
       _$v = null;
     }
     return this;
@@ -568,7 +486,6 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
           vendorBranchId: vendorBranchId,
           driverId: driverId,
           zoneId: zoneId,
-          driverShiftId: driverShiftId,
           status: BuiltValueNullFieldError.checkNotNull(
             status,
             r'Order',
@@ -644,7 +561,6 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
             'upfrontAmount',
           ),
           specialRequest: specialRequest,
-          estimatedPrepTime: estimatedPrepTime,
           distanceKm: distanceKm,
           deletedAt: deletedAt,
           createdAt: BuiltValueNullFieldError.checkNotNull(
@@ -657,14 +573,9 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
             r'Order',
             'updatedAt',
           ),
-          acceptedAt: acceptedAt,
-          preparedAt: preparedAt,
-          driverAssignedAt: driverAssignedAt,
-          pickedUpAt: pickedUpAt,
-          pickupImageUrl: pickupImageUrl,
-          deliveryImageUrl: deliveryImageUrl,
           paymentReceiptUrl: paymentReceiptUrl,
           actualDeliveryTime: actualDeliveryTime,
+          settledAt: settledAt,
         );
     replace(_$result);
     return _$result;

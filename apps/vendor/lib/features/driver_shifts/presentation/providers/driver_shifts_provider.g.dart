@@ -33,7 +33,7 @@ final class ShiftPoolsProvider
   ShiftPools create() => ShiftPools();
 }
 
-String _$shiftPoolsHash() => r'054e4105a6018ab0a80df589a3f63b97ff6adde4';
+String _$shiftPoolsHash() => r'147b2b584c82f3a01d5bce32e2cf456d7ec3c386';
 
 abstract class _$ShiftPools extends $AsyncNotifier<List<ShiftPool>> {
   FutureOr<List<ShiftPool>> build();

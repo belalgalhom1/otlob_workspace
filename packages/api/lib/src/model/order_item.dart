@@ -13,6 +13,7 @@ part 'order_item.g.dart';
 /// Properties:
 /// * [id] 
 /// * [orderId] 
+/// * [fulfillmentId] 
 /// * [productId] 
 /// * [variantId] 
 /// * [productName] 
@@ -23,6 +24,7 @@ part 'order_item.g.dart';
 /// * [specialRequest] 
 /// * [selectedUnit] 
 /// * [baseUnitPrice] 
+/// * [rejectedAt] 
 @BuiltValue()
 abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -30,6 +32,9 @@ abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
 
   @BuiltValueField(wireName: r'orderId')
   String get orderId;
+
+  @BuiltValueField(wireName: r'fulfillmentId')
+  String? get fulfillmentId;
 
   @BuiltValueField(wireName: r'productId')
   String? get productId;
@@ -60,6 +65,9 @@ abstract class OrderItem implements Built<OrderItem, OrderItemBuilder> {
 
   @BuiltValueField(wireName: r'baseUnitPrice')
   num? get baseUnitPrice;
+
+  @BuiltValueField(wireName: r'rejectedAt')
+  DateTime? get rejectedAt;
 
   OrderItem._();
 
@@ -94,6 +102,13 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
       object.orderId,
       specifiedType: const FullType(String),
     );
+    if (object.fulfillmentId != null) {
+      yield r'fulfillmentId';
+      yield serializers.serialize(
+        object.fulfillmentId,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.productId != null) {
       yield r'productId';
       yield serializers.serialize(
@@ -156,6 +171,13 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
         specifiedType: const FullType(num),
       );
     }
+    if (object.rejectedAt != null) {
+      yield r'rejectedAt';
+      yield serializers.serialize(
+        object.rejectedAt,
+        specifiedType: const FullType(DateTime),
+      );
+    }
   }
 
   @override
@@ -192,6 +214,13 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
             specifiedType: const FullType(String),
           ) as String;
           result.orderId = valueDes;
+          break;
+        case r'fulfillmentId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.fulfillmentId = valueDes;
           break;
         case r'productId':
           final valueDes = serializers.deserialize(
@@ -262,6 +291,13 @@ class _$OrderItemSerializer implements PrimitiveSerializer<OrderItem> {
             specifiedType: const FullType(num),
           ) as num;
           result.baseUnitPrice = valueDes;
+          break;
+        case r'rejectedAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.rejectedAt = valueDes;
           break;
         default:
           unhandled.add(key);

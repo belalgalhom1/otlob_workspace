@@ -17,7 +17,6 @@ Name | Type | Description | Notes
 **vendorBranchId** | **String** |  | [optional] 
 **driverId** | **String** |  | [optional] 
 **zoneId** | **String** |  | [optional] 
-**driverShiftId** | **String** |  | [optional] 
 **status** | [**OrderStatus**](OrderStatus.md) |  | 
 **revision** | **num** |  | 
 **paymentMethod** | [**PaymentMethod**](PaymentMethod.md) |  | 
@@ -37,31 +36,25 @@ Name | Type | Description | Notes
 **grandTotal** | **num** |  | 
 **upfrontAmount** | **num** |  | 
 **specialRequest** | **String** |  | [optional] 
-**estimatedPrepTime** | **num** |  | [optional] 
 **distanceKm** | **num** |  | [optional] 
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
-**acceptedAt** | [**DateTime**](DateTime.md) |  | [optional] 
-**preparedAt** | [**DateTime**](DateTime.md) |  | [optional] 
-**driverAssignedAt** | [**DateTime**](DateTime.md) |  | [optional] 
-**pickedUpAt** | [**DateTime**](DateTime.md) |  | [optional] 
-**pickupImageUrl** | **String** |  | [optional] 
-**deliveryImageUrl** | **String** |  | [optional] 
 **paymentReceiptUrl** | **String** |  | [optional] 
 **actualDeliveryTime** | [**DateTime**](DateTime.md) |  | [optional] 
+**settledAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **driverTransactions** | [**BuiltList&lt;DriverWalletTransaction&gt;**](DriverWalletTransaction.md) |  | [optional] 
 **dispatches** | [**BuiltList&lt;OrderDispatch&gt;**](OrderDispatch.md) |  | [optional] 
 **items** | [**BuiltList&lt;OrderItem&gt;**](OrderItem.md) |  | [optional] 
 **statusEvents** | [**BuiltList&lt;OrderStatusEvent&gt;**](OrderStatusEvent.md) |  | [optional] 
 **customer** | [**Customer**](Customer.md) |  | [optional] 
 **driver** | [**Driver**](Driver.md) |  | [optional] 
-**driverShift** | [**DriverShift**](DriverShift.md) |  | [optional] 
 **vendor** | [**Vendor**](Vendor.md) |  | [optional] 
 **vendorBranch** | [**VendorBranch**](VendorBranch.md) |  | [optional] 
 **zone** | [**Zone**](Zone.md) |  | [optional] 
 **supportTickets** | [**BuiltList&lt;SupportTicket&gt;**](SupportTicket.md) |  | [optional] 
 **vendorTransactions** | [**BuiltList&lt;VendorWalletTransaction&gt;**](VendorWalletTransaction.md) |  | [optional] 
+**reviews** | [**BuiltList&lt;OrderReview&gt;**](OrderReview.md) |  | [optional] 
 **vendorFulfillments** | [**BuiltList&lt;OrderVendorFulfillment&gt;**](OrderVendorFulfillment.md) |  | [optional] 
 **deliveryGroups** | [**BuiltList&lt;OrderDeliveryGroup&gt;**](OrderDeliveryGroup.md) |  | [optional] 
 **fulfillmentSummary** | [**JsonObject**](.md) |  | [optional] 

@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
 **orderId** | **String** |  | 
+**deliveryGroupId** | **String** |  | [optional] 
 **driverId** | **String** |  | 
 **driverShiftId** | **String** |  | [optional] 
 **type** | [**OrderType**](OrderType.md) |  | 

@@ -8,11 +8,13 @@ class VendorWalletData extends _$VendorWalletData {
   static const int pageSize = 20;
 
   String? _type;
+  String? _branchId;
   DateTime? _from;
   DateTime? _to;
   int _page = 1;
 
   String? get selectedType => _type;
+  String? get selectedBranchId => _branchId;
   DateTime? get fromDate => _from;
   DateTime? get toDate => _to;
 
@@ -27,15 +29,22 @@ class VendorWalletData extends _$VendorWalletData {
 
   Future<void> applyFilters({
     String? type,
+    String? branchId,
     DateTime? from,
     DateTime? to,
     bool clearType = false,
+    bool clearBranch = false,
     bool clearDates = false,
   }) async {
     if (clearType) {
       _type = null;
     } else if (type != null) {
       _type = type;
+    }
+    if (clearBranch) {
+      _branchId = null;
+    } else if (branchId != null) {
+      _branchId = branchId;
     }
     if (clearDates) {
       _from = null;
@@ -52,6 +61,11 @@ class VendorWalletData extends _$VendorWalletData {
     await _reload();
   }
 
+  Future<void> setBranch(String? branchId) async {
+    _branchId = branchId;
+    await _reload();
+  }
+
   Future<void> setDateRange(DateTime? from, DateTime? to) async {
     _from = from;
     _to = to;
@@ -60,6 +74,7 @@ class VendorWalletData extends _$VendorWalletData {
 
   Future<void> clearFilters() async {
     _type = null;
+    _branchId = null;
     _from = null;
     _to = null;
     await _reload();
@@ -81,6 +96,7 @@ class VendorWalletData extends _$VendorWalletData {
       final transactionsRes = await repo.vendorWalletGetTransactions(
         vendorId,
         type: _type,
+        branchId: _branchId,
         from: _dateParam(_from),
         to: _dateParam(_to),
         page: nextPage,
@@ -118,14 +134,15 @@ class VendorWalletData extends _$VendorWalletData {
 
   Future<Map<String, dynamic>> _fetch(String vendorId) async {
     final repo = ref.read(vendorWalletRepositoryProvider);
+    final branchesRepo = ref.read(vendorBranchesRepositoryProvider);
 
-    // Balance, page and summary are independent; fetch them together so the
-    // screen makes one round-trip's worth of latency instead of three.
+    // Balance, page, summary, and branches are independent; fetch together.
     final results = await Future.wait<dynamic>([
       repo.vendorWalletGetBalance(vendorId),
       repo.vendorWalletGetTransactions(
         vendorId,
         type: _type,
+        branchId: _branchId,
         from: _dateParam(_from),
         to: _dateParam(_to),
         page: _page,
@@ -134,15 +151,19 @@ class VendorWalletData extends _$VendorWalletData {
       repo.vendorWalletGetSummary(
         vendorId,
         type: _type,
+        branchId: _branchId,
         from: _dateParam(_from),
         to: _dateParam(_to),
       ),
+      branchesRepo.getBranches(vendorId).catchError((_) => const <dynamic>[]),
     ]);
 
     final balanceData = results[0];
     final transactionsRes = results[1];
     final summary = results[2];
+    final branchesRaw = results[3];
 
+    final branches = _extractBranches(branchesRaw);
     final transactions = _extractTransactions(transactionsRes);
     final totalPages = _totalPages(transactionsRes, _page);
 
@@ -151,6 +172,7 @@ class VendorWalletData extends _$VendorWalletData {
           ? balanceData
           : {'walletBalance': balanceData ?? 0},
       'summary': summary is Map ? summary : <String, dynamic>{},
+      'branches': branches,
       'transactions': transactions,
       'page': _page,
       'totalPages': totalPages,
@@ -159,6 +181,17 @@ class VendorWalletData extends _$VendorWalletData {
           ? (transactionsRes['total'] ?? transactions.length)
           : transactions.length,
     };
+  }
+
+  static List<dynamic> _extractBranches(dynamic response) {
+    if (response is List) return response;
+    if (response is Map) {
+      if (response['data'] is List) return response['data'] as List<dynamic>;
+      if (response['branches'] is List) {
+        return response['branches'] as List<dynamic>;
+      }
+    }
+    return const [];
   }
 
   static List<dynamic> _extractTransactions(dynamic response) {

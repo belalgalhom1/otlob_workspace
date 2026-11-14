@@ -15,6 +15,7 @@ part 'driver_wallet_transaction.g.dart';
 /// * [id] 
 /// * [driverId] 
 /// * [orderId] 
+/// * [deliveryGroupId] 
 /// * [driverShiftId] 
 /// * [type] 
 /// * [amount] 
@@ -32,6 +33,9 @@ abstract class DriverWalletTransaction implements Built<DriverWalletTransaction,
 
   @BuiltValueField(wireName: r'orderId')
   String? get orderId;
+
+  @BuiltValueField(wireName: r'deliveryGroupId')
+  String? get deliveryGroupId;
 
   @BuiltValueField(wireName: r'driverShiftId')
   String? get driverShiftId;
@@ -92,6 +96,13 @@ class _$DriverWalletTransactionSerializer implements PrimitiveSerializer<DriverW
       yield r'orderId';
       yield serializers.serialize(
         object.orderId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.deliveryGroupId != null) {
+      yield r'deliveryGroupId';
+      yield serializers.serialize(
+        object.deliveryGroupId,
         specifiedType: const FullType(String),
       );
     }
@@ -179,6 +190,13 @@ class _$DriverWalletTransactionSerializer implements PrimitiveSerializer<DriverW
             specifiedType: const FullType(String),
           ) as String;
           result.orderId = valueDes;
+          break;
+        case r'deliveryGroupId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryGroupId = valueDes;
           break;
         case r'driverShiftId':
           final valueDes = serializers.deserialize(

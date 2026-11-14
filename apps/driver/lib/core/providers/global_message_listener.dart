@@ -6,6 +6,8 @@ import 'package:driver/core/services/location_service.dart';
 import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
+import 'package:driver/features/dashboard/presentation/dashboard_screen.dart'
+    show pendingAssistOffersProvider;
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 
@@ -71,24 +73,54 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.invalidate(configurationProvider);
   }));
 
-  // 1c. Break decisions (approved/rejected/granted/ended/expired). The
-  // backend emits notification.new with data.kind == 'break' — refresh the
-  // break overview so the driver sees the decision without manual refresh.
-  // Status flips also need a profile refetch (ON_BREAK <-> ONLINE).
+  // 1c. Break & Assist/Order notifications.
   subscriptions.add(socketService.onEvent(SocketEvent.notificationNew).listen((eventData) {
     if (!ref.mounted) return;
     final data = eventData is Map ? eventData['data'] : null;
-    final kind = data is Map ? data['kind']?.toString() : null;
-    if (kind != 'break') return;
-    debugPrint('Global listener: break notification -> refreshing breaks overview');
-    ref.invalidate(breaksOverviewProvider);
+    if (data is! Map) return;
+    final kind = data['kind']?.toString();
     final action = data['action']?.toString();
-    if (action == 'approved' ||
-        action == 'granted' ||
-        action == 'auto_ended' ||
-        action == 'ended_by_admin') {
-      ref.invalidate(driverProfileProvider);
+    if (kind == 'break') {
+      debugPrint('Global listener: break notification -> refreshing breaks overview');
+      ref.invalidate(breaksOverviewProvider);
+      if (action == 'approved' ||
+          action == 'granted' ||
+          action == 'auto_ended' ||
+          action == 'ended_by_admin') {
+        ref.invalidate(driverProfileProvider);
+      }
+      return;
     }
+    if (action == 'assist_offer') {
+      ref.invalidate(pendingAssistOffersProvider);
+    } else if (data['orderId'] != null) {
+      ref.invalidate(pendingAssistOffersProvider);
+      ref.read(orderExecutionProvider.notifier).refresh();
+    }
+  }));
+
+  // 1d. Assist offer & assignment realtime events.
+  subscriptions.add(socketService.onEvent(SocketEvent.assistOffer).listen((_) {
+    if (!ref.mounted) return;
+    ref.invalidate(pendingAssistOffersProvider);
+  }));
+
+  subscriptions.add(socketService.onEvent(SocketEvent.orderAssigned).listen((_) {
+    if (!ref.mounted) return;
+    ref.invalidate(driverProfileProvider);
+    ref.invalidate(pendingAssistOffersProvider);
+    ref.read(orderExecutionProvider.notifier).refresh();
+  }));
+
+  subscriptions.add(socketService.onEvent(SocketEvent.orderAssistDecided).listen((_) {
+    if (!ref.mounted) return;
+    ref.read(orderExecutionProvider.notifier).refresh();
+  }));
+
+  subscriptions.add(socketService.onEvent(SocketEvent.orderAssistTimedOut).listen((_) {
+    if (!ref.mounted) return;
+    ref.invalidate(pendingAssistOffersProvider);
+    ref.read(orderExecutionProvider.notifier).refresh();
   }));
 
   // 2. WebSocket Reconnection Fallback
@@ -215,26 +247,31 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     if (newStatus == 'CANCELLED' || newStatus == 'DELIVERED') {
       ref.invalidate(orderExecutionProvider);
       ref.invalidate(driverProfileProvider);
-    } else if (newStatus.isNotEmpty) {
-      // Refresh the profile on delivery-bound statuses so LocationService can
-      // switch to the fast delivery GPS rate as soon as the driver is on the way,
-      // even when no other code refreshed the profile for this transition.
-      const deliveryStatuses = {
-        'DRIVER_ASSIGNED',
-        'PENDING_PAYMENT',
-        'PREPARING',
-        'READY_FOR_PICKUP',
-        'PICKED_UP',
-      };
-      if (deliveryStatuses.contains(newStatus)) {
-        ref.invalidate(driverProfileProvider);
+    } else {
+      if (newStatus.isNotEmpty) {
+        // Refresh the profile on delivery-bound statuses so LocationService can
+        // switch to the fast delivery GPS rate as soon as the driver is on the way,
+        // even when no other code refreshed the profile for this transition.
+        const deliveryStatuses = {
+          'DRIVER_ASSIGNED',
+          'PENDING_PAYMENT',
+          'PREPARING',
+          'READY_FOR_PICKUP',
+          'PARTIALLY_PICKED_UP',
+          'PICKED_UP',
+        };
+        if (deliveryStatuses.contains(newStatus)) {
+          ref.invalidate(driverProfileProvider);
+        }
       }
       final orderExecution = ref.read(orderExecutionProvider);
       if (orderExecution.hasValue && orderExecution.value != null) {
         final orderId = orderExecution.value['id']?.toString();
         final updatedOrderId = eventData['orderId']?.toString() ?? eventData['id']?.toString();
         if (orderId != null && orderId == updatedOrderId) {
-          if (eventData.containsKey('status') || eventData.containsKey('newStatus')) {
+          if (eventData.containsKey('status') ||
+              eventData.containsKey('newStatus') ||
+              eventData.containsKey('paymentStatus')) {
             ref.read(orderExecutionProvider.notifier).handleSocketUpdate(
               Map<String, dynamic>.from(eventData),
             );

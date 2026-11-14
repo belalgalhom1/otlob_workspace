@@ -72,7 +72,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchEstimate() async {
+  Future<void> _fetchEstimate({bool force = false}) async {
     if (_orderPlaced || _isEstimating) return;
     final vendorIds = activeVendorIds;
     if (vendorIds.isEmpty) return;
@@ -114,23 +114,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return '$pid|$vid|${i.quantity}|${i.selectedUnit}|${opts.join(',')}';
     }).join(';');
 
-    final estimateKey = '${vendorIds.join(",")}|${coords[0]},${coords[1]}|$_selectedPayment|${coinsToUse ?? 0}|$cartFingerprint';
-    if (estimateKey == _lastEstimateKey) return;
-    _lastEstimateKey = estimateKey;
+    final normalizedPaymentMethod = _selectedPayment.startsWith('MOBILE_WALLET')
+        ? 'MOBILE_WALLET'
+        : 'CASH_ON_DELIVERY';
+    final estimateKey =
+        '${vendorIds.join(",")}|${coords[0]},${coords[1]}|$normalizedPaymentMethod|${coinsToUse ?? 0}|$cartFingerprint';
+    if (!force && estimateKey == _lastEstimateKey) return;
 
-    setState(() => _isEstimating = true);
+    setState(() {
+      _isEstimating = true;
+      if (force) _estimateError = null;
+    });
     try {
       final result = isMultiVendor
           ? await ref.read(ordersProvider.notifier).estimateMultiVendorOrder(
               vendorIds: vendorIds,
-              paymentMethod: _selectedPayment,
+              paymentMethod: normalizedPaymentMethod,
               address: selectedAddress['address'] ?? '',
               location: coords,
               coinsToUse: coinsToUse,
             )
           : await ref.read(ordersProvider.notifier).estimateOrder(
               vendorId: vendorIds.first,
-              paymentMethod: _selectedPayment,
+              paymentMethod: normalizedPaymentMethod,
               address: selectedAddress['address'] ?? '',
               location: coords,
               coinsToUse: coinsToUse,
@@ -138,6 +144,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (mounted) {
         setState(() {
           _estimate = result;
+          _lastEstimateKey = estimateKey;
           _estimateError = null;
           _isEstimating = false;
         });
@@ -154,6 +161,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final resolvedError = message ?? e.toString();
         setState(() {
           _estimate = null;
+          _lastEstimateKey = null;
           _estimateError = resolvedError;
           _isEstimating = false;
         });
@@ -462,17 +470,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ? ref.watch(selectedBranchProvider)[vendorIds.first]
         : null;
     final branchName = selectedBranch?.localizedName(s.isArabic);
+    final isSingleBranch = ((_estimate?['branchCount'] as num?)?.toInt() ?? 1) <= 1;
+    final storeDisplayName = vendorItems.isNotEmpty
+        ? (s.isArabic
+            ? (vendorItems.first.product.vendorNameAr ?? vendorItems.first.product.vendorName ?? s.vendor)
+            : (vendorItems.first.product.vendorName ?? s.vendor))
+        : s.vendor;
     final vendorName = isMultiVendor
         ? (s.isArabic ? 'عدة متاجر (${vendorIds.length})' : 'Multiple Stores (${vendorIds.length})')
         : (vendorItems.isNotEmpty
-            ? '${vendorItems.first.product.vendorName ?? s.vendor}${branchName != null && branchName.isNotEmpty ? ' • $branchName' : ''}'
+            ? '$storeDisplayName${isSingleBranch && branchName != null && branchName.isNotEmpty ? ' • $branchName' : ''}'
             : s.vendor);
     final subtotal = isMultiVendor
         ? vendorIds.fold(0.0, (acc, vid) => acc + cartState.getVendorSubtotal(vid))
         : cartState.getVendorSubtotal(vendorIds.first);
     final settings = ref.watch(platformSettingsProvider).value;
 
-    final minOrder = (settings?.minOrderAmount != null) ? settings!.minOrderAmount.toDouble() : 0.0;
+    final est = _estimate;
+    final minOrder = (est?['minOrderAmount'] as num?)?.toDouble() ??
+        ((settings?.minOrderAmount != null) ? settings!.minOrderAmount.toDouble() : 0.0);
     final isBelowMinOrder = minOrder > 0 && subtotal < minOrder;
     final minOrderDiff = isBelowMinOrder ? (minOrder - subtotal) : 0.0;
 
@@ -484,6 +500,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!_orderPlaced &&
         selectedAddress != null &&
         !_isEstimating &&
+        _estimateError == null &&
         !cartState.isLoading &&
         vendorIds.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -491,7 +508,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       });
     }
 
-    final est = _estimate;
     final rawDeliveryFee = (est != null && est['deliveryFee'] != null) ? (est['deliveryFee'] as num).toDouble() : 0.0;
     final driverBonusFee = (est != null && est['driverBonusFee'] != null) ? (est['driverBonusFee'] as num).toDouble() : 0.0;
     // Driver bonus is an internal platform incentive — fold into customer Delivery Fee
@@ -696,7 +712,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 children: [
                                   Row(children: [
                                     Expanded(
-                                        child: Text(item.product.name,
+                                        child: Text(
+                                            s.isArabic
+                                                ? (item.product.nameAr ?? item.product.name)
+                                                : item.product.name,
                                             style: const TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.bold))),
@@ -774,7 +793,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             children: [
                               Row(children: [
                                 Expanded(
-                                    child: Text(item.product.name,
+                                    child: Text(
+                                        s.isArabic
+                                            ? (item.product.nameAr ?? item.product.name)
+                                            : item.product.name,
                                         style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.bold))),
@@ -813,18 +835,43 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.local_shipping_outlined, color: Colors.blue, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              s.isArabic
-                                  ? 'سيتم توصيل هذا الطلب عبر ${est['deliveryCount']} شحنات منفصلة لضمان سرعة التوصيل.'
-                                  : 'This order will be delivered in ${est['deliveryCount']} separate shipments for faster delivery.',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.local_shipping_outlined, color: Colors.blue, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  s.isArabic
+                                      ? 'سيتم توصيل هذا الطلب عبر ${est['deliveryCount']} شحنات منفصلة لضمان سرعة التوصيل.'
+                                      : 'This order will be delivered in ${est['deliveryCount']} separate shipments for faster delivery.',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                                ),
+                              ),
+                            ],
                           ),
+                          if (est['groups'] is List && (est['groups'] as List).isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            ...(est['groups'] as List).whereType<Map>().map((grp) {
+                              final seq = grp['sequence'] ?? 1;
+                              final dist = (grp['distanceKm'] as num?)?.toDouble();
+                              final fee = (grp['deliveryFee'] as num?)?.toDouble();
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 3),
+                                child: Text(
+                                  s.isArabic
+                                      ? '• الرحلة $seq${dist != null ? ' • ${dist.toStringAsFixed(1)} كم' : ''}${fee != null ? ' • ${fee.toStringAsFixed(0)} ${s.egp}' : ''}'
+                                      : '• Trip $seq${dist != null ? ' • ${dist.toStringAsFixed(1)} km' : ''}${fee != null ? ' • ${fee.toStringAsFixed(0)} ${s.egp}' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: isDark ? Colors.lightBlue.shade200 : Colors.blue.shade800,
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
                         ],
                       ),
                     ),
@@ -946,6 +993,54 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                     ],
                   ),
+                  if (hasEstimate && ((est['upfrontAmount'] as num?)?.toDouble() ?? 0.0) > 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.payments_outlined, color: Colors.orange, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              s.isArabic
+                                  ? 'مطلوب دفع مقدم: ${(est['upfrontAmount'] as num).toDouble().toStringAsFixed(0)} ${s.egp} (الباقي عند الاستلام: ${(finalTotal - (est['upfrontAmount'] as num).toDouble()).clamp(0, finalTotal).toStringAsFixed(0)} ${s.egp})'
+                                  : 'Upfront payment required: ${(est['upfrontAmount'] as num).toDouble().toStringAsFixed(0)} ${s.egp} (Due at delivery: ${(finalTotal - (est['upfrontAmount'] as num).toDouble()).clamp(0, finalTotal).toStringAsFixed(0)} ${s.egp})',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (hasEstimate && ((est['coinsEarned'] as num?)?.toInt() ?? 0) > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.stars_rounded, color: Color(0xFFFFB300), size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          s.isArabic
+                              ? 'ستكسب ${est['coinsEarned']} عملة بعد إتمام هذا الطلب'
+                              : 'You will earn ${est['coinsEarned']} coins upon completion',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (_estimateError != null) ...[
                     const SizedBox(height: 12),
                     Container(
@@ -969,6 +1064,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.red),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _isEstimating
+                                ? null
+                                : () => _fetchEstimate(force: true),
+                            child: Text(
+                              s.isArabic ? 'إعادة المحاولة' : 'Retry',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],

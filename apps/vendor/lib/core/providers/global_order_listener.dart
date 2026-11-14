@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/features/orders/presentation/orders_provider.dart';
+import 'package:vendor/main.dart' show rootScaffoldMessengerKey;
 
 class _OrdersLifecycleObserver with WidgetsBindingObserver {
   final void Function() onResume;
@@ -28,17 +32,49 @@ class _OrdersLifecycleObserver with WidgetsBindingObserver {
 ///
 /// Keeps the orders page in sync regardless of which dashboard tab is open
 /// or whether the app was in the background:
-///   - socket `order.new`   -> fetch the list (new order appears instantly)
-///   - socket `order.status`/`order.cancelled` -> fast local status flip + fetch
+///   - socket `order.new`   -> sound/toast alert + fetch the list
+///   - socket `order.status`/`order.fulfillment_updated`/`order.cancelled` ->
+///     fast local status flip + coalesced fetch
 ///   - foreground FCM payloads fall back to the same handling when the
 ///     socket is disconnected
 ///   - app resume -> refetch so returning from background is always fresh
 final globalOrderListenerProvider = Provider<void>((ref) {
   final socketService = ref.watch(socketServiceProvider);
   final pushService = ref.watch(pushNotificationServiceProvider);
+  Timer? fetchDebounce;
 
-  void fetchOrders() {
-    ref.read(ordersProvider.notifier).fetchOrders();
+  void fetchOrders({bool immediate = false}) {
+    fetchDebounce?.cancel();
+    if (immediate) {
+      ref.read(ordersProvider.notifier).fetchOrders();
+      return;
+    }
+    fetchDebounce = Timer(const Duration(milliseconds: 180), () {
+      ref.read(ordersProvider.notifier).fetchOrders();
+    });
+  }
+
+  void showOrderToast({required bool isNew, String? orderNumber}) {
+    final messenger = rootScaffoldMessengerKey.currentState;
+    if (messenger == null) return;
+    final ctx = messenger.context;
+    final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+    final numSuffix =
+        (orderNumber != null && orderNumber.isNotEmpty) ? ' #$orderNumber' : '';
+    final message = isNew
+        ? (isAr ? 'تم استلام طلب جديد$numSuffix' : 'New order received$numSuffix')
+        : (isAr
+            ? 'تم تحديث حالة الطلب$numSuffix'
+            : 'Order status updated$numSuffix');
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   void handleOrderEvent(dynamic data) {
@@ -57,14 +93,18 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       }
       final fulfillmentStatus = data['fulfillmentStatus'];
       final fulfillmentId = data['fulfillmentId']?.toString();
-      final newStatus = fulfillmentStatus ?? data['newStatus'] ?? data['status'];
+      final newStatus =
+          fulfillmentStatus ??
+          data['newStatus'] ??
+          data['status'] ??
+          data['orderStatus'];
       if (newStatus != null) {
         ref
             .read(ordersProvider.notifier)
             .updateOrderStatusFast(
               orderId,
               newStatus.toString(),
-              isFulfillmentDelta: fulfillmentStatus != null,
+              isFulfillmentDelta: fulfillmentStatus != null || fulfillmentId != null,
               fulfillmentId: fulfillmentId,
             );
       }
@@ -75,14 +115,17 @@ final globalOrderListenerProvider = Provider<void>((ref) {
   final orderNewSub = socketService
       .onEvent(SocketEvent.orderNew)
       .listen((data) {
-    // order.new carries the revision the order row was created with; record it
-    // so the first status event is ordered against a known starting point.
     if (data is Map && data['orderId'] != null) {
       ref
           .read(orderRevisionTrackerProvider)
           .observe(data['orderId'].toString(), orderRevisionOf(data));
+      SystemSound.play(SystemSoundType.alert);
+      showOrderToast(
+        isNew: true,
+        orderNumber: data['orderNumber']?.toString(),
+      );
     }
-    fetchOrders();
+    fetchOrders(immediate: true);
   });
 
   final orderStatusSub = socketService
@@ -91,9 +134,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
 
   final orderFulfillmentSub = socketService
       .onEvent(SocketEvent.orderFulfillmentUpdated)
-      .listen((data) {
-    fetchOrders();
-  });
+      .listen(handleOrderEvent);
 
   final orderCancelledSub = socketService
       .onEvent(SocketEvent.orderCancelled)
@@ -101,13 +142,24 @@ final globalOrderListenerProvider = Provider<void>((ref) {
 
   final pushSub = pushService.onMessage.listen((message) {
     if (message.data['orderId'] != null) {
+      final eventType = message.data['type']?.toString().toUpperCase();
+      if (eventType == 'NEW_ORDER' || eventType == 'ORDER_NEW') {
+        SystemSound.play(SystemSoundType.alert);
+        showOrderToast(
+          isNew: true,
+          orderNumber: message.data['orderNumber']?.toString(),
+        );
+      }
       handleOrderEvent(message.data);
     }
   });
 
-  final lifecycleObserver = _OrdersLifecycleObserver(onResume: fetchOrders);
+  final lifecycleObserver = _OrdersLifecycleObserver(
+    onResume: () => fetchOrders(immediate: true),
+  );
 
   ref.onDispose(() {
+    fetchDebounce?.cancel();
     orderNewSub.cancel();
     orderStatusSub.cancel();
     orderFulfillmentSub.cancel();

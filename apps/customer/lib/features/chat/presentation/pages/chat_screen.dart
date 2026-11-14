@@ -137,30 +137,63 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  String? _resolveDriverPhone() {
+    String? extractPhone(dynamic driver) {
+      if (driver is! Map) return null;
+      final p = (driver['phone'] ?? driver['user']?['phone'])?.toString().trim();
+      return (p != null && p.isNotEmpty) ? p : null;
+    }
+
+    final topDriverPhone = extractPhone(_orderData?['driver']);
+    if (topDriverPhone != null) return topDriverPhone;
+
+    final groups = _orderData?['deliveryGroups'];
+    if (groups is List) {
+      for (final g in groups) {
+        if (g is! Map) continue;
+        final phone = extractPhone(g['primaryDriver'] ?? g['driver']);
+        if (phone != null) return phone;
+      }
+    }
+    return null;
+  }
+
   Future<void> _callDriver() async {
-    final driver = _orderData?['driver'];
-    final phone = (driver is Map ? (driver['phone'] ?? driver['user']?['phone']) : null)?.toString();
+    final phone = _resolveDriverPhone();
     if (phone == null || phone.isEmpty) return;
     final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-    final uri = Uri.parse('tel:$digits');
+    final uri = Uri(scheme: 'tel', path: digits);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
   }
 
   bool _hasDriverPhone() {
-    final driver = _orderData?['driver'];
-    final phone = (driver is Map ? (driver['phone'] ?? driver['user']?['phone']) : null)?.toString();
+    final phone = _resolveDriverPhone();
     return phone != null && phone.isNotEmpty;
   }
 
   String _formatStatusLabel(BuildContext context, String? status) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     switch (status?.toUpperCase()) {
+      case 'PENDING':
+        return isAr ? 'قيد الانتظار' : 'Pending';
+      case 'ACCEPTED':
+        return isAr ? 'مقبول' : 'Accepted';
       case 'PREPARING':
         return isAr ? 'قيد التحضير' : 'Preparing';
+      case 'CHANGES_REQUESTED':
+        return isAr ? 'طلب تعديل' : 'Changes Requested';
+      case 'LOOKING_FOR_DRIVER':
+        return isAr ? 'جاري البحث عن مندوب' : 'Looking for Driver';
+      case 'DRIVER_ASSIGNED':
+        return isAr ? 'تم تعيين المندوب' : 'Driver Assigned';
+      case 'PENDING_PAYMENT':
+        return isAr ? 'بانتظار الدفع' : 'Pending Payment';
       case 'READY_FOR_PICKUP':
         return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'PARTIALLY_PICKED_UP':
+        return isAr ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
       case 'PICKED_UP':
       case 'OUT_FOR_DELIVERY':
         return isAr ? 'قيد التوصيل' : 'Out for Delivery';
@@ -168,6 +201,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return isAr ? 'تم التوصيل' : 'Delivered';
       case 'CANCELLED':
         return isAr ? 'ملغي' : 'Cancelled';
+      case 'REJECTED':
+        return isAr ? 'مرفوض' : 'Rejected';
       default:
         return status ?? (isAr ? 'نشط' : 'Active');
     }
@@ -175,13 +210,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Color _getStatusColor(String? status) {
     switch (status?.toUpperCase()) {
+      case 'PICKED_UP':
+      case 'PARTIALLY_PICKED_UP':
       case 'OUT_FOR_DELIVERY':
       case 'DELIVERED':
         return AppColors.success;
+      case 'PENDING':
+      case 'ACCEPTED':
       case 'PREPARING':
       case 'READY_FOR_PICKUP':
+      case 'LOOKING_FOR_DRIVER':
+      case 'DRIVER_ASSIGNED':
+      case 'PENDING_PAYMENT':
+      case 'CHANGES_REQUESTED':
         return AppColors.warning;
       case 'CANCELLED':
+      case 'REJECTED':
         return AppColors.error;
       default:
         return AppColors.primary;
@@ -554,7 +598,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   orderNumber: (_orderData!['orderNumber'] ?? widget.orderId ?? widget.conversationId.substring(0, 8)).toString(),
                   statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
                   statusColor: _getStatusColor(_orderData!['status']?.toString()),
-                  totalAmount: _orderData!['totalAmount'] != null ? '${_orderData!['totalAmount']} EGP' : null,
+                  totalAmount: (_orderData!['grandTotal'] ?? _orderData!['totalAmount']) != null
+                      ? '${_orderData!['grandTotal'] ?? _orderData!['totalAmount']} EGP'
+                      : null,
                   onTap: () {
                     final targetId = widget.orderId ?? _orderData!['id']?.toString();
                     if (targetId != null && targetId.isNotEmpty) {

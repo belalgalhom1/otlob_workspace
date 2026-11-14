@@ -16,6 +16,7 @@ part 'update_order_status_dto.g.dart';
 /// * [note] 
 /// * [estimatedPrepTime] - Estimated prep time in minutes (for ACCEPTED)
 /// * [fulfillmentId] - Optional vendor fulfillment ID when updating a specific portion of a multi-vendor or multi-branch order
+/// * [deliveryGroupId] - Optional delivery group ID when updating a specific delivery trip of an order
 /// * [pickupImageUrl] - Pickup proof photo URL (required when status is PICKED_UP)
 /// * [deliveryImageUrl] - Delivery proof photo URL (required when status is DELIVERED)
 @BuiltValue()
@@ -34,6 +35,10 @@ abstract class UpdateOrderStatusDto implements Built<UpdateOrderStatusDto, Updat
   /// Optional vendor fulfillment ID when updating a specific portion of a multi-vendor or multi-branch order
   @BuiltValueField(wireName: r'fulfillmentId')
   String? get fulfillmentId;
+
+  /// Optional delivery group ID when updating a specific delivery trip of an order
+  @BuiltValueField(wireName: r'deliveryGroupId')
+  String? get deliveryGroupId;
 
   /// Pickup proof photo URL (required when status is PICKED_UP)
   @BuiltValueField(wireName: r'pickupImageUrl')
@@ -89,6 +94,13 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
       yield r'fulfillmentId';
       yield serializers.serialize(
         object.fulfillmentId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.deliveryGroupId != null) {
+      yield r'deliveryGroupId';
+      yield serializers.serialize(
+        object.deliveryGroupId,
         specifiedType: const FullType(String),
       );
     }
@@ -156,6 +168,13 @@ class _$UpdateOrderStatusDtoSerializer implements PrimitiveSerializer<UpdateOrde
             specifiedType: const FullType(String),
           ) as String;
           result.fulfillmentId = valueDes;
+          break;
+        case r'deliveryGroupId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryGroupId = valueDes;
           break;
         case r'pickupImageUrl':
           final valueDes = serializers.deserialize(

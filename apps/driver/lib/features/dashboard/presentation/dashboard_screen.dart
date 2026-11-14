@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
+import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/features/statistics/presentation/driver_statistics_screen.dart';
 import 'package:driver/features/profile/presentation/pages/nearby_vendors_map_screen.dart';
@@ -790,6 +791,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 onPressed: () async {
                                   await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: true);
                                   ref.invalidate(pendingAssistOffersProvider);
+                                  ref.invalidate(driverProfileProvider);
+                                  await ref.read(orderExecutionProvider.notifier).refresh();
                                   if (context.mounted) {
                                     context.push('/order-execution');
                                   }
@@ -1016,7 +1019,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildActiveTaskPlaceholder(String status, AppLocalizations l10n) {
-    if (status != 'ON_DELIVERY') {
+    final activeExecOrder = ref.watch(orderExecutionProvider).asData?.value;
+    final hasAssignedExecution =
+        activeExecOrder is Map && activeExecOrder['id'] != null;
+    if (status != 'ON_DELIVERY' && !hasAssignedExecution) {
       return EmptyStateWidget(
         icon: LucideIcons.map,
         title: l10n.noActiveTasks,

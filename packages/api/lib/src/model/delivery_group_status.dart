@@ -15,6 +15,8 @@ class DeliveryGroupStatus extends EnumClass {
   static const DeliveryGroupStatus PENDING = _$PENDING;
   @BuiltValueEnumConst(wireName: r'ACCEPTED')
   static const DeliveryGroupStatus ACCEPTED = _$ACCEPTED;
+  @BuiltValueEnumConst(wireName: r'PREPARING')
+  static const DeliveryGroupStatus PREPARING = _$PREPARING;
   @BuiltValueEnumConst(wireName: r'LOOKING_FOR_DRIVER')
   static const DeliveryGroupStatus LOOKING_FOR_DRIVER = _$LOOKING_FOR_DRIVER;
   @BuiltValueEnumConst(wireName: r'DRIVER_ASSIGNED')

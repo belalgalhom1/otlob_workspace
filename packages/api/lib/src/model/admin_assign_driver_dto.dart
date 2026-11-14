@@ -12,10 +12,15 @@ part 'admin_assign_driver_dto.g.dart';
 ///
 /// Properties:
 /// * [driverId] 
+/// * [deliveryGroupId] - Optional delivery group ID when assigning a driver to a specific delivery trip
 @BuiltValue()
 abstract class AdminAssignDriverDto implements Built<AdminAssignDriverDto, AdminAssignDriverDtoBuilder> {
   @BuiltValueField(wireName: r'driverId')
   String get driverId;
+
+  /// Optional delivery group ID when assigning a driver to a specific delivery trip
+  @BuiltValueField(wireName: r'deliveryGroupId')
+  String? get deliveryGroupId;
 
   AdminAssignDriverDto._();
 
@@ -45,6 +50,13 @@ class _$AdminAssignDriverDtoSerializer implements PrimitiveSerializer<AdminAssig
       object.driverId,
       specifiedType: const FullType(String),
     );
+    if (object.deliveryGroupId != null) {
+      yield r'deliveryGroupId';
+      yield serializers.serialize(
+        object.deliveryGroupId,
+        specifiedType: const FullType(String),
+      );
+    }
   }
 
   @override
@@ -74,6 +86,13 @@ class _$AdminAssignDriverDtoSerializer implements PrimitiveSerializer<AdminAssig
             specifiedType: const FullType(String),
           ) as String;
           result.driverId = valueDes;
+          break;
+        case r'deliveryGroupId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryGroupId = valueDes;
           break;
         default:
           unhandled.add(key);

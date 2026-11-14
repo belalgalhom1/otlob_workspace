@@ -33,7 +33,7 @@ final class PendingTopUpsProvider
   PendingTopUps create() => PendingTopUps();
 }
 
-String _$pendingTopUpsHash() => r'1c1ddc0d0567151fd135243cb4271e61b4cebb90';
+String _$pendingTopUpsHash() => r'6f9e198f606a3a0b9e175e6eaab3e5906eb295ae';
 
 abstract class _$PendingTopUps extends $AsyncNotifier<List<dynamic>> {
   FutureOr<List<dynamic>> build();

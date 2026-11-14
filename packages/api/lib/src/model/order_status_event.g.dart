@@ -12,6 +12,10 @@ class _$OrderStatusEvent extends OrderStatusEvent {
   @override
   final String orderId;
   @override
+  final String? fulfillmentId;
+  @override
+  final String? deliveryGroupId;
+  @override
   final OrderStatus status;
   @override
   final String? note;
@@ -27,6 +31,8 @@ class _$OrderStatusEvent extends OrderStatusEvent {
   _$OrderStatusEvent._({
     required this.id,
     required this.orderId,
+    this.fulfillmentId,
+    this.deliveryGroupId,
     required this.status,
     this.note,
     this.createdBy,
@@ -46,6 +52,8 @@ class _$OrderStatusEvent extends OrderStatusEvent {
     return other is OrderStatusEvent &&
         id == other.id &&
         orderId == other.orderId &&
+        fulfillmentId == other.fulfillmentId &&
+        deliveryGroupId == other.deliveryGroupId &&
         status == other.status &&
         note == other.note &&
         createdBy == other.createdBy &&
@@ -57,6 +65,8 @@ class _$OrderStatusEvent extends OrderStatusEvent {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, orderId.hashCode);
+    _$hash = $jc(_$hash, fulfillmentId.hashCode);
+    _$hash = $jc(_$hash, deliveryGroupId.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, note.hashCode);
     _$hash = $jc(_$hash, createdBy.hashCode);
@@ -70,6 +80,8 @@ class _$OrderStatusEvent extends OrderStatusEvent {
     return (newBuiltValueToStringHelper(r'OrderStatusEvent')
           ..add('id', id)
           ..add('orderId', orderId)
+          ..add('fulfillmentId', fulfillmentId)
+          ..add('deliveryGroupId', deliveryGroupId)
           ..add('status', status)
           ..add('note', note)
           ..add('createdBy', createdBy)
@@ -89,6 +101,16 @@ class OrderStatusEventBuilder
   String? _orderId;
   String? get orderId => _$this._orderId;
   set orderId(String? orderId) => _$this._orderId = orderId;
+
+  String? _fulfillmentId;
+  String? get fulfillmentId => _$this._fulfillmentId;
+  set fulfillmentId(String? fulfillmentId) =>
+      _$this._fulfillmentId = fulfillmentId;
+
+  String? _deliveryGroupId;
+  String? get deliveryGroupId => _$this._deliveryGroupId;
+  set deliveryGroupId(String? deliveryGroupId) =>
+      _$this._deliveryGroupId = deliveryGroupId;
 
   OrderStatus? _status;
   OrderStatus? get status => _$this._status;
@@ -115,6 +137,8 @@ class OrderStatusEventBuilder
     if ($v != null) {
       _id = $v.id;
       _orderId = $v.orderId;
+      _fulfillmentId = $v.fulfillmentId;
+      _deliveryGroupId = $v.deliveryGroupId;
       _status = $v.status;
       _note = $v.note;
       _createdBy = $v.createdBy;
@@ -151,6 +175,8 @@ class OrderStatusEventBuilder
             r'OrderStatusEvent',
             'orderId',
           ),
+          fulfillmentId: fulfillmentId,
+          deliveryGroupId: deliveryGroupId,
           status: BuiltValueNullFieldError.checkNotNull(
             status,
             r'OrderStatusEvent',

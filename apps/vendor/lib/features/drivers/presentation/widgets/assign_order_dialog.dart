@@ -4,7 +4,6 @@ import 'package:ui_kit/ui_kit.dart';
 import '../../data/driver_models.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:data/data.dart';
-import 'package:api/api.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 
@@ -27,15 +26,15 @@ class _AssignOrderDialogState extends ConsumerState<AssignOrderDialog> {
 
     setState(() => _isLoading = true);
     try {
-      final repo = ref.read(adminDriversRepositoryProvider);
-      await repo.ordersAdminForceAssignDriver(
+      final repo = ref.read(adminOrdersRepositoryProvider);
+      await repo.assignDriver(
         orderId: orderId,
-        adminAssignDriverDto: AdminAssignDriverDto((b) => b..driverId = widget.driver.id),
+        driverId: widget.driver.id,
       );
 
-      if (context.mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (ctx.mounted) {
+        Navigator.pop(ctx, true);
+        ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(ctx)!.driverAssignedSuccess)),
         );
       }

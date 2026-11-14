@@ -35,12 +35,22 @@ class GlobalOrderListener extends _$GlobalOrderListener {
   StreamSubscription<dynamic>? _pushSub;
   StreamSubscription<dynamic>? _openedAppSub;
   StreamSubscription<dynamic>? _statusSub;
-  StreamSubscription<dynamic>? _updatedSub;
+  StreamSubscription<dynamic>? _fulfillmentSub;
+  StreamSubscription<dynamic>? _assistProposedSub;
   StreamSubscription<dynamic>? _settingsSub;
   _OrdersLifecycleObserver? _lifecycleObserver;
 
   @override
   void build() {
+    ref.onDispose(() {
+      _pushSub?.cancel();
+      _openedAppSub?.cancel();
+      _statusSub?.cancel();
+      _fulfillmentSub?.cancel();
+      _assistProposedSub?.cancel();
+      _settingsSub?.cancel();
+      _lifecycleObserver?.dispose();
+    });
     final authStatus = ref.watch(authControllerProvider);
 
     if (authStatus == AuthStatus.authenticated) {
@@ -59,8 +69,10 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     _openedAppSub = null;
     _statusSub?.cancel();
     _statusSub = null;
-    _updatedSub?.cancel();
-    _updatedSub = null;
+    _fulfillmentSub?.cancel();
+    _fulfillmentSub = null;
+    _assistProposedSub?.cancel();
+    _assistProposedSub = null;
     _settingsSub?.cancel();
     _settingsSub = null;
     _lifecycleObserver?.dispose();
@@ -78,14 +90,24 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
       // --- Socket (survives re-auth thanks to onEvent controllers) ---
       _statusSub?.cancel();
-      _statusSub = socket.onEvent('order.status').listen(_handleOrderStatusUpdate);
+      _statusSub = socket
+          .onEvent(SocketEvent.orderStatus.eventName)
+          .listen(_handleOrderStatusUpdate);
 
-      _updatedSub?.cancel();
-      _updatedSub = socket.onEvent('order.updated').listen(_handleOrderStatusUpdate);
+      _fulfillmentSub?.cancel();
+      _fulfillmentSub = socket
+          .onEvent(SocketEvent.orderFulfillmentUpdated.eventName)
+          .listen(_handleOrderStatusUpdate);
+
+      _assistProposedSub?.cancel();
+      _assistProposedSub = socket
+          .onEvent(SocketEvent.orderAssistProposed.eventName)
+          .listen(_handleOrderStatusUpdate);
 
       _settingsSub?.cancel();
-      _settingsSub =
-          socket.onEvent('platform.settings.updated').listen((_) {
+      _settingsSub = socket
+          .onEvent(SocketEvent.platformSettingsUpdated.eventName)
+          .listen((_) {
         ref.invalidate(platformSettingsProvider);
       });
     }

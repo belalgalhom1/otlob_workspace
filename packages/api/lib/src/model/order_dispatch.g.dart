@@ -12,6 +12,8 @@ class _$OrderDispatch extends OrderDispatch {
   @override
   final String orderId;
   @override
+  final String? deliveryGroupId;
+  @override
   final String driverId;
   @override
   final String? driverShiftId;
@@ -36,6 +38,7 @@ class _$OrderDispatch extends OrderDispatch {
   _$OrderDispatch._({
     required this.id,
     required this.orderId,
+    this.deliveryGroupId,
     required this.driverId,
     this.driverShiftId,
     required this.type,
@@ -59,6 +62,7 @@ class _$OrderDispatch extends OrderDispatch {
     return other is OrderDispatch &&
         id == other.id &&
         orderId == other.orderId &&
+        deliveryGroupId == other.deliveryGroupId &&
         driverId == other.driverId &&
         driverShiftId == other.driverShiftId &&
         type == other.type &&
@@ -75,6 +79,7 @@ class _$OrderDispatch extends OrderDispatch {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, orderId.hashCode);
+    _$hash = $jc(_$hash, deliveryGroupId.hashCode);
     _$hash = $jc(_$hash, driverId.hashCode);
     _$hash = $jc(_$hash, driverShiftId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
@@ -93,6 +98,7 @@ class _$OrderDispatch extends OrderDispatch {
     return (newBuiltValueToStringHelper(r'OrderDispatch')
           ..add('id', id)
           ..add('orderId', orderId)
+          ..add('deliveryGroupId', deliveryGroupId)
           ..add('driverId', driverId)
           ..add('driverShiftId', driverShiftId)
           ..add('type', type)
@@ -117,6 +123,11 @@ class OrderDispatchBuilder
   String? _orderId;
   String? get orderId => _$this._orderId;
   set orderId(String? orderId) => _$this._orderId = orderId;
+
+  String? _deliveryGroupId;
+  String? get deliveryGroupId => _$this._deliveryGroupId;
+  set deliveryGroupId(String? deliveryGroupId) =>
+      _$this._deliveryGroupId = deliveryGroupId;
 
   String? _driverId;
   String? get driverId => _$this._driverId;
@@ -165,6 +176,7 @@ class OrderDispatchBuilder
     if ($v != null) {
       _id = $v.id;
       _orderId = $v.orderId;
+      _deliveryGroupId = $v.deliveryGroupId;
       _driverId = $v.driverId;
       _driverShiftId = $v.driverShiftId;
       _type = $v.type;
@@ -202,6 +214,7 @@ class OrderDispatchBuilder
             r'OrderDispatch',
             'orderId',
           ),
+          deliveryGroupId: deliveryGroupId,
           driverId: BuiltValueNullFieldError.checkNotNull(
             driverId,
             r'OrderDispatch',

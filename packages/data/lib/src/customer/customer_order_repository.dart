@@ -98,17 +98,17 @@ class CustomerOrderRepository {
   }
 
   Future<dynamic> decideAssistOrder(String orderId, {required bool approved, String? deliveryGroupId}) async {
-    final client = dio;
-    if (client != null) {
-      final path = deliveryGroupId != null
-          ? '/orders/$orderId/delivery-groups/$deliveryGroupId/assist/decision'
-          : '/orders/$orderId/assist/decision';
-      final response = await client.post(path, data: {'approved': approved});
-      return ResponseParser.parse(response);
-    }
-    final response = deliveryGroupId != null
-        ? await _api.orderAssistDecisionControllerDecideAssist(orderId: orderId, deliveryGroupId: deliveryGroupId)
-        : await _api.orderAssistDecisionControllerDecideAssistOrder(orderId: orderId);
+    final dto = CustomerDecideAssistDto((b) => b..approved = approved);
+    final response = deliveryGroupId != null && deliveryGroupId.isNotEmpty
+        ? await _api.orderAssistDecisionControllerDecideAssist(
+            orderId: orderId,
+            deliveryGroupId: deliveryGroupId,
+            customerDecideAssistDto: dto,
+          )
+        : await _api.orderAssistDecisionControllerDecideAssistOrder(
+            orderId: orderId,
+            customerDecideAssistDto: dto,
+          );
     return ResponseParser.parse(response);
   }
 }

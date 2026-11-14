@@ -47,4 +47,9 @@ class VendorOrdersRepository {
     );
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> cancelOrder(String orderId) async {
+    final response = await _ordersApi.ordersControllerCancelOrder(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
 }

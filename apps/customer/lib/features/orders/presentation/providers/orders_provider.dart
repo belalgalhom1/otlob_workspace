@@ -130,7 +130,7 @@ class Orders extends _$Orders {
   }
 
   static const _activeStatuses = {
-    'PENDING', 'ACCEPTED', 'PREPARING',
+    'PENDING', 'ACCEPTED', 'PREPARING', 'CHANGES_REQUESTED',
     'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'PENDING_PAYMENT',
     'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP',
   };
@@ -554,14 +554,46 @@ class Orders extends _$Orders {
     }
   }
 
-  Future<bool> rateOrder(String orderId, int rating, String comment) async {
+  Future<bool> rateOrder(
+    String orderId,
+    int rating,
+    String comment, {
+    bool includeVendorRating = true,
+    bool includeDriverRating = true,
+    List<({String fulfillmentId, int rating, String? comment})>? fulfillmentRatings,
+    List<({String deliveryGroupId, int rating, String? comment})>? deliveryGroupRatings,
+  }) async {
     final repository = ref.read(customerOrderRepositoryProvider);
     try {
       final builder = CreateReviewDtoBuilder()
-        ..vendorRating = rating
-        ..driverRating = rating
-        ..comment = comment;
-      
+        ..comment = comment.isEmpty ? null : comment;
+
+      if (fulfillmentRatings != null && fulfillmentRatings.isNotEmpty) {
+        builder.fulfillmentRatings = ListBuilder<FulfillmentRatingInputDto>(
+          fulfillmentRatings.map(
+            (e) => FulfillmentRatingInputDto((b) => b
+              ..fulfillmentId = e.fulfillmentId
+              ..rating = e.rating
+              ..comment = e.comment),
+          ),
+        );
+      } else if (includeVendorRating) {
+        builder.vendorRating = rating;
+      }
+
+      if (deliveryGroupRatings != null && deliveryGroupRatings.isNotEmpty) {
+        builder.deliveryGroupRatings = ListBuilder<DeliveryGroupRatingInputDto>(
+          deliveryGroupRatings.map(
+            (e) => DeliveryGroupRatingInputDto((b) => b
+              ..deliveryGroupId = e.deliveryGroupId
+              ..rating = e.rating
+              ..comment = e.comment),
+          ),
+        );
+      } else if (includeDriverRating) {
+        builder.driverRating = rating;
+      }
+
       await repository.rateOrder(orderId, builder.build());
       ref.invalidateSelf();
       return true;

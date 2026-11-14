@@ -126,6 +126,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 class OtlobAdminApp extends ConsumerWidget {
   const OtlobAdminApp({super.key});
 
@@ -141,6 +143,7 @@ class OtlobAdminApp extends ConsumerWidget {
     return _NotificationTapListener(
       child: MaterialApp.router(
         title: 'Otlob Admin',
+        scaffoldMessengerKey: rootScaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **id** | **String** |  | 
 **driverId** | **String** |  | 
 **orderId** | **String** |  | [optional] 
+**deliveryGroupId** | **String** |  | [optional] 
 **driverShiftId** | **String** |  | [optional] 
 **type** | [**WalletTransactionType**](WalletTransactionType.md) |  | 
 **amount** | **num** |  | 

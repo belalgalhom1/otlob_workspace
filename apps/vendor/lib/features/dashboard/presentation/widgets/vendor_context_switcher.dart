@@ -34,13 +34,22 @@ class VendorContextSwitcher extends ConsumerWidget {
                   ? Text(AppLocalizations.of(context)!.selectVendor, style: const TextStyle(fontSize: 12)) 
                   : const Icon(LucideIcons.store, size: 20),
               selectedItemBuilder: (context) {
+                final isAr = Localizations.localeOf(context).languageCode == 'ar';
                 return memberships.map<Widget>((item) {
-                  final vId = (item as Map<String, dynamic>)['vendorId']?.toString() ?? '';
+                  final member = item as Map<String, dynamic>;
+                  final vId = member['vendorId']?.toString() ?? '';
+                  final vendor = member['vendor'] as Map<String, dynamic>?;
+                  final storeName = (isAr
+                          ? (vendor?['storeNameAr'] ?? vendor?['storeName'])
+                          : (vendor?['storeName'] ?? vendor?['storeNameAr']))
+                      ?.toString();
+                  final display =
+                      (storeName != null && storeName.isNotEmpty) ? storeName : vId;
                   if (!isMobile) return const Center(child: Icon(LucideIcons.store, size: 20));
                   return Container(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Text(
-                      (item)['vendor']?['storeName']?.toString() ?? vId,
+                      display,
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -50,13 +59,49 @@ class VendorContextSwitcher extends ConsumerWidget {
               },
               items: memberships.map((item) {
                 final member = item as Map<String, dynamic>;
+                final isAr = Localizations.localeOf(context).languageCode == 'ar';
                 final vId = member['vendorId']?.toString() ?? '';
                 final role = member['role']?.toString() ?? '';
+                final vendor = member['vendor'] as Map<String, dynamic>?;
+                final branch = member['branch'] as Map<String, dynamic>?;
+                final storeName = (isAr
+                        ? (vendor?['storeNameAr'] ?? vendor?['storeName'])
+                        : (vendor?['storeName'] ?? vendor?['storeNameAr']))
+                    ?.toString();
+                final branchName = (isAr
+                        ? (branch?['nameAr'] ?? branch?['name'])
+                        : (branch?['name'] ?? branch?['nameAr']))
+                    ?.toString();
+                final title = (storeName != null && storeName.isNotEmpty)
+                    ? storeName
+                    : 'Vendor $vId';
+                final subtitle = [
+                  if (branchName != null && branchName.isNotEmpty) branchName,
+                  if (role.isNotEmpty) role,
+                ].join(' • ');
                 return DropdownMenuItem<String>(
                   value: vId,
-                  child: Text(
-                    'Vendor $vId\n($role)',
-                    style: const TextStyle(fontSize: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitle.isNotEmpty)
+                        Text(
+                          subtitle,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 );
               }).toList(),

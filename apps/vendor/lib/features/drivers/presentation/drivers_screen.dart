@@ -731,7 +731,8 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
           if (orderRes is Map) {
             final inner = orderRes['data'];
             fullOrder = inner is Map ? Map<String, dynamic>.from(inner) : Map<String, dynamic>.from(orderRes);
-            pickup = _extractCoordinates(fullOrder['pickupLocation']) ??
+            pickup = _resolveDriverPickup(fullOrder, driver.id) ??
+                _extractCoordinates(fullOrder['pickupLocation']) ??
                 _extractCoordinates(fullOrder['vendorBranch']?['location']) ??
                 _extractCoordinates(fullOrder['vendor']?['location']);
             delivery = _extractCoordinates(fullOrder['deliveryLocation']);
@@ -841,7 +842,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     // Compute polylines
     final polylines = <Polyline>[];
     if (activeOrder != null) {
-      final st = (activeOrder['status']?.toString() ?? '').toUpperCase();
+      final st = _resolveDriverGroupStatus(activeOrder, _selectedDriver?.id);
       final isHeadingToCustomer = (st == 'PICKED_UP');
       if (isHeadingToCustomer && deliveryLocation != null) {
         polylines.add(
@@ -913,7 +914,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                           final curLoc = _currentDriverLocation ?? location;
                           final sheetPolylines = <Polyline>[];
                           if (activeOrder != null) {
-                            final st = (activeOrder['status']?.toString() ?? '').toUpperCase();
+                            final st = _resolveDriverGroupStatus(activeOrder, _selectedDriver?.id);
                             final isHeadingToCustomer = (st == 'PICKED_UP');
                             if (isHeadingToCustomer && deliveryLocation != null) {
                               sheetPolylines.add(
@@ -2485,5 +2486,69 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
       default:
         return LucideIcons.bike;
     }
+  }
+
+  LatLng? _resolveDriverPickup(Map<String, dynamic> order, String driverId) {
+    final groups = order['deliveryGroups'];
+    final fulfillments = order['vendorFulfillments'];
+    if (groups is List && fulfillments is List) {
+      Map<String, dynamic>? matchGroup;
+      for (final g in groups) {
+        if (g is Map &&
+            (g['primaryDriverId']?.toString() == driverId ||
+                g['assistDriverId']?.toString() == driverId)) {
+          final gs = (g['status']?.toString() ?? '').toUpperCase();
+          if (gs != 'DELIVERED' && gs != 'CANCELLED') {
+            matchGroup = Map<String, dynamic>.from(g);
+            break;
+          }
+          matchGroup ??= Map<String, dynamic>.from(g);
+        }
+      }
+      if (matchGroup != null) {
+        final fIds = <String>{};
+        final gItems = matchGroup['items'];
+        if (gItems is List) {
+          for (final it in gItems) {
+            if (it is Map && it['fulfillmentId'] != null) {
+              fIds.add(it['fulfillmentId'].toString());
+            }
+          }
+        }
+        Map? firstActive;
+        for (final f in fulfillments) {
+          if (f is! Map) continue;
+          if (fIds.isNotEmpty && !fIds.contains(f['id']?.toString())) continue;
+          final fs = (f['status']?.toString() ?? '').toUpperCase();
+          if (fs == 'REJECTED' || fs == 'CANCELLED') continue;
+          firstActive ??= f;
+          if (fs != 'PICKED_UP' && fs != 'DELIVERED') {
+            return _extractCoordinates(f['vendorBranch']?['location']) ??
+                _extractCoordinates(f['vendor']?['location']);
+          }
+        }
+        if (firstActive != null) {
+          return _extractCoordinates(firstActive['vendorBranch']?['location']) ??
+              _extractCoordinates(firstActive['vendor']?['location']);
+        }
+      }
+    }
+    return null;
+  }
+
+  String _resolveDriverGroupStatus(Map<String, dynamic> order, String? driverId) {
+    if (driverId != null && order['deliveryGroups'] is List) {
+      for (final g in (order['deliveryGroups'] as List)) {
+        if (g is Map &&
+            (g['primaryDriverId']?.toString() == driverId ||
+                g['assistDriverId']?.toString() == driverId)) {
+          final gs = (g['status']?.toString() ?? '').toUpperCase();
+          if (gs.isNotEmpty && gs != 'DELIVERED' && gs != 'CANCELLED') {
+            return gs;
+          }
+        }
+      }
+    }
+    return (order['status']?.toString() ?? '').toUpperCase();
   }
 }

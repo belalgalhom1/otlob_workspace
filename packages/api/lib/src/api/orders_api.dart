@@ -12,6 +12,7 @@ import 'package:api/src/api_util.dart';
 import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/confirm_payment_dto.dart';
+import 'package:api/src/model/customer_decide_assist_dto.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
 import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
 import 'package:api/src/model/orders_controller_place_order200_response.dart';
@@ -37,6 +38,7 @@ class OrdersApi {
   /// Parameters:
   /// * [orderId] 
   /// * [deliveryGroupId] 
+  /// * [customerDecideAssistDto] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -49,6 +51,7 @@ class OrdersApi {
   Future<Response<ApiControllerRoot200Response>> orderAssistDecisionControllerDecideAssist({ 
     required String orderId,
     required String deliveryGroupId,
+    required CustomerDecideAssistDto customerDecideAssistDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -72,11 +75,31 @@ class OrdersApi {
         ],
         ...?extra,
       },
+      contentType: 'application/json',
       validateStatus: validateStatus,
     );
 
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(CustomerDecideAssistDto);
+      _bodyData = _serializers.serialize(customerDecideAssistDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final _response = await _dio.request<Object>(
       _path,
+      data: _bodyData,
       options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
@@ -114,11 +137,12 @@ class OrdersApi {
     );
   }
 
-  /// [Customer] Approve or decline an assisted delivery (single-vendor order)
+  /// [Customer] Approve or decline an assisted delivery (single-group order convenience)
   /// 
   ///
   /// Parameters:
   /// * [orderId] 
+  /// * [customerDecideAssistDto] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -130,6 +154,7 @@ class OrdersApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> orderAssistDecisionControllerDecideAssistOrder({ 
     required String orderId,
+    required CustomerDecideAssistDto customerDecideAssistDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -153,11 +178,31 @@ class OrdersApi {
         ],
         ...?extra,
       },
+      contentType: 'application/json',
       validateStatus: validateStatus,
     );
 
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(CustomerDecideAssistDto);
+      _bodyData = _serializers.serialize(customerDecideAssistDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final _response = await _dio.request<Object>(
       _path,
+      data: _bodyData,
       options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
@@ -2431,9 +2476,9 @@ class OrdersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerPlaceOrder200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<ApiControllerRoot200Response>> ordersControllerPlaceMultiVendorOrder({ 
+  Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerPlaceMultiVendorOrder({ 
     required String idempotencyKey,
     required PlaceMultiVendorOrderDto placeMultiVendorOrderDto,
     CancelToken? cancelToken,
@@ -2491,14 +2536,14 @@ class OrdersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    ApiControllerRoot200Response? _responseData;
+    OrdersControllerPlaceOrder200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(ApiControllerRoot200Response),
-      ) as ApiControllerRoot200Response;
+        specifiedType: const FullType(OrdersControllerPlaceOrder200Response),
+      ) as OrdersControllerPlaceOrder200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -2510,7 +2555,7 @@ class OrdersApi {
       );
     }
 
-    return Response<ApiControllerRoot200Response>(
+    return Response<OrdersControllerPlaceOrder200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

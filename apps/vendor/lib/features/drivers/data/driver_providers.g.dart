@@ -33,7 +33,7 @@ final class DriversNotifierProvider
   DriversNotifier create() => DriversNotifier();
 }
 
-String _$driversNotifierHash() => r'8798ebf938220539994e2c667a9360fe442b2fd4';
+String _$driversNotifierHash() => r'15da4cc0f70cef36bf909cebdc5a578de7024ca5';
 
 abstract class _$DriversNotifier extends $AsyncNotifier<DriversState> {
   FutureOr<DriversState> build();

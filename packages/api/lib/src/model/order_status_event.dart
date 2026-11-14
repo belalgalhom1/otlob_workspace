@@ -14,6 +14,8 @@ part 'order_status_event.g.dart';
 /// Properties:
 /// * [id] 
 /// * [orderId] 
+/// * [fulfillmentId] 
+/// * [deliveryGroupId] 
 /// * [status] 
 /// * [note] 
 /// * [createdBy] 
@@ -25,6 +27,12 @@ abstract class OrderStatusEvent implements Built<OrderStatusEvent, OrderStatusEv
 
   @BuiltValueField(wireName: r'orderId')
   String get orderId;
+
+  @BuiltValueField(wireName: r'fulfillmentId')
+  String? get fulfillmentId;
+
+  @BuiltValueField(wireName: r'deliveryGroupId')
+  String? get deliveryGroupId;
 
   @BuiltValueField(wireName: r'status')
   OrderStatus get status;
@@ -72,6 +80,20 @@ class _$OrderStatusEventSerializer implements PrimitiveSerializer<OrderStatusEve
       object.orderId,
       specifiedType: const FullType(String),
     );
+    if (object.fulfillmentId != null) {
+      yield r'fulfillmentId';
+      yield serializers.serialize(
+        object.fulfillmentId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.deliveryGroupId != null) {
+      yield r'deliveryGroupId';
+      yield serializers.serialize(
+        object.deliveryGroupId,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'status';
     yield serializers.serialize(
       object.status,
@@ -132,6 +154,20 @@ class _$OrderStatusEventSerializer implements PrimitiveSerializer<OrderStatusEve
             specifiedType: const FullType(String),
           ) as String;
           result.orderId = valueDes;
+          break;
+        case r'fulfillmentId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.fulfillmentId = valueDes;
+          break;
+        case r'deliveryGroupId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryGroupId = valueDes;
           break;
         case r'status':
           final valueDes = serializers.deserialize(

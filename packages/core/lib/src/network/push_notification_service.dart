@@ -153,6 +153,7 @@ class PushNotificationService {
           break;
         case 'ADMIN':
         case 'SUPER_ADMIN':
+        case 'DRIVER_MANAGER':
           specificTopic = 'topic_admin'; // Optional: if backend ever targets admins
           break;
       }
@@ -189,6 +190,7 @@ class PushNotificationService {
             break;
           case 'ADMIN':
           case 'SUPER_ADMIN':
+          case 'DRIVER_MANAGER':
             specificTopic = 'topic_admin';
             break;
         }

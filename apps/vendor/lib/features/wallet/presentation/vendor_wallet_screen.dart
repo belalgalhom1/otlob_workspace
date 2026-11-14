@@ -102,6 +102,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
             ) ??
             0.0;
         final transactions = data['transactions'] as List<dynamic>;
+        final branches = (data['branches'] as List<dynamic>?) ?? const [];
         final hasMore = data['hasMore'] == true;
 
         return RefreshIndicator(
@@ -111,7 +112,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
             children: [
               _buildBalanceCard(context, balance, theme),
               const SizedBox(height: 16),
-              _buildFilterBar(context, notifier, theme),
+              _buildFilterBar(context, notifier, theme, branches),
               const SizedBox(height: 20),
               _buildSummary(context, data, theme),
               const SizedBox(height: 24),
@@ -227,11 +228,17 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     BuildContext context,
     VendorWalletData notifier,
     ThemeData theme,
+    List<dynamic> branches,
   ) {
     final selectedType = notifier.selectedType;
+    final selectedBranchId = notifier.selectedBranchId;
     final from = notifier.fromDate;
     final to = notifier.toDate;
-    final hasFilters = selectedType != null || from != null || to != null;
+    final hasFilters =
+        selectedType != null ||
+        selectedBranchId != null ||
+        from != null ||
+        to != null;
 
     final dateLabel = from == null && to == null
         ? (_isArabic ? 'كل التواريخ' : 'All dates')
@@ -286,6 +293,50 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               ),
             ),
           ),
+          if (branches.length > 1)
+            SizedBox(
+              width: 200,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: _isArabic ? 'الفرع' : 'Branch',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: branches.any(
+                      (b) => b is Map && b['id']?.toString() == selectedBranchId,
+                    )
+                        ? selectedBranchId
+                        : null,
+                    isExpanded: true,
+                    isDense: true,
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: null,
+                        child: Text(_isArabic ? 'كل الفروع' : 'All branches'),
+                      ),
+                      ...branches.whereType<Map>().map((b) {
+                        final id = b['id']?.toString() ?? '';
+                        final name = _isArabic
+                            ? (b['nameAr'] ?? b['name'] ?? id).toString()
+                            : (b['name'] ?? b['nameAr'] ?? id).toString();
+                        return DropdownMenuItem<String>(
+                          value: id,
+                          child: Text(name, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: notifier.setBranch,
+                  ),
+                ),
+              ),
+            ),
           OutlinedButton.icon(
             onPressed: () async {
               final now = DateTime.now();

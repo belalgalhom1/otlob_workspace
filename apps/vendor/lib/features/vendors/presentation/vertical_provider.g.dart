@@ -41,7 +41,7 @@ final class VerticalNotifierProvider
   }
 }
 
-String _$verticalNotifierHash() => r'02507cbfc9e3aa26a82effe8bbece1a235684c77';
+String _$verticalNotifierHash() => r'7d81864b38a1e0fdd7d361a7c514f46d49af3f5e';
 
 abstract class _$VerticalNotifier extends $Notifier<AsyncValue<List<dynamic>>> {
   AsyncValue<List<dynamic>> build();

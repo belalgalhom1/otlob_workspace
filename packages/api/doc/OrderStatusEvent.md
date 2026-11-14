@@ -10,6 +10,8 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
 **orderId** | **String** |  | 
+**fulfillmentId** | **String** |  | [optional] 
+**deliveryGroupId** | **String** |  | [optional] 
 **status** | [**OrderStatus**](OrderStatus.md) |  | 
 **note** | **String** |  | [optional] 
 **createdBy** | **String** |  | [optional] 

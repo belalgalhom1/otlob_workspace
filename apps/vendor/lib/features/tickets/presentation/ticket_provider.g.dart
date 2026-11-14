@@ -41,7 +41,7 @@ final class TicketNotifierProvider
   }
 }
 
-String _$ticketNotifierHash() => r'c21ea8491a30e144521dddc5d68e1f505181adc1';
+String _$ticketNotifierHash() => r'e9ac9bcfc44f36ab28a366a4d43511b6737310f9';
 
 abstract class _$TicketNotifier extends $Notifier<AsyncValue<TicketStateData>> {
   AsyncValue<TicketStateData> build();

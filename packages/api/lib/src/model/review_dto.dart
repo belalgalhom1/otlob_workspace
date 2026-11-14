@@ -3,7 +3,9 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:api/src/model/review_customer_dto.dart';
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -15,10 +17,14 @@ part 'review_dto.g.dart';
 /// * [id] 
 /// * [orderId] 
 /// * [customerId] 
+/// * [targetType] 
+/// * [fulfillmentId] 
+/// * [deliveryGroupId] 
 /// * [vendorId] 
 /// * [driverId] 
-/// * [vendorRating] - Rating out of 5
-/// * [driverRating] - Rating out of 5
+/// * [rating] - Rating out of 5
+/// * [vendorRating] - Vendor rating out of 5
+/// * [driverRating] - Driver rating out of 5
 /// * [comment] 
 /// * [createdAt] 
 /// * [customer] 
@@ -33,22 +39,36 @@ abstract class ReviewDto implements Built<ReviewDto, ReviewDtoBuilder> {
   @BuiltValueField(wireName: r'customerId')
   String get customerId;
 
+  @BuiltValueField(wireName: r'targetType')
+  ReviewDtoTargetTypeEnum get targetType;
+  // enum targetTypeEnum {  VENDOR_FULFILLMENT,  DELIVERY_GROUP,  };
+
+  @BuiltValueField(wireName: r'fulfillmentId')
+  JsonObject? get fulfillmentId;
+
+  @BuiltValueField(wireName: r'deliveryGroupId')
+  JsonObject? get deliveryGroupId;
+
   @BuiltValueField(wireName: r'vendorId')
-  String? get vendorId;
+  JsonObject? get vendorId;
 
   @BuiltValueField(wireName: r'driverId')
-  String? get driverId;
+  JsonObject? get driverId;
 
   /// Rating out of 5
+  @BuiltValueField(wireName: r'rating')
+  num get rating;
+
+  /// Vendor rating out of 5
   @BuiltValueField(wireName: r'vendorRating')
   num? get vendorRating;
 
-  /// Rating out of 5
+  /// Driver rating out of 5
   @BuiltValueField(wireName: r'driverRating')
   num? get driverRating;
 
   @BuiltValueField(wireName: r'comment')
-  String? get comment;
+  JsonObject? get comment;
 
   @BuiltValueField(wireName: r'createdAt')
   DateTime get createdAt;
@@ -94,20 +114,44 @@ class _$ReviewDtoSerializer implements PrimitiveSerializer<ReviewDto> {
       object.customerId,
       specifiedType: const FullType(String),
     );
+    yield r'targetType';
+    yield serializers.serialize(
+      object.targetType,
+      specifiedType: const FullType(ReviewDtoTargetTypeEnum),
+    );
+    if (object.fulfillmentId != null) {
+      yield r'fulfillmentId';
+      yield serializers.serialize(
+        object.fulfillmentId,
+        specifiedType: const FullType(JsonObject),
+      );
+    }
+    if (object.deliveryGroupId != null) {
+      yield r'deliveryGroupId';
+      yield serializers.serialize(
+        object.deliveryGroupId,
+        specifiedType: const FullType(JsonObject),
+      );
+    }
     if (object.vendorId != null) {
       yield r'vendorId';
       yield serializers.serialize(
         object.vendorId,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(JsonObject),
       );
     }
     if (object.driverId != null) {
       yield r'driverId';
       yield serializers.serialize(
         object.driverId,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(JsonObject),
       );
     }
+    yield r'rating';
+    yield serializers.serialize(
+      object.rating,
+      specifiedType: const FullType(num),
+    );
     if (object.vendorRating != null) {
       yield r'vendorRating';
       yield serializers.serialize(
@@ -126,7 +170,7 @@ class _$ReviewDtoSerializer implements PrimitiveSerializer<ReviewDto> {
       yield r'comment';
       yield serializers.serialize(
         object.comment,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(JsonObject),
       );
     }
     yield r'createdAt';
@@ -185,19 +229,47 @@ class _$ReviewDtoSerializer implements PrimitiveSerializer<ReviewDto> {
           ) as String;
           result.customerId = valueDes;
           break;
+        case r'targetType':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(ReviewDtoTargetTypeEnum),
+          ) as ReviewDtoTargetTypeEnum;
+          result.targetType = valueDes;
+          break;
+        case r'fulfillmentId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
+          result.fulfillmentId = valueDes;
+          break;
+        case r'deliveryGroupId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
+          result.deliveryGroupId = valueDes;
+          break;
         case r'vendorId':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
           result.vendorId = valueDes;
           break;
         case r'driverId':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
           result.driverId = valueDes;
+          break;
+        case r'rating':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.rating = valueDes;
           break;
         case r'vendorRating':
           final valueDes = serializers.deserialize(
@@ -216,8 +288,8 @@ class _$ReviewDtoSerializer implements PrimitiveSerializer<ReviewDto> {
         case r'comment':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
           result.comment = valueDes;
           break;
         case r'createdAt':
@@ -261,5 +333,20 @@ class _$ReviewDtoSerializer implements PrimitiveSerializer<ReviewDto> {
     );
     return result.build();
   }
+}
+
+class ReviewDtoTargetTypeEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'VENDOR_FULFILLMENT')
+  static const ReviewDtoTargetTypeEnum VENDOR_FULFILLMENT = _$reviewDtoTargetTypeEnum_VENDOR_FULFILLMENT;
+  @BuiltValueEnumConst(wireName: r'DELIVERY_GROUP')
+  static const ReviewDtoTargetTypeEnum DELIVERY_GROUP = _$reviewDtoTargetTypeEnum_DELIVERY_GROUP;
+
+  static Serializer<ReviewDtoTargetTypeEnum> get serializer => _$reviewDtoTargetTypeEnumSerializer;
+
+  const ReviewDtoTargetTypeEnum._(String name): super(name);
+
+  static BuiltSet<ReviewDtoTargetTypeEnum> get values => _$reviewDtoTargetTypeEnumValues;
+  static ReviewDtoTargetTypeEnum valueOf(String name) => _$reviewDtoTargetTypeEnumValueOf(name);
 }
 

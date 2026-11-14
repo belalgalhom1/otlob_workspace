@@ -25,7 +25,6 @@ part 'order.g.dart';
 /// * [vendorBranchId] 
 /// * [driverId] 
 /// * [zoneId] 
-/// * [driverShiftId] 
 /// * [status] 
 /// * [revision] 
 /// * [paymentMethod] 
@@ -45,19 +44,13 @@ part 'order.g.dart';
 /// * [grandTotal] 
 /// * [upfrontAmount] 
 /// * [specialRequest] 
-/// * [estimatedPrepTime] 
 /// * [distanceKm] 
 /// * [deletedAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
-/// * [acceptedAt] 
-/// * [preparedAt] 
-/// * [driverAssignedAt] 
-/// * [pickedUpAt] 
-/// * [pickupImageUrl] 
-/// * [deliveryImageUrl] 
 /// * [paymentReceiptUrl] 
 /// * [actualDeliveryTime] 
+/// * [settledAt] 
 @BuiltValue()
 abstract class Order implements Built<Order, OrderBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -87,9 +80,6 @@ abstract class Order implements Built<Order, OrderBuilder> {
 
   @BuiltValueField(wireName: r'zoneId')
   String? get zoneId;
-
-  @BuiltValueField(wireName: r'driverShiftId')
-  String? get driverShiftId;
 
   @BuiltValueField(wireName: r'status')
   OrderStatus get status;
@@ -152,9 +142,6 @@ abstract class Order implements Built<Order, OrderBuilder> {
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
 
-  @BuiltValueField(wireName: r'estimatedPrepTime')
-  num? get estimatedPrepTime;
-
   @BuiltValueField(wireName: r'distanceKm')
   num? get distanceKm;
 
@@ -167,29 +154,14 @@ abstract class Order implements Built<Order, OrderBuilder> {
   @BuiltValueField(wireName: r'updatedAt')
   DateTime get updatedAt;
 
-  @BuiltValueField(wireName: r'acceptedAt')
-  DateTime? get acceptedAt;
-
-  @BuiltValueField(wireName: r'preparedAt')
-  DateTime? get preparedAt;
-
-  @BuiltValueField(wireName: r'driverAssignedAt')
-  DateTime? get driverAssignedAt;
-
-  @BuiltValueField(wireName: r'pickedUpAt')
-  DateTime? get pickedUpAt;
-
-  @BuiltValueField(wireName: r'pickupImageUrl')
-  String? get pickupImageUrl;
-
-  @BuiltValueField(wireName: r'deliveryImageUrl')
-  String? get deliveryImageUrl;
-
   @BuiltValueField(wireName: r'paymentReceiptUrl')
   String? get paymentReceiptUrl;
 
   @BuiltValueField(wireName: r'actualDeliveryTime')
   DateTime? get actualDeliveryTime;
+
+  @BuiltValueField(wireName: r'settledAt')
+  DateTime? get settledAt;
 
   Order._();
 
@@ -266,13 +238,6 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       yield r'zoneId';
       yield serializers.serialize(
         object.zoneId,
-        specifiedType: const FullType(String),
-      );
-    }
-    if (object.driverShiftId != null) {
-      yield r'driverShiftId';
-      yield serializers.serialize(
-        object.driverShiftId,
         specifiedType: const FullType(String),
       );
     }
@@ -379,13 +344,6 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
         specifiedType: const FullType(String),
       );
     }
-    if (object.estimatedPrepTime != null) {
-      yield r'estimatedPrepTime';
-      yield serializers.serialize(
-        object.estimatedPrepTime,
-        specifiedType: const FullType(num),
-      );
-    }
     if (object.distanceKm != null) {
       yield r'distanceKm';
       yield serializers.serialize(
@@ -410,48 +368,6 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       object.updatedAt,
       specifiedType: const FullType(DateTime),
     );
-    if (object.acceptedAt != null) {
-      yield r'acceptedAt';
-      yield serializers.serialize(
-        object.acceptedAt,
-        specifiedType: const FullType(DateTime),
-      );
-    }
-    if (object.preparedAt != null) {
-      yield r'preparedAt';
-      yield serializers.serialize(
-        object.preparedAt,
-        specifiedType: const FullType(DateTime),
-      );
-    }
-    if (object.driverAssignedAt != null) {
-      yield r'driverAssignedAt';
-      yield serializers.serialize(
-        object.driverAssignedAt,
-        specifiedType: const FullType(DateTime),
-      );
-    }
-    if (object.pickedUpAt != null) {
-      yield r'pickedUpAt';
-      yield serializers.serialize(
-        object.pickedUpAt,
-        specifiedType: const FullType(DateTime),
-      );
-    }
-    if (object.pickupImageUrl != null) {
-      yield r'pickupImageUrl';
-      yield serializers.serialize(
-        object.pickupImageUrl,
-        specifiedType: const FullType(String),
-      );
-    }
-    if (object.deliveryImageUrl != null) {
-      yield r'deliveryImageUrl';
-      yield serializers.serialize(
-        object.deliveryImageUrl,
-        specifiedType: const FullType(String),
-      );
-    }
     if (object.paymentReceiptUrl != null) {
       yield r'paymentReceiptUrl';
       yield serializers.serialize(
@@ -463,6 +379,13 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       yield r'actualDeliveryTime';
       yield serializers.serialize(
         object.actualDeliveryTime,
+        specifiedType: const FullType(DateTime),
+      );
+    }
+    if (object.settledAt != null) {
+      yield r'settledAt';
+      yield serializers.serialize(
+        object.settledAt,
         specifiedType: const FullType(DateTime),
       );
     }
@@ -551,13 +474,6 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(String),
           ) as String;
           result.zoneId = valueDes;
-          break;
-        case r'driverShiftId':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.driverShiftId = valueDes;
           break;
         case r'status':
           final valueDes = serializers.deserialize(
@@ -692,13 +608,6 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
           ) as String;
           result.specialRequest = valueDes;
           break;
-        case r'estimatedPrepTime':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(num),
-          ) as num;
-          result.estimatedPrepTime = valueDes;
-          break;
         case r'distanceKm':
           final valueDes = serializers.deserialize(
             value,
@@ -727,48 +636,6 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
           ) as DateTime;
           result.updatedAt = valueDes;
           break;
-        case r'acceptedAt':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(DateTime),
-          ) as DateTime;
-          result.acceptedAt = valueDes;
-          break;
-        case r'preparedAt':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(DateTime),
-          ) as DateTime;
-          result.preparedAt = valueDes;
-          break;
-        case r'driverAssignedAt':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(DateTime),
-          ) as DateTime;
-          result.driverAssignedAt = valueDes;
-          break;
-        case r'pickedUpAt':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(DateTime),
-          ) as DateTime;
-          result.pickedUpAt = valueDes;
-          break;
-        case r'pickupImageUrl':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.pickupImageUrl = valueDes;
-          break;
-        case r'deliveryImageUrl':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.deliveryImageUrl = valueDes;
-          break;
         case r'paymentReceiptUrl':
           final valueDes = serializers.deserialize(
             value,
@@ -782,6 +649,13 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.actualDeliveryTime = valueDes;
+          break;
+        case r'settledAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.settledAt = valueDes;
           break;
         default:
           unhandled.add(key);

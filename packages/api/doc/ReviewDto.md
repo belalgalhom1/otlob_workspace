@@ -11,11 +11,15 @@ Name | Type | Description | Notes
 **id** | **String** |  | 
 **orderId** | **String** |  | 
 **customerId** | **String** |  | 
-**vendorId** | **String** |  | [optional] 
-**driverId** | **String** |  | [optional] 
-**vendorRating** | **num** | Rating out of 5 | [optional] 
-**driverRating** | **num** | Rating out of 5 | [optional] 
-**comment** | **String** |  | [optional] 
+**targetType** | **String** |  | 
+**fulfillmentId** | [**JsonObject**](.md) |  | [optional] 
+**deliveryGroupId** | [**JsonObject**](.md) |  | [optional] 
+**vendorId** | [**JsonObject**](.md) |  | [optional] 
+**driverId** | [**JsonObject**](.md) |  | [optional] 
+**rating** | **num** | Rating out of 5 | 
+**vendorRating** | **num** | Vendor rating out of 5 | [optional] 
+**driverRating** | **num** | Driver rating out of 5 | [optional] 
+**comment** | [**JsonObject**](.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **customer** | [**ReviewCustomerDto**](ReviewCustomerDto.md) |  | [optional] 
 

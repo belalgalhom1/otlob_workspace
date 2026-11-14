@@ -41,7 +41,7 @@ final class PromotionNotifierProvider
   }
 }
 
-String _$promotionNotifierHash() => r'526f0076f10571218718a3d0b59503645ced23bf';
+String _$promotionNotifierHash() => r'0cff5aed978b272958f1ae7ef8de4c70042cb79d';
 
 abstract class _$PromotionNotifier
     extends $Notifier<AsyncValue<List<dynamic>>> {

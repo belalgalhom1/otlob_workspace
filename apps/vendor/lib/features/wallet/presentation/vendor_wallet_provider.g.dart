@@ -33,7 +33,7 @@ final class VendorWalletDataProvider
   VendorWalletData create() => VendorWalletData();
 }
 
-String _$vendorWalletDataHash() => r'e5bbc3835856975bd62e66a1ae91911f35a2f404';
+String _$vendorWalletDataHash() => r'f4d4e3036ce1fa3e0eb4a88d16ac430d8054d45a';
 
 abstract class _$VendorWalletData extends $AsyncNotifier<Map<String, dynamic>> {
   FutureOr<Map<String, dynamic>> build();

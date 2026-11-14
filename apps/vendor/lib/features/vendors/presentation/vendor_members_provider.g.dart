@@ -60,7 +60,7 @@ final class VendorMembersNotifierProvider
 }
 
 String _$vendorMembersNotifierHash() =>
-    r'e905a4c6e93459902682f2042ebcbdcd18f64fcc';
+    r'2ac0f633f7a05a9984c729f9cf9d52799f567975';
 
 final class VendorMembersNotifierFamily extends $Family
     with

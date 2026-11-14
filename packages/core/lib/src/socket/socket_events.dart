@@ -14,10 +14,15 @@ enum SocketEvent {
   orderStatus('order.status'),
   orderFulfillmentUpdated('order.fulfillment_updated'),
   orderCancelled('order.cancelled'),
+  orderAssigned('order.assigned'),
+  orderAssistProposed('order.assist.proposed'),
+  orderAssistDecided('order.assist.decided'),
+  orderAssistTimedOut('order.assist.timed_out'),
   
   /// Dispatch
   dispatchIncoming('dispatch.incoming'),
   dispatchCancelled('dispatch.cancelled'),
+  assistOffer('assist.offer'),
 
   /// Driver (Server to Client)
   driverLocation('driver.location'),

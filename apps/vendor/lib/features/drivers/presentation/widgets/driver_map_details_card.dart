@@ -136,6 +136,44 @@ class DriverMapDetailsCard extends StatelessWidget {
     }
   }
 
+  String _effectiveOrderStatus(Map<String, dynamic> order) {
+    final groups = order['deliveryGroups'];
+    if (groups is List) {
+      for (final g in groups) {
+        if (g is Map &&
+            (g['primaryDriverId']?.toString() == driver.id ||
+                g['assistDriverId']?.toString() == driver.id)) {
+          final gs = (g['status']?.toString() ?? '').toUpperCase();
+          if (gs.isNotEmpty && gs != 'DELIVERED' && gs != 'CANCELLED') {
+            return gs;
+          }
+        }
+      }
+    }
+    return (order['status']?.toString() ?? '').toUpperCase();
+  }
+
+  Map<String, dynamic>? _driverGroupFor(Map<String, dynamic> order) {
+    final groups = order['deliveryGroups'];
+    if (groups is! List) return null;
+    Map<String, dynamic>? fallback;
+    for (final g in groups) {
+      if (g is Map &&
+          (g['primaryDriverId']?.toString() == driver.id ||
+              g['assistDriverId']?.toString() == driver.id)) {
+        final gs = (g['status']?.toString() ?? '').toUpperCase();
+        if (gs != 'DELIVERED' && gs != 'CANCELLED') {
+          return Map<String, dynamic>.from(g);
+        }
+        fallback ??= Map<String, dynamic>.from(g);
+      }
+    }
+    return fallback;
+  }
+
+  double _numVal(dynamic v) =>
+      v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -150,7 +188,7 @@ class DriverMapDetailsCard extends StatelessWidget {
     bool isHeadingToCustomer = false;
 
     if (activeOrder != null) {
-      final status = (activeOrder!['status']?.toString() ?? '').toUpperCase();
+      final status = _effectiveOrderStatus(activeOrder!);
       isHeadingToCustomer = (status == 'PICKED_UP');
 
       if (isHeadingToCustomer && deliveryLocation != null) {
@@ -427,8 +465,38 @@ class DriverMapDetailsCard extends StatelessWidget {
     final deliveryAddress = order['deliveryAddress']?.toString() ?? '';
 
     // Vendor
-    final vendor = order['vendor'] is Map ? order['vendor'] as Map : {};
-    final vendorBranch = order['vendorBranch'] is Map ? order['vendorBranch'] as Map : {};
+    var vendor = order['vendor'] is Map ? order['vendor'] as Map : {};
+    var vendorBranch = order['vendorBranch'] is Map ? order['vendorBranch'] as Map : {};
+    if (vendor.isEmpty && order['vendorFulfillments'] is List) {
+      final fulfillments = order['vendorFulfillments'] as List;
+      final group = _driverGroupFor(order);
+      final groupFIds = <String>{};
+      if (group != null && group['items'] is List) {
+        for (final it in (group['items'] as List)) {
+          if (it is Map && it['fulfillmentId'] != null) {
+            groupFIds.add(it['fulfillmentId'].toString());
+          }
+        }
+      }
+      Map? targetF;
+      for (final f in fulfillments) {
+        if (f is! Map) continue;
+        if (groupFIds.isNotEmpty && !groupFIds.contains(f['id']?.toString())) {
+          continue;
+        }
+        final fs = (f['status']?.toString() ?? '').toUpperCase();
+        if (fs == 'REJECTED' || fs == 'CANCELLED') continue;
+        targetF ??= f;
+        if (fs != 'PICKED_UP' && fs != 'DELIVERED') {
+          targetF = f;
+          break;
+        }
+      }
+      if (targetF != null) {
+        if (targetF['vendor'] is Map) vendor = targetF['vendor'] as Map;
+        if (targetF['vendorBranch'] is Map) vendorBranch = targetF['vendorBranch'] as Map;
+      }
+    }
     final vendorStoreName = isArabic
         ? (vendor['storeNameAr'] ?? vendor['storeName'] ?? vendor['name'])
         : (vendor['storeName'] ?? vendor['storeNameAr'] ?? vendor['name']);
@@ -446,11 +514,11 @@ class DriverMapDetailsCard extends StatelessWidget {
         '';
 
     // Financial
-    final subtotal = (order['subtotal'] as num?)?.toDouble() ?? 0.0;
-    final deliveryFee = (order['deliveryFee'] as num?)?.toDouble() ?? 0.0;
-    final grandTotal = (order['grandTotal'] as num?)?.toDouble() ??
-        (order['total'] as num?)?.toDouble() ??
-        (subtotal + deliveryFee);
+    final subtotal = _numVal(order['subtotal']);
+    final deliveryFee = _numVal(order['deliveryFee']);
+    final grandTotal = order['grandTotal'] != null
+        ? _numVal(order['grandTotal'])
+        : (order['total'] != null ? _numVal(order['total']) : (subtotal + deliveryFee));
     final paymentMethod = order['paymentMethod']?.toString() ?? 'CASH';
 
     return Column(
@@ -786,7 +854,7 @@ class DriverMapDetailsCard extends StatelessWidget {
     final customer = activeOrder?['customer'] is Map ? activeOrder!['customer'] as Map : null;
     final customerUser = customer?['user'] is Map ? customer!['user'] as Map : null;
     final customerPhone = customerUser?['phone']?.toString();
-    final orderStatus = (activeOrder?['status']?.toString() ?? '').toUpperCase();
+    final orderStatus = activeOrder != null ? _effectiveOrderStatus(activeOrder!) : '';
     final isHeadingToCustomer = (orderStatus == 'PICKED_UP');
 
     return SingleChildScrollView(

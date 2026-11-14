@@ -74,8 +74,10 @@ Serializers _$serializers =
           ..add(CreateWalletTopUpDto.serializer)
           ..add(CreateZoneDto.serializer)
           ..add(Customer.serializer)
+          ..add(CustomerDecideAssistDto.serializer)
           ..add(DecideAssistRequestDto.serializer)
           ..add(DecideAssistRequestDtoStatusEnum.serializer)
+          ..add(DeliveryGroupRatingInputDto.serializer)
           ..add(DeliveryGroupStatus.serializer)
           ..add(DispatchAnnouncementDto.serializer)
           ..add(DispatchAnnouncementDtoAudienceEnum.serializer)
@@ -96,6 +98,7 @@ Serializers _$serializers =
           ..add(DriversControllerStartBreak200Response.serializer)
           ..add(FavoriteProduct.serializer)
           ..add(ForgotPasswordDto.serializer)
+          ..add(FulfillmentRatingInputDto.serializer)
           ..add(GenerateShiftPoolsDto.serializer)
           ..add(JoinWaitlistDto.serializer)
           ..add(Language.serializer)
@@ -110,11 +113,13 @@ Serializers _$serializers =
           ..add(Offer.serializer)
           ..add(Order.serializer)
           ..add(OrderDeliveryGroup.serializer)
+          ..add(OrderDeliveryGroupItem.serializer)
           ..add(OrderDispatch.serializer)
           ..add(OrderFeeEstimateDto.serializer)
           ..add(OrderItem.serializer)
           ..add(OrderItemOption.serializer)
           ..add(OrderResponseDto.serializer)
+          ..add(OrderReview.serializer)
           ..add(OrderStatus.serializer)
           ..add(OrderStatusEvent.serializer)
           ..add(OrderType.serializer)
@@ -168,11 +173,14 @@ Serializers _$serializers =
           ..add(RequestAssistDriverDto.serializer)
           ..add(RequestAssistDriverDtoReasonEnum.serializer)
           ..add(ResetPasswordDto.serializer)
+          ..add(RespondAssistOfferDto.serializer)
           ..add(RespondToDispatchDto.serializer)
           ..add(RespondToDispatchDtoResponseEnum.serializer)
           ..add(ReviewCustomerDto.serializer)
           ..add(ReviewCustomerUserDto.serializer)
           ..add(ReviewDto.serializer)
+          ..add(ReviewDtoTargetTypeEnum.serializer)
+          ..add(ReviewTargetType.serializer)
           ..add(ReviewWalletTopUpDto.serializer)
           ..add(ReviewsControllerGetVendorReviews200Response.serializer)
           ..add(Role.serializer)
@@ -357,6 +365,10 @@ Serializers _$serializers =
             () => ListBuilder<VendorWalletTransaction>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(OrderReview)]),
+            () => ListBuilder<OrderReview>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [
               const FullType(OrderVendorFulfillment),
             ]),
@@ -367,6 +379,24 @@ Serializers _$serializers =
               const FullType(OrderDeliveryGroup),
             ]),
             () => ListBuilder<OrderDeliveryGroup>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(FulfillmentRatingInputDto),
+            ]),
+            () => ListBuilder<FulfillmentRatingInputDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DeliveryGroupRatingInputDto),
+            ]),
+            () => ListBuilder<DeliveryGroupRatingInputDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(OrderDeliveryGroupItem),
+            ]),
+            () => ListBuilder<OrderDeliveryGroupItem>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(OrderItem)]),

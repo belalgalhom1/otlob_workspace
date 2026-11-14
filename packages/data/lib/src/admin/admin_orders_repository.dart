@@ -51,4 +51,27 @@ class AdminOrdersRepository {
     );
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> cancelOrder(String orderId) async {
+    final response = await _api.ordersControllerCancelOrder(orderId: orderId);
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> assignDriver({
+    required String orderId,
+    required String driverId,
+    String? deliveryGroupId,
+  }) async {
+    final dto = AdminAssignDriverDto((b) {
+      b..driverId = driverId;
+      if (deliveryGroupId != null && deliveryGroupId.isNotEmpty) {
+        b.deliveryGroupId = deliveryGroupId;
+      }
+    });
+    final response = await _api.ordersControllerAdminForceAssignDriver(
+      orderId: orderId,
+      adminAssignDriverDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
 }

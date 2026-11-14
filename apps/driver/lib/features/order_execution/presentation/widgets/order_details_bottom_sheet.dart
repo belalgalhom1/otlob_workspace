@@ -1,4 +1,5 @@
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:data/data.dart';
 import 'package:flutter/material.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -12,6 +13,26 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
   final Map<String, dynamic> order;
 
   const OrderDetailsBottomSheet({super.key, required this.order});
+
+  String? _resolveActiveGroupId(Map<String, dynamic> order) {
+    final direct = order['activeDeliveryGroupId']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final groups = order['deliveryGroups'];
+    final driverId = order['driverId']?.toString();
+    if (groups is List && groups.isNotEmpty) {
+      for (final g in groups) {
+        if (g is Map &&
+            g['status'] != 'DELIVERED' &&
+            g['status'] != 'CANCELLED' &&
+            (driverId == null ||
+                g['primaryDriverId']?.toString() == driverId ||
+                g['assistDriverId']?.toString() == driverId)) {
+          return g['id']?.toString();
+        }
+      }
+    }
+    return null;
+  }
 
   static Future<void> show(BuildContext context, Map<String, dynamic> order) {
     return showModalBottomSheet(
@@ -215,8 +236,14 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               (fBranch['isContracted'] as bool?) ??
                               (fVendor['isContracted'] as bool?) ??
                               false;
-                          final double cashToPay = double.tryParse(f['cashToPay']?.toString() ?? '0') ??
-                              (isContracted ? 0.0 : (double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0));
+                          final double sub = double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
+                          final double commRate = double.tryParse(f['commissionRate']?.toString() ?? '10') ?? 10.0;
+                          final double netContracted = sub - (sub * (commRate / 100)).roundToDouble();
+                          final double cashToPay = f['cashToPay'] != null
+                              ? (double.tryParse(f['cashToPay'].toString()) ?? 0.0)
+                              : (isContracted
+                                  ? (netContracted < 0 ? 0.0 : netContracted)
+                                  : sub);
                           final isPickedUp = f['status'] == 'PICKED_UP' || f['pickedUpAt'] != null;
 
                           return Container(
@@ -265,21 +292,25 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: isContracted
+                                        color: cashToPay <= 0
                                             ? AppColors.success.withValues(alpha: 0.1)
                                             : AppColors.warning.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
-                                        isContracted
-                                            ? (l10n.localeName == 'ar' ? 'شريك: ادفع 0' : 'Partner: Pay 0')
-                                            : (l10n.localeName == 'ar'
-                                                ? 'ادفع: ${cashToPay.toStringAsFixed(0)} $currency'
-                                                : 'Pay: ${cashToPay.toStringAsFixed(0)} $currency'),
+                                        cashToPay <= 0
+                                            ? (l10n.localeName == 'ar' ? 'لا تدفع كاش: 0' : 'Pay: 0')
+                                            : (isContracted
+                                                ? (l10n.localeName == 'ar'
+                                                    ? 'صافي الشريك: ${cashToPay.toStringAsFixed(0)} $currency'
+                                                    : 'Partner Net: ${cashToPay.toStringAsFixed(0)} $currency')
+                                                : (l10n.localeName == 'ar'
+                                                    ? 'ادفع: ${cashToPay.toStringAsFixed(0)} $currency'
+                                                    : 'Pay: ${cashToPay.toStringAsFixed(0)} $currency')),
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: isContracted ? AppColors.success : AppColors.warning,
+                                          color: cashToPay <= 0 ? AppColors.success : AppColors.warning,
                                         ),
                                       ),
                                     ),
@@ -339,74 +370,96 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
-              // Pickup proof photo
-              if (order['pickupImageUrl'] != null &&
-                  order['pickupImageUrl'].toString().isNotEmpty) ...[
-                Text(
-                  l10n.pickupPhoto,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: () =>
-                      _viewPhoto(context, ref, order['pickupImageUrl'].toString()),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                      ),
+              // Pickup proof photos (per-fulfillment or order-level)
+              ...() {
+                final pickupUrls = <String>[];
+                final rawFulfillments = (order['vendorFulfillments'] as List?) ?? [];
+                for (final f in rawFulfillments) {
+                  if (f is Map &&
+                      f['pickupImageUrl'] != null &&
+                      f['pickupImageUrl'].toString().isNotEmpty) {
+                    final u = f['pickupImageUrl'].toString();
+                    if (!pickupUrls.contains(u)) pickupUrls.add(u);
+                  }
+                }
+                final topUrl = order['pickupImageUrl']?.toString() ?? '';
+                if (topUrl.isNotEmpty && !pickupUrls.contains(topUrl)) {
+                  pickupUrls.add(topUrl);
+                }
+                if (pickupUrls.isEmpty) return <Widget>[];
+                return <Widget>[
+                  Text(
+                    l10n.pickupPhoto,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            _resolveMediaUrl(ref, order['pickupImageUrl'].toString()),
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              width: 56,
-                              height: 56,
-                              color: Theme.of(context).dividerColor,
-                              child: const Icon(
-                                LucideIcons.imageOff,
-                                size: 20,
+                  ),
+                  const SizedBox(height: 12),
+                  for (var idx = 0; idx < pickupUrls.length; idx++) ...[
+                    if (idx > 0) const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () => _viewPhoto(context, ref, pickupUrls[idx]),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                _resolveMediaUrl(ref, pickupUrls[idx]),
+                                width: 56,
+                                height: 56,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  width: 56,
+                                  height: 56,
+                                  color: Theme.of(context).dividerColor,
+                                  child: const Icon(
+                                    LucideIcons.imageOff,
+                                    size: 20,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            l10n.localeName == 'ar'
-                                ? 'اضغط لعرض صورة الاستلام'
-                                : 'Tap to view pickup photo',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                pickupUrls.length > 1
+                                    ? (l10n.localeName == 'ar'
+                                        ? 'صورة الاستلام (${idx + 1}/${pickupUrls.length})'
+                                        : 'Pickup photo (${idx + 1}/${pickupUrls.length})')
+                                    : (l10n.localeName == 'ar'
+                                        ? 'اضغط لعرض صورة الاستلام'
+                                        : 'Tap to view pickup photo'),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
                             ),
-                          ),
+                            const Icon(
+                              LucideIcons.chevronRight,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                          ],
                         ),
-                        const Icon(
-                          LucideIcons.chevronRight,
-                          size: 18,
-                          color: AppColors.primary,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                ];
+              }(),
 
               const SizedBox(height: 32),
               
@@ -696,13 +749,13 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                           ),
                                         ),
                                         Text(
-                                          isContracted
+                                          payAmt <= 0
                                               ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency (No Cash)')
                                               : '${payAmt.toStringAsFixed(2)} $currency',
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: isContracted ? AppColors.success : AppColors.warning,
+                                            color: payAmt <= 0 ? AppColors.success : AppColors.warning,
                                           ),
                                         ),
                                       ],
@@ -738,12 +791,12 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isStorePrepaid
+                          color: cashToPayStore <= 0
                               ? Colors.grey.withValues(alpha: 0.08)
                               : AppColors.warning.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isStorePrepaid
+                            color: cashToPayStore <= 0
                                 ? Colors.grey.withValues(alpha: 0.2)
                                 : AppColors.warning.withValues(alpha: 0.4),
                           ),
@@ -751,8 +804,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                         child: Row(
                           children: [
                             Icon(
-                              isStorePrepaid ? LucideIcons.store : LucideIcons.badgeDollarSign,
-                              color: isStorePrepaid ? Colors.grey : AppColors.warning,
+                              cashToPayStore <= 0 ? LucideIcons.store : LucideIcons.badgeDollarSign,
+                              color: cashToPayStore <= 0 ? Colors.grey : AppColors.warning,
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -761,18 +814,20 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    isStorePrepaid
-                                        ? (isAr ? 'متجر شريك معتمد: لا تدفع كاش في المتجر (0 $currency)' : 'Partner Store: Pay 0 $currency at store')
-                                        : (isAr ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPayStore.toStringAsFixed(2)} $currency' : 'Uncontracted: Pay store in cash: ${cashToPayStore.toStringAsFixed(2)} $currency'),
+                                    cashToPayStore <= 0
+                                        ? (isAr ? 'لا تدفع كاش في المتجر (0 $currency)' : 'Do not pay cash at store (0 $currency)')
+                                        : isStorePrepaid
+                                            ? (isAr ? 'متجر شريك: ادفع صافي الفاتورة كاش: ${cashToPayStore.toStringAsFixed(2)} $currency' : 'Partner Store: Pay net cash: ${cashToPayStore.toStringAsFixed(2)} $currency')
+                                            : (isAr ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPayStore.toStringAsFixed(2)} $currency' : 'Uncontracted: Pay store in cash: ${cashToPayStore.toStringAsFixed(2)} $currency'),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: isStorePrepaid
+                                      color: cashToPayStore <= 0
                                           ? Theme.of(context).colorScheme.onSurface
                                           : AppColors.warning,
                                     ),
                                   ),
-                                  if (!isStorePrepaid && isPrepaid) ...[
+                                  if (cashToPayStore > 0 && isPrepaid) ...[
                                     const SizedBox(height: 4),
                                     Text(
                                       isAr
@@ -921,105 +976,200 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
 
               // Assistant Driver Section
               Builder(builder: (context) {
-                final assistRequests = (order['assistRequests'] as List?) ?? [];
-                final activeAssist = assistRequests.where((a) => a is Map && a['status'] != 'CANCELLED' && a['status'] != 'REJECTED').firstOrNull;
+                final activeGroupId = _resolveActiveGroupId(order);
                 final deliveryGroups = (order['deliveryGroups'] as List?) ?? [];
-                final directAssistDriver = order['assistDriver'] is Map
-                    ? order['assistDriver'] as Map
-                    : (deliveryGroups.where((g) => g is Map && g['assistDriver'] != null).firstOrNull?['assistDriver'] as Map?);
+                final matchingGroup = activeGroupId != null
+                    ? deliveryGroups
+                        .whereType<Map>()
+                        .where((g) => g['id']?.toString() == activeGroupId)
+                        .firstOrNull
+                    : null;
+                final directAssistDriver = matchingGroup != null
+                    ? (matchingGroup['assistDriver'] as Map?)
+                    : (order['assistDriver'] is Map
+                        ? order['assistDriver'] as Map
+                        : null);
+                final embeddedRequests =
+                    (order['assistRequests'] as List?) ?? const [];
 
                 final isAr = l10n.localeName == 'ar';
-                final isFinished = order['status'] == 'DELIVERED' || order['status'] == 'CANCELLED';
+                final isFinished =
+                    order['status'] == 'DELIVERED' || order['status'] == 'CANCELLED';
 
-                if (directAssistDriver != null || activeAssist != null) {
-                  final bool isAssigned = directAssistDriver != null || activeAssist?['status'] == 'ASSIGNED' || activeAssist?['status'] == 'FULFILLED';
-                  final aDriver = directAssistDriver ?? (activeAssist?['assistDriver'] is Map ? activeAssist!['assistDriver'] as Map : (activeAssist?['assignedDriver'] is Map ? activeAssist!['assignedDriver'] as Map : null));
-                  final aName = aDriver?['name']?.toString() ?? (isAr ? 'مندوب مساعد' : 'Assistant Driver');
-                  final aStatus = isAssigned ? 'ASSIGNED' : (activeAssist?['status']?.toString() ?? 'PENDING');
-                  return Container(
-                    margin: const EdgeInsets.only(top: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: aStatus == 'ASSIGNED'
-                          ? AppColors.success.withValues(alpha: 0.1)
-                          : AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: aStatus == 'ASSIGNED'
-                            ? AppColors.success.withValues(alpha: 0.4)
-                            : AppColors.primary.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                return FutureBuilder<List<dynamic>>(
+                  future: () async {
+                    try {
+                      final res = await ref
+                          .read(driverOrdersRepositoryProvider)
+                          .getMyAssistRequests();
+                      if (res is List) return res;
+                      if (res is Map && res['data'] is List) {
+                        return res['data'] as List<dynamic>;
+                      }
+                      if (res is Map && res['items'] is List) {
+                        return res['items'] as List<dynamic>;
+                      }
+                    } catch (_) {}
+                    return const <dynamic>[];
+                  }(),
+                  builder: (context, snap) {
+                    final fetchedRequests = snap.data ?? const <dynamic>[];
+                    final allRequests = [
+                      ...fetchedRequests,
+                      ...embeddedRequests,
+                    ];
+                    final orderIdStr = order['id']?.toString();
+                    final activeAssist = allRequests.whereType<Map>().where((a) {
+                      if (a['orderId'] != null &&
+                          a['orderId']?.toString() != orderIdStr) {
+                        return false;
+                      }
+                      if (activeGroupId != null &&
+                          a['deliveryGroupId'] != null &&
+                          a['deliveryGroupId']?.toString() != activeGroupId) {
+                        return false;
+                      }
+                      final st = a['status']?.toString() ?? '';
+                      return st != 'CANCELLED' &&
+                          st != 'REJECTED' &&
+                          st != 'TIMED_OUT';
+                    }).firstOrNull;
+
+                    if (directAssistDriver != null || activeAssist != null) {
+                      final bool isAssigned = directAssistDriver != null ||
+                          activeAssist?['status'] == 'ASSIGNED' ||
+                          activeAssist?['status'] == 'FULFILLED';
+                      final aDriver = directAssistDriver ??
+                          (activeAssist?['assistDriver'] is Map
+                              ? activeAssist!['assistDriver'] as Map
+                              : (activeAssist?['assignedDriver'] is Map
+                                  ? activeAssist!['assignedDriver'] as Map
+                                  : null));
+                      final aName = aDriver?['name']?.toString() ??
+                          (isAr ? 'مندوب مساعد' : 'Assistant Driver');
+                      final aStatus = isAssigned
+                          ? 'ASSIGNED'
+                          : (activeAssist?['status']?.toString() ?? 'PENDING');
+                      final waitingLabel = aStatus == 'APPROVED'
+                          ? (isAr
+                              ? 'طلب المساعدة: بانتظار تعيين سائق / العميل'
+                              : 'Assist: Waiting for Driver / Customer')
+                          : (isAr
+                              ? 'طلب المساعدة: بانتظار مراجعة الإدارة'
+                              : 'Assist: Waiting for Admin');
+                      return Container(
+                        margin: const EdgeInsets.only(top: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: aStatus == 'ASSIGNED'
+                              ? AppColors.success.withValues(alpha: 0.1)
+                              : AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: aStatus == 'ASSIGNED'
+                                ? AppColors.success.withValues(alpha: 0.4)
+                                : AppColors.primary.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              aStatus == 'ASSIGNED' ? LucideIcons.userCheck : LucideIcons.userPlus,
-                              size: 18,
-                              color: aStatus == 'ASSIGNED' ? AppColors.success : AppColors.primary,
+                            Row(
+                              children: [
+                                Icon(
+                                  aStatus == 'ASSIGNED'
+                                      ? LucideIcons.userCheck
+                                      : LucideIcons.userPlus,
+                                  size: 18,
+                                  color: aStatus == 'ASSIGNED'
+                                      ? AppColors.success
+                                      : AppColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    aStatus == 'ASSIGNED'
+                                        ? (isAr
+                                            ? 'تم تعيين المندوب المساعد: $aName'
+                                            : 'Assistant Assigned: $aName')
+                                        : waitingLabel,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: aStatus == 'ASSIGNED'
+                                          ? AppColors.success
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                aStatus == 'ASSIGNED'
-                                    ? (isAr ? 'تم تعيين المندوب المساعد: $aName' : 'Assistant Assigned: $aName')
-                                    : (aStatus == 'PENDING_CUSTOMER'
-                                        ? (isAr ? 'طلب المساعدة: بانتظار موافقة العميل' : 'Assist: Waiting for Customer')
-                                        : (isAr ? 'طلب المساعدة: بانتظار تعيين الإدارة' : 'Assist: Waiting for Admin')),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: aStatus == 'ASSIGNED' ? AppColors.success : AppColors.primary,
+                            if (aStatus != 'ASSIGNED' &&
+                                !isFinished &&
+                                activeAssist?['id'] != null) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: TextButton.icon(
+                                  onPressed: () async {
+                                    final reqId = activeAssist!['id'].toString();
+                                    await ref
+                                        .read(orderExecutionProvider.notifier)
+                                        .cancelAssist(reqId);
+                                    if (context.mounted) Navigator.pop(context);
+                                  },
+                                  icon: const Icon(
+                                    LucideIcons.xCircle,
+                                    size: 16,
+                                    color: AppColors.error,
+                                  ),
+                                  label: Text(
+                                    isAr ? 'إلغاء الطلب' : 'Cancel Request',
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
-                        if (aStatus != 'ASSIGNED' && !isFinished) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: TextButton.icon(
-                              onPressed: () async {
-                                final reqId = activeAssist['id']?.toString();
-                                if (reqId != null) {
-                                  await ref.read(orderExecutionProvider.notifier).cancelAssist(reqId);
-                                  if (context.mounted) Navigator.pop(context);
-                                }
-                              },
-                              icon: const Icon(LucideIcons.xCircle, size: 16, color: AppColors.error),
-                              label: Text(isAr ? 'إلغاء الطلب' : 'Cancel Request', style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                      );
+                    }
+
+                    if (!isFinished) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showRequestAssistDialog(
+                            context,
+                            ref,
+                            order['id']?.toString() ?? '',
+                            deliveryGroupId: activeGroupId,
+                          ),
+                          icon: const Icon(LucideIcons.userPlus, size: 18),
+                          label: Text(
+                            isAr
+                                ? 'طلب كابتن إضافي للمساعدة (حمولات ثقيلة)'
+                                : 'Request Assistant Driver (Heavy Cargo)',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                  );
-                }
+                        ),
+                      );
+                    }
 
-                if (!isFinished) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showRequestAssistDialog(context, ref, order['id']?.toString() ?? ''),
-                      icon: const Icon(LucideIcons.userPlus, size: 18),
-                      label: Text(
-                        isAr ? 'طلب كابتن إضافي للمساعدة (حمولات ثقيلة)' : 'Request Assistant Driver (Heavy Cargo)',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  );
-                }
-
-                return const SizedBox.shrink();
+                    return const SizedBox.shrink();
+                  },
+                );
               }),
 
               const SizedBox(height: 24),
@@ -1154,7 +1304,12 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
   }
 
 
-  void _showRequestAssistDialog(BuildContext context, WidgetRef ref, String orderId) {
+  void _showRequestAssistDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String orderId, {
+    String? deliveryGroupId,
+  }) {
     String selectedReason = 'TOO_HEAVY';
     final noteController = TextEditingController();
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -1235,6 +1390,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 final ok = await ref.read(orderExecutionProvider.notifier).requestAssist(
                   reason: selectedReason,
                   note: noteController.text.trim().isNotEmpty ? noteController.text.trim() : null,
+                  deliveryGroupId: deliveryGroupId,
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

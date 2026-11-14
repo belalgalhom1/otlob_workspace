@@ -14,6 +14,8 @@ class _$DriverWalletTransaction extends DriverWalletTransaction {
   @override
   final String? orderId;
   @override
+  final String? deliveryGroupId;
+  @override
   final String? driverShiftId;
   @override
   final WalletTransactionType type;
@@ -36,6 +38,7 @@ class _$DriverWalletTransaction extends DriverWalletTransaction {
     required this.id,
     required this.driverId,
     this.orderId,
+    this.deliveryGroupId,
     this.driverShiftId,
     required this.type,
     required this.amount,
@@ -60,6 +63,7 @@ class _$DriverWalletTransaction extends DriverWalletTransaction {
         id == other.id &&
         driverId == other.driverId &&
         orderId == other.orderId &&
+        deliveryGroupId == other.deliveryGroupId &&
         driverShiftId == other.driverShiftId &&
         type == other.type &&
         amount == other.amount &&
@@ -75,6 +79,7 @@ class _$DriverWalletTransaction extends DriverWalletTransaction {
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, driverId.hashCode);
     _$hash = $jc(_$hash, orderId.hashCode);
+    _$hash = $jc(_$hash, deliveryGroupId.hashCode);
     _$hash = $jc(_$hash, driverShiftId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, amount.hashCode);
@@ -92,6 +97,7 @@ class _$DriverWalletTransaction extends DriverWalletTransaction {
           ..add('id', id)
           ..add('driverId', driverId)
           ..add('orderId', orderId)
+          ..add('deliveryGroupId', deliveryGroupId)
           ..add('driverShiftId', driverShiftId)
           ..add('type', type)
           ..add('amount', amount)
@@ -119,6 +125,11 @@ class DriverWalletTransactionBuilder
   String? _orderId;
   String? get orderId => _$this._orderId;
   set orderId(String? orderId) => _$this._orderId = orderId;
+
+  String? _deliveryGroupId;
+  String? get deliveryGroupId => _$this._deliveryGroupId;
+  set deliveryGroupId(String? deliveryGroupId) =>
+      _$this._deliveryGroupId = deliveryGroupId;
 
   String? _driverShiftId;
   String? get driverShiftId => _$this._driverShiftId;
@@ -159,6 +170,7 @@ class DriverWalletTransactionBuilder
       _id = $v.id;
       _driverId = $v.driverId;
       _orderId = $v.orderId;
+      _deliveryGroupId = $v.deliveryGroupId;
       _driverShiftId = $v.driverShiftId;
       _type = $v.type;
       _amount = $v.amount;
@@ -199,6 +211,7 @@ class DriverWalletTransactionBuilder
             'driverId',
           ),
           orderId: orderId,
+          deliveryGroupId: deliveryGroupId,
           driverShiftId: driverShiftId,
           type: BuiltValueNullFieldError.checkNotNull(
             type,

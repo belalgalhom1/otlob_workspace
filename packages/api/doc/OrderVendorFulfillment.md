@@ -16,14 +16,21 @@ Name | Type | Description | Notes
 **stage** | **String** |  | [optional] 
 **subtotal** | **num** |  | 
 **commissionRate** | **num** |  | 
+**isContracted** | **bool** |  | 
+**estimatedPrepTime** | **num** |  | [optional] 
 **rejectionCode** | **String** |  | [optional] 
 **rejectionReason** | **String** |  | [optional] 
 **rejectionReasonAr** | **String** |  | [optional] 
+**decidedByUserId** | **String** |  | [optional] 
+**decidedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **preparingAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **readyAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **pickupImageUrl** | **String** |  | [optional] 
 **pickedUpAt** | [**DateTime**](DateTime.md) |  | [optional] 
+**pickedUpByDriverId** | **String** |  | [optional] 
 **deliveredAt** | [**DateTime**](DateTime.md) |  | [optional] 
+**createdAt** | [**DateTime**](DateTime.md) |  | [optional] 
+**updatedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **vendor** | [**Vendor**](Vendor.md) |  | [optional] 
 **vendorBranch** | [**VendorBranch**](VendorBranch.md) |  | [optional] 
 **items** | [**BuiltList&lt;OrderItem&gt;**](OrderItem.md) |  | [optional] 

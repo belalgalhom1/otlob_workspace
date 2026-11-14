@@ -15,6 +15,7 @@ part 'order_dispatch.g.dart';
 /// Properties:
 /// * [id] 
 /// * [orderId] 
+/// * [deliveryGroupId] 
 /// * [driverId] 
 /// * [driverShiftId] 
 /// * [type] 
@@ -31,6 +32,9 @@ abstract class OrderDispatch implements Built<OrderDispatch, OrderDispatchBuilde
 
   @BuiltValueField(wireName: r'orderId')
   String get orderId;
+
+  @BuiltValueField(wireName: r'deliveryGroupId')
+  String? get deliveryGroupId;
 
   @BuiltValueField(wireName: r'driverId')
   String get driverId;
@@ -94,6 +98,13 @@ class _$OrderDispatchSerializer implements PrimitiveSerializer<OrderDispatch> {
       object.orderId,
       specifiedType: const FullType(String),
     );
+    if (object.deliveryGroupId != null) {
+      yield r'deliveryGroupId';
+      yield serializers.serialize(
+        object.deliveryGroupId,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'driverId';
     yield serializers.serialize(
       object.driverId,
@@ -181,6 +192,13 @@ class _$OrderDispatchSerializer implements PrimitiveSerializer<OrderDispatch> {
             specifiedType: const FullType(String),
           ) as String;
           result.orderId = valueDes;
+          break;
+        case r'deliveryGroupId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.deliveryGroupId = valueDes;
           break;
         case r'driverId':
           final valueDes = serializers.deserialize(

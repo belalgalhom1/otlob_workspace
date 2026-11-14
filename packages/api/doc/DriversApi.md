@@ -47,7 +47,7 @@ Method | HTTP request | Description
 [**driversControllerPendingAssistOffers**](DriversApi.md#driverscontrollerpendingassistoffers) | **GET** /drivers/assist/offers/pending | [Driver] Pending assist offers (HTTP fallback when socket is down)
 [**driversControllerRegister**](DriversApi.md#driverscontrollerregister) | **POST** /drivers/register | Register as a driver (creates driver profile, upgrades role)
 [**driversControllerRequestAssist**](DriversApi.md#driverscontrollerrequestassist) | **POST** /drivers/assist/{orderId}/groups/{deliveryGroupId}/request | [Driver] Request an additional driver for a delivery I am assigned to
-[**driversControllerRequestAssistOrder**](DriversApi.md#driverscontrollerrequestassistorder) | **POST** /drivers/assist/order/{orderId}/request | [Driver] Request an additional driver for a single-vendor order I am assigned to
+[**driversControllerRequestAssistOrder**](DriversApi.md#driverscontrollerrequestassistorder) | **POST** /drivers/assist/order/{orderId}/request | [Driver] Request an additional driver for an order delivery I am assigned to
 [**driversControllerRespondToAssistOffer**](DriversApi.md#driverscontrollerrespondtoassistoffer) | **POST** /drivers/assist/{requestId}/offer/respond | [Driver] Accept or decline an assist offer
 [**driversControllerStartBreak**](DriversApi.md#driverscontrollerstartbreak) | **POST** /drivers/me/break/start | Request a break (pending admin approval)
 [**driversControllerStartShift**](DriversApi.md#driverscontrollerstartshift) | **POST** /drivers/me/shifts/{shiftId}/start | Start a shift (selfie required, must be inside the shift zone, flips ONLINE)
@@ -1607,7 +1607,7 @@ Name | Type | Description  | Notes
 # **driversControllerRequestAssistOrder**
 > ApiControllerRoot200Response driversControllerRequestAssistOrder(orderId, requestAssistDriverDto)
 
-[Driver] Request an additional driver for a single-vendor order I am assigned to
+[Driver] Request an additional driver for an order delivery I am assigned to
 
 ### Example
 ```dart
@@ -1648,7 +1648,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerRespondToAssistOffer**
-> ApiControllerRoot200Response driversControllerRespondToAssistOffer(requestId)
+> ApiControllerRoot200Response driversControllerRespondToAssistOffer(requestId, respondAssistOfferDto)
 
 [Driver] Accept or decline an assist offer
 
@@ -1658,9 +1658,10 @@ import 'package:api/api.dart';
 
 final api = Api().getDriversApi();
 final String requestId = requestId_example; // String | 
+final RespondAssistOfferDto respondAssistOfferDto = ; // RespondAssistOfferDto | 
 
 try {
-    final response = api.driversControllerRespondToAssistOffer(requestId);
+    final response = api.driversControllerRespondToAssistOffer(requestId, respondAssistOfferDto);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DriversApi->driversControllerRespondToAssistOffer: $e\n');
@@ -1672,6 +1673,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **requestId** | **String**|  | 
+ **respondAssistOfferDto** | [**RespondAssistOfferDto**](RespondAssistOfferDto.md)|  | 
 
 ### Return type
 
@@ -1683,7 +1685,7 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

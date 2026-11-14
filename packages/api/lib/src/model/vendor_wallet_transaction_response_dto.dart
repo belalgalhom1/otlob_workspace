@@ -17,6 +17,7 @@ part 'vendor_wallet_transaction_response_dto.g.dart';
 /// * [id] 
 /// * [vendorId] 
 /// * [orderId] 
+/// * [fulfillmentId] 
 /// * [type] 
 /// * [amount] 
 /// * [balanceAfter] 
@@ -35,6 +36,9 @@ abstract class VendorWalletTransactionResponseDto implements Built<VendorWalletT
 
   @BuiltValueField(wireName: r'orderId')
   String? get orderId;
+
+  @BuiltValueField(wireName: r'fulfillmentId')
+  String? get fulfillmentId;
 
   @BuiltValueField(wireName: r'type')
   VendorTransactionType get type;
@@ -98,6 +102,13 @@ class _$VendorWalletTransactionResponseDtoSerializer implements PrimitiveSeriali
       yield r'orderId';
       yield serializers.serialize(
         object.orderId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.fulfillmentId != null) {
+      yield r'fulfillmentId';
+      yield serializers.serialize(
+        object.fulfillmentId,
         specifiedType: const FullType(String),
       );
     }
@@ -192,6 +203,13 @@ class _$VendorWalletTransactionResponseDtoSerializer implements PrimitiveSeriali
             specifiedType: const FullType(String),
           ) as String;
           result.orderId = valueDes;
+          break;
+        case r'fulfillmentId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.fulfillmentId = valueDes;
           break;
         case r'type':
           final valueDes = serializers.deserialize(

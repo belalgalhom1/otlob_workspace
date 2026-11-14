@@ -3,6 +3,9 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
+import 'package:api/src/model/fulfillment_rating_input_dto.dart';
+import 'package:api/src/model/delivery_group_rating_input_dto.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -11,16 +14,26 @@ part 'create_review_dto.g.dart';
 /// CreateReviewDto
 ///
 /// Properties:
-/// * [vendorRating] - Rating out of 5
-/// * [driverRating] - Rating out of 5
+/// * [fulfillmentRatings] - Per-store/branch portion ratings for this order
+/// * [deliveryGroupRatings] - Per-driver/delivery-group ratings for this order
+/// * [vendorRating] - Rating out of 5 (single-store shorthand)
+/// * [driverRating] - Rating out of 5 (single-driver shorthand)
 /// * [comment] 
 @BuiltValue()
 abstract class CreateReviewDto implements Built<CreateReviewDto, CreateReviewDtoBuilder> {
-  /// Rating out of 5
+  /// Per-store/branch portion ratings for this order
+  @BuiltValueField(wireName: r'fulfillmentRatings')
+  BuiltList<FulfillmentRatingInputDto>? get fulfillmentRatings;
+
+  /// Per-driver/delivery-group ratings for this order
+  @BuiltValueField(wireName: r'deliveryGroupRatings')
+  BuiltList<DeliveryGroupRatingInputDto>? get deliveryGroupRatings;
+
+  /// Rating out of 5 (single-store shorthand)
   @BuiltValueField(wireName: r'vendorRating')
   num? get vendorRating;
 
-  /// Rating out of 5
+  /// Rating out of 5 (single-driver shorthand)
   @BuiltValueField(wireName: r'driverRating')
   num? get driverRating;
 
@@ -50,6 +63,20 @@ class _$CreateReviewDtoSerializer implements PrimitiveSerializer<CreateReviewDto
     CreateReviewDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    if (object.fulfillmentRatings != null) {
+      yield r'fulfillmentRatings';
+      yield serializers.serialize(
+        object.fulfillmentRatings,
+        specifiedType: const FullType(BuiltList, [FullType(FulfillmentRatingInputDto)]),
+      );
+    }
+    if (object.deliveryGroupRatings != null) {
+      yield r'deliveryGroupRatings';
+      yield serializers.serialize(
+        object.deliveryGroupRatings,
+        specifiedType: const FullType(BuiltList, [FullType(DeliveryGroupRatingInputDto)]),
+      );
+    }
     if (object.vendorRating != null) {
       yield r'vendorRating';
       yield serializers.serialize(
@@ -94,6 +121,20 @@ class _$CreateReviewDtoSerializer implements PrimitiveSerializer<CreateReviewDto
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
+        case r'fulfillmentRatings':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(FulfillmentRatingInputDto)]),
+          ) as BuiltList<FulfillmentRatingInputDto>;
+          result.fulfillmentRatings.replace(valueDes);
+          break;
+        case r'deliveryGroupRatings':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltList, [FullType(DeliveryGroupRatingInputDto)]),
+          ) as BuiltList<DeliveryGroupRatingInputDto>;
+          result.deliveryGroupRatings.replace(valueDes);
+          break;
         case r'vendorRating':
           final valueDes = serializers.deserialize(
             value,

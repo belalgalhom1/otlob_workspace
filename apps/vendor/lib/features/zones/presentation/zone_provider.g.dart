@@ -41,7 +41,7 @@ final class ZoneNotifierProvider
   }
 }
 
-String _$zoneNotifierHash() => r'e3dec5f99f9dda6610b0d4709f00462f8a4c9d79';
+String _$zoneNotifierHash() => r'bc6bb0aac84c292e9f8ede789f5000ce2a18edac';
 
 abstract class _$ZoneNotifier extends $Notifier<AsyncValue<ZoneStateData>> {
   AsyncValue<ZoneStateData> build();

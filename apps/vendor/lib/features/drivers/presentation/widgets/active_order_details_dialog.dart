@@ -153,11 +153,13 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     final items = (rawItems is List) ? rawItems : [];
 
     // Financials
-    final subtotal = (order['subtotal'] as num?)?.toDouble() ?? 0.0;
-    final deliveryFee = (order['deliveryFee'] as num?)?.toDouble() ?? 0.0;
-    final grandTotal = (order['grandTotal'] as num?)?.toDouble() ??
-        (order['total'] as num?)?.toDouble() ??
-        (subtotal + deliveryFee);
+    double numVal(dynamic v) =>
+        v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+    final subtotal = numVal(order['subtotal']);
+    final deliveryFee = numVal(order['deliveryFee']);
+    final grandTotal = order['grandTotal'] != null
+        ? numVal(order['grandTotal'])
+        : (order['total'] != null ? numVal(order['total']) : (subtotal + deliveryFee));
     final paymentMethod = order['paymentMethod']?.toString() ?? 'CASH';
     final paymentStatus = order['paymentStatus']?.toString() ?? 'PENDING';
     final specialRequest = order['specialRequest']?.toString();
@@ -330,7 +332,9 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                     // Items list (Multi-Vendor breakdown or Single Store)
                     if (isMultiVendor && fulfillments.isNotEmpty) ...[
                       Text(
-                        isArabic ? 'أصناف الطلب حسب المتاجر (${fulfillments.length} متاجر)' : 'Order Items by Store (${fulfillments.length} Stores)',
+                        isArabic
+                            ? 'أصناف الطلب حسب الجهات (${fulfillments.length})'
+                            : 'Order Portions (${fulfillments.length})',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       const SizedBox(height: 8),
@@ -864,7 +868,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        branchName.isNotEmpty ? '$vendorName ($branchName)' : vendorName,
+                        vendorName,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       if (pickupAddress.isNotEmpty)

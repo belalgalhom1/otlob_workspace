@@ -195,7 +195,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             final convoId = n['data']['conversationId'] ?? n['data']['conversation_id'];
             if (convoId != null) {
               final chatType = n['data']['chatType'] ?? n['data']['chat_type'] ?? 'direct';
-              context.push('/chat/${chatType.toString().toLowerCase()}/$convoId');
+              final orderId = n['data']['orderId'] ?? n['data']['order_id'];
+              context.push(
+                '/chat/${chatType.toString().toLowerCase()}/$convoId',
+                extra: {
+                  if (orderId != null) 'orderId': orderId.toString(),
+                },
+              );
             }
           }
         },

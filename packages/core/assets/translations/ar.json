@@ -1888,7 +1888,7 @@
   "order_error_fulfillment_not_found": "جزء الطلب مش موجود.",
   "order_error_fulfillment_already_decided": "تم قبول أو رفض جزء الطلب ده بالفعل.",
   "order_error_rejection_reason_required": "من فضلك اكتب سبب رفض جزء الطلب.",
-  "order_error_multi_vendor_not_allowed": "مينفعش تطلب من أكتر من متجر في نفس السلة.",
+  "order_error_multi_vendor_not_allowed": "الطلب متعدد المتاجر يتطلب اختيار متجرين على الأقل.",
   "order_error_multi_vendor_limit_exceeded": "تجاوزت الحد الأقصى لعدد المتاجر أو الفروع المسموح به في الطلب الواحد.",
   "order_error_empty_cart_for_vendor": "في متجر من اللي في طلبك سلته فاضية.",
   "order_error_no_delivery_groups": "معرفناش نظبط توزيع التوصيل للطلب ده، جرب تاني.",

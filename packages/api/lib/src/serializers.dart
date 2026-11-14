@@ -63,7 +63,9 @@ import 'package:api/src/model/create_vendor_vertical_dto.dart';
 import 'package:api/src/model/create_wallet_top_up_dto.dart';
 import 'package:api/src/model/create_zone_dto.dart';
 import 'package:api/src/model/customer.dart';
+import 'package:api/src/model/customer_decide_assist_dto.dart';
 import 'package:api/src/model/decide_assist_request_dto.dart';
+import 'package:api/src/model/delivery_group_rating_input_dto.dart';
 import 'package:api/src/model/delivery_group_status.dart';
 import 'package:api/src/model/dispatch_announcement_dto.dart';
 import 'package:api/src/model/dispatch_status.dart';
@@ -82,6 +84,7 @@ import 'package:api/src/model/drivers_controller_my_assist_requests200_response.
 import 'package:api/src/model/drivers_controller_start_break200_response.dart';
 import 'package:api/src/model/favorite_product.dart';
 import 'package:api/src/model/forgot_password_dto.dart';
+import 'package:api/src/model/fulfillment_rating_input_dto.dart';
 import 'package:api/src/model/generate_shift_pools_dto.dart';
 import 'package:api/src/model/join_waitlist_dto.dart';
 import 'package:api/src/model/language.dart';
@@ -95,11 +98,13 @@ import 'package:api/src/model/mobile_wallet_response_dto.dart';
 import 'package:api/src/model/offer.dart';
 import 'package:api/src/model/order.dart';
 import 'package:api/src/model/order_delivery_group.dart';
+import 'package:api/src/model/order_delivery_group_item.dart';
 import 'package:api/src/model/order_dispatch.dart';
 import 'package:api/src/model/order_fee_estimate_dto.dart';
 import 'package:api/src/model/order_item.dart';
 import 'package:api/src/model/order_item_option.dart';
 import 'package:api/src/model/order_response_dto.dart';
+import 'package:api/src/model/order_review.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:api/src/model/order_status_event.dart';
 import 'package:api/src/model/order_type.dart';
@@ -139,10 +144,12 @@ import 'package:api/src/model/reject_vendor_fulfillment_dto.dart';
 import 'package:api/src/model/reorder_categories_dto.dart';
 import 'package:api/src/model/request_assist_driver_dto.dart';
 import 'package:api/src/model/reset_password_dto.dart';
+import 'package:api/src/model/respond_assist_offer_dto.dart';
 import 'package:api/src/model/respond_to_dispatch_dto.dart';
 import 'package:api/src/model/review_customer_dto.dart';
 import 'package:api/src/model/review_customer_user_dto.dart';
 import 'package:api/src/model/review_dto.dart';
+import 'package:api/src/model/review_target_type.dart';
 import 'package:api/src/model/review_wallet_top_up_dto.dart';
 import 'package:api/src/model/reviews_controller_get_vendor_reviews200_response.dart';
 import 'package:api/src/model/role.dart';
@@ -253,7 +260,9 @@ part 'serializers.g.dart';
   CreateWalletTopUpDto,
   CreateZoneDto,
   Customer,
+  CustomerDecideAssistDto,
   DecideAssistRequestDto,
+  DeliveryGroupRatingInputDto,
   DeliveryGroupStatus,
   DispatchAnnouncementDto,
   DispatchStatus,
@@ -272,6 +281,7 @@ part 'serializers.g.dart';
   DriversControllerStartBreak200Response,
   FavoriteProduct,
   ForgotPasswordDto,
+  FulfillmentRatingInputDto,
   GenerateShiftPoolsDto,
   JoinWaitlistDto,
   Language,
@@ -285,11 +295,13 @@ part 'serializers.g.dart';
   Offer,
   Order,
   OrderDeliveryGroup,
+  OrderDeliveryGroupItem,
   OrderDispatch,
   OrderFeeEstimateDto,
   OrderItem,
   OrderItemOption,
   OrderResponseDto,
+  OrderReview,
   OrderStatus,
   OrderStatusEvent,
   OrderType,
@@ -329,10 +341,12 @@ part 'serializers.g.dart';
   ReorderCategoriesDto,
   RequestAssistDriverDto,
   ResetPasswordDto,
+  RespondAssistOfferDto,
   RespondToDispatchDto,
   ReviewCustomerDto,
   ReviewCustomerUserDto,
   ReviewDto,
+  ReviewTargetType,
   ReviewWalletTopUpDto,
   ReviewsControllerGetVendorReviews200Response,
   Role,

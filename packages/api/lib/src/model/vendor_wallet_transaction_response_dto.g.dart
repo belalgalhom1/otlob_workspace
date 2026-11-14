@@ -15,6 +15,8 @@ class _$VendorWalletTransactionResponseDto
   @override
   final String? orderId;
   @override
+  final String? fulfillmentId;
+  @override
   final VendorTransactionType type;
   @override
   final num amount;
@@ -39,6 +41,7 @@ class _$VendorWalletTransactionResponseDto
     required this.id,
     required this.vendorId,
     this.orderId,
+    this.fulfillmentId,
     required this.type,
     required this.amount,
     required this.balanceAfter,
@@ -64,6 +67,7 @@ class _$VendorWalletTransactionResponseDto
         id == other.id &&
         vendorId == other.vendorId &&
         orderId == other.orderId &&
+        fulfillmentId == other.fulfillmentId &&
         type == other.type &&
         amount == other.amount &&
         balanceAfter == other.balanceAfter &&
@@ -80,6 +84,7 @@ class _$VendorWalletTransactionResponseDto
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
     _$hash = $jc(_$hash, orderId.hashCode);
+    _$hash = $jc(_$hash, fulfillmentId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, amount.hashCode);
     _$hash = $jc(_$hash, balanceAfter.hashCode);
@@ -98,6 +103,7 @@ class _$VendorWalletTransactionResponseDto
           ..add('id', id)
           ..add('vendorId', vendorId)
           ..add('orderId', orderId)
+          ..add('fulfillmentId', fulfillmentId)
           ..add('type', type)
           ..add('amount', amount)
           ..add('balanceAfter', balanceAfter)
@@ -129,6 +135,11 @@ class VendorWalletTransactionResponseDtoBuilder
   String? _orderId;
   String? get orderId => _$this._orderId;
   set orderId(String? orderId) => _$this._orderId = orderId;
+
+  String? _fulfillmentId;
+  String? get fulfillmentId => _$this._fulfillmentId;
+  set fulfillmentId(String? fulfillmentId) =>
+      _$this._fulfillmentId = fulfillmentId;
 
   VendorTransactionType? _type;
   VendorTransactionType? get type => _$this._type;
@@ -172,6 +183,7 @@ class VendorWalletTransactionResponseDtoBuilder
       _id = $v.id;
       _vendorId = $v.vendorId;
       _orderId = $v.orderId;
+      _fulfillmentId = $v.fulfillmentId;
       _type = $v.type;
       _amount = $v.amount;
       _balanceAfter = $v.balanceAfter;
@@ -217,6 +229,7 @@ class VendorWalletTransactionResponseDtoBuilder
               'vendorId',
             ),
             orderId: orderId,
+            fulfillmentId: fulfillmentId,
             type: BuiltValueNullFieldError.checkNotNull(
               type,
               r'VendorWalletTransactionResponseDto',

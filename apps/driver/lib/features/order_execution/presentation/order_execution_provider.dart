@@ -60,15 +60,42 @@ class OrderExecution extends _$OrderExecution {
     return (id == null || id.isEmpty) ? null : id;
   }
 
+  String? _activeDeliveryGroupId(AsyncValue<dynamic> prev) {
+    final value = prev.value;
+    if (value is! Map) return null;
+    final direct = value['activeDeliveryGroupId']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final groups = value['deliveryGroups'];
+    final driverId = value['driverId']?.toString();
+    if (groups is List && groups.isNotEmpty) {
+      for (final g in groups) {
+        if (g is Map &&
+            g['status'] != 'DELIVERED' &&
+            g['status'] != 'CANCELLED' &&
+            (driverId == null ||
+                g['primaryDriverId']?.toString() == driverId ||
+                g['assistDriverId']?.toString() == driverId)) {
+          return g['id']?.toString();
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> updateOrderStatus(String newStatus) async {
     final prev = state;
     final orderId = _activeOrderId(prev);
     if (orderId == null) return;
+    final activeGroupId = _activeDeliveryGroupId(prev);
     try {
       state = const AsyncValue.loading();
       final repository = ref.read(driverOrdersRepositoryProvider);
 
-      await repository.updateOrderStatus(orderId, newStatus);
+      await repository.updateOrderStatus(
+        orderId,
+        newStatus,
+        deliveryGroupId: activeGroupId,
+      );
       if (newStatus == 'DELIVERED' || newStatus == 'CANCELLED') {
         _selectedOrderId = null;
       }
@@ -142,14 +169,17 @@ class OrderExecution extends _$OrderExecution {
     final prev = state;
     final orderId = _activeOrderId(prev);
     if (orderId == null) return;
+    final resolvedGroupId = (deliveryGroupId != null && deliveryGroupId.isNotEmpty)
+        ? deliveryGroupId
+        : _activeDeliveryGroupId(prev);
     try {
       state = const AsyncValue.loading();
       final dio = ref.read(dioProvider);
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
       });
-      final query = deliveryGroupId != null && deliveryGroupId.isNotEmpty
-          ? '?deliveryGroupId=$deliveryGroupId'
+      final query = resolvedGroupId != null && resolvedGroupId.isNotEmpty
+          ? '?deliveryGroupId=$resolvedGroupId'
           : '';
       await dio.post('/orders/driver/$orderId/delivery$query', data: formData);
       _selectedOrderId = null;
@@ -189,11 +219,13 @@ class OrderExecution extends _$OrderExecution {
             return;
           }
           final rawFulfillments = updated['vendorFulfillments'];
+          var matchesMyStop = false;
           if (rawFulfillments is List) {
             final nextFulfillments = List<dynamic>.from(rawFulfillments);
             for (int i = 0; i < nextFulfillments.length; i++) {
               final f = nextFulfillments[i];
               if (f is Map && f['id']?.toString() == incomingFId) {
+                matchesMyStop = true;
                 final copy = Map<String, dynamic>.from(f);
                 if (incomingFStatus != null) copy['status'] = incomingFStatus;
                 if (data['pickedUpAt'] != null) copy['pickedUpAt'] = data['pickedUpAt'];
@@ -203,23 +235,37 @@ class OrderExecution extends _$OrderExecution {
             }
             updated['vendorFulfillments'] = nextFulfillments;
           }
-          final status = data['orderStatus'] ?? data['parentStatus'];
-          if (status != null) updated['status'] = status;
-          state = AsyncValue.data(updated);
+          final groups = updated['deliveryGroups'];
+          final isMultiGroup = groups is List && groups.length > 1;
+          if (!isMultiGroup) {
+            final status = data['orderStatus'] ?? data['parentStatus'];
+            if (status != null) updated['status'] = status;
+          }
+          if (matchesMyStop) {
+            state = AsyncValue.data(updated);
+          }
+          if (isMultiGroup) {
+            _fetchActiveOrder();
+          }
           return;
         }
 
         final updatedState = Map<String, dynamic>.from(state.value);
+        final groups = updatedState['deliveryGroups'];
+        final isMultiGroup = groups is List && groups.length > 1;
         final newStatus = data['newStatus'] ?? data['status'];
         final normalized = newStatus?.toString().toUpperCase();
         if (normalized == 'DELIVERED' || normalized == 'CANCELLED') {
           _selectedOrderId = null;
           _fetchActiveOrder();
-        } else if (newStatus != null) {
+        } else if (isMultiGroup || newStatus == null) {
+          // Multi-group aggregate order status or payment-only socket updates
+          // must re-fetch the group-projected active order instead of letting
+          // another group's status overwrite this driver's execution state.
+          _fetchActiveOrder();
+        } else {
           updatedState['status'] = newStatus;
           state = AsyncValue.data(updatedState);
-        } else {
-          _fetchActiveOrder();
         }
       }
     }
@@ -229,13 +275,29 @@ class OrderExecution extends _$OrderExecution {
     handleSocketUpdate(data);
   }
 
-  Future<bool> requestAssist({required String reason, String? note}) async {
+  Future<bool> requestAssist({
+    required String reason,
+    String? note,
+    String? deliveryGroupId,
+  }) async {
     final prev = state;
     final orderId = _activeOrderId(prev);
     if (orderId == null) return false;
+    final resolvedGroupId = (deliveryGroupId != null && deliveryGroupId.isNotEmpty)
+        ? deliveryGroupId
+        : _activeDeliveryGroupId(prev);
     try {
       final repository = ref.read(driverOrdersRepositoryProvider);
-      await repository.requestAssistOrder(orderId, reason: reason, note: note);
+      if (resolvedGroupId != null && resolvedGroupId.isNotEmpty) {
+        await repository.requestAssist(
+          orderId,
+          deliveryGroupId: resolvedGroupId,
+          reason: reason,
+          note: note,
+        );
+      } else {
+        await repository.requestAssistOrder(orderId, reason: reason, note: note);
+      }
       await _fetchActiveOrder();
       return true;
     } catch (e) {

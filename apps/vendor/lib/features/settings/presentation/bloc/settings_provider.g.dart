@@ -44,7 +44,7 @@ final class SettingsNotifierProvider
   }
 }
 
-String _$settingsNotifierHash() => r'8bbaea1d1783ffce76ae574c05ddd03bb0c0ef67';
+String _$settingsNotifierHash() => r'6896c5914ad8b4607751b62b23b22a8f8e352152';
 
 abstract class _$SettingsNotifier
     extends $Notifier<AsyncValue<Map<String, dynamic>>> {

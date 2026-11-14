@@ -125,54 +125,61 @@ class OrdersNotifier extends _$OrdersNotifier {
     bool isFulfillmentDelta = false,
     String? fulfillmentId,
   }) {
-    if (state.hasValue) {
-      final currentData = state.value!;
-      final newOrders = List<dynamic>.from(currentData.orders);
-      final index = newOrders.indexWhere((o) => o['id'] == orderId);
-      if (index != -1) {
-        final Map<String, dynamic> updatedOrder =
-            Map<String, dynamic>.from(newOrders[index]);
-        final isMultiVendorPortion = updatedOrder['myFulfillmentStatus'] != null;
-        final myFulfillmentId = updatedOrder['myFulfillmentId']?.toString();
+    if (!state.hasValue) return;
+    final currentData = state.value!;
+    final newOrders = List<dynamic>.from(currentData.orders);
+    final index = newOrders.indexWhere((o) => o['id'] == orderId);
+    if (index == -1) return;
 
-        if (isFulfillmentDelta &&
-            fulfillmentId != null &&
-            updatedOrder['vendorFulfillments'] is List) {
-          final fulfillments = List<dynamic>.from(updatedOrder['vendorFulfillments'] as List);
-          bool updatedChild = false;
-          for (int i = 0; i < fulfillments.length; i++) {
-            final f = fulfillments[i];
-            if (f is Map && f['id']?.toString() == fulfillmentId) {
-              fulfillments[i] = {...f, 'status': newStatus};
-              updatedChild = true;
-            }
-          }
-          if (updatedChild) {
-            updatedOrder['vendorFulfillments'] = fulfillments;
-          }
-        }
+    final Map<String, dynamic> updatedOrder =
+        Map<String, dynamic>.from(newOrders[index]);
+    final isMultiVendorPortion = updatedOrder['myFulfillmentStatus'] != null;
+    final myFulfillmentId = updatedOrder['myFulfillmentId']?.toString();
 
-        final matchesMyFulfillment = fulfillmentId == null ||
-            myFulfillmentId == null ||
-            myFulfillmentId == fulfillmentId;
-
-        if ((!isMultiVendorPortion && !isFulfillmentDelta) ||
-            (isFulfillmentDelta && matchesMyFulfillment && isMultiVendorPortion)) {
-          updatedOrder['status'] = newStatus;
-          if (isFulfillmentDelta && isMultiVendorPortion) {
-            updatedOrder['myFulfillmentStatus'] = newStatus;
-          }
-          newOrders[index] = updatedOrder;
-          state = AsyncValue.data(
-            OrdersStateData(newOrders, currentData.total, currentData.params),
-          );
-        } else if (isFulfillmentDelta && !isMultiVendorPortion) {
-          newOrders[index] = updatedOrder;
-          state = AsyncValue.data(
-            OrdersStateData(newOrders, currentData.total, currentData.params),
-          );
+    bool updatedChild = false;
+    if (isFulfillmentDelta &&
+        fulfillmentId != null &&
+        updatedOrder['vendorFulfillments'] is List) {
+      final fulfillments = List<dynamic>.from(
+        updatedOrder['vendorFulfillments'] as List,
+      );
+      for (int i = 0; i < fulfillments.length; i++) {
+        final f = fulfillments[i];
+        if (f is Map && f['id']?.toString() == fulfillmentId) {
+          fulfillments[i] = {...f, 'status': newStatus};
+          updatedChild = true;
         }
       }
+      if (updatedChild) {
+        updatedOrder['vendorFulfillments'] = fulfillments;
+      }
+    }
+
+    final matchesMyFulfillment = fulfillmentId == null ||
+        myFulfillmentId == null ||
+        myFulfillmentId == fulfillmentId;
+
+    bool changed = updatedChild;
+    if (!isFulfillmentDelta) {
+      if (isMultiVendorPortion) {
+        updatedOrder['orderStatus'] = newStatus;
+      } else {
+        updatedOrder['status'] = newStatus;
+      }
+      changed = true;
+    } else if (matchesMyFulfillment) {
+      updatedOrder['status'] = newStatus;
+      if (isMultiVendorPortion) {
+        updatedOrder['myFulfillmentStatus'] = newStatus;
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      newOrders[index] = updatedOrder;
+      state = AsyncValue.data(
+        OrdersStateData(newOrders, currentData.total, currentData.params),
+      );
     }
   }
 
@@ -222,24 +229,28 @@ class OrdersNotifier extends _$OrdersNotifier {
     }
 
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
-    if (role == 'VENDOR_MEMBER') {
-       await ref.read(vendorOrdersRepositoryProvider).ordersUpdate(
-         orderId: orderId,
-         updateOrderStatusDto: UpdateOrderStatusDto((b) => b
-          ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
-          ..note = reason
-          ..fulfillmentId = fulfillmentId
-         ),
-       );
+    if (fulfillmentId != null && fulfillmentId.isNotEmpty) {
+      if (role == 'VENDOR_MEMBER') {
+        await ref.read(vendorOrdersRepositoryProvider).ordersUpdate(
+          orderId: orderId,
+          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
+            ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
+            ..note = reason
+            ..fulfillmentId = fulfillmentId),
+        );
+      } else {
+        await ref.read(adminOrdersRepositoryProvider).ordersUpdate(
+          orderId: orderId,
+          updateOrderStatusDto: UpdateOrderStatusDto((b) => b
+            ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
+            ..note = reason
+            ..fulfillmentId = fulfillmentId),
+        );
+      }
+    } else if (role == 'VENDOR_MEMBER') {
+      await ref.read(vendorOrdersRepositoryProvider).cancelOrder(orderId);
     } else {
-       await ref.read(adminOrdersRepositoryProvider).ordersUpdate(
-         orderId: orderId,
-         updateOrderStatusDto: UpdateOrderStatusDto((b) => b
-          ..status = UpdateOrderStatusDtoStatusEnum.CANCELLED
-          ..note = reason
-          ..fulfillmentId = fulfillmentId
-         ),
-       );
+      await ref.read(adminOrdersRepositoryProvider).cancelOrder(orderId);
     }
 
     await fetchOrders(params: currentParams);

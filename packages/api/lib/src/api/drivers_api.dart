@@ -20,6 +20,7 @@ import 'package:api/src/model/drivers_controller_my_assist_requests200_response.
 import 'package:api/src/model/drivers_controller_start_break200_response.dart';
 import 'package:api/src/model/register_driver_dto.dart';
 import 'package:api/src/model/request_assist_driver_dto.dart';
+import 'package:api/src/model/respond_assist_offer_dto.dart';
 import 'package:api/src/model/start_break_dto.dart';
 import 'package:api/src/model/update_driver_profile_dto.dart';
 import 'package:api/src/model/update_driver_status_dto.dart';
@@ -3331,7 +3332,7 @@ class DriversApi {
     );
   }
 
-  /// [Driver] Request an additional driver for a single-vendor order I am assigned to
+  /// [Driver] Request an additional driver for an order delivery I am assigned to
   /// 
   ///
   /// Parameters:
@@ -3439,6 +3440,7 @@ class DriversApi {
   ///
   /// Parameters:
   /// * [requestId] 
+  /// * [respondAssistOfferDto] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -3450,6 +3452,7 @@ class DriversApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> driversControllerRespondToAssistOffer({ 
     required String requestId,
+    required RespondAssistOfferDto respondAssistOfferDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -3473,11 +3476,31 @@ class DriversApi {
         ],
         ...?extra,
       },
+      contentType: 'application/json',
       validateStatus: validateStatus,
     );
 
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(RespondAssistOfferDto);
+      _bodyData = _serializers.serialize(respondAssistOfferDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final _response = await _dio.request<Object>(
       _path,
+      data: _bodyData,
       options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,

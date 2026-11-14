@@ -9,12 +9,15 @@ part of 'admin_assign_driver_dto.dart';
 class _$AdminAssignDriverDto extends AdminAssignDriverDto {
   @override
   final String driverId;
+  @override
+  final String? deliveryGroupId;
 
   factory _$AdminAssignDriverDto([
     void Function(AdminAssignDriverDtoBuilder)? updates,
   ]) => (AdminAssignDriverDtoBuilder()..update(updates))._build();
 
-  _$AdminAssignDriverDto._({required this.driverId}) : super._();
+  _$AdminAssignDriverDto._({required this.driverId, this.deliveryGroupId})
+    : super._();
   @override
   AdminAssignDriverDto rebuild(
     void Function(AdminAssignDriverDtoBuilder) updates,
@@ -27,22 +30,26 @@ class _$AdminAssignDriverDto extends AdminAssignDriverDto {
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is AdminAssignDriverDto && driverId == other.driverId;
+    return other is AdminAssignDriverDto &&
+        driverId == other.driverId &&
+        deliveryGroupId == other.deliveryGroupId;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
     _$hash = $jc(_$hash, driverId.hashCode);
+    _$hash = $jc(_$hash, deliveryGroupId.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(
-      r'AdminAssignDriverDto',
-    )..add('driverId', driverId)).toString();
+    return (newBuiltValueToStringHelper(r'AdminAssignDriverDto')
+          ..add('driverId', driverId)
+          ..add('deliveryGroupId', deliveryGroupId))
+        .toString();
   }
 }
 
@@ -54,6 +61,11 @@ class AdminAssignDriverDtoBuilder
   String? get driverId => _$this._driverId;
   set driverId(String? driverId) => _$this._driverId = driverId;
 
+  String? _deliveryGroupId;
+  String? get deliveryGroupId => _$this._deliveryGroupId;
+  set deliveryGroupId(String? deliveryGroupId) =>
+      _$this._deliveryGroupId = deliveryGroupId;
+
   AdminAssignDriverDtoBuilder() {
     AdminAssignDriverDto._defaults(this);
   }
@@ -62,6 +74,7 @@ class AdminAssignDriverDtoBuilder
     final $v = _$v;
     if ($v != null) {
       _driverId = $v.driverId;
+      _deliveryGroupId = $v.deliveryGroupId;
       _$v = null;
     }
     return this;
@@ -89,6 +102,7 @@ class AdminAssignDriverDtoBuilder
             r'AdminAssignDriverDto',
             'driverId',
           ),
+          deliveryGroupId: deliveryGroupId,
         );
     replace(_$result);
     return _$result;

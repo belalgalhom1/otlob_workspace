@@ -81,10 +81,14 @@ export class OrderRoleProjector {
       order.paymentMethod !== 'MOBILE_WALLET';
     const orderPaid =
       order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED';
+    const isOrderSettledPrepaid =
+      isPrepaid || (order.paymentMethod === 'MOBILE_WALLET' && orderPaid);
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
-    let cashToCollect =
-      isPrepaid || orderPaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+    let projectedUpfrontAmount = upfrontAmount;
+    let cashToCollect = isOrderSettledPrepaid
+      ? 0
+      : Math.max(0, grandTotal - upfrontAmount);
 
     const allFulfillments = Array.isArray(order.vendorFulfillments)
       ? order.vendorFulfillments
@@ -175,6 +179,7 @@ export class OrderRoleProjector {
       null;
     let projectedDeliveryImageUrl: string | null =
       collectorGroup?.deliveryImageUrl ?? null;
+    let activeDeliveryGroupId: string | null = collectorGroup?.id ?? null;
     let scopedItems = order.items;
     let scopedFulfillments =
       computedBaselineFulfillments.length > 0
@@ -200,27 +205,35 @@ export class OrderRoleProjector {
         );
 
         if (myGroups.length > 0) {
-          projectedDriverId = myGroups[0]?.primaryDriverId ?? myDriver.id;
-          projectedPickedUpAt = myGroups[0]?.pickedUpAt ?? projectedPickedUpAt;
-          projectedPickupImageUrl =
-            myGroups[0]?.pickupImageUrl ?? projectedPickupImageUrl;
-          projectedDeliveryImageUrl =
-            myGroups[0]?.deliveryImageUrl ?? projectedDeliveryImageUrl;
+          const openMyGroups = myGroups.filter(
+            (g: any) => g.status !== 'DELIVERED' && g.status !== 'CANCELLED',
+          );
+          const scopedGroups =
+            openMyGroups.length > 0 ? openMyGroups : myGroups;
 
-          const anyPendingPayment = myGroups.some(
+          activeDeliveryGroupId = scopedGroups[0]?.id ?? activeDeliveryGroupId;
+          projectedDriverId = scopedGroups[0]?.primaryDriverId ?? myDriver.id;
+          projectedPickedUpAt =
+            scopedGroups[0]?.pickedUpAt ?? projectedPickedUpAt;
+          projectedPickupImageUrl =
+            scopedGroups[0]?.pickupImageUrl ?? projectedPickupImageUrl;
+          projectedDeliveryImageUrl =
+            scopedGroups[0]?.deliveryImageUrl ?? projectedDeliveryImageUrl;
+
+          const anyPendingPayment = scopedGroups.some(
             (g: any) => g.status === 'PENDING_PAYMENT',
           );
-          const allDelivered = myGroups.every(
+          const allDelivered = scopedGroups.every(
             (g: any) => g.status === 'DELIVERED',
           );
-          const allPickedUp = myGroups.every(
+          const allPickedUp = scopedGroups.every(
             (g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED',
           );
-          const somePickedUp = myGroups.some(
+          const somePickedUp = scopedGroups.some(
             (g: any) =>
               g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP',
           );
-          const allReady = myGroups.every(
+          const allReady = scopedGroups.every(
             (g: any) =>
               g.status === 'READY_FOR_PICKUP' ||
               g.status === 'PARTIALLY_PICKED_UP' ||
@@ -238,20 +251,24 @@ export class OrderRoleProjector {
             projectedStatus = 'PARTIALLY_PICKED_UP';
           } else if (allReady) {
             projectedStatus = 'READY_FOR_PICKUP';
-          } else if (myGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')) {
+          } else if (
+            scopedGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')
+          ) {
             projectedStatus = 'DRIVER_ASSIGNED';
           } else {
-            projectedStatus = myGroups[0].status ?? order.status;
+            projectedStatus = scopedGroups[0].status ?? order.status;
           }
 
-          deliveryFee = myGroups.reduce(
+          deliveryFee = scopedGroups.reduce(
             (sum: number, g: any) =>
               sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
             0,
           );
-          projectedIsStacked = myGroups.some((g: any) => Boolean(g.isStacked));
+          projectedIsStacked = scopedGroups.some((g: any) =>
+            Boolean(g.isStacked),
+          );
           const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
-          customDriverEarnings = myGroups.reduce((sum: number, g: any) => {
+          customDriverEarnings = scopedGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
             const isGroupStacked = Boolean(g.isStacked);
             return (
@@ -264,7 +281,7 @@ export class OrderRoleProjector {
             );
           }, 0);
 
-          const allGroupItems = myGroups.flatMap((g: any) =>
+          const allGroupItems = scopedGroups.flatMap((g: any) =>
             Array.isArray(g.items) ? g.items : [],
           );
 
@@ -368,9 +385,10 @@ export class OrderRoleProjector {
 
             const isCollectorGroup = Boolean(
               collectorGroup &&
-                myGroups.some((g: any) => g.id === collectorGroup.id),
+                scopedGroups.some((g: any) => g.id === collectorGroup.id),
             );
-            if (isPrepaid || orderPaid) {
+            projectedUpfrontAmount = isCollectorGroup ? upfrontAmount : 0;
+            if (isOrderSettledPrepaid) {
               cashToCollect = 0;
             } else if (order.paymentMethod === 'MOBILE_WALLET') {
               cashToCollect = isCollectorGroup
@@ -445,6 +463,7 @@ export class OrderRoleProjector {
     return {
       ...order,
       driverId: projectedDriverId,
+      activeDeliveryGroupId,
       pickedUpAt: projectedPickedUpAt,
       pickupImageUrl: projectedPickupImageUrl,
       deliveryImageUrl: projectedDeliveryImageUrl,
@@ -462,7 +481,7 @@ export class OrderRoleProjector {
       grandTotal: cashToCollect,
       total: cashToCollect,
       cashToCollect,
-      upfrontAmount: 0,
+      upfrontAmount: projectedUpfrontAmount,
       serviceFee: 0,
       tax: 0,
       discount: 0,
@@ -470,7 +489,7 @@ export class OrderRoleProjector {
         viewRole: 'DRIVER',
         isPrimaryCollector,
         cashToCollect,
-        isPrepaid: isPrepaid || orderPaid,
+        isPrepaid: isOrderSettledPrepaid,
         cashToPayStore,
         isStorePrepaid,
         driverEarnings,
@@ -628,27 +647,60 @@ export class OrderRoleProjector {
           portionStatus = rawPortionStatus;
         }
 
-        vendorSubtotal = vendorFulfillments.reduce(
+        const activeVendorFulfillments = vendorFulfillments.filter(
+          (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+        );
+        const subtotalBasis =
+          activeVendorFulfillments.length > 0
+            ? activeVendorFulfillments
+            : vendorFulfillments;
+
+        vendorSubtotal = subtotalBasis.reduce(
           (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
           0,
         );
-        commissionRate = Number(
-          myFulfillment.commissionRate ??
-            myFulfillment.vendorBranch?.commissionRate ??
-            myFulfillment.vendor?.commissionRate ??
-            10,
+        const totalCalculatedCommission = subtotalBasis.reduce(
+          (sum: number, f: any) => {
+            const fContracted =
+              f.isContracted ??
+              f.vendorBranch?.isContracted ??
+              f.vendor?.isContracted ??
+              false;
+            if (!fContracted) return sum;
+            const fRate = Number(
+              f.commissionRate ??
+                f.vendorBranch?.commissionRate ??
+                f.vendor?.commissionRate ??
+                10,
+            );
+            return sum + Math.round(Number(f.subtotal ?? 0) * (fRate / 100));
+          },
+          0,
         );
-        isContracted =
-          myFulfillment.isContracted ??
-          myFulfillment.vendorBranch?.isContracted ??
-          myFulfillment.vendor?.isContracted ??
-          false;
+        commissionRate =
+          vendorSubtotal > 0 && totalCalculatedCommission > 0
+            ? Number(
+                ((totalCalculatedCommission / vendorSubtotal) * 100).toFixed(2),
+              )
+            : Number(
+                myFulfillment.commissionRate ??
+                  myFulfillment.vendorBranch?.commissionRate ??
+                  myFulfillment.vendor?.commissionRate ??
+                  10,
+              );
+        isContracted = subtotalBasis.some(
+          (f: any) =>
+            f.isContracted ??
+            f.vendorBranch?.isContracted ??
+            f.vendor?.isContracted ??
+            false,
+        );
         const myFulfillmentIds = new Set(
-          vendorFulfillments.map((f: any) => f.id),
+          subtotalBasis.map((f: any) => f.id),
         );
-        const directItems = vendorFulfillments.flatMap((f: any) =>
-          Array.isArray(f.items) ? f.items : [],
-        );
+        const directItems = subtotalBasis
+          .flatMap((f: any) => (Array.isArray(f.items) ? f.items : []))
+          .filter((i: any) => i.rejectedAt == null);
         if (directItems.length > 0) {
           items = directItems;
         } else if (order.items) {
@@ -661,12 +713,36 @@ export class OrderRoleProjector {
       }
     }
 
-    const commissionAmount = isContracted
-      ? Math.round(vendorSubtotal * (commissionRate / 100))
-      : 0;
-    const netPayout = isContracted
-      ? Math.max(0, vendorSubtotal - commissionAmount)
-      : vendorSubtotal;
+    const activeFulfillmentsForCommission = fulfillments.filter(
+      (f: any) =>
+        f.vendorId === vendorId &&
+        (!memberBranchId ||
+          !f.vendorBranchId ||
+          f.vendorBranchId === memberBranchId) &&
+        f.status !== 'REJECTED' &&
+        f.status !== 'CANCELLED',
+    );
+    const commissionAmount =
+      activeFulfillmentsForCommission.length > 0
+        ? activeFulfillmentsForCommission.reduce((sum: number, f: any) => {
+            const fContracted =
+              f.isContracted ??
+              f.vendorBranch?.isContracted ??
+              f.vendor?.isContracted ??
+              false;
+            if (!fContracted) return sum;
+            const fRate = Number(
+              f.commissionRate ??
+                f.vendorBranch?.commissionRate ??
+                f.vendor?.commissionRate ??
+                10,
+            );
+            return sum + Math.round(Number(f.subtotal ?? 0) * (fRate / 100));
+          }, 0)
+        : isContracted
+          ? Math.round(vendorSubtotal * (commissionRate / 100))
+          : 0;
+    const netPayout = Math.max(0, vendorSubtotal - commissionAmount);
 
     const myFulfillmentOnly = fulfillments.filter(
       (f: any) =>

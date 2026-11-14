@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:core/core.dart'
-    show orderRevisionOf, orderRevisionTrackerProvider;
+    show SocketEvent, orderRevisionOf, orderRevisionTrackerProvider;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -128,8 +128,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final deliveryGroups = _orderDetails?['deliveryGroups'];
     if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
       for (final g in deliveryGroups) {
-        if (g is Map && g['driver'] is Map && g['driver']['vehicleType'] != null) {
-          final t = g['driver']['vehicleType'].toString().trim();
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map && d['vehicleType'] != null) {
+          final t = d['vehicleType'].toString().trim();
           if (t.isNotEmpty) return t;
         }
       }
@@ -150,8 +152,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final deliveryGroups = _orderDetails?['deliveryGroups'];
     if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
       for (final g in deliveryGroups) {
-        if (g is Map && g['driver'] is Map && g['driver']['vehiclePlate'] != null) {
-          final p = g['driver']['vehiclePlate'].toString().trim();
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map && d['vehiclePlate'] != null) {
+          final p = d['vehiclePlate'].toString().trim();
           if (p.isNotEmpty) return p;
         }
       }
@@ -168,8 +172,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final deliveryGroups = _orderDetails?['deliveryGroups'];
     if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
       for (final g in deliveryGroups) {
-        if (g is Map && g['driver'] is Map && g['driver']['name'] != null) {
-          final n = g['driver']['name'].toString().trim();
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map && d['name'] != null) {
+          final n = d['name'].toString().trim();
           if (n.isNotEmpty) return n;
         }
       }
@@ -186,8 +192,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final deliveryGroups = _orderDetails?['deliveryGroups'];
     if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
       for (final g in deliveryGroups) {
-        if (g is Map && g['driver'] is Map && g['driver']['id'] != null) {
-          final id = g['driver']['id'].toString().trim();
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map && d['id'] != null) {
+          final id = d['id'].toString().trim();
           if (id.isNotEmpty) return id;
         }
       }
@@ -245,16 +253,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   double? _pendingDriverHeading;
   XFile? _receiptFile;
 
-  String get _driverPhone {
-    final driver = _orderDetails?['driver'];
-    if (driver is! Map) return '';
-    final direct = driver['phone']?.toString().trim() ?? '';
-    if (direct.isNotEmpty) return direct;
-    final user = driver['user'];
-    if (user is Map) return user['phone']?.toString().trim() ?? '';
-    return '';
-  }
-
   Future<void> _callDriver(BuildContext context, String phone, AppStrings s) async {
     final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
     if (digits.isEmpty) return;
@@ -308,6 +306,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
   StreamSubscription<void>? _connectSub;
   StreamSubscription<dynamic>? _fulfillmentSub;
+  StreamSubscription<dynamic>? _assistSub;
+  StreamSubscription<dynamic>? _assignedSub;
 
   Future<void> _initTracking() async {
     final socket = ref.read(socketServiceProvider);
@@ -383,7 +383,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
       // onEvent uses broadcast streams that survive socket reconnects/re-auth.
       _fulfillmentSub?.cancel();
-      _fulfillmentSub = socket.onEvent('order.fulfillment_updated').listen((data) {
+      _fulfillmentSub = socket
+          .onEvent(SocketEvent.orderFulfillmentUpdated.eventName)
+          .listen((data) {
         if (data != null && data['orderId'] == widget.orderId && mounted) {
           setState(() {
             if (_orderDetails != null) {
@@ -411,8 +413,27 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         }
       });
 
+      _assistSub?.cancel();
+      _assistSub = socket
+          .onEvent(SocketEvent.orderAssistProposed.eventName)
+          .listen((data) {
+        if (data != null && data['orderId'] == widget.orderId && mounted) {
+          _fetchOrderDetails();
+        }
+      });
+
+      _assignedSub?.cancel();
+      _assignedSub = socket
+          .onEvent(SocketEvent.orderAssigned.eventName)
+          .listen((data) {
+        if (data != null && data['orderId'] == widget.orderId && mounted) {
+          _fetchOrderDetails();
+          _requestDriverLocation(socket);
+        }
+      });
+
       _statusSub?.cancel();
-      _statusSub = socket.onEvent('order.status').listen((data) {
+      _statusSub = socket.onEvent(SocketEvent.orderStatus.eventName).listen((data) {
         if (data != null && data['orderId'] == widget.orderId) {
           // The latest transition wins: a stale socket event must not move the
           // tracking status back to an earlier revision.
@@ -477,6 +498,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   void dispose() {
     _driverMoveController.dispose();
     _statusSub?.cancel();
+    _fulfillmentSub?.cancel();
+    _assistSub?.cancel();
+    _assignedSub?.cancel();
     _driverLocSub?.cancel();
     _connectSub?.cancel();
     _driverRenderTimer?.cancel();
@@ -495,6 +519,282 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       });
       _extractDriverLocationFromOrder();
     }
+  }
+
+  bool _trackingCanRateOrder(Map<String, dynamic>? order) {
+    if (order == null) return false;
+    final reviewsRaw = order['reviews'];
+    if (reviewsRaw is! List) return order['review'] == null;
+    final reviews = reviewsRaw.whereType<Map>().toList();
+    final ratedFulfillments = reviews
+        .map((r) => r['fulfillmentId']?.toString())
+        .whereType<String>()
+        .toSet();
+    final ratedGroups = reviews
+        .map((r) => r['deliveryGroupId']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final fulfillments = order['vendorFulfillments'];
+    if (fulfillments is List && fulfillments.isNotEmpty) {
+      final hasUnratedFulfillment = fulfillments.whereType<Map>().any((f) {
+        final fid = f['id']?.toString();
+        final fStatus = f['status']?.toString() ?? '';
+        return fid != null &&
+            fStatus != 'REJECTED' &&
+            fStatus != 'CANCELLED' &&
+            !ratedFulfillments.contains(fid);
+      });
+      if (hasUnratedFulfillment) return true;
+    }
+
+    final groups = order['deliveryGroups'];
+    if (groups is List && groups.isNotEmpty) {
+      return groups.whereType<Map>().any((g) {
+        final gid = g['id']?.toString();
+        final gStatus = g['status']?.toString() ?? '';
+        final drv = g['primaryDriver'] ?? g['driver'];
+        final hasDriver = g['primaryDriverId'] != null ||
+            (drv is Map && drv['id'] != null);
+        return gid != null &&
+            gStatus == 'DELIVERED' &&
+            hasDriver &&
+            !ratedGroups.contains(gid);
+      });
+    }
+    return reviews.isEmpty && order['review'] == null;
+  }
+
+  List<Widget> _buildAssignedDriversSection(AppStrings s, bool isDark) {
+    final details = _orderDetails;
+    if (details == null) return const [];
+
+    final groupsRaw = details['deliveryGroups'];
+    final activeGroups = (groupsRaw is List ? groupsRaw : const [])
+        .whereType<Map>()
+        .where((g) => g['status']?.toString() != 'CANCELLED')
+        .where((g) => (g['primaryDriver'] ?? g['driver']) is Map)
+        .toList();
+
+    if (activeGroups.length > 1) {
+      final seenKeys = <String>{};
+      final widgets = <Widget>[];
+      for (final g in activeGroups) {
+        final drv = Map<String, dynamic>.from(
+          (g['primaryDriver'] ?? g['driver']) as Map,
+        );
+        final seq = g['sequence'] ?? 1;
+        final key = '${drv['id'] ?? seq}|$seq';
+        if (!seenKeys.add(key)) continue;
+        widgets.add(
+          _buildSingleDriverCard(
+            drv,
+            s,
+            isDark,
+            groupLabel: s.isArabic ? 'التوصيل #$seq' : 'Trip #$seq',
+          ),
+        );
+        widgets.add(const SizedBox(height: 10));
+      }
+      if (widgets.isNotEmpty) return widgets;
+    }
+
+    final fallbackDriver = details['driver'] is Map
+        ? Map<String, dynamic>.from(details['driver'] as Map)
+        : (activeGroups.isNotEmpty
+            ? Map<String, dynamic>.from(
+                (activeGroups.first['primaryDriver'] ??
+                    activeGroups.first['driver']) as Map,
+              )
+            : null);
+    if (fallbackDriver == null) return const [];
+
+    return [
+      _buildSingleDriverCard(fallbackDriver, s, isDark),
+      const SizedBox(height: 12),
+    ];
+  }
+
+  Widget _buildSingleDriverCard(
+    Map<String, dynamic> driver,
+    AppStrings s,
+    bool isDark, {
+    String? groupLabel,
+  }) {
+    final vehicleType =
+        (driver['vehicleType']?.toString().trim().isNotEmpty ?? false)
+            ? driver['vehicleType'].toString().trim()
+            : _driverVehicleType;
+    final vehiclePlate = driver['vehiclePlate']?.toString().trim();
+    final phone =
+        (driver['phone'] ?? driver['user']?['phone'])?.toString().trim() ?? '';
+    final avatar = driver['avatar']?.toString().trim() ?? '';
+    final ratingCount = (driver['ratingCount'] as num?)?.toInt() ?? 0;
+    final ratingRaw = (driver['rating'] as num?)?.toDouble() ?? 500.0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 21,
+                backgroundColor: AppColors.primary,
+                backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                child: avatar.isEmpty
+                    ? const Icon(Icons.person, color: Colors.white, size: 22)
+                    : null,
+              ),
+              PositionedDirectional(
+                bottom: -2,
+                end: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.primary, width: 1.2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _vehicleIconData(vehicleType),
+                    size: 11,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (groupLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      groupLabel,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                Text(
+                  driver['name']?.toString() ??
+                      (s.isArabic ? 'كابتن التوصيل' : 'Delivery Captain'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      _vehicleTypeLabel(vehicleType, s.isArabic),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                    if (vehiclePlate != null && vehiclePlate.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          vehiclePlate,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (phone.isNotEmpty)
+            IconButton(
+              onPressed: () => _callDriver(context, phone, s),
+              icon: const Icon(Icons.phone_rounded),
+              color: AppColors.primary,
+              tooltip: s.isArabic ? 'اتصال' : 'Call',
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                shape: const CircleBorder(),
+              ),
+            ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (ratingCount > 0) ...[
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.star_rounded,
+                      color: Colors.amber,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      (ratingRaw / 100).toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '($ratingCount)',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _extractDriverLocationFromOrder() {
@@ -520,8 +820,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final deliveryGroups = _orderDetails?['deliveryGroups'];
     if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
       for (final g in deliveryGroups) {
-        if (g is Map && g['driver'] is Map) {
-          final d = g['driver'] as Map;
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map) {
           final loc = d['location'];
           if (loc is List && loc.length >= 2) {
             final lng = (loc[0] as num?)?.toDouble();
@@ -707,7 +1008,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       return;
     }
 
-    final storeStops = _extractStoreStops();
+    final storeStops = _extractStoreStops(s.isArabic);
     if (storeStops.isNotEmpty) {
       final stop = storeStops.first;
       final lat = stop['lat'] as double?;
@@ -755,7 +1056,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return '${(meters / 1000).toStringAsFixed(1)} ${s.isArabic ? 'كم' : 'km'}';
   }
 
-  List<Map<String, dynamic>> _extractStoreStops() {
+  List<Map<String, dynamic>> _extractStoreStops(bool isArabic) {
     final List<Map<String, dynamic>> stops = [];
     if (_orderDetails == null) return stops;
 
@@ -782,8 +1083,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
         if (sLat == 0.0 || sLng == 0.0) continue;
 
-        final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
-        final branchName = (b['nameAr'] ?? b['name'] ?? '').toString();
+        final storeName = (isArabic
+                ? (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'متجر')
+                : (v['storeName'] ?? v['storeNameAr'] ?? v['name'] ?? 'Store'))
+            .toString();
+        final branchName = (isArabic
+                ? (b['nameAr'] ?? b['name'] ?? '')
+                : (b['name'] ?? b['nameAr'] ?? ''))
+            .toString();
         final fStatus = f['status']?.toString() ?? 'PENDING';
         if (fStatus == 'REJECTED' || fStatus == 'CANCELLED') continue;
         final isPickedUp = fStatus == 'PICKED_UP' || f['pickedUpAt'] != null || _orderStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
@@ -817,7 +1124,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       }
 
       if (sLat != 0.0 && sLng != 0.0) {
-        final storeName = (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'Store').toString();
+        final storeName = (isArabic
+                ? (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'متجر')
+                : (v['storeName'] ?? v['storeNameAr'] ?? v['name'] ?? 'Store'))
+            .toString();
         final isPickedUp = _orderStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
         stops.add({
           'index': 1,
@@ -837,7 +1147,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final storeStops = _extractStoreStops();
+    final storeStops = _extractStoreStops(s.isArabic);
     final isMultipleStores = storeStops.length > 1;
     final destPos = _deliveryLocation ?? _initialMapCenter;
 
@@ -986,9 +1296,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                   ),
                                 ),
                                 if (isMultipleStores)
-                                  Positioned(
+                                  PositionedDirectional(
                                     top: -2,
-                                    right: -2,
+                                    end: -2,
                                     child: CircleAvatar(
                                       radius: 7,
                                       backgroundColor: isPickedUp ? Colors.green.shade900 : Colors.black87,
@@ -1252,6 +1562,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                           ? (pendingGroup['assistFee']?.toString() ?? '0')
                           : (order['assistFee']?.toString() ?? '0');
                       final deliveryGroupId = pendingGroup?['id']?.toString();
+                      final groupSeq = pendingGroup?['sequence'];
+                      final hasMultipleGroups = deliveryGroups.length > 1;
                       final isAr = s.isArabic;
 
                       return Container(
@@ -1271,7 +1583,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    isAr ? 'طلب مندوب مساعد إضافي للشحنة' : 'Assistant Driver Assigned',
+                                    isAr
+                                        ? (hasMultipleGroups && groupSeq != null
+                                            ? 'طلب مندوب مساعد إضافي للشحنة #$groupSeq'
+                                            : 'طلب مندوب مساعد إضافي للشحنة')
+                                        : (hasMultipleGroups && groupSeq != null
+                                            ? 'Assistant Driver Assigned (Trip #$groupSeq)'
+                                            : 'Assistant Driver Assigned'),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
                                 ),
@@ -1295,7 +1613,19 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                         approve: false,
                                         deliveryGroupId: deliveryGroupId,
                                       );
-                                      if (ok && mounted) _fetchOrderDetails();
+                                      if (!context.mounted) return;
+                                      if (ok) {
+                                        _fetchOrderDetails();
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(isAr
+                                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
+                                                : 'Failed to submit decision. Please try again.'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
                                     },
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.red,
@@ -1314,7 +1644,19 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                         approve: true,
                                         deliveryGroupId: deliveryGroupId,
                                       );
-                                      if (ok && mounted) _fetchOrderDetails();
+                                      if (!context.mounted) return;
+                                      if (ok) {
+                                        _fetchOrderDetails();
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(isAr
+                                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
+                                                : 'Failed to submit decision. Please try again.'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.primary,
@@ -1484,173 +1826,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       ),
                     ),
                   ],
-                  if (_orderDetails != null &&
-                      _orderDetails!['driver'] != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF2A2A2A)
-                            : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : Colors.grey.shade200,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              CircleAvatar(
-                                radius: 21,
-                                backgroundColor: AppColors.primary,
-                                backgroundImage: (_orderDetails!['driver']['avatar'] != null &&
-                                        _orderDetails!['driver']['avatar'].toString().isNotEmpty)
-                                    ? NetworkImage(_orderDetails!['driver']['avatar'].toString())
-                                    : null,
-                                child: (_orderDetails!['driver']['avatar'] == null ||
-                                        _orderDetails!['driver']['avatar'].toString().isEmpty)
-                                    ? const Icon(Icons.person, color: Colors.white, size: 22)
-                                    : null,
-                              ),
-                              Positioned(
-                                bottom: -2,
-                                right: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2.5),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: AppColors.primary, width: 1.2),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black12,
-                                        blurRadius: 2,
-                                        offset: Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    _vehicleIconData(_driverVehicleType),
-                                    size: 11,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _orderDetails!['driver']['name'] ??
-                                      (s.isArabic
-                                          ? 'كابتن التوصيل'
-                                          : 'Delivery Captain'),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 2,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Text(
-                                      _vehicleTypeLabel(_driverVehicleType, s.isArabic),
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white70 : Colors.black87,
-                                      ),
-                                    ),
-                                    if (_driverVehiclePlate != null && _driverVehiclePlate!.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(alpha: 0.14),
-                                          borderRadius: BorderRadius.circular(5),
-                                          border: Border.all(
-                                            color: AppColors.primary.withValues(alpha: 0.35),
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _driverVehiclePlate!,
-                                          style: const TextStyle(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_driverPhone.isNotEmpty)
-                            IconButton(
-                              onPressed: () =>
-                                  _callDriver(context, _driverPhone, s),
-                              icon: const Icon(Icons.phone_rounded),
-                              color: AppColors.primary,
-                              tooltip: s.isArabic ? 'اتصال' : 'Call',
-                              style: IconButton.styleFrom(
-                                backgroundColor: AppColors.primary.withValues(
-                                  alpha: 0.12,
-                                ),
-                                shape: const CircleBorder(),
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if ((_orderDetails!['driver']['ratingCount'] ??
-                                      0) >
-                                  0) ...[
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.star_rounded,
-                                      color: Colors.amber,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      ((_orderDetails!['driver']['rating'] ??
-                                                  500) /
-                                              100)
-                                          .toStringAsFixed(1),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  '(${_orderDetails!['driver']['ratingCount']})',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                  if (_orderDetails != null) ...[
+                    ..._buildAssignedDriversSection(s, isDark),
                   ],
                   SizedBox(
                     width: double.infinity,
@@ -1685,7 +1862,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       },
                       icon: const Icon(Icons.chat_rounded, size: 20),
                       label: Text(
-                        s.isArabic ? 'محادثة الدعم' : 'Contact Support',
+                        s.isArabic ? 'محادثة الطلب' : 'Order Chat',
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary.withValues(
@@ -1941,13 +2118,20 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       );
                     }),
                   if (_orderStatus == 'DELIVERED' &&
-                      _orderDetails?['review'] == null) ...[
+                      _trackingCanRateOrder(_orderDetails)) ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          RateOrderBottomSheet.show(context, widget.orderId);
+                        onPressed: () async {
+                          final rated = await RateOrderBottomSheet.show(
+                            context,
+                            widget.orderId,
+                            order: _orderDetails,
+                          );
+                          if (rated == true && mounted) {
+                            _fetchOrderDetails();
+                          }
                         },
                         icon: const Icon(Icons.star_rate_rounded, size: 20),
                         label: Text(s.isArabic ? 'تقييم الطلب' : 'Rate Order'),

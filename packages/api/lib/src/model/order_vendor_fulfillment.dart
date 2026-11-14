@@ -24,14 +24,21 @@ part 'order_vendor_fulfillment.g.dart';
 /// * [stage] 
 /// * [subtotal] 
 /// * [commissionRate] 
+/// * [isContracted] 
+/// * [estimatedPrepTime] 
 /// * [rejectionCode] 
 /// * [rejectionReason] 
 /// * [rejectionReasonAr] 
+/// * [decidedByUserId] 
+/// * [decidedAt] 
 /// * [preparingAt] 
 /// * [readyAt] 
 /// * [pickupImageUrl] 
 /// * [pickedUpAt] 
+/// * [pickedUpByDriverId] 
 /// * [deliveredAt] 
+/// * [createdAt] 
+/// * [updatedAt] 
 /// * [vendor] 
 /// * [vendorBranch] 
 /// * [items] 
@@ -62,6 +69,12 @@ abstract class OrderVendorFulfillment implements Built<OrderVendorFulfillment, O
   @BuiltValueField(wireName: r'commissionRate')
   num get commissionRate;
 
+  @BuiltValueField(wireName: r'isContracted')
+  bool get isContracted;
+
+  @BuiltValueField(wireName: r'estimatedPrepTime')
+  num? get estimatedPrepTime;
+
   @BuiltValueField(wireName: r'rejectionCode')
   String? get rejectionCode;
 
@@ -70,6 +83,12 @@ abstract class OrderVendorFulfillment implements Built<OrderVendorFulfillment, O
 
   @BuiltValueField(wireName: r'rejectionReasonAr')
   String? get rejectionReasonAr;
+
+  @BuiltValueField(wireName: r'decidedByUserId')
+  String? get decidedByUserId;
+
+  @BuiltValueField(wireName: r'decidedAt')
+  DateTime? get decidedAt;
 
   @BuiltValueField(wireName: r'preparingAt')
   DateTime? get preparingAt;
@@ -83,8 +102,17 @@ abstract class OrderVendorFulfillment implements Built<OrderVendorFulfillment, O
   @BuiltValueField(wireName: r'pickedUpAt')
   DateTime? get pickedUpAt;
 
+  @BuiltValueField(wireName: r'pickedUpByDriverId')
+  String? get pickedUpByDriverId;
+
   @BuiltValueField(wireName: r'deliveredAt')
   DateTime? get deliveredAt;
+
+  @BuiltValueField(wireName: r'createdAt')
+  DateTime? get createdAt;
+
+  @BuiltValueField(wireName: r'updatedAt')
+  DateTime? get updatedAt;
 
   @BuiltValueField(wireName: r'vendor')
   Vendor? get vendor;
@@ -162,6 +190,18 @@ class _$OrderVendorFulfillmentSerializer implements PrimitiveSerializer<OrderVen
       object.commissionRate,
       specifiedType: const FullType(num),
     );
+    yield r'isContracted';
+    yield serializers.serialize(
+      object.isContracted,
+      specifiedType: const FullType(bool),
+    );
+    if (object.estimatedPrepTime != null) {
+      yield r'estimatedPrepTime';
+      yield serializers.serialize(
+        object.estimatedPrepTime,
+        specifiedType: const FullType(num),
+      );
+    }
     if (object.rejectionCode != null) {
       yield r'rejectionCode';
       yield serializers.serialize(
@@ -181,6 +221,20 @@ class _$OrderVendorFulfillmentSerializer implements PrimitiveSerializer<OrderVen
       yield serializers.serialize(
         object.rejectionReasonAr,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.decidedByUserId != null) {
+      yield r'decidedByUserId';
+      yield serializers.serialize(
+        object.decidedByUserId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.decidedAt != null) {
+      yield r'decidedAt';
+      yield serializers.serialize(
+        object.decidedAt,
+        specifiedType: const FullType(DateTime),
       );
     }
     if (object.preparingAt != null) {
@@ -211,10 +265,31 @@ class _$OrderVendorFulfillmentSerializer implements PrimitiveSerializer<OrderVen
         specifiedType: const FullType(DateTime),
       );
     }
+    if (object.pickedUpByDriverId != null) {
+      yield r'pickedUpByDriverId';
+      yield serializers.serialize(
+        object.pickedUpByDriverId,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.deliveredAt != null) {
       yield r'deliveredAt';
       yield serializers.serialize(
         object.deliveredAt,
+        specifiedType: const FullType(DateTime),
+      );
+    }
+    if (object.createdAt != null) {
+      yield r'createdAt';
+      yield serializers.serialize(
+        object.createdAt,
+        specifiedType: const FullType(DateTime),
+      );
+    }
+    if (object.updatedAt != null) {
+      yield r'updatedAt';
+      yield serializers.serialize(
+        object.updatedAt,
         specifiedType: const FullType(DateTime),
       );
     }
@@ -318,6 +393,20 @@ class _$OrderVendorFulfillmentSerializer implements PrimitiveSerializer<OrderVen
           ) as num;
           result.commissionRate = valueDes;
           break;
+        case r'isContracted':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isContracted = valueDes;
+          break;
+        case r'estimatedPrepTime':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.estimatedPrepTime = valueDes;
+          break;
         case r'rejectionCode':
           final valueDes = serializers.deserialize(
             value,
@@ -338,6 +427,20 @@ class _$OrderVendorFulfillmentSerializer implements PrimitiveSerializer<OrderVen
             specifiedType: const FullType(String),
           ) as String;
           result.rejectionReasonAr = valueDes;
+          break;
+        case r'decidedByUserId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.decidedByUserId = valueDes;
+          break;
+        case r'decidedAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.decidedAt = valueDes;
           break;
         case r'preparingAt':
           final valueDes = serializers.deserialize(
@@ -367,12 +470,33 @@ class _$OrderVendorFulfillmentSerializer implements PrimitiveSerializer<OrderVen
           ) as DateTime;
           result.pickedUpAt = valueDes;
           break;
+        case r'pickedUpByDriverId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.pickedUpByDriverId = valueDes;
+          break;
         case r'deliveredAt':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.deliveredAt = valueDes;
+          break;
+        case r'createdAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.createdAt = valueDes;
+          break;
+        case r'updatedAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.updatedAt = valueDes;
           break;
         case r'vendor':
           final valueDes = serializers.deserialize(

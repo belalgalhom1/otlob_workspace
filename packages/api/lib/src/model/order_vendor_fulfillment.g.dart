@@ -24,11 +24,19 @@ class _$OrderVendorFulfillment extends OrderVendorFulfillment {
   @override
   final num commissionRate;
   @override
+  final bool isContracted;
+  @override
+  final num? estimatedPrepTime;
+  @override
   final String? rejectionCode;
   @override
   final String? rejectionReason;
   @override
   final String? rejectionReasonAr;
+  @override
+  final String? decidedByUserId;
+  @override
+  final DateTime? decidedAt;
   @override
   final DateTime? preparingAt;
   @override
@@ -38,7 +46,13 @@ class _$OrderVendorFulfillment extends OrderVendorFulfillment {
   @override
   final DateTime? pickedUpAt;
   @override
+  final String? pickedUpByDriverId;
+  @override
   final DateTime? deliveredAt;
+  @override
+  final DateTime? createdAt;
+  @override
+  final DateTime? updatedAt;
   @override
   final Vendor? vendor;
   @override
@@ -59,14 +73,21 @@ class _$OrderVendorFulfillment extends OrderVendorFulfillment {
     this.stage,
     required this.subtotal,
     required this.commissionRate,
+    required this.isContracted,
+    this.estimatedPrepTime,
     this.rejectionCode,
     this.rejectionReason,
     this.rejectionReasonAr,
+    this.decidedByUserId,
+    this.decidedAt,
     this.preparingAt,
     this.readyAt,
     this.pickupImageUrl,
     this.pickedUpAt,
+    this.pickedUpByDriverId,
     this.deliveredAt,
+    this.createdAt,
+    this.updatedAt,
     this.vendor,
     this.vendorBranch,
     this.items,
@@ -92,14 +113,21 @@ class _$OrderVendorFulfillment extends OrderVendorFulfillment {
         stage == other.stage &&
         subtotal == other.subtotal &&
         commissionRate == other.commissionRate &&
+        isContracted == other.isContracted &&
+        estimatedPrepTime == other.estimatedPrepTime &&
         rejectionCode == other.rejectionCode &&
         rejectionReason == other.rejectionReason &&
         rejectionReasonAr == other.rejectionReasonAr &&
+        decidedByUserId == other.decidedByUserId &&
+        decidedAt == other.decidedAt &&
         preparingAt == other.preparingAt &&
         readyAt == other.readyAt &&
         pickupImageUrl == other.pickupImageUrl &&
         pickedUpAt == other.pickedUpAt &&
+        pickedUpByDriverId == other.pickedUpByDriverId &&
         deliveredAt == other.deliveredAt &&
+        createdAt == other.createdAt &&
+        updatedAt == other.updatedAt &&
         vendor == other.vendor &&
         vendorBranch == other.vendorBranch &&
         items == other.items;
@@ -116,14 +144,21 @@ class _$OrderVendorFulfillment extends OrderVendorFulfillment {
     _$hash = $jc(_$hash, stage.hashCode);
     _$hash = $jc(_$hash, subtotal.hashCode);
     _$hash = $jc(_$hash, commissionRate.hashCode);
+    _$hash = $jc(_$hash, isContracted.hashCode);
+    _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
     _$hash = $jc(_$hash, rejectionCode.hashCode);
     _$hash = $jc(_$hash, rejectionReason.hashCode);
     _$hash = $jc(_$hash, rejectionReasonAr.hashCode);
+    _$hash = $jc(_$hash, decidedByUserId.hashCode);
+    _$hash = $jc(_$hash, decidedAt.hashCode);
     _$hash = $jc(_$hash, preparingAt.hashCode);
     _$hash = $jc(_$hash, readyAt.hashCode);
     _$hash = $jc(_$hash, pickupImageUrl.hashCode);
     _$hash = $jc(_$hash, pickedUpAt.hashCode);
+    _$hash = $jc(_$hash, pickedUpByDriverId.hashCode);
     _$hash = $jc(_$hash, deliveredAt.hashCode);
+    _$hash = $jc(_$hash, createdAt.hashCode);
+    _$hash = $jc(_$hash, updatedAt.hashCode);
     _$hash = $jc(_$hash, vendor.hashCode);
     _$hash = $jc(_$hash, vendorBranch.hashCode);
     _$hash = $jc(_$hash, items.hashCode);
@@ -142,14 +177,21 @@ class _$OrderVendorFulfillment extends OrderVendorFulfillment {
           ..add('stage', stage)
           ..add('subtotal', subtotal)
           ..add('commissionRate', commissionRate)
+          ..add('isContracted', isContracted)
+          ..add('estimatedPrepTime', estimatedPrepTime)
           ..add('rejectionCode', rejectionCode)
           ..add('rejectionReason', rejectionReason)
           ..add('rejectionReasonAr', rejectionReasonAr)
+          ..add('decidedByUserId', decidedByUserId)
+          ..add('decidedAt', decidedAt)
           ..add('preparingAt', preparingAt)
           ..add('readyAt', readyAt)
           ..add('pickupImageUrl', pickupImageUrl)
           ..add('pickedUpAt', pickedUpAt)
+          ..add('pickedUpByDriverId', pickedUpByDriverId)
           ..add('deliveredAt', deliveredAt)
+          ..add('createdAt', createdAt)
+          ..add('updatedAt', updatedAt)
           ..add('vendor', vendor)
           ..add('vendorBranch', vendorBranch)
           ..add('items', items))
@@ -195,6 +237,15 @@ class OrderVendorFulfillmentBuilder
   set commissionRate(num? commissionRate) =>
       _$this._commissionRate = commissionRate;
 
+  bool? _isContracted;
+  bool? get isContracted => _$this._isContracted;
+  set isContracted(bool? isContracted) => _$this._isContracted = isContracted;
+
+  num? _estimatedPrepTime;
+  num? get estimatedPrepTime => _$this._estimatedPrepTime;
+  set estimatedPrepTime(num? estimatedPrepTime) =>
+      _$this._estimatedPrepTime = estimatedPrepTime;
+
   String? _rejectionCode;
   String? get rejectionCode => _$this._rejectionCode;
   set rejectionCode(String? rejectionCode) =>
@@ -209,6 +260,15 @@ class OrderVendorFulfillmentBuilder
   String? get rejectionReasonAr => _$this._rejectionReasonAr;
   set rejectionReasonAr(String? rejectionReasonAr) =>
       _$this._rejectionReasonAr = rejectionReasonAr;
+
+  String? _decidedByUserId;
+  String? get decidedByUserId => _$this._decidedByUserId;
+  set decidedByUserId(String? decidedByUserId) =>
+      _$this._decidedByUserId = decidedByUserId;
+
+  DateTime? _decidedAt;
+  DateTime? get decidedAt => _$this._decidedAt;
+  set decidedAt(DateTime? decidedAt) => _$this._decidedAt = decidedAt;
 
   DateTime? _preparingAt;
   DateTime? get preparingAt => _$this._preparingAt;
@@ -227,9 +287,22 @@ class OrderVendorFulfillmentBuilder
   DateTime? get pickedUpAt => _$this._pickedUpAt;
   set pickedUpAt(DateTime? pickedUpAt) => _$this._pickedUpAt = pickedUpAt;
 
+  String? _pickedUpByDriverId;
+  String? get pickedUpByDriverId => _$this._pickedUpByDriverId;
+  set pickedUpByDriverId(String? pickedUpByDriverId) =>
+      _$this._pickedUpByDriverId = pickedUpByDriverId;
+
   DateTime? _deliveredAt;
   DateTime? get deliveredAt => _$this._deliveredAt;
   set deliveredAt(DateTime? deliveredAt) => _$this._deliveredAt = deliveredAt;
+
+  DateTime? _createdAt;
+  DateTime? get createdAt => _$this._createdAt;
+  set createdAt(DateTime? createdAt) => _$this._createdAt = createdAt;
+
+  DateTime? _updatedAt;
+  DateTime? get updatedAt => _$this._updatedAt;
+  set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
   VendorBuilder? _vendor;
   VendorBuilder get vendor => _$this._vendor ??= VendorBuilder();
@@ -261,14 +334,21 @@ class OrderVendorFulfillmentBuilder
       _stage = $v.stage;
       _subtotal = $v.subtotal;
       _commissionRate = $v.commissionRate;
+      _isContracted = $v.isContracted;
+      _estimatedPrepTime = $v.estimatedPrepTime;
       _rejectionCode = $v.rejectionCode;
       _rejectionReason = $v.rejectionReason;
       _rejectionReasonAr = $v.rejectionReasonAr;
+      _decidedByUserId = $v.decidedByUserId;
+      _decidedAt = $v.decidedAt;
       _preparingAt = $v.preparingAt;
       _readyAt = $v.readyAt;
       _pickupImageUrl = $v.pickupImageUrl;
       _pickedUpAt = $v.pickedUpAt;
+      _pickedUpByDriverId = $v.pickedUpByDriverId;
       _deliveredAt = $v.deliveredAt;
+      _createdAt = $v.createdAt;
+      _updatedAt = $v.updatedAt;
       _vendor = $v.vendor?.toBuilder();
       _vendorBranch = $v.vendorBranch?.toBuilder();
       _items = $v.items?.toBuilder();
@@ -328,14 +408,25 @@ class OrderVendorFulfillmentBuilder
               r'OrderVendorFulfillment',
               'commissionRate',
             ),
+            isContracted: BuiltValueNullFieldError.checkNotNull(
+              isContracted,
+              r'OrderVendorFulfillment',
+              'isContracted',
+            ),
+            estimatedPrepTime: estimatedPrepTime,
             rejectionCode: rejectionCode,
             rejectionReason: rejectionReason,
             rejectionReasonAr: rejectionReasonAr,
+            decidedByUserId: decidedByUserId,
+            decidedAt: decidedAt,
             preparingAt: preparingAt,
             readyAt: readyAt,
             pickupImageUrl: pickupImageUrl,
             pickedUpAt: pickedUpAt,
+            pickedUpByDriverId: pickedUpByDriverId,
             deliveredAt: deliveredAt,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
             vendor: _vendor?.build(),
             vendorBranch: _vendorBranch?.build(),
             items: _items?.build(),

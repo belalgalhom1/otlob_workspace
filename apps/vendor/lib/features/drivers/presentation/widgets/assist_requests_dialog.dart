@@ -353,6 +353,8 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                     : (item['driver'] is Map ? item['driver'] as Map : {});
                                 final primaryUser = primaryDriver['user'] is Map ? primaryDriver['user'] as Map : {};
                                 final orderNumber = order['orderNumber']?.toString() ?? '';
+                                final deliveryGroup = item['deliveryGroup'] is Map ? item['deliveryGroup'] as Map : null;
+                                final groupSeq = deliveryGroup?['sequence'];
                                 final driverName = primaryUser['name']?.toString() ?? primaryDriver['name']?.toString() ?? 'Driver';
                                 final driverPhone = primaryUser['phone']?.toString() ?? primaryDriver['phone']?.toString() ?? '';
                                 final reason = item['reason']?.toString() ?? '';
@@ -381,7 +383,9 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                                   const SizedBox(width: 6),
                                                   Expanded(
                                                     child: Text(
-                                                      orderNumber.isNotEmpty ? '#$orderNumber' : 'Order',
+                                                      groupSeq != null
+                                                          ? '${orderNumber.isNotEmpty ? '#$orderNumber' : 'Order'} • ${isAr ? 'الرحلة #$groupSeq' : 'Trip #$groupSeq'}'
+                                                          : (orderNumber.isNotEmpty ? '#$orderNumber' : 'Order'),
                                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,

@@ -45,13 +45,16 @@ class CustomerCartRepository {
     String vendorId,
     String itemId, {
     required int quantity,
+    String? selectedUnit,
     List<String>? optionIds,
     String? specialRequest,
   }) async {
     final builder = UpdateCartItemDtoBuilder()..quantity = quantity;
+    if (selectedUnit != null) {
+      builder.selectedUnit =
+          UpdateCartItemDtoSelectedUnitEnum.valueOf(selectedUnit);
+    }
     if (optionIds != null) builder.optionIds.replace(optionIds);
-    // NOTE: generated UpdateCartItemDto predates backend `selectedUnit`;
-    // unit changes ride with the next packages/api regen.
     if (specialRequest != null) builder.specialRequest = specialRequest;
     final response = await _api.cartControllerUpdateItem(
       vendorId: vendorId,

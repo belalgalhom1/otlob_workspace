@@ -128,6 +128,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('pricePerKmTruck')) b.pricePerKmTruck = parseNum(settings['pricePerKmTruck']);
       if (settings.containsKey('pricePerKmMotorTricycle')) b.pricePerKmMotorTricycle = parseNum(settings['pricePerKmMotorTricycle']);
       if (settings.containsKey('maxDeliveryFee')) b.maxDeliveryFee = parseNum(settings['maxDeliveryFee']);
+      if (settings.containsKey('minDeliveryFee')) b.minDeliveryFee = parseNum(settings['minDeliveryFee']);
       if (settings.containsKey('minDeliveryFeeBicycle')) b.minDeliveryFeeBicycle = parseNum(settings['minDeliveryFeeBicycle']);
       if (settings.containsKey('maxDeliveryFeeBicycle')) b.maxDeliveryFeeBicycle = parseNum(settings['maxDeliveryFeeBicycle']);
       if (settings.containsKey('minDeliveryFeeMotorcycle')) b.minDeliveryFeeMotorcycle = parseNum(settings['minDeliveryFeeMotorcycle']);
@@ -147,6 +148,9 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('driverSearchRadiusStepKm')) b.driverSearchRadiusStepKm = parseNum(settings['driverSearchRadiusStepKm']);
       if (settings.containsKey('driverSearchRadiusMaxKm')) b.driverSearchRadiusMaxKm = parseNum(settings['driverSearchRadiusMaxKm']);
       if (settings.containsKey('driverSearchMaxAttempts')) b.driverSearchMaxAttempts = parseNum(settings['driverSearchMaxAttempts']);
+      if (settings.containsKey('driverSearchGeoCandidateLimit')) b.driverSearchGeoCandidateLimit = parseNum(settings['driverSearchGeoCandidateLimit']);
+      if (settings.containsKey('driverLocationFreshnessTtlSecs')) b.driverLocationFreshnessTtlSecs = parseNum(settings['driverLocationFreshnessTtlSecs']);
+      if (settings.containsKey('driverLocationPrecisionMeters')) b.driverLocationPrecisionMeters = parseNum(settings['driverLocationPrecisionMeters']);
       if (settings.containsKey('driverAcceptTimeoutSecs')) b.driverAcceptTimeoutSecs = parseNum(settings['driverAcceptTimeoutSecs']);
       if (settings.containsKey('autoCancelPendingMins')) b.autoCancelPendingMins = parseNum(settings['autoCancelPendingMins']);
       if (settings.containsKey('maxDispatchBatchSize')) b.maxDispatchBatchSize = parseNum(settings['maxDispatchBatchSize']);
@@ -186,6 +190,10 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('retentionExpiredSessionsDays')) b.retentionExpiredSessionsDays = parseNum(settings['retentionExpiredSessionsDays']);
       if (settings.containsKey('retentionAuditLogsDays')) b.retentionAuditLogsDays = parseNum(settings['retentionAuditLogsDays']);
       if (settings.containsKey('retentionAbandonedCartsDays')) b.retentionAbandonedCartsDays = parseNum(settings['retentionAbandonedCartsDays']);
+      if (settings.containsKey('retentionPaymentReceiptsDays')) b.retentionPaymentReceiptsDays = parseNum(settings['retentionPaymentReceiptsDays']);
+      if (settings.containsKey('retentionShiftStartPhotosDays')) b.retentionShiftStartPhotosDays = parseNum(settings['retentionShiftStartPhotosDays']);
+      if (settings.containsKey('retentionPickupPhotosDays')) b.retentionPickupPhotosDays = parseNum(settings['retentionPickupPhotosDays']);
+      if (settings.containsKey('retentionDeliveryPhotosDays')) b.retentionDeliveryPhotosDays = parseNum(settings['retentionDeliveryPhotosDays']);
       if (settings.containsKey('retentionWalletTransactionsDays')) b.retentionWalletTransactionsDays = parseNum(settings['retentionWalletTransactionsDays']);
       if (settings.containsKey('retentionStatisticsDays')) b.retentionStatisticsDays = parseNum(settings['retentionStatisticsDays']);
       if (settings.containsKey('maxKmForBicycle')) b.maxKmForBicycle = parseNum(settings['maxKmForBicycle']);

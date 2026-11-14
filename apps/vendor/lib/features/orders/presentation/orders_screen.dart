@@ -144,9 +144,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Future<void> _fetchPinnedOrder(String orderId) async {
     setState(() => _pinnedLoading = true);
     try {
-      final result = await ref
-          .read(adminOrdersRepositoryProvider)
-          .getOrderById(orderId);
+      final role = _userRole.isNotEmpty
+          ? _userRole
+          : (await ref.read(sharedAuthRepositoryProvider).getUserRole() ?? '');
+      final result = role == 'VENDOR_MEMBER'
+          ? await ref.read(vendorOrdersRepositoryProvider).getOrderById(orderId)
+          : await ref.read(adminOrdersRepositoryProvider).getOrderById(orderId);
       Map<String, dynamic>? order;
       if (result is Map) {
         final map = Map<String, dynamic>.from(result);
@@ -395,7 +398,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 final status = order['status']?.toString();
                 if (status == 'PENDING') newOrders++;
                 if (status == 'ACCEPTED' || status == 'PREPARING') preparing++;
-                if (status == 'READY_FOR_PICKUP') ready++;
+                if (status == 'READY_FOR_PICKUP' ||
+                    status == 'PARTIALLY_PICKED_UP') {
+                  ready++;
+                }
                 if (status == 'CANCELLED') cancelled++;
               }
             }
@@ -1495,18 +1501,33 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       titleAr: 'صورة التوصيل',
                                     ),
                                   ],
-                                  if (_canManageDrivers && ['ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'LOOKING_FOR_DRIVER'].contains(order['status'])) ...[
+                                  if (_canManageDrivers &&
+                                      [
+                                        'ACCEPTED',
+                                        'PREPARING',
+                                        'READY_FOR_PICKUP',
+                                        'LOOKING_FOR_DRIVER',
+                                        'DRIVER_ASSIGNED',
+                                        'PARTIALLY_PICKED_UP',
+                                      ].contains(order['status'])) ...[
                                     const SizedBox(height: 16),
                                     SizedBox(
                                       width: double.infinity,
                                       child: OutlinedButton.icon(
                                         onPressed: () {
+                                          final code = (order['orderNumber'] ??
+                                                  order['orderCode'] ??
+                                                  order['id'].toString().substring(0, 8))
+                                              .toString();
                                           showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
                                             builder: (ctx) => AssignDriverSheet(
-                                              orderId: order['id'],
-                                              orderCode: order['orderCode'] ?? order['id'].substring(0, 8),
+                                              orderId: order['id'].toString(),
+                                              orderCode: code,
+                                              deliveryGroups:
+                                                  order['deliveryGroups']
+                                                      as List<dynamic>?,
                                             ),
                                           );
                                         },
@@ -2928,20 +2949,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             ),
                           ],
                         ),
-                      ] else if (fStatus == 'ACCEPTED' &&
+                      ] else if ((fStatus == 'ACCEPTED' ||
+                              fStatus == 'LOOKING_FOR_DRIVER') &&
                           !(((order['status'] == 'PENDING_PAYMENT' ||
                                       order['paymentMethod'] == 'MOBILE_WALLET' ||
                                       (double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0) > 0) &&
-                                  order['paymentStatus'] != 'COMPLETED')) &&
-                          (order['status'] == 'DRIVER_ASSIGNED' ||
-                              order['status'] == 'PREPARING' ||
-                              order['status'] == 'READY_FOR_PICKUP' ||
-                              ((order['deliveryGroups'] as List?) ?? []).any((g) =>
-                                  g is Map &&
-                                  (g['status'] == 'DRIVER_ASSIGNED' ||
-                                      g['status'] == 'READY_FOR_PICKUP') &&
-                                  ((g['items'] as List?) ?? []).any((it) =>
-                                      it is Map && it['fulfillmentId'] == fId)))) ...[
+                                  order['paymentStatus'] != 'COMPLETED'))) ...[
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -3118,9 +3131,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final financials = order['financials'] is Map ? order['financials'] as Map : null;
     final storePayments = (financials?['storePayments'] as List<dynamic>?) ?? [];
 
-    if (isMultiVendor && (fulfillments.length > 1 || storePayments.length > 1)) {
+    if (_userRole != 'VENDOR_MEMBER' &&
+        isMultiVendor &&
+        (fulfillments.length > 1 || storePayments.length > 1)) {
       final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
       final deliveryFee = double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0;
+      final serviceFee = double.tryParse(order['serviceFee']?.toString() ?? '0') ?? 0.0;
+      final tax = double.tryParse(order['tax']?.toString() ?? '0') ?? 0.0;
+      final driverBonusFee = double.tryParse(order['driverBonusFee']?.toString() ?? '0') ?? 0.0;
+      final discount = double.tryParse(order['discount']?.toString() ?? '0') ?? 0.0;
+      final upfrontAmount = double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
       final grandTotal = double.tryParse(
             order['grandTotal']?.toString() ?? order['total']?.toString() ?? '0',
           ) ??
@@ -3239,6 +3259,26 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             _buildPriceRow(isArabic ? 'إجمالي أصناف المتاجر' : 'Stores Food Subtotal', subtotal),
             const SizedBox(height: 4),
             _buildPriceRow(isArabic ? 'رسوم التوصيل' : 'Delivery Fee', deliveryFee),
+            if (driverBonusFee > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(isArabic ? 'إكرامية / أولوية التوصيل' : 'Delivery Priority Tip', driverBonusFee),
+            ],
+            if (serviceFee > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(isArabic ? 'رسوم الخدمة' : 'Service Fee', serviceFee),
+            ],
+            if (tax > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(isArabic ? 'الضريبة' : 'Tax', tax),
+            ],
+            if (discount > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(isArabic ? 'الخصم' : 'Discount', -discount),
+            ],
+            if (upfrontAmount > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(isArabic ? 'المبلغ المدفوع مقدماً' : 'Upfront Deposit', upfrontAmount),
+            ],
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
               child: Divider(height: 1),
@@ -3456,9 +3496,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     if (direct.isNotEmpty) return direct;
     final myFulfillmentId = order['myFulfillmentId']?.toString();
     if (order['vendorFulfillments'] is List) {
+      if (myFulfillmentId != null) {
+        for (final f in (order['vendorFulfillments'] as List)) {
+          if (f is Map && f['id']?.toString() == myFulfillmentId) {
+            final fUrl = f[field]?.toString() ?? '';
+            if (fUrl.isNotEmpty) return fUrl;
+          }
+        }
+      }
       for (final f in (order['vendorFulfillments'] as List)) {
-        if (f is Map &&
-            (myFulfillmentId == null || f['id']?.toString() == myFulfillmentId)) {
+        if (f is Map) {
           final fUrl = f[field]?.toString() ?? '';
           if (fUrl.isNotEmpty) return fUrl;
         }
@@ -3875,12 +3922,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String status,
     bool isArabic,
   ) {
-    if (_userRole != 'VENDOR_MEMBER' &&
-        _userRole != 'ADMIN' &&
-        _userRole != 'SUPER_ADMIN') {
+    if (_userRole != 'VENDOR_MEMBER' && !_canManageOrders) {
       return const SizedBox();
     }
     if (status == 'DELIVERED' || status == 'CANCELLED') {
+      return const SizedBox();
+    }
+    final fulfillments = (order['vendorFulfillments'] as List?) ?? [];
+    if (_userRole == 'VENDOR_MEMBER' && fulfillments.length > 1) {
+      // Multi-branch vendor orders manage accept/prepare/ready/cancel per branch
+      // card inside `_buildFulfillmentCard`.
       return const SizedBox();
     }
 
@@ -3888,41 +3939,43 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     // the only remaining vendor action is production, so the Cancel button must
     // not offer a rejection the backend will refuse.
     final isMultiVendorPortion = order['myFulfillmentStatus'] != null;
-    final myFulfillmentId = order['myFulfillmentId']?.toString();
-    final canCancelPortion = !isMultiVendorPortion || status == 'PENDING' || status == 'ACCEPTED' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT' || status == 'PREPARING' || status == 'READY_FOR_PICKUP';
+    final myFulfillmentId = _userRole == 'VENDOR_MEMBER'
+        ? order['myFulfillmentId']?.toString()
+        : null;
+    final canCancelPortion = !isMultiVendorPortion || status == 'PENDING' || status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT' || status == 'PREPARING' || status == 'READY_FOR_PICKUP';
 
     String mainButtonText = '';
     String nextStatus = '';
     IconData icon = LucideIcons.check;
 
+    final isMobileWallet =
+        (order['paymentMethod']?.toString() ?? '') == 'MOBILE_WALLET';
+    final upfrontAmount =
+        double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+    final isPaymentCompleted =
+        (order['paymentStatus']?.toString() ?? '') == 'COMPLETED';
+    final isAwaitingPayment =
+        (status == 'PENDING_PAYMENT' || isMobileWallet || upfrontAmount > 0) &&
+            !isPaymentCompleted;
+
     if (status == 'PENDING') {
       mainButtonText = isArabic ? 'قبول الطلب' : 'Accept Order';
       nextStatus = 'ACCEPTED';
       icon = LucideIcons.checkCheck;
-    } else if (status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
-      // Mobile-wallet and upfront-payment orders must be paid first: the button stays disabled
-      // until payment is completed (paymentStatus == COMPLETED).
-      final isMobileWallet =
-          (order['paymentMethod']?.toString() ?? '') == 'MOBILE_WALLET';
-      final upfrontAmount =
-          double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
-      final isPaymentCompleted =
-          (order['paymentStatus']?.toString() ?? '') == 'COMPLETED';
-      if ((status == 'PENDING_PAYMENT' || isMobileWallet || upfrontAmount > 0) &&
-          !isPaymentCompleted) {
+    } else if (status == 'ACCEPTED' ||
+        status == 'LOOKING_FOR_DRIVER' ||
+        status == 'DRIVER_ASSIGNED' ||
+        status == 'PENDING_PAYMENT') {
+      // Mobile-wallet and upfront-payment orders must be paid first: the button
+      // stays disabled until payment is completed (paymentStatus == COMPLETED).
+      if (isAwaitingPayment) {
         mainButtonText = isArabic ? 'بانتظار الدفع' : 'Waiting for Payment';
         icon = LucideIcons.clock;
       } else {
-        // Driver accepted (and, when required, customer approved the fee) —
-        // vendor can now start preparing.
         mainButtonText = isArabic ? 'بدء التحضير' : 'Start Preparing';
         nextStatus = 'PREPARING';
         icon = LucideIcons.chefHat;
       }
-    } else if (status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER') {
-      // Disabled: must wait until a driver accepts the order.
-      mainButtonText = isArabic ? 'بانتظار السائق' : 'Waiting for Driver';
-      icon = LucideIcons.clock;
     } else if (status == 'PREPARING') {
       mainButtonText = isArabic ? 'تأكيد جاهزية الطلب' : 'Mark as Ready';
       nextStatus = 'READY_FOR_PICKUP';

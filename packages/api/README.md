@@ -183,7 +183,7 @@ Class | Method | HTTP request | Description
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerPendingAssistOffers**](doc/DriversApi.md#driverscontrollerpendingassistoffers) | **GET** /drivers/assist/offers/pending | [Driver] Pending assist offers (HTTP fallback when socket is down)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerRegister**](doc/DriversApi.md#driverscontrollerregister) | **POST** /drivers/register | Register as a driver (creates driver profile, upgrades role)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerRequestAssist**](doc/DriversApi.md#driverscontrollerrequestassist) | **POST** /drivers/assist/{orderId}/groups/{deliveryGroupId}/request | [Driver] Request an additional driver for a delivery I am assigned to
-[*DriversApi*](doc/DriversApi.md) | [**driversControllerRequestAssistOrder**](doc/DriversApi.md#driverscontrollerrequestassistorder) | **POST** /drivers/assist/order/{orderId}/request | [Driver] Request an additional driver for a single-vendor order I am assigned to
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerRequestAssistOrder**](doc/DriversApi.md#driverscontrollerrequestassistorder) | **POST** /drivers/assist/order/{orderId}/request | [Driver] Request an additional driver for an order delivery I am assigned to
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerRespondToAssistOffer**](doc/DriversApi.md#driverscontrollerrespondtoassistoffer) | **POST** /drivers/assist/{requestId}/offer/respond | [Driver] Accept or decline an assist offer
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerStartBreak**](doc/DriversApi.md#driverscontrollerstartbreak) | **POST** /drivers/me/break/start | Request a break (pending admin approval)
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerStartShift**](doc/DriversApi.md#driverscontrollerstartshift) | **POST** /drivers/me/shifts/{shiftId}/start | Start a shift (selfie required, must be inside the shift zone, flips ONLINE)
@@ -223,7 +223,7 @@ Class | Method | HTTP request | Description
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerRemove**](doc/OffersApi.md#offerscontrollerremove) | **DELETE** /offers/admin/{id} | Delete product offer
 [*OffersApi*](doc/OffersApi.md) | [**offersControllerUpdate**](doc/OffersApi.md#offerscontrollerupdate) | **PATCH** /offers/admin/{id} | Update product offer
 [*OrdersApi*](doc/OrdersApi.md) | [**orderAssistDecisionControllerDecideAssist**](doc/OrdersApi.md#orderassistdecisioncontrollerdecideassist) | **POST** /orders/{orderId}/delivery-groups/{deliveryGroupId}/assist/decision | [Customer] Approve or decline an assisted delivery (and its fee)
-[*OrdersApi*](doc/OrdersApi.md) | [**orderAssistDecisionControllerDecideAssistOrder**](doc/OrdersApi.md#orderassistdecisioncontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-vendor order)
+[*OrdersApi*](doc/OrdersApi.md) | [**orderAssistDecisionControllerDecideAssistOrder**](doc/OrdersApi.md#orderassistdecisioncontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-group order convenience)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAcceptFulfillment**](doc/OrdersApi.md#orderscontrolleracceptfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/accept | [Vendor] Accept ONLY my portion — other vendors are unaffected
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminFindAll**](doc/OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminForceAssignDriver**](doc/OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
@@ -443,7 +443,9 @@ Class | Method | HTTP request | Description
  - [CreateWalletTopUpDto](doc/CreateWalletTopUpDto.md)
  - [CreateZoneDto](doc/CreateZoneDto.md)
  - [Customer](doc/Customer.md)
+ - [CustomerDecideAssistDto](doc/CustomerDecideAssistDto.md)
  - [DecideAssistRequestDto](doc/DecideAssistRequestDto.md)
+ - [DeliveryGroupRatingInputDto](doc/DeliveryGroupRatingInputDto.md)
  - [DeliveryGroupStatus](doc/DeliveryGroupStatus.md)
  - [DispatchAnnouncementDto](doc/DispatchAnnouncementDto.md)
  - [DispatchStatus](doc/DispatchStatus.md)
@@ -462,6 +464,7 @@ Class | Method | HTTP request | Description
  - [DriversControllerStartBreak200Response](doc/DriversControllerStartBreak200Response.md)
  - [FavoriteProduct](doc/FavoriteProduct.md)
  - [ForgotPasswordDto](doc/ForgotPasswordDto.md)
+ - [FulfillmentRatingInputDto](doc/FulfillmentRatingInputDto.md)
  - [GenerateShiftPoolsDto](doc/GenerateShiftPoolsDto.md)
  - [JoinWaitlistDto](doc/JoinWaitlistDto.md)
  - [Language](doc/Language.md)
@@ -475,11 +478,13 @@ Class | Method | HTTP request | Description
  - [Offer](doc/Offer.md)
  - [Order](doc/Order.md)
  - [OrderDeliveryGroup](doc/OrderDeliveryGroup.md)
+ - [OrderDeliveryGroupItem](doc/OrderDeliveryGroupItem.md)
  - [OrderDispatch](doc/OrderDispatch.md)
  - [OrderFeeEstimateDto](doc/OrderFeeEstimateDto.md)
  - [OrderItem](doc/OrderItem.md)
  - [OrderItemOption](doc/OrderItemOption.md)
  - [OrderResponseDto](doc/OrderResponseDto.md)
+ - [OrderReview](doc/OrderReview.md)
  - [OrderStatus](doc/OrderStatus.md)
  - [OrderStatusEvent](doc/OrderStatusEvent.md)
  - [OrderType](doc/OrderType.md)
@@ -519,10 +524,12 @@ Class | Method | HTTP request | Description
  - [ReorderCategoriesDto](doc/ReorderCategoriesDto.md)
  - [RequestAssistDriverDto](doc/RequestAssistDriverDto.md)
  - [ResetPasswordDto](doc/ResetPasswordDto.md)
+ - [RespondAssistOfferDto](doc/RespondAssistOfferDto.md)
  - [RespondToDispatchDto](doc/RespondToDispatchDto.md)
  - [ReviewCustomerDto](doc/ReviewCustomerDto.md)
  - [ReviewCustomerUserDto](doc/ReviewCustomerUserDto.md)
  - [ReviewDto](doc/ReviewDto.md)
+ - [ReviewTargetType](doc/ReviewTargetType.md)
  - [ReviewWalletTopUpDto](doc/ReviewWalletTopUpDto.md)
  - [ReviewsControllerGetVendorReviews200Response](doc/ReviewsControllerGetVendorReviews200Response.md)
  - [Role](doc/Role.md)

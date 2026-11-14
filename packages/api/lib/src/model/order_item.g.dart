@@ -12,6 +12,8 @@ class _$OrderItem extends OrderItem {
   @override
   final String orderId;
   @override
+  final String? fulfillmentId;
+  @override
   final String? productId;
   @override
   final String? variantId;
@@ -31,6 +33,8 @@ class _$OrderItem extends OrderItem {
   final String? selectedUnit;
   @override
   final num? baseUnitPrice;
+  @override
+  final DateTime? rejectedAt;
 
   factory _$OrderItem([void Function(OrderItemBuilder)? updates]) =>
       (OrderItemBuilder()..update(updates))._build();
@@ -38,6 +42,7 @@ class _$OrderItem extends OrderItem {
   _$OrderItem._({
     required this.id,
     required this.orderId,
+    this.fulfillmentId,
     this.productId,
     this.variantId,
     required this.productName,
@@ -48,6 +53,7 @@ class _$OrderItem extends OrderItem {
     this.specialRequest,
     this.selectedUnit,
     this.baseUnitPrice,
+    this.rejectedAt,
   }) : super._();
   @override
   OrderItem rebuild(void Function(OrderItemBuilder) updates) =>
@@ -62,6 +68,7 @@ class _$OrderItem extends OrderItem {
     return other is OrderItem &&
         id == other.id &&
         orderId == other.orderId &&
+        fulfillmentId == other.fulfillmentId &&
         productId == other.productId &&
         variantId == other.variantId &&
         productName == other.productName &&
@@ -71,7 +78,8 @@ class _$OrderItem extends OrderItem {
         totalPrice == other.totalPrice &&
         specialRequest == other.specialRequest &&
         selectedUnit == other.selectedUnit &&
-        baseUnitPrice == other.baseUnitPrice;
+        baseUnitPrice == other.baseUnitPrice &&
+        rejectedAt == other.rejectedAt;
   }
 
   @override
@@ -79,6 +87,7 @@ class _$OrderItem extends OrderItem {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, orderId.hashCode);
+    _$hash = $jc(_$hash, fulfillmentId.hashCode);
     _$hash = $jc(_$hash, productId.hashCode);
     _$hash = $jc(_$hash, variantId.hashCode);
     _$hash = $jc(_$hash, productName.hashCode);
@@ -89,6 +98,7 @@ class _$OrderItem extends OrderItem {
     _$hash = $jc(_$hash, specialRequest.hashCode);
     _$hash = $jc(_$hash, selectedUnit.hashCode);
     _$hash = $jc(_$hash, baseUnitPrice.hashCode);
+    _$hash = $jc(_$hash, rejectedAt.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -98,6 +108,7 @@ class _$OrderItem extends OrderItem {
     return (newBuiltValueToStringHelper(r'OrderItem')
           ..add('id', id)
           ..add('orderId', orderId)
+          ..add('fulfillmentId', fulfillmentId)
           ..add('productId', productId)
           ..add('variantId', variantId)
           ..add('productName', productName)
@@ -107,7 +118,8 @@ class _$OrderItem extends OrderItem {
           ..add('totalPrice', totalPrice)
           ..add('specialRequest', specialRequest)
           ..add('selectedUnit', selectedUnit)
-          ..add('baseUnitPrice', baseUnitPrice))
+          ..add('baseUnitPrice', baseUnitPrice)
+          ..add('rejectedAt', rejectedAt))
         .toString();
   }
 }
@@ -122,6 +134,11 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
   String? _orderId;
   String? get orderId => _$this._orderId;
   set orderId(String? orderId) => _$this._orderId = orderId;
+
+  String? _fulfillmentId;
+  String? get fulfillmentId => _$this._fulfillmentId;
+  set fulfillmentId(String? fulfillmentId) =>
+      _$this._fulfillmentId = fulfillmentId;
 
   String? _productId;
   String? get productId => _$this._productId;
@@ -165,6 +182,10 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
   set baseUnitPrice(num? baseUnitPrice) =>
       _$this._baseUnitPrice = baseUnitPrice;
 
+  DateTime? _rejectedAt;
+  DateTime? get rejectedAt => _$this._rejectedAt;
+  set rejectedAt(DateTime? rejectedAt) => _$this._rejectedAt = rejectedAt;
+
   OrderItemBuilder() {
     OrderItem._defaults(this);
   }
@@ -174,6 +195,7 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
     if ($v != null) {
       _id = $v.id;
       _orderId = $v.orderId;
+      _fulfillmentId = $v.fulfillmentId;
       _productId = $v.productId;
       _variantId = $v.variantId;
       _productName = $v.productName;
@@ -184,6 +206,7 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
       _specialRequest = $v.specialRequest;
       _selectedUnit = $v.selectedUnit;
       _baseUnitPrice = $v.baseUnitPrice;
+      _rejectedAt = $v.rejectedAt;
       _$v = null;
     }
     return this;
@@ -212,6 +235,7 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
             r'OrderItem',
             'orderId',
           ),
+          fulfillmentId: fulfillmentId,
           productId: productId,
           variantId: variantId,
           productName: BuiltValueNullFieldError.checkNotNull(
@@ -238,6 +262,7 @@ class OrderItemBuilder implements Builder<OrderItem, OrderItemBuilder> {
           specialRequest: specialRequest,
           selectedUnit: selectedUnit,
           baseUnitPrice: baseUnitPrice,
+          rejectedAt: rejectedAt,
         );
     replace(_$result);
     return _$result;

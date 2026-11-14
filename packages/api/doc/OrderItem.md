@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
 **orderId** | **String** |  | 
+**fulfillmentId** | **String** |  | [optional] 
 **productId** | **String** |  | [optional] 
 **variantId** | **String** |  | [optional] 
 **productName** | **String** |  | 
@@ -20,6 +21,7 @@ Name | Type | Description | Notes
 **specialRequest** | **String** |  | [optional] 
 **selectedUnit** | **String** |  | [optional] 
 **baseUnitPrice** | **num** |  | [optional] 
+**rejectedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

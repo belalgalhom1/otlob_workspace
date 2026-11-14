@@ -10,7 +10,7 @@ All URIs are relative to *http://localhost*
 Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**orderAssistDecisionControllerDecideAssist**](OrdersApi.md#orderassistdecisioncontrollerdecideassist) | **POST** /orders/{orderId}/delivery-groups/{deliveryGroupId}/assist/decision | [Customer] Approve or decline an assisted delivery (and its fee)
-[**orderAssistDecisionControllerDecideAssistOrder**](OrdersApi.md#orderassistdecisioncontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-vendor order)
+[**orderAssistDecisionControllerDecideAssistOrder**](OrdersApi.md#orderassistdecisioncontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-group order convenience)
 [**ordersControllerAcceptFulfillment**](OrdersApi.md#orderscontrolleracceptfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/accept | [Vendor] Accept ONLY my portion — other vendors are unaffected
 [**ordersControllerAdminFindAll**](OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [**ordersControllerAdminForceAssignDriver**](OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
@@ -42,7 +42,7 @@ Method | HTTP request | Description
 
 
 # **orderAssistDecisionControllerDecideAssist**
-> ApiControllerRoot200Response orderAssistDecisionControllerDecideAssist(orderId, deliveryGroupId)
+> ApiControllerRoot200Response orderAssistDecisionControllerDecideAssist(orderId, deliveryGroupId, customerDecideAssistDto)
 
 [Customer] Approve or decline an assisted delivery (and its fee)
 
@@ -53,9 +53,10 @@ import 'package:api/api.dart';
 final api = Api().getOrdersApi();
 final String orderId = orderId_example; // String | 
 final String deliveryGroupId = deliveryGroupId_example; // String | 
+final CustomerDecideAssistDto customerDecideAssistDto = ; // CustomerDecideAssistDto | 
 
 try {
-    final response = api.orderAssistDecisionControllerDecideAssist(orderId, deliveryGroupId);
+    final response = api.orderAssistDecisionControllerDecideAssist(orderId, deliveryGroupId, customerDecideAssistDto);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling OrdersApi->orderAssistDecisionControllerDecideAssist: $e\n');
@@ -68,6 +69,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **orderId** | **String**|  | 
  **deliveryGroupId** | **String**|  | 
+ **customerDecideAssistDto** | [**CustomerDecideAssistDto**](CustomerDecideAssistDto.md)|  | 
 
 ### Return type
 
@@ -79,15 +81,15 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **orderAssistDecisionControllerDecideAssistOrder**
-> ApiControllerRoot200Response orderAssistDecisionControllerDecideAssistOrder(orderId)
+> ApiControllerRoot200Response orderAssistDecisionControllerDecideAssistOrder(orderId, customerDecideAssistDto)
 
-[Customer] Approve or decline an assisted delivery (single-vendor order)
+[Customer] Approve or decline an assisted delivery (single-group order convenience)
 
 ### Example
 ```dart
@@ -95,9 +97,10 @@ import 'package:api/api.dart';
 
 final api = Api().getOrdersApi();
 final String orderId = orderId_example; // String | 
+final CustomerDecideAssistDto customerDecideAssistDto = ; // CustomerDecideAssistDto | 
 
 try {
-    final response = api.orderAssistDecisionControllerDecideAssistOrder(orderId);
+    final response = api.orderAssistDecisionControllerDecideAssistOrder(orderId, customerDecideAssistDto);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling OrdersApi->orderAssistDecisionControllerDecideAssistOrder: $e\n');
@@ -109,6 +112,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **orderId** | **String**|  | 
+ **customerDecideAssistDto** | [**CustomerDecideAssistDto**](CustomerDecideAssistDto.md)|  | 
 
 ### Return type
 
@@ -120,7 +124,7 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
@@ -1127,7 +1131,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerPlaceMultiVendorOrder**
-> ApiControllerRoot200Response ordersControllerPlaceMultiVendorOrder(idempotencyKey, placeMultiVendorOrderDto)
+> OrdersControllerPlaceOrder200Response ordersControllerPlaceMultiVendorOrder(idempotencyKey, placeMultiVendorOrderDto)
 
 Place one order containing multiple vendors, grouped into deliveries
 
@@ -1156,7 +1160,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+[**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
 
 ### Authorization
 

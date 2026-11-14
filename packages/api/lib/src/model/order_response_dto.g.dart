@@ -26,8 +26,6 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final String? zoneId;
   @override
-  final String? driverShiftId;
-  @override
   final OrderStatus status;
   @override
   final num revision;
@@ -66,8 +64,6 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final String? specialRequest;
   @override
-  final num? estimatedPrepTime;
-  @override
   final num? distanceKm;
   @override
   final DateTime? deletedAt;
@@ -76,21 +72,11 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final DateTime updatedAt;
   @override
-  final DateTime? acceptedAt;
-  @override
-  final DateTime? preparedAt;
-  @override
-  final DateTime? driverAssignedAt;
-  @override
-  final DateTime? pickedUpAt;
-  @override
-  final String? pickupImageUrl;
-  @override
-  final String? deliveryImageUrl;
-  @override
   final String? paymentReceiptUrl;
   @override
   final DateTime? actualDeliveryTime;
+  @override
+  final DateTime? settledAt;
   @override
   final BuiltList<DriverWalletTransaction>? driverTransactions;
   @override
@@ -104,8 +90,6 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final Driver? driver;
   @override
-  final DriverShift? driverShift;
-  @override
   final Vendor? vendor;
   @override
   final VendorBranch? vendorBranch;
@@ -115,6 +99,8 @@ class _$OrderResponseDto extends OrderResponseDto {
   final BuiltList<SupportTicket>? supportTickets;
   @override
   final BuiltList<VendorWalletTransaction>? vendorTransactions;
+  @override
+  final BuiltList<OrderReview>? reviews;
   @override
   final BuiltList<OrderVendorFulfillment>? vendorFulfillments;
   @override
@@ -136,7 +122,6 @@ class _$OrderResponseDto extends OrderResponseDto {
     this.vendorBranchId,
     this.driverId,
     this.zoneId,
-    this.driverShiftId,
     required this.status,
     required this.revision,
     required this.paymentMethod,
@@ -156,31 +141,25 @@ class _$OrderResponseDto extends OrderResponseDto {
     required this.grandTotal,
     required this.upfrontAmount,
     this.specialRequest,
-    this.estimatedPrepTime,
     this.distanceKm,
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
-    this.acceptedAt,
-    this.preparedAt,
-    this.driverAssignedAt,
-    this.pickedUpAt,
-    this.pickupImageUrl,
-    this.deliveryImageUrl,
     this.paymentReceiptUrl,
     this.actualDeliveryTime,
+    this.settledAt,
     this.driverTransactions,
     this.dispatches,
     this.items,
     this.statusEvents,
     this.customer,
     this.driver,
-    this.driverShift,
     this.vendor,
     this.vendorBranch,
     this.zone,
     this.supportTickets,
     this.vendorTransactions,
+    this.reviews,
     this.vendorFulfillments,
     this.deliveryGroups,
     this.fulfillmentSummary,
@@ -206,7 +185,6 @@ class _$OrderResponseDto extends OrderResponseDto {
         vendorBranchId == other.vendorBranchId &&
         driverId == other.driverId &&
         zoneId == other.zoneId &&
-        driverShiftId == other.driverShiftId &&
         status == other.status &&
         revision == other.revision &&
         paymentMethod == other.paymentMethod &&
@@ -226,31 +204,25 @@ class _$OrderResponseDto extends OrderResponseDto {
         grandTotal == other.grandTotal &&
         upfrontAmount == other.upfrontAmount &&
         specialRequest == other.specialRequest &&
-        estimatedPrepTime == other.estimatedPrepTime &&
         distanceKm == other.distanceKm &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt &&
-        acceptedAt == other.acceptedAt &&
-        preparedAt == other.preparedAt &&
-        driverAssignedAt == other.driverAssignedAt &&
-        pickedUpAt == other.pickedUpAt &&
-        pickupImageUrl == other.pickupImageUrl &&
-        deliveryImageUrl == other.deliveryImageUrl &&
         paymentReceiptUrl == other.paymentReceiptUrl &&
         actualDeliveryTime == other.actualDeliveryTime &&
+        settledAt == other.settledAt &&
         driverTransactions == other.driverTransactions &&
         dispatches == other.dispatches &&
         items == other.items &&
         statusEvents == other.statusEvents &&
         customer == other.customer &&
         driver == other.driver &&
-        driverShift == other.driverShift &&
         vendor == other.vendor &&
         vendorBranch == other.vendorBranch &&
         zone == other.zone &&
         supportTickets == other.supportTickets &&
         vendorTransactions == other.vendorTransactions &&
+        reviews == other.reviews &&
         vendorFulfillments == other.vendorFulfillments &&
         deliveryGroups == other.deliveryGroups &&
         fulfillmentSummary == other.fulfillmentSummary;
@@ -268,7 +240,6 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, vendorBranchId.hashCode);
     _$hash = $jc(_$hash, driverId.hashCode);
     _$hash = $jc(_$hash, zoneId.hashCode);
-    _$hash = $jc(_$hash, driverShiftId.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, revision.hashCode);
     _$hash = $jc(_$hash, paymentMethod.hashCode);
@@ -288,31 +259,25 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, grandTotal.hashCode);
     _$hash = $jc(_$hash, upfrontAmount.hashCode);
     _$hash = $jc(_$hash, specialRequest.hashCode);
-    _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
     _$hash = $jc(_$hash, distanceKm.hashCode);
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
-    _$hash = $jc(_$hash, acceptedAt.hashCode);
-    _$hash = $jc(_$hash, preparedAt.hashCode);
-    _$hash = $jc(_$hash, driverAssignedAt.hashCode);
-    _$hash = $jc(_$hash, pickedUpAt.hashCode);
-    _$hash = $jc(_$hash, pickupImageUrl.hashCode);
-    _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
     _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
+    _$hash = $jc(_$hash, settledAt.hashCode);
     _$hash = $jc(_$hash, driverTransactions.hashCode);
     _$hash = $jc(_$hash, dispatches.hashCode);
     _$hash = $jc(_$hash, items.hashCode);
     _$hash = $jc(_$hash, statusEvents.hashCode);
     _$hash = $jc(_$hash, customer.hashCode);
     _$hash = $jc(_$hash, driver.hashCode);
-    _$hash = $jc(_$hash, driverShift.hashCode);
     _$hash = $jc(_$hash, vendor.hashCode);
     _$hash = $jc(_$hash, vendorBranch.hashCode);
     _$hash = $jc(_$hash, zone.hashCode);
     _$hash = $jc(_$hash, supportTickets.hashCode);
     _$hash = $jc(_$hash, vendorTransactions.hashCode);
+    _$hash = $jc(_$hash, reviews.hashCode);
     _$hash = $jc(_$hash, vendorFulfillments.hashCode);
     _$hash = $jc(_$hash, deliveryGroups.hashCode);
     _$hash = $jc(_$hash, fulfillmentSummary.hashCode);
@@ -332,7 +297,6 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('vendorBranchId', vendorBranchId)
           ..add('driverId', driverId)
           ..add('zoneId', zoneId)
-          ..add('driverShiftId', driverShiftId)
           ..add('status', status)
           ..add('revision', revision)
           ..add('paymentMethod', paymentMethod)
@@ -352,31 +316,25 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('grandTotal', grandTotal)
           ..add('upfrontAmount', upfrontAmount)
           ..add('specialRequest', specialRequest)
-          ..add('estimatedPrepTime', estimatedPrepTime)
           ..add('distanceKm', distanceKm)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt)
-          ..add('acceptedAt', acceptedAt)
-          ..add('preparedAt', preparedAt)
-          ..add('driverAssignedAt', driverAssignedAt)
-          ..add('pickedUpAt', pickedUpAt)
-          ..add('pickupImageUrl', pickupImageUrl)
-          ..add('deliveryImageUrl', deliveryImageUrl)
           ..add('paymentReceiptUrl', paymentReceiptUrl)
           ..add('actualDeliveryTime', actualDeliveryTime)
+          ..add('settledAt', settledAt)
           ..add('driverTransactions', driverTransactions)
           ..add('dispatches', dispatches)
           ..add('items', items)
           ..add('statusEvents', statusEvents)
           ..add('customer', customer)
           ..add('driver', driver)
-          ..add('driverShift', driverShift)
           ..add('vendor', vendor)
           ..add('vendorBranch', vendorBranch)
           ..add('zone', zone)
           ..add('supportTickets', supportTickets)
           ..add('vendorTransactions', vendorTransactions)
+          ..add('reviews', reviews)
           ..add('vendorFulfillments', vendorFulfillments)
           ..add('deliveryGroups', deliveryGroups)
           ..add('fulfillmentSummary', fulfillmentSummary))
@@ -425,11 +383,6 @@ class OrderResponseDtoBuilder
   String? _zoneId;
   String? get zoneId => _$this._zoneId;
   set zoneId(String? zoneId) => _$this._zoneId = zoneId;
-
-  String? _driverShiftId;
-  String? get driverShiftId => _$this._driverShiftId;
-  set driverShiftId(String? driverShiftId) =>
-      _$this._driverShiftId = driverShiftId;
 
   OrderStatus? _status;
   OrderStatus? get status => _$this._status;
@@ -515,11 +468,6 @@ class OrderResponseDtoBuilder
   set specialRequest(String? specialRequest) =>
       _$this._specialRequest = specialRequest;
 
-  num? _estimatedPrepTime;
-  num? get estimatedPrepTime => _$this._estimatedPrepTime;
-  set estimatedPrepTime(num? estimatedPrepTime) =>
-      _$this._estimatedPrepTime = estimatedPrepTime;
-
   num? _distanceKm;
   num? get distanceKm => _$this._distanceKm;
   set distanceKm(num? distanceKm) => _$this._distanceKm = distanceKm;
@@ -536,33 +484,6 @@ class OrderResponseDtoBuilder
   DateTime? get updatedAt => _$this._updatedAt;
   set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  DateTime? _acceptedAt;
-  DateTime? get acceptedAt => _$this._acceptedAt;
-  set acceptedAt(DateTime? acceptedAt) => _$this._acceptedAt = acceptedAt;
-
-  DateTime? _preparedAt;
-  DateTime? get preparedAt => _$this._preparedAt;
-  set preparedAt(DateTime? preparedAt) => _$this._preparedAt = preparedAt;
-
-  DateTime? _driverAssignedAt;
-  DateTime? get driverAssignedAt => _$this._driverAssignedAt;
-  set driverAssignedAt(DateTime? driverAssignedAt) =>
-      _$this._driverAssignedAt = driverAssignedAt;
-
-  DateTime? _pickedUpAt;
-  DateTime? get pickedUpAt => _$this._pickedUpAt;
-  set pickedUpAt(DateTime? pickedUpAt) => _$this._pickedUpAt = pickedUpAt;
-
-  String? _pickupImageUrl;
-  String? get pickupImageUrl => _$this._pickupImageUrl;
-  set pickupImageUrl(String? pickupImageUrl) =>
-      _$this._pickupImageUrl = pickupImageUrl;
-
-  String? _deliveryImageUrl;
-  String? get deliveryImageUrl => _$this._deliveryImageUrl;
-  set deliveryImageUrl(String? deliveryImageUrl) =>
-      _$this._deliveryImageUrl = deliveryImageUrl;
-
   String? _paymentReceiptUrl;
   String? get paymentReceiptUrl => _$this._paymentReceiptUrl;
   set paymentReceiptUrl(String? paymentReceiptUrl) =>
@@ -572,6 +493,10 @@ class OrderResponseDtoBuilder
   DateTime? get actualDeliveryTime => _$this._actualDeliveryTime;
   set actualDeliveryTime(DateTime? actualDeliveryTime) =>
       _$this._actualDeliveryTime = actualDeliveryTime;
+
+  DateTime? _settledAt;
+  DateTime? get settledAt => _$this._settledAt;
+  set settledAt(DateTime? settledAt) => _$this._settledAt = settledAt;
 
   ListBuilder<DriverWalletTransaction>? _driverTransactions;
   ListBuilder<DriverWalletTransaction> get driverTransactions =>
@@ -605,12 +530,6 @@ class OrderResponseDtoBuilder
   DriverBuilder get driver => _$this._driver ??= DriverBuilder();
   set driver(DriverBuilder? driver) => _$this._driver = driver;
 
-  DriverShiftBuilder? _driverShift;
-  DriverShiftBuilder get driverShift =>
-      _$this._driverShift ??= DriverShiftBuilder();
-  set driverShift(DriverShiftBuilder? driverShift) =>
-      _$this._driverShift = driverShift;
-
   VendorBuilder? _vendor;
   VendorBuilder get vendor => _$this._vendor ??= VendorBuilder();
   set vendor(VendorBuilder? vendor) => _$this._vendor = vendor;
@@ -637,6 +556,11 @@ class OrderResponseDtoBuilder
   set vendorTransactions(
     ListBuilder<VendorWalletTransaction>? vendorTransactions,
   ) => _$this._vendorTransactions = vendorTransactions;
+
+  ListBuilder<OrderReview>? _reviews;
+  ListBuilder<OrderReview> get reviews =>
+      _$this._reviews ??= ListBuilder<OrderReview>();
+  set reviews(ListBuilder<OrderReview>? reviews) => _$this._reviews = reviews;
 
   ListBuilder<OrderVendorFulfillment>? _vendorFulfillments;
   ListBuilder<OrderVendorFulfillment> get vendorFulfillments =>
@@ -672,7 +596,6 @@ class OrderResponseDtoBuilder
       _vendorBranchId = $v.vendorBranchId;
       _driverId = $v.driverId;
       _zoneId = $v.zoneId;
-      _driverShiftId = $v.driverShiftId;
       _status = $v.status;
       _revision = $v.revision;
       _paymentMethod = $v.paymentMethod;
@@ -692,31 +615,25 @@ class OrderResponseDtoBuilder
       _grandTotal = $v.grandTotal;
       _upfrontAmount = $v.upfrontAmount;
       _specialRequest = $v.specialRequest;
-      _estimatedPrepTime = $v.estimatedPrepTime;
       _distanceKm = $v.distanceKm;
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
-      _acceptedAt = $v.acceptedAt;
-      _preparedAt = $v.preparedAt;
-      _driverAssignedAt = $v.driverAssignedAt;
-      _pickedUpAt = $v.pickedUpAt;
-      _pickupImageUrl = $v.pickupImageUrl;
-      _deliveryImageUrl = $v.deliveryImageUrl;
       _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
+      _settledAt = $v.settledAt;
       _driverTransactions = $v.driverTransactions?.toBuilder();
       _dispatches = $v.dispatches?.toBuilder();
       _items = $v.items?.toBuilder();
       _statusEvents = $v.statusEvents?.toBuilder();
       _customer = $v.customer?.toBuilder();
       _driver = $v.driver?.toBuilder();
-      _driverShift = $v.driverShift?.toBuilder();
       _vendor = $v.vendor?.toBuilder();
       _vendorBranch = $v.vendorBranch?.toBuilder();
       _zone = $v.zone?.toBuilder();
       _supportTickets = $v.supportTickets?.toBuilder();
       _vendorTransactions = $v.vendorTransactions?.toBuilder();
+      _reviews = $v.reviews?.toBuilder();
       _vendorFulfillments = $v.vendorFulfillments?.toBuilder();
       _deliveryGroups = $v.deliveryGroups?.toBuilder();
       _fulfillmentSummary = $v.fulfillmentSummary;
@@ -769,7 +686,6 @@ class OrderResponseDtoBuilder
             vendorBranchId: vendorBranchId,
             driverId: driverId,
             zoneId: zoneId,
-            driverShiftId: driverShiftId,
             status: BuiltValueNullFieldError.checkNotNull(
               status,
               r'OrderResponseDto',
@@ -849,7 +765,6 @@ class OrderResponseDtoBuilder
               'upfrontAmount',
             ),
             specialRequest: specialRequest,
-            estimatedPrepTime: estimatedPrepTime,
             distanceKm: distanceKm,
             deletedAt: deletedAt,
             createdAt: BuiltValueNullFieldError.checkNotNull(
@@ -862,26 +777,21 @@ class OrderResponseDtoBuilder
               r'OrderResponseDto',
               'updatedAt',
             ),
-            acceptedAt: acceptedAt,
-            preparedAt: preparedAt,
-            driverAssignedAt: driverAssignedAt,
-            pickedUpAt: pickedUpAt,
-            pickupImageUrl: pickupImageUrl,
-            deliveryImageUrl: deliveryImageUrl,
             paymentReceiptUrl: paymentReceiptUrl,
             actualDeliveryTime: actualDeliveryTime,
+            settledAt: settledAt,
             driverTransactions: _driverTransactions?.build(),
             dispatches: _dispatches?.build(),
             items: _items?.build(),
             statusEvents: _statusEvents?.build(),
             customer: _customer?.build(),
             driver: _driver?.build(),
-            driverShift: _driverShift?.build(),
             vendor: _vendor?.build(),
             vendorBranch: _vendorBranch?.build(),
             zone: _zone?.build(),
             supportTickets: _supportTickets?.build(),
             vendorTransactions: _vendorTransactions?.build(),
+            reviews: _reviews?.build(),
             vendorFulfillments: _vendorFulfillments?.build(),
             deliveryGroups: _deliveryGroups?.build(),
             fulfillmentSummary: fulfillmentSummary,
@@ -901,8 +811,6 @@ class OrderResponseDtoBuilder
         _customer?.build();
         _$failedField = 'driver';
         _driver?.build();
-        _$failedField = 'driverShift';
-        _driverShift?.build();
         _$failedField = 'vendor';
         _vendor?.build();
         _$failedField = 'vendorBranch';
@@ -913,6 +821,8 @@ class OrderResponseDtoBuilder
         _supportTickets?.build();
         _$failedField = 'vendorTransactions';
         _vendorTransactions?.build();
+        _$failedField = 'reviews';
+        _reviews?.build();
         _$failedField = 'vendorFulfillments';
         _vendorFulfillments?.build();
         _$failedField = 'deliveryGroups';

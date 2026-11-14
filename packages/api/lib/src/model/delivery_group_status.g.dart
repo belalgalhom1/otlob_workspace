@@ -8,6 +8,9 @@ part of 'delivery_group_status.dart';
 
 const DeliveryGroupStatus _$PENDING = const DeliveryGroupStatus._('PENDING');
 const DeliveryGroupStatus _$ACCEPTED = const DeliveryGroupStatus._('ACCEPTED');
+const DeliveryGroupStatus _$PREPARING = const DeliveryGroupStatus._(
+  'PREPARING',
+);
 const DeliveryGroupStatus _$LOOKING_FOR_DRIVER = const DeliveryGroupStatus._(
   'LOOKING_FOR_DRIVER',
 );
@@ -39,6 +42,8 @@ DeliveryGroupStatus _$valueOf(String name) {
       return _$PENDING;
     case 'ACCEPTED':
       return _$ACCEPTED;
+    case 'PREPARING':
+      return _$PREPARING;
     case 'LOOKING_FOR_DRIVER':
       return _$LOOKING_FOR_DRIVER;
     case 'DRIVER_ASSIGNED':
@@ -64,6 +69,7 @@ final BuiltSet<DeliveryGroupStatus> _$values =
     BuiltSet<DeliveryGroupStatus>(const <DeliveryGroupStatus>[
       _$PENDING,
       _$ACCEPTED,
+      _$PREPARING,
       _$LOOKING_FOR_DRIVER,
       _$DRIVER_ASSIGNED,
       _$PENDING_PAYMENT,
@@ -78,6 +84,7 @@ class _$DeliveryGroupStatusMeta {
   const _$DeliveryGroupStatusMeta();
   DeliveryGroupStatus get PENDING => _$PENDING;
   DeliveryGroupStatus get ACCEPTED => _$ACCEPTED;
+  DeliveryGroupStatus get PREPARING => _$PREPARING;
   DeliveryGroupStatus get LOOKING_FOR_DRIVER => _$LOOKING_FOR_DRIVER;
   DeliveryGroupStatus get DRIVER_ASSIGNED => _$DRIVER_ASSIGNED;
   DeliveryGroupStatus get PENDING_PAYMENT => _$PENDING_PAYMENT;
@@ -104,6 +111,7 @@ class _$DeliveryGroupStatusSerializer
   static const Map<String, Object> _toWire = const <String, Object>{
     'PENDING': 'PENDING',
     'ACCEPTED': 'ACCEPTED',
+    'PREPARING': 'PREPARING',
     'LOOKING_FOR_DRIVER': 'LOOKING_FOR_DRIVER',
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',
@@ -116,6 +124,7 @@ class _$DeliveryGroupStatusSerializer
   static const Map<Object, String> _fromWire = const <Object, String>{
     'PENDING': 'PENDING',
     'ACCEPTED': 'ACCEPTED',
+    'PREPARING': 'PREPARING',
     'LOOKING_FOR_DRIVER': 'LOOKING_FOR_DRIVER',
     'DRIVER_ASSIGNED': 'DRIVER_ASSIGNED',
     'PENDING_PAYMENT': 'PENDING_PAYMENT',

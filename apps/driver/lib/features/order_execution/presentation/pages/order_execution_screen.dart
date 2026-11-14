@@ -32,6 +32,26 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   int _currentStopIndex = 0;
   final Set<int> _collectedStopIndices = <int>{};
 
+  String? _resolveActiveDriverGroupId(Map<String, dynamic> order) {
+    final direct = order['activeDeliveryGroupId']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final groups = order['deliveryGroups'];
+    final driverId = order['driverId']?.toString();
+    if (groups is List && groups.isNotEmpty) {
+      for (final grp in groups) {
+        if (grp is Map &&
+            grp['status'] != 'DELIVERED' &&
+            grp['status'] != 'CANCELLED' &&
+            (driverId == null ||
+                grp['primaryDriverId']?.toString() == driverId ||
+                grp['assistDriverId']?.toString() == driverId)) {
+          return grp['id']?.toString();
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> _callPhone(BuildContext context, String? phone) async {
     final digits = (phone ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
     if (digits.isEmpty) {
@@ -451,11 +471,16 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     }
 
     final allItems = (order['items'] as List?) ?? [];
+    final String? activeGroupId = _resolveActiveDriverGroupId(order);
     final Map<String, int> stopSequenceByFulfillmentId = {};
     if (order['deliveryGroups'] is List) {
       int baseSeq = 0;
       for (final grp in (order['deliveryGroups'] as List)) {
-        if (grp is Map && grp['items'] is List) {
+        if (grp is Map &&
+            (activeGroupId == null ||
+                activeGroupId.isEmpty ||
+                grp['id']?.toString() == activeGroupId) &&
+            grp['items'] is List) {
           for (final gi in (grp['items'] as List)) {
             if (gi is Map && gi['fulfillmentId'] != null) {
               final seq = (gi['sequence'] as num?)?.toInt() ?? 0;
@@ -504,10 +529,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               (branch['isContracted'] as bool?) ??
               (v['isContracted'] as bool?) ??
               false;
+          final commRate = double.tryParse(f['commissionRate']?.toString() ?? '10') ?? 10.0;
+          final netContracted = subtotal - (subtotal * (commRate / 100)).roundToDouble();
           final double cashToPay = f['cashToPay'] != null
               ? (double.tryParse(f['cashToPay'].toString()) ?? 0.0)
               : (isContracted
-                  ? (subtotal * (1 - (double.tryParse(f['commissionRate']?.toString() ?? '10') ?? 10.0) / 100))
+                  ? (netContracted < 0 ? 0.0 : netContracted)
                   : subtotal);
 
           final fId = f['id']?.toString() ?? '';
@@ -551,7 +578,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           ? (double.tryParse(order['financials']['cashToPayStore'].toString()) ?? 0.0)
           : (order['cashToPay'] != null
               ? (double.tryParse(order['cashToPay'].toString()) ?? 0.0)
-              : (isContracted ? 0.0 : subtotal));
+              : subtotal);
 
       pickupStops.add({
         'fulfillmentId': '',
@@ -1015,17 +1042,19 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 if (!isDelivering && currentStop != null) ...[
                   Builder(builder: (context) {
                     final bool isContracted = currentStop['isContracted'] == true;
-                    final double cashToPay = currentStop['cashToPay'] as double;
+                    final double cashToPay =
+                        (currentStop['cashToPay'] as num?)?.toDouble() ?? 0.0;
+                    final bool noCashAtStore = cashToPay <= 0;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isContracted
+                        color: noCashAtStore
                             ? AppColors.success.withValues(alpha: 0.1)
                             : AppColors.warning.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isContracted
+                          color: noCashAtStore
                               ? AppColors.success.withValues(alpha: 0.4)
                               : AppColors.warning.withValues(alpha: 0.6),
                         ),
@@ -1033,20 +1062,28 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            isContracted ? LucideIcons.badgeCheck : LucideIcons.banknote,
+                            noCashAtStore ? LucideIcons.badgeCheck : LucideIcons.banknote,
                             size: 16,
-                            color: isContracted ? AppColors.success : AppColors.warning,
+                            color: noCashAtStore ? AppColors.success : AppColors.warning,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              isContracted
-                                  ? (isAr ? 'متجر شريك معتمد: لا تدفع كاش في هذا المتجر (0 $currency)' : 'Partner Store: Pay 0 $currency at this store')
-                                  : (isAr ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPay.toStringAsFixed(2)} $currency' : 'Uncontracted: Pay store in cash: ${cashToPay.toStringAsFixed(2)} $currency'),
+                              noCashAtStore
+                                  ? (isAr
+                                      ? 'لا تدفع كاش في هذا المتجر (0 $currency)'
+                                      : 'Do not pay cash at this store (0 $currency)')
+                                  : isContracted
+                                      ? (isAr
+                                          ? 'متجر شريك: ادفع صافي الفاتورة كاش: ${cashToPay.toStringAsFixed(2)} $currency'
+                                          : 'Partner Store: Pay net cash at pickup: ${cashToPay.toStringAsFixed(2)} $currency')
+                                      : (isAr
+                                          ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPay.toStringAsFixed(2)} $currency'
+                                          : 'Uncontracted: Pay store in cash: ${cashToPay.toStringAsFixed(2)} $currency'),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: isContracted ? AppColors.success : AppColors.warning,
+                                color: noCashAtStore ? AppColors.success : AppColors.warning,
                               ),
                             ),
                           ),
@@ -1274,13 +1311,22 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             status == 'READY_FOR_PICKUP' ||
             status == 'PARTIALLY_PICKED_UP') &&
         (isCustomOrRide || (!currentStopPickedUp && currentStopStatus == 'READY_FOR_PICKUP'));
-    String? remoteUrl = order['pickupImageUrl']?.toString();
+    String? remoteUrl = (pickupStops.isNotEmpty && !isCustomOrRide)
+        ? pickupStops[_currentStopIndex]['pickupImageUrl']?.toString()
+        : order['pickupImageUrl']?.toString();
     if ((remoteUrl == null || remoteUrl.isEmpty) && pickupStops.isNotEmpty) {
       remoteUrl = pickupStops[_currentStopIndex]['pickupImageUrl']?.toString();
     }
-    if ((remoteUrl == null || remoteUrl.isEmpty) && order['deliveryGroups'] is List) {
+    final activeGroupId = _resolveActiveDriverGroupId(order);
+    if ((remoteUrl == null || remoteUrl.isEmpty) &&
+        activeGroupId != null &&
+        activeGroupId.isNotEmpty &&
+        order['deliveryGroups'] is List) {
       for (final grp in (order['deliveryGroups'] as List)) {
-        if (grp is Map && grp['pickupImageUrl'] != null && grp['pickupImageUrl'].toString().isNotEmpty) {
+        if (grp is Map &&
+            grp['id']?.toString() == activeGroupId &&
+            grp['pickupImageUrl'] != null &&
+            grp['pickupImageUrl'].toString().isNotEmpty) {
           remoteUrl = grp['pickupImageUrl'].toString();
           break;
         }
@@ -1361,10 +1407,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     Map<String, dynamic> order,
   ) {
     final showCapture = status == 'PICKED_UP';
+    final activeGroupId = _resolveActiveDriverGroupId(order);
     String? remoteUrl = order['deliveryImageUrl']?.toString();
-    if ((remoteUrl == null || remoteUrl.isEmpty) && order['deliveryGroups'] is List) {
+    if ((remoteUrl == null || remoteUrl.isEmpty) &&
+        activeGroupId != null &&
+        activeGroupId.isNotEmpty &&
+        order['deliveryGroups'] is List) {
       for (final grp in (order['deliveryGroups'] as List)) {
-        if (grp is Map && grp['deliveryImageUrl'] != null && grp['deliveryImageUrl'].toString().isNotEmpty) {
+        if (grp is Map &&
+            grp['id']?.toString() == activeGroupId &&
+            grp['deliveryImageUrl'] != null &&
+            grp['deliveryImageUrl'].toString().isNotEmpty) {
           remoteUrl = grp['deliveryImageUrl'].toString();
           break;
         }
@@ -1768,17 +1821,45 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                 photo = await _captureDeliveryPhoto();
                 if (photo == null) return;
               }
+              final activeGroupId = _resolveActiveDriverGroupId(order);
               await ref
                   .read(orderExecutionProvider.notifier)
-                  .confirmDeliveryWithPhoto(photo);
+                  .confirmDeliveryWithPhoto(
+                    photo,
+                    deliveryGroupId: activeGroupId,
+                  );
               if (!mounted) return;
 
-              // Check if driver has more active orders or remaining stops
+              // Check if driver still has another delivery group on this same order
+              // or other active orders queued.
               final repo = ref.read(driverOrdersRepositoryProvider);
               final activeOrders = await repo.getActiveDriverOrders();
 
               if (activeOrders.isNotEmpty) {
                 final currentId = order['id']?.toString();
+                final stillHasCurrent = currentId != null &&
+                    activeOrders.any((o) => o['id']?.toString() == currentId);
+                if (stillHasCurrent) {
+                  setState(() {
+                    _pickupPhoto = null;
+                    _deliveryPhoto = null;
+                    _collectedStopIndices.clear();
+                    _currentStopIndex = 0;
+                  });
+                  ref.read(orderExecutionProvider.notifier).selectOrder(currentId);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        l10n.localeName == 'ar'
+                            ? 'تم تسليم المجموعة بنجاح! لديك رحلة أخرى ضمن نفس الطلب'
+                            : 'Trip delivered! Moving to your next trip for this order',
+                      ),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                  return;
+                }
                 final remaining = activeOrders
                     .where((o) => o['id']?.toString() != currentId)
                     .toList();
@@ -1786,6 +1867,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                   final nextOrder = remaining.first;
                   final nextId = nextOrder['id']?.toString();
                   if (nextId != null) {
+                    setState(() {
+                      _pickupPhoto = null;
+                      _deliveryPhoto = null;
+                      _collectedStopIndices.clear();
+                      _currentStopIndex = 0;
+                    });
                     ref.read(orderExecutionProvider.notifier).selectOrder(nextId);
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(

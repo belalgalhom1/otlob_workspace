@@ -273,6 +273,16 @@ const List<SettingsSection> platformSettingsSections = [
         helpEn: 'Flat price for any trip shorter than the short-trip distance.',
       ),
       SettingsField(
+        key: 'minDeliveryFee',
+        kind: SettingsFieldKind.number,
+        labelAr: 'أدنى أجرة توصيل',
+        labelEn: 'Min Delivery Fee',
+        helpAr:
+            'الحد الأدنى العام لأجرة التوصيل بالجنيه (يُطبق بعد حدود المركبة؛ 0 يعني معطّل).',
+        helpEn:
+            'Global minimum customer delivery fee in EGP (applied after per-vehicle overrides; 0 disables).',
+      ),
+      SettingsField(
         key: 'maxDeliveryFee',
         kind: SettingsFieldKind.number,
         labelAr: 'أقصى أجرة توصيل',
@@ -607,6 +617,38 @@ const List<SettingsSection> platformSettingsSections = [
         labelEn: 'Max Search Attempts',
         helpAr: 'أقصى عدد مرات محاولة إيجاد مندوب.',
         helpEn: 'Maximum number of driver-search attempts.',
+      ),
+      SettingsField(
+        key: 'driverSearchGeoCandidateLimit',
+        kind: SettingsFieldKind.number,
+        labelAr: 'حد المرشحين الجغرافي للبحث',
+        labelEn: 'Driver Search Geo Candidate Limit',
+        helpAr:
+            'أقصى عدد مندوبين يتم جلبهم من البحث الجغرافي قبل تطبيق الفلاتر.',
+        helpEn:
+            'Max candidates fetched from Redis geo-radius before SQL filtering.',
+      ),
+      SettingsField(
+        key: 'driverLocationFreshnessTtlSecs',
+        kind: SettingsFieldKind.number,
+        suffix: 'ثانية',
+        labelAr: 'مدة صلاحية موقع المندوب',
+        labelEn: 'Driver Location Freshness TTL (sec)',
+        helpAr:
+            'المدة بالثواني التي يُعتبر فيها آخر موقع مُرسل من المندوب حديثاً.',
+        helpEn:
+            'Seconds a reported driver GPS coordinate remains considered live.',
+      ),
+      SettingsField(
+        key: 'driverLocationPrecisionMeters',
+        kind: SettingsFieldKind.number,
+        suffix: 'متر',
+        labelAr: 'تقريب دقة موقع المندوب للعميل',
+        labelEn: 'Location Precision Reduction (m)',
+        helpAr:
+            'تقريب إحداثيات المندوب بالأمتار في شاشة العميل للخصوصية (0 = دقيق).',
+        helpEn:
+            'Location precision reduction in meters for customer tracking (0 = exact).',
       ),
       SettingsField(
         key: 'driverAcceptTimeoutSecs',
@@ -1398,6 +1440,38 @@ const List<SettingsSection> platformSettingsSections = [
         labelEn: 'Statistics Retention (days)',
         helpAr: 'بعد كام يوم تتشال الإحصائيات.',
         helpEn: 'Days before statistics are hard-deleted.',
+      ),
+      SettingsField(
+        key: 'retentionPaymentReceiptsDays',
+        kind: SettingsFieldKind.number,
+        labelAr: 'مدة حفظ إيصالات الدفع',
+        labelEn: 'Payment Receipts Retention (days)',
+        helpAr: 'أيام الاحتفاظ بصور إيصالات المحافظ بعد تسوية الطلب.',
+        helpEn: 'Days after order settlement before payment receipt photos are deleted.',
+      ),
+      SettingsField(
+        key: 'retentionShiftStartPhotosDays',
+        kind: SettingsFieldKind.number,
+        labelAr: 'مدة حفظ صور بدء الوردية',
+        labelEn: 'Shift Start Photos Retention (days)',
+        helpAr: 'أيام الاحتفاظ بصورة بدء وردية السائق بعد انتهائها.',
+        helpEn: 'Days after a shift ends before its start selfie photo is deleted.',
+      ),
+      SettingsField(
+        key: 'retentionPickupPhotosDays',
+        kind: SettingsFieldKind.number,
+        labelAr: 'مدة حفظ صور الاستلام',
+        labelEn: 'Pickup Proof Photos Retention (days)',
+        helpAr: 'أيام الاحتفاظ بصورة استلام الطلب بعد التسوية.',
+        helpEn: 'Days after order settlement before pickup proof photos are deleted.',
+      ),
+      SettingsField(
+        key: 'retentionDeliveryPhotosDays',
+        kind: SettingsFieldKind.number,
+        labelAr: 'مدة حفظ صور التسليم',
+        labelEn: 'Delivery Proof Photos Retention (days)',
+        helpAr: 'أيام الاحتفاظ بصورة تسليم الطلب بعد التسوية.',
+        helpEn: 'Days after order settlement before delivery proof photos are deleted.',
       ),
     ],
   ),

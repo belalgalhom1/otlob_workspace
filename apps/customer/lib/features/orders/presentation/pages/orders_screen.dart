@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart'
-    show orderRevisionOf, orderRevisionTrackerProvider;
+    show SocketEvent, orderRevisionOf, orderRevisionTrackerProvider;
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -22,6 +22,66 @@ double _parseDouble(dynamic value) {
   if (value == null) return 0.0;
   if (value is num) return value.toDouble();
   return double.tryParse(value.toString()) ?? 0.0;
+}
+
+Map<String, dynamic>? _resolveGroupDriver(Map<String, dynamic> order) {
+  final groups = order['deliveryGroups'];
+  if (groups is! List) return null;
+  for (final g in groups) {
+    if (g is! Map) continue;
+    if (g['status']?.toString() == 'CANCELLED') continue;
+    final drv = g['primaryDriver'] ?? g['driver'];
+    if (drv is Map) return Map<String, dynamic>.from(drv);
+  }
+  return null;
+}
+
+bool _hasPendingReviews(Map<String, dynamic> order) {
+  final reviewsRaw = order['reviews'];
+  if (reviewsRaw is! List) {
+    return order['review'] == null;
+  }
+  final reviews = reviewsRaw.whereType<Map>().toList();
+  final ratedFulfillments = reviews
+      .map((r) => r['fulfillmentId']?.toString())
+      .whereType<String>()
+      .toSet();
+  final ratedGroups = reviews
+      .map((r) => r['deliveryGroupId']?.toString())
+      .whereType<String>()
+      .toSet();
+
+  final fulfillments = order['vendorFulfillments'];
+  if (fulfillments is List && fulfillments.isNotEmpty) {
+    final anyUnratedFulfillment = fulfillments.whereType<Map>().any((f) {
+      final fid = f['id']?.toString();
+      final status = f['status']?.toString() ?? '';
+      return fid != null &&
+          status != 'REJECTED' &&
+          status != 'CANCELLED' &&
+          !ratedFulfillments.contains(fid);
+    });
+    if (anyUnratedFulfillment) return true;
+  }
+
+  final groups = order['deliveryGroups'];
+  if (groups is List && groups.isNotEmpty) {
+    final anyUnratedGroup = groups.whereType<Map>().any((g) {
+      final gid = g['id']?.toString();
+      final status = g['status']?.toString() ?? '';
+      final driver = g['primaryDriver'] ?? g['driver'];
+      final hasDriver = g['primaryDriverId'] != null ||
+          (driver is Map && driver['id'] != null);
+      return gid != null &&
+          status == 'DELIVERED' &&
+          hasDriver &&
+          !ratedGroups.contains(gid);
+    });
+    if (anyUnratedGroup) return true;
+    return false;
+  }
+
+  return reviews.isEmpty && order['review'] == null;
 }
 
 class OrdersScreen extends ConsumerStatefulWidget {
@@ -82,7 +142,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   final ScrollController _pastScrollController = ScrollController();
   late final void Function(dynamic) _socketHandler;
   StreamSubscription<dynamic>? _statusSub;
-  StreamSubscription<dynamic>? _updatedSub;
+  StreamSubscription<dynamic>? _fulfillmentSub;
+  StreamSubscription<dynamic>? _assistSub;
   final Map<String, XFile?> _receiptFiles = {};
 
   @override
@@ -99,7 +160,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         // an out-of-order delivery cannot flip a card back to a past status.
         final revisions = ref.read(orderRevisionTrackerProvider);
         if (!revisions.accept(orderId, orderRevisionOf(data))) return;
-        final newStatus = data['newStatus'] ?? data['status'];
+        final newStatus = data['newStatus'] ??
+            data['status'] ??
+            data['orderStatus'] ??
+            data['parentStatus'];
         if (newStatus != null) {
           ref.read(ordersProvider.notifier).updateOrderStatusFast(orderId, newStatus.toString());
         }
@@ -126,15 +190,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   void _setupSockets() {
     final socket = ref.read(socketServiceProvider);
     _statusSub?.cancel();
-    _updatedSub?.cancel();
-    _statusSub = socket.onEvent('order.status').listen(_socketHandler);
-    _updatedSub = socket.onEvent('order.updated').listen(_socketHandler);
+    _fulfillmentSub?.cancel();
+    _assistSub?.cancel();
+    _statusSub = socket.onEvent(SocketEvent.orderStatus.eventName).listen(_socketHandler);
+    _fulfillmentSub = socket
+        .onEvent(SocketEvent.orderFulfillmentUpdated.eventName)
+        .listen(_socketHandler);
+    _assistSub = socket
+        .onEvent(SocketEvent.orderAssistProposed.eventName)
+        .listen(_socketHandler);
   }
 
   @override
   void dispose() {
     _statusSub?.cancel();
-    _updatedSub?.cancel();
+    _fulfillmentSub?.cancel();
+    _assistSub?.cancel();
 
     _tabController.dispose();
     _activeScrollController.dispose();
@@ -424,7 +495,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             ),
             const SizedBox(height: 12),
             ..._visibleDriverWallets(
-                    order['driver']['mobileWallets'] as List)
+                    ((order['driver'] ?? _resolveGroupDriver(order))?['mobileWallets'] as List?) ??
+                        const [])
                 .map((wallet) {
               final walletMap = wallet is Map
                   ? Map<dynamic, dynamic>.from(wallet)
@@ -654,7 +726,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final subtotal = _parseDouble(order['subtotal']);
     
     final rawDeliveryFee = order['deliveryFee'];
-    final deliveryFee = _parseDouble(rawDeliveryFee);
+    final driverBonusFee = _parseDouble(order['driverBonusFee']);
+    final deliveryFee = _parseDouble(rawDeliveryFee) + driverBonusFee;
     
     final rawServiceFee = order['serviceFee'];
     final serviceFee = _parseDouble(rawServiceFee);
@@ -1106,15 +1179,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 ],
               ),
             ] else if (status == 'PENDING_PAYMENT') ...[
-              if (order['driver'] != null && order['driver']['mobileWallets'] != null && (order['driver']['mobileWallets'] as List).isNotEmpty)
+              if (((order['driver'] ?? _resolveGroupDriver(order))?['mobileWallets'] as List?)
+                      ?.isNotEmpty ??
+                  false)
                 ..._buildUpfrontSection(order, s),
             ],
-          ] else if (status == 'DELIVERED' && order['review'] == null) ...[
+          ],
+          if (status == 'DELIVERED' && _hasPendingReviews(order)) ...[
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  RateOrderBottomSheet.show(context, order['id']);
+                  RateOrderBottomSheet.show(
+                    context,
+                    order['id'].toString(),
+                    order: order,
+                  );
                 },
                 icon: const Icon(Icons.star_rate_rounded, size: 20),
                 label: Text(s.isArabic ? 'تقييم الطلب' : 'Rate Order'),

@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **id** | **String** |  | 
 **vendorId** | **String** |  | 
 **orderId** | **String** |  | [optional] 
+**fulfillmentId** | **String** |  | [optional] 
 **type** | [**VendorTransactionType**](VendorTransactionType.md) |  | 
 **amount** | **num** |  | 
 **balanceAfter** | **num** |  | 

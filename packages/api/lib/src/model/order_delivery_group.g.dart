@@ -18,11 +18,31 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
   @override
   final String? primaryDriverId;
   @override
+  final String? primaryDriverShiftId;
+  @override
   final String? assistDriverId;
+  @override
+  final String? assistDriverShiftId;
+  @override
+  final num? assistFee;
+  @override
+  final bool? assistCustomerApproved;
+  @override
+  final DateTime? assistApprovedAt;
+  @override
+  final bool isStacked;
+  @override
+  final bool isPaymentCollector;
+  @override
+  final String? assignedByUserId;
+  @override
+  final DateTime? assignedAt;
   @override
   final num? distanceKm;
   @override
   final num deliveryFee;
+  @override
+  final num? estimatedPrepTime;
   @override
   final String? pickupImageUrl;
   @override
@@ -35,6 +55,8 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
   final Driver? primaryDriver;
   @override
   final Driver? assistDriver;
+  @override
+  final BuiltList<OrderDeliveryGroupItem>? items;
 
   factory _$OrderDeliveryGroup([
     void Function(OrderDeliveryGroupBuilder)? updates,
@@ -46,15 +68,26 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
     required this.sequence,
     required this.status,
     this.primaryDriverId,
+    this.primaryDriverShiftId,
     this.assistDriverId,
+    this.assistDriverShiftId,
+    this.assistFee,
+    this.assistCustomerApproved,
+    this.assistApprovedAt,
+    required this.isStacked,
+    required this.isPaymentCollector,
+    this.assignedByUserId,
+    this.assignedAt,
     this.distanceKm,
     required this.deliveryFee,
+    this.estimatedPrepTime,
     this.pickupImageUrl,
     this.deliveryImageUrl,
     this.pickedUpAt,
     this.deliveredAt,
     this.primaryDriver,
     this.assistDriver,
+    this.items,
   }) : super._();
   @override
   OrderDeliveryGroup rebuild(
@@ -74,15 +107,26 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
         sequence == other.sequence &&
         status == other.status &&
         primaryDriverId == other.primaryDriverId &&
+        primaryDriverShiftId == other.primaryDriverShiftId &&
         assistDriverId == other.assistDriverId &&
+        assistDriverShiftId == other.assistDriverShiftId &&
+        assistFee == other.assistFee &&
+        assistCustomerApproved == other.assistCustomerApproved &&
+        assistApprovedAt == other.assistApprovedAt &&
+        isStacked == other.isStacked &&
+        isPaymentCollector == other.isPaymentCollector &&
+        assignedByUserId == other.assignedByUserId &&
+        assignedAt == other.assignedAt &&
         distanceKm == other.distanceKm &&
         deliveryFee == other.deliveryFee &&
+        estimatedPrepTime == other.estimatedPrepTime &&
         pickupImageUrl == other.pickupImageUrl &&
         deliveryImageUrl == other.deliveryImageUrl &&
         pickedUpAt == other.pickedUpAt &&
         deliveredAt == other.deliveredAt &&
         primaryDriver == other.primaryDriver &&
-        assistDriver == other.assistDriver;
+        assistDriver == other.assistDriver &&
+        items == other.items;
   }
 
   @override
@@ -93,15 +137,26 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
     _$hash = $jc(_$hash, sequence.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, primaryDriverId.hashCode);
+    _$hash = $jc(_$hash, primaryDriverShiftId.hashCode);
     _$hash = $jc(_$hash, assistDriverId.hashCode);
+    _$hash = $jc(_$hash, assistDriverShiftId.hashCode);
+    _$hash = $jc(_$hash, assistFee.hashCode);
+    _$hash = $jc(_$hash, assistCustomerApproved.hashCode);
+    _$hash = $jc(_$hash, assistApprovedAt.hashCode);
+    _$hash = $jc(_$hash, isStacked.hashCode);
+    _$hash = $jc(_$hash, isPaymentCollector.hashCode);
+    _$hash = $jc(_$hash, assignedByUserId.hashCode);
+    _$hash = $jc(_$hash, assignedAt.hashCode);
     _$hash = $jc(_$hash, distanceKm.hashCode);
     _$hash = $jc(_$hash, deliveryFee.hashCode);
+    _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
     _$hash = $jc(_$hash, pickupImageUrl.hashCode);
     _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
     _$hash = $jc(_$hash, pickedUpAt.hashCode);
     _$hash = $jc(_$hash, deliveredAt.hashCode);
     _$hash = $jc(_$hash, primaryDriver.hashCode);
     _$hash = $jc(_$hash, assistDriver.hashCode);
+    _$hash = $jc(_$hash, items.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -114,15 +169,26 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
           ..add('sequence', sequence)
           ..add('status', status)
           ..add('primaryDriverId', primaryDriverId)
+          ..add('primaryDriverShiftId', primaryDriverShiftId)
           ..add('assistDriverId', assistDriverId)
+          ..add('assistDriverShiftId', assistDriverShiftId)
+          ..add('assistFee', assistFee)
+          ..add('assistCustomerApproved', assistCustomerApproved)
+          ..add('assistApprovedAt', assistApprovedAt)
+          ..add('isStacked', isStacked)
+          ..add('isPaymentCollector', isPaymentCollector)
+          ..add('assignedByUserId', assignedByUserId)
+          ..add('assignedAt', assignedAt)
           ..add('distanceKm', distanceKm)
           ..add('deliveryFee', deliveryFee)
+          ..add('estimatedPrepTime', estimatedPrepTime)
           ..add('pickupImageUrl', pickupImageUrl)
           ..add('deliveryImageUrl', deliveryImageUrl)
           ..add('pickedUpAt', pickedUpAt)
           ..add('deliveredAt', deliveredAt)
           ..add('primaryDriver', primaryDriver)
-          ..add('assistDriver', assistDriver))
+          ..add('assistDriver', assistDriver)
+          ..add('items', items))
         .toString();
   }
 }
@@ -152,10 +218,52 @@ class OrderDeliveryGroupBuilder
   set primaryDriverId(String? primaryDriverId) =>
       _$this._primaryDriverId = primaryDriverId;
 
+  String? _primaryDriverShiftId;
+  String? get primaryDriverShiftId => _$this._primaryDriverShiftId;
+  set primaryDriverShiftId(String? primaryDriverShiftId) =>
+      _$this._primaryDriverShiftId = primaryDriverShiftId;
+
   String? _assistDriverId;
   String? get assistDriverId => _$this._assistDriverId;
   set assistDriverId(String? assistDriverId) =>
       _$this._assistDriverId = assistDriverId;
+
+  String? _assistDriverShiftId;
+  String? get assistDriverShiftId => _$this._assistDriverShiftId;
+  set assistDriverShiftId(String? assistDriverShiftId) =>
+      _$this._assistDriverShiftId = assistDriverShiftId;
+
+  num? _assistFee;
+  num? get assistFee => _$this._assistFee;
+  set assistFee(num? assistFee) => _$this._assistFee = assistFee;
+
+  bool? _assistCustomerApproved;
+  bool? get assistCustomerApproved => _$this._assistCustomerApproved;
+  set assistCustomerApproved(bool? assistCustomerApproved) =>
+      _$this._assistCustomerApproved = assistCustomerApproved;
+
+  DateTime? _assistApprovedAt;
+  DateTime? get assistApprovedAt => _$this._assistApprovedAt;
+  set assistApprovedAt(DateTime? assistApprovedAt) =>
+      _$this._assistApprovedAt = assistApprovedAt;
+
+  bool? _isStacked;
+  bool? get isStacked => _$this._isStacked;
+  set isStacked(bool? isStacked) => _$this._isStacked = isStacked;
+
+  bool? _isPaymentCollector;
+  bool? get isPaymentCollector => _$this._isPaymentCollector;
+  set isPaymentCollector(bool? isPaymentCollector) =>
+      _$this._isPaymentCollector = isPaymentCollector;
+
+  String? _assignedByUserId;
+  String? get assignedByUserId => _$this._assignedByUserId;
+  set assignedByUserId(String? assignedByUserId) =>
+      _$this._assignedByUserId = assignedByUserId;
+
+  DateTime? _assignedAt;
+  DateTime? get assignedAt => _$this._assignedAt;
+  set assignedAt(DateTime? assignedAt) => _$this._assignedAt = assignedAt;
 
   num? _distanceKm;
   num? get distanceKm => _$this._distanceKm;
@@ -164,6 +272,11 @@ class OrderDeliveryGroupBuilder
   num? _deliveryFee;
   num? get deliveryFee => _$this._deliveryFee;
   set deliveryFee(num? deliveryFee) => _$this._deliveryFee = deliveryFee;
+
+  num? _estimatedPrepTime;
+  num? get estimatedPrepTime => _$this._estimatedPrepTime;
+  set estimatedPrepTime(num? estimatedPrepTime) =>
+      _$this._estimatedPrepTime = estimatedPrepTime;
 
   String? _pickupImageUrl;
   String? get pickupImageUrl => _$this._pickupImageUrl;
@@ -193,6 +306,12 @@ class OrderDeliveryGroupBuilder
   set assistDriver(DriverBuilder? assistDriver) =>
       _$this._assistDriver = assistDriver;
 
+  ListBuilder<OrderDeliveryGroupItem>? _items;
+  ListBuilder<OrderDeliveryGroupItem> get items =>
+      _$this._items ??= ListBuilder<OrderDeliveryGroupItem>();
+  set items(ListBuilder<OrderDeliveryGroupItem>? items) =>
+      _$this._items = items;
+
   OrderDeliveryGroupBuilder() {
     OrderDeliveryGroup._defaults(this);
   }
@@ -205,15 +324,26 @@ class OrderDeliveryGroupBuilder
       _sequence = $v.sequence;
       _status = $v.status;
       _primaryDriverId = $v.primaryDriverId;
+      _primaryDriverShiftId = $v.primaryDriverShiftId;
       _assistDriverId = $v.assistDriverId;
+      _assistDriverShiftId = $v.assistDriverShiftId;
+      _assistFee = $v.assistFee;
+      _assistCustomerApproved = $v.assistCustomerApproved;
+      _assistApprovedAt = $v.assistApprovedAt;
+      _isStacked = $v.isStacked;
+      _isPaymentCollector = $v.isPaymentCollector;
+      _assignedByUserId = $v.assignedByUserId;
+      _assignedAt = $v.assignedAt;
       _distanceKm = $v.distanceKm;
       _deliveryFee = $v.deliveryFee;
+      _estimatedPrepTime = $v.estimatedPrepTime;
       _pickupImageUrl = $v.pickupImageUrl;
       _deliveryImageUrl = $v.deliveryImageUrl;
       _pickedUpAt = $v.pickedUpAt;
       _deliveredAt = $v.deliveredAt;
       _primaryDriver = $v.primaryDriver?.toBuilder();
       _assistDriver = $v.assistDriver?.toBuilder();
+      _items = $v.items?.toBuilder();
       _$v = null;
     }
     return this;
@@ -259,19 +389,38 @@ class OrderDeliveryGroupBuilder
               'status',
             ),
             primaryDriverId: primaryDriverId,
+            primaryDriverShiftId: primaryDriverShiftId,
             assistDriverId: assistDriverId,
+            assistDriverShiftId: assistDriverShiftId,
+            assistFee: assistFee,
+            assistCustomerApproved: assistCustomerApproved,
+            assistApprovedAt: assistApprovedAt,
+            isStacked: BuiltValueNullFieldError.checkNotNull(
+              isStacked,
+              r'OrderDeliveryGroup',
+              'isStacked',
+            ),
+            isPaymentCollector: BuiltValueNullFieldError.checkNotNull(
+              isPaymentCollector,
+              r'OrderDeliveryGroup',
+              'isPaymentCollector',
+            ),
+            assignedByUserId: assignedByUserId,
+            assignedAt: assignedAt,
             distanceKm: distanceKm,
             deliveryFee: BuiltValueNullFieldError.checkNotNull(
               deliveryFee,
               r'OrderDeliveryGroup',
               'deliveryFee',
             ),
+            estimatedPrepTime: estimatedPrepTime,
             pickupImageUrl: pickupImageUrl,
             deliveryImageUrl: deliveryImageUrl,
             pickedUpAt: pickedUpAt,
             deliveredAt: deliveredAt,
             primaryDriver: _primaryDriver?.build(),
             assistDriver: _assistDriver?.build(),
+            items: _items?.build(),
           );
     } catch (_) {
       late String _$failedField;
@@ -280,6 +429,8 @@ class OrderDeliveryGroupBuilder
         _primaryDriver?.build();
         _$failedField = 'assistDriver';
         _assistDriver?.build();
+        _$failedField = 'items';
+        _items?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
           r'OrderDeliveryGroup',

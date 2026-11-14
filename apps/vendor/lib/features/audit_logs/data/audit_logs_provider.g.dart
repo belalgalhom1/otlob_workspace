@@ -33,7 +33,7 @@ final class AuditLogsProvider
   AuditLogs create() => AuditLogs();
 }
 
-String _$auditLogsHash() => r'e5a23ca4cd715fc32cbdeff0fa5a465d2f8db2b6';
+String _$auditLogsHash() => r'99a1f722a9a4d541a71eb2b44e4f85ad3bc3791b';
 
 abstract class _$AuditLogs extends $AsyncNotifier<AuditLogsState> {
   FutureOr<AuditLogsState> build();
