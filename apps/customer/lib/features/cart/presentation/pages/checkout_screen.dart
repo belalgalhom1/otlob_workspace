@@ -729,32 +729,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       );
                     }),
-                    if (est != null && ((est['isSplit'] == true) || ((est['deliveryCount'] as num? ?? 1) > 1)))
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_shipping_outlined, color: Colors.blue, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                s.isArabic
-                                    ? 'سيتم توصيل هذا الطلب عبر ${est['deliveryCount']} شحنات منفصلة لضمان سرعة التوصيل.'
-                                    : 'This order will be delivered in ${est['deliveryCount']} separate shipments for faster delivery.',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                  ] else ...[
+                    if (((est?['branchCount'] as num?)?.toInt() ?? 1) > 1) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${s.isArabic ? 'فروع التجهيز:' : 'Pickup Branches:'} ${est!['branchCount']}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : Colors.black87,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                  ] else ...[
-                    if (branchName != null && branchName.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                    ] else if (branchName != null && branchName.isNotEmpty) ...[
                       Row(
                         children: [
                           const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
@@ -810,6 +804,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ),
                         )),
                   ],
+                  if (est != null && ((est['isSplit'] == true) || ((est['deliveryCount'] as num? ?? 1) > 1)))
+                    Container(
+                      margin: const EdgeInsets.only(top: 4, bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.local_shipping_outlined, color: Colors.blue, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              s.isArabic
+                                  ? 'سيتم توصيل هذا الطلب عبر ${est['deliveryCount']} شحنات منفصلة لضمان سرعة التوصيل.'
+                                  : 'This order will be delivered in ${est['deliveryCount']} separate shipments for faster delivery.',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const Divider(),
                   _priceRow(
                       s.isArabic ? 'إجمالي المنتجات' : 'Items Subtotal',
@@ -818,7 +836,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   _priceRow(
                       s.isArabic ? 'رسوم التوصيل' : 'Delivery Fee',
                       hasEstimate
-                          ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}${isMultiVendor && (est['deliveryCount'] as num? ?? 1) > 1 ? ' (${est['deliveryCount']} ${s.isArabic ? 'شحنات' : 'trips'})' : ''}'
+                          ? '${deliveryFee.toStringAsFixed(0)} ${s.egp}${(est['deliveryCount'] as num? ?? 1) > 1 ? ' (${est['deliveryCount']} ${s.isArabic ? 'شحنات' : 'trips'})' : ''}'
                           : (_isEstimating ? '...' : '--')),
                   if (serviceFee > 0) ...[
                     const SizedBox(height: 6),

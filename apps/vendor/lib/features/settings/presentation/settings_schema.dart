@@ -717,13 +717,13 @@ const List<SettingsSection> platformSettingsSections = [
       SettingsField(
         key: 'maxMultiVendorVendors',
         kind: SettingsFieldKind.number,
-        suffix: 'متجر',
-        labelAr: 'الحد الأقصى لمتاجر الطلب المجمع',
-        labelEn: 'Max Vendors Per Multi-Vendor Order',
+        suffix: 'متجر/فرع',
+        labelAr: 'الحد الأقصى للمتاجر أو الفروع بالطلب',
+        labelEn: 'Max Stores or Branches Per Order',
         helpAr:
-            'أقصى عدد متاجر أو فروع يمكن للعميل جمعها في طلب واحد متعدد المتاجر (1 إلى 20؛ وضع 1 يعطّل الطلب المجمع، والافتراضي 5).',
+            'أقصى عدد للمتاجر أو الفروع المختلفة (نقاط الاستلام) المسموح بها في الطلب الواحد (1 إلى 20؛ وضع 1 يقتصر على متجر واحد وفرع واحد فقط، والافتراضي 5).',
         helpEn:
-            'Maximum unique stores/branches allowed in a single multi-vendor order (1-20; set to 1 to disable multi-vendor checkout, default 5).',
+            'Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch, default 5).',
       ),
       SettingsField(
         key: 'groupingMaxBranchDistanceKm',

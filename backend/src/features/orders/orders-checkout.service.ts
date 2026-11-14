@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -13,6 +14,8 @@ import {
 } from './orders.repository';
 import { CartService } from '../cart/cart.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
 import {
   PlaceOrderDto,
   PlaceCustomOrderDto,
@@ -41,7 +44,16 @@ export class OrdersCheckoutService {
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    @Optional() private readonly multiVendorService?: OrdersMultiVendorService,
+    @Optional() private readonly activePolicyHelper?: OrderActivePolicyHelper,
   ) {}
+
+  private get activePolicy(): OrderActivePolicyHelper {
+    return (
+      this.activePolicyHelper ??
+      new OrderActivePolicyHelper(this.prisma, this.platformSettings)
+    );
+  }
 
   async placeOrder(
     actor: JwtAccessPayload,
@@ -73,7 +85,19 @@ export class OrdersCheckoutService {
       dto.coinsToUse,
       coinBalance,
       this.productIdsFromItems(cart.items),
+      true,
     );
+
+    if (money.requiresMultiBranch && this.multiVendorService) {
+      return this.multiVendorService.placeSingleVendorMultiBranch(
+        actor,
+        dto,
+        idempotencyKey,
+      );
+    }
+    if (money.requiresMultiBranch) {
+      throw new BadRequestException(OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH);
+    }
 
     await this.cartService.assertItemsAvailableAtBranch(
       cart.items,
@@ -187,7 +211,15 @@ export class OrdersCheckoutService {
       dto.coinsToUse,
       coinBalance,
       this.productIdsFromItems(cart.items),
+      true,
     );
+
+    if (money.requiresMultiBranch && this.multiVendorService) {
+      return this.multiVendorService.estimateSingleVendorMultiBranch(actor, dto);
+    }
+    if (money.requiresMultiBranch) {
+      throw new BadRequestException(OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH);
+    }
 
     await this.cartService.assertItemsAvailableAtBranch(
       cart.items,
@@ -252,6 +284,7 @@ export class OrdersCheckoutService {
     coinsToUse: number | undefined,
     coinBalance: number | null,
     productIds: string[] = [],
+    allowMultiBranchFallback = false,
   ) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
@@ -292,6 +325,9 @@ export class OrdersCheckoutService {
     // customer's delivery zone, so a returned branch is always in that zone.
     // It also requires every cart product to be available at that branch.
     if (!branch) {
+      if (allowMultiBranchFallback && productIds.length > 0 && this.multiVendorService) {
+        return { requiresMultiBranch: true as const };
+      }
       if (productIds.length > 0) {
         const anyOpenBranch =
           await this.ordersRepository.getNearestOpenBranchLocation(
@@ -408,6 +444,7 @@ export class OrdersCheckoutService {
     }
 
     return {
+      requiresMultiBranch: false as const,
       vendor,
       zone,
       branch,
@@ -873,43 +910,6 @@ export class OrdersCheckoutService {
   }
 
   async validateActiveOrderLimit(customerId: string) {
-    const settings = await this.platformSettings.getSettings();
-
-    const policy = {
-      maxActive: settings.maxActiveOrdersPerCustomer,
-      requirePriorDelivery: settings.requirePriorDeliveryForMultipleOrders,
-    };
-
-    // 1. Get the current active order count
-    const activeCount = await this.prisma.order.count({
-      where: {
-        customerId,
-        status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
-      },
-    });
-
-    // Fast path: if 0 active orders, they are always allowed to place a new one.
-    // The in-tx re-check in createOrder remains authoritative for races.
-    if (activeCount === 0) return policy;
-
-    if (activeCount >= policy.maxActive) {
-      throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
-    }
-
-    if (policy.requirePriorDelivery) {
-      const hasCompletedOrder = await this.prisma.order.findFirst({
-        where: {
-          customerId,
-          status: OrderStatus.DELIVERED,
-        },
-        select: { id: true },
-      });
-
-      if (!hasCompletedOrder) {
-        throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
-      }
-    }
-
-    return policy;
+    return this.activePolicy.validateActiveOrderLimit(customerId);
   }
 }

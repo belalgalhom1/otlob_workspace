@@ -844,18 +844,8 @@ export class OrderRoleProjector {
     }));
 
     if (isMultiVendorOrder && fulfillments.length > 1) {
-      const storeNamesAr = fulfillments
-        .map(
-          (f: any) =>
-            f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name,
-        )
-        .filter(Boolean);
-      const storeNamesEn = fulfillments
-        .map(
-          (f: any) =>
-            f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name,
-        )
-        .filter(Boolean);
+      const storeNamesAr = this.formatFulfillmentNames(fulfillments, true);
+      const storeNamesEn = this.formatFulfillmentNames(fulfillments, false);
 
       vendor = {
         id: 'multi-vendor',
@@ -950,5 +940,40 @@ export class OrderRoleProjector {
       cashToPay: toPay,
       pickedUpAt: f.pickedUpAt ?? null,
     };
+  }
+
+  private formatFulfillmentNames(
+    fulfillments: any[],
+    preferAr: boolean,
+  ): string[] {
+    const countsByVendor = new Map<string, number>();
+    for (const f of fulfillments) {
+      if (f?.vendorId) {
+        countsByVendor.set(
+          f.vendorId,
+          (countsByVendor.get(f.vendorId) ?? 0) + 1,
+        );
+      }
+    }
+    const labels: string[] = [];
+    for (const f of fulfillments) {
+      const storeName = preferAr
+        ? (f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name)
+        : (f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name);
+      if (!storeName) continue;
+      const isRepeatedVendor =
+        f.vendorId && (countsByVendor.get(f.vendorId) ?? 0) > 1;
+      const branchName = preferAr
+        ? (f.vendorBranch?.nameAr ?? f.vendorBranch?.name)
+        : (f.vendorBranch?.name ?? f.vendorBranch?.nameAr);
+      const label =
+        isRepeatedVendor && branchName
+          ? `${String(storeName).trim()} (${String(branchName).trim()})`
+          : String(storeName).trim();
+      if (!labels.includes(label)) {
+        labels.push(label);
+      }
+    }
+    return labels;
   }
 }

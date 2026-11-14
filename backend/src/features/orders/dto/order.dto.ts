@@ -21,7 +21,7 @@ import {
   OrderType,
   VehicleType,
 } from '@prisma/client';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PlaceOrderDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
@@ -99,6 +99,21 @@ export class OrderFeeEstimateDto {
 
   @ApiProperty()
   upfrontAmount!: number;
+
+  @ApiPropertyOptional()
+  subtotal?: number;
+
+  @ApiPropertyOptional()
+  isSplit?: boolean;
+
+  @ApiPropertyOptional()
+  vendorCount?: number;
+
+  @ApiPropertyOptional()
+  branchCount?: number;
+
+  @ApiPropertyOptional()
+  deliveryCount?: number;
 }
 
 export class PlaceCustomOrderDto {

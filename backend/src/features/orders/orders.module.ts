@@ -17,6 +17,8 @@ import { OrderSettlementService } from './order-settlement.service';
 import { StockService } from './helpers/stock.service';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import { OrderRejectionRecomputor } from './helpers/order-rejection-recomputor';
+import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
+import { BranchAllocatorHelper } from './helpers/branch-allocator.helper';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
 import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
@@ -48,6 +50,8 @@ import { ORDER_ASSIST_CANCELLATION_PORT } from '../../common/orders/order-assist
     StockService,
     OrderAuthorizationHelper,
     OrderRejectionRecomputor,
+    OrderActivePolicyHelper,
+    BranchAllocatorHelper,
     OrderCancellationService,
     DeliveryGroupTransitionService,
     FulfillmentTransitionService,
@@ -77,6 +81,8 @@ import { ORDER_ASSIST_CANCELLATION_PORT } from '../../common/orders/order-assist
     StockService,
     OrderAuthorizationHelper,
     OrderRejectionRecomputor,
+    OrderActivePolicyHelper,
+    BranchAllocatorHelper,
     OrderCancellationService,
     DeliveryGroupTransitionService,
     FulfillmentTransitionService,

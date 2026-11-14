@@ -378,7 +378,7 @@ export class UpdatePlatformSettingsDto {
     minimum: 1,
     maximum: 20,
     description:
-      'Maximum unique vendors/branches allowed in a single multi-vendor order (1-20; setting 1 disables multi-vendor checkout). Default 5.',
+      'Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch). Default 5.',
   })
   @IsInt()
   @Min(1)

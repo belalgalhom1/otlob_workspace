@@ -952,16 +952,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         order['myFulfillmentStatus'] != null;
     String? multiVendorStoresText;
     if (isMultiVendor) {
+      final countsByVendor = <String, int>{};
+      for (final f in fulfillments) {
+        if (f is Map && f['vendorId'] != null) {
+          final vid = f['vendorId'].toString();
+          countsByVendor[vid] = (countsByVendor[vid] ?? 0) + 1;
+        }
+      }
       final names = <String>[];
       for (final f in fulfillments) {
         if (f is Map) {
           final v = f['vendor'] as Map<String, dynamic>?;
+          final b = f['vendorBranch'] as Map<String, dynamic>?;
           if (v != null) {
             final sName = isArabic
                 ? (v['storeNameAr'] ?? v['storeName'])
                 : (v['storeName'] ?? v['storeNameAr']);
-            if (sName != null && sName.toString().trim().isNotEmpty && !names.contains(sName.toString().trim())) {
-              names.add(sName.toString().trim());
+            if (sName != null && sName.toString().trim().isNotEmpty) {
+              final vid = f['vendorId']?.toString();
+              final isRepeatedVendor =
+                  vid != null && (countsByVendor[vid] ?? 0) > 1;
+              final bName = isArabic
+                  ? (b?['nameAr'] ?? b?['name'])
+                  : (b?['name'] ?? b?['nameAr']);
+              final label = isRepeatedVendor &&
+                      bName != null &&
+                      bName.toString().trim().isNotEmpty
+                  ? '${sName.toString().trim()} (${bName.toString().trim()})'
+                  : sName.toString().trim();
+              if (!names.contains(label)) {
+                names.add(label);
+              }
             }
           }
         }
@@ -2406,7 +2427,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   ? rawFItems
                   : allItems.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
 
-              if (portionItems.isEmpty && (fulfillments.length == 1 || (f['vendorId'] != null && order['vendorId'] == f['vendorId']))) {
+              if (portionItems.isEmpty && fulfillments.length == 1) {
                 portionItems = allItems;
               }
 

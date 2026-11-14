@@ -851,6 +851,22 @@ export class OrdersRepository {
     );
   }
 
+  getOpenBranchesWithProductAvailability(
+    vendorId: string,
+    toLng: number,
+    toLat: number,
+    zoneId?: string,
+    productIds: string[] = [],
+  ) {
+    return this.geo.getOpenBranchesWithProductAvailability(
+      vendorId,
+      toLng,
+      toLat,
+      zoneId,
+      productIds,
+    );
+  }
+
   getDistanceKm(
     fromLng: number,
     fromLat: number,

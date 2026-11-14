@@ -14,9 +14,11 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import { OrdersCheckoutService } from './orders-checkout.service';
+import { PlaceOrderDto } from './dto/order.dto';
 import { OrdersRepository, OrderItemData } from './orders.repository';
 import { StockService } from './helpers/stock.service';
+import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
+import { BranchAllocatorHelper } from './helpers/branch-allocator.helper';
 import {
   OrderGroupingService,
   VendorStop,
@@ -70,16 +72,35 @@ export class OrdersMultiVendorService {
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
     private readonly platformSettings: PlatformSettingsService,
-    private readonly checkoutService: OrdersCheckoutService,
+    private readonly activePolicyOrMock: OrderActivePolicyHelper,
     private readonly ordersRepository: OrdersRepository,
     private readonly grouping: OrderGroupingService,
     private readonly eventEmitter: EventEmitter2,
     private readonly outbox: OutboxService,
     @Optional() private readonly stockService?: StockService,
+    @Optional() private readonly branchAllocatorHelper?: BranchAllocatorHelper,
   ) {}
 
   private get stock(): StockService {
     return this.stockService ?? new StockService();
+  }
+
+  private get activePolicy(): OrderActivePolicyHelper {
+    if (
+      this.activePolicyOrMock &&
+      typeof (this.activePolicyOrMock as any).validateActiveOrderLimit ===
+        'function'
+    ) {
+      return this.activePolicyOrMock;
+    }
+    return new OrderActivePolicyHelper(this.prisma, this.platformSettings);
+  }
+
+  private get branchAllocator(): BranchAllocatorHelper {
+    return (
+      this.branchAllocatorHelper ??
+      new BranchAllocatorHelper(this.ordersRepository, this.cartService)
+    );
   }
 
   // ─── Fee estimate ─────────────────────────────────────────────────────────
@@ -91,11 +112,39 @@ export class OrdersMultiVendorService {
   async estimate(actor: JwtAccessPayload, dto: PlaceMultiVendorOrderDto) {
     const vendorIds = this.normaliseVendorIds(dto.vendorIds);
     const plan = await this.buildPlan(actor, vendorIds, dto);
+    return this.formatEstimate(plan);
+  }
+
+  /**
+   * Price a single-vendor order whose items span 2+ open branches.
+   */
+  async estimateSingleVendorMultiBranch(
+    actor: JwtAccessPayload,
+    dto: PlaceOrderDto,
+  ) {
+    const plan = await this.buildPlan(
+      actor,
+      [dto.vendorId],
+      this.toMultiVendorDto(dto),
+    );
+    return this.formatEstimate(plan);
+  }
+
+  private formatEstimate(plan: Awaited<ReturnType<OrdersMultiVendorService['buildPlan']>>) {
+    const uniqueVendorCount = new Set(plan.portions.map((p) => p.vendorId)).size;
+    const distanceKm = this.round2(
+      Math.max(
+        0,
+        ...plan.grouping.groups.map((g) => g.farthestToCustomerKm),
+      ),
+    );
 
     return {
       subtotal: plan.subtotal,
+      distanceKm,
       deliveryFee: plan.deliveryFee,
       serviceFee: plan.serviceFee,
+      driverBonusFee: plan.driverBonusFee,
       tax: plan.tax,
       coinsUsed: plan.coinsUsed,
       discount: plan.discount,
@@ -103,16 +152,31 @@ export class OrdersMultiVendorService {
       grandTotal: plan.grandTotal,
       upfrontAmount: plan.upfrontAmount,
       isSplit: plan.grouping.isSplit,
-      vendorCount: plan.portions.length,
+      vendorCount: uniqueVendorCount,
+      branchCount: plan.portions.length,
       deliveryCount: plan.grouping.groups.length,
       groups: plan.grouping.groups.map((g) => ({
         sequence: g.sequence,
         vendorIds: g.stops.map((s) => s.vendorId),
+        vendorBranchIds: g.stops
+          .map((s) => s.vendorBranchId)
+          .filter((id): id is string => Boolean(id)),
         deliveryFee: this.feeFor(plan, g.farthestToCustomerKm, g.sequence - 1),
         distanceKm: this.round2(g.farthestToCustomerKm),
         extraVendors: g.extraVendorCount,
         splitReason: g.splitReason,
       })),
+    };
+  }
+
+  private toMultiVendorDto(dto: PlaceOrderDto): PlaceMultiVendorOrderDto {
+    return {
+      vendorIds: [dto.vendorId],
+      paymentMethod: dto.paymentMethod,
+      deliveryAddress: dto.deliveryAddress,
+      deliveryLocation: dto.deliveryLocation,
+      specialRequest: dto.specialRequest,
+      coinsToUse: dto.coinsToUse,
     };
   }
 
@@ -129,6 +193,32 @@ export class OrdersMultiVendorService {
     idempotencyKey?: string,
   ) {
     const vendorIds = this.normaliseVendorIds(dto.vendorIds);
+    return this.executePlaceOrder(actor, vendorIds, dto, idempotencyKey);
+  }
+
+  /**
+   * Place a single-vendor order whose items span 2+ open branches using the
+   * fulfillment + delivery-group pipeline.
+   */
+  async placeSingleVendorMultiBranch(
+    actor: JwtAccessPayload,
+    dto: PlaceOrderDto,
+    idempotencyKey?: string,
+  ) {
+    return this.executePlaceOrder(
+      actor,
+      [dto.vendorId],
+      this.toMultiVendorDto(dto),
+      idempotencyKey,
+    );
+  }
+
+  private async executePlaceOrder(
+    actor: JwtAccessPayload,
+    vendorIds: string[],
+    dto: PlaceMultiVendorOrderDto,
+    idempotencyKey?: string,
+  ) {
     const clientOrderKey = idempotencyKey?.trim() || null;
 
     if (clientOrderKey) {
@@ -146,7 +236,7 @@ export class OrdersMultiVendorService {
     // Same fast-path gate as single-vendor checkout. The authoritative re-check
     // runs inside the transaction below (under the per-customer advisory lock),
     // so two racing checkouts cannot both pass.
-    const activeOrderPolicy = await this.checkoutService.validateActiveOrderLimit(
+    const activeOrderPolicy = await this.activePolicy.validateActiveOrderLimit(
       plan.customerId,
     );
 
@@ -304,13 +394,19 @@ export class OrdersMultiVendorService {
       }
 
       // Vendor portions — the independently fulfillable units.
+      const stopKey = (vendorId: string, branchId?: string | null) =>
+        `${vendorId}:${branchId ?? 'default'}`;
       const fulfillmentIds = new Map<string, string>();
-      for (const portion of plan.portions) {
+      const plannedPortions = plan.portions.map((portion) => {
         const fulfillmentId = randomUUID();
-        const portionKey = portion.vendorBranchId ?? portion.vendorId;
-        fulfillmentIds.set(portionKey, fulfillmentId);
-        fulfillmentIds.set(portion.vendorId, fulfillmentId);
+        fulfillmentIds.set(
+          stopKey(portion.vendorId, portion.vendorBranchId),
+          fulfillmentId,
+        );
+        return { portion, fulfillmentId };
+      });
 
+      for (const { portion, fulfillmentId } of plannedPortions) {
         await tx.orderVendorFulfillment.create({
           data: {
             id: fulfillmentId,
@@ -327,9 +423,7 @@ export class OrdersMultiVendorService {
       }
 
       // Items carry their owning portion (null keeps legacy rows compatible).
-      for (const portion of plan.portions) {
-        const portionKey = portion.vendorBranchId ?? portion.vendorId;
-        const fulfillmentId = fulfillmentIds.get(portionKey)!;
+      for (const { portion, fulfillmentId } of plannedPortions) {
 
         // Allocate an id per item up-front so its options can be attached
         // deterministically (createMany does not preserve/return input order).
@@ -399,9 +493,9 @@ export class OrdersMultiVendorService {
         await tx.orderDeliveryGroupItem.createMany({
           data: group.stops.map((stop, index) => ({
             deliveryGroupId: groupId,
-            fulfillmentId:
-              fulfillmentIds.get(stop.vendorBranchId ?? stop.vendorId) ??
-              fulfillmentIds.get(stop.vendorId)!,
+            fulfillmentId: fulfillmentIds.get(
+              stopKey(stop.vendorId, stop.vendorBranchId),
+            )!,
             sequence: index + 1,
           })),
         });
@@ -477,11 +571,11 @@ export class OrdersMultiVendorService {
     dto: PlaceMultiVendorOrderDto,
   ) {
     const settings = await this.platformSettings.getSettings();
-    const maxVendors = Number(settings.maxMultiVendorVendors ?? 5);
+    const maxStopsLimit = Number(settings.maxMultiVendorVendors ?? 5);
     if (
-      Number.isFinite(maxVendors) &&
-      maxVendors >= 1 &&
-      vendorIds.length > maxVendors
+      Number.isFinite(maxStopsLimit) &&
+      maxStopsLimit >= 1 &&
+      vendorIds.length > maxStopsLimit
     ) {
       throw new BadRequestException(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
     }
@@ -536,84 +630,52 @@ export class OrdersMultiVendorService {
         throw new BadRequestException(OrderErrors.VENDOR_NOT_ACCEPTING);
       }
 
-      const productIds = [
-        ...new Set(
-          cart.items
-            .map((item: any) => item.productId)
-            .filter((id: string | null): id is string => Boolean(id)),
-        ),
-      ];
-      const branch = await this.ordersRepository.getNearestOpenBranchLocation(
+      const branchPortions = await this.branchAllocator.allocateForVendorCart({
         vendorId,
         deliveryLng,
         deliveryLat,
-        zone.id,
-        productIds,
-      );
-      // Every vendor portion needs an open branch inside the zone that can
-      // fulfil all of that vendor's cart lines.
-      if (!branch) {
-        if (productIds.length > 0) {
-          const anyOpenBranch =
-            await this.ordersRepository.getNearestOpenBranchLocation(
-              vendorId,
-              deliveryLng,
-              deliveryLat,
-              zone.id,
-            );
-          if (anyOpenBranch) {
-            throw new BadRequestException(
-              OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH,
-            );
-          }
-        }
-        throw new BadRequestException(OrderErrors.NO_OPEN_BRANCH);
-      }
-
-      await this.cartService.assertItemsAvailableAtBranch(cart.items, branch.id);
-
-      portions.push({
-        vendorId,
-        vendorBranchId: branch.id,
-        commissionRate:
-          branch.commissionRate ??
-          vendor.commissionRate ??
-          settings.defaultCommissionRate ??
-          10,
-        subtotal: cart.subtotal,
-        items: cart.items.map((i: any) => {
-          const rawOptions = i.options ?? i.selectedOptions ?? [];
-          return {
-            productId: i.productId ?? null,
-            variantId: i.variantId ?? null,
-            productName: i.product?.name ?? 'Unknown Product',
-            variantName: i.variant?.name ?? null,
-            unitPrice: Math.round(i.unitPrice),
-            quantity: i.quantity,
-            selectedUnit: i.selectedUnit,
-            baseUnitPrice:
-              Math.round(i.unitPrice) -
-              rawOptions.reduce(
-                (s: number, o: any) => s + Math.round(Number(o.priceAdded)),
-                0,
-              ),
-            totalPrice: Math.round(i.totalPrice),
-            specialRequest: i.specialRequest ?? null,
-            options: rawOptions.map((o: any) => ({
-              optionId: o.id ?? o.optionId,
-              optionName: o.name ?? o.optionName,
-              groupName: o.groupName ?? null,
-              priceAdded: Math.round(Number(o.priceAdded)),
-            })),
-          };
-        }),
-        stop: {
-          vendorId,
-          vendorBranchId: branch.id,
-          lng: branch.lng,
-          lat: branch.lat,
-        },
+        zoneId: zone.id,
+        cart,
       });
+
+      for (const allocated of branchPortions) {
+        portions.push({
+          vendorId,
+          vendorBranchId: allocated.branch.id,
+          commissionRate:
+            allocated.branch.commissionRate ??
+            vendor.commissionRate ??
+            settings.defaultCommissionRate ??
+            10,
+          subtotal: allocated.subtotal,
+          items: this.mapCartItemsToOrderItems(allocated.items),
+          stop: {
+            vendorId,
+            vendorBranchId: allocated.branch.id,
+            lng: allocated.branch.lng,
+            lat: allocated.branch.lat,
+          },
+        });
+      }
+    }
+
+    const uniqueVendorCount = new Set(portions.map((p) => p.vendorId)).size;
+    const uniqueBranchCount = new Set(
+      portions
+        .map((p) => p.vendorBranchId)
+        .filter((id): id is string => Boolean(id)),
+    ).size;
+    const effectiveStopCount = Math.max(
+      uniqueVendorCount,
+      uniqueBranchCount,
+      portions.length,
+    );
+    if (
+      Number.isFinite(maxStopsLimit) &&
+      maxStopsLimit >= 1 &&
+      effectiveStopCount > maxStopsLimit
+    ) {
+      throw new BadRequestException(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
     }
 
     const grouping: GroupingResult = await this.grouping.planForCheckout(
@@ -800,6 +862,35 @@ export class OrdersMultiVendorService {
 
   private round2(n: number): number {
     return Math.round(n * 100) / 100;
+  }
+
+  private mapCartItemsToOrderItems(items: any[]): OrderItemData[] {
+    return items.map((i: any) => {
+      const rawOptions = i.options ?? i.selectedOptions ?? [];
+      return {
+        productId: i.productId ?? null,
+        variantId: i.variantId ?? null,
+        productName: i.product?.name ?? 'Unknown Product',
+        variantName: i.variant?.name ?? null,
+        unitPrice: Math.round(i.unitPrice),
+        quantity: i.quantity,
+        selectedUnit: i.selectedUnit,
+        baseUnitPrice:
+          Math.round(i.unitPrice) -
+          rawOptions.reduce(
+            (s: number, o: any) => s + Math.round(Number(o.priceAdded)),
+            0,
+          ),
+        totalPrice: Math.round(i.totalPrice),
+        specialRequest: i.specialRequest ?? null,
+        options: rawOptions.map((o: any) => ({
+          optionId: o.id ?? o.optionId,
+          optionName: o.name ?? o.optionName,
+          groupName: o.groupName ?? null,
+          priceAdded: Math.round(Number(o.priceAdded)),
+        })),
+      };
+    });
   }
 
   private normaliseVendorIds(ids: string[]): string[] {

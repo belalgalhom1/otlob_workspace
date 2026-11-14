@@ -12,7 +12,10 @@ import {
 import { OrdersStateService } from './orders-state.service';
 import { OrdersService } from './orders.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+import { OrdersCheckoutService } from './orders-checkout.service';
+import { BranchAllocatorHelper } from './helpers/branch-allocator.helper';
 import { OrdersRepository } from './orders.repository';
+import { OrderRoleProjector } from './projections/order-role.projector';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { PlaceMultiVendorOrderDto } from './dto/multi-vendor-order.dto';
 import { EventsProcessor } from '../events/events.processor';
@@ -972,6 +975,499 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       expect(mockPrisma.customer.findUnique).not.toHaveBeenCalled();
       expect(mockCart.validateForCheckout).not.toHaveBeenCalled();
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('allocates minimal nearest open branches cleanly and rejects uncovered products or no open branches', async () => {
+      const mockRepo: any = {
+        getNearestOpenBranchLocation: jest.fn().mockResolvedValue(null),
+        getOpenBranchesWithProductAvailability: jest.fn().mockResolvedValue([
+          {
+            id: 'b1',
+            zoneId: 'z1',
+            lng: 31.31,
+            lat: 30.05,
+            isContracted: true,
+            coveredProductIds: ['pA'],
+          },
+          {
+            id: 'b2',
+            zoneId: 'z1',
+            lng: 31.32,
+            lat: 30.06,
+            isContracted: true,
+            coveredProductIds: ['pB', 'pC'],
+          },
+          {
+            id: 'b3',
+            zoneId: 'z1',
+            lng: 31.35,
+            lat: 30.08,
+            isContracted: true,
+            coveredProductIds: ['pA', 'pB'],
+          },
+        ]),
+      };
+      const mockCart: any = {
+        assertItemsAvailableAtBranch: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const allocator = new BranchAllocatorHelper(mockRepo, mockCart);
+      const result = await allocator.allocateForVendorCart({
+        vendorId: 'v1',
+        deliveryLng: 31.33,
+        deliveryLat: 30.04,
+        zoneId: 'z1',
+        cart: {
+          subtotal: 150,
+          items: [
+            { productId: 'pA', totalPrice: 50 },
+            { productId: 'pB', totalPrice: 60 },
+            { productId: 'pC', totalPrice: 40 },
+          ],
+        },
+      });
+
+      expect(result.map((r) => r.branch.id)).toEqual(['b1', 'b2']);
+      expect(result.map((r) => r.subtotal)).toEqual([50, 100]);
+
+      // Uncovered product across all open branches -> PRODUCT_NOT_AVAILABLE_AT_BRANCH
+      await expect(
+        allocator.allocateForVendorCart({
+          vendorId: 'v1',
+          deliveryLng: 31.33,
+          deliveryLat: 30.04,
+          zoneId: 'z1',
+          cart: {
+            subtotal: 50,
+            items: [{ productId: 'pMissing', totalPrice: 50 }],
+          },
+        }),
+      ).rejects.toThrow(OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH);
+
+      // No open branches -> NO_OPEN_BRANCH
+      mockRepo.getOpenBranchesWithProductAvailability.mockResolvedValue([]);
+      await expect(
+        allocator.allocateForVendorCart({
+          vendorId: 'v1',
+          deliveryLng: 31.33,
+          deliveryLat: 30.04,
+          zoneId: 'z1',
+          cart: {
+            subtotal: 50,
+            items: [{ productId: 'pA', totalPrice: 50 }],
+          },
+        }),
+      ).rejects.toThrow(OrderErrors.NO_OPEN_BRANCH);
+    });
+
+    it('splits single-vendor checkout across branches via OrdersCheckoutService and enforces maxMultiVendorVendors on unique branches', async () => {
+      const createdFulfillments: any[] = [];
+      const createdGroupItems: any[] = [];
+      const createdItemFulfillmentIds: string[] = [];
+
+      const mockRepo: any = {
+        findByClientOrderKeyForUser: jest.fn().mockResolvedValue(null),
+        generateOrderNumber: jest.fn().mockResolvedValue('OTL-SPLIT-1'),
+        findById: jest.fn().mockResolvedValue({ id: 'order-split-1' }),
+        getZoneAtLocation: jest.fn().mockResolvedValue({
+          id: 'zone-1',
+          baseDeliveryFeeOverride: null,
+          minOrderAmountOverride: 0,
+        }),
+        getNearestOpenBranchLocation: jest.fn().mockResolvedValue(null),
+        getOpenBranchesWithProductAvailability: jest.fn().mockResolvedValue([
+          {
+            id: 'b1',
+            zoneId: 'zone-1',
+            lng: 31.31,
+            lat: 30.05,
+            isContracted: true,
+            commissionRate: 10,
+            coveredProductIds: ['p1'],
+          },
+          {
+            id: 'b2',
+            zoneId: 'zone-1',
+            lng: 31.41,
+            lat: 30.15,
+            isContracted: true,
+            commissionRate: 15,
+            coveredProductIds: ['p2'],
+          },
+        ]),
+        getVendorUserIds: jest.fn().mockResolvedValue(['owner-v1']),
+      };
+
+      const mockCart: any = {
+        validateForCheckout: jest.fn().mockResolvedValue({
+          customerId: 'cust-1',
+          coinBalance: 0,
+          cart: {
+            subtotal: 120,
+            items: [
+              {
+                productId: 'p1',
+                variantId: null,
+                unitPrice: 70,
+                quantity: 1,
+                totalPrice: 70,
+                selectedUnit: 'PIECE',
+                product: { name: 'Item Branch 1' },
+                options: [],
+              },
+              {
+                productId: 'p2',
+                variantId: null,
+                unitPrice: 50,
+                quantity: 1,
+                totalPrice: 50,
+                selectedUnit: 'PIECE',
+                product: { name: 'Item Branch 2' },
+                options: [],
+              },
+            ],
+          },
+        }),
+        assertItemsAvailableAtBranch: jest.fn().mockResolvedValue(undefined),
+        clearCart: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const settingsObj: any = {
+        maxMultiVendorVendors: 1,
+        maxActiveOrdersPerCustomer: 5,
+        requirePriorDeliveryForMultipleOrders: false,
+        defaultTaxRate: 0,
+        maxDeliveryRadiusKm: 100,
+        extraVendorDeliveryFee: 10,
+        minOrderAmount: 0,
+      };
+      const mockSettings: any = {
+        getSettings: jest.fn().mockImplementation(async () => settingsObj),
+        calculateDeliveryFee: jest.fn().mockResolvedValue(20),
+      };
+
+      const mockTx: any = {
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        order: {
+          count: jest.fn().mockResolvedValue(0),
+          findFirst: jest.fn(),
+        },
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({
+            status: 'OPEN',
+            deletedAt: null,
+          }),
+        },
+        orderVendorFulfillment: {
+          create: jest.fn().mockImplementation(async ({ data }) => {
+            createdFulfillments.push(data);
+            return data;
+          }),
+        },
+        orderItem: {
+          createMany: jest.fn().mockImplementation(async ({ data }) => {
+            for (const row of data) {
+              createdItemFulfillmentIds.push(row.fulfillmentId);
+            }
+            return { count: data.length };
+          }),
+        },
+        orderItemOption: { createMany: jest.fn() },
+        orderDeliveryGroup: { create: jest.fn().mockResolvedValue({}) },
+        orderDeliveryGroupItem: {
+          createMany: jest.fn().mockImplementation(async ({ data }) => {
+            createdGroupItems.push(...data);
+            return { count: data.length };
+          }),
+        },
+        orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
+      };
+
+      const mockPrisma: any = {
+        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', coinBalance: 0 }) },
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'v1',
+            status: 'OPEN',
+            deletedAt: null,
+            isContracted: true,
+            commissionRate: 10,
+          }),
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'v1', isContracted: true, commissionRate: 10 },
+          ]),
+        },
+        vendorBranch: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'b1', isContracted: true, commissionRate: 10 },
+            { id: 'b2', isContracted: true, commissionRate: 15 },
+          ]),
+        },
+        order: { count: jest.fn().mockResolvedValue(0) },
+        $transaction: jest.fn().mockImplementation(async (cb) => cb(mockTx)),
+      };
+
+      const mockGrouping: any = {
+        planForCheckout: jest.fn().mockImplementation(async (stops) => ({
+          isSplit: stops.length > 1,
+          groups: stops.map((s: any, idx: number) => ({
+            sequence: idx + 1,
+            stops: [s],
+            farthestToCustomerKm: 3,
+            extraVendorCount: 0,
+            splitReason: 'TOO_FAR_APART',
+          })),
+        })),
+      };
+
+      const multiVendorSvc = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        mockSettings,
+        {} as any,
+        mockRepo,
+        mockGrouping,
+        { emit: jest.fn() } as any,
+        { record: jest.fn().mockResolvedValue(undefined) } as any,
+        { decrementForItems: jest.fn().mockResolvedValue(undefined) } as any,
+      );
+
+      const checkoutSvc = new OrdersCheckoutService(
+        mockRepo,
+        mockCart,
+        mockSettings,
+        { emit: jest.fn() } as any,
+        mockPrisma,
+        multiVendorSvc,
+      );
+
+      const actor = { sub: 'user-cust', role: Role.CUSTOMER } as any;
+      const dto: any = {
+        vendorId: 'v1',
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        deliveryAddress: 'Nasr City',
+        deliveryLocation: [31.33, 30.0444],
+      };
+
+      // With limit = 1, spanning 2 branches of v1 is rejected
+      await expect(checkoutSvc.estimateOrder(actor, dto)).rejects.toThrow(
+        OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED,
+      );
+
+      // With limit = 2, estimate & placeOrder succeed with 1 vendor and 2 branch fulfillments
+      settingsObj.maxMultiVendorVendors = 2;
+      const est = await checkoutSvc.estimateOrder(actor, dto);
+      expect(est).toMatchObject({
+        vendorCount: 1,
+        branchCount: 2,
+        deliveryCount: 2,
+        isSplit: true,
+        subtotal: 120,
+      });
+
+      const placed = await checkoutSvc.placeOrder(actor, dto);
+      expect(placed).toEqual({ id: 'order-split-1' });
+      expect(createdFulfillments).toHaveLength(2);
+      expect(createdFulfillments.map((f) => [f.vendorId, f.vendorBranchId])).toEqual([
+        ['v1', 'b1'],
+        ['v1', 'b2'],
+      ]);
+      // Distinct fulfillment IDs preserved for both branches of same vendor
+      expect(new Set(createdItemFulfillmentIds).size).toBe(2);
+      expect(createdGroupItems.map((g) => g.fulfillmentId)).toEqual(
+        createdFulfillments.map((f) => f.id),
+      );
+      expect(mockCart.clearCart).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects multi-vendor checkout when 2 vendors require 3 unique branches and maxMultiVendorVendors is 2', async () => {
+      const mockRepo: any = {
+        findByClientOrderKeyForUser: jest.fn().mockResolvedValue(null),
+        getZoneAtLocation: jest.fn().mockResolvedValue({
+          id: 'zone-1',
+          baseDeliveryFeeOverride: null,
+          minOrderAmountOverride: 0,
+        }),
+        getNearestOpenBranchLocation: jest.fn().mockImplementation(
+          async (vendorId: string) =>
+            vendorId === 'v2'
+              ? {
+                  id: 'b2',
+                  zoneId: 'zone-1',
+                  lng: 31.34,
+                  lat: 30.05,
+                  isContracted: true,
+                }
+              : null,
+        ),
+        getOpenBranchesWithProductAvailability: jest.fn().mockResolvedValue([
+          {
+            id: 'b1a',
+            zoneId: 'zone-1',
+            lng: 31.31,
+            lat: 30.05,
+            isContracted: true,
+            coveredProductIds: ['p1'],
+          },
+          {
+            id: 'b1b',
+            zoneId: 'zone-1',
+            lng: 31.32,
+            lat: 30.06,
+            isContracted: true,
+            coveredProductIds: ['p2'],
+          },
+        ]),
+      };
+
+      const mockCart: any = {
+        validateForCheckout: jest.fn().mockImplementation(async (_u, vid) => ({
+          customerId: 'cust-1',
+          coinBalance: 0,
+          cart:
+            vid === 'v1'
+              ? {
+                  subtotal: 100,
+                  items: [
+                    { productId: 'p1', unitPrice: 50, quantity: 1, totalPrice: 50, options: [] },
+                    { productId: 'p2', unitPrice: 50, quantity: 1, totalPrice: 50, options: [] },
+                  ],
+                }
+              : {
+                  subtotal: 60,
+                  items: [
+                    { productId: 'p3', unitPrice: 60, quantity: 1, totalPrice: 60, options: [] },
+                  ],
+                },
+        })),
+        assertItemsAvailableAtBranch: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const settingsObj: any = {
+        maxMultiVendorVendors: 2,
+        defaultTaxRate: 0,
+        maxDeliveryRadiusKm: 100,
+        extraVendorDeliveryFee: 10,
+        minOrderAmount: 0,
+      };
+      const mockSettings: any = {
+        getSettings: jest.fn().mockImplementation(async () => settingsObj),
+        calculateDeliveryFee: jest.fn().mockResolvedValue(20),
+      };
+
+      const mockPrisma: any = {
+        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', coinBalance: 0 }) },
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({ status: 'OPEN', deletedAt: null, isContracted: true }),
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'v1', isContracted: true },
+            { id: 'v2', isContracted: true },
+          ]),
+        },
+        vendorBranch: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'b1a', isContracted: true },
+            { id: 'b1b', isContracted: true },
+            { id: 'b2', isContracted: true },
+          ]),
+        },
+      };
+
+      const mockGrouping: any = {
+        planForCheckout: jest.fn().mockResolvedValue({
+          isSplit: false,
+          groups: [
+            {
+              sequence: 1,
+              stops: [
+                { vendorId: 'v1', vendorBranchId: 'b1a' },
+                { vendorId: 'v1', vendorBranchId: 'b1b' },
+                { vendorId: 'v2', vendorBranchId: 'b2' },
+              ],
+              farthestToCustomerKm: 4,
+              extraVendorCount: 2,
+              splitReason: 'GROUPED',
+            },
+          ],
+        }),
+      };
+
+      const svc = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        mockSettings,
+        {} as any,
+        mockRepo,
+        mockGrouping,
+        { emit: jest.fn() } as any,
+        {} as any,
+      );
+
+      // 2 unique vendors, 3 unique branches > max 2 -> rejected!
+      await expect(
+        svc.estimate(
+          { sub: 'user-cust', role: Role.CUSTOMER } as any,
+          {
+            vendorIds: ['v1', 'v2'],
+            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+            deliveryAddress: 'Nasr City',
+            deliveryLocation: [31.33, 30.0444],
+          },
+        ),
+      ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
+
+      // Raising limit to 3 allows the 2-vendor / 3-branch checkout
+      settingsObj.maxMultiVendorVendors = 3;
+      const est = await svc.estimate(
+        { sub: 'user-cust', role: Role.CUSTOMER } as any,
+        {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        },
+      );
+      expect(est.vendorCount).toBe(2);
+      expect(est.branchCount).toBe(3);
+    });
+
+    it('formats repeated-vendor multi-branch store labels distinctly in OrderRoleProjector', async () => {
+      const projector = new OrderRoleProjector(
+        {} as any,
+        { getSettings: jest.fn().mockResolvedValue({}) } as any,
+        {} as any,
+        { calculateDriverEarningsForFee: jest.fn().mockReturnValue(20) } as any,
+      );
+
+      const enriched = await projector.enrichWithAdminHelpers({
+        id: 'order-mb-1',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        grandTotal: 200,
+        upfrontAmount: 0,
+        deliveryFee: 30,
+        subtotal: 170,
+        vendorFulfillments: [
+          {
+            id: 'f1',
+            vendorId: 'v1',
+            subtotal: 100,
+            status: 'PENDING',
+            vendor: { storeName: 'Al Baik', storeNameAr: 'البيك', isContracted: true },
+            vendorBranch: { name: 'Nasr City', nameAr: 'مدينة نصر', isContracted: true },
+          },
+          {
+            id: 'f2',
+            vendorId: 'v1',
+            subtotal: 70,
+            status: 'PENDING',
+            vendor: { storeName: 'Al Baik', storeNameAr: 'البيك', isContracted: true },
+            vendorBranch: { name: 'Maadi', nameAr: 'المعادي', isContracted: true },
+          },
+        ],
+      });
+
+      expect(enriched.vendor.storeName).toBe('Al Baik (Nasr City) + Al Baik (Maadi)');
+      expect(enriched.vendor.storeNameAr).toBe('البيك (مدينة نصر) + البيك (المعادي)');
     });
   });
 });

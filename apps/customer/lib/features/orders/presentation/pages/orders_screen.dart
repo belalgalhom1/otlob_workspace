@@ -594,16 +594,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     String? vendorLogoUrl = vendor?['logo'] as String?;
 
     if (fulfillments.length > 1 || (vendor == null && fulfillments.isNotEmpty)) {
+      final countsByVendor = <String, int>{};
+      for (final f in fulfillments) {
+        if (f is Map && f['vendorId'] != null) {
+          final vid = f['vendorId'].toString();
+          countsByVendor[vid] = (countsByVendor[vid] ?? 0) + 1;
+        }
+      }
       final names = <String>[];
       for (final f in fulfillments) {
         if (f is Map) {
           final v = f['vendor'] as Map<String, dynamic>?;
+          final b = f['vendorBranch'] as Map<String, dynamic>?;
           if (v != null) {
             final name = s.isArabic
                 ? (v['storeNameAr'] ?? v['storeName'])
                 : (v['storeName'] ?? v['storeNameAr']);
-            if (name != null && name.toString().trim().isNotEmpty && !names.contains(name.toString().trim())) {
-              names.add(name.toString().trim());
+            if (name != null && name.toString().trim().isNotEmpty) {
+              final vid = f['vendorId']?.toString();
+              final isRepeatedVendor =
+                  vid != null && (countsByVendor[vid] ?? 0) > 1;
+              final bName = s.isArabic
+                  ? (b?['nameAr'] ?? b?['name'])
+                  : (b?['name'] ?? b?['nameAr']);
+              final label = isRepeatedVendor &&
+                      bName != null &&
+                      bName.toString().trim().isNotEmpty
+                  ? '${name.toString().trim()} (${bName.toString().trim()})'
+                  : name.toString().trim();
+              if (!names.contains(label)) {
+                names.add(label);
+              }
             }
             vendorLogoUrl ??= v['logo'] as String?;
           }
