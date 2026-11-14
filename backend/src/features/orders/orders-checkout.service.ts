@@ -49,6 +49,16 @@ export class OrdersCheckoutService {
     idempotencyKey?: string,
   ) {
     const clientOrderKey = idempotencyKey?.trim() || null;
+    if (clientOrderKey) {
+      const existing = await this.ordersRepository.findByClientOrderKeyForUser(
+        clientOrderKey,
+        actor.sub,
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+
     const { customerId, coinBalance, cart } =
       await this.cartService.validateForCheckout(actor.sub, dto.vendorId);
 
@@ -569,6 +579,16 @@ export class OrdersCheckoutService {
     idempotencyKey?: string,
   ) {
     const clientOrderKey = idempotencyKey?.trim() || null;
+    if (clientOrderKey) {
+      const existing = await this.ordersRepository.findByClientOrderKeyForUser(
+        clientOrderKey,
+        actor.sub,
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
       select: { id: true, coinBalance: true },

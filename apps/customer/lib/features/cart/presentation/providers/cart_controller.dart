@@ -53,11 +53,28 @@ class CartState {
 
 @Riverpod(keepAlive: true)
 class Cart extends _$Cart {
+  int _loadEpoch = 0;
+  int _resetEpoch = 0;
+  bool _isDisposed = false;
+  Future<void>? _inFlightLoad;
+
   @override
   CartState build() {
+    _isDisposed = false;
+    _loadEpoch = 0;
+    _resetEpoch = 0;
+    _inFlightLoad = null;
+
+    ref.onDispose(() {
+      _isDisposed = true;
+      _loadEpoch++;
+      _resetEpoch++;
+      _inFlightLoad = null;
+    });
+
     ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
       if (next == AuthStatus.authenticated) {
-        _loadCarts();
+        _loadCarts(force: true);
       } else if (next == AuthStatus.unauthenticated) {
         clearLocal();
       }
@@ -71,6 +88,9 @@ class Cart extends _$Cart {
   }
 
   void clearLocal() {
+    _loadEpoch++;
+    _resetEpoch++;
+    if (_isDisposed) return;
     state = const CartState(vendorBaskets: {}, isLoading: false);
   }
 
@@ -146,7 +166,22 @@ class Cart extends _$Cart {
     return items;
   }
 
-  Future<void> _loadCarts({bool force = false}) async {
+  Future<void> _loadCarts({bool force = false}) {
+    if (!force && _inFlightLoad != null) {
+      return _inFlightLoad!;
+    }
+    final epoch = ++_loadEpoch;
+    late final Future<void> loadFuture;
+    loadFuture = _performLoadCarts(epoch).whenComplete(() {
+      if (identical(_inFlightLoad, loadFuture)) {
+        _inFlightLoad = null;
+      }
+    });
+    _inFlightLoad = loadFuture;
+    return loadFuture;
+  }
+
+  Future<void> _performLoadCarts(int epoch) async {
     final authStatus = ref.read(authControllerProvider);
     if (authStatus == AuthStatus.unauthenticated) {
       clearLocal();
@@ -155,14 +190,18 @@ class Cart extends _$Cart {
     try {
       final authRepo = ref.read(sharedAuthRepositoryProvider);
       final hasSession = await authRepo.isLoggedIn();
+      if (_isDisposed || epoch != _loadEpoch) return;
       if (!hasSession) {
         clearLocal();
         return;
       }
 
-      state = state.copyWith(isLoading: true);
+      if (!state.isLoading) {
+        state = state.copyWith(isLoading: true);
+      }
       final cartRepo = ref.read(customerCartRepositoryProvider);
       final carts = await cartRepo.getMyCarts();
+      if (_isDisposed || epoch != _loadEpoch) return;
 
       final Map<String, List<CartItem>> baskets = {};
 
@@ -175,7 +214,11 @@ class Cart extends _$Cart {
           final vendorJson = cartJson['vendor'] is Map
               ? Map<String, dynamic>.from(cartJson['vendor'] as Map)
               : null;
-          final items = _parseCartItems(cartJson['items'] as List?, vendorId, vendorJson);
+          final items = _parseCartItems(
+            cartJson['items'] as List?,
+            vendorId,
+            vendorJson,
+          );
           if (items.isNotEmpty) {
             baskets[vendorId] = items;
           }
@@ -185,8 +228,57 @@ class Cart extends _$Cart {
       state = CartState(vendorBaskets: baskets, isLoading: false);
     } catch (e, st) {
       debugPrint('Error loading carts: $e\n$st');
-      state = state.copyWith(isLoading: false);
+      if (!_isDisposed && epoch == _loadEpoch) {
+        state = state.copyWith(isLoading: false);
+      }
     }
+  }
+
+  String? _resolveVendorId(CartItem cartItem) {
+    final directVendorId = cartItem.product.vendorId;
+    if (directVendorId != null && directVendorId.isNotEmpty) {
+      return directVendorId;
+    }
+    for (final entry in state.vendorBaskets.entries) {
+      if (entry.value.any((item) =>
+          item.backendId == cartItem.backendId ||
+          item.product.id == cartItem.product.id)) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  void _applyVendorCartResponse(
+    String fallbackVendorId,
+    dynamic response, {
+    String defaultUnit = 'package',
+  }) {
+    if (_isDisposed || response is! Map) return;
+    final updatedCart = Map<String, dynamic>.from(response);
+    final resolvedVendorId =
+        updatedCart['vendorId']?.toString().isNotEmpty == true
+            ? updatedCart['vendorId'].toString()
+            : fallbackVendorId;
+    final vendorJson = updatedCart['vendor'] is Map
+        ? Map<String, dynamic>.from(updatedCart['vendor'] as Map)
+        : null;
+    final items = _parseCartItems(
+      updatedCart['items'] as List?,
+      resolvedVendorId,
+      vendorJson,
+      defaultUnit: defaultUnit,
+    );
+
+    _loadEpoch++;
+    final currentBaskets =
+        Map<String, List<CartItem>>.from(state.vendorBaskets);
+    if (items.isEmpty) {
+      currentBaskets.remove(resolvedVendorId);
+    } else {
+      currentBaskets[resolvedVendorId] = items;
+    }
+    state = state.copyWith(vendorBaskets: currentBaskets);
   }
 
   Future<void> addItem(
@@ -201,6 +293,8 @@ class Cart extends _$Cart {
       return;
     }
 
+    final resetEpoch = _resetEpoch;
+    _loadEpoch++;
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
 
@@ -217,21 +311,8 @@ class Cart extends _$Cart {
         offerMessageId: product['offerMessageId']?.toString(),
       );
 
-      if (response != null && response is Map) {
-        final updatedCart = Map<String, dynamic>.from(response);
-        final vendorJson = updatedCart['vendor'] is Map
-            ? Map<String, dynamic>.from(updatedCart['vendor'] as Map)
-            : null;
-        final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: unit);
-
-        final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
-        if (items.isEmpty) {
-          currentBaskets.remove(vendorId);
-        } else {
-          currentBaskets[vendorId] = items;
-        }
-        state = state.copyWith(vendorBaskets: currentBaskets);
-      }
+      if (_isDisposed || resetEpoch != _resetEpoch) return;
+      _applyVendorCartResponse(vendorId, response, defaultUnit: unit);
     } catch (e) {
       debugPrint('Error adding to cart: $e');
       rethrow;
@@ -244,17 +325,13 @@ class Cart extends _$Cart {
       return;
     }
 
-    String? vendorId = cartItem.product.vendorId;
-    if (vendorId == null || vendorId.isEmpty) {
-      for (final entry in state.vendorBaskets.entries) {
-        if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product.id == cartItem.product.id)) {
-          vendorId = entry.key;
-          break;
-        }
-      }
+    final vendorId = _resolveVendorId(cartItem);
+    if (vendorId == null || vendorId.isEmpty || cartItem.backendId == null) {
+      return;
     }
-    if (vendorId == null || vendorId.isEmpty || cartItem.backendId == null) return;
 
+    final resetEpoch = _resetEpoch;
+    _loadEpoch++;
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
 
@@ -264,21 +341,12 @@ class Cart extends _$Cart {
         quantity: newQuantity,
       );
 
-      if (response != null && response is Map) {
-        final updatedCart = Map<String, dynamic>.from(response);
-        final vendorJson = updatedCart['vendor'] is Map
-            ? Map<String, dynamic>.from(updatedCart['vendor'] as Map)
-            : null;
-        final items = _parseCartItems(updatedCart['items'] as List?, vendorId, vendorJson, defaultUnit: cartItem.selectedUnit);
-
-        final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
-        if (items.isEmpty) {
-          currentBaskets.remove(vendorId);
-        } else {
-          currentBaskets[vendorId] = items;
-        }
-        state = state.copyWith(vendorBaskets: currentBaskets);
-      }
+      if (_isDisposed || resetEpoch != _resetEpoch) return;
+      _applyVendorCartResponse(
+        vendorId,
+        response,
+        defaultUnit: cartItem.selectedUnit,
+      );
     } catch (e) {
       debugPrint('Error updating quantity: $e');
       rethrow;
@@ -286,32 +354,31 @@ class Cart extends _$Cart {
   }
 
   Future<void> _removeItemExact(CartItem cartItem) async {
-    String? vendorId = cartItem.product.vendorId;
-    if (vendorId == null || vendorId.isEmpty) {
-      for (final entry in state.vendorBaskets.entries) {
-        if (entry.value.any((item) => item.backendId == cartItem.backendId || item.product.id == cartItem.product.id)) {
-          vendorId = entry.key;
-          break;
-        }
-      }
+    final vendorId = _resolveVendorId(cartItem);
+    if (vendorId == null || vendorId.isEmpty || cartItem.backendId == null) {
+      return;
     }
-    if (vendorId == null || vendorId.isEmpty || cartItem.backendId == null) return;
 
+    final resetEpoch = _resetEpoch;
+    _loadEpoch++;
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
       await cartRepo.removeItem(vendorId, cartItem.backendId!);
+      if (_isDisposed || resetEpoch != _resetEpoch) return;
 
-      final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
+      _loadEpoch++;
+      final currentBaskets =
+          Map<String, List<CartItem>>.from(state.vendorBaskets);
       final existingItems = currentBaskets[vendorId];
       if (existingItems == null) return;
       final vendorItems = List<CartItem>.from(existingItems);
 
       vendorItems.removeWhere((item) =>
-        (item.backendId != null && item.backendId == cartItem.backendId) ||
-        (item.product.id == cartItem.product.id &&
-            item.variantId == cartItem.variantId &&
-            item.selectedUnit == cartItem.selectedUnit &&
-            item.optionsKey == cartItem.optionsKey));
+          (item.backendId != null && item.backendId == cartItem.backendId) ||
+          (item.product.id == cartItem.product.id &&
+              item.variantId == cartItem.variantId &&
+              item.selectedUnit == cartItem.selectedUnit &&
+              item.optionsKey == cartItem.optionsKey));
 
       if (vendorItems.isEmpty) {
         currentBaskets.remove(vendorId);
@@ -328,17 +395,24 @@ class Cart extends _$Cart {
   void clearLocalBaskets(Iterable<String> vendorIds) {
     final ids = vendorIds.toSet();
     if (ids.isEmpty) return;
+    _loadEpoch++;
+    if (_isDisposed) return;
     final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets)
       ..removeWhere((key, _) => ids.contains(key));
     state = state.copyWith(vendorBaskets: currentBaskets);
   }
 
   Future<void> clearVendorCart(String vendorId) async {
+    final resetEpoch = _resetEpoch;
+    _loadEpoch++;
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
       await cartRepo.clearCart(vendorId);
+      if (_isDisposed || resetEpoch != _resetEpoch) return;
 
-      final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets);
+      _loadEpoch++;
+      final currentBaskets =
+          Map<String, List<CartItem>>.from(state.vendorBaskets);
       currentBaskets.remove(vendorId);
       state = state.copyWith(vendorBaskets: currentBaskets);
     } catch (e) {
@@ -347,6 +421,8 @@ class Cart extends _$Cart {
   }
 
   Future<void> clearCart() async {
+    _loadEpoch++;
+    _resetEpoch++;
     final vendorIds = state.vendorBaskets.keys.toList();
     for (final vendorId in vendorIds) {
       try {
@@ -356,6 +432,8 @@ class Cart extends _$Cart {
         debugPrint('Error clearing vendor cart $vendorId on remote: $e');
       }
     }
+    if (_isDisposed) return;
+    _loadEpoch++;
     state = const CartState(vendorBaskets: {}, isLoading: false);
   }
 }

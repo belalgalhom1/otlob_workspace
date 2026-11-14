@@ -22,13 +22,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   /// Server estimates per vendor basket (same source as checkout).
   final Map<String, Map<String, dynamic>?> _estimates = {};
   final Map<String, bool> _estimating = {};
+  bool _isCheckingOut = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(cartProvider.notifier).loadCarts();
+        ref.read(cartProvider.notifier).loadCarts(force: true);
       }
     });
   }
@@ -147,7 +148,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         onRefresh: () async {
           _estimates.clear();
           _estimating.clear();
-          await ref.read(cartProvider.notifier).loadCarts();
+          await ref.read(cartProvider.notifier).loadCarts(force: true);
         },
         child: cartState.isLoading && activeBaskets.isEmpty
             ? const Center(
@@ -232,9 +233,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
 
     final action = ElevatedButton(
-      onPressed: () => _checkoutAll(context, s, activeBaskets),
+      onPressed: _isCheckingOut ? null : () => _proceedToCheckout(context, s),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
+        disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.7),
         foregroundColor: Colors.black,
         // The global ElevatedButton theme uses an infinite minimum width,
         // which squeezes this button's Row siblings to zero width.
@@ -242,12 +244,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      child: Text(
-        s.isArabic ? 'إتمام طلب الكل' : 'Checkout All',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-      ),
+      child: _isCheckingOut
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: Colors.black,
+              ),
+            )
+          : Text(
+              s.isArabic ? 'إتمام طلب الكل' : 'Checkout All',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
     );
 
     final stacked = _useStackedActions(context);
@@ -282,52 +293,102 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
   }
 
-  void _checkoutAll(
+  Future<void> _proceedToCheckout(
     BuildContext context,
-    AppStrings s,
-    Map<String, List<CartItem>> activeBaskets,
-  ) {
-    final anyClosed = activeBaskets.values.any(
-      (items) =>
-          items.isNotEmpty &&
-          (items.first.product.vendorStatus ?? 'OPEN') != 'OPEN',
-    );
-    if (anyClosed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            s.isArabic
-                ? 'أحد المتاجر في سلتك مغلق حالياً. يرجى إزالة منتجاته للمتابعة'
-                : 'One of the stores in your cart is currently closed. Please remove its items to proceed',
+    AppStrings s, {
+    String? singleVendorId,
+  }) async {
+    if (_isCheckingOut) return;
+    setState(() => _isCheckingOut = true);
+    try {
+      await ref.read(cartProvider.notifier).loadCarts(force: true);
+      if (!mounted || !context.mounted) return;
+
+      final syncedBaskets = <String, List<CartItem>>{};
+      for (final entry in ref.read(cartProvider).vendorBaskets.entries) {
+        if (entry.value.isNotEmpty) {
+          syncedBaskets[entry.key] = entry.value;
+        }
+      }
+
+      final Map<String, List<CartItem>> targetBaskets;
+      if (singleVendorId != null) {
+        final vendorItems = syncedBaskets[singleVendorId];
+        if (vendorItems == null || vendorItems.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(s.emptyCart)),
+          );
+          return;
+        }
+        targetBaskets = {singleVendorId: vendorItems};
+      } else {
+        if (syncedBaskets.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(s.emptyCart)),
+          );
+          return;
+        }
+        targetBaskets = syncedBaskets;
+      }
+
+      final anyClosed = targetBaskets.values.any(
+        (items) =>
+            items.isNotEmpty &&
+            (items.first.product.vendorStatus ?? 'OPEN') != 'OPEN',
+      );
+      if (anyClosed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              singleVendorId != null
+                  ? (s.isArabic
+                      ? 'المتجر مغلق حالياً ولا يستقبل طلبات'
+                      : 'Store is currently closed')
+                  : (s.isArabic
+                      ? 'أحد المتاجر في سلتك مغلق حالياً. يرجى إزالة منتجاته للمتابعة'
+                      : 'One of the stores in your cart is currently closed. Please remove its items to proceed'),
+            ),
+            backgroundColor: Colors.redAccent,
           ),
-          backgroundColor: Colors.redAccent,
+        );
+        return;
+      }
+
+      final anyInactive = targetBaskets.values.any(
+        (items) => items.any(
+          (it) =>
+              !it.product.isActive ||
+              (it.selectedVariant != null && !it.selectedVariant!.isActive),
         ),
       );
-      return;
-    }
-
-    final anyInactive = activeBaskets.values.any(
-      (items) => items.any(
-        (it) =>
-            !it.product.isActive ||
-            (it.selectedVariant != null && !it.selectedVariant!.isActive),
-      ),
-    );
-    if (anyInactive) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            s.isArabic
-                ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
-                : 'Your basket contains unavailable items. Please remove them to proceed.',
+      if (anyInactive) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              singleVendorId != null
+                  ? (s.isArabic
+                      ? 'الرجاء إزالة المنتجات غير المتوفرة للمتابعة'
+                      : 'Please remove unavailable items to proceed')
+                  : (s.isArabic
+                      ? 'يحتوي طلبك على منتجات غير متوفرة حالياً. الرجاء حذفها للمتابعة.'
+                      : 'Your basket contains unavailable items. Please remove them to proceed.'),
+            ),
+            backgroundColor: Colors.redAccent,
           ),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
+        );
+        return;
+      }
 
-    context.push('/checkout', extra: activeBaskets.keys.toList());
+      final targetIds = targetBaskets.keys.toList();
+      context.push(
+        '/checkout',
+        extra: targetIds.length == 1 ? targetIds.first : targetIds,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingOut = false);
+      }
+    }
   }
 
   Widget _buildEmptyCart(BuildContext context, AppStrings s, bool isDark) {
@@ -758,8 +819,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     );
 
                     final checkoutButton = ElevatedButton(
-                      onPressed: canCheckout
-                          ? () => context.push('/checkout', extra: vendorId)
+                      onPressed: _isCheckingOut
+                          ? null
+                          : canCheckout
+                          ? () => _proceedToCheckout(
+                                context,
+                                s,
+                                singleVendorId: vendorId,
+                              )
                           : () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -780,6 +847,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         backgroundColor: canCheckout
                             ? AppColors.primary
                             : Colors.grey,
+                        disabledBackgroundColor: canCheckout
+                            ? AppColors.primary.withValues(alpha: 0.7)
+                            : Colors.grey,
                         foregroundColor: canCheckout
                             ? Colors.black
                             : Colors.white70,
@@ -790,15 +860,24 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        s.checkout,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                        ),
-                      ),
+                      child: _isCheckingOut
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: canCheckout ? Colors.black : Colors.white70,
+                              ),
+                            )
+                          : Text(
+                              s.checkout,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
+                            ),
                     );
 
                     final stacked =

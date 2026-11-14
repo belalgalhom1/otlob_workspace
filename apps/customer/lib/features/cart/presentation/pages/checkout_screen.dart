@@ -27,14 +27,25 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool get isMultiVendor => activeVendorIds.length > 1;
   List<String> get activeVendorIds {
+    final cart = ref.read(cartProvider);
+    final baskets = cart.vendorBaskets;
     if (widget.vendorIds != null && widget.vendorIds!.isNotEmpty) {
-      return widget.vendorIds!;
+      if (cart.isLoading && baskets.isEmpty) {
+        return widget.vendorIds!;
+      }
+      return widget.vendorIds!
+          .where((id) => (baskets[id] ?? const []).isNotEmpty)
+          .toList();
     }
     if (widget.vendorId != null && widget.vendorId!.isNotEmpty) {
-      return [widget.vendorId!];
+      if (cart.isLoading && baskets.isEmpty) {
+        return [widget.vendorId!];
+      }
+      return (baskets[widget.vendorId!] ?? const []).isNotEmpty
+          ? [widget.vendorId!]
+          : const [];
     }
-    final cart = ref.read(cartProvider);
-    return cart.vendorBaskets.entries
+    return baskets.entries
         .where((e) => e.value.isNotEmpty)
         .map((e) => e.key)
         .toList();
@@ -146,12 +157,44 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           _estimateError = resolvedError;
           _isEstimating = false;
         });
-        if (resolvedError.contains('cart.error.is_empty') && !_syncedEmptyCart) {
-          _syncedEmptyCart = true;
-          ref.read(cartProvider.notifier).loadCarts(force: true);
+        if (resolvedError.contains('cart.error.is_empty')) {
+          await _recoverFromEmptyCartError(vendorIds);
         }
       }
     }
+  }
+
+  Future<bool> _recoverFromEmptyCartError(List<String> beforeVendorIds) async {
+    if (_syncedEmptyCart) return false;
+    _syncedEmptyCart = true;
+    await ref.read(cartProvider.notifier).loadCarts(force: true);
+    if (!mounted) return false;
+
+    final remainingVendorIds = activeVendorIds;
+    final shrunk = remainingVendorIds.isNotEmpty &&
+        (remainingVendorIds.length < beforeVendorIds.length ||
+            remainingVendorIds.join(',') != beforeVendorIds.join(','));
+    if (shrunk) {
+      final s = AppStrings.of(context);
+      setState(() {
+        _estimateError = null;
+        _estimate = null;
+        _lastEstimateKey = null;
+        _clientOrderKey = null;
+        _syncedEmptyCart = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.isArabic
+                ? 'تمت إزالة المتاجر الفارغة من الطلب، جاري تحديث الإجمالي...'
+                : 'Removed empty store items from checkout, updating total...',
+          ),
+        ),
+      );
+      return true;
+    }
+    return false;
   }
 
   void _placeOrder(AppStrings s, List<CartItem> vendorItems, int? coinsToUse, Map<String, dynamic>? selectedAddress) async {
@@ -197,70 +240,60 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : null;
 
     final vendorIds = activeVendorIds;
-    if (vendorIds.isEmpty) return;
+    if (vendorIds.isEmpty) {
+      if (mounted) setState(() => _isProcessing = false);
+      return;
+    }
 
-    if (isMultiVendor) {
-      final (errorMsg, orderId) = await ref.read(ordersProvider.notifier).placeMultiVendorOrder(
+    final paymentMethod = _selectedPayment.startsWith('MOBILE_WALLET')
+        ? 'MOBILE_WALLET'
+        : 'CASH_ON_DELIVERY';
+    final address = selectedAddress['address'] ?? s.locationName;
+    final ordersNotifier = ref.read(ordersProvider.notifier);
+
+    final (errorMsg, orderId) = isMultiVendor
+        ? await ordersNotifier.placeMultiVendorOrder(
             vendorIds: vendorIds,
-            paymentMethod: _selectedPayment.startsWith('MOBILE_WALLET')
-                ? 'MOBILE_WALLET'
-                : 'CASH_ON_DELIVERY',
-            address: selectedAddress['address'] ?? s.locationName,
+            paymentMethod: paymentMethod,
+            address: address,
             location: coords,
             specialRequest: specialRequest,
             coinsToUse: coinsToUse,
             idempotencyKey: _clientOrderKeyForCheckout(),
-          );
-
-      if (mounted) {
-        if (errorMsg == null && orderId != null) {
-          setState(() {
-            _orderPlaced = true;
-            _isProcessing = false;
-          });
-          _clientOrderKey = null;
-          ref.read(cartProvider.notifier).clearLocalBaskets(vendorIds);
-          _showSuccess(s, orderId);
-        } else {
-          setState(() => _isProcessing = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
-              backgroundColor: Colors.red,
-          ));
-        }
-      }
-    } else {
-      final (errorMsg, orderId) = await ref.read(ordersProvider.notifier).placeOrder(
+          )
+        : await ordersNotifier.placeOrder(
             vendorId: vendorIds.first,
             items: vendorItems,
-            paymentMethod: _selectedPayment.startsWith('MOBILE_WALLET')
-                ? 'MOBILE_WALLET'
-                : 'CASH_ON_DELIVERY',
-            address: selectedAddress['address'] ?? s.locationName,
+            paymentMethod: paymentMethod,
+            address: address,
             location: coords,
             specialRequest: specialRequest,
             coinsToUse: coinsToUse,
             idempotencyKey: _clientOrderKeyForCheckout(),
           );
 
-      if (mounted) {
-        if (errorMsg == null && orderId != null) {
-          setState(() {
-            _orderPlaced = true;
-            _isProcessing = false;
-          });
-          _clientOrderKey = null;
-          ref.read(cartProvider.notifier).clearLocalBaskets([vendorIds.first]);
-          _showSuccess(s, orderId);
-        } else {
-          setState(() => _isProcessing = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
-              backgroundColor: Colors.red,
-          ));
-        }
-      }
+    if (!mounted) return;
+
+    if (errorMsg == null && orderId != null) {
+      setState(() {
+        _orderPlaced = true;
+        _isProcessing = false;
+      });
+      _clientOrderKey = null;
+      ref.read(cartProvider.notifier).clearLocalBaskets(vendorIds);
+      _showSuccess(s, orderId);
+      return;
     }
+
+    setState(() => _isProcessing = false);
+    if (errorMsg != null && errorMsg.contains('cart.error.is_empty')) {
+      final recovered = await _recoverFromEmptyCartError(vendorIds);
+      if (!mounted || recovered) return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
+      backgroundColor: Colors.red,
+    ));
   }
 
   void _showSuccess(AppStrings s, String orderId) {
@@ -332,12 +365,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     if (vendorIds.isEmpty || !hasAnyItems) {
-      if (cartState.vendorBaskets.isEmpty) {
+      void navigateBack() {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      }
+
+      if (cartState.isLoading) {
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.pop(),
+              onPressed: navigateBack,
             ),
           ),
           body: const Center(
@@ -347,10 +388,70 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
       return Scaffold(
         appBar: AppBar(
-            leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop())),
-        body: Center(child: Text(s.emptyCart)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: navigateBack,
+          ),
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.shopping_basket_outlined,
+                    size: 64,
+                    color: isDark ? Colors.white54 : Colors.grey.shade500,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  s.emptyCart,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  s.emptyCartSub,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: isDark ? Colors.white60 : Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => context.go('/home'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(180, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    s.backToHome,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -380,7 +481,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final selectedAddress = ref.watch(activeDeliveryAddressProvider);
 
-    if (!_orderPlaced && selectedAddress != null && !_isEstimating) {
+    if (!_orderPlaced &&
+        selectedAddress != null &&
+        !_isEstimating &&
+        !cartState.isLoading &&
+        vendorIds.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchEstimate();
       });

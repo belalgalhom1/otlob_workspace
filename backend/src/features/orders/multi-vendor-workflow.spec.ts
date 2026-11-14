@@ -12,6 +12,7 @@ import {
 import { OrdersStateService } from './orders-state.service';
 import { OrdersService } from './orders.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+import { OrdersRepository } from './orders.repository';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { PlaceMultiVendorOrderDto } from './dto/multi-vendor-order.dto';
 import { EventsProcessor } from '../events/events.processor';
@@ -523,6 +524,87 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       );
       expect(est.vendorCount).toBe(2);
       expect(est.deliveryCount).toBe(1);
+    });
+
+    it('returns the existing order on sequential retry with an Idempotency-Key without failing on cleared carts', async () => {
+      const existingOrder = { id: 'mv-existing', orderNumber: 'OTL-777' };
+      const mockRepo: any = {
+        findByClientOrderKeyForUser: jest.fn().mockResolvedValue(existingOrder),
+      };
+      const mockCart: any = {
+        validateForCheckout: jest
+          .fn()
+          .mockRejectedValue(new BadRequestException('cart.error.is_empty')),
+      };
+      const mockPrisma: any = {
+        $transaction: jest.fn(),
+      };
+
+      const svc = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        {} as any,
+        {} as any,
+        mockRepo,
+        {} as any,
+        { emit: jest.fn() } as any,
+        {} as any,
+      );
+
+      const res = await svc.placeOrder(
+        { sub: 'user-cust', role: Role.CUSTOMER } as any,
+        {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        },
+        'idem-key-123',
+      );
+
+      expect(res).toBe(existingOrder);
+      expect(mockRepo.findByClientOrderKeyForUser).toHaveBeenCalledWith(
+        'idem-key-123',
+        'user-cust',
+      );
+      expect(mockCart.validateForCheckout).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('resolves or rejects clientOrderKey lookups in OrdersRepository by owner userId', async () => {
+      const existingOrder = { id: 'order-1', orderNumber: 'OTL-100' };
+      const findUnique = jest.fn();
+      const queriesRepo: any = {
+        findById: jest.fn().mockResolvedValue(existingOrder),
+      };
+      const repo = new OrdersRepository(
+        { order: { findUnique } } as any,
+        {} as any,
+        undefined,
+        queriesRepo,
+      );
+
+      findUnique.mockResolvedValueOnce(null);
+      await expect(
+        repo.findByClientOrderKeyForUser('missing-key', 'user-1'),
+      ).resolves.toBeNull();
+
+      findUnique.mockResolvedValueOnce({
+        id: 'order-1',
+        customer: { userId: 'user-1' },
+      });
+      await expect(
+        repo.findByClientOrderKeyForUser('valid-key', 'user-1'),
+      ).resolves.toBe(existingOrder);
+      expect(queriesRepo.findById).toHaveBeenCalledWith('order-1');
+
+      findUnique.mockResolvedValueOnce({
+        id: 'order-1',
+        customer: { userId: 'other-user' },
+      });
+      await expect(
+        repo.findByClientOrderKeyForUser('stolen-key', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

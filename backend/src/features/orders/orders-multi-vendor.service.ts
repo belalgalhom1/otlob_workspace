@@ -130,6 +130,17 @@ export class OrdersMultiVendorService {
   ) {
     const vendorIds = this.normaliseVendorIds(dto.vendorIds);
     const clientOrderKey = idempotencyKey?.trim() || null;
+
+    if (clientOrderKey) {
+      const existing = await this.ordersRepository.findByClientOrderKeyForUser(
+        clientOrderKey,
+        actor.sub,
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+
     const plan = await this.buildPlan(actor, vendorIds, dto);
 
     // Same fast-path gate as single-vendor checkout. The authoritative re-check
@@ -166,7 +177,7 @@ export class OrdersMultiVendorService {
         });
         if (existing) {
           if (existing.customerId !== plan.customerId) {
-            throw new BadRequestException(OrderErrors.NOT_AUTHORIZED_VIEW);
+            throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
           }
           return {
             id: existing.id,
@@ -502,9 +513,6 @@ export class OrdersMultiVendorService {
         actor.sub,
         vendorId,
       );
-      if (!cart || cart.items.length === 0) {
-        throw new BadRequestException(OrderErrors.EMPTY_CART_FOR_VENDOR);
-      }
 
       const vendor = await this.prisma.vendor.findUnique({
         where: { id: vendorId },

@@ -130,6 +130,28 @@ export class OrdersRepository {
     return this.queries.findMany(filters);
   }
 
+  /**
+   * Look up an already-created order by its client idempotency key.
+   *
+   * Used before checkout cart validation so a network retry whose original
+   * request already cleared the cart still receives the original order instead
+   * of failing with `cart.error.is_empty`.
+   */
+  async findByClientOrderKeyForUser(clientOrderKey: string, userId: string) {
+    const existing = await this.prisma.order.findUnique({
+      where: { clientOrderKey },
+      select: {
+        id: true,
+        customer: { select: { userId: true } },
+      },
+    });
+    if (!existing) return null;
+    if (existing.customer.userId !== userId) {
+      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+    }
+    return this.findById(existing.id);
+  }
+
   async createOrder(
     data: CreateOrderData,
     items: OrderItemData[],
