@@ -163,6 +163,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('assistDecisionTimeoutSecs')) b.assistDecisionTimeoutSecs = parseNum(settings['assistDecisionTimeoutSecs']);
       if (settings.containsKey('groupingMaxBranchDistanceKm')) b.groupingMaxBranchDistanceKm = parseNum(settings['groupingMaxBranchDistanceKm']);
       if (settings.containsKey('groupingMaxVendorCustomerDistanceKm')) b.groupingMaxVendorCustomerDistanceKm = parseNum(settings['groupingMaxVendorCustomerDistanceKm']);
+      if (settings.containsKey('maxMultiVendorVendors')) b.maxMultiVendorVendors = parseNum(settings['maxMultiVendorVendors']);
       if (settings.containsKey('maxNegativeDriverBalance')) b.maxNegativeDriverBalance = parseNum(settings['maxNegativeDriverBalance']);
       if (settings.containsKey('mobileWalletTimeoutMins')) b.mobileWalletTimeoutMins = parseNum(settings['mobileWalletTimeoutMins']);
       if (settings.containsKey('isMaintenanceMode')) b.isMaintenanceMode = parseBool(settings['isMaintenanceMode']);

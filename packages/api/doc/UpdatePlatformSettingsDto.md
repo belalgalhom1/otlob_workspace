@@ -56,6 +56,7 @@ Name | Type | Description | Notes
 **driverLocationPrecisionMeters** | **num** | Location precision reduction in meters for customer-facing tracking (0 = exact). | [optional] 
 **groupingMaxBranchDistanceKm** | **num** | Smart grouping (km): max straight-line distance between any two vendor branches that may share one delivery group. | [optional] 
 **groupingMaxVendorCustomerDistanceKm** | **num** | Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all. | [optional] 
+**maxMultiVendorVendors** | **num** | Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch). Default 5. | [optional] 
 **autoCancelPendingMins** | **num** |  | [optional] 
 **mobileWalletTimeoutMins** | **num** |  | [optional] 
 **driverAcceptTimeoutSecs** | **num** |  | [optional] 

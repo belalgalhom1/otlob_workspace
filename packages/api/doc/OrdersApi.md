@@ -9,14 +9,14 @@ All URIs are relative to *http://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**orderAssistDecisionControllerDecideAssist**](OrdersApi.md#orderassistdecisioncontrollerdecideassist) | **POST** /orders/{orderId}/delivery-groups/{deliveryGroupId}/assist/decision | [Customer] Approve or decline an assisted delivery (and its fee)
+[**orderAssistDecisionControllerDecideAssistOrder**](OrdersApi.md#orderassistdecisioncontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-vendor order)
 [**ordersControllerAcceptFulfillment**](OrdersApi.md#orderscontrolleracceptfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/accept | [Vendor] Accept ONLY my portion — other vendors are unaffected
 [**ordersControllerAdminFindAll**](OrdersApi.md#orderscontrolleradminfindall) | **GET** /orders | [Admin] List all orders with filters
 [**ordersControllerAdminForceAssignDriver**](OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [**ordersControllerAdminPlaceDirectOrder**](OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
 [**ordersControllerCancelOrder**](OrdersApi.md#orderscontrollercancelorder) | **POST** /orders/{orderId}/cancel | Cancel an order (customer or vendor)
 [**ordersControllerCustomerMarkPaid**](OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid with receipt
-[**ordersControllerDecideAssist**](OrdersApi.md#orderscontrollerdecideassist) | **POST** /orders/{orderId}/delivery-groups/{deliveryGroupId}/assist/decision | [Customer] Approve or decline an assisted delivery (and its fee)
-[**ordersControllerDecideAssistOrder**](OrdersApi.md#orderscontrollerdecideassistorder) | **POST** /orders/{orderId}/assist/decision | [Customer] Approve or decline an assisted delivery (single-vendor order)
 [**ordersControllerDriverConfirmDelivery**](OrdersApi.md#orderscontrollerdriverconfirmdelivery) | **POST** /orders/driver/{orderId}/delivery | Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)
 [**ordersControllerDriverConfirmFulfillmentPickup**](OrdersApi.md#orderscontrollerdriverconfirmfulfillmentpickup) | **POST** /orders/driver/{orderId}/fulfillment/{fulfillmentId}/pickup | Driver confirms pickup for a specific vendor fulfillment stop with photo
 [**ordersControllerDriverConfirmPayment**](OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
@@ -40,6 +40,90 @@ Method | HTTP request | Description
 [**ordersControllerRespondToDispatch**](OrdersApi.md#orderscontrollerrespondtodispatch) | **POST** /orders/driver/dispatches/{dispatchId}/respond | Accept or reject a dispatch request
 [**ordersControllerVendorUpdateStatus**](OrdersApi.md#orderscontrollervendorupdatestatus) | **PATCH** /orders/vendor/{orderId}/status | Vendor updates order status
 
+
+# **orderAssistDecisionControllerDecideAssist**
+> ApiControllerRoot200Response orderAssistDecisionControllerDecideAssist(orderId, deliveryGroupId)
+
+[Customer] Approve or decline an assisted delivery (and its fee)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final String orderId = orderId_example; // String | 
+final String deliveryGroupId = deliveryGroupId_example; // String | 
+
+try {
+    final response = api.orderAssistDecisionControllerDecideAssist(orderId, deliveryGroupId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->orderAssistDecisionControllerDecideAssist: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **orderId** | **String**|  | 
+ **deliveryGroupId** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **orderAssistDecisionControllerDecideAssistOrder**
+> ApiControllerRoot200Response orderAssistDecisionControllerDecideAssistOrder(orderId)
+
+[Customer] Approve or decline an assisted delivery (single-vendor order)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final String orderId = orderId_example; // String | 
+
+try {
+    final response = api.orderAssistDecisionControllerDecideAssistOrder(orderId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->orderAssistDecisionControllerDecideAssistOrder: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **orderId** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerAcceptFulfillment**
 > ApiControllerRoot200Response ordersControllerAcceptFulfillment(fulfillmentId)
@@ -299,90 +383,6 @@ Name | Type | Description  | Notes
 ### HTTP request headers
 
  - **Content-Type**: multipart/form-data
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **ordersControllerDecideAssist**
-> ApiControllerRoot200Response ordersControllerDecideAssist(orderId, deliveryGroupId)
-
-[Customer] Approve or decline an assisted delivery (and its fee)
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getOrdersApi();
-final String orderId = orderId_example; // String | 
-final String deliveryGroupId = deliveryGroupId_example; // String | 
-
-try {
-    final response = api.ordersControllerDecideAssist(orderId, deliveryGroupId);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling OrdersApi->ordersControllerDecideAssist: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **orderId** | **String**|  | 
- **deliveryGroupId** | **String**|  | 
-
-### Return type
-
-[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **ordersControllerDecideAssistOrder**
-> ApiControllerRoot200Response ordersControllerDecideAssistOrder(orderId)
-
-[Customer] Approve or decline an assisted delivery (single-vendor order)
-
-### Example
-```dart
-import 'package:api/api.dart';
-
-final api = Api().getOrdersApi();
-final String orderId = orderId_example; // String | 
-
-try {
-    final response = api.ordersControllerDecideAssistOrder(orderId);
-    print(response);
-} on DioException catch (e) {
-    print('Exception when calling OrdersApi->ordersControllerDecideAssistOrder: $e\n');
-}
-```
-
-### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **orderId** | **String**|  | 
-
-### Return type
-
-[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
-
-### Authorization
-
-[bearer](../README.md#bearer)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

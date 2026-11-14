@@ -59,6 +59,7 @@ part 'update_platform_settings_dto.g.dart';
 /// * [driverLocationPrecisionMeters] - Location precision reduction in meters for customer-facing tracking (0 = exact).
 /// * [groupingMaxBranchDistanceKm] - Smart grouping (km): max straight-line distance between any two vendor branches that may share one delivery group.
 /// * [groupingMaxVendorCustomerDistanceKm] - Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all.
+/// * [maxMultiVendorVendors] - Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch). Default 5.
 /// * [autoCancelPendingMins] 
 /// * [mobileWalletTimeoutMins] 
 /// * [driverAcceptTimeoutSecs] 
@@ -281,6 +282,10 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all.
   @BuiltValueField(wireName: r'groupingMaxVendorCustomerDistanceKm')
   num? get groupingMaxVendorCustomerDistanceKm;
+
+  /// Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch). Default 5.
+  @BuiltValueField(wireName: r'maxMultiVendorVendors')
+  num? get maxMultiVendorVendors;
 
   @BuiltValueField(wireName: r'autoCancelPendingMins')
   num? get autoCancelPendingMins;
@@ -885,6 +890,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'groupingMaxVendorCustomerDistanceKm';
       yield serializers.serialize(
         object.groupingMaxVendorCustomerDistanceKm,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxMultiVendorVendors != null) {
+      yield r'maxMultiVendorVendors';
+      yield serializers.serialize(
+        object.maxMultiVendorVendors,
         specifiedType: const FullType(num),
       );
     }
@@ -1715,6 +1727,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.groupingMaxVendorCustomerDistanceKm = valueDes;
+          break;
+        case r'maxMultiVendorVendors':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxMultiVendorVendors = valueDes;
           break;
         case r'autoCancelPendingMins':
           final valueDes = serializers.deserialize(

@@ -107,8 +107,8 @@ class CustomerOrderRepository {
       return ResponseParser.parse(response);
     }
     final response = deliveryGroupId != null
-        ? await _api.ordersControllerDecideAssist(orderId: orderId, deliveryGroupId: deliveryGroupId)
-        : await _api.ordersControllerDecideAssistOrder(orderId: orderId);
+        ? await _api.orderAssistDecisionControllerDecideAssist(orderId: orderId, deliveryGroupId: deliveryGroupId)
+        : await _api.orderAssistDecisionControllerDecideAssistOrder(orderId: orderId);
     return ResponseParser.parse(response);
   }
 }

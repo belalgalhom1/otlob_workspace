@@ -104,6 +104,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? groupingMaxVendorCustomerDistanceKm;
   @override
+  final num? maxMultiVendorVendors;
+  @override
   final num? autoCancelPendingMins;
   @override
   final num? mobileWalletTimeoutMins;
@@ -291,6 +293,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.driverLocationPrecisionMeters,
     this.groupingMaxBranchDistanceKm,
     this.groupingMaxVendorCustomerDistanceKm,
+    this.maxMultiVendorVendors,
     this.autoCancelPendingMins,
     this.mobileWalletTimeoutMins,
     this.driverAcceptTimeoutSecs,
@@ -422,6 +425,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         groupingMaxBranchDistanceKm == other.groupingMaxBranchDistanceKm &&
         groupingMaxVendorCustomerDistanceKm ==
             other.groupingMaxVendorCustomerDistanceKm &&
+        maxMultiVendorVendors == other.maxMultiVendorVendors &&
         autoCancelPendingMins == other.autoCancelPendingMins &&
         mobileWalletTimeoutMins == other.mobileWalletTimeoutMins &&
         driverAcceptTimeoutSecs == other.driverAcceptTimeoutSecs &&
@@ -548,6 +552,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, driverLocationPrecisionMeters.hashCode);
     _$hash = $jc(_$hash, groupingMaxBranchDistanceKm.hashCode);
     _$hash = $jc(_$hash, groupingMaxVendorCustomerDistanceKm.hashCode);
+    _$hash = $jc(_$hash, maxMultiVendorVendors.hashCode);
     _$hash = $jc(_$hash, autoCancelPendingMins.hashCode);
     _$hash = $jc(_$hash, mobileWalletTimeoutMins.hashCode);
     _$hash = $jc(_$hash, driverAcceptTimeoutSecs.hashCode);
@@ -676,6 +681,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
             'groupingMaxVendorCustomerDistanceKm',
             groupingMaxVendorCustomerDistanceKm,
           )
+          ..add('maxMultiVendorVendors', maxMultiVendorVendors)
           ..add('autoCancelPendingMins', autoCancelPendingMins)
           ..add('mobileWalletTimeoutMins', mobileWalletTimeoutMins)
           ..add('driverAcceptTimeoutSecs', driverAcceptTimeoutSecs)
@@ -1008,6 +1014,11 @@ class UpdatePlatformSettingsDtoBuilder
     num? groupingMaxVendorCustomerDistanceKm,
   ) => _$this._groupingMaxVendorCustomerDistanceKm =
       groupingMaxVendorCustomerDistanceKm;
+
+  num? _maxMultiVendorVendors;
+  num? get maxMultiVendorVendors => _$this._maxMultiVendorVendors;
+  set maxMultiVendorVendors(num? maxMultiVendorVendors) =>
+      _$this._maxMultiVendorVendors = maxMultiVendorVendors;
 
   num? _autoCancelPendingMins;
   num? get autoCancelPendingMins => _$this._autoCancelPendingMins;
@@ -1410,6 +1421,7 @@ class UpdatePlatformSettingsDtoBuilder
       _groupingMaxBranchDistanceKm = $v.groupingMaxBranchDistanceKm;
       _groupingMaxVendorCustomerDistanceKm =
           $v.groupingMaxVendorCustomerDistanceKm;
+      _maxMultiVendorVendors = $v.maxMultiVendorVendors;
       _autoCancelPendingMins = $v.autoCancelPendingMins;
       _mobileWalletTimeoutMins = $v.mobileWalletTimeoutMins;
       _driverAcceptTimeoutSecs = $v.driverAcceptTimeoutSecs;
@@ -1551,6 +1563,7 @@ class UpdatePlatformSettingsDtoBuilder
           groupingMaxBranchDistanceKm: groupingMaxBranchDistanceKm,
           groupingMaxVendorCustomerDistanceKm:
               groupingMaxVendorCustomerDistanceKm,
+          maxMultiVendorVendors: maxMultiVendorVendors,
           autoCancelPendingMins: autoCancelPendingMins,
           mobileWalletTimeoutMins: mobileWalletTimeoutMins,
           driverAcceptTimeoutSecs: driverAcceptTimeoutSecs,

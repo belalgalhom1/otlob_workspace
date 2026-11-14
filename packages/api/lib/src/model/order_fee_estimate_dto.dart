@@ -21,6 +21,11 @@ part 'order_fee_estimate_dto.g.dart';
 /// * [coinsEarned] 
 /// * [grandTotal] 
 /// * [upfrontAmount] 
+/// * [subtotal] 
+/// * [isSplit] 
+/// * [vendorCount] 
+/// * [branchCount] 
+/// * [deliveryCount] 
 @BuiltValue()
 abstract class OrderFeeEstimateDto implements Built<OrderFeeEstimateDto, OrderFeeEstimateDtoBuilder> {
   /// Vendor branch to delivery distance in km
@@ -53,6 +58,21 @@ abstract class OrderFeeEstimateDto implements Built<OrderFeeEstimateDto, OrderFe
 
   @BuiltValueField(wireName: r'upfrontAmount')
   num get upfrontAmount;
+
+  @BuiltValueField(wireName: r'subtotal')
+  num? get subtotal;
+
+  @BuiltValueField(wireName: r'isSplit')
+  bool? get isSplit;
+
+  @BuiltValueField(wireName: r'vendorCount')
+  num? get vendorCount;
+
+  @BuiltValueField(wireName: r'branchCount')
+  num? get branchCount;
+
+  @BuiltValueField(wireName: r'deliveryCount')
+  num? get deliveryCount;
 
   OrderFeeEstimateDto._();
 
@@ -127,6 +147,41 @@ class _$OrderFeeEstimateDtoSerializer implements PrimitiveSerializer<OrderFeeEst
       object.upfrontAmount,
       specifiedType: const FullType(num),
     );
+    if (object.subtotal != null) {
+      yield r'subtotal';
+      yield serializers.serialize(
+        object.subtotal,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.isSplit != null) {
+      yield r'isSplit';
+      yield serializers.serialize(
+        object.isSplit,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.vendorCount != null) {
+      yield r'vendorCount';
+      yield serializers.serialize(
+        object.vendorCount,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.branchCount != null) {
+      yield r'branchCount';
+      yield serializers.serialize(
+        object.branchCount,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.deliveryCount != null) {
+      yield r'deliveryCount';
+      yield serializers.serialize(
+        object.deliveryCount,
+        specifiedType: const FullType(num),
+      );
+    }
   }
 
   @override
@@ -219,6 +274,41 @@ class _$OrderFeeEstimateDtoSerializer implements PrimitiveSerializer<OrderFeeEst
             specifiedType: const FullType(num),
           ) as num;
           result.upfrontAmount = valueDes;
+          break;
+        case r'subtotal':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.subtotal = valueDes;
+          break;
+        case r'isSplit':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isSplit = valueDes;
+          break;
+        case r'vendorCount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.vendorCount = valueDes;
+          break;
+        case r'branchCount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.branchCount = valueDes;
+          break;
+        case r'deliveryCount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.deliveryCount = valueDes;
           break;
         default:
           unhandled.add(key);

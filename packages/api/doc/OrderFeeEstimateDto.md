@@ -18,6 +18,11 @@ Name | Type | Description | Notes
 **coinsEarned** | **num** |  | 
 **grandTotal** | **num** |  | 
 **upfrontAmount** | **num** |  | 
+**subtotal** | **num** |  | [optional] 
+**isSplit** | **bool** |  | [optional] 
+**vendorCount** | **num** |  | [optional] 
+**branchCount** | **num** |  | [optional] 
+**deliveryCount** | **num** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

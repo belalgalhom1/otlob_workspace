@@ -27,6 +27,16 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
   final num grandTotal;
   @override
   final num upfrontAmount;
+  @override
+  final num? subtotal;
+  @override
+  final bool? isSplit;
+  @override
+  final num? vendorCount;
+  @override
+  final num? branchCount;
+  @override
+  final num? deliveryCount;
 
   factory _$OrderFeeEstimateDto([
     void Function(OrderFeeEstimateDtoBuilder)? updates,
@@ -43,6 +53,11 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
     required this.coinsEarned,
     required this.grandTotal,
     required this.upfrontAmount,
+    this.subtotal,
+    this.isSplit,
+    this.vendorCount,
+    this.branchCount,
+    this.deliveryCount,
   }) : super._();
   @override
   OrderFeeEstimateDto rebuild(
@@ -66,7 +81,12 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
         discount == other.discount &&
         coinsEarned == other.coinsEarned &&
         grandTotal == other.grandTotal &&
-        upfrontAmount == other.upfrontAmount;
+        upfrontAmount == other.upfrontAmount &&
+        subtotal == other.subtotal &&
+        isSplit == other.isSplit &&
+        vendorCount == other.vendorCount &&
+        branchCount == other.branchCount &&
+        deliveryCount == other.deliveryCount;
   }
 
   @override
@@ -82,6 +102,11 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
     _$hash = $jc(_$hash, coinsEarned.hashCode);
     _$hash = $jc(_$hash, grandTotal.hashCode);
     _$hash = $jc(_$hash, upfrontAmount.hashCode);
+    _$hash = $jc(_$hash, subtotal.hashCode);
+    _$hash = $jc(_$hash, isSplit.hashCode);
+    _$hash = $jc(_$hash, vendorCount.hashCode);
+    _$hash = $jc(_$hash, branchCount.hashCode);
+    _$hash = $jc(_$hash, deliveryCount.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -98,7 +123,12 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
           ..add('discount', discount)
           ..add('coinsEarned', coinsEarned)
           ..add('grandTotal', grandTotal)
-          ..add('upfrontAmount', upfrontAmount))
+          ..add('upfrontAmount', upfrontAmount)
+          ..add('subtotal', subtotal)
+          ..add('isSplit', isSplit)
+          ..add('vendorCount', vendorCount)
+          ..add('branchCount', branchCount)
+          ..add('deliveryCount', deliveryCount))
         .toString();
   }
 }
@@ -149,6 +179,27 @@ class OrderFeeEstimateDtoBuilder
   set upfrontAmount(num? upfrontAmount) =>
       _$this._upfrontAmount = upfrontAmount;
 
+  num? _subtotal;
+  num? get subtotal => _$this._subtotal;
+  set subtotal(num? subtotal) => _$this._subtotal = subtotal;
+
+  bool? _isSplit;
+  bool? get isSplit => _$this._isSplit;
+  set isSplit(bool? isSplit) => _$this._isSplit = isSplit;
+
+  num? _vendorCount;
+  num? get vendorCount => _$this._vendorCount;
+  set vendorCount(num? vendorCount) => _$this._vendorCount = vendorCount;
+
+  num? _branchCount;
+  num? get branchCount => _$this._branchCount;
+  set branchCount(num? branchCount) => _$this._branchCount = branchCount;
+
+  num? _deliveryCount;
+  num? get deliveryCount => _$this._deliveryCount;
+  set deliveryCount(num? deliveryCount) =>
+      _$this._deliveryCount = deliveryCount;
+
   OrderFeeEstimateDtoBuilder() {
     OrderFeeEstimateDto._defaults(this);
   }
@@ -166,6 +217,11 @@ class OrderFeeEstimateDtoBuilder
       _coinsEarned = $v.coinsEarned;
       _grandTotal = $v.grandTotal;
       _upfrontAmount = $v.upfrontAmount;
+      _subtotal = $v.subtotal;
+      _isSplit = $v.isSplit;
+      _vendorCount = $v.vendorCount;
+      _branchCount = $v.branchCount;
+      _deliveryCount = $v.deliveryCount;
       _$v = null;
     }
     return this;
@@ -238,6 +294,11 @@ class OrderFeeEstimateDtoBuilder
             r'OrderFeeEstimateDto',
             'upfrontAmount',
           ),
+          subtotal: subtotal,
+          isSplit: isSplit,
+          vendorCount: vendorCount,
+          branchCount: branchCount,
+          deliveryCount: deliveryCount,
         );
     replace(_$result);
     return _$result;
