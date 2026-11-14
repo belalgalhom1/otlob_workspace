@@ -42,6 +42,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   String _selectedPayment = 'CASH_ON_DELIVERY';
   bool _isProcessing = false;
+  bool _orderPlaced = false;
+  bool _syncedEmptyCart = false;
   bool _useCoins = false;
   bool _isEstimating = false;
   Map<String, dynamic>? _estimate;
@@ -60,7 +62,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<void> _fetchEstimate() async {
-    if (_isEstimating) return;
+    if (_orderPlaced || _isEstimating) return;
     final vendorIds = activeVendorIds;
     if (vendorIds.isEmpty) return;
 
@@ -138,11 +140,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         }
       }
       if (mounted) {
+        final resolvedError = message ?? e.toString();
         setState(() {
           _estimate = null;
-          _estimateError = message ?? e.toString();
+          _estimateError = resolvedError;
           _isEstimating = false;
         });
+        if (resolvedError.contains('cart.error.is_empty') && !_syncedEmptyCart) {
+          _syncedEmptyCart = true;
+          ref.read(cartProvider.notifier).loadCarts(force: true);
+        }
       }
     }
   }
@@ -206,14 +213,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
 
       if (mounted) {
-        setState(() => _isProcessing = false);
         if (errorMsg == null && orderId != null) {
+          setState(() {
+            _orderPlaced = true;
+            _isProcessing = false;
+          });
           _clientOrderKey = null;
-          for (final vid in vendorIds) {
-            ref.read(cartProvider.notifier).clearVendorCart(vid);
-          }
+          ref.read(cartProvider.notifier).clearLocalBaskets(vendorIds);
           _showSuccess(s, orderId);
         } else {
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
               backgroundColor: Colors.red,
@@ -235,12 +244,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
 
       if (mounted) {
-        setState(() => _isProcessing = false);
         if (errorMsg == null && orderId != null) {
+          setState(() {
+            _orderPlaced = true;
+            _isProcessing = false;
+          });
           _clientOrderKey = null;
-          ref.read(cartProvider.notifier).clearVendorCart(vendorIds.first);
+          ref.read(cartProvider.notifier).clearLocalBaskets([vendorIds.first]);
           _showSuccess(s, orderId);
         } else {
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(ErrorUtils.translate(context, errorMsg ?? 'Failed to place order')),
               backgroundColor: Colors.red,
@@ -311,6 +324,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final vendorIds = activeVendorIds;
     final hasAnyItems = vendorIds.any((vid) => (cartState.vendorBaskets[vid] ?? []).isNotEmpty);
 
+    if (_orderPlaced) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const SizedBox.shrink(),
+      );
+    }
+
     if (vendorIds.isEmpty || !hasAnyItems) {
       if (cartState.vendorBaskets.isEmpty) {
         return Scaffold(
@@ -360,7 +380,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final selectedAddress = ref.watch(activeDeliveryAddressProvider);
 
-    if (selectedAddress != null && !_isEstimating) {
+    if (!_orderPlaced && selectedAddress != null && !_isEstimating) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchEstimate();
       });

@@ -325,6 +325,14 @@ class Cart extends _$Cart {
     }
   }
 
+  void clearLocalBaskets(Iterable<String> vendorIds) {
+    final ids = vendorIds.toSet();
+    if (ids.isEmpty) return;
+    final currentBaskets = Map<String, List<CartItem>>.from(state.vendorBaskets)
+      ..removeWhere((key, _) => ids.contains(key));
+    state = state.copyWith(vendorBaskets: currentBaskets);
+  }
+
   Future<void> clearVendorCart(String vendorId) async {
     try {
       final cartRepo = ref.read(customerCartRepositoryProvider);
