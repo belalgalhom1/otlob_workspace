@@ -94,16 +94,17 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   // 2. WebSocket Reconnection Fallback
   subscriptions.add(socketService.onConnect.listen((_) {
     if (!ref.mounted) return;
-    debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches');
+    debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches & active order');
     ref.invalidate(configurationProvider);
     coordinator.checkPendingDispatches(checkOnline: false);
+    ref.read(orderExecutionProvider.notifier).refresh();
   }));
 
   // 3. App Lifecycle Resume Fallback
   final lifecycleObserver = _DispatchLifecycleObserver(
     onResume: () async {
       if (!ref.mounted) return;
-      debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches');
+      debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches & active order');
       ref.invalidate(configurationProvider);
       // Break decisions may have landed while backgrounded (missed socket).
       ref.invalidate(breaksOverviewProvider);
@@ -121,6 +122,9 @@ final globalMessageListenerProvider = Provider<void>((ref) {
         }
       }
       await coordinator.checkPendingDispatches(checkOnline: false);
+      if (ref.mounted) {
+        await ref.read(orderExecutionProvider.notifier).refresh();
+      }
     },
   );
 

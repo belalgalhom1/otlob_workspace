@@ -72,80 +72,107 @@ export class EventsProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    // Claim the event-level idempotency marker BEFORE running the handler so
-    // duplicate emissions are skipped. On failure the claim is released and
-    // the error is re-thrown: BullMQ must see the failure, otherwise the
-    // attempts/backoff configured on the producing job never apply.
+    // Two-phase idempotency:
+    //  1) If `idempotencyKey` already equals 'DONE', skip duplicate delivery.
+    //  2) Acquire a short 30s `:lock` before running, and ONLY write `'DONE'`
+    //     after the handler succeeds. If the worker is killed mid-job (SIGKILL),
+    //     neither `'DONE'` was written nor does the 30s lock block BullMQ stall
+    //     recovery on a healthy worker.
     const idempotencyKey = this.eventIdempotencyKey(job.name, job.data);
-    if (idempotencyKey) {
-      const claimed = await this.redis
-        .getClient()
-        .set(idempotencyKey, '1', 'EX', 14400, 'NX');
-      if (!claimed) return { skipped: true };
+    const lockKey = idempotencyKey ? `${idempotencyKey}:lock` : null;
+    if (idempotencyKey && lockKey) {
+      const redis = this.redis.getClient();
+      const done = await redis.get(idempotencyKey);
+      if (done === 'DONE') return { skipped: true };
+
+      const locked = await redis.set(lockKey, '1', 'EX', 30, 'NX');
+      if (!locked) {
+        const recheckDone = await redis.get(idempotencyKey);
+        if (recheckDone === 'DONE') return { skipped: true };
+        throw new Error(
+          `Concurrent delivery in progress for ${idempotencyKey}; deferring to BullMQ retry`,
+        );
+      }
     }
 
     try {
+      let result: any;
       switch (job.name) {
         case EVENT_JOBS.ORDER_CREATED:
-          return await this.handleOrderCreated(job.data as OrderCreatedEvent);
+          result = await this.handleOrderCreated(job.data as OrderCreatedEvent);
+          break;
         case EVENT_JOBS.ORDER_STATUS_CHANGED:
-          return await this.handleOrderStatusChanged(
+          result = await this.handleOrderStatusChanged(
             job.data as OrderStatusChangedEvent,
           );
+          break;
         case EVENT_JOBS.ORDER_CANCELLED:
-          return await this.handleOrderCancelled(
+          result = await this.handleOrderCancelled(
             job.data as OrderCancelledEvent,
           );
+          break;
         case EVENT_JOBS.ORDER_DISPATCH_SENT:
-          return await this.handleDispatchSent(
+          result = await this.handleDispatchSent(
             job.data as OrderDispatchSentEvent,
           );
+          break;
         case EVENT_JOBS.ORDER_DISPATCH_RESPONDED:
-          return await this.handleDispatchResponded(
+          result = await this.handleDispatchResponded(
             job.data as OrderDispatchRespondedEvent,
           );
+          break;
         case EVENT_JOBS.DRIVER_ASSIST_REQUESTED:
-          return await this.handleDriverAssistRequested(
+          result = await this.handleDriverAssistRequested(
             job.data as DriverAssistRequestedEvent,
           );
+          break;
         case EVENT_JOBS.DISPATCH_HANDOFF:
-          return await this.handleDispatchHandoff(
+          result = await this.handleDispatchHandoff(
             job.data as { orderId: string; orderNumber: string },
           );
+          break;
         case EVENT_JOBS.CANCEL_ACTIVE_DISPATCH:
-          return await this.cancelActiveDispatch(
+          result = await this.cancelActiveDispatch(
             (job.data as { orderId: string }).orderId,
           );
+          break;
         case EVENT_JOBS.CLEAR_CART:
-          return await this.clearCart(
+          result = await this.clearCart(
             job.data as { customerUserId: string; vendorId: string },
           );
+          break;
         case EVENT_JOBS.NOTIFY:
-          return await this.createNotification(
+          result = await this.createNotification(
             (job.data as { dto: CreateNotificationPayload }).dto,
           );
+          break;
         case EVENT_JOBS.CHAT_NOTIFICATIONS:
-          return await this.createNotifications(
+          result = await this.createNotifications(
             (job.data as { dtos: CreateNotificationPayload[] }).dtos,
           );
+          break;
         default:
           this.logger.warn(`Unknown event job: ${job.name}`);
           return { ignored: true, reason: 'unknown_job_name' };
       }
-    } catch (error: unknown) {
+
       if (idempotencyKey) {
-        // Without releasing the claim the retry would immediately skip as a
-        // duplicate, making the retry policy useless.
         await this.redis
           .getClient()
-          .del(idempotencyKey)
+          .set(idempotencyKey, 'DONE', 'EX', 14400)
           .catch(() => undefined);
       }
+      return result;
+    } catch (error: unknown) {
       this.logger.error(
         `Failed to process event job ${job.name}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw error;
+    } finally {
+      if (lockKey) {
+        await this.redis.getClient().del(lockKey).catch(() => undefined);
+      }
     }
   }
 

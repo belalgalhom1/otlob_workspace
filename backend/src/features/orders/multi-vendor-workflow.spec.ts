@@ -10,6 +10,9 @@ import {
 import { OrdersStateService } from './orders-state.service';
 import { OrdersService } from './orders.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+import { OrderVendorDecisionService } from './order-vendor-decision.service';
+import { EventsProcessor } from '../../common/listeners/events.processor';
+import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 
 describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => {
   describe('1. Single-vendor backward compatibility & multi-vendor driver collection gates (OrdersStateService)', () => {
@@ -571,6 +574,166 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       expect(enriched.financials.storePayments[2].cashToPay).toBe(0);
       // 400 (Store 1 net) + 200 (Store 2) + 0 (rejected Store 3) = 600
       expect(enriched.financials.cashToPayStore).toBe(600);
+    });
+  });
+
+  describe('4. Crash recovery & simultaneous decision races (EventsProcessor + OrderVendorDecisionService)', () => {
+    it('replays a job after a mid-flight worker kill and deduplicates only once marked DONE', async () => {
+      const store = new Map<string, string>();
+      const mockRedisClient: any = {
+        get: jest.fn(async (k: string) => store.get(k) ?? null),
+        set: jest.fn(async (k: string, v: string, _ex?: string, _ttl?: number, nx?: string) => {
+          if (nx === 'NX' && store.has(k)) return null;
+          store.set(k, v);
+          return 'OK';
+        }),
+        del: jest.fn(async (k: string) => {
+          store.delete(k);
+          return 1;
+        }),
+      };
+      const mockSocket = { emitToUser: jest.fn().mockResolvedValue(undefined) };
+      const mockNotifications = { createMany: jest.fn().mockResolvedValue([]) };
+
+      const processor = new EventsProcessor(
+        mockSocket as any,
+        mockNotifications as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {
+          vendorMember: { findMany: jest.fn().mockResolvedValue([]) },
+          order: { findUnique: jest.fn().mockResolvedValue(null) },
+        } as any,
+        { getClient: () => mockRedisClient } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+
+      // Simulate prior attempt crashed (e.g. SIGKILL) after lock expired:
+      // idempotencyKey is NOT marked 'DONE'.
+      const job = {
+        id: 'notify_order_created_ord-crash',
+        name: EVENT_JOBS.ORDER_CREATED,
+        data: {
+          orderId: 'ord-crash',
+          orderNumber: 'OTL-9999',
+          customerId: 'cust-1',
+          actorUserId: 'cust-user',
+          vendorId: null,
+          vendorUserIds: ['u-v1', 'u-v2'],
+          grandTotal: 350,
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          orderType: 'STANDARD',
+          revision: 0,
+        },
+      } as any;
+
+      await processor.process(job);
+      expect(mockSocket.emitToUser).toHaveBeenCalledTimes(2);
+      expect(store.get('notify:order_created:ord-crash')).toBe('DONE');
+      expect(store.has('notify:order_created:ord-crash:lock')).toBe(false);
+
+      // Subsequent duplicate delivery MUST skip without re-notifying.
+      const second = await processor.process(job);
+      expect(second).toEqual({ skipped: true });
+      expect(mockSocket.emitToUser).toHaveBeenCalledTimes(2);
+    });
+
+    it('ignores ALREADY_CANCELLED race when two final portions reject/timeout simultaneously', async () => {
+      const mockPrisma: any = {
+        orderVendorFulfillment: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ff-2',
+            orderId: 'ord-race',
+            vendorId: 'v2',
+            vendorBranchId: 'b2',
+            status: OrderVendorFulfillmentStatus.PENDING,
+            commissionRate: 10,
+            pickedUpAt: null,
+          }),
+          findMany: jest.fn().mockResolvedValue([
+            { status: OrderVendorFulfillmentStatus.REJECTED },
+            { status: OrderVendorFulfillmentStatus.REJECTED },
+          ]),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        order: {
+          findUnique: jest
+            .fn()
+            // Initial read before tx
+            .mockResolvedValueOnce({
+              id: 'ord-race',
+              orderNumber: 'OTL-777',
+              customerId: 'cust-1',
+              customer: { userId: 'u-cust' },
+              status: OrderStatus.PENDING,
+              paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+              paymentStatus: 'PENDING',
+            })
+            // Catch check after cancelOrder throws (winner already cancelled)
+            .mockResolvedValueOnce({ status: OrderStatus.CANCELLED })
+            // emitDecided read
+            .mockResolvedValueOnce({
+              orderNumber: 'OTL-777',
+              customerId: 'cust-1',
+              customer: { userId: 'u-cust' },
+            })
+            // final findById lookup if needed
+            .mockResolvedValue({ status: OrderStatus.CANCELLED }),
+        },
+        orderItem: {
+          findMany: jest.fn().mockResolvedValue([]),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        orderDeliveryGroupItem: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({
+            storeName: 'Store 2',
+            storeNameAr: 'متجر 2',
+            isContracted: false,
+            members: [],
+          }),
+        },
+        vendorBranch: {
+          findUnique: jest.fn().mockResolvedValue({ isContracted: false }),
+        },
+        $transaction: jest.fn(async (cb: any) => cb(mockPrisma)),
+      };
+
+      const mockOrdersRepo: any = {
+        getOrderVendorUserIds: jest.fn().mockResolvedValue([]),
+        getVendorUserIds: jest.fn().mockResolvedValue([]),
+      };
+      const mockStateService: any = {
+        cancelOrder: jest
+          .fn()
+          .mockRejectedValue(new BadRequestException('Order already cancelled')),
+      };
+      const mockDecision = new OrderVendorDecisionService(
+        mockPrisma,
+        mockOrdersRepo,
+        mockStateService,
+        { getSettings: jest.fn().mockResolvedValue({ extraVendorDeliveryFee: 10 }) } as any,
+        { emit: jest.fn() } as any,
+      );
+      jest.spyOn(mockDecision, 'findById').mockResolvedValue({
+        id: 'ff-2',
+        status: OrderVendorFulfillmentStatus.REJECTED,
+      } as any);
+
+      await expect(
+        mockDecision.reject(null, 'ff-2', {
+          code: 'TIMEOUT',
+          reason: 'Timed out',
+        }),
+      ).resolves.toMatchObject({ id: 'ff-2', status: OrderVendorFulfillmentStatus.REJECTED });
     });
   });
 });

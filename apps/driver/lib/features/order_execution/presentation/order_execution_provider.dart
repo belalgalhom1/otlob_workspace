@@ -131,6 +131,8 @@ class OrderExecution extends _$OrderExecution {
       } else {
         state = AsyncValue.error(e, st);
       }
+      // Sync with server in case the upload succeeded right before a network drop.
+      _fetchActiveOrder();
       rethrow;
     }
   }
@@ -161,6 +163,7 @@ class OrderExecution extends _$OrderExecution {
       } else {
         state = AsyncValue.error(e, st);
       }
+      _fetchActiveOrder();
       rethrow;
     }
   }
@@ -178,17 +181,27 @@ class OrderExecution extends _$OrderExecution {
         }
         if (data['fulfillmentId'] != null) {
           final updated = Map<String, dynamic>.from(state.value as Map);
-          final fulfillments = updated['vendorFulfillments'];
-          if (fulfillments is List) {
-            for (final fulfillment in fulfillments) {
-              if (fulfillment is Map &&
-                  fulfillment['id']?.toString() ==
-                      data['fulfillmentId']?.toString()) {
-                fulfillment['status'] = data['status'];
-                fulfillment['pickedUpAt'] = data['pickedUpAt'];
-                fulfillment['pickupImageUrl'] = data['pickupImageUrl'];
+          final incomingFId = data['fulfillmentId'].toString();
+          final incomingFStatus = (data['fulfillmentStatus'] ?? data['status'])?.toString();
+          if (incomingFStatus == 'REJECTED' || incomingFStatus == 'CANCELLED') {
+            // Portion removed from route: refetch full order so stops/fees stay exact.
+            _fetchActiveOrder();
+            return;
+          }
+          final rawFulfillments = updated['vendorFulfillments'];
+          if (rawFulfillments is List) {
+            final nextFulfillments = List<dynamic>.from(rawFulfillments);
+            for (int i = 0; i < nextFulfillments.length; i++) {
+              final f = nextFulfillments[i];
+              if (f is Map && f['id']?.toString() == incomingFId) {
+                final copy = Map<String, dynamic>.from(f);
+                if (incomingFStatus != null) copy['status'] = incomingFStatus;
+                if (data['pickedUpAt'] != null) copy['pickedUpAt'] = data['pickedUpAt'];
+                if (data['pickupImageUrl'] != null) copy['pickupImageUrl'] = data['pickupImageUrl'];
+                nextFulfillments[i] = copy;
               }
             }
+            updated['vendorFulfillments'] = nextFulfillments;
           }
           final status = data['orderStatus'] ?? data['parentStatus'];
           if (status != null) updated['status'] = status;

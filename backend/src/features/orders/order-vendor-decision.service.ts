@@ -286,12 +286,23 @@ export class OrderVendorDecisionService {
     if (allRejected) {
       // Every vendor said no → reuse the existing cancellation/refund workflow
       // (coins refunded, stock restored, dispatch cancelled) rather than
-      // leaving an invalid active order behind.
-      await this.stateService.cancelOrder(
-        null,
-        fulfillment.orderId,
-        'All vendors rejected their portions',
-      );
+      // leaving an invalid active order behind. Guard against two simultaneous
+      // rejections/timeouts both entering `cancelOrder` at the same time.
+      try {
+        await this.stateService.cancelOrder(
+          null,
+          fulfillment.orderId,
+          'All vendors rejected their portions',
+        );
+      } catch (err) {
+        const latest = await this.prisma.order.findUnique({
+          where: { id: fulfillment.orderId },
+          select: { status: true },
+        });
+        if (latest?.status !== OrderStatus.CANCELLED) {
+          throw err;
+        }
+      }
     } else {
       // A rejected portion can be the last thing keeping its delivery from
       // being ready (a sibling portion was already declared ready, and this
@@ -989,14 +1000,18 @@ export class OrderVendorDecisionService {
       select: { status: true },
     });
     if (anyPending && order && REOPENABLE.includes(order.status)) {
-      await this.ordersRepository.updateStatus(
-        orderId,
-        'PENDING',
-        'system',
-        undefined,
-        undefined,
-        order.status as any,
-      );
+      try {
+        await this.ordersRepository.updateStatus(
+          orderId,
+          'PENDING',
+          'system',
+          undefined,
+          undefined,
+          order.status as any,
+        );
+      } catch {
+        // Concurrent transition already moved the order atomically.
+      }
     }
     return false;
   }
