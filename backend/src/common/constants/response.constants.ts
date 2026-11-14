@@ -369,6 +369,7 @@ export const OrderErrors = {
   FULFILLMENT_ALREADY_DECIDED: 'order.error.fulfillment_already_decided',
   REJECTION_REASON_REQUIRED: 'order.error.rejection_reason_required',
   MULTI_VENDOR_NOT_ALLOWED: 'order.error.multi_vendor_not_allowed',
+  MULTI_VENDOR_LIMIT_EXCEEDED: 'order.error.multi_vendor_limit_exceeded',
   EMPTY_CART_FOR_VENDOR: 'order.error.empty_cart_for_vendor',
   NO_DELIVERY_GROUPS: 'order.error.no_delivery_groups',
   PRODUCT_NOT_AVAILABLE_AT_BRANCH:

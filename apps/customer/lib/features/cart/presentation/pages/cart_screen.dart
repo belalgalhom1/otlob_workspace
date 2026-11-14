@@ -6,6 +6,7 @@ import '../../../../core/utils/image_utils.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/providers/platform_settings_provider.dart';
 import '../providers/cart_controller.dart';
 import '../../../home/presentation/providers/vendor_detail_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
@@ -203,6 +204,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     Map<String, List<CartItem>> activeBaskets,
     int totalItems,
   ) {
+    final maxVendors =
+        ref.watch(platformSettingsProvider).value?.maxMultiVendorVendors ?? 5;
+    final vendorCount = activeBaskets.length;
+    final isOverLimit = vendorCount > maxVendors;
+    final extraVendors = vendorCount - maxVendors;
+    final countSubtitle = maxVendors > 1
+        ? (s.isArabic
+              ? '$vendorCount/$maxVendors متاجر • $totalItems منتجات'
+              : '$vendorCount/$maxVendors stores • $totalItems items')
+        : (s.isArabic
+              ? '$vendorCount متاجر • $totalItems منتجات'
+              : '$vendorCount stores • $totalItems items');
+
     final info = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,24 +233,32 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         ),
         const SizedBox(height: 2),
         Text(
-          s.isArabic
-              ? '${activeBaskets.length} متاجر • $totalItems منتجات'
-              : '${activeBaskets.length} stores • $totalItems items',
+          countSubtitle,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 12,
-            color: isDark ? Colors.white60 : Colors.black54,
+            color: isOverLimit
+                ? Colors.orangeAccent
+                : (isDark ? Colors.white60 : Colors.black54),
+            fontWeight: isOverLimit ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ],
     );
 
     final action = ElevatedButton(
-      onPressed: _isCheckingOut ? null : () => _proceedToCheckout(context, s),
+      onPressed: (_isCheckingOut || isOverLimit)
+          ? null
+          : () => _proceedToCheckout(context, s),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
-        disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.7),
+        disabledBackgroundColor: isOverLimit
+            ? (isDark ? Colors.white12 : Colors.grey.shade300)
+            : AppColors.primary.withValues(alpha: 0.7),
+        disabledForegroundColor: isOverLimit
+            ? (isDark ? Colors.white38 : Colors.black45)
+            : Colors.black,
         foregroundColor: Colors.black,
         // The global ElevatedButton theme uses an infinite minimum width,
         // which squeezes this button's Row siblings to zero width.
@@ -261,7 +283,62 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ),
     );
 
+    final limitBanner = isOverLimit
+        ? Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: isDark ? 0.16 : 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.orange.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    maxVendors <= 1
+                        ? (s.isArabic
+                              ? 'الطلب متعدد المتاجر غير متاح حالياً. يمكنك إتمام طلب كل متجر على حدة.'
+                              : 'Multi-vendor checkout is currently unavailable. Please check out each store separately.')
+                        : (s.isArabic
+                              ? 'الحد الأقصى للطلب المجمع $maxVendors متاجر (لديك $vendorCount). احذف $extraVendors ${extraVendors == 1 ? 'متجر' : 'متاجر'} أو اطلب كل متجر على حدة.'
+                              : 'Max $maxVendors stores per combined order (you have $vendorCount). Remove $extraVendors ${extraVendors == 1 ? 'store' : 'stores'} or order separately.'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? Colors.orange.shade200
+                          : Colors.orange.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : null;
+
     final stacked = _useStackedActions(context);
+    final actionRow = stacked
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [info, const SizedBox(height: 10), action],
+          )
+        : Row(
+            children: [
+              Expanded(child: info),
+              const SizedBox(width: 12),
+              action,
+            ],
+          );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -276,18 +353,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         ],
       ),
       child: SafeArea(
-        child: stacked
-            ? Column(
+        child: limitBanner == null
+            ? actionRow
+            : Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [info, const SizedBox(height: 10), action],
-              )
-            : Row(
-                children: [
-                  Expanded(child: info),
-                  const SizedBox(width: 12),
-                  action,
-                ],
+                children: [limitBanner, actionRow],
               ),
       ),
     );
@@ -325,6 +396,26 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         if (syncedBaskets.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(s.emptyCart)),
+          );
+          return;
+        }
+        final maxVendors =
+            ref.read(platformSettingsProvider).value?.maxMultiVendorVendors ??
+            5;
+        if (syncedBaskets.length > 1 && syncedBaskets.length > maxVendors) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                maxVendors <= 1
+                    ? (s.isArabic
+                          ? 'الطلب متعدد المتاجر غير متاح حالياً.'
+                          : 'Multi-vendor checkout is currently unavailable.')
+                    : (s.isArabic
+                          ? 'الحد الأقصى لعدد المتاجر في الطلب المجمع هو $maxVendors متاجر.'
+                          : 'Maximum $maxVendors stores allowed in a combined order.'),
+              ),
+              backgroundColor: Colors.orange.shade800,
+            ),
           );
           return;
         }

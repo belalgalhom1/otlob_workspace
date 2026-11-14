@@ -477,6 +477,14 @@ export class OrdersMultiVendorService {
     dto: PlaceMultiVendorOrderDto,
   ) {
     const settings = await this.platformSettings.getSettings();
+    const maxVendors = Number(settings.maxMultiVendorVendors ?? 5);
+    if (
+      Number.isFinite(maxVendors) &&
+      maxVendors >= 1 &&
+      vendorIds.length > maxVendors
+    ) {
+      throw new BadRequestException(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
+    }
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
       select: { id: true, coinBalance: true },

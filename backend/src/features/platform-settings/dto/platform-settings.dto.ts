@@ -372,6 +372,21 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   groupingMaxVendorCustomerDistanceKm?: number;
 
+  @ApiProperty({
+    example: 5,
+    required: false,
+    minimum: 1,
+    maximum: 20,
+    description:
+      'Maximum unique vendors/branches allowed in a single multi-vendor order (1-20; setting 1 disables multi-vendor checkout). Default 5.',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  @IsOptional()
+  @Type(() => Number)
+  maxMultiVendorVendors?: number;
+
   // ─── Order behaviour ───────────────────────────────────────────────────────
 
   @ApiProperty({ example: 1500, required: false })

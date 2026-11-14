@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:otlob_customer/core/providers/platform_settings_provider.dart';
 import 'package:otlob_customer/features/auth/presentation/providers/auth_controller.dart';
+import 'package:otlob_customer/features/cart/presentation/pages/cart_screen.dart';
 import 'package:otlob_customer/features/cart/presentation/pages/checkout_screen.dart';
 import 'package:otlob_customer/features/cart/presentation/providers/cart_controller.dart';
 import 'package:otlob_customer/features/profile/presentation/providers/coin_history_provider.dart';
@@ -202,6 +203,62 @@ Future<void> _pumpCheckout(
             supportedLocales: context.supportedLocales,
             locale: context.locale,
             home: CheckoutScreen(vendorIds: vendorIds),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpCart(
+  WidgetTester tester, {
+  required _FakeCartRepo fakeCartRepo,
+  required _FakeOrderRepo fakeOrderRepo,
+  required PlatformSettingsData settings,
+  Locale locale = const Locale('en'),
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  await EasyLocalization.ensureInitialized();
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        authControllerProvider.overrideWith(
+          () => _TestAuthController(AuthStatus.authenticated),
+        ),
+        sharedAuthRepositoryProvider.overrideWithValue(_FakeAuthRepo()),
+        customerCartRepositoryProvider.overrideWithValue(fakeCartRepo),
+        customerOrderRepositoryProvider.overrideWithValue(fakeOrderRepo),
+        profileProvider.overrideWith(
+          () => _FakeProfileController(
+            ProfileState(
+              name: 'Test',
+              email: 't@example.com',
+              phone: '01000000000',
+              avatar: '',
+              isArabic: locale.languageCode == 'ar',
+              addresses: const [],
+            ),
+          ),
+        ),
+        coinHistoryProvider.overrideWith(() => _FakeCoinHistory()),
+        platformSettingsProvider.overrideWith((ref) async => settings),
+      ],
+      child: EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        path: 'packages/core/assets/translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: locale,
+        assetLoader: const _CatalogAssetLoader(),
+        useOnlyLangCode: true,
+        child: Builder(
+          builder: (context) => MaterialApp(
+            localizationsDelegates: context.localizationDelegates,
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+            home: const CartScreen(),
           ),
         ),
       ),
@@ -432,5 +489,101 @@ void main() {
         findsOneWidget,
       );
     });
+  });
+
+  group('PlatformSettingsData & CartScreen maxMultiVendorVendors guard', () {
+    test('parses maxMultiVendorVendors from JSON and safely falls back to 5', () {
+      expect(PlatformSettingsData().maxMultiVendorVendors, 5);
+      expect(
+        PlatformSettingsData.fromJson({'maxMultiVendorVendors': 3})
+            .maxMultiVendorVendors,
+        3,
+      );
+      expect(
+        PlatformSettingsData.fromJson({'maxMultiVendorVendors': '1'})
+            .maxMultiVendorVendors,
+        1,
+      );
+      expect(
+        PlatformSettingsData.fromJson({'maxMultiVendorVendors': 0})
+            .maxMultiVendorVendors,
+        5,
+      );
+      expect(
+        PlatformSettingsData.fromJson({'maxMultiVendorVendors': 'bad'})
+            .maxMultiVendorVendors,
+        5,
+      );
+    });
+
+    testWidgets(
+      'disables Checkout All and warns when stores exceed maxMultiVendorVendors while keeping single-store Checkout active',
+      (tester) async {
+        final fakeCartRepo = _FakeCartRepo()
+          ..onGetMyCarts = () async => [
+                _rawServerCart('v1', 'Burger'),
+                _rawServerCart('v2', 'Pizza'),
+                _rawServerCart('v3', 'Sushi'),
+              ];
+
+        await _pumpCart(
+          tester,
+          fakeCartRepo: fakeCartRepo,
+          fakeOrderRepo: _FakeOrderRepo(),
+          settings: PlatformSettingsData(maxMultiVendorVendors: 2),
+        );
+
+        expect(
+          find.text(
+            'Max 2 stores per combined order (you have 3). Remove 1 store or order separately.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('3/2 stores • 3 items'), findsOneWidget);
+
+        final checkoutAllBtn = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Checkout All'),
+        );
+        expect(checkoutAllBtn.onPressed, isNull);
+
+        // Single-store Checkout on the first vendor card remains enabled
+        final singleCheckoutBtn = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Checkout').first,
+        );
+        expect(singleCheckoutBtn.onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'renders Arabic RTL disabled multi-vendor notice cleanly when maxMultiVendorVendors is 1',
+      (tester) async {
+        final fakeCartRepo = _FakeCartRepo()
+          ..onGetMyCarts = () async => [
+                _rawServerCart('v1', 'Burger'),
+                _rawServerCart('v2', 'Pizza'),
+              ];
+
+        await _pumpCart(
+          tester,
+          fakeCartRepo: fakeCartRepo,
+          fakeOrderRepo: _FakeOrderRepo(),
+          settings: PlatformSettingsData(maxMultiVendorVendors: 1),
+          locale: const Locale('ar'),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(
+          find.text(
+            'الطلب متعدد المتاجر غير متاح حالياً. يمكنك إتمام طلب كل متجر على حدة.',
+          ),
+          findsOneWidget,
+        );
+
+        final checkoutAllBtn = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'إتمام طلب الكل'),
+        );
+        expect(checkoutAllBtn.onPressed, isNull);
+      },
+    );
   });
 }

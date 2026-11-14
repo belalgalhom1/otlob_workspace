@@ -1889,6 +1889,7 @@
   "order_error_fulfillment_already_decided": "تم قبول أو رفض جزء الطلب ده بالفعل.",
   "order_error_rejection_reason_required": "من فضلك اكتب سبب رفض جزء الطلب.",
   "order_error_multi_vendor_not_allowed": "مينفعش تطلب من أكتر من متجر في نفس السلة.",
+  "order_error_multi_vendor_limit_exceeded": "تجاوزت الحد الأقصى لعدد المتاجر المسموح به في الطلب الواحد.",
   "order_error_empty_cart_for_vendor": "في متجر من اللي في طلبك سلته فاضية.",
   "order_error_no_delivery_groups": "معرفناش نظبط توزيع التوصيل للطلب ده، جرب تاني.",
   "order_error_no_open_branch": "مفيش فرع مفتوح للمتجر ده في منطقتك دلوقتي، جرب متجر تاني.",

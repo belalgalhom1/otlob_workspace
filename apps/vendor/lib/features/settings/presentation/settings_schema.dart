@@ -715,6 +715,17 @@ const List<SettingsSection> platformSettingsSections = [
             'Seconds allowed for customer or system to decide on an extra driver assistance request before auto-expiring (default 120s).',
       ),
       SettingsField(
+        key: 'maxMultiVendorVendors',
+        kind: SettingsFieldKind.number,
+        suffix: 'متجر',
+        labelAr: 'الحد الأقصى لمتاجر الطلب المجمع',
+        labelEn: 'Max Vendors Per Multi-Vendor Order',
+        helpAr:
+            'أقصى عدد متاجر أو فروع يمكن للعميل جمعها في طلب واحد متعدد المتاجر (1 إلى 20؛ وضع 1 يعطّل الطلب المجمع، والافتراضي 5).',
+        helpEn:
+            'Maximum unique stores/branches allowed in a single multi-vendor order (1-20; set to 1 to disable multi-vendor checkout, default 5).',
+      ),
+      SettingsField(
         key: 'groupingMaxBranchDistanceKm',
         kind: SettingsFieldKind.number,
         suffix: 'كم',

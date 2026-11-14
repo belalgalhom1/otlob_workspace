@@ -21,6 +21,7 @@ import { DispatchEventsHandler } from '../events/dispatch-events.handler';
 import { NotificationListener } from '../../common/listeners/notification.listener';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
+import { OrderErrors } from '../../common/constants/response.constants';
 
 describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => {
   describe('1. Single-vendor backward compatibility & multi-vendor driver collection gates (OrdersStateService)', () => {
@@ -902,6 +903,75 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           type: 'ORDER_UPDATE' as any,
         }),
       ).resolves.toMatchObject({ id: 'notif-1' });
+    });
+
+    it('rejects multi-vendor estimate and placeOrder when vendor count exceeds maxMultiVendorVendors', async () => {
+      const mockRepo: any = {
+        findByClientOrderKeyForUser: jest.fn().mockResolvedValue(null),
+      };
+      const mockPrisma: any = {
+        customer: { findUnique: jest.fn() },
+        $transaction: jest.fn(),
+      };
+      const mockCart: any = {
+        validateForCheckout: jest.fn(),
+      };
+      const mockSettings: any = {
+        getSettings: jest.fn().mockResolvedValue({ maxMultiVendorVendors: 2 }),
+      };
+
+      const svc = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        mockSettings,
+        {} as any,
+        mockRepo,
+        {} as any,
+        { emit: jest.fn() } as any,
+        {} as any,
+      );
+
+      await expect(
+        svc.estimate(
+          { sub: 'user-cust', role: Role.CUSTOMER } as any,
+          {
+            vendorIds: ['v1', 'v2', 'v3'],
+            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+            deliveryAddress: 'Nasr City',
+            deliveryLocation: [31.33, 30.0444],
+          },
+        ),
+      ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
+
+      await expect(
+        svc.placeOrder(
+          { sub: 'user-cust', role: Role.CUSTOMER } as any,
+          {
+            vendorIds: ['v1', 'v2', 'v3'],
+            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+            deliveryAddress: 'Nasr City',
+            deliveryLocation: [31.33, 30.0444],
+          },
+        ),
+      ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
+
+      // Setting maxMultiVendorVendors = 1 disables multi-vendor checkout (>= 2)
+      mockSettings.getSettings.mockResolvedValue({ maxMultiVendorVendors: 1 });
+      await expect(
+        svc.estimate(
+          { sub: 'user-cust', role: Role.CUSTOMER } as any,
+          {
+            vendorIds: ['v1', 'v2'],
+            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+            deliveryAddress: 'Nasr City',
+            deliveryLocation: [31.33, 30.0444],
+          },
+        ),
+      ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
+
+      expect(mockPrisma.customer.findUnique).not.toHaveBeenCalled();
+      expect(mockCart.validateForCheckout).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });

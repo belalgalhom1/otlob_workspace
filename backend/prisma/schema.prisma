@@ -107,6 +107,8 @@ model PlatformSetting {
   // Max straight-line distance from a vendor branch to the customer drop-off
   // for that branch to be eligible for grouping at all.
   groupingMaxVendorCustomerDistanceKm   Float     @default(25.0)
+  // Max unique vendors/branches allowed in a single multi-vendor order (1 = disabled).
+  maxMultiVendorVendors                 Int       @default(5)
   customOrderPlatformFee                Int       @default(10)
   maxDispatchBatchSize                  Int       @default(20)
   maxActiveOrdersPerDriver              Int       @default(1)

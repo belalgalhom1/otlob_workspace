@@ -1,7 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import { PlatformSetting } from '@prisma/client';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { EVENTS } from '../../common/events/event-names';
 import { DeliveryFeeCalculator } from './delivery-fee.calculator';
+import { UpdatePlatformSettingsDto } from './dto/platform-settings.dto';
 import { PlatformSettingsService } from './platform-settings.service';
 
 function makeSettings(
@@ -42,6 +45,7 @@ function makeSettings(
     multiVendorDeliveryCommissionRate: 20,
     multiVendorDriverManagerCommissionRate: 10,
     multiVendorDriverPercentage: 70,
+    maxMultiVendorVendors: 5,
     ...overrides,
   } as PlatformSetting;
 }
@@ -188,6 +192,44 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
         service.uploadVehicleIcon('spaceship', {} as any),
       ).rejects.toThrow(BadRequestException);
       expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('exposes maxMultiVendorVendors in getPublicSettings and validates 1..20 bounds in DTO', async () => {
+      const s = makeSettings({ maxMultiVendorVendors: 3 });
+      const service = new PlatformSettingsService(
+        {
+          platformSetting: {
+            findUnique: jest.fn().mockResolvedValue(s),
+          },
+        } as any,
+        { upload: jest.fn(), delete: jest.fn() } as any,
+        { emit: jest.fn() } as any,
+        { get: jest.fn().mockResolvedValue(null), set: jest.fn() } as any,
+      );
+
+      const pub = await service.getPublicSettings();
+      expect(pub.maxMultiVendorVendors).toBe(3);
+
+      expect(
+        await validate(
+          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 3 }),
+        ),
+      ).toHaveLength(0);
+      expect(
+        await validate(
+          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 1 }),
+        ),
+      ).toHaveLength(0);
+      expect(
+        await validate(
+          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 0 }),
+        ),
+      ).not.toHaveLength(0);
+      expect(
+        await validate(
+          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 21 }),
+        ),
+      ).not.toHaveLength(0);
     });
   });
 });

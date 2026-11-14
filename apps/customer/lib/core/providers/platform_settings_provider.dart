@@ -61,6 +61,7 @@ class PlatformSettingsData {
   final double coinValue;
   final double amountSpentPerCoin;
   final int minCoinsToUse;
+  final int maxMultiVendorVendors;
 
   PlatformSettingsData({
     this.homeCoverUrl,
@@ -120,6 +121,7 @@ class PlatformSettingsData {
     this.coinValue = 1,
     this.amountSpentPerCoin = 10,
     this.minCoinsToUse = 1,
+    this.maxMultiVendorVendors = 5,
   });
 
   factory PlatformSettingsData.fromJson(Map<String, dynamic> json) {
@@ -127,6 +129,9 @@ class PlatformSettingsData {
       if (value == null) return null;
       return DateTime.tryParse(value.toString());
     }
+
+    final parsedMaxMultiVendor =
+        int.tryParse(json['maxMultiVendorVendors']?.toString() ?? '') ?? 5;
 
     return PlatformSettingsData(
       homeCoverUrl: json['homeCoverUrl'],
@@ -186,6 +191,7 @@ class PlatformSettingsData {
       coinValue: double.tryParse(json['coinValue']?.toString() ?? '1') ?? 1,
       amountSpentPerCoin: double.tryParse(json['amountSpentPerCoin']?.toString() ?? '10') ?? 10,
       minCoinsToUse: int.tryParse(json['minCoinsToUse']?.toString() ?? '1') ?? 1,
+      maxMultiVendorVendors: parsedMaxMultiVendor < 1 ? 5 : parsedMaxMultiVendor,
     );
   }
 }
