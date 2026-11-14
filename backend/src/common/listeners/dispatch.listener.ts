@@ -1,57 +1,64 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { EVENTS } from '../events/event-names';
-import { OrderCancelledEvent, OrderStatusChangedEvent } from '../events';
-import { OrderStatus } from '@prisma/client';
 import {
-  QUEUES,
-  EVENT_JOBS,
-} from '../../infrastructure/queue/queues.constants';
+  OrderCancelledEvent,
+  OrderCreatedEvent,
+  OrderDispatchRespondedEvent,
+  OrderStatusChangedEvent,
+} from '../events';
+import { OrderWorkflowDispatcher } from '../orders/order-workflow.dispatcher';
 
+/**
+ * Orchestrates durable workflow transitions on domain queues (`QUEUES.DISPATCH`
+ * and `QUEUES.ORDERS`) independently from notification/socket fan-out.
+ */
 @Injectable()
 export class DispatchListener {
   private readonly logger = new Logger(DispatchListener.name);
 
-  constructor(
-    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
-  ) {}
+  constructor(private readonly workflowDispatcher: OrderWorkflowDispatcher) {}
 
-  @OnEvent(EVENTS.ORDER_CANCELLED, { async: true })
-  async handleOrderCancelled(event: OrderCancelledEvent) {
-    this.logger.debug(
-      `Catching ORDER_CANCELLED event for ${event.orderId}. Terminating active dispatch...`,
-    );
-    await this.enqueueCancel(event.orderId);
+  @OnEvent(EVENTS.ORDER_CREATED, { async: true })
+  async handleOrderCreated(event: OrderCreatedEvent) {
+    try {
+      await this.workflowDispatcher.onOrderCreated(event);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed workflow dispatch on order.created for ${event.orderId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   @OnEvent(EVENTS.ORDER_STATUS_CHANGED, { async: true })
   async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
-    // If order was manually assigned to a driver, or moved to a state that doesn't need dispatch
-    if (
-      event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-      event.newStatus === OrderStatus.PENDING_PAYMENT
-    ) {
-      this.logger.debug(
-        `Catching ORDER_STATUS_CHANGED to ${event.newStatus} for ${event.orderId}. Terminating active dispatch...`,
+    try {
+      await this.workflowDispatcher.onOrderStatusChanged(event);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed workflow dispatch on order.status_changed (${event.newStatus}) for ${event.orderId}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      await this.enqueueCancel(event.orderId);
     }
   }
 
-  private async enqueueCancel(orderId: string) {
+  @OnEvent(EVENTS.ORDER_CANCELLED, { async: true })
+  async handleOrderCancelled(event: OrderCancelledEvent) {
     try {
-      await this.eventsQueue.add(
-        EVENT_JOBS.CANCEL_ACTIVE_DISPATCH,
-        { orderId },
-        {
-          attempts: 1,
-        },
-      );
-    } catch (error) {
+      await this.workflowDispatcher.onOrderCancelled(event);
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to enqueue cancel-active-dispatch event for order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed workflow dispatch on order.cancelled for ${event.orderId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @OnEvent(EVENTS.ORDER_DISPATCH_RESPONDED, { async: true })
+  async handleDispatchResponded(event: OrderDispatchRespondedEvent) {
+    try {
+      await this.workflowDispatcher.onDispatchResponded(event);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed workflow dispatch on dispatch.responded for ${event.dispatchId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

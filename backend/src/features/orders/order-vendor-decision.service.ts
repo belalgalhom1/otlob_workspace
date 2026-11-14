@@ -4,22 +4,18 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  Inject,
-  forwardRef,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DeliveryGroupStatus,
   OrderStatus,
   OrderVendorFulfillmentStatus,
-  Permission,
   Prisma,
-  Role,
   VendorMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OrdersRepository } from './orders.repository';
-import { OrdersStateService } from './orders-state.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { OrderErrors } from '../../common/constants/response.constants';
 import { EVENTS } from '../../common/events/event-names';
@@ -29,6 +25,11 @@ import {
   OrderVendorRejectedEvent,
 } from '../../common/events';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
+import { StockService } from './helpers/stock.service';
+import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
+import { OrderCancellationService } from './transitions/order-cancellation.service';
+import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
+import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
 
 export interface RejectFulfillmentDto {
   /** Machine-readable reason code (enum on the client, stable for analytics). */
@@ -52,11 +53,22 @@ export class OrderVendorDecisionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersRepository: OrdersRepository,
-    @Inject(forwardRef(() => OrdersStateService))
-    private readonly stateService: OrdersStateService,
+    private readonly cancellationService: OrderCancellationService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly fulfillmentTransitions?: FulfillmentTransitionService,
+    @Optional() private readonly deliveryGroupTransitions?: DeliveryGroupTransitionService,
+    @Optional() private readonly stockService?: StockService,
+    @Optional() private readonly authHelper?: OrderAuthorizationHelper,
   ) {}
+
+  private get stock(): StockService {
+    return this.stockService ?? new StockService();
+  }
+
+  private get auth(): OrderAuthorizationHelper {
+    return this.authHelper ?? new OrderAuthorizationHelper(this.prisma);
+  }
 
   // ─── Vendor workflow ───────────────────────────────────────────────────────
 
@@ -264,7 +276,7 @@ export class OrderVendorDecisionService {
           )
         : { deliveryFeeDelta: 0, freedDriverIds: [] as string[] };
 
-      await this.restoreStock(tx, items);
+      await this.stock.restoreForItems(tx, items);
 
       return {
         items,
@@ -300,7 +312,7 @@ export class OrderVendorDecisionService {
       // leaving an invalid active order behind. Guard against two simultaneous
       // rejections/timeouts both entering `cancelOrder` at the same time.
       try {
-        await this.stateService.cancelOrder(
+        await this.cancellationService.cancelOrder(
           null,
           fulfillment.orderId,
           'All vendors rejected their portions',
@@ -320,8 +332,8 @@ export class OrderVendorDecisionService {
       // one just left the group). Re-check before dispatch handoff: otherwise
       // the delivery stays DRIVER_ASSIGNED and its driver can never pass the
       // "ready for pickup" gate.
-      if (result.ridingGroupId) {
-        await this.stateService.syncGroupReadinessAfterPortionRemoved(
+      if (result.ridingGroupId && this.fulfillmentTransitions) {
+        await this.fulfillmentTransitions.syncGroupReadinessAfterPortionRemoved(
           fulfillment.orderId,
           result.ridingGroupId,
           actorSub,
@@ -332,9 +344,11 @@ export class OrderVendorDecisionService {
       await this.maybeAdvanceToDispatch(fulfillment.orderId);
       // If a cancelled delivery group left all surviving groups already delivered,
       // advance the aggregate order to DELIVERED so settlement runs.
-      await this.stateService.recomputeGroupedOrderStatusAfterCancel(
-        fulfillment.orderId,
-      );
+      if (this.deliveryGroupTransitions) {
+        await this.deliveryGroupTransitions.recomputeGroupedOrderStatusAfterCancel(
+          fulfillment.orderId,
+        );
+      }
     }
 
     const vendor = await this.prisma.vendor.findUnique({
@@ -384,7 +398,7 @@ export class OrderVendorDecisionService {
    * client-supplied id.
    */
   async listPendingForVendor(actor: JwtAccessPayload) {
-    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.canManageOrders(actor.sub, actor.role)))) {
+    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.auth.canManageOrders(actor.sub, actor.role)))) {
       return this.prisma.orderVendorFulfillment.findMany({
         where: {
           status: OrderVendorFulfillmentStatus.PENDING,
@@ -422,7 +436,7 @@ export class OrderVendorDecisionService {
   }
 
   async listForVendor(actor: JwtAccessPayload, vendorId: string) {
-    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.canManageOrders(actor.sub, actor.role)))) {
+    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.auth.canManageOrders(actor.sub, actor.role)))) {
       return this.prisma.orderVendorFulfillment.findMany({
         where: { vendorId },
         orderBy: { createdAt: 'desc' },
@@ -498,7 +512,7 @@ export class OrderVendorDecisionService {
     // Vendor identity is derived from the fulfillment itself, never from a
     // client-supplied vendorId, so a member cannot act on another vendor or branch.
     if (actor && actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
-      const canManage = await this.canManageOrders(actor.sub, actor.role);
+      const canManage = await this.auth.canManageOrders(actor.sub, actor.role);
       if (!canManage) {
         const member = await this.prisma.vendorMember.findUnique({
           where: {
@@ -613,77 +627,6 @@ export class OrderVendorDecisionService {
         actorUserId,
       ),
     );
-  }
-
-  /** Restore variant/product stock exactly like OrdersRepository.cancelOrder. */
-  private async restoreStock(
-    tx: any,
-    items: Array<{
-      productId: string | null;
-      variantId: string | null;
-      quantity: number;
-      selectedUnit: string | null;
-      product: { tracksStock: boolean; sellByStrip: boolean | null; stripsPerPackage: number | null } | null;
-      variant: { tracksStock: boolean } | null;
-    }>,
-  ): Promise<void> {
-    const variantQtyById = new Map<string, number>();
-    const packageQtyByProductId = new Map<string, number>();
-    const stripQtyByProductId = new Map<string, number>();
-    const dividerByProductId = new Map<string, number>();
-
-    for (const item of items) {
-      if (item.quantity <= 0) continue;
-      if (item.variantId) {
-        if (item.variant?.tracksStock) {
-          variantQtyById.set(
-            item.variantId,
-            (variantQtyById.get(item.variantId) ?? 0) + item.quantity,
-          );
-        }
-      } else if (item.productId && item.product?.tracksStock) {
-        const per =
-          item.product.sellByStrip === true &&
-          Number(item.product.stripsPerPackage ?? 0) > 0
-            ? Math.max(1, Number(item.product.stripsPerPackage))
-            : 1;
-        dividerByProductId.set(item.productId, per);
-        if (item.selectedUnit === 'strip') {
-          stripQtyByProductId.set(
-            item.productId,
-            (stripQtyByProductId.get(item.productId) ?? 0) + item.quantity,
-          );
-        } else {
-          packageQtyByProductId.set(
-            item.productId,
-            (packageQtyByProductId.get(item.productId) ?? 0) + item.quantity,
-          );
-        }
-      }
-    }
-
-    for (const [productId, stripQty] of stripQtyByProductId) {
-      const per = dividerByProductId.get(productId) ?? 1;
-      packageQtyByProductId.set(
-        productId,
-        (packageQtyByProductId.get(productId) ?? 0) + Math.ceil(stripQty / per),
-      );
-    }
-
-    for (const [variantId, qty] of variantQtyById) {
-      if (qty <= 0) continue;
-      await tx.$executeRaw`
-        UPDATE product_variants SET stock = stock + ${qty}
-        WHERE id = ${variantId} AND stock IS NOT NULL
-      `;
-    }
-    for (const [productId, qty] of packageQtyByProductId) {
-      if (qty <= 0) continue;
-      await tx.$executeRaw`
-        UPDATE products SET stock = stock + ${qty}
-        WHERE id = ${productId} AND stock IS NOT NULL
-      `;
-    }
   }
 
   /**
@@ -1106,17 +1049,5 @@ export class OrderVendorDecisionService {
     } catch {
       // Lost a race with another decision or flow that already advanced it.
     }
-  }
-  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.DRIVER_MANAGER) return false;
-    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { permissions: true },
-    });
-    return !!(
-      user?.permissions.includes(Permission.MANAGE_ORDERS) ||
-      user?.permissions.includes(Permission.MANAGE_VENDORS)
-    );
   }
 }

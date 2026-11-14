@@ -11,16 +11,16 @@ import { DispatchListener } from './dispatch.listener';
 import { CartListener } from './cart.listener';
 import { ReviewListener } from './review.listener';
 import { SettingsListener } from './settings.listener';
-import { DispatchModule } from '../../features/dispatch/dispatch.module';
 import { CartModule } from '../../features/cart/cart.module';
 import { PlatformSettingsModule } from '../../features/platform-settings/platform-settings.module';
 import { DriversModule } from '../../features/drivers/drivers.module';
+import { OrderSharedModule } from '../orders/order-shared.module';
 
 @Global()
 @Module({
   imports: [
-    DispatchModule, // provides DispatchService for OrderListener & DispatchListener
-    PlatformSettingsModule, // provides PlatformSettingsService for OrderListener
+    OrderSharedModule,
+    PlatformSettingsModule, // provides PlatformSettingsService for listeners
     DriversModule, // provides DriversService for SocketListener
     CartModule, // provides CartService for CartListener
   ],

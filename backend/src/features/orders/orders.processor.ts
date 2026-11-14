@@ -1,7 +1,9 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
-import { OrdersStateService } from './orders-state.service';
+import { OrderCancellationService } from './transitions/order-cancellation.service';
+import { OrderVendorDecisionService } from './order-vendor-decision.service';
+import { NON_CANCELLABLE } from './transitions/order-state.constants';
 import { StatisticsService } from '../statistics/statistics.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
@@ -9,11 +11,7 @@ import {
   ORDER_JOBS,
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
-import {
-  OrderStatus,
-  PaymentMethod,
-  DeliveryGroupStatus,
-} from '@prisma/client';
+import { OrderStatus, DeliveryGroupStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
@@ -26,7 +24,8 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(OrdersProcessor.name);
 
   constructor(
-    private readonly stateService: OrdersStateService,
+    private readonly cancellationService: OrderCancellationService,
+    private readonly vendorDecisionService: OrderVendorDecisionService,
     private readonly statisticsService: StatisticsService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
@@ -84,6 +83,8 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         return this.handleSettle(job);
       case ORDER_JOBS.DELIVERY_WATCHDOG:
         return this.handleDeliveryWatchdog(job);
+      case ORDER_JOBS.CANCEL_ORDER:
+        return this.handleCancelOrder(job);
       case ORDER_JOBS.OUTBOX_SWEEP:
         return this.outboxService.relayPending();
       case CRON_JOBS.AUTO_CANCEL_PENDING:
@@ -259,7 +260,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
       // 1. Multi-vendor orders: time out individual PENDING portions so an
       // unresponsive vendor does not kill sibling vendors who already accepted
-      // (if all portions end up rejected, autoTimeoutPendingFulfillment cancels
+      // (if all portions end up rejected, OrderVendorDecisionService.reject cancels
       // the whole order automatically).
       const stalePortions = await this.prisma.orderVendorFulfillment.findMany({
         where: {
@@ -276,10 +277,10 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
       for (const portion of stalePortions) {
         try {
-          await this.stateService.autoTimeoutPendingFulfillment(
-            portion.id,
+          await this.vendorDecisionService.reject(null, portion.id, {
+            code: 'AUTO_TIMEOUT',
             reason,
-          );
+          });
         } catch (err) {
           this.logger.warn(
             `Failed to auto-timeout fulfillment ${portion.id}: ${(err as Error).message}`,
@@ -302,7 +303,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       if (staleOrders.length === 0 && stalePortions.length === 0) return;
 
       const cancelPromises = staleOrders.map((order) =>
-        this.stateService.cancelOrder(
+        this.cancellationService.cancelOrder(
           null, // system actor
           order.id,
           reason,
@@ -458,7 +459,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       );
       for (const order of stuckPaymentOrders) {
         try {
-          await this.stateService.cancelOrder(
+          await this.cancellationService.cancelOrder(
             null, // system actor
             order.id,
             'Auto-cancelled: Customer did not complete mobile wallet payment in time.',
@@ -620,5 +621,20 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     }
 
     return { recovered };
+  }
+
+  private async handleCancelOrder(
+    job: Job<{ orderId: string; reason: string }>,
+  ) {
+    const { orderId, reason } = job.data;
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!order || NON_CANCELLABLE.includes(order.status)) {
+      return { skipped: true, reason: order?.status ?? 'not_found' };
+    }
+    await this.cancellationService.cancelOrder(null, orderId, reason);
+    return { cancelled: true, orderId };
   }
 }

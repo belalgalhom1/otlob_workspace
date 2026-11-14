@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
@@ -27,6 +27,8 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { LocationRepository } from '../../infrastructure/location/location.repository';
 import { OrderStatusChangedEvent } from 'src/common/events';
+import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
+import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 
 import { OrderErrors } from 'src/common/constants/response.constants';
 
@@ -76,7 +78,13 @@ export class DispatchService {
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
     private readonly outbox: OutboxService,
+    @Optional() private readonly earningsCalculator?: OrderEarningsCalculator,
+    @Optional() private readonly workflowDispatcher?: OrderWorkflowDispatcher,
   ) {}
+
+  private get earnings(): OrderEarningsCalculator {
+    return this.earningsCalculator ?? new OrderEarningsCalculator(this.platformSettings);
+  }
 
   // ─── Core dispatch logic ──────────────────────────────────────────────────
 
@@ -303,27 +311,30 @@ export class DispatchService {
         const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
         const isCandidateStacked = Boolean(candidate.isOnDelivery);
         const isCandidateMultiVendor = Boolean(group);
-        const estimatedEarnings = await this.calculateEstimatedEarnings(
-          totalDistanceKm,
-          perKmOverride,
-          settings,
-          order.type === 'STANDARD',
-          dispatchContext.requestedVehicleType,
-          isCandidateStacked,
-          isCandidateMultiVendor,
-          candidate.tier,
-        );
+        const estimatedEarnings =
+          await this.earnings.calculateEstimatedEarningsFromDistance({
+            distanceKm: totalDistanceKm,
+            perKmOverride,
+            prefetchedSettings: settings,
+            isStandardOrder: order.type === 'STANDARD',
+            vehicleType: dispatchContext.requestedVehicleType,
+            isStacked: isCandidateStacked,
+            isMultiVendor: isCandidateMultiVendor,
+            driverTier: candidate.tier,
+          });
 
         // A delivery is priced on its stored order fee so the driver sees what
         // settlement will actually pay rather than an inflated distance estimate.
         const advertisedEarnings =
           dispatchDeliveryFee && dispatchDeliveryFee > 0
-            ? this.earningsForGroupFee(
+            ? this.earnings.calculateDriverEarningsForFee(
                 dispatchDeliveryFee,
                 settings,
-                isCandidateStacked,
-                candidate.tier,
-                isCandidateMultiVendor,
+                {
+                  isStacked: isCandidateStacked,
+                  isMultiVendor: isCandidateMultiVendor,
+                  driverTier: candidate.tier,
+                },
               )
             : estimatedEarnings;
 
@@ -512,7 +523,6 @@ export class DispatchService {
       dispatchData.candidates?.[0]?.deliveryGroupId ??
       null;
     const expiryScope = groupScope ?? orderId;
-    const activeKey = `otlobegy:order-dispatch-active:${expiryScope}`;
     const stateKey = `otlobegy:dispatch-state:${expiryScope}`;
     const orderRow = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -801,7 +811,6 @@ export class DispatchService {
 
     const acceptScope =
       candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? orderId;
-    const activeKey = `otlobegy:order-dispatch-active:${acceptScope}`;
 
     // The order revision written by this acceptance, captured inside the
     // transaction so the event carries exactly the version it produced.
@@ -1033,8 +1042,7 @@ export class DispatchService {
       // 2b. Mark the driver busy. When maxActive > 1, ON_DELIVERY drivers can
       // accept additional orders up to the cap.
       const assignableStatuses: DriverStatus[] = [
-        DriverStatus.ONLINE,
-        DriverStatus.BUSY,
+        ...DRIVER_ASSIGNABLE_STATUSES,
       ];
       if (maxActive > 1) {
         assignableStatuses.push(DriverStatus.ON_DELIVERY);
@@ -1128,28 +1136,32 @@ export class DispatchService {
     }
 
 
-    // Durable: enqueue directly to the events queue instead of an in-process
-    // emit, so a process crash between commit and fan-out cannot lose the
-    // status change (conversation, customer push, dispatch handoff).
+    // Durable: enqueue directly to the events queue and trigger workflow
+    // orchestration immediately so a crash cannot lose fan-out and active
+    // dispatch cancellation does not wait for the outbox sweep.
+    const statusEvent = new OrderStatusChangedEvent(
+      order.id,
+      order.orderNumber,
+      order.status,
+      nextStatus,
+      order.customerId,
+      order.customer?.userId || order.customerId,
+      order.vendorId,
+      vendorUserIds,
+      driverId,
+      candidate.userId,
+      'system',
+      'Driver found and auto-assigned.',
+      assignedRevision,
+    );
+
     await this.eventsQueue.add(
       EVENT_JOBS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        order.id,
-        order.orderNumber,
-        order.status,
-        nextStatus,
-        order.customerId,
-        order.customer?.userId || order.customerId,
-        order.vendorId,
-        vendorUserIds,
-        driverId,
-        candidate.userId,
-        'system',
-        'Driver found and auto-assigned.',
-        assignedRevision,
-      ),
+      statusEvent,
       { attempts: 3, backoff: { type: 'exponential', delay: 2_000 } },
     );
+    await this.workflowDispatcher?.onOrderStatusChanged(statusEvent);
+    await this.outbox.markProcessed('ORDER', order.id, assignedRevision);
 
     return true;
   }
@@ -1594,114 +1606,4 @@ export class DispatchService {
     );
   }
 
-  // ─── Private helpers ──────────────────────────────────────────────────────
-
-  private async calculateEstimatedEarnings(
-    distanceKm: number,
-    perKmOverride?: number | null,
-    prefetchedSettings?: any,
-    isStandardOrder: boolean = true,
-    vehicleType?: string | null,
-    isStacked: boolean = false,
-    isMultiVendor: boolean = false,
-    driverTier?: string | null,
-  ): Promise<number> {
-    let deliveryFee = await this.platformSettings.calculateDeliveryFee(
-      distanceKm,
-      null,
-      perKmOverride,
-      isStandardOrder,
-      prefetchedSettings,
-      vehicleType,
-    );
-    if (driverTier === 'BRONZE') {
-      deliveryFee = Math.max(0, deliveryFee - 2);
-    }
-    const settings =
-      prefetchedSettings ?? (await this.platformSettings.getSettings());
-    let driverShare: number;
-    if (isStacked) {
-      driverShare = (settings.stackedOrderDriverPercentage ?? 50) / 100;
-    } else if (isMultiVendor) {
-      if (settings.multiVendorDriverPercentage != null) {
-        driverShare = Number(settings.multiVendorDriverPercentage) / 100;
-      } else {
-        const platformShare =
-          Number(
-            settings.multiVendorDeliveryCommissionRate ??
-              settings.deliveryCommissionRate ??
-              20,
-          ) / 100;
-        const supervisorShare =
-          Number(
-            settings.multiVendorDriverManagerCommissionRate ??
-              settings.driverManagerCommissionRate ??
-              10,
-          ) / 100;
-        driverShare = Math.max(0, 1 - platformShare - supervisorShare);
-      }
-    } else {
-      const platformShare = Number(settings.deliveryCommissionRate ?? 20) / 100;
-      const supervisorShare =
-        Number(settings.driverManagerCommissionRate ?? 10) / 100;
-      driverShare = Math.max(0, 1 - platformShare - supervisorShare);
-    }
-
-    return Math.round(deliveryFee * driverShare);
-  }
-  /**
-   * Net driver earnings for one already-priced delivery group.
-   * Mirrors calculateEstimatedEarnings but takes the group's stored fee instead
-   * of re-deriving from distance, so the figure shown to the driver matches the
-   * money settlement will actually pay for that specific delivery.
-   */
-  private earningsForGroupFee(
-    groupDeliveryFee: number,
-    settings: {
-      deliveryCommissionRate?: number | null;
-      driverManagerCommissionRate?: number | null;
-      stackedOrderDriverPercentage?: number | null;
-      batchedDeliveryCommissionRate?: number | null;
-      batchedDriverManagerCommissionRate?: number | null;
-      multiVendorDeliveryCommissionRate?: number | null;
-      multiVendorDriverManagerCommissionRate?: number | null;
-      multiVendorDriverPercentage?: number | null;
-    },
-    isStacked: boolean = false,
-    driverTier?: string | null,
-    isMultiVendor: boolean = false,
-  ): number {
-    let share: number;
-    if (isStacked) {
-      share = (settings.stackedOrderDriverPercentage ?? 50) / 100;
-    } else if (isMultiVendor) {
-      if (settings.multiVendorDriverPercentage != null) {
-        share = Number(settings.multiVendorDriverPercentage) / 100;
-      } else {
-        const platformShare =
-          Number(
-            settings.multiVendorDeliveryCommissionRate ??
-              settings.deliveryCommissionRate ??
-              20,
-          ) / 100;
-        const supervisorShare =
-          Number(
-            settings.multiVendorDriverManagerCommissionRate ??
-              settings.driverManagerCommissionRate ??
-              10,
-          ) / 100;
-        share = Math.max(0, 1 - platformShare - supervisorShare);
-      }
-    } else {
-      const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
-      const supervisorShare =
-        Number(settings?.driverManagerCommissionRate ?? 10) / 100;
-      share = Math.max(0, 1 - platformShare - supervisorShare);
-    }
-    let fee = Number(groupDeliveryFee);
-    if (driverTier === 'BRONZE') {
-      fee = Math.max(0, fee - 2);
-    }
-    return Math.max(0, Math.round(fee * share));
-  }
 }

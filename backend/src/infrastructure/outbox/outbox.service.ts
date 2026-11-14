@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { QUEUES } from '../queue/queues.constants';
+import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 
 export interface RecordOutboxParams<T = any> {
   aggregateType: string;
@@ -24,6 +25,7 @@ export class OutboxService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    @Optional() private readonly workflowDispatcher?: OrderWorkflowDispatcher,
   ) {}
 
   /**
@@ -138,6 +140,13 @@ export class OutboxService {
               attempts: 3,
               backoff: { type: 'exponential', delay: 2_000 },
             });
+
+            if (row.aggregateType === 'ORDER' && this.workflowDispatcher) {
+              await this.workflowDispatcher.triggerForOutboxRow(
+                row.eventType,
+                payload,
+              );
+            }
 
             await tx.$executeRaw`
               UPDATE "outbox"

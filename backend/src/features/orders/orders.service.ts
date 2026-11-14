@@ -2,17 +2,20 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { QueryOrdersDto } from './dto/order.dto';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import { Role, Permission } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
   OrderErrors,
   DriverErrors,
 } from '../../common/constants/response.constants';
+import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
+import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 
 @Injectable()
 export class OrdersService {
@@ -20,7 +23,20 @@ export class OrdersService {
     private readonly ordersRepository: OrdersRepository,
     private readonly prisma: PrismaService,
     private readonly platformSettings: PlatformSettingsService,
+    @Optional() private readonly authHelper?: OrderAuthorizationHelper,
+    @Optional() private readonly earningsCalculator?: OrderEarningsCalculator,
   ) {}
+
+  private get auth(): OrderAuthorizationHelper {
+    return this.authHelper ?? new OrderAuthorizationHelper(this.prisma);
+  }
+
+  private get earnings(): OrderEarningsCalculator {
+    return (
+      this.earningsCalculator ??
+      new OrderEarningsCalculator(this.platformSettings)
+    );
+  }
 
   async getMyOrdersAsCustomer(actor: JwtAccessPayload, dto: QueryOrdersDto) {
     const [customer, canManage] = await Promise.all([
@@ -28,7 +44,7 @@ export class OrdersService {
         where: { userId: actor.sub },
         select: { id: true },
       }),
-      this.canManageOrders(actor.sub, actor.role),
+      this.auth.canManageOrders(actor.sub, actor.role),
     ]);
     if (!customer)
       return { orders: [], total: 0, page: 1, limit: 20, totalPages: 0 };
@@ -47,7 +63,7 @@ export class OrdersService {
     dto: QueryOrdersDto,
   ) {
     let targetVendorId = vendorId?.trim();
-    const canManage = await this.canManageOrders(actor.sub, actor.role);
+    const canManage = await this.auth.canManageOrders(actor.sub, actor.role);
     let isMember =
       targetVendorId && targetVendorId !== 'my'
         ? await this.prisma.vendorMember.findUnique({
@@ -102,7 +118,7 @@ export class OrdersService {
         where: { userId: actor.sub },
         select: { id: true, tier: true },
       }),
-      this.canManageOrders(actor.sub, actor.role),
+      this.auth.canManageOrders(actor.sub, actor.role),
       this.platformSettings.getSettings(),
     ]);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
@@ -131,7 +147,7 @@ export class OrdersService {
       return this.enrichWithAdminHelpers(order);
     }
 
-    if (await this.canManageOrders(actor.sub, actor.role)) {
+    if (await this.auth.canManageOrders(actor.sub, actor.role)) {
       return this.enrichWithAdminHelpers(order);
     }
 
@@ -308,47 +324,6 @@ export class OrdersService {
   // ROLE PROJECTIONS (High-throughput in-memory data masking)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  private calculateDriverEarningsForFee(
-    fee: number,
-    settings: any,
-    isStacked: boolean,
-    isMultiVendor: boolean,
-    driverTier?: string | null,
-  ): number {
-    let share: number;
-    if (isStacked) {
-      share = Number(settings?.stackedOrderDriverPercentage ?? 50) / 100;
-    } else if (isMultiVendor) {
-      if (settings?.multiVendorDriverPercentage != null) {
-        share = Number(settings.multiVendorDriverPercentage) / 100;
-      } else {
-        const platformShare =
-          Number(
-            settings?.multiVendorDeliveryCommissionRate ??
-              settings?.deliveryCommissionRate ??
-              20,
-          ) / 100;
-        const supervisorShare =
-          Number(
-            settings?.multiVendorDriverManagerCommissionRate ??
-              settings?.driverManagerCommissionRate ??
-              10,
-          ) / 100;
-        share = Math.max(0, 1 - platformShare - supervisorShare);
-      }
-    } else {
-      const platformShare = Number(settings?.deliveryCommissionRate ?? 20) / 100;
-      const supervisorShare = Number(settings?.driverManagerCommissionRate ?? 10) / 100;
-      share = Math.max(0, 1 - platformShare - supervisorShare);
-    }
-
-    let adjustedFee = Number(fee ?? 0);
-    if (driverTier === 'BRONZE') {
-      adjustedFee = Math.max(0, adjustedFee - 2);
-    }
-    return Math.max(0, Math.round(adjustedFee * share));
-  }
-
   async projectOrderForRole(
     order: any,
     actor: JwtAccessPayload,
@@ -367,7 +342,7 @@ export class OrdersService {
     const canManage =
       ctx?.canManage !== undefined
         ? ctx.canManage
-        : await this.canManageOrders(actor.sub, actor.role);
+        : await this.auth.canManageOrders(actor.sub, actor.role);
     if (canManage) {
       return this.enrichWithAdminHelpers(order);
     }
@@ -480,13 +455,11 @@ export class OrdersService {
             const isGroupStacked = Boolean(g.isStacked);
             return (
               sum +
-              this.calculateDriverEarningsForFee(
-                gFee,
-                settings,
-                isGroupStacked,
+              this.earnings.calculateDriverEarningsForFee(gFee, settings, {
+                isStacked: isGroupStacked,
                 isMultiVendor,
-                myDriver?.tier,
-              )
+                driverTier: myDriver?.tier,
+              })
             );
           }, 0);
 
@@ -628,13 +601,11 @@ export class OrdersService {
     const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
     const driverEarnings =
       customDriverEarnings ??
-      this.calculateDriverEarningsForFee(
-        deliveryFee,
-        settings,
-        projectedIsStacked,
+      this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
+        isStacked: projectedIsStacked,
         isMultiVendor,
-        myDriver?.tier,
-      );
+        driverTier: myDriver?.tier,
+      });
 
     return {
       ...order,
@@ -1066,11 +1037,13 @@ export class OrdersService {
     const settings = await this.platformSettings.getSettings();
     const deliveryFee = Number(order.deliveryFee ?? 0);
     const isMultiVendor = Boolean(order.deliveryGroups && order.deliveryGroups.length > 1);
-    const driverEarnings = this.calculateDriverEarningsForFee(
+    const driverEarnings = this.earnings.calculateDriverEarningsForFee(
       deliveryFee,
       settings,
-      Boolean(order.isStacked),
-      isMultiVendor,
+      {
+        isStacked: Boolean(order.isStacked),
+        isMultiVendor,
+      },
     );
 
     const fulfillments = Array.isArray(order.vendorFulfillments) ? order.vendorFulfillments : [];
@@ -1173,22 +1146,5 @@ export class OrdersService {
         storePayments,
       },
     };
-  }
-
-  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.DRIVER_MANAGER) {
-      return false;
-    }
-    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) {
-      return true;
-    }
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { permissions: true },
-    });
-    return !!(
-      user?.permissions.includes(Permission.MANAGE_ORDERS) ||
-      user?.permissions.includes(Permission.MANAGE_VENDORS)
-    );
   }
 }

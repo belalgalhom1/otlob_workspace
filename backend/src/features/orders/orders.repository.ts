@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -23,6 +24,7 @@ import {
 import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { EVENTS } from '../../common/events/event-names';
+import { StockService } from './helpers/stock.service';
 
 export interface CreateOrderData {
   orderNumber: string;
@@ -360,7 +362,12 @@ export class OrdersRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
+    @Optional() private readonly stockService?: StockService,
   ) {}
+
+  private get stock(): StockService {
+    return this.stockService ?? new StockService();
+  }
 
   async findById(orderId: string) {
     const order = await this.prisma.order.findUnique({
@@ -967,113 +974,7 @@ export class OrdersRepository {
       // aggregation we only hit the database once per distinct tracked id.
       // Quantities are normalized to stock units first: strip lines consume
       // whole packages (ceil), because stock is tracked in packages.
-      const aggregatedVariantQty = new Map<string, number>();
-      const aggregatedProductQty = new Map<string, number>();
-
-      for (const item of items) {
-        if (item.quantity <= 0) {
-          throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-        }
-        if (item.variantId) {
-          aggregatedVariantQty.set(
-            item.variantId,
-            (aggregatedVariantQty.get(item.variantId) ?? 0) + item.quantity,
-          );
-        } else if (item.productId) {
-          aggregatedProductQty.set(item.productId, 0);
-        }
-      }
-
-      // One batched read to learn which of the referenced variants track stock.
-      const variantIds = [...aggregatedVariantQty.keys()].sort();
-      const trackedVariants = variantIds.length
-        ? await tx.productVariant.findMany({
-            where: { id: { in: variantIds } },
-            select: { id: true, tracksStock: true },
-          })
-        : [];
-      const trackedVariantIds = new Set(
-        trackedVariants.filter((v) => v.tracksStock).map((v) => v.id),
-      );
-
-      for (const [variantId, qty] of aggregatedVariantQty) {
-        if (!trackedVariantIds.has(variantId)) continue;
-        const rows = await tx.$executeRaw`
-          UPDATE product_variants
-          SET stock = stock - ${qty}
-          WHERE id = ${variantId}
-            AND stock IS NOT NULL
-            AND stock >= ${qty}
-        `;
-        if (rows === 0) {
-          // Sold out concurrently between check and decrement
-          throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-        }
-      }
-
-      // Same treatment for product-level tracked stock, normalized to
-      // packages: strip lines open whole packs (ceil), package lines 1:1.
-      const productIds = [...aggregatedProductQty.keys()].sort();
-      const trackedProducts = productIds.length
-        ? await tx.product.findMany({
-            where: { id: { in: productIds } },
-            select: {
-              id: true,
-              tracksStock: true,
-              sellByStrip: true,
-              stripsPerPackage: true,
-            },
-          })
-        : [];
-      const stripDividerById = new Map(
-        trackedProducts
-          .filter((p) => p.tracksStock)
-          .map((p) => [
-            p.id,
-            p.sellByStrip === true && Number(p.stripsPerPackage ?? 0) > 0
-              ? Number(p.stripsPerPackage)
-              : 1,
-          ]),
-      );
-
-      const aggregatedStripQty = new Map<string, number>();
-      for (const item of items) {
-        if (!item.productId || item.variantId) continue;
-        if (item.selectedUnit === 'strip') {
-          aggregatedStripQty.set(
-            item.productId,
-            (aggregatedStripQty.get(item.productId) ?? 0) + item.quantity,
-          );
-        } else {
-          aggregatedProductQty.set(
-            item.productId,
-            (aggregatedProductQty.get(item.productId) ?? 0) + item.quantity,
-          );
-        }
-      }
-      for (const [productId, stripQty] of aggregatedStripQty) {
-        const divider = stripDividerById.get(productId) ?? 1;
-        const packages = Math.ceil(stripQty / divider);
-        aggregatedProductQty.set(
-          productId,
-          (aggregatedProductQty.get(productId) ?? 0) + packages,
-        );
-      }
-
-      for (const [productId, qty] of aggregatedProductQty) {
-        if (qty <= 0 || !stripDividerById.has(productId)) continue;
-        const rows = await tx.$executeRaw`
-          UPDATE products
-          SET stock = stock - ${qty}
-          WHERE id = ${productId}
-            AND stock IS NOT NULL
-            AND stock >= ${qty}
-        `;
-        if (rows === 0) {
-          // Sold out concurrently between check and decrement
-          throw new BadRequestException(OrderErrors.INSUFFICIENT_STOCK);
-        }
-      }
+      await this.stock.decrementForItems(tx, items);
 
       await tx.orderStatusEvent.create({
         data: {
@@ -1277,93 +1178,7 @@ export class OrdersRepository {
           selectedUnit: true,
         },
       });
-      const restoreVariantQty = new Map<string, number>();
-      const restoreProductIds = new Set<string>();
-      for (const item of cancelledItems) {
-        if (item.quantity <= 0) continue;
-        if (item.variantId) {
-          restoreVariantQty.set(
-            item.variantId,
-            (restoreVariantQty.get(item.variantId) ?? 0) + item.quantity,
-          );
-        } else if (item.productId) {
-          restoreProductIds.add(item.productId);
-        }
-      }
-
-      const restoreVariantIds = [...restoreVariantQty.keys()].sort();
-      if (restoreVariantIds.length > 0) {
-        const variants = await tx.productVariant.findMany({
-          where: { id: { in: restoreVariantIds } },
-          select: { id: true, tracksStock: true },
-        });
-        const tracked = new Set(
-          variants.filter((v) => v.tracksStock).map((v) => v.id),
-        );
-        for (const [variantId, qty] of restoreVariantQty) {
-          if (!tracked.has(variantId)) continue;
-          await tx.$executeRaw`
-            UPDATE product_variants
-            SET stock = stock + ${qty}
-            WHERE id = ${variantId} AND stock IS NOT NULL
-          `;
-        }
-      }
-
-      const restoreProductIdList = [...restoreProductIds].sort();
-      if (restoreProductIdList.length > 0) {
-        const products = await tx.product.findMany({
-          where: { id: { in: restoreProductIdList } },
-          select: {
-            id: true,
-            tracksStock: true,
-            sellByStrip: true,
-            stripsPerPackage: true,
-          },
-        });
-        const dividerById = new Map(
-          products
-            .filter((p) => p.tracksStock)
-            .map((p) => [
-              p.id,
-              p.sellByStrip === true && Number(p.stripsPerPackage ?? 0) > 0
-                ? Number(p.stripsPerPackage)
-                : 1,
-            ]),
-        );
-        const restoreProductQty = new Map<string, number>();
-        const restoreStripQty = new Map<string, number>();
-        for (const item of cancelledItems) {
-          if (!item.productId || item.variantId || item.quantity <= 0) continue;
-          if (item.selectedUnit === 'strip') {
-            restoreStripQty.set(
-              item.productId,
-              (restoreStripQty.get(item.productId) ?? 0) + item.quantity,
-            );
-          } else {
-            restoreProductQty.set(
-              item.productId,
-              (restoreProductQty.get(item.productId) ?? 0) + item.quantity,
-            );
-          }
-        }
-        for (const [productId, stripQty] of restoreStripQty) {
-          const divider = dividerById.get(productId) ?? 1;
-          const packages = Math.ceil(stripQty / divider);
-          restoreProductQty.set(
-            productId,
-            (restoreProductQty.get(productId) ?? 0) + packages,
-          );
-        }
-        for (const [productId, qty] of restoreProductQty) {
-          if (qty <= 0 || !dividerById.has(productId)) continue;
-          await tx.$executeRaw`
-            UPDATE products
-            SET stock = stock + ${qty}
-            WHERE id = ${productId} AND stock IS NOT NULL
-          `;
-        }
-      }
+      await this.stock.restoreForItems(tx, cancelledItems);
 
       // Always abort any active dispatch attempts
       await tx.orderDispatch.updateMany({

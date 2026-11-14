@@ -18,6 +18,7 @@ import { EventsModule } from './infrastructure/events/events.module';
 import { RateLimiterModule } from './infrastructure/rate-limiter/rate-limiter.module';
 import { LocationModule } from './infrastructure/location/location.module';
 import { OutboxModule } from './infrastructure/outbox/outbox.module';
+import { OrderSharedModule } from './common/orders/order-shared.module';
 
 import { MailModule } from './infrastructure/mail/mail.module';
 import { PushModule } from './infrastructure/push/push.module';
@@ -76,6 +77,7 @@ import { LegalDocumentsModule } from './features/legal-documents/legal-documents
     RateLimiterModule,
     EventsModule,
     LocationModule,
+    OrderSharedModule,
     OutboxModule,
     MailModule.register({ enableWorker: false }),
     PushModule.register({ enableWorker: false }),

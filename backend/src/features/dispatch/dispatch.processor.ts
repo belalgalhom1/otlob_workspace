@@ -1,11 +1,10 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
-import { OrdersStateService } from '../orders/orders-state.service';
-import { OrdersRepository } from '../orders/orders.repository';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import { LocationRepository } from '../../infrastructure/location/location.repository';
 import {
   QUEUES,
@@ -13,9 +12,9 @@ import {
   CRON_JOBS,
 } from '../../infrastructure/queue/queues.constants';
 import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EVENTS } from 'src/common/events/event-names';
-import { OrderStatusChangedEvent } from 'src/common/events';
+import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch.ports';
+import type { DispatchOrderWorkflowPort } from '../../common/orders/order-dispatch.ports';
+import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 
 // Dispatch broadcasts already fan out to dozens of drivers per job; running 50
 // of them concurrently just queues more DB/Redis waits behind the shared pool.
@@ -26,12 +25,13 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
 
   constructor(
     private readonly dispatchService: DispatchService,
-    private readonly stateService: OrdersStateService,
-    private readonly ordersRepository: OrdersRepository,
+    @Inject(DISPATCH_ORDER_WORKFLOW_PORT)
+    private readonly orderWorkflowPort: DispatchOrderWorkflowPort,
+    private readonly workflowDispatcher: OrderWorkflowDispatcher,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly locationRepository: LocationRepository,
-    private readonly eventEmitter: EventEmitter2,
     @InjectQueue(QUEUES.DISPATCH) private readonly queue: Queue,
   ) {
     super();
@@ -53,6 +53,14 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     this.logger.debug(`Processing dispatch job ${job.name} (id: ${job.id})`);
 
     switch (job.name) {
+      case ORDER_JOBS.DISPATCH_HANDOFF:
+        return this.handleDispatchHandoff(job.data);
+      case ORDER_JOBS.CANCEL_ACTIVE_DISPATCH:
+        return this.handleCancelActiveDispatch(job.data);
+      case ORDER_JOBS.DISPATCH_REJECTION:
+        return this.handleDispatchRejection(job.data);
+      case ORDER_JOBS.DISPATCH_CLEANUP_EXPIRY:
+        return this.handleDispatchCleanupExpiry(job.data);
       case ORDER_JOBS.DISPATCH:
         return this.handleDispatch(job);
       case ORDER_JOBS.DISPATCH_EXPIRE:
@@ -115,39 +123,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     // Transition to LOOKING_FOR_DRIVER if still in initial ACCEPTED state.
     // Grouped deliveries move the ORDER here once, before per-group dispatch.
     if (!deliveryGroupId && order.status === OrderStatus.ACCEPTED) {
-      const fullOrder = await this.ordersRepository.updateStatus(
-        orderId,
-        OrderStatus.LOOKING_FOR_DRIVER,
-        'system',
-        'Searching for available driver',
-        undefined,
-        OrderStatus.ACCEPTED,
-      );
-
-      const vendorUserIds = fullOrder?.vendorId
-        ? await this.ordersRepository.getVendorUserIds(fullOrder.vendorId)
-        : [];
-
-      if (fullOrder) {
-        this.eventEmitter.emit(
-          EVENTS.ORDER_STATUS_CHANGED,
-          new OrderStatusChangedEvent(
-            fullOrder.id,
-            fullOrder.orderNumber,
-            OrderStatus.ACCEPTED,
-            OrderStatus.LOOKING_FOR_DRIVER,
-            fullOrder.customerId,
-            fullOrder.customer?.userId || fullOrder.customerId,
-            fullOrder.vendorId,
-            vendorUserIds,
-            fullOrder.driverId,
-            fullOrder.driver?.userId || null,
-            'system',
-            'Searching for available driver',
-            fullOrder.revision,
-          ),
-        );
-      }
+      await this.orderWorkflowPort.transitionAcceptedOrderToSearching(orderId);
     }
 
     const settings = await this.platformSettings.getSettings();
@@ -189,8 +165,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
             },
           });
           if (remaining === 0) {
-            await this.stateService.cancelOrder(
-              null, // system actor
+            await this.workflowDispatcher.enqueueCancelOrder(
               orderId,
               'Auto-cancelled: No drivers accepted any delivery after maximum attempts',
             );
@@ -207,8 +182,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         `Order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
       );
 
-      await this.stateService.cancelOrder(
-        null, // system actor
+      await this.workflowDispatcher.enqueueCancelOrder(
         orderId,
         'Auto-cancelled: No drivers accepted the order after maximum attempts',
       );
@@ -273,8 +247,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
             },
           });
           if (remaining === 0) {
-            await this.stateService.cancelOrder(
-              null,
+            await this.workflowDispatcher.enqueueCancelOrder(
               orderId,
               'Auto-cancelled: no delivery could be dispatched',
             );
@@ -325,6 +298,89 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     // We delegate the expiry logic to the DispatchService since it requires Redis
     await this.dispatchService.handleExpiry(job.data);
     return { success: true, processedExpiry: true };
+  }
+
+  // ─── Workflow orchestration handlers ─────────────────────────────────────
+
+  private async handleDispatchHandoff(data: {
+    orderId: string;
+    orderNumber: string;
+  }) {
+    const groups = await this.prisma.orderDeliveryGroup.findMany({
+      where: { orderId: data.orderId, items: { some: {} } },
+      select: { id: true },
+      orderBy: { sequence: 'asc' },
+    });
+
+    const jobPayloads: Array<{
+      orderId: string;
+      orderNumber: string;
+      attempt: number;
+      deliveryGroupId?: string | null;
+    }> =
+      groups.length > 0
+        ? groups.map((group) => ({
+            orderId: data.orderId,
+            orderNumber: data.orderNumber,
+            attempt: 1,
+            deliveryGroupId: group.id,
+          }))
+        : [
+            {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+              attempt: 1,
+            },
+          ];
+
+    const configuredHandoffTtl = Number(
+      (await this.platformSettings.getSettings().catch(() => null))
+        ?.dispatchHandoffDedupeTtlSecs ?? 300,
+    );
+    const handoffTtl =
+      Number.isFinite(configuredHandoffTtl) && configuredHandoffTtl > 0
+        ? configuredHandoffTtl
+        : 300;
+
+    let enqueued = 0;
+    for (const payload of jobPayloads) {
+      const scope = payload.deliveryGroupId ?? payload.orderId;
+      const idempotencyKey = `otlobegy:dispatch-handoff:${data.orderId}:${scope}`;
+      if (await this.redis.get(idempotencyKey)) continue;
+
+      await this.queue.add(ORDER_JOBS.DISPATCH, payload, {
+        delay: 500,
+        attempts: 5,
+        backoff: { type: 'fixed', delay: 60_000 },
+      });
+
+      await this.redis.set(idempotencyKey, '1', handoffTtl);
+      enqueued++;
+    }
+
+    return { enqueued, groups: groups.length };
+  }
+
+  private async handleCancelActiveDispatch(data: { orderId: string }) {
+    this.logger.debug(`Cancelling active dispatch for order ${data.orderId}`);
+    await this.dispatchService.cancelActiveDispatch(data.orderId);
+    return { cancelled: true, orderId: data.orderId };
+  }
+
+  private async handleDispatchRejection(data: {
+    dispatchId: string;
+    driverId: string;
+  }) {
+    await this.dispatchService.handleRejection(data.dispatchId, data.driverId);
+    return { rejected: true, dispatchId: data.dispatchId };
+  }
+
+  private async handleDispatchCleanupExpiry(data: { dispatchId: string }) {
+    const expiryJob = await this.queue.getJob(
+      `dispatch-expire-${data.dispatchId}`,
+    );
+    if (expiryJob) await expiryJob.remove();
+    return { cleaned: Boolean(expiryJob), dispatchId: data.dispatchId };
   }
 
   // ─── Global geo-pool hygiene ──────────────────────────────────────────────

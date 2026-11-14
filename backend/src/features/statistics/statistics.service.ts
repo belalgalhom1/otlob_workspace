@@ -1,4 +1,5 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, Optional } from '@nestjs/common';
+import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 import { CommonErrors } from '../../common/constants/response.constants';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -67,7 +68,12 @@ export class StatisticsService {
     private readonly socketService: SocketService,
     private readonly redisService: RedisService,
     @InjectQueue(QUEUES.STATS) private readonly statsQueue: Queue,
+    @Optional() private readonly earningsCalculator?: OrderEarningsCalculator,
   ) {}
+
+  private get earnings(): OrderEarningsCalculator {
+    return this.earningsCalculator ?? new OrderEarningsCalculator(this.platformSettings);
+  }
 
   /** Tracks driver online-session start timestamps for onlineHours accrual. */
 
@@ -132,21 +138,23 @@ export class StatisticsService {
           ? bronzeBonus
           : goldBonus;
 
-    const platformCommissionRate = (deliveryCommissionRate ?? 20) / 100;
     const supervisorCommissionRate = (settings.driverManagerCommissionRate ?? 10) / 100;
-    const driverShare = Math.max(0, 1 - platformCommissionRate - supervisorCommissionRate);
-    const stackedDriverShare = Math.max(
-      0,
-      (settings.stackedOrderDriverPercentage ?? 50) / 100,
+    const effectiveEarningsSettings = {
+      ...settings,
+      deliveryCommissionRate:
+        deliveryCommissionRate ?? settings.deliveryCommissionRate ?? 20,
+    };
+    const driverShare = this.earnings.computeDriverShare(effectiveEarningsSettings);
+    const stackedDriverShare = this.earnings.computeDriverShare(
+      effectiveEarningsSettings,
+      { isStacked: true },
     );
-    const multiVendorPlatformRate =
-      (settings.multiVendorDeliveryCommissionRate ?? deliveryCommissionRate ?? 20) / 100;
     const multiVendorSupervisorRate =
       (settings.multiVendorDriverManagerCommissionRate ?? settings.driverManagerCommissionRate ?? 10) / 100;
-    const multiVendorDriverShare =
-      settings.multiVendorDriverPercentage != null
-        ? Number(settings.multiVendorDriverPercentage) / 100
-        : Math.max(0, 1 - multiVendorPlatformRate - multiVendorSupervisorRate);
+    const multiVendorDriverShare = this.earnings.computeDriverShare(
+      effectiveEarningsSettings,
+      { isMultiVendor: true },
+    );
     const batchedSupervisorRate =
       (settings.batchedDriverManagerCommissionRate ?? settings.driverManagerCommissionRate ?? 10) / 100;
 
@@ -396,9 +404,6 @@ export class StatisticsService {
     //    the settlement transaction stays short (money only) and the stat
     //    workers scale independently.
     // Resolve Driver Manager(s) and their commission share
-    const managerShareRate =
-      (settings.driverManagerCommissionRate ?? 10) / 100;
-
     const managerPayouts = new Map<string, number>();
 
     if (groups.length > 0) {

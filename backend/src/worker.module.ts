@@ -14,6 +14,7 @@ import { EventsModule } from './infrastructure/events/events.module';
 import { AppCacheModule } from './infrastructure/cache/cache.module';
 import { LocationModule } from './infrastructure/location/location.module';
 import { OutboxModule } from './infrastructure/outbox/outbox.module';
+import { OrderSharedModule } from './common/orders/order-shared.module';
 import { MailModule } from './infrastructure/mail/mail.module';
 import { PushModule } from './infrastructure/push/push.module';
 import { SocketModule } from './infrastructure/socket/socket.module';
@@ -59,6 +60,7 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     EventsModule,
     AppCacheModule,
     LocationModule,
+    OrderSharedModule,
     OutboxModule,
     SocketModule,
 

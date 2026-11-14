@@ -11,11 +11,13 @@ import {
   HttpStatus,
   UploadedFile,
   ForbiddenException,
+  Inject,
 } from '@nestjs/common';
 import { CommonErrors } from '../../common/constants/response.constants';
 import { ApiFileUpload } from '../../common/decorators/api-file-upload.decorator';
 import { OrdersService } from './orders.service';
-import { DispatchService } from '../dispatch/dispatch.service';
+import { DISPATCH_PORT } from '../../common/orders/order-dispatch.ports';
+import type { DispatchPort } from '../../common/orders/order-dispatch.ports';
 import {
   PlaceOrderDto,
   UpdateOrderStatusDto,
@@ -53,7 +55,8 @@ import { OrderResponseDto } from 'src/common/dto/response-models.dto';
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
-    private readonly dispatchService: DispatchService,
+    @Inject(DISPATCH_PORT)
+    private readonly dispatchPort: DispatchPort,
     private readonly checkoutService: OrdersCheckoutService,
     private readonly stateService: OrdersStateService,
     private readonly paymentService: OrdersPaymentService,
@@ -159,7 +162,7 @@ export class OrdersController {
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my pending dispatch requests' })
   getMyDispatches(@CurrentUser() actor: JwtAccessPayload) {
-    return this.dispatchService.getPendingForDriver(actor.sub);
+    return this.dispatchPort.getPendingForDriver(actor.sub);
   }
 
   @ApiStandardResponse()

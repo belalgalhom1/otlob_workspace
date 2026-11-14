@@ -29,6 +29,11 @@ export const PUSH_JOBS = {
 export const ORDER_JOBS = {
   DISPATCH: 'order.dispatch',
   DISPATCH_EXPIRE: 'order.dispatch_expire',
+  DISPATCH_HANDOFF: 'order.dispatch_handoff',
+  CANCEL_ACTIVE_DISPATCH: 'order.cancel_active_dispatch',
+  DISPATCH_REJECTION: 'order.dispatch_rejection',
+  DISPATCH_CLEANUP_EXPIRY: 'order.dispatch_cleanup_expiry',
+  CANCEL_ORDER: 'order.cancel_order',
   SETTLE: 'order.settle',
   DELIVERY_WATCHDOG: 'order.delivery_watchdog',
   OUTBOX_SWEEP: 'order.outbox_sweep',

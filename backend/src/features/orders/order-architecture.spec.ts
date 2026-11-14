@@ -1,0 +1,533 @@
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  DeliveryGroupStatus,
+  DispatchStatus,
+  OrderStatus,
+  OrderVendorFulfillmentStatus,
+  Permission,
+  Role,
+} from '@prisma/client';
+import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
+import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
+import { EVENTS } from '../../common/events/event-names';
+import {
+  EVENT_JOBS,
+  ORDER_JOBS,
+  QUEUES,
+} from '../../infrastructure/queue/queues.constants';
+import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import { DispatchProcessor } from '../dispatch/dispatch.processor';
+import { DispatchService } from '../dispatch/dispatch.service';
+import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
+import { StockService } from './helpers/stock.service';
+import { OrderCancellationService } from './transitions/order-cancellation.service';
+import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
+import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
+
+describe('Order & Dispatch Clean Architecture Units', () => {
+  describe('OrderAuthorizationHelper', () => {
+    it('enforces role & MANAGE_ORDERS/MANAGE_VENDORS permission rules identically', async () => {
+      const findUnique = jest.fn();
+      const helper = new OrderAuthorizationHelper({
+        user: { findUnique },
+      } as any);
+
+      expect(await helper.canManageOrders('u1', Role.DRIVER_MANAGER)).toBe(false);
+      expect(await helper.canManageOrders('u2', Role.SUPER_ADMIN)).toBe(true);
+      expect(await helper.canManageOrders('u3', Role.ADMIN)).toBe(true);
+      expect(findUnique).not.toHaveBeenCalled();
+
+      findUnique.mockResolvedValueOnce({ permissions: [Permission.MANAGE_ORDERS] });
+      expect(await helper.canManageOrders('u4', Role.VENDOR_MEMBER)).toBe(true);
+
+      findUnique.mockResolvedValueOnce({ permissions: [] });
+      expect(await helper.canManageOrders('u5', Role.CUSTOMER)).toBe(false);
+    });
+  });
+
+  describe('OrderEarningsCalculator', () => {
+    const calculator = new OrderEarningsCalculator();
+
+    it('computes single, stacked, and multi-vendor driver shares consistently', () => {
+      const settings = {
+        deliveryCommissionRate: 20,
+        driverManagerCommissionRate: 10,
+        stackedOrderDriverPercentage: 55,
+        multiVendorDeliveryCommissionRate: 15,
+        multiVendorDriverManagerCommissionRate: 10,
+      };
+
+      expect(calculator.computeDriverShare(settings)).toBeCloseTo(0.7, 5);
+      expect(
+        calculator.computeDriverShare(settings, { isStacked: true }),
+      ).toBeCloseTo(0.55, 5);
+      expect(
+        calculator.computeDriverShare(settings, { isMultiVendor: true }),
+      ).toBeCloseTo(0.75, 5);
+      expect(
+        calculator.computeDriverShare(
+          { ...settings, multiVendorDriverPercentage: 80 },
+          { isMultiVendor: true },
+        ),
+      ).toBeCloseTo(0.8, 5);
+    });
+
+    it('applies Bronze tier -2 EGP fee adjustment and floors at 0', () => {
+      const settings = {
+        deliveryCommissionRate: 20,
+        driverManagerCommissionRate: 10,
+      };
+      expect(
+        calculator.calculateDriverEarningsForFee(50, settings, {
+          driverTier: 'GOLD',
+        }),
+      ).toBe(35);
+      expect(
+        calculator.calculateDriverEarningsForFee(50, settings, {
+          driverTier: 'BRONZE',
+        }),
+      ).toBe(34); // (50 - 2) * 0.7 = 33.6 -> 34
+      expect(
+        calculator.calculateDriverEarningsForFee(1, settings, {
+          driverTier: 'BRONZE',
+        }),
+      ).toBe(0);
+    });
+  });
+
+  describe('StockService', () => {
+    it('aggregates strips into ceil packages on decrement and rejects concurrent sell-outs', async () => {
+      const stockService = new StockService();
+      const tx: any = {
+        productVariant: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'var-1', tracksStock: true }]),
+        },
+        product: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'prod-1',
+              tracksStock: true,
+              sellByStrip: true,
+              stripsPerPackage: 3,
+            },
+          ]),
+        },
+        $executeRaw: jest.fn().mockResolvedValue(1),
+      };
+
+      await stockService.decrementForItems(tx, [
+        { productId: 'prod-1', variantId: 'var-1', quantity: 2, selectedUnit: null },
+        { productId: 'prod-1', variantId: null, quantity: 4, selectedUnit: 'strip' },
+        { productId: 'prod-1', variantId: null, quantity: 1, selectedUnit: 'package' },
+      ]);
+
+      // 2 raw updates: variant qty=2 and product qty = ceil(4/3) + 1 = 3
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(tx.$executeRaw.mock.calls[0]).toContain(2);
+      expect(tx.$executeRaw.mock.calls[1]).toContain(3);
+
+      tx.$executeRaw.mockResolvedValueOnce(0);
+      await expect(
+        stockService.decrementForItems(tx, [
+          { productId: 'prod-1', variantId: 'var-1', quantity: 1, selectedUnit: null },
+        ]),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('restores tracked variant and strip-normalized product stock cleanly', async () => {
+      const stockService = new StockService();
+      const tx: any = {
+        productVariant: { findMany: jest.fn().mockResolvedValue([]) },
+        product: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'prod-2',
+              tracksStock: true,
+              sellByStrip: true,
+              stripsPerPackage: 2,
+            },
+          ]),
+        },
+        $executeRaw: jest.fn().mockResolvedValue(1),
+      };
+
+      await stockService.restoreForItems(tx, [
+        { productId: 'prod-2', variantId: null, quantity: 3, selectedUnit: 'strip' },
+      ]);
+
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(tx.$executeRaw.mock.calls[0]).toContain(2); // ceil(3/2)
+    });
+  });
+
+  describe('OrderCancellationService', () => {
+    it('enforces actor restrictions and emits ORDER_CANCELLED with all group drivers', async () => {
+      const mockRepo: any = {
+        findById: jest.fn().mockResolvedValue({
+          id: 'ord-1',
+          orderNumber: 'OTL-10',
+          status: OrderStatus.PENDING,
+          coinsUsed: 0,
+          customerId: 'cust-1',
+          vendorId: null,
+          driverId: null,
+          customer: { userId: 'u-cust' },
+        }),
+        getOrderVendorUserIds: jest.fn().mockResolvedValue(['u-v1']),
+        cancelOrder: jest.fn().mockResolvedValue({
+          revision: 2,
+          driver: null,
+          customer: { user: { id: 'u-cust' } },
+        }),
+      };
+      const mockPrisma: any = {
+        orderDeliveryGroup: {
+          findMany: jest.fn().mockResolvedValue([
+            { primaryDriverId: 'd-1', assistDriverId: 'd-2' },
+          ]),
+        },
+      };
+      const mockEmitter: any = { emit: jest.fn() };
+      const svc = new OrderCancellationService(
+        mockRepo,
+        mockPrisma,
+        new OrderAuthorizationHelper(mockPrisma),
+        mockEmitter,
+      );
+
+      await expect(
+        svc.cancelOrder({ sub: 'u-d', role: Role.DRIVER } as any, 'ord-1', 'reason'),
+      ).rejects.toThrow(ForbiddenException);
+
+      await svc.cancelOrder({ sub: 'u-cust', role: Role.CUSTOMER } as any, 'ord-1', 'Changed mind');
+      expect(mockRepo.cancelOrder).toHaveBeenCalledWith(
+        'ord-1',
+        'u-cust',
+        'Changed mind',
+        OrderStatus.PENDING,
+        0,
+        'cust-1',
+        'OTL-10',
+        ['d-1', 'd-2'],
+      );
+      expect(mockEmitter.emit).toHaveBeenCalledWith(
+        EVENTS.ORDER_CANCELLED,
+        expect.objectContaining({
+          orderId: 'ord-1',
+          driverIds: ['d-1', 'd-2'],
+          revision: 2,
+        }),
+      );
+    });
+  });
+
+  describe('FulfillmentTransitionService & DeliveryGroupTransitionService', () => {
+    it('marks delivery group READY_FOR_PICKUP once remaining portion is ready', async () => {
+      const mockPrisma: any = {
+        orderVendorFulfillment: {
+          findMany: jest.fn().mockResolvedValue([
+            { status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, readyAt: new Date() },
+            { status: OrderVendorFulfillmentStatus.REJECTED, readyAt: null },
+          ]),
+        },
+        orderDeliveryGroup: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'grp-1', status: DeliveryGroupStatus.READY_FOR_PICKUP },
+          ]),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            orderNumber: 'OTL-77',
+            status: OrderStatus.DRIVER_ASSIGNED,
+            revision: 3,
+            customerId: 'c1',
+            vendorId: null,
+            driverId: 'd1',
+            customer: { userId: 'uc1' },
+          }),
+        },
+      };
+      const mockRepo: any = {
+        updateStatus: jest.fn().mockResolvedValue({ revision: 4 }),
+        getOrderVendorUserIds: jest.fn().mockResolvedValue(['uv1']),
+      };
+      const mockEmitter: any = { emit: jest.fn() };
+      const groupSvc = new DeliveryGroupTransitionService(
+        mockPrisma,
+        mockRepo,
+        mockEmitter,
+      );
+      const fulfillmentSvc = new FulfillmentTransitionService(
+        mockPrisma,
+        mockRepo,
+        {} as any,
+        mockEmitter,
+        groupSvc,
+      );
+
+      await fulfillmentSvc.syncGroupReadinessAfterPortionRemoved(
+        'ord-77',
+        'grp-1',
+        'u-actor',
+      );
+
+      expect(mockPrisma.orderDeliveryGroup.updateMany).toHaveBeenCalled();
+      expect(mockRepo.updateStatus).toHaveBeenCalledWith(
+        'ord-77',
+        OrderStatus.READY_FOR_PICKUP,
+        'u-actor',
+        'All vendor portions ready for pickup',
+        expect.objectContaining({ preparedAt: expect.any(Date) }),
+        OrderStatus.DRIVER_ASSIGNED,
+      );
+      expect(mockEmitter.emit).toHaveBeenCalledWith(
+        EVENTS.ORDER_STATUS_CHANGED,
+        expect.objectContaining({
+          orderId: 'ord-77',
+          newStatus: OrderStatus.READY_FOR_PICKUP,
+        }),
+      );
+    });
+  });
+
+  describe('OrderWorkflowDispatcher, OutboxService, and DispatchProcessor boundaries', () => {
+    it('routes workflow jobs to QUEUES.DISPATCH and QUEUES.ORDERS and recovers from outbox', async () => {
+      const dispatchQueue: any = { add: jest.fn().mockResolvedValue({}) };
+      const ordersQueue: any = { add: jest.fn().mockResolvedValue({}) };
+      const dispatcher = new OrderWorkflowDispatcher(dispatchQueue, ordersQueue);
+
+      await dispatcher.triggerForOutboxRow(EVENTS.ORDER_STATUS_CHANGED, {
+        orderId: 'o1',
+        orderNumber: 'OTL-1',
+        newStatus: OrderStatus.LOOKING_FOR_DRIVER,
+        revision: 1,
+      });
+      expect(dispatchQueue.add).toHaveBeenCalledWith(
+        ORDER_JOBS.DISPATCH_HANDOFF,
+        { orderId: 'o1', orderNumber: 'OTL-1' },
+        expect.objectContaining({ attempts: 3 }),
+      );
+
+      await dispatcher.triggerForOutboxRow(EVENTS.ORDER_STATUS_CHANGED, {
+        orderId: 'o2',
+        orderNumber: 'OTL-2',
+        newStatus: OrderStatus.DELIVERED,
+        revision: 5,
+      });
+      expect(ordersQueue.add).toHaveBeenCalledWith(
+        ORDER_JOBS.SETTLE,
+        { orderId: 'o2', orderNumber: 'OTL-2' },
+        expect.objectContaining({ attempts: 3 }),
+      );
+
+      await dispatcher.onDispatchResponded({
+        dispatchId: 'disp-1',
+        driverId: 'drv-1',
+        status: DispatchStatus.ACCEPTED,
+      });
+      expect(dispatchQueue.add).toHaveBeenCalledWith(
+        ORDER_JOBS.DISPATCH_CLEANUP_EXPIRY,
+        { dispatchId: 'disp-1' },
+        expect.objectContaining({ attempts: 3 }),
+      );
+    });
+
+    it('OutboxService.relayPending enqueues both eventsQueue fan-out and ORDER workflow triggers', async () => {
+      const eventsQueue: any = { add: jest.fn().mockResolvedValue({}) };
+      const dispatchQueue: any = { add: jest.fn().mockResolvedValue({}) };
+      const ordersQueue: any = { add: jest.fn().mockResolvedValue({}) };
+      const dispatcher = new OrderWorkflowDispatcher(dispatchQueue, ordersQueue);
+      const tx: any = {
+        $queryRaw: jest.fn().mockResolvedValue([
+          {
+            id: 'out-1',
+            aggregateType: 'ORDER',
+            aggregateId: 'ord-1',
+            version: 0,
+            eventType: EVENTS.ORDER_CREATED,
+            jobName: 'order.created',
+            dedupeKey: 'notify:order_created:ord-1',
+            queueName: QUEUES.EVENTS,
+            payload: {
+              orderId: 'ord-1',
+              orderNumber: 'OTL-C1',
+              orderType: 'CUSTOM_DELIVERY',
+            },
+          },
+        ]),
+        $executeRaw: jest.fn().mockResolvedValue(1),
+      };
+      const prisma: any = { $transaction: jest.fn((cb: any) => Promise.resolve(cb(tx))) };
+      const outbox = new OutboxService(prisma, eventsQueue, dispatcher);
+
+      const res = await outbox.relayPending();
+      expect(res.relayed).toBe(1);
+      expect(eventsQueue.add).toHaveBeenCalledTimes(1);
+      expect(dispatchQueue.add).toHaveBeenCalledWith(
+        ORDER_JOBS.DISPATCH_HANDOFF,
+        { orderId: 'ord-1', orderNumber: 'OTL-C1' },
+        expect.any(Object),
+      );
+    });
+
+    it('DispatchProcessor uses DispatchOrderWorkflowPort and enqueues CANCEL_ORDER on max attempts', async () => {
+      const orderWorkflowPort = {
+        transitionAcceptedOrderToSearching: jest.fn().mockResolvedValue(undefined),
+      };
+      const workflowDispatcher: any = {
+        enqueueCancelOrder: jest.fn().mockResolvedValue(undefined),
+      };
+      const queue: any = {
+        add: jest.fn().mockResolvedValue({}),
+        getJob: jest.fn().mockResolvedValue({ remove: jest.fn() }),
+      };
+      const processor = new DispatchProcessor(
+        { attemptDispatch: jest.fn() } as any,
+        orderWorkflowPort,
+        workflowDispatcher,
+        { getSettings: jest.fn().mockResolvedValue({ driverSearchMaxAttempts: 3 }) } as any,
+        {
+          order: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'ord-9',
+              status: OrderStatus.ACCEPTED,
+            }),
+          },
+          orderDeliveryGroup: { findMany: jest.fn().mockResolvedValue([]) },
+        } as any,
+        { get: jest.fn().mockResolvedValue(null), set: jest.fn() } as any,
+        {} as any,
+        queue,
+      );
+
+      await processor.process({
+        id: 'job-1',
+        name: ORDER_JOBS.DISPATCH,
+        data: { orderId: 'ord-9', orderNumber: 'OTL-9', attempt: 4 },
+      } as any);
+
+      expect(
+        orderWorkflowPort.transitionAcceptedOrderToSearching,
+      ).toHaveBeenCalledWith('ord-9');
+      expect(workflowDispatcher.enqueueCancelOrder).toHaveBeenCalledWith(
+        'ord-9',
+        'Auto-cancelled: No drivers accepted the order after maximum attempts',
+      );
+    });
+
+    it('DispatchService.handleAcceptance triggers immediate workflowDispatcher cancellation and outbox completion', async () => {
+      const dispatchData = {
+        orderId: 'ord-acc-1',
+        type: 'STANDARD',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        candidates: [
+          {
+            driverId: 'drv-1',
+            userId: 'u-drv-1',
+            driverShiftId: null,
+            deliveryGroupId: null,
+            distanceKm: 1.5,
+            estimatedEarnings: 25,
+          },
+        ],
+      };
+
+      const tx: any = {
+        $queryRaw: jest.fn().mockResolvedValue([{ id: 'drv-1' }]),
+        orderDeliveryGroup: { count: jest.fn().mockResolvedValue(0) },
+        order: {
+          count: jest.fn().mockResolvedValue(0),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUnique: jest.fn().mockResolvedValue({ revision: 2 }),
+        },
+        orderDispatch: { create: jest.fn().mockResolvedValue({}) },
+        orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
+        driver: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      };
+
+      const prisma: any = {
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ord-acc-1',
+            orderNumber: 'OTL-88',
+            status: OrderStatus.LOOKING_FOR_DRIVER,
+            paymentMethod: 'CASH_ON_DELIVERY',
+            upfrontAmount: 0,
+            paymentStatus: 'PENDING',
+            customerId: 'cust-1',
+            vendorId: 'ven-1',
+            customer: { userId: 'u-cust-1' },
+            vendor: { members: [{ userId: 'u-ven-1' }] },
+          }),
+        },
+        vendorMember: {
+          findMany: jest.fn().mockResolvedValue([{ userId: 'u-ven-1' }]),
+        },
+        $transaction: jest.fn((cb: any) => Promise.resolve(cb(tx))),
+      };
+
+      const redis: any = {
+        get: jest.fn().mockResolvedValue(JSON.stringify(dispatchData)),
+        smembers: jest.fn().mockResolvedValue([]),
+        del: jest.fn().mockResolvedValue(1),
+        delIfValue: jest.fn().mockResolvedValue(true),
+        srem: jest.fn().mockResolvedValue(1),
+      };
+
+      const locationRepo: any = {
+        getOrderLocationContext: jest.fn().mockResolvedValue({
+          lng: 31.2,
+          lat: 30.0,
+          deliveryLng: 31.25,
+          deliveryLat: 30.05,
+        }),
+        getDistanceKm: jest.fn().mockResolvedValue(3.2),
+      };
+
+      const eventsQueue: any = { add: jest.fn().mockResolvedValue({}) };
+      const outbox: any = {
+        record: jest.fn().mockResolvedValue({}),
+        markProcessed: jest.fn().mockResolvedValue(undefined),
+      };
+      const workflowDispatcher: any = {
+        onOrderStatusChanged: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const service = new DispatchService(
+        { getSettings: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 1 }) } as any,
+        { emit: jest.fn() } as any,
+        prisma,
+        redis,
+        locationRepo,
+        { add: jest.fn() } as any,
+        eventsQueue,
+        outbox,
+        undefined,
+        workflowDispatcher,
+      );
+
+      await expect(service.handleAcceptance('disp-acc-1', 'drv-1')).resolves.toBe(
+        true,
+      );
+
+      expect(eventsQueue.add).toHaveBeenCalledWith(
+        EVENT_JOBS.ORDER_STATUS_CHANGED,
+        expect.objectContaining({
+          orderId: 'ord-acc-1',
+          newStatus: OrderStatus.DRIVER_ASSIGNED,
+          revision: 2,
+        }),
+        expect.objectContaining({ attempts: 3 }),
+      );
+      expect(workflowDispatcher.onOrderStatusChanged).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'ord-acc-1',
+          newStatus: OrderStatus.DRIVER_ASSIGNED,
+          revision: 2,
+        }),
+      );
+      expect(outbox.markProcessed).toHaveBeenCalledWith('ORDER', 'ord-acc-1', 2);
+    });
+  });
+});

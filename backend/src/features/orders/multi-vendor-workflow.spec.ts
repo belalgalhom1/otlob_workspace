@@ -30,7 +30,6 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
 
     const driverActor = { sub: 'user-driver-1', role: Role.DRIVER } as any;
     const vendorOwnerA = { sub: 'user-owner-a', role: Role.VENDOR_MEMBER } as any;
-    const vendorOwnerB = { sub: 'user-owner-b', role: Role.VENDOR_MEMBER } as any;
     const superAdminActor = { sub: 'user-admin', role: Role.SUPER_ADMIN } as any;
 
     beforeEach(() => {
@@ -606,16 +605,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         {} as any,
         {} as any,
         {} as any,
-        {} as any,
         {
           vendorMember: { findMany: jest.fn().mockResolvedValue([]) },
           order: { findUnique: jest.fn().mockResolvedValue(null) },
         } as any,
         { getClient: () => mockRedisClient } as any,
-        {} as any,
-        {} as any,
-        {} as any,
-        {} as any,
       );
 
       // Simulate prior attempt crashed (e.g. SIGKILL) after lock expired:
@@ -716,7 +710,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         getOrderVendorUserIds: jest.fn().mockResolvedValue([]),
         getVendorUserIds: jest.fn().mockResolvedValue([]),
       };
-      const mockStateService: any = {
+      const mockCancellationService: any = {
         cancelOrder: jest
           .fn()
           .mockRejectedValue(new BadRequestException('Order already cancelled')),
@@ -724,7 +718,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       const mockDecision = new OrderVendorDecisionService(
         mockPrisma,
         mockOrdersRepo,
-        mockStateService,
+        mockCancellationService,
         { getSettings: jest.fn().mockResolvedValue({ extraVendorDeliveryFee: 10 }) } as any,
         { emit: jest.fn() } as any,
       );

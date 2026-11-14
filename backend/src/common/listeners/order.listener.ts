@@ -4,7 +4,6 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { NotificationsService } from '../../features/notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 import {
   OrderCreatedEvent,
@@ -37,13 +36,13 @@ export class OrderListener {
   constructor(
     private readonly socketService: SocketService,
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
     private readonly outboxService: OutboxService,
   ) {}
 
-  // The heavy side-effects (notifications, conversations, stats, dispatch
-  // handoff, live-tracking cache) run in the worker's EventsProcessor; these
+  // The heavy side-effects (notifications, conversations, stats, live-tracking
+  // cache) run in the worker's EventsProcessor; workflow orchestration (dispatch
+  // handoff/cancellation, settlements) is dispatched by DispatchListener. These
   // listeners only fan the work off the emitting process's event loop.
 
   @OnEvent(EVENTS.ORDER_CREATED, { async: true })

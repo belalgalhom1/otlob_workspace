@@ -1,11 +1,9 @@
-import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
-import { Job, Queue } from 'bullmq';
-import { Logger } from '@nestjs/common';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Job } from 'bullmq';
+import { Logger, Optional } from '@nestjs/common';
 import { DispatchStatus, DeliveryGroupStatus, NotificationType, OrderStatus, Role } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../../features/notifications/notifications.service';
-import { DispatchService } from '../../features/dispatch/dispatch.service';
-import { PlatformSettingsService } from '../../features/platform-settings/platform-settings.service';
 import { StatisticsService } from '../../features/statistics/statistics.service';
 import { ConversationsService } from '../../features/chat/conversations.service';
 import { CartService } from '../../features/cart/cart.service';
@@ -21,10 +19,10 @@ import {
 } from '../events';
 import {
   QUEUES,
-  ORDER_JOBS,
   EVENT_JOBS,
 } from '../../infrastructure/queue/queues.constants';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../features/orders/orders.constants';
+import { OrderWorkflowDispatcher } from '../orders/order-workflow.dispatcher';
 
 const WS = {
   ORDER_NEW: 'order.new',
@@ -32,9 +30,6 @@ const WS = {
   ORDER_CANCELLED: 'order.cancelled',
   DISPATCH_INCOMING: 'dispatch.incoming',
 } as const;
-
-// Lifetime (seconds) of the per-delivery dispatch-handoff dedupe marker. Now
-// configurable via platform settings (dispatchHandoffDedupeTtlSecs), default 300.
 
 export interface CreateNotificationPayload {
   userId: string;
@@ -57,16 +52,12 @@ export class EventsProcessor extends WorkerHost {
   constructor(
     private readonly socketService: SocketService,
     private readonly notificationsService: NotificationsService,
-    private readonly dispatchService: DispatchService,
     private readonly statisticsService: StatisticsService,
     private readonly conversationsService: ConversationsService,
     private readonly cartService: CartService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly platformSettings: PlatformSettingsService,
-    @InjectQueue(QUEUES.ORDERS) private readonly ordersQueue: Queue,
-    @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
-    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    @Optional() private readonly workflowDispatcher?: OrderWorkflowDispatcher,
   ) {
     super();
   }
@@ -126,16 +117,25 @@ export class EventsProcessor extends WorkerHost {
             job.data as DriverAssistRequestedEvent,
           );
           break;
-        case EVENT_JOBS.DISPATCH_HANDOFF:
-          result = await this.handleDispatchHandoff(
-            job.data as { orderId: string; orderNumber: string },
-          );
+        case EVENT_JOBS.DISPATCH_HANDOFF: {
+          const d = job.data as { orderId: string; orderNumber: string };
+          if (this.workflowDispatcher) {
+            await this.workflowDispatcher.enqueueDispatchHandoff(
+              d.orderId,
+              d.orderNumber,
+            );
+          }
+          result = { forwardedToDispatchQueue: Boolean(this.workflowDispatcher) };
           break;
-        case EVENT_JOBS.CANCEL_ACTIVE_DISPATCH:
-          result = await this.cancelActiveDispatch(
-            (job.data as { orderId: string }).orderId,
-          );
+        }
+        case EVENT_JOBS.CANCEL_ACTIVE_DISPATCH: {
+          const d = job.data as { orderId: string };
+          if (this.workflowDispatcher) {
+            await this.workflowDispatcher.enqueueCancelActiveDispatch(d.orderId);
+          }
+          result = { forwardedToDispatchQueue: Boolean(this.workflowDispatcher) };
           break;
+        }
         case EVENT_JOBS.CLEAR_CART:
           result = await this.clearCart(
             job.data as { customerUserId: string; vendorId: string },
@@ -260,13 +260,6 @@ export class EventsProcessor extends WorkerHost {
         ? [this.notificationsService.createMany(notificationPayloads)]
         : []),
     ]);
-
-    // Custom orders (no vendor to accept) go straight to dispatch. The handoff is
-    // its own retryable job so a transient EVENTS worker failure cannot stall
-    // dispatch start (the parent ORDER_CREATED job is attempts: 1).
-    if (event.orderType === 'RIDE' || event.orderType === 'CUSTOM_DELIVERY') {
-      await this.enqueueDispatchHandoff(event.orderId, event.orderNumber);
-    }
   }
 
   private async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
@@ -356,8 +349,8 @@ export class EventsProcessor extends WorkerHost {
       });
     }
 
-    // Trigger dispatch and chat when vendor accepts order (looking-for-driver
-    // transitions also re-kick dispatch for flows that skip ACCEPTED).
+    // Ensure order chat is created when vendor accepts or enters
+    // looking-for-driver (dispatch handoff lives in OrderWorkflowDispatcher).
     if (
       event.newStatus === OrderStatus.ACCEPTED ||
       event.newStatus === OrderStatus.LOOKING_FOR_DRIVER
@@ -384,8 +377,6 @@ export class EventsProcessor extends WorkerHost {
           );
         }
       }
-
-      await this.enqueueDispatchHandoff(event.orderId, event.orderNumber);
     }
 
     // Assign driver to chat if they just took the order
@@ -412,7 +403,7 @@ export class EventsProcessor extends WorkerHost {
       }
     }
 
-    // Settle + close chat on delivery
+    // Close chat on delivery (settlement + watchdog are orchestrated on QUEUES.ORDERS)
     if (event.newStatus === OrderStatus.DELIVERED) {
       await this.conversationsService
         .closeSystemOrderConversation(event.orderId)
@@ -421,20 +412,6 @@ export class EventsProcessor extends WorkerHost {
             `Failed to close order conversation on delivery: ${err instanceof Error ? err.message : String(err)}`,
           ),
         );
-
-      await this.ordersQueue.add(
-        ORDER_JOBS.SETTLE,
-        { orderId: event.orderId, orderNumber: event.orderNumber },
-        { attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
-      );
-    }
-
-    if (event.newStatus === OrderStatus.PICKED_UP || event.newStatus === OrderStatus.PARTIALLY_PICKED_UP) {
-      await this.ordersQueue.add(
-        ORDER_JOBS.DELIVERY_WATCHDOG,
-        { orderId: event.orderId, orderNumber: event.orderNumber },
-        { delay: 3 * 60 * 60 * 1000, jobId: `watchdog-${event.orderId}` },
-      );
     }
 
     // Live Tracking Cache: maintain each assigned driver's active order in
@@ -707,11 +684,6 @@ export class EventsProcessor extends WorkerHost {
     );
 
     if (event.status === DispatchStatus.ACCEPTED) {
-      const expiryJob = await this.dispatchQueue.getJob(
-        `dispatch-expire-${event.dispatchId}`,
-      );
-      if (expiryJob) await expiryJob.remove();
-
       await this.statisticsService
         .recordDispatchAccepted(event.dispatchId, event.driverId)
         .catch((err: unknown) =>
@@ -720,10 +692,6 @@ export class EventsProcessor extends WorkerHost {
           ),
         );
     } else if (event.status === DispatchStatus.REJECTED) {
-      await this.dispatchService.handleRejection(
-        event.dispatchId,
-        event.driverId,
-      );
       await this.statisticsService
         .recordDispatchRejected(event.dispatchId, event.driverId)
         .catch((err: unknown) =>
@@ -799,100 +767,7 @@ export class EventsProcessor extends WorkerHost {
     return { notified: recipients.length };
   }
 
-  // ─── Dispatch handoff ──────────────────────────────────────────────────────
-
-  // Enqueues ORDER_JOBS.DISPATCH. It runs as its own retryable EVENTS job so a
-  // transient failure cannot stall a dispatch start (parent event jobs are
-  // attempts: 1, fire-and-forget). A completion marker in Redis makes replays
-  // safe if the parent event ever fires twice.
-  private async enqueueDispatchHandoff(orderId: string, orderNumber: string) {
-    await this.eventsQueue.add(
-      EVENT_JOBS.DISPATCH_HANDOFF,
-      { orderId, orderNumber },
-      { attempts: 3, backoff: { type: 'exponential', delay: 1_000 } },
-    );
-  }
-
-  private async handleDispatchHandoff(data: {
-    orderId: string;
-    orderNumber: string;
-  }) {
-    // A multi-vendor order splits into delivery groups, each of which needs its
-    // OWN driver, so fan out one independent dispatch round per non-empty group.
-    // Legacy/single-delivery orders (no groups) keep the single order-level job.
-    const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId: data.orderId, items: { some: {} } },
-      select: { id: true },
-      orderBy: { sequence: 'asc' },
-    });
-
-    const jobPayloads: Array<{
-      orderId: string;
-      orderNumber: string;
-      attempt: number;
-      deliveryGroupId?: string | null;
-    }> =
-      groups.length > 0
-        ? groups.map((group) => ({
-            orderId: data.orderId,
-            orderNumber: data.orderNumber,
-            attempt: 1,
-            deliveryGroupId: group.id,
-          }))
-        : [
-            {
-              orderId: data.orderId,
-              orderNumber: data.orderNumber,
-              attempt: 1,
-            },
-          ];
-
-    // One settings read for the whole fan-out instead of one per delivery group.
-    // A missing or corrupt value falls back to the documented default rather
-    // than making Redis SET EX reject every handoff.
-    const configuredHandoffTtl = Number(
-      (await this.platformSettings.getSettings().catch(() => null))
-        ?.dispatchHandoffDedupeTtlSecs ?? 300,
-    );
-    const handoffTtl =
-      Number.isFinite(configuredHandoffTtl) && configuredHandoffTtl > 0
-        ? configuredHandoffTtl
-        : 300;
-
-    let enqueued = 0;
-    for (const payload of jobPayloads) {
-      // Dedupe per DELIVERY, not per order: an order-level key meant one
-      // delivery's marker suppressed every other delivery's dispatch for the
-      // whole TTL, and the 4h TTL blocked a legitimate later re-dispatch.
-      const scope = payload.deliveryGroupId ?? payload.orderId;
-      const idempotencyKey = `otlobegy:dispatch-handoff:${data.orderId}:${scope}`;
-      if (await this.redis.get(idempotencyKey)) continue;
-
-      await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, payload, {
-        delay: 500,
-        attempts: 5,
-        backoff: { type: 'fixed', delay: 60_000 },
-      });
-
-      // Marker set AFTER the add, so a retry after a partial failure re-runs
-      // the missing adds while a duplicate event emission is deduped. The TTL
-      // only needs to cover duplicate emissions of the same transition — long
-      // enough for that, short enough to allow a real re-dispatch later.
-      // Duplicated enqueues are additionally absorbed by the dispatch
-      // processor's in-flight guard.
-      await this.redis.set(idempotencyKey, '1', handoffTtl);
-      enqueued++;
-    }
-
-    return { enqueued, groups: groups.length };
-  }
-
-  // ─── Moved DispatchListener / CartListener / NotificationListener ──────────
-
-  private async cancelActiveDispatch(orderId: string) {
-    this.logger.debug(`Cancelling active dispatch for order ${orderId}`);
-    await this.dispatchService.cancelActiveDispatch(orderId);
-  }
+  // ─── Moved CartListener / NotificationListener ─────────────────────────────
 
   private async clearCart(data: { customerUserId: string; vendorId: string }) {
     if (!data.vendorId) return { skipped: true };

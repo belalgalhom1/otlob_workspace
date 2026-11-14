@@ -1,113 +1,119 @@
 import {
-  Injectable,
   BadRequestException,
   ForbiddenException,
-  NotFoundException,
+  Inject,
+  Injectable,
   Logger,
+  NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrdersRepository } from './orders.repository';
-import { DispatchService } from '../dispatch/dispatch.service';
-import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
 import {
-  UpdateOrderStatusDto,
-  RespondToDispatchDto,
-  AdminAssignDriverDto,
-} from './dto/order.dto';
-import {
-  OrderStatusChangedEvent,
-  OrderFulfillmentUpdatedEvent,
-  OrderCancelledEvent,
-  OrderDispatchRespondedEvent,
-} from '../../common/events';
-import { EVENTS } from '../../common/events/event-names';
-import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import {
-  Prisma,
-  OrderStatus,
-  Role,
-  PaymentMethod,
-  DispatchStatus,
   DeliveryGroupStatus,
+  DispatchStatus,
+  OrderStatus,
   OrderVendorFulfillmentStatus,
-  Permission,
+  Prisma,
+  Role,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
-import {
-  OrderErrors,
-  DriverErrors,
-} from '../../common/constants/response.constants';
-
-const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  [OrderStatus.PENDING]: [OrderStatus.ACCEPTED],
-  // Vendor can only start preparing once a driver is assigned
-  // (or is pending payment). Accepting and waiting-for-driver are
-  // too early — the vendor must wait for a driver to accept first.
-  [OrderStatus.ACCEPTED]: [],
-  [OrderStatus.LOOKING_FOR_DRIVER]: [],
-  [OrderStatus.DRIVER_ASSIGNED]: [
-    OrderStatus.PREPARING,
-    OrderStatus.READY_FOR_PICKUP,
-  ],
-  [OrderStatus.PENDING_PAYMENT]: [
-    OrderStatus.PREPARING,
-    OrderStatus.READY_FOR_PICKUP,
-  ],
-  [OrderStatus.PREPARING]: [OrderStatus.READY_FOR_PICKUP],
-  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.PICKED_UP],
-  [OrderStatus.PICKED_UP]: [],
-  [OrderStatus.DELIVERED]: [],
-  [OrderStatus.CANCELLED]: [],
-  [OrderStatus.CHANGES_REQUESTED]: [],
-  [OrderStatus.PARTIALLY_PICKED_UP]: [],
-};
-
-const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  [OrderStatus.DRIVER_ASSIGNED]: [
-    OrderStatus.PENDING_PAYMENT,
-    OrderStatus.READY_FOR_PICKUP,
-    OrderStatus.PICKED_UP,
-  ],
-  [OrderStatus.PENDING_PAYMENT]: [
-    OrderStatus.READY_FOR_PICKUP,
-    OrderStatus.PICKED_UP,
-  ],
-  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.PICKED_UP],
-  [OrderStatus.PICKED_UP]: [OrderStatus.DELIVERED, OrderStatus.PENDING_PAYMENT],
-  [OrderStatus.PENDING]: [],
-  [OrderStatus.CHANGES_REQUESTED]: [],
-  [OrderStatus.ACCEPTED]: [],
-  [OrderStatus.PREPARING]: [],
-  [OrderStatus.LOOKING_FOR_DRIVER]: [],
-  [OrderStatus.DELIVERED]: [],
-  [OrderStatus.CANCELLED]: [],
-  [OrderStatus.PARTIALLY_PICKED_UP]: [OrderStatus.PICKED_UP],
-};
-
-const NON_CANCELLABLE: OrderStatus[] = [
-  OrderStatus.DELIVERED,
-  OrderStatus.CANCELLED,
-  OrderStatus.PICKED_UP,
-  OrderStatus.PARTIALLY_PICKED_UP,
-];
-import { forwardRef, Inject } from '@nestjs/common';
+import { OrdersRepository } from './orders.repository';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
+import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
+import {
+  AdminAssignDriverDto,
+  RespondToDispatchDto,
+  UpdateOrderStatusDto,
+} from './dto/order.dto';
+import {
+  OrderDispatchRespondedEvent,
+  OrderStatusChangedEvent,
+} from '../../common/events';
+import { EVENTS } from '../../common/events/event-names';
+import { DISPATCH_PORT } from '../../common/orders/order-dispatch.ports';
+import type { DispatchPort } from '../../common/orders/order-dispatch.ports';
+import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
+import {
+  DriverErrors,
+  OrderErrors,
+} from '../../common/constants/response.constants';
+import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
+import {
+  DRIVER_ALLOWED_TRANSITIONS,
+  VENDOR_ALLOWED_TRANSITIONS,
+} from './transitions/order-state.constants';
+import { OrderCancellationService } from './transitions/order-cancellation.service';
+import {
+  DeliveryGroupSummary,
+  DeliveryGroupTransitionService,
+} from './transitions/delivery-group-transition.service';
+import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 
+/**
+ * Coordinates order state transitions across single-vendor orders while
+ * delegating fulfillment production, multi-vendor delivery groups, and
+ * cancellations to their dedicated aggregate transition services.
+ */
 @Injectable()
 export class OrdersStateService {
   private readonly logger = new Logger(OrdersStateService.name);
 
   constructor(
     private readonly ordersRepository: OrdersRepository,
-    @Inject(forwardRef(() => DispatchService))
-    private readonly dispatchService: DispatchService,
-    @Inject(forwardRef(() => OrderVendorDecisionService))
+    @Inject(DISPATCH_PORT)
+    private readonly dispatchPort: DispatchPort,
     private readonly vendorDecisionService: OrderVendorDecisionService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    @Optional() private readonly authHelper?: OrderAuthorizationHelper,
+    @Optional() private readonly cancellationService?: OrderCancellationService,
+    @Optional()
+    private readonly fulfillmentTransitions?: FulfillmentTransitionService,
+    @Optional()
+    private readonly deliveryGroupTransitions?: DeliveryGroupTransitionService,
   ) {}
+
+  private get auth(): OrderAuthorizationHelper {
+    return this.authHelper ?? new OrderAuthorizationHelper(this.prisma);
+  }
+
+  private get deliveryGroup(): DeliveryGroupTransitionService {
+    return (
+      this.deliveryGroupTransitions ??
+      new DeliveryGroupTransitionService(
+        this.prisma,
+        this.ordersRepository,
+        this.eventEmitter,
+      )
+    );
+  }
+
+  private get fulfillmentTransition(): FulfillmentTransitionService {
+    return (
+      this.fulfillmentTransitions ??
+      new FulfillmentTransitionService(
+        this.prisma,
+        this.ordersRepository,
+        this.storage,
+        this.eventEmitter,
+        this.deliveryGroup,
+      )
+    );
+  }
+
+  private get cancellation(): OrderCancellationService {
+    return (
+      this.cancellationService ??
+      new OrderCancellationService(
+        this.ordersRepository,
+        this.prisma,
+        this.auth,
+        this.eventEmitter,
+      )
+    );
+  }
 
   async vendorUpdateStatus(
     actor: JwtAccessPayload,
@@ -156,7 +162,9 @@ export class OrdersStateService {
           return fulfillments.some(
             (f: any) =>
               f.vendorId === m.vendorId &&
-              (!effBranch || !f.vendorBranchId || f.vendorBranchId === effBranch),
+              (!effBranch ||
+                !f.vendorBranchId ||
+                f.vendorBranchId === effBranch),
           );
         }) ??
         members[0];
@@ -188,7 +196,7 @@ export class OrdersStateService {
         : vendorPortions;
     }
 
-    const canManage = await this.canManageOrders(actor.sub, actor.role);
+    const canManage = await this.auth.canManageOrders(actor.sub, actor.role);
 
     if (!isMember && !canManage) {
       throw new ForbiddenException(OrderErrors.NOT_MEMBER_OF_VENDOR);
@@ -218,7 +226,7 @@ export class OrdersStateService {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
     }
 
-    // For multi-vendor / multi-branch orders, accept / cancel / production are per-fulfillment decisions
+    // For multi-vendor / multi-branch orders, decisions/production are per fulfillment
     if (matchingFulfillments.length > 0) {
       let targetFulfillments = matchingFulfillments;
       if (dto.fulfillmentId) {
@@ -268,17 +276,16 @@ export class OrdersStateService {
           (f: any) => f.status === 'ACCEPTED' || f.status === 'PREPARING',
         );
         for (const f of eligible) {
-          lastResult = await this.applyFulfillmentProductionTransition(
-            actor,
-            order,
-            f,
-            dto,
-          );
+          lastResult =
+            await this.fulfillmentTransition.applyFulfillmentProductionTransition(
+              actor,
+              order,
+              f,
+              dto,
+            );
         }
         return lastResult ?? this.ordersRepository.findById(orderId);
       }
-      // Anything else is not a decision a single vendor may make about a
-      // shared order (pickup/delivery belong to the driver of the delivery).
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
@@ -298,384 +305,6 @@ export class OrdersStateService {
     return this.applyStatusTransition(actor, order, dto);
   }
 
-  /**
-   * Move ONE vendor's portion through production without touching the
-   * aggregate order status.
-   *
-   * On a multi-vendor order the vendors work independently: each portion starts
-   * preparing on its own and becomes ready on its own. Writing `PREPARING` /
-   * `READY_FOR_PICKUP` on the order row (as the single-vendor path does) made
-   * the first vendor's tap speak for every other vendor, so the second vendor
-   * could skip preparation and its delivery could look ready before the food
-   * was. Portion timestamps keep that state private; the shared delivery group
-   * only becomes READY_FOR_PICKUP once every live portion in it is ready.
-   */
-  private async applyFulfillmentProductionTransition(
-    actor: JwtAccessPayload,
-    order: any,
-    fulfillment: {
-      id: string;
-      status: string;
-      preparingAt?: Date | null;
-      readyAt?: Date | null;
-    },
-    dto: UpdateOrderStatusDto,
-  ) {
-    if (fulfillment.status !== 'ACCEPTED' && fulfillment.status !== 'PREPARING') {
-      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-    }
-
-    const groupItem = await this.prisma.orderDeliveryGroupItem.findFirst({
-      where: { fulfillmentId: fulfillment.id },
-      select: { deliveryGroupId: true },
-    });
-    if (!groupItem) {
-      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-    }
-
-    const group = await this.prisma.orderDeliveryGroup.findUnique({
-      where: { id: groupItem.deliveryGroupId },
-      select: {
-        id: true,
-        sequence: true,
-        status: true,
-        estimatedPrepTime: true,
-      },
-    });
-    if (!group) {
-      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-    }
-
-    const STARTABLE: DeliveryGroupStatus[] = [
-      DeliveryGroupStatus.DRIVER_ASSIGNED,
-      DeliveryGroupStatus.PENDING_PAYMENT,
-      DeliveryGroupStatus.ACCEPTED,
-    ];
-    const ALREADY_READY: DeliveryGroupStatus[] = [
-      DeliveryGroupStatus.READY_FOR_PICKUP,
-      DeliveryGroupStatus.PARTIALLY_PICKED_UP,
-      DeliveryGroupStatus.PICKED_UP,
-      DeliveryGroupStatus.DELIVERED,
-    ];
-
-    const wantedReady = dto.status === OrderStatus.READY_FOR_PICKUP;
-    const groupProgressed = ALREADY_READY.includes(group.status);
-
-    // Re-tapping a stage the portion already reached is a no-op, not an error:
-    // the vendor app keeps its button visible while the refetch is in flight.
-    if (wantedReady && fulfillment.readyAt) {
-      return this.ordersRepository.findById(order.id);
-    }
-    if (!wantedReady && fulfillment.preparingAt) {
-      return this.ordersRepository.findById(order.id);
-    }
-
-    if (!groupProgressed && !STARTABLE.includes(group.status)) {
-      // No driver committed to this delivery yet (still PENDING /
-      // LOOKING_FOR_DRIVER), so there is nothing to hand over.
-      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-    }
-
-    const targetStatus = wantedReady
-      ? OrderVendorFulfillmentStatus.READY_FOR_PICKUP
-      : OrderVendorFulfillmentStatus.PREPARING;
-
-    const allowedPriorStatuses = wantedReady
-      ? [OrderVendorFulfillmentStatus.ACCEPTED, OrderVendorFulfillmentStatus.PREPARING]
-      : [OrderVendorFulfillmentStatus.ACCEPTED];
-
-    const data: Prisma.OrderVendorFulfillmentUpdateManyMutationInput = wantedReady
-      ? {
-          status: targetStatus,
-          preparingAt: fulfillment.preparingAt ?? new Date(),
-          readyAt: new Date(),
-        }
-      : {
-          status: targetStatus,
-          preparingAt: new Date(),
-        };
-
-    const claimed = await this.prisma.orderVendorFulfillment.updateMany({
-      where: { id: fulfillment.id, status: { in: allowedPriorStatuses } },
-      data,
-    });
-    if (claimed.count === 0) {
-      throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
-    }
-
-    // Vendors sharing a delivery each estimate their own portion; the group
-    // keeps the longest estimate so the driver is never promised food early.
-    if (!wantedReady && dto.estimatedPrepTime) {
-      await this.prisma.orderDeliveryGroup.updateMany({
-        where: { id: group.id },
-        data: {
-          estimatedPrepTime: Math.max(
-            group.estimatedPrepTime ?? 0,
-            Math.round(dto.estimatedPrepTime),
-          ),
-        },
-      });
-    }
-
-    await this.prisma.orderStatusEvent.create({
-      data: {
-        orderId: order.id,
-        status: order.status,
-        note: wantedReady
-          ? `Delivery ${group.sequence}: vendor portion ready for pickup`
-          : `Delivery ${group.sequence}: vendor portion started preparing`,
-        createdBy: actor.sub,
-      },
-    });
-
-    if (wantedReady) {
-      await this.markGroupReadyIfAllPortionsReady(group.id);
-    }
-    await this.recomputeVendorReadinessStatus(actor.sub, order.id, group.id);
-
-    const fresh = await this.ordersRepository.findById(order.id);
-    try {
-      const customerUid =
-        (fresh as any).customer?.user?.id ??
-        (fresh as any).customer?.userId ??
-        fresh.customerId;
-      const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
-        order.id,
-        fresh.vendorId,
-      );
-      const groupWithDriver = await this.prisma.orderDeliveryGroup.findUnique({
-        where: { id: group.id },
-        select: {
-          primaryDriver: { select: { userId: true } },
-          assistDriver: { select: { userId: true } },
-        },
-      });
-      const driverUserIds = [
-        groupWithDriver?.primaryDriver?.userId,
-        groupWithDriver?.assistDriver?.userId,
-      ].filter((id): id is string => Boolean(id));
-      const allFulfillments = ((fresh as any).vendorFulfillments ?? []) as any[];
-      const liveFulfillments = allFulfillments.filter(
-        (f) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
-      );
-      const completedStops = liveFulfillments.filter((f) => Boolean(f.pickedUpAt)).length;
-
-      this.eventEmitter.emit(
-        EVENTS.ORDER_FULFILLMENT_UPDATED,
-        new OrderFulfillmentUpdatedEvent(
-          order.id,
-          fresh.orderNumber,
-          fulfillment.id,
-          customerUid,
-          vendorUserIds,
-          driverUserIds,
-          targetStatus,
-          null,
-          null,
-          fresh.status,
-          {
-            totalStops: liveFulfillments.length,
-            completedStops,
-            currentStopSequence: 1,
-            currentStopBranchName: null,
-            isFullyCollected: false,
-          },
-          actor.sub,
-          fresh.revision,
-        ),
-      );
-    } catch (err) {
-      this.logger.warn(
-        `Failed to emit fulfillment production delta for ${order.id}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-
-    return fresh;
-  }
-
-  /**
-   * Re-evaluate a delivery after one of its vendor portions left it.
-   *
-   * A rejection removes its portion from the delivery group, which can leave a
-   * delivery whose only remaining portion was already declared ready. Without
-   * this re-check the group stays DRIVER_ASSIGNED and, because pickup now
-   * requires READY_FOR_PICKUP, that driver can never collect the goods. Called
-   * after the rejection transaction commits so the reads see the final rows.
-   */
-  async syncGroupReadinessAfterPortionRemoved(
-    orderId: string,
-    deliveryGroupId: string,
-    actorUserId: string,
-  ): Promise<void> {
-    const becameReady =
-      await this.markGroupReadyIfAllPortionsReady(deliveryGroupId);
-    // The surviving portions' own production state did not change when this
-    // delivery still has work left, and re-deriving the aggregate then could
-    // walk an already-dispatched order backwards. Only a delivery that just
-    // became ready can justify moving the aggregate.
-    if (!becameReady) return;
-    await this.recomputeVendorReadinessStatus(
-      actorUserId,
-      orderId,
-      deliveryGroupId,
-    );
-  }
-
-  /**
-   * A delivery can only be handed to its driver when EVERY live vendor portion
-   * in it is ready. Vendors sharing a delivery therefore no longer race: the
-   * group flips exactly once, on the last portion to become ready.
-   */
-  private async markGroupReadyIfAllPortionsReady(groupId: string): Promise<boolean> {
-    const portions = await this.prisma.orderVendorFulfillment.findMany({
-      where: { groups: { some: { deliveryGroupId: groupId } } },
-      select: { status: true, readyAt: true },
-    });
-    const live = portions.filter(
-      (p) => p.status !== 'REJECTED' && p.status !== 'CANCELLED',
-    );
-    if (live.length === 0) return false;
-    if (!live.every((p) => p.readyAt != null)) return false;
-
-    const updated = await this.prisma.orderDeliveryGroup.updateMany({
-      where: {
-        id: groupId,
-        status: {
-          in: [
-            DeliveryGroupStatus.DRIVER_ASSIGNED,
-            DeliveryGroupStatus.PENDING_PAYMENT,
-            DeliveryGroupStatus.ACCEPTED,
-          ],
-        },
-      },
-      data: { status: DeliveryGroupStatus.READY_FOR_PICKUP },
-    });
-    return updated.count > 0;
-  }
-
-  /**
-   * Keep the customer-facing aggregate in step with per-portion production:
-   * PREPARING as soon as any portion starts cooking, READY_FOR_PICKUP only
-   * once every live delivery is ready. Never walks the aggregate backwards.
-   */
-  private async recomputeVendorReadinessStatus(
-    actorUserId: string,
-    orderId: string,
-    changedGroupId: string,
-  ) {
-    const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId },
-      select: { id: true, status: true },
-    });
-    const active = groups.filter(
-      (g) => g.status !== DeliveryGroupStatus.CANCELLED,
-    );
-    if (active.length === 0) return;
-
-    const fresh = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        orderNumber: true,
-        status: true,
-        revision: true,
-        customerId: true,
-        vendorId: true,
-        driverId: true,
-        customer: { select: { userId: true } },
-      },
-    });
-    if (!fresh) return;
-
-    const READY_OR_BEYOND: DeliveryGroupStatus[] = [
-      DeliveryGroupStatus.READY_FOR_PICKUP,
-      DeliveryGroupStatus.PARTIALLY_PICKED_UP,
-      DeliveryGroupStatus.PICKED_UP,
-      DeliveryGroupStatus.DELIVERED,
-    ];
-    const allReady = active.every((g) => READY_OR_BEYOND.includes(g.status));
-    const changedGroup = groups.find((g) => g.id === changedGroupId);
-    const someoneStarted =
-      !!changedGroup && !READY_OR_BEYOND.includes(changedGroup.status);
-
-    let target: OrderStatus | null = null;
-    // Only pre-pickup aggregates may move. Once a delivery is on the road (or
-    // finished) the order must never be walked back to READY_FOR_PICKUP just
-    // because a portion marked itself ready late.
-    const PRE_READY: OrderStatus[] = [
-      OrderStatus.PENDING,
-      OrderStatus.ACCEPTED,
-      OrderStatus.PREPARING,
-      OrderStatus.LOOKING_FOR_DRIVER,
-      OrderStatus.DRIVER_ASSIGNED,
-      OrderStatus.PENDING_PAYMENT,
-    ];
-    if (
-      allReady &&
-      fresh.status !== OrderStatus.READY_FOR_PICKUP &&
-      PRE_READY.includes(fresh.status)
-    ) {
-      target = OrderStatus.READY_FOR_PICKUP;
-    } else if (
-      !allReady &&
-      someoneStarted &&
-      (fresh.status === OrderStatus.DRIVER_ASSIGNED ||
-        fresh.status === OrderStatus.PENDING_PAYMENT ||
-        fresh.status === OrderStatus.ACCEPTED)
-    ) {
-      target = OrderStatus.PREPARING;
-    }
-    if (!target) return;
-
-    const extraData: Prisma.OrderUpdateInput = {};
-    if (target === OrderStatus.READY_FOR_PICKUP) {
-      extraData.preparedAt = new Date();
-    }
-
-    let updatedRevision = fresh.revision;
-    try {
-      const updated = await this.ordersRepository.updateStatus(
-        orderId,
-        target,
-        actorUserId,
-        target === OrderStatus.READY_FOR_PICKUP
-          ? 'All vendor portions ready for pickup'
-          : 'Vendor portion started preparing',
-        extraData,
-        fresh.status,
-      );
-      updatedRevision = updated.revision;
-    } catch {
-      // Another writer moved the aggregate first; its value is authoritative.
-      return;
-    }
-
-    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
-      orderId,
-      fresh.vendorId,
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        orderId,
-        fresh.orderNumber,
-        fresh.status,
-        target,
-        fresh.customerId,
-        fresh.customer?.userId ?? fresh.customerId,
-        fresh.vendorId,
-        vendorUserIds,
-        fresh.driverId,
-        null,
-        actorUserId,
-        target === OrderStatus.READY_FOR_PICKUP
-          ? 'All vendor portions ready for pickup'
-          : 'Vendor portion started preparing',
-        updatedRevision,
-      ),
-    );
-  }
-
   async driverUpdateStatus(
     actor: JwtAccessPayload,
     orderId: string,
@@ -691,146 +320,24 @@ export class OrdersStateService {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
-    // Multi-vendor orders split into delivery groups, each with its OWN primary
-    // driver. Only that driver may advance their group; the order-level status
-    // is an aggregate recomputed once every group reaches a milestone.
     const groups = (
-      ((order as any).deliveryGroups ?? []) as Array<{
-        id: string;
-        sequence: number;
-        status: DeliveryGroupStatus;
-        primaryDriverId: string | null;
-        assistDriverId?: string | null;
-        pickupImageUrl: string | null;
-        deliveryImageUrl: string | null;
-      }>
+      ((order as any).deliveryGroups ?? []) as DeliveryGroupSummary[]
     ).filter(Boolean);
 
     if (groups.length > 0) {
-      const activeGroups = groups.filter(
-        (g) =>
-          g.primaryDriverId === driver.id &&
-          g.status !== DeliveryGroupStatus.CANCELLED,
+      return this.deliveryGroup.advanceGroupByDriver(
+        actor,
+        order,
+        driver.id,
+        groups,
+        dto,
       );
-      const group = (dto as any).deliveryGroupId
-        ? activeGroups.find((g) => g.id === (dto as any).deliveryGroupId)
-        : (activeGroups.find((g) => g.status !== DeliveryGroupStatus.DELIVERED) ??
-           activeGroups[0]);
-      if (!group) {
-        // Not this driver's delivery (or not assigned yet).
-        throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
-      }
-
-      const expected = DRIVER_ALLOWED_TRANSITIONS[group.status as OrderStatus];
-      if (!expected || !expected.includes(dto.status)) {
-        throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-      }
-
-      // Same rule as the single-vendor path: the vendors must declare the
-      // delivery ready before its driver can collect it. Without this a driver
-      // could confirm pickup while the portion was still being prepared.
-      if (
-        order.type === 'STANDARD' &&
-        (dto.status === OrderStatus.READY_FOR_PICKUP ||
-          (group.status === DeliveryGroupStatus.DRIVER_ASSIGNED &&
-            dto.status === OrderStatus.PICKED_UP))
-      ) {
-        throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-      }
-
-      if (
-        dto.status === OrderStatus.PICKED_UP ||
-        dto.status === OrderStatus.DELIVERED
-      ) {
-        const groupItems = await this.prisma.orderDeliveryGroupItem.findMany({
-          where: { deliveryGroupId: group.id },
-          include: { fulfillment: true },
-          orderBy: { sequence: 'asc' },
-        });
-        const activeFulfillments = groupItems
-          .map((it) => it.fulfillment)
-          .filter(
-            (f): f is NonNullable<typeof f> =>
-              Boolean(f) && f.status !== 'REJECTED' && f.status !== 'CANCELLED',
-          );
-
-        if (dto.status === OrderStatus.PICKED_UP) {
-          const anyUnready = activeFulfillments.some(
-            (f) =>
-              f.status !== OrderVendorFulfillmentStatus.READY_FOR_PICKUP &&
-              f.status !== OrderVendorFulfillmentStatus.PICKED_UP &&
-              !f.readyAt &&
-              !f.pickedUpAt,
-          );
-          if (anyUnready) {
-            throw new BadRequestException(
-              'Vendor has not marked this portion ready for pickup yet',
-            );
-          }
-          if (activeFulfillments.length > 1) {
-            const anyUncollected = activeFulfillments.some(
-              (f) =>
-                !f.pickedUpAt &&
-                f.status !== OrderVendorFulfillmentStatus.PICKED_UP,
-            );
-            if (anyUncollected) {
-              throw new BadRequestException(
-                'All vendor pickup stops must be collected before marking group picked up',
-              );
-            }
-          }
-        }
-
-        if (dto.status === OrderStatus.DELIVERED) {
-          const anyUncollected = activeFulfillments.some(
-            (f) =>
-              !f.pickedUpAt &&
-              f.status !== OrderVendorFulfillmentStatus.PICKED_UP,
-          );
-          if (anyUncollected) {
-            throw new BadRequestException(
-              'All vendor portions must be collected before marking delivered',
-            );
-          }
-        }
-      }
-
-      // Each delivery carries its OWN proof photos: the order-level photo is
-      // deliberately NOT accepted as a fallback, otherwise the first delivery's
-      // photo would let every later delivery skip its own proof.
-      if (
-        dto.status === OrderStatus.PICKED_UP &&
-        !dto.pickupImageUrl &&
-        !group.pickupImageUrl
-      ) {
-        throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
-      }
-      if (
-        dto.status === OrderStatus.DELIVERED &&
-        !dto.deliveryImageUrl &&
-        !group.deliveryImageUrl
-      ) {
-        throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
-      }
-
-      if (
-        (order.paymentMethod === PaymentMethod.MOBILE_WALLET || Number((order as any).upfrontAmount ?? 0) > 0) &&
-        order.paymentStatus !== 'COMPLETED' &&
-        dto.status !== OrderStatus.PENDING_PAYMENT
-      ) {
-        throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
-      }
-
-      return this.applyGroupStatusTransition(actor, order, group, dto);
     }
 
     if (order.driverId !== driver.id) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
 
-    // Vendor orders must be marked READY_FOR_PICKUP by the vendor before
-    // the driver can confirm pickup. Custom delivery / ride orders have no
-    // vendor to mark them ready, so the driver can confirm directly.
     if (
       order.type === 'STANDARD' &&
       (dto.status === OrderStatus.READY_FOR_PICKUP ||
@@ -846,7 +353,8 @@ export class OrdersStateService {
         (f) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
       );
       const anyUncollected = liveFulfillments.some(
-        (f) => !f.pickedUpAt && f.status !== OrderVendorFulfillmentStatus.PICKED_UP,
+        (f) =>
+          !f.pickedUpAt && f.status !== OrderVendorFulfillmentStatus.PICKED_UP,
       );
       if (anyUncollected) {
         throw new BadRequestException(
@@ -860,7 +368,6 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
-    // The driver cannot confirm pickup without a photo of the order as proof.
     if (
       dto.status === OrderStatus.PICKED_UP &&
       !dto.pickupImageUrl &&
@@ -869,7 +376,6 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
     }
 
-    // The driver cannot confirm delivery without a photo of the order as proof.
     if (
       dto.status === OrderStatus.DELIVERED &&
       !dto.deliveryImageUrl &&
@@ -878,12 +384,9 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
     }
 
-    // Mobile-wallet orders are paid before pickup: the driver must never be able
-    // to advance the order while payment is still unpaid. The confirmation flow
-    // (driverConfirmPayment) writes paymentStatus=COMPLETED when it advances the
-    // order, so no transition here may run ahead of that.
     if (
-      (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
+      (order.paymentMethod === 'MOBILE_WALLET' ||
+        Number((order as any).upfrontAmount ?? 0) > 0) &&
       order.paymentStatus !== 'COMPLETED' &&
       dto.status !== OrderStatus.PENDING_PAYMENT
     ) {
@@ -893,242 +396,24 @@ export class OrdersStateService {
     return this.applyStatusTransition(actor, order, dto);
   }
 
-  // Driver-only pickup confirmation: the order photo is uploaded as part of the
-  // action, then the standard PICKED_UP transition runs (which itself enforces
-  // that a photo was provided). If the transition fails the upload is rolled back.
   async driverConfirmFulfillmentPickup(
     actor: JwtAccessPayload,
     orderId: string,
     fulfillmentId: string,
     file: Express.Multer.File,
   ) {
-    const driver = await this.prisma.driver.findUnique({
-      where: { userId: actor.sub },
-      select: { id: true },
-    });
-    if (!driver) throw new ForbiddenException(DriverErrors.PROFILE_NOT_FOUND);
-
-    const fulfillment = await this.prisma.orderVendorFulfillment.findFirst({
-      where: { id: fulfillmentId, orderId },
-      include: {
-        groups: {
-          include: {
-            deliveryGroup: true,
-          },
-        },
-      },
-    });
-    if (!fulfillment) throw new NotFoundException(OrderErrors.FULFILLMENT_STOP_NOT_FOUND);
-
-    const order = await this.ordersRepository.findById(orderId);
-    if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
-
-    const isAssigned =
-      order.driverId === driver.id ||
-      fulfillment.groups.some(
-        (g) =>
-          g.deliveryGroup.primaryDriverId === driver.id ||
-          g.deliveryGroup.assistDriverId === driver.id,
-      );
-    if (!isAssigned) {
-      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
-    }
-
-    if (
-      fulfillment.status === OrderVendorFulfillmentStatus.REJECTED ||
-      fulfillment.status === OrderVendorFulfillmentStatus.CANCELLED
-    ) {
-      throw new BadRequestException(OrderErrors.FULFILLMENT_ALREADY_DECIDED);
-    }
-
-    if (
-      fulfillment.pickedUpAt != null ||
-      fulfillment.status === OrderVendorFulfillmentStatus.PICKED_UP
-    ) {
-      throw new BadRequestException('Vendor pickup stop already collected');
-    }
-
-    if (
-      fulfillment.status !== OrderVendorFulfillmentStatus.READY_FOR_PICKUP &&
-      !fulfillment.readyAt
-    ) {
-      throw new BadRequestException(
-        'Vendor has not marked this portion ready for pickup yet',
-      );
-    }
-
-    if (
-      (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
-      order.paymentStatus !== 'COMPLETED'
-    ) {
-      throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
-    }
-
-    // Enforce sequential pickup if multiple fulfillments belong to this delivery group
-    const groupItem = fulfillment.groups[0];
-    if (groupItem) {
-      const allGroupItems = await this.prisma.orderDeliveryGroupItem.findMany({
-        where: { deliveryGroupId: groupItem.deliveryGroupId },
-        include: { fulfillment: true },
-        orderBy: { sequence: 'asc' },
-      });
-      for (const item of allGroupItems) {
-        if (item.fulfillmentId === fulfillmentId) break;
-        if (
-          item.fulfillment &&
-          item.fulfillment.status !== 'REJECTED' &&
-          item.fulfillment.status !== 'CANCELLED' &&
-          !item.fulfillment.pickedUpAt
-        ) {
-          throw new BadRequestException(
-            'Earlier vendor pickup stop must be completed first',
-          );
-        }
-      }
-    }
-
-    const imageUrl = await this.storage.upload(file, 'pickups');
-    try {
-      const now = new Date();
-      await this.prisma.orderVendorFulfillment.update({
-        where: { id: fulfillmentId },
-        data: {
-          status: OrderVendorFulfillmentStatus.PICKED_UP,
-          pickedUpAt: now,
-          pickupImageUrl: imageUrl,
-          pickedUpByDriverId: driver.id,
-        },
-      });
-
-      // Check if all active fulfillments in the group are now picked up
-      if (groupItem) {
-        const remaining = await this.prisma.orderDeliveryGroupItem.findMany({
-          where: { deliveryGroupId: groupItem.deliveryGroupId },
-          include: {
-            fulfillment: {
-              include: {
-                vendorBranch: { select: { name: true, nameAr: true } },
-              },
-            },
-          },
-          orderBy: { sequence: 'asc' },
-        });
-        const liveGroupItems = remaining.filter(
-          (it) =>
-            it.fulfillment &&
-            it.fulfillment.status !== 'REJECTED' &&
-            it.fulfillment.status !== 'CANCELLED',
-        );
-        const allPickedUp = liveGroupItems.every((it) =>
-          Boolean(it.fulfillment?.pickedUpAt),
-        );
-
-        await this.prisma.orderDeliveryGroup.update({
-          where: { id: groupItem.deliveryGroupId },
-          data: allPickedUp
-            ? {
-                status: DeliveryGroupStatus.PICKED_UP,
-                pickedUpAt: now,
-                pickupImageUrl: imageUrl,
-              }
-            : {
-                status: DeliveryGroupStatus.PARTIALLY_PICKED_UP,
-              },
-        });
-        await this.recomputeGroupedOrderStatus(actor, order);
-
-        const fresh = await this.ordersRepository.findById(orderId);
-        const customerUid =
-          (fresh as any).customer?.user?.id ??
-          (fresh as any).customer?.userId ??
-          fresh.customerId;
-        const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
-          orderId,
-          fresh.vendorId,
-        );
-        const groupDriverIds = [
-          groupItem.deliveryGroup?.primaryDriverId
-            ? (
-                await this.prisma.driver.findUnique({
-                  where: { id: groupItem.deliveryGroup.primaryDriverId },
-                  select: { userId: true },
-                })
-              )?.userId
-            : null,
-          groupItem.deliveryGroup?.assistDriverId
-            ? (
-                await this.prisma.driver.findUnique({
-                  where: { id: groupItem.deliveryGroup.assistDriverId },
-                  select: { userId: true },
-                })
-              )?.userId
-            : null,
-        ].filter((id): id is string => Boolean(id));
-        const driverUserIds =
-          groupDriverIds.length > 0 ? Array.from(new Set([actor.sub, ...groupDriverIds])) : [actor.sub];
-
-        const totalStops = liveGroupItems.length;
-        const completedStops = liveGroupItems.filter(
-          (it) =>
-            it.fulfillmentId === fulfillmentId ||
-            Boolean(it.fulfillment?.pickedUpAt),
-        ).length;
-        const nextItem = liveGroupItems.find(
-          (it) => it.fulfillmentId !== fulfillmentId && !it.fulfillment?.pickedUpAt,
-        );
-
-        const fulfillmentSummary = {
-          totalStops,
-          completedStops,
-          currentStopSequence: nextItem?.sequence ?? totalStops,
-          currentStopBranchName: allPickedUp
-            ? null
-            : ((nextItem?.fulfillment as any)?.vendorBranch?.nameAr ??
-              (nextItem?.fulfillment as any)?.vendorBranch?.name ??
-              null),
-          isFullyCollected: allPickedUp,
-        };
-
-        this.eventEmitter.emit(
-          EVENTS.ORDER_FULFILLMENT_UPDATED,
-          new OrderFulfillmentUpdatedEvent(
-            orderId,
-            fresh.orderNumber,
-            fulfillmentId,
-            customerUid,
-            vendorUserIds,
-            driverUserIds,
-            OrderVendorFulfillmentStatus.PICKED_UP,
-            now,
-            imageUrl,
-            fresh.status,
-            fulfillmentSummary,
-            actor.sub,
-            fresh.revision,
-          ),
-        );
-      } else {
+    return this.fulfillmentTransition.driverConfirmFulfillmentPickup(
+      actor,
+      orderId,
+      fulfillmentId,
+      file,
+      async (imageUrl) => {
         await this.driverUpdateStatus(actor, orderId, {
           status: OrderStatus.PICKED_UP,
           pickupImageUrl: imageUrl,
         });
-      }
-
-      const finalOrder = await this.ordersRepository.findById(orderId);
-      await this.prisma.orderStatusEvent.create({
-        data: {
-          orderId,
-          status: finalOrder.status,
-          note: `Driver picked up fulfillment stop ${fulfillmentId}`,
-          createdBy: actor.sub,
-        },
-      });
-
-      return finalOrder;
-    } catch (error) {
-      await this.storage.delete(imageUrl);
-      throw error;
-    }
+      },
+    );
   }
 
   async driverConfirmPickup(
@@ -1138,18 +423,30 @@ export class OrdersStateService {
     fulfillmentId?: string,
   ) {
     if (fulfillmentId) {
-      return this.driverConfirmFulfillmentPickup(actor, orderId, fulfillmentId, file);
+      return this.driverConfirmFulfillmentPickup(
+        actor,
+        orderId,
+        fulfillmentId,
+        file,
+      );
     }
 
-    // If order has fulfillments, find the next unpicked one scoped to this driver's delivery group(s)
     const order = await this.ordersRepository.findById(orderId);
-    if (order && order.vendorFulfillments && order.vendorFulfillments.length > 0) {
+    if (
+      order &&
+      order.vendorFulfillments &&
+      order.vendorFulfillments.length > 0
+    ) {
       const driver = await this.prisma.driver.findUnique({
         where: { userId: actor.sub },
         select: { id: true },
       });
       let candidateFulfillments: any[] = order.vendorFulfillments;
-      if (driver && Array.isArray((order as any).deliveryGroups) && (order as any).deliveryGroups.length > 0) {
+      if (
+        driver &&
+        Array.isArray((order as any).deliveryGroups) &&
+        (order as any).deliveryGroups.length > 0
+      ) {
         const myGroups = (order as any).deliveryGroups.filter(
           (g: any) =>
             g.primaryDriverId === driver.id ||
@@ -1160,7 +457,9 @@ export class OrdersStateService {
           .flatMap((g: any) => (Array.isArray(g.items) ? g.items : []))
           .sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
         if (myGroupItems.length > 0) {
-          const byId = new Map(order.vendorFulfillments.map((f: any) => [f.id, f]));
+          const byId = new Map(
+            order.vendorFulfillments.map((f: any) => [f.id, f]),
+          );
           candidateFulfillments = myGroupItems
             .map((it: any) => byId.get(it.fulfillmentId))
             .filter(Boolean);
@@ -1173,7 +472,12 @@ export class OrdersStateService {
           !f.pickedUpAt,
       );
       if (nextUnpicked) {
-        return this.driverConfirmFulfillmentPickup(actor, orderId, nextUnpicked.id, file);
+        return this.driverConfirmFulfillmentPickup(
+          actor,
+          orderId,
+          nextUnpicked.id,
+          file,
+        );
       }
     }
 
@@ -1189,10 +493,6 @@ export class OrdersStateService {
     }
   }
 
-  // Driver-only delivery confirmation: the order photo is uploaded as part of
-  // the action, then the standard DELIVERED transition runs (which itself
-  // enforces that a photo was provided). If the transition fails the upload is
-  // rolled back.
   async driverConfirmDelivery(
     actor: JwtAccessPayload,
     orderId: string,
@@ -1212,307 +512,6 @@ export class OrdersStateService {
     }
   }
 
-  // ── Multi-vendor delivery-group lifecycle ──────────────────────────────────
-
-  /**
-   * Advance ONE delivery group through its own lifecycle and then recompute the
-   * customer-facing order status from all groups. Uses a status CAS so a
-   * duplicate/stale update cannot double-apply.
-   */
-  private async applyGroupStatusTransition(
-    actor: JwtAccessPayload,
-    order: any,
-    group: {
-      id: string;
-      sequence: number;
-      status: DeliveryGroupStatus;
-      primaryDriverId?: string | null;
-      assistDriverId?: string | null;
-      pickupImageUrl?: string | null;
-      deliveryImageUrl?: string | null;
-    },
-    dto: UpdateOrderStatusDto,
-  ) {
-    const newStatus = dto.status as unknown as DeliveryGroupStatus;
-
-    const data: Prisma.OrderDeliveryGroupUpdateManyMutationInput = {
-      status: newStatus,
-    };
-    if (dto.status === OrderStatus.PICKED_UP) data.pickedUpAt = new Date();
-    if (dto.status === OrderStatus.DELIVERED) data.deliveredAt = new Date();
-    // Proof photos belong to the delivery that produced them — never mirrored
-    // to the order, so one delivery's proof cannot satisfy another's.
-    if (dto.status === OrderStatus.PICKED_UP && dto.pickupImageUrl) {
-      data.pickupImageUrl = dto.pickupImageUrl;
-    }
-    if (dto.status === OrderStatus.DELIVERED && dto.deliveryImageUrl) {
-      data.deliveryImageUrl = dto.deliveryImageUrl;
-    }
-
-    const claimed = await this.prisma.orderDeliveryGroup.updateMany({
-      where: { id: group.id, status: group.status },
-      data,
-    });
-    if (claimed.count === 0) {
-      throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
-    }
-
-    if (dto.status === OrderStatus.PICKED_UP) {
-      await this.prisma.orderVendorFulfillment.updateMany({
-        where: {
-          groups: { some: { deliveryGroupId: group.id } },
-          status: { notIn: ['REJECTED', 'CANCELLED', 'PICKED_UP'] },
-          pickedUpAt: null,
-        },
-        data: {
-          status: OrderVendorFulfillmentStatus.PICKED_UP,
-          pickedUpAt: new Date(),
-          ...(dto.pickupImageUrl ? { pickupImageUrl: dto.pickupImageUrl } : {}),
-          ...(group.primaryDriverId ? { pickedUpByDriverId: group.primaryDriverId } : {}),
-        },
-      });
-    }
-
-    // Stamp this group's vendor portions as delivered and immediately free its
-    // driver(s) so they are not held ON_DELIVERY waiting for sibling groups.
-    if (dto.status === OrderStatus.DELIVERED) {
-      await this.prisma.orderVendorFulfillment.updateMany({
-        where: {
-          groups: { some: { deliveryGroupId: group.id } },
-          status: { notIn: ['REJECTED', 'CANCELLED'] },
-        },
-        data: {
-          deliveredAt: new Date(),
-        },
-      });
-      const groupDriverIds = [group.primaryDriverId, group.assistDriverId].filter(
-        (id): id is string => Boolean(id),
-      );
-      for (const did of new Set(groupDriverIds)) {
-        await this.ordersRepository.freeDriver(did);
-      }
-    }
-
-    await this.prisma.orderStatusEvent.create({
-      data: {
-        orderId: order.id,
-        status: order.status,
-        note: `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
-        createdBy: actor.sub,
-      },
-    });
-
-    await this.recomputeGroupedOrderStatus(actor, order);
-
-    // If this group finished while sibling groups are still in progress,
-    // emit a per-delivery status update so events.processor refreshes this
-    // driver's active-order tracking key and notifies the customer.
-    if (dto.status === OrderStatus.DELIVERED) {
-      const latest = await this.prisma.order.findUnique({
-        where: { id: order.id },
-        select: { status: true, customerId: true, vendorId: true, driverId: true, revision: true, customer: { select: { userId: true } } },
-      });
-      if (latest && latest.status !== OrderStatus.DELIVERED) {
-        const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
-          order.id,
-          latest.vendorId,
-        );
-        this.eventEmitter.emit(
-          EVENTS.ORDER_STATUS_CHANGED,
-          new OrderStatusChangedEvent(
-            order.id,
-            order.orderNumber,
-            latest.status,
-            latest.status,
-            latest.customerId,
-            latest.customer?.userId ?? latest.customerId,
-            latest.vendorId,
-            vendorUserIds,
-            group.primaryDriverId ?? latest.driverId,
-            actor.sub,
-            actor.sub,
-            `Delivery ${group.sequence} completed`,
-            latest.revision,
-            `delivery:${group.sequence}`,
-          ),
-        );
-      }
-    }
-
-    return this.ordersRepository.findById(order.id);
-  }
-
-  /**
-   * Recompute the aggregate order status from its (non-cancelled) delivery
-   * groups: PICKED_UP once every group is on the road, DELIVERED once every
-   * group is delivered. Emits ORDER_STATUS_CHANGED so settlement/chat run.
-   */
-  private async recomputeGroupedOrderStatus(
-    actor: JwtAccessPayload,
-    order: any,
-  ): Promise<void> {
-    const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId: order.id },
-      select: { id: true, status: true, primaryDriverId: true, assistDriverId: true },
-      orderBy: { sequence: 'asc' },
-    });
-    const active = groups.filter(
-      (g) => g.status !== DeliveryGroupStatus.CANCELLED,
-    );
-    if (active.length === 0) return;
-
-    const fresh = await this.prisma.order.findUnique({
-      where: { id: order.id },
-      select: {
-        status: true,
-        revision: true,
-        customerId: true,
-        vendorId: true,
-        driverId: true,
-        paymentMethod: true,
-        upfrontAmount: true,
-        paymentStatus: true,
-        customer: { select: { userId: true } },
-      },
-    });
-    if (!fresh) return;
-
-    const allDelivered = active.every(
-      (g) => g.status === DeliveryGroupStatus.DELIVERED,
-    );
-    const allPickedUp = active.every(
-      (g) =>
-        g.status === DeliveryGroupStatus.PICKED_UP ||
-        g.status === DeliveryGroupStatus.DELIVERED,
-    );
-    const somePickedUp = active.some(
-      (g) =>
-        g.status === DeliveryGroupStatus.PICKED_UP ||
-        g.status === DeliveryGroupStatus.PARTIALLY_PICKED_UP ||
-        g.status === DeliveryGroupStatus.DELIVERED,
-    );
-
-    let target: OrderStatus | null = null;
-    if (allDelivered) {
-      target = OrderStatus.DELIVERED;
-    } else if (allPickedUp && fresh.status !== OrderStatus.PICKED_UP) {
-      target = OrderStatus.PICKED_UP;
-    } else if (
-      somePickedUp &&
-      fresh.status !== OrderStatus.PARTIALLY_PICKED_UP &&
-      fresh.status !== OrderStatus.PICKED_UP &&
-      fresh.status !== OrderStatus.DELIVERED
-    ) {
-      target = OrderStatus.PARTIALLY_PICKED_UP;
-    }
-    if (!target || fresh.status === target) return;
-
-    // Never advance aggregate order status out of PENDING_PAYMENT until payment is COMPLETED
-    if (
-      fresh.status === OrderStatus.PENDING_PAYMENT &&
-      (fresh.paymentMethod === 'MOBILE_WALLET' || Number(fresh.upfrontAmount ?? 0) > 0) &&
-      fresh.paymentStatus !== 'COMPLETED'
-    ) {
-      return;
-    }
-
-    // Only ever move forward.
-    const allowedFrom: Record<string, OrderStatus[]> = {
-      [OrderStatus.PARTIALLY_PICKED_UP]: [
-        OrderStatus.DRIVER_ASSIGNED,
-        OrderStatus.PENDING_PAYMENT,
-        OrderStatus.PREPARING,
-        OrderStatus.READY_FOR_PICKUP,
-        OrderStatus.ACCEPTED,
-        OrderStatus.LOOKING_FOR_DRIVER,
-      ],
-      [OrderStatus.PICKED_UP]: [
-        OrderStatus.DRIVER_ASSIGNED,
-        OrderStatus.PENDING_PAYMENT,
-        OrderStatus.PREPARING,
-        OrderStatus.READY_FOR_PICKUP,
-        OrderStatus.ACCEPTED,
-        OrderStatus.LOOKING_FOR_DRIVER,
-        OrderStatus.PARTIALLY_PICKED_UP,
-      ],
-      [OrderStatus.DELIVERED]: [
-        OrderStatus.PICKED_UP,
-        OrderStatus.PARTIALLY_PICKED_UP,
-        OrderStatus.READY_FOR_PICKUP,
-        OrderStatus.DRIVER_ASSIGNED,
-        OrderStatus.PENDING_PAYMENT,
-      ],
-    };
-    if (!(allowedFrom[target] ?? []).includes(fresh.status)) {
-      return;
-    }
-
-    const extraData: Prisma.OrderUpdateInput = {};
-    if (target === OrderStatus.PICKED_UP) extraData.pickedUpAt = new Date();
-    if (target === OrderStatus.DELIVERED)
-      extraData.actualDeliveryTime = new Date();
-
-    let updatedRevision = fresh.revision;
-    try {
-      const updated = await this.ordersRepository.updateStatus(
-        order.id,
-        target,
-        actor.sub,
-        target === OrderStatus.DELIVERED
-          ? 'All deliveries completed'
-          : target === OrderStatus.PICKED_UP
-            ? 'All deliveries picked up'
-            : 'Driver is collecting portions from stores',
-        extraData,
-        fresh.status,
-      );
-      updatedRevision = updated.revision;
-    } catch {
-      // Lost a race with a concurrent group update — the other writer wins.
-      return;
-    }
-
-    if (target === OrderStatus.DELIVERED) {
-      const driverIds = [
-        fresh.driverId,
-        ...groups.flatMap((g) => [g.primaryDriverId, g.assistDriverId]),
-      ].filter((d): d is string => !!d);
-      for (const driverId of new Set(driverIds)) {
-        await this.ordersRepository.freeDriver(driverId);
-      }
-    }
-
-    // Notify every participating vendor, not just an order-level one: a
-    // multi-vendor order has no order-level vendor.
-    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
-      order.id,
-      fresh.vendorId,
-    );
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_STATUS_CHANGED,
-      new OrderStatusChangedEvent(
-        order.id,
-        order.orderNumber,
-        fresh.status,
-        target,
-        fresh.customerId,
-        fresh.customer?.userId ?? fresh.customerId,
-        fresh.vendorId,
-        vendorUserIds,
-        fresh.driverId,
-        null,
-        actor.sub,
-        target === OrderStatus.DELIVERED
-          ? 'All deliveries completed'
-          : target === OrderStatus.PICKED_UP
-            ? 'All deliveries picked up'
-            : 'Driver is collecting portions from stores',
-        updatedRevision,
-      ),
-    );
-  }
-
   async respondToDispatch(
     actor: JwtAccessPayload,
     dispatchId: string,
@@ -1524,14 +523,11 @@ export class OrdersStateService {
     });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
-    // A driver on break holds only stale pre-break dispatches — fail fast
-    // with a clear error instead of the generic already-on-order message
-    // from the guarded acceptance update.
     if (dto.response === 'ACCEPTED' && driver.status === 'ON_BREAK') {
       throw new BadRequestException(DriverErrors.CANNOT_ACCEPT_ON_BREAK);
     }
 
-    const orderId = await this.dispatchService.verifyPendingDispatch(
+    const orderId = await this.dispatchPort.verifyPendingDispatch(
       dispatchId,
       driver.id,
     );
@@ -1541,21 +537,16 @@ export class OrdersStateService {
 
     if (dto.response === 'ACCEPTED') {
       try {
-        const assigned = await this.dispatchService.handleAcceptance(
+        const assigned = await this.dispatchPort.handleAcceptance(
           dispatchId,
           driver.id,
         );
-
-        // The dispatch is no longer available for this driver (expired,
-        // already won by someone else, or cancelled). Surface a real error
-        // instead of pretending the acceptance succeeded.
         if (!assigned) {
           throw new BadRequestException(
             OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED,
           );
         }
 
-        // Emit purely for analytical tracking after successful assignment
         this.eventEmitter.emit(
           EVENTS.ORDER_DISPATCH_RESPONDED,
           new OrderDispatchRespondedEvent(
@@ -1620,8 +611,6 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.CANNOT_ASSIGN_SUSPENDED_DRIVER);
     }
 
-    // On-break drivers are invisible to dispatch; force-assign must not
-    // silently yank them back (admin force-ends the break first instead).
     if (driver.status === 'ON_BREAK') {
       throw new BadRequestException(DriverErrors.CANNOT_ASSIGN_ON_BREAK);
     }
@@ -1632,7 +621,6 @@ export class OrdersStateService {
     });
     const maxActive = settings?.maxActiveOrdersPerDriver ?? 1;
 
-    // Never put a driver on more live orders/delivery groups than maxActive.
     const [activeGroupCount, activeLegacyOrderCount] = await Promise.all([
       this.prisma.orderDeliveryGroup.count({
         where: {
@@ -1661,24 +649,18 @@ export class OrdersStateService {
     }
     const isStackedOrder = activeOrdersCount > 0;
 
-    // Get active shift if any
     const activeShift = await this.prisma.driverShift.findFirst({
       where: { driverId: driver.id, status: 'ACTIVE' },
       select: { id: true },
     });
 
-    // Do NOT free the previous driver here: assignment may still fail below,
-    // and OrdersRepository.assignDriver already releases the prior order-level
-    // driver inside its own transaction. Freeing early desyncs availability.
-
     const nextStatus =
-      (order.paymentMethod === 'MOBILE_WALLET' || Number((order as any).upfrontAmount ?? 0) > 0) &&
+      (order.paymentMethod === 'MOBILE_WALLET' ||
+        Number((order as any).upfrontAmount ?? 0) > 0) &&
       order.paymentStatus !== 'COMPLETED'
         ? OrderStatus.PENDING_PAYMENT
         : OrderStatus.DRIVER_ASSIGNED;
 
-    // Re-verify the order is still assignable (status may have changed since the
-    // initial read at the top of this method).
     const freshOrder = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: { status: true },
@@ -1713,7 +695,6 @@ export class OrdersStateService {
       },
       select: { primaryDriverId: true, assistDriverId: true },
     });
-    // Non-ready groups: full reassignment including status regression.
     await this.prisma.orderDeliveryGroup.updateMany({
       where: {
         orderId,
@@ -1736,8 +717,6 @@ export class OrdersStateService {
         assignedAt: new Date(),
       },
     });
-    // Ready groups: assign the driver but PRESERVE the ready status (do not
-    // regress a ready delivery back to "waiting for driver").
     await this.prisma.orderDeliveryGroup.updateMany({
       where: {
         orderId,
@@ -1751,19 +730,18 @@ export class OrdersStateService {
         assignedAt: new Date(),
       },
     });
-    // Free previously assigned drivers (primary + assist) that are no longer
-    // on any group after the reassignment.
     const prevDrivers = new Set<string>();
     for (const g of prevGroupDrivers) {
-      if (g.primaryDriverId && g.primaryDriverId !== driver.id) prevDrivers.add(g.primaryDriverId);
-      if (g.assistDriverId && g.assistDriverId !== driver.id) prevDrivers.add(g.assistDriverId);
+      if (g.primaryDriverId && g.primaryDriverId !== driver.id) {
+        prevDrivers.add(g.primaryDriverId);
+      }
+      if (g.assistDriverId && g.assistDriverId !== driver.id) {
+        prevDrivers.add(g.assistDriverId);
+      }
     }
     for (const prev of prevDrivers) {
       await this.ordersRepository.freeDriver(prev);
     }
-
-    // The dispatch listener will catch ORDER_STATUS_CHANGED to DRIVER_ASSIGNED
-    // and cancel any automated dispatch ping that might be running automatically.
 
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       order.id,
@@ -1802,124 +780,16 @@ export class OrdersStateService {
     orderId: string,
     reason: string,
   ) {
-    if (actor?.role === Role.DRIVER_MANAGER) {
-      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-    }
-    const order = await this.ordersRepository.findById(orderId);
-
-    if (NON_CANCELLABLE.includes(order.status)) {
-      throw new BadRequestException(OrderErrors.CANNOT_CANCEL_ORDER);
-    }
-
-    if (actor) {
-      if (actor.role === Role.CUSTOMER) {
-        if (order.customer.userId !== actor.sub) {
-          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-        }
-        // Customer cannot cancel if vendor has already started preparing or completed food
-        const customerCancellableStatuses: OrderStatus[] = [
-          OrderStatus.PENDING,
-          OrderStatus.CHANGES_REQUESTED,
-          OrderStatus.ACCEPTED,
-          OrderStatus.LOOKING_FOR_DRIVER,
-        ];
-        if (!customerCancellableStatuses.includes(order.status)) {
-          throw new BadRequestException(
-            OrderErrors.CANNOT_CANCEL_PREPARATION_STARTED,
-          );
-        }
-      } else if (actor.role === Role.VENDOR_MEMBER) {
-        if ((((order as any).vendorFulfillments ?? []) as any[]).length > 0) {
-          return this.vendorUpdateStatus(actor, orderId, {
-            status: OrderStatus.CANCELLED,
-            note: reason,
-          });
-        }
-        // A multi-vendor order has no single order-level vendor, so membership
-        // must be resolved against every portion's vendor. Otherwise no vendor
-        // could ever cancel their side of a multi-vendor order.
-        const vendorIds = new Set<string>();
-        if (order.vendorId) vendorIds.add(order.vendorId);
-        for (const f of ((order as any).vendorFulfillments ?? []) as Array<{
-          vendorId: string;
-        }>) {
-          if (f.vendorId) vendorIds.add(f.vendorId);
-        }
-        const isMember =
-          vendorIds.size > 0 &&
-          (await this.prisma.vendorMember.findFirst({
-            where: { userId: actor.sub, vendorId: { in: [...vendorIds] } },
-          })) !== null;
-        if (!isMember) {
-          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
-        }
-      } else if (actor.role === Role.DRIVER) {
-        throw new ForbiddenException(OrderErrors.DRIVERS_CANNOT_CANCEL);
-      } else if (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) {
-        const canManage = await this.canManageOrders(actor.sub, actor.role);
-        if (!canManage) {
-          throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
-        }
+    if (actor?.role === Role.VENDOR_MEMBER) {
+      const order = await this.ordersRepository.findById(orderId);
+      if ((((order as any).vendorFulfillments ?? []) as any[]).length > 0) {
+        return this.vendorUpdateStatus(actor, orderId, {
+          status: OrderStatus.CANCELLED,
+          note: reason,
+        });
       }
     }
-
-    const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
-      order.id,
-      order.vendorId,
-    );
-
-    // Multi-vendor orders have no single order-level driver; collect every
-    // primary driver of the (non-cancelled) delivery groups so the cancellation
-    // side-effects (cache clear, stats, notification) reach all of them.
-    const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId: order.id },
-      select: { primaryDriverId: true, assistDriverId: true },
-    });
-    const groupDriverIds = groups
-      .flatMap((g) => [g.primaryDriverId, g.assistDriverId])
-      .filter((id): id is string => !!id);
-    const allDriverIds = Array.from(
-      new Set([order.driverId, ...groupDriverIds].filter((id): id is string => !!id)),
-    );
-
-    const updatedOrder = await this.ordersRepository.cancelOrder(
-      orderId,
-      actor?.sub ?? 'system',
-      reason,
-      order.status,
-      order.coinsUsed,
-      order.customerId,
-      order.orderNumber,
-      allDriverIds,
-    );
-
-    const orderWithRelations = updatedOrder as {
-      driver: { userId: string } | null;
-      customer: { user: { id: string } };
-    };
-
-    const driverUserId = orderWithRelations.driver?.userId ?? null;
-
-    this.eventEmitter.emit(
-      EVENTS.ORDER_CANCELLED,
-      new OrderCancelledEvent(
-        orderId,
-        order.orderNumber,
-        order.customerId,
-        orderWithRelations.customer.user.id,
-        order.vendorId,
-        vendorUserIds,
-        order.driverId,
-        driverUserId,
-        reason,
-        actor?.sub ?? null,
-        allDriverIds,
-        updatedOrder.revision,
-      ),
-    );
-
-    this.logger.log(`Order ${order.orderNumber} cancelled: ${reason}`);
-    return this.ordersRepository.findById(orderId);
+    return this.cancellation.cancelOrder(actor, orderId, reason);
   }
 
   private async applyStatusTransition(
@@ -1939,9 +809,6 @@ export class OrdersStateService {
     const oldStatus = order.status as OrderStatus;
     const newStatus = dto.status;
 
-    // A manager may still move a grouped order by hand. Keep each delivery's
-    // own state in step, otherwise the "vendor must mark the delivery ready"
-    // guard would leave every driver of that order unable to collect.
     if (newStatus === OrderStatus.READY_FOR_PICKUP) {
       const grouped = ((order as any).deliveryGroups ?? []) as Array<{
         id: string;
@@ -1982,19 +849,22 @@ export class OrdersStateService {
       newStatus === OrderStatus.PREPARING
     ) {
       if (newStatus === OrderStatus.ACCEPTED) extraData.acceptedAt = new Date();
-      if (dto.estimatedPrepTime)
+      if (dto.estimatedPrepTime) {
         extraData.estimatedPrepTime = dto.estimatedPrepTime;
+      }
     }
-    if (newStatus === OrderStatus.READY_FOR_PICKUP)
+    if (newStatus === OrderStatus.READY_FOR_PICKUP) {
       extraData.preparedAt = new Date();
+    }
     if (newStatus === OrderStatus.PICKED_UP) {
       extraData.pickedUpAt = new Date();
       if (dto.pickupImageUrl) extraData.pickupImageUrl = dto.pickupImageUrl;
     }
     if (newStatus === OrderStatus.DELIVERED) {
       extraData.actualDeliveryTime = new Date();
-      if (dto.deliveryImageUrl)
+      if (dto.deliveryImageUrl) {
         extraData.deliveryImageUrl = dto.deliveryImageUrl;
+      }
     }
 
     const updated = await this.ordersRepository.updateStatus(
@@ -2039,113 +909,13 @@ export class OrdersStateService {
     return updated;
   }
 
-  async autoTimeoutPendingFulfillment(
-    fulfillmentId: string,
-    reason: string,
-  ): Promise<void> {
-    await this.vendorDecisionService.reject(null, fulfillmentId, {
-      code: 'AUTO_TIMEOUT',
-      reason,
-    });
-  }
-
   async recomputeGroupedOrderStatusAfterCancel(
     orderId: string,
     extraDriverIds: Array<string | null | undefined> = [],
   ): Promise<void> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, orderNumber: true, driverId: true },
-    });
-    if (!order) return;
-
-    const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId },
-      select: {
-        id: true,
-        status: true,
-        primaryDriverId: true,
-        assistDriverId: true,
-      },
-      orderBy: { sequence: 'asc' },
-    });
-
-    const cancelledGroups = groups.filter(
-      (g) => g.status === DeliveryGroupStatus.CANCELLED,
-    );
-    const activeGroups = groups.filter(
-      (g) => g.status !== DeliveryGroupStatus.CANCELLED,
-    );
-
-    if (cancelledGroups.length > 0) {
-      await this.prisma.orderVendorFulfillment.updateMany({
-        where: {
-          groups: {
-            some: {
-              deliveryGroupId: { in: cancelledGroups.map((g) => g.id) },
-            },
-          },
-          status: {
-            notIn: [
-              OrderVendorFulfillmentStatus.REJECTED,
-              OrderVendorFulfillmentStatus.CANCELLED,
-            ],
-          },
-          deliveredAt: null,
-        },
-        data: { status: OrderVendorFulfillmentStatus.CANCELLED },
-      });
-    }
-
-    const activeDriverSet = new Set(
-      activeGroups
-        .filter((g) => g.status !== DeliveryGroupStatus.DELIVERED)
-        .flatMap((g) => [g.primaryDriverId, g.assistDriverId])
-        .filter((id): id is string => Boolean(id)),
-    );
-
-    if (
-      order.driverId &&
-      !activeGroups.some((g) => g.primaryDriverId === order.driverId)
-    ) {
-      const replacementGroup = activeGroups.find((g) => g.primaryDriverId);
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          driverId: replacementGroup?.primaryDriverId ?? null,
-          revision: { increment: 1 },
-        },
-      });
-    }
-
-    const driversToCheck = new Set(
-      [
-        ...cancelledGroups.flatMap((g) => [g.primaryDriverId, g.assistDriverId]),
-        ...extraDriverIds,
-      ].filter((id): id is string => Boolean(id)),
-    );
-    for (const did of driversToCheck) {
-      if (!activeDriverSet.has(did)) {
-        await this.ordersRepository.freeDriver(did);
-      }
-    }
-
-    await this.recomputeGroupedOrderStatus(
-      { sub: 'system', role: Role.SUPER_ADMIN } as JwtAccessPayload,
-      order,
-    );
-  }
-
-  private async canManageOrders(userId: string, role: Role): Promise<boolean> {
-    if (role === Role.DRIVER_MANAGER) return false;
-    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return true;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { permissions: true },
-    });
-    return !!(
-      user?.permissions.includes(Permission.MANAGE_ORDERS) ||
-      user?.permissions.includes(Permission.MANAGE_VENDORS)
+    await this.deliveryGroup.recomputeGroupedOrderStatusAfterCancel(
+      orderId,
+      extraDriverIds,
     );
   }
 }
