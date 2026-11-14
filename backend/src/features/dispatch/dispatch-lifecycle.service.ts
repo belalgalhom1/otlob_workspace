@@ -87,8 +87,8 @@ export class DispatchLifecycleService {
       dispatchData.deliveryGroupId ??
       payload.deliveryGroupId ??
       dispatchData.candidates?.[0]?.deliveryGroupId ??
-      null;
-    const expiryScope = groupScope ?? orderId;
+      orderId;
+    const expiryScope = groupScope;
 
     if (await this.isTargetTerminal(orderId, groupScope)) {
       await this.cleanupTerminatedBroadcast(dispatchId, expiryScope);
@@ -155,15 +155,23 @@ export class DispatchLifecycleService {
     const validated = await this.validateAcceptanceRequest(dispatchId, driverId);
     if (!validated) return false;
 
-    const { dispatchData, candidate, rejectedBy, order, totalDistanceKm } =
-      validated;
-    const nextStatus = this.resolveAcceptanceOrderStatus(order);
+    const {
+      dispatchData,
+      candidate,
+      rejectedBy,
+      order,
+      group,
+      groupId,
+      singleVendorId,
+      totalDistanceKm,
+    } = validated;
+    const { nextGroupStatus, nextOrderStatus } =
+      this.resolveAcceptanceStatuses(order, group);
     const losingCandidates = (dispatchData.candidates || []).filter(
       (c) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
     );
-    const vendorUserIds = await this.resolveVendorUserIds(order.id, order.vendorId);
-    const acceptScope =
-      candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? order.id;
+    const vendorUserIds = await this.resolveVendorUserIds(order.id);
+    const acceptScope = groupId;
 
     const assignedRevision = await this.commitAcceptanceTransaction({
       dispatchId,
@@ -171,7 +179,10 @@ export class DispatchLifecycleService {
       candidate,
       driverId,
       order,
-      nextStatus,
+      groupId,
+      singleVendorId,
+      nextGroupStatus,
+      nextOrderStatus,
       totalDistanceKm,
       vendorUserIds,
       losingCandidates,
@@ -197,7 +208,8 @@ export class DispatchLifecycleService {
 
     await this.publishAcceptanceTransition({
       order,
-      nextStatus,
+      singleVendorId,
+      nextStatus: nextOrderStatus,
       vendorUserIds,
       driverId,
       driverUserId: candidate.userId,
@@ -253,7 +265,7 @@ export class DispatchLifecycleService {
         orderId,
         driverId,
         driverShiftId: candidate.driverShiftId,
-        deliveryGroupId: candidate.deliveryGroupId ?? null,
+        deliveryGroupId: candidate.deliveryGroupId,
         type: dispatchData.type,
         distanceKm: candidate.distanceKm,
         estimatedEarnings: candidate.estimatedEarnings,
@@ -291,7 +303,7 @@ export class DispatchLifecycleService {
     const [order, groups] = await Promise.all([
       this.prisma.order.findUnique({
         where: { id: orderId },
-        select: { status: true, driverId: true },
+        select: { status: true },
       }),
       this.prisma.orderDeliveryGroup.findMany({
         where: { orderId },
@@ -444,20 +456,48 @@ export class DispatchLifecycleService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: dispatchData.orderId },
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentMethod: true,
+        paymentStatus: true,
+        upfrontAmount: true,
+        customerId: true,
+        distanceKm: true,
         customer: { select: { userId: true } },
-        vendor: { select: { members: { select: { userId: true } } } },
+        vendorFulfillments: {
+          select: {
+            id: true,
+            vendorId: true,
+            vendorBranchId: true,
+            status: true,
+            groups: {
+              select: { deliveryGroupId: true },
+            },
+          },
+        },
+        deliveryGroups: {
+          select: {
+            id: true,
+            status: true,
+            primaryDriverId: true,
+          },
+        },
       },
     });
 
-    const isGroupedAccept = Boolean(
-      candidate.deliveryGroupId ?? dispatchData.deliveryGroupId,
-    );
+    const groupId = candidate.deliveryGroupId ?? dispatchData.deliveryGroupId;
+    const group = order?.deliveryGroups?.find((g) => g.id === groupId) ?? null;
+
     if (
       !order ||
+      !group ||
+      group.primaryDriverId != null ||
       order.status === OrderStatus.CANCELLED ||
       order.status === OrderStatus.DELIVERED ||
-      (!isGroupedAccept && !DISPATCHABLE_ORDER_STATUSES.includes(order.status))
+      group.status === DeliveryGroupStatus.CANCELLED ||
+      group.status === DeliveryGroupStatus.DELIVERED
     ) {
       return null;
     }
@@ -466,66 +506,138 @@ export class DispatchLifecycleService {
       await this.locationRepository.getOrderLocationContext(order.id);
     if (!dispatchContext) return null;
 
+    const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(
+      groupId,
+    );
+    const pickupLng = pickup?.lng ?? dispatchContext.lng;
+    const pickupLat = pickup?.lat ?? dispatchContext.lat;
+
     const orderDistanceKm = await this.locationRepository.getDistanceKm(
-      dispatchContext.lng,
-      dispatchContext.lat,
+      pickupLng,
+      pickupLat,
       dispatchContext.deliveryLng,
       dispatchContext.deliveryLat,
     );
+
+    const uniqueVendorIds = Array.from(
+      new Set(order.vendorFulfillments.map((f) => f.vendorId)),
+    );
+    const singleVendorId =
+      uniqueVendorIds.length === 1 ? uniqueVendorIds[0] : null;
 
     return {
       dispatchData,
       candidate,
       rejectedBy,
       order,
+      group,
+      groupId,
+      singleVendorId,
       totalDistanceKm: Number(candidate.distanceKm) + orderDistanceKm,
     };
   }
 
-  private resolveAcceptanceOrderStatus(order: {
-    status: OrderStatus;
-    paymentMethod: string;
-    paymentStatus: string;
-    upfrontAmount: unknown;
-  }): OrderStatus {
-    if (
+  private resolveAcceptanceStatuses(
+    order: {
+      status: OrderStatus;
+      paymentMethod: string;
+      paymentStatus: string;
+      upfrontAmount: unknown;
+      vendorFulfillments: Array<{
+        status: string;
+        groups: Array<{ deliveryGroupId: string }>;
+      }>;
+    },
+    group: { id: string; status: DeliveryGroupStatus },
+  ): { nextGroupStatus: DeliveryGroupStatus; nextOrderStatus: OrderStatus } {
+    const awaitingPayment =
       (order.paymentMethod === 'MOBILE_WALLET' ||
         Number(order.upfrontAmount ?? 0) > 0) &&
-      order.paymentStatus !== 'COMPLETED'
+      order.paymentStatus !== 'COMPLETED';
+
+    if (awaitingPayment) {
+      return {
+        nextGroupStatus: DeliveryGroupStatus.PENDING_PAYMENT,
+        nextOrderStatus: OrderStatus.PENDING_PAYMENT,
+      };
+    }
+
+    const groupActiveFulfillments = order.vendorFulfillments.filter(
+      (f) =>
+        f.groups.some((g) => g.deliveryGroupId === group.id) &&
+        f.status !== 'CANCELLED' &&
+        f.status !== 'REJECTED',
+    );
+    const allGroupReady =
+      groupActiveFulfillments.length > 0 &&
+      groupActiveFulfillments.every((f) => f.status === 'READY_FOR_PICKUP');
+    const anyGroupPreparingOrReady = groupActiveFulfillments.some(
+      (f) => f.status === 'PREPARING' || f.status === 'READY_FOR_PICKUP',
+    );
+
+    const nextGroupStatus =
+      allGroupReady || group.status === DeliveryGroupStatus.READY_FOR_PICKUP
+        ? DeliveryGroupStatus.READY_FOR_PICKUP
+        : anyGroupPreparingOrReady ||
+            group.status === DeliveryGroupStatus.PREPARING
+          ? DeliveryGroupStatus.PREPARING
+          : DeliveryGroupStatus.DRIVER_ASSIGNED;
+
+    let nextOrderStatus: OrderStatus;
+    if (
+      order.status === OrderStatus.PARTIALLY_PICKED_UP ||
+      order.status === OrderStatus.PICKED_UP
     ) {
-      return OrderStatus.PENDING_PAYMENT;
+      nextOrderStatus = order.status;
+    } else {
+      const orderActiveFulfillments = order.vendorFulfillments.filter(
+        (f) => f.status !== 'CANCELLED' && f.status !== 'REJECTED',
+      );
+      const allOrderReady =
+        orderActiveFulfillments.length > 0 &&
+        orderActiveFulfillments.every((f) => f.status === 'READY_FOR_PICKUP');
+      const anyOrderPreparingOrReady = orderActiveFulfillments.some(
+        (f) => f.status === 'PREPARING' || f.status === 'READY_FOR_PICKUP',
+      );
+
+      if (allOrderReady || order.status === OrderStatus.READY_FOR_PICKUP) {
+        nextOrderStatus = OrderStatus.READY_FOR_PICKUP;
+      } else if (
+        anyOrderPreparingOrReady ||
+        order.status === OrderStatus.PREPARING
+      ) {
+        nextOrderStatus = OrderStatus.PREPARING;
+      } else {
+        nextOrderStatus = OrderStatus.DRIVER_ASSIGNED;
+      }
     }
-    if (order.status === OrderStatus.READY_FOR_PICKUP) {
-      return OrderStatus.READY_FOR_PICKUP;
-    }
-    if (order.status === OrderStatus.PREPARING) {
-      return OrderStatus.PREPARING;
-    }
-    return OrderStatus.DRIVER_ASSIGNED;
+
+    return { nextGroupStatus, nextOrderStatus };
   }
 
-  private async resolveVendorUserIds(
-    orderId: string,
-    orderVendorId: string | null,
-  ): Promise<string[]> {
-    const vendorIds = orderVendorId
-      ? [orderVendorId]
-      : Array.from(
-          new Set(
-            (
-              await this.prisma.orderVendorFulfillment.findMany({
-                where: { orderId },
-                select: { vendorId: true },
-              })
-            ).map((p) => p.vendorId),
-          ),
-        );
-    if (vendorIds.length === 0) return [];
+  private async resolveVendorUserIds(orderId: string): Promise<string[]> {
+    const fulfillments = await this.prisma.orderVendorFulfillment.findMany({
+      where: { orderId },
+      select: { vendorId: true, vendorBranchId: true },
+    });
+    if (fulfillments.length === 0) return [];
+    const orClauses = fulfillments.map((f) => ({
+      vendorId: f.vendorId,
+      ...(f.vendorBranchId
+        ? {
+            OR: [
+              { role: 'OWNER' as const },
+              { branchId: null },
+              { branchId: f.vendorBranchId },
+            ],
+          }
+        : {}),
+    }));
     const members = await this.prisma.vendorMember.findMany({
-      where: { vendorId: { in: vendorIds } },
+      where: { OR: orClauses },
       select: { userId: true },
     });
-    return members.map((m) => m.userId);
+    return Array.from(new Set(members.map((m) => m.userId)));
   }
 
   private async commitAcceptanceTransaction(params: {
@@ -538,10 +650,14 @@ export class DispatchLifecycleService {
       orderNumber: string;
       status: OrderStatus;
       customerId: string;
-      vendorId: string | null;
+      distanceKm: unknown;
       customer: { userId: string } | null;
+      deliveryGroups: Array<{ id: string }>;
     };
-    nextStatus: OrderStatus;
+    groupId: string;
+    singleVendorId: string | null;
+    nextGroupStatus: DeliveryGroupStatus;
+    nextOrderStatus: OrderStatus;
     totalDistanceKm: number;
     vendorUserIds: string[];
     losingCandidates: DispatchCandidateOffer[];
@@ -553,7 +669,10 @@ export class DispatchLifecycleService {
       candidate,
       driverId,
       order,
-      nextStatus,
+      groupId,
+      singleVendorId,
+      nextGroupStatus,
+      nextOrderStatus,
       totalDistanceKm,
       vendorUserIds,
       losingCandidates,
@@ -593,7 +712,7 @@ export class DispatchLifecycleService {
             orderId: order.id,
             driverId,
             driverShiftId: candidate.driverShiftId,
-            deliveryGroupId: candidate.deliveryGroupId ?? null,
+            deliveryGroupId: groupId,
             type: dispatchData.type,
             distanceKm: candidate.distanceKm,
             estimatedEarnings: candidate.estimatedEarnings,
@@ -602,116 +721,62 @@ export class DispatchLifecycleService {
           },
         });
 
-        const groupId = candidate.deliveryGroupId ?? null;
-        if (groupId) {
-          const groupClaimed = await tx.orderDeliveryGroup.updateMany({
-            where: {
-              id: groupId,
-              primaryDriverId: null,
-              status: {
-                notIn: [
-                  DeliveryGroupStatus.CANCELLED,
-                  DeliveryGroupStatus.DELIVERED,
-                ],
-              },
+        const groupClaimed = await tx.orderDeliveryGroup.updateMany({
+          where: {
+            id: groupId,
+            primaryDriverId: null,
+            status: {
+              notIn: [
+                DeliveryGroupStatus.CANCELLED,
+                DeliveryGroupStatus.DELIVERED,
+              ],
             },
-            data: {
-              primaryDriverId: driverId,
-              primaryDriverShiftId: candidate.driverShiftId,
-              isStacked: isStackedOrder,
-              status:
-                nextStatus === OrderStatus.PENDING_PAYMENT
-                  ? DeliveryGroupStatus.PENDING_PAYMENT
-                  : DeliveryGroupStatus.DRIVER_ASSIGNED,
-              assignedByUserId: 'system',
-              assignedAt: new Date(),
-            },
-          });
-          if (groupClaimed.count === 0) {
-            throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-          }
-
-          await tx.order.updateMany({
-            where: { id: order.id, driverId: null },
-            data: {
-              driverId,
-              driverShiftId: candidate.driverShiftId,
-              isStacked: isStackedOrder,
-              driverAssignedAt: new Date(),
-            },
-          });
-
-          const aggregateAdvanced = await tx.order.updateMany({
-            where: {
-              id: order.id,
-              status: {
-                in: [
-                  OrderStatus.PENDING,
-                  OrderStatus.ACCEPTED,
-                  OrderStatus.LOOKING_FOR_DRIVER,
-                ],
-              },
-            },
-            data: { status: nextStatus, revision: { increment: 1 } },
-          });
-
-          await tx.orderStatusEvent.create({
-            data: {
-              orderId: order.id,
-              status: nextStatus,
-              note: `Driver assigned to a delivery. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-              createdBy: 'system',
-            },
-          });
-
-          if (aggregateAdvanced.count > 0) {
-            const revisionRow = await tx.order.findUnique({
-              where: { id: order.id },
-              select: { revision: true },
-            });
-            assignedRevision = revisionRow?.revision ?? 0;
-          } else {
-            const bumped = await tx.order.update({
-              where: { id: order.id },
-              data: { revision: { increment: 1 } },
-              select: { revision: true },
-            });
-            assignedRevision = bumped.revision;
-          }
-        } else {
-          const updated = await tx.order.updateMany({
-            where: { id: order.id, status: { in: DISPATCHABLE_ORDER_STATUSES } },
-            data: {
-              driverId,
-              driverShiftId: candidate.driverShiftId,
-              isStacked: isStackedOrder,
-              status: nextStatus,
-              revision: { increment: 1 },
-              driverAssignedAt: new Date(),
-              distanceKm: totalDistanceKm,
-            },
-          });
-          if (updated.count === 0) {
-            throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-          }
-
-          assignedRevision =
-            (
-              await tx.order.findUnique({
-                where: { id: order.id },
-                select: { revision: true },
-              })
-            )?.revision ?? 0;
-
-          await tx.orderStatusEvent.create({
-            data: {
-              orderId: order.id,
-              status: nextStatus,
-              note: `Driver assigned. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-              createdBy: 'system',
-            },
-          });
+          },
+          data: {
+            primaryDriverId: driverId,
+            primaryDriverShiftId: candidate.driverShiftId,
+            isStacked: isStackedOrder,
+            status: nextGroupStatus,
+            assignedByUserId: 'system',
+            assignedAt: new Date(),
+          },
+        });
+        if (groupClaimed.count === 0) {
+          throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
         }
+
+        const shouldAdvanceOrderStatus =
+          order.status === OrderStatus.PENDING ||
+          order.status === OrderStatus.ACCEPTED ||
+          order.status === OrderStatus.LOOKING_FOR_DRIVER ||
+          order.status === OrderStatus.PREPARING ||
+          order.status === OrderStatus.READY_FOR_PICKUP ||
+          nextOrderStatus === OrderStatus.PENDING_PAYMENT;
+
+        const updatedOrder = await tx.order.update({
+          where: { id: order.id },
+          data: {
+            ...(shouldAdvanceOrderStatus && order.status !== nextOrderStatus
+              ? { status: nextOrderStatus }
+              : {}),
+            ...(order.distanceKm == null && order.deliveryGroups.length <= 1
+              ? { distanceKm: totalDistanceKm }
+              : {}),
+            revision: { increment: 1 },
+          },
+          select: { revision: true },
+        });
+        assignedRevision = updatedOrder.revision;
+
+        await tx.orderStatusEvent.create({
+          data: {
+            orderId: order.id,
+            deliveryGroupId: groupId,
+            status: nextOrderStatus,
+            note: `Driver assigned to delivery. ${nextOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
+            createdBy: 'system',
+          },
+        });
 
         await this.outbox.record(tx, {
           aggregateType: 'ORDER',
@@ -724,11 +789,11 @@ export class DispatchLifecycleService {
             orderId: order.id,
             orderNumber: order.orderNumber,
             oldStatus: order.status,
-            newStatus: nextStatus,
-            status: nextStatus,
+            newStatus: nextOrderStatus,
+            status: nextOrderStatus,
             customerId: order.customerId,
             customerUserId: order.customer?.userId || order.customerId,
-            vendorId: order.vendorId,
+            vendorId: singleVendorId,
             vendorUserIds,
             driverId,
             driverUserId: candidate.userId,
@@ -808,9 +873,9 @@ export class DispatchLifecycleService {
       orderNumber: string;
       status: OrderStatus;
       customerId: string;
-      vendorId: string | null;
       customer: { userId: string } | null;
     };
+    singleVendorId: string | null;
     nextStatus: OrderStatus;
     vendorUserIds: string[];
     driverId: string;
@@ -819,6 +884,7 @@ export class DispatchLifecycleService {
   }): Promise<void> {
     const {
       order,
+      singleVendorId,
       nextStatus,
       vendorUserIds,
       driverId,
@@ -833,7 +899,7 @@ export class DispatchLifecycleService {
       nextStatus,
       order.customerId,
       order.customer?.userId || order.customerId,
-      order.vendorId,
+      singleVendorId,
       vendorUserIds,
       driverId,
       driverUserId,

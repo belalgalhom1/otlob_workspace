@@ -317,7 +317,7 @@ export class DriversRepository {
   }
 
   async findOneAdmin(driverId: string) {
-    return this.prisma.driver.findUnique({
+    const driver = await this.prisma.driver.findUnique({
       where: { id: driverId },
       include: {
         user: {
@@ -329,9 +329,19 @@ export class DriversRepository {
             isBanned: true,
           },
         },
-        _count: { select: { orders: true, shifts: true } },
+        _count: { select: { primaryGroups: true, shifts: true } },
       },
     });
+    if (!driver) return null;
+    const { primaryGroups, shifts } = driver._count;
+    return {
+      ...driver,
+      _count: {
+        orders: primaryGroups,
+        primaryGroups,
+        shifts,
+      },
+    };
   }
 
   // ─── Shifts ───────────────────────────────────────────────────────────────
@@ -466,8 +476,11 @@ export class DriversRepository {
   }
 
   async countDeliveredOrdersInShift(shiftId: string): Promise<number> {
-    return this.prisma.order.count({
-      where: { driverShiftId: shiftId, status: 'DELIVERED' },
+    return this.prisma.orderDeliveryGroup.count({
+      where: {
+        status: 'DELIVERED',
+        OR: [{ primaryDriverShiftId: shiftId }, { assistDriverShiftId: shiftId }],
+      },
     });
   }
 
@@ -545,23 +558,16 @@ export class DriversRepository {
   async findActiveOrderForDriver(driverId: string) {
     return this.prisma.order.findFirst({
       where: {
-        OR: [
-          {
-            driverId,
-            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+        status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
+        deliveryGroups: {
+          some: {
+            status: { notIn: ['CANCELLED', 'DELIVERED'] },
+            OR: [
+              { primaryDriverId: driverId },
+              { assistDriverId: driverId },
+            ],
           },
-          {
-            deliveryGroups: {
-              some: {
-                status: { notIn: ['CANCELLED', 'DELIVERED'] },
-                OR: [
-                  { primaryDriverId: driverId },
-                  { assistDriverId: driverId },
-                ],
-              },
-            },
-          },
-        ],
+        },
       },
       select: {
         id: true,

@@ -35,7 +35,7 @@ export class DriverAssistMatchingService {
   ) {}
 
   async findBestCandidate(request: {
-    deliveryGroupId: string | null;
+    deliveryGroupId: string;
     orderId: string;
   }): Promise<string> {
     const nearest = await this.findNearestEligibleAssistDrivers(request, 1);
@@ -221,59 +221,43 @@ export class DriverAssistMatchingService {
   }
 
   private async resolveAssistTargetLocation(request: {
-    deliveryGroupId: string | null;
+    deliveryGroupId: string;
     orderId: string;
   }): Promise<{ primaryDriverId: string | null; lng: number; lat: number }> {
-    let primaryDriverId: string | null = null;
+    const group = await this.prisma.orderDeliveryGroup.findUnique({
+      where: { id: request.deliveryGroupId },
+      select: { primaryDriverId: true },
+    });
+    const primaryDriverId = group?.primaryDriverId ?? null;
     let targetLng: number | null = null;
     let targetLat: number | null = null;
 
-    if (request.deliveryGroupId) {
-      const group = await this.prisma.orderDeliveryGroup.findUnique({
-        where: { id: request.deliveryGroupId },
-        select: { primaryDriverId: true },
-      });
-      primaryDriverId = group?.primaryDriverId ?? null;
-      if (group?.primaryDriverId) {
-        const loc = await this.fetchDriverLocations([
-          group.primaryDriverId,
-        ]).then((m) => m.get(group.primaryDriverId!));
-        if (loc) {
-          targetLng = loc.lng;
-          targetLat = loc.lat;
-        }
+    if (group?.primaryDriverId) {
+      const loc = await this.fetchDriverLocations([group.primaryDriverId]).then(
+        (m) => m.get(group.primaryDriverId!),
+      );
+      if (loc) {
+        targetLng = loc.lng;
+        targetLat = loc.lat;
       }
-      if (targetLng == null) {
-        const pickup =
-          await this.locationRepository.getDeliveryGroupPickupLocation(
-            request.deliveryGroupId,
-          );
-        if (pickup) {
-          targetLng = pickup.lng;
-          targetLat = pickup.lat;
-        }
-      }
-    } else {
-      const order = await this.prisma.order.findUnique({
-        where: { id: request.orderId },
-        select: { driverId: true, vendorBranchId: true },
-      });
-      primaryDriverId = order?.driverId ?? null;
-      if (order?.driverId) {
-        const loc = await this.fetchDriverLocations([order.driverId]).then((m) =>
-          m.get(order.driverId!),
+    }
+    if (targetLng == null) {
+      const pickup =
+        await this.locationRepository.getDeliveryGroupPickupLocation(
+          request.deliveryGroupId,
         );
-        if (loc) {
-          targetLng = loc.lng;
-          targetLat = loc.lat;
-        }
+      if (pickup) {
+        targetLng = pickup.lng;
+        targetLat = pickup.lat;
       }
-      if (targetLng == null && order?.vendorBranchId) {
-        const loc = await this.fetchBranchLocation(order.vendorBranchId);
-        if (loc) {
-          targetLng = loc.lng;
-          targetLat = loc.lat;
-        }
+    }
+    if (targetLng == null) {
+      const ctx = await this.locationRepository.getOrderLocationContext(
+        request.orderId,
+      );
+      if (ctx) {
+        targetLng = ctx.lng;
+        targetLat = ctx.lat;
       }
     }
 
@@ -284,7 +268,7 @@ export class DriverAssistMatchingService {
   }
 
   private async findNearestEligibleAssistDrivers(
-    request: { deliveryGroupId: string | null; orderId: string },
+    request: { deliveryGroupId: string; orderId: string },
     limit: number,
   ): Promise<string[]> {
     const { primaryDriverId, lng, lat } =
@@ -302,24 +286,9 @@ export class DriverAssistMatchingService {
       select: { id: true },
     });
 
-    const busyOrderDrivers = await this.prisma.order.findMany({
-      where: {
-        status: {
-          in: [
-            'DRIVER_ASSIGNED',
-            'PREPARING',
-            'READY_FOR_PICKUP',
-            'PARTIALLY_PICKED_UP',
-            'PICKED_UP',
-          ],
-        },
-        driverId: { not: null },
-      },
-      select: { driverId: true },
-    });
     const busyGroupDrivers = await this.prisma.orderDeliveryGroup.findMany({
       where: {
-        id: { not: request.deliveryGroupId ?? undefined },
+        id: { not: request.deliveryGroupId },
         OR: [
           { primaryDriverId: { not: null } },
           { assistDriverId: { not: null } },
@@ -331,7 +300,6 @@ export class DriverAssistMatchingService {
       select: { primaryDriverId: true, assistDriverId: true },
     });
     const busyIds = new Set<string>();
-    for (const o of busyOrderDrivers) if (o.driverId) busyIds.add(o.driverId);
     for (const g of busyGroupDrivers) {
       if (g.primaryDriverId) busyIds.add(g.primaryDriverId);
       if (g.assistDriverId) busyIds.add(g.assistDriverId);
@@ -375,20 +343,6 @@ export class DriverAssistMatchingService {
       }
     }
     return map;
-  }
-
-  private async fetchBranchLocation(
-    branchId: string,
-  ): Promise<{ lng: number; lat: number } | null> {
-    const rows = await this.prisma.$queryRaw<
-      Array<{ lng: number; lat: number }>
-    >`
-      SELECT ST_X("location"::geometry) AS lng, ST_Y("location"::geometry) AS lat
-      FROM vendor_branches WHERE id = ${branchId}`;
-    if (rows[0]?.lng != null && rows[0]?.lat != null) {
-      return { lng: Number(rows[0].lng), lat: Number(rows[0].lat) };
-    }
-    return null;
   }
 
   private logWarn(error: unknown) {

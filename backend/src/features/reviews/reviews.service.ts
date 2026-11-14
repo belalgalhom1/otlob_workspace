@@ -7,7 +7,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import { OrderStatus } from '@prisma/client';
+import {
+  DeliveryGroupStatus,
+  OrderStatus,
+  OrderVendorFulfillmentStatus,
+  ReviewTargetType,
+} from '@prisma/client';
 import {
   OrderErrors,
   ReviewErrors,
@@ -35,15 +40,16 @@ export class ReviewsService {
       throw new NotFoundException(CustomerErrors.PROFILE_NOT_FOUND);
     }
 
-    const order = await this.prisma.order.findUnique({
+    const order = await this.prisma.order.findFirst({
       where: { id: orderId, customerId: customer.id },
       include: {
-        review: true,
+        reviews: true,
         vendorFulfillments: {
-          select: { vendorId: true, status: true },
+          select: { id: true, vendorId: true, status: true },
         },
         deliveryGroups: {
-          select: { primaryDriverId: true },
+          select: { id: true, sequence: true, status: true, primaryDriverId: true },
+          orderBy: { sequence: 'asc' },
         },
       },
     });
@@ -52,50 +58,140 @@ export class ReviewsService {
     if (order.status !== OrderStatus.DELIVERED) {
       throw new BadRequestException(ReviewErrors.NOT_DELIVERED);
     }
-    if (order.review) {
+
+    const deliveredFulfillments = order.vendorFulfillments.filter(
+      (f) =>
+        f.status !== OrderVendorFulfillmentStatus.REJECTED &&
+        f.status !== OrderVendorFulfillmentStatus.CANCELLED,
+    );
+    const deliveredGroups = order.deliveryGroups.filter(
+      (g) => g.status === DeliveryGroupStatus.DELIVERED && g.primaryDriverId != null,
+    );
+
+    const existingFulfillmentIds = new Set(
+      order.reviews
+        .map((r) => r.fulfillmentId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const existingGroupIds = new Set(
+      order.reviews
+        .map((r) => r.deliveryGroupId)
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    const rowsToCreate: Array<{
+      orderId: string;
+      customerId: string;
+      targetType: ReviewTargetType;
+      fulfillmentId?: string;
+      deliveryGroupId?: string;
+      vendorId?: string;
+      driverId?: string;
+      rating: number;
+      comment?: string;
+    }> = [];
+
+    if (dto.fulfillmentRatings?.length) {
+      for (const entry of dto.fulfillmentRatings) {
+        const fulfillment = deliveredFulfillments.find(
+          (f) => f.id === entry.fulfillmentId,
+        );
+        if (!fulfillment) {
+          throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+        }
+        if (
+          existingFulfillmentIds.has(fulfillment.id) ||
+          rowsToCreate.some((r) => r.fulfillmentId === fulfillment.id)
+        ) {
+          throw new BadRequestException(ReviewErrors.ALREADY_RATED);
+        }
+        rowsToCreate.push({
+          orderId,
+          customerId: customer.id,
+          targetType: ReviewTargetType.VENDOR_FULFILLMENT,
+          fulfillmentId: fulfillment.id,
+          vendorId: fulfillment.vendorId,
+          rating: entry.rating,
+          comment: entry.comment ?? dto.comment,
+        });
+      }
+    } else if (dto.vendorRating !== undefined && deliveredFulfillments.length > 0) {
+      const target = deliveredFulfillments.find(
+        (f) => !existingFulfillmentIds.has(f.id),
+      );
+      if (!target) {
+        throw new BadRequestException(ReviewErrors.ALREADY_RATED);
+      }
+      rowsToCreate.push({
+        orderId,
+        customerId: customer.id,
+        targetType: ReviewTargetType.VENDOR_FULFILLMENT,
+        fulfillmentId: target.id,
+        vendorId: target.vendorId,
+        rating: dto.vendorRating,
+        comment: dto.comment,
+      });
+    }
+
+    if (dto.deliveryGroupRatings?.length) {
+      for (const entry of dto.deliveryGroupRatings) {
+        const group = deliveredGroups.find((g) => g.id === entry.deliveryGroupId);
+        if (!group || !group.primaryDriverId) {
+          throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+        }
+        if (
+          existingGroupIds.has(group.id) ||
+          rowsToCreate.some((r) => r.deliveryGroupId === group.id)
+        ) {
+          throw new BadRequestException(ReviewErrors.ALREADY_RATED);
+        }
+        rowsToCreate.push({
+          orderId,
+          customerId: customer.id,
+          targetType: ReviewTargetType.DELIVERY_GROUP,
+          deliveryGroupId: group.id,
+          driverId: group.primaryDriverId,
+          rating: entry.rating,
+          comment: entry.comment ?? dto.comment,
+        });
+      }
+    } else if (dto.driverRating !== undefined && deliveredGroups.length > 0) {
+      const target = deliveredGroups.find((g) => !existingGroupIds.has(g.id));
+      if (!target || !target.primaryDriverId) {
+        throw new BadRequestException(ReviewErrors.ALREADY_RATED);
+      }
+      rowsToCreate.push({
+        orderId,
+        customerId: customer.id,
+        targetType: ReviewTargetType.DELIVERY_GROUP,
+        deliveryGroupId: target.id,
+        driverId: target.primaryDriverId,
+        rating: dto.driverRating,
+        comment: dto.comment,
+      });
+    }
+
+    if (rowsToCreate.length === 0) {
       throw new BadRequestException(ReviewErrors.ALREADY_RATED);
     }
 
-    const acceptedVendorIds = (order.vendorFulfillments ?? [])
-      .filter((f) => f.status === 'ACCEPTED')
-      .map((f) => f.vendorId);
+    await this.prisma.orderReview.createMany({ data: rowsToCreate });
 
-    const groupDriverIds = (order.deliveryGroups ?? [])
-      .map((g) => g.primaryDriverId)
-      .filter(Boolean);
+    const ratedVendorIds = Array.from(
+      new Set(rowsToCreate.map((r) => r.vendorId).filter(Boolean)),
+    ) as string[];
+    const ratedDriverIds = Array.from(
+      new Set(rowsToCreate.map((r) => r.driverId).filter(Boolean)),
+    ) as string[];
 
-    const effectiveVendorId = order.vendorId ?? (acceptedVendorIds.length > 0 ? acceptedVendorIds[0] : null);
-    const effectiveDriverId = order.driverId ?? (groupDriverIds.length > 0 ? groupDriverIds[0] : null);
-
-    await this.prisma.orderReview.create({
-      data: {
-        orderId,
-        customerId: customer.id,
-        vendorId: effectiveVendorId,
-        driverId: effectiveDriverId,
-        vendorRating: dto.vendorRating,
-        driverRating: dto.driverRating,
-        comment: dto.comment,
-      },
-    });
-
-    // Emit event so the listener can update aggregates safely for all participating vendors and drivers
-    const allVendorIds = Array.from(
-      new Set([order.vendorId, ...acceptedVendorIds].filter(Boolean)),
-    );
-
-    const allDriverIds = Array.from(
-      new Set([order.driverId, ...groupDriverIds].filter(Boolean)),
-    );
-
-    for (const vId of allVendorIds) {
+    for (const vId of ratedVendorIds) {
       this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
         vendorId: vId,
         driverId: null,
       });
     }
 
-    for (const dId of allDriverIds) {
+    for (const dId of ratedDriverIds) {
       this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
         vendorId: null,
         driverId: dId,
@@ -110,20 +206,11 @@ export class ReviewsService {
   ) {
     const skip = (page - 1) * limit;
     const whereClause = {
-      OR: [
-        { vendorId },
-        {
-          order: {
-            vendorFulfillments: {
-              some: { vendorId },
-            },
-          },
-        },
-      ],
-      vendorRating: { not: null },
+      vendorId,
+      targetType: ReviewTargetType.VENDOR_FULFILLMENT,
     };
 
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.orderReview.findMany({
         where: whereClause,
         skip,
@@ -132,11 +219,13 @@ export class ReviewsService {
         include: {
           customer: {
             select: {
-              user: {
-                select: {
-                  name: true,
-                },
-              },
+              user: { select: { name: true } },
+            },
+          },
+          fulfillment: {
+            select: {
+              id: true,
+              vendorBranch: { select: { id: true, name: true, nameAr: true } },
             },
           },
         },
@@ -145,6 +234,11 @@ export class ReviewsService {
         where: whereClause,
       }),
     ]);
+
+    const data = rows.map((r) => ({
+      ...r,
+      vendorRating: r.rating,
+    }));
 
     return {
       data,
@@ -179,20 +273,11 @@ export class ReviewsService {
   ) {
     const skip = (page - 1) * limit;
     const whereClause = {
-      OR: [
-        { driverId },
-        {
-          order: {
-            deliveryGroups: {
-              some: { primaryDriverId: driverId },
-            },
-          },
-        },
-      ],
-      driverRating: { not: null },
+      driverId,
+      targetType: ReviewTargetType.DELIVERY_GROUP,
     };
 
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.orderReview.findMany({
         where: whereClause,
         skip,
@@ -201,11 +286,7 @@ export class ReviewsService {
         include: {
           customer: {
             select: {
-              user: {
-                select: {
-                  name: true,
-                },
-              },
+              user: { select: { name: true } },
             },
           },
         },
@@ -214,6 +295,11 @@ export class ReviewsService {
         where: whereClause,
       }),
     ]);
+
+    const data = rows.map((r) => ({
+      ...r,
+      driverRating: r.rating,
+    }));
 
     return {
       data,

@@ -49,8 +49,12 @@ export class OrdersPaymentService {
     }
     const groups = (((order as any).deliveryGroups ?? []) as Array<{
       id: string;
+      sequence: number;
       status: DeliveryGroupStatus;
+      isPaymentCollector?: boolean;
       primaryDriverId: string | null;
+      primaryDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
+      assistDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
     }>).filter(Boolean);
     const hasPendingPaymentGroup = groups.some(
       (g) => g.status === DeliveryGroupStatus.PENDING_PAYMENT,
@@ -102,9 +106,32 @@ export class OrdersPaymentService {
       `Customer marked mobile wallet payment as PAID for order ${order.orderNumber}`,
     );
 
+    const activePaidGroups = groups
+      .filter((g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId)
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const collectorGroup =
+      activePaidGroups.find((g) => g.isPaymentCollector) ??
+      activePaidGroups[0] ??
+      null;
+    const allDriverUserIds = Array.from(
+      new Set(
+        activePaidGroups
+          .flatMap((g) => [
+            g.primaryDriver?.userId ?? g.primaryDriver?.user?.id,
+            g.assistDriver?.userId ?? g.assistDriver?.user?.id,
+          ])
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const collectorDriverUserId =
+      collectorGroup?.primaryDriver?.userId ??
+      collectorGroup?.primaryDriver?.user?.id ??
+      allDriverUserIds[0] ??
+      null;
+
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       order.id,
-      order.vendorId,
+      null,
     );
     this.eventEmitter.emit(
       EVENTS.ORDER_PAYMENT_STATUS_CHANGED,
@@ -113,9 +140,10 @@ export class OrdersPaymentService {
         order.orderNumber,
         'PAID',
         order.customer.user.id,
-        order.driver?.userId ?? null,
+        collectorDriverUserId,
         vendorUserIds,
         'Customer marked order as paid.',
+        allDriverUserIds,
       ),
     );
 
@@ -142,7 +170,7 @@ export class OrdersPaymentService {
 
     // A multi-vendor order splits into delivery groups, each with its own
     // primary driver. However, there is only ONE customer charge and ONE payment.
-    // The PRIMARY COLLECTOR (order.driverId, or the driver of the first active
+    // The PRIMARY COLLECTOR (isPaymentCollector = true, or the first active
     // delivery group by sequence) is the only driver authorized to confirm or
     // deny the order's payment. Secondary drivers must never confirm or deny
     // payment for the order or alter the primary collector's delivery.
@@ -151,7 +179,10 @@ export class OrdersPaymentService {
         id: string;
         sequence: number;
         status: DeliveryGroupStatus;
+        isPaymentCollector?: boolean;
         primaryDriverId: string | null;
+        primaryDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
+        assistDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
         pickedUpAt: Date | null;
         items?: any[];
       }>)
@@ -161,12 +192,33 @@ export class OrdersPaymentService {
       .filter((g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId)
       .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
 
-    const primaryCollectorId =
-      order.driverId ?? activeGroups[0]?.primaryDriverId;
+    const collectorGroup =
+      activeGroups.find((g) => g.isPaymentCollector) ?? activeGroups[0] ?? null;
+    const primaryCollectorId = collectorGroup?.primaryDriverId ?? null;
 
     if (!primaryCollectorId || driver.id !== primaryCollectorId) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
+
+    const allGroupDriverUserIds = Array.from(
+      new Set(
+        activeGroups
+          .flatMap((g) => [
+            g.primaryDriver?.userId ?? g.primaryDriver?.user?.id,
+            g.assistDriver?.userId ?? g.assistDriver?.user?.id,
+          ])
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const distinctVendorIds = Array.from(
+      new Set(
+        (((order as any).vendorFulfillments ?? []) as Array<{ vendorId: string }>)
+          .map((f) => f.vendorId)
+          .filter(Boolean),
+      ),
+    );
+    const singleVendorId =
+      distinctVendorIds.length === 1 ? distinctVendorIds[0] : null;
 
     // "Awaiting payment" is per-delivery for a grouped order: the collector's own
     // delivery (or the order itself) must be sitting in PENDING_PAYMENT.
@@ -184,32 +236,49 @@ export class OrdersPaymentService {
 
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       order.id,
-      order.vendorId,
+      null,
     );
 
     if (received) {
-      // Payment is per-ORDER (one charge), so one driver confirming receipt
+      // Payment is per-ORDER (one charge), so the collector confirming receipt
       // pays for the WHOLE order: the collecting delivery and any sibling
       // delivery still waiting on payment all leave PENDING_PAYMENT together.
-      // Each group returns to the state it held before the payment detour
-      // (PICKED_UP if it had already been picked up, else DRIVER_ASSIGNED).
+      // Each group returns to the state of its fulfillments (PICKED_UP,
+      // READY_FOR_PICKUP, PREPARING, or DRIVER_ASSIGNED).
       const fulfillments = (order as any).vendorFulfillments ?? [];
       const liveOrderFulfillments = fulfillments.filter(
         (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
       );
-      const hasAnyPickup = Boolean((order as any).pickedUpAt) || liveOrderFulfillments.some((f: any) => Boolean(f.pickedUpAt));
-      const allPickedUp = Boolean((order as any).pickedUpAt) || (liveOrderFulfillments.length > 0 && liveOrderFulfillments.every((f: any) => Boolean(f.pickedUpAt)));
+      const hasAnyPickup =
+        groups.some((g) => Boolean(g.pickedUpAt)) ||
+        liveOrderFulfillments.some((f: any) => Boolean(f.pickedUpAt));
+      const allPickedUp =
+        (groups.length > 0 &&
+          activeGroups.length > 0 &&
+          activeGroups.every((g) => Boolean(g.pickedUpAt))) ||
+        (liveOrderFulfillments.length > 0 &&
+          liveOrderFulfillments.every((f: any) => Boolean(f.pickedUpAt)));
       const allReady =
         liveOrderFulfillments.length > 0 &&
         liveOrderFulfillments.every(
-          (f: any) => f.status === 'READY_FOR_PICKUP' || Boolean(f.readyAt) || Boolean(f.pickedUpAt),
+          (f: any) =>
+            f.status === 'READY_FOR_PICKUP' ||
+            Boolean(f.readyAt) ||
+            Boolean(f.pickedUpAt),
         );
+      const anyPreparing = liveOrderFulfillments.some(
+        (f: any) => f.status === 'PREPARING' || Boolean(f.preparingAt),
+      );
 
       const nextStatus = allPickedUp
         ? OrderStatus.PICKED_UP
-        : (hasAnyPickup
-            ? OrderStatus.PARTIALLY_PICKED_UP
-            : (allReady ? OrderStatus.READY_FOR_PICKUP : OrderStatus.DRIVER_ASSIGNED));
+        : hasAnyPickup
+          ? OrderStatus.PARTIALLY_PICKED_UP
+          : allReady
+            ? OrderStatus.READY_FOR_PICKUP
+            : anyPreparing
+              ? OrderStatus.PREPARING
+              : OrderStatus.DRIVER_ASSIGNED;
 
       // Captured inside the transaction that bumps it, so the event revision is
       // exactly the value this transition wrote (never a later concurrent one).
@@ -218,21 +287,40 @@ export class OrdersPaymentService {
       await this.prisma.$transaction(async (tx) => {
         for (const g of groups) {
           if (g.status !== DeliveryGroupStatus.PENDING_PAYMENT) continue;
-          const groupFulfillmentIds = new Set((g.items ?? []).map((it: any) => it.fulfillmentId));
-          const groupFulfillments = liveOrderFulfillments.filter((f: any) => groupFulfillmentIds.has(f.id));
-          const groupHasPickup = Boolean(g.pickedUpAt) || groupFulfillments.some((f: any) => Boolean(f.pickedUpAt));
-          const groupAllPickedUp = Boolean(g.pickedUpAt) || (groupFulfillments.length > 0 && groupFulfillments.every((f: any) => Boolean(f.pickedUpAt)));
+          const groupFulfillmentIds = new Set(
+            (g.items ?? []).map((it: any) => it.fulfillmentId),
+          );
+          const groupFulfillments = liveOrderFulfillments.filter((f: any) =>
+            groupFulfillmentIds.has(f.id),
+          );
+          const groupHasPickup =
+            Boolean(g.pickedUpAt) ||
+            groupFulfillments.some((f: any) => Boolean(f.pickedUpAt));
+          const groupAllPickedUp =
+            Boolean(g.pickedUpAt) ||
+            (groupFulfillments.length > 0 &&
+              groupFulfillments.every((f: any) => Boolean(f.pickedUpAt)));
           const groupAllReady =
             groupFulfillments.length > 0 &&
             groupFulfillments.every(
-              (f: any) => f.status === 'READY_FOR_PICKUP' || Boolean(f.readyAt) || Boolean(f.pickedUpAt),
+              (f: any) =>
+                f.status === 'READY_FOR_PICKUP' ||
+                Boolean(f.readyAt) ||
+                Boolean(f.pickedUpAt),
             );
+          const groupAnyPreparing = groupFulfillments.some(
+            (f: any) => f.status === 'PREPARING' || Boolean(f.preparingAt),
+          );
 
           const groupNextStatus = groupAllPickedUp
             ? DeliveryGroupStatus.PICKED_UP
-            : (groupHasPickup
-                ? DeliveryGroupStatus.PARTIALLY_PICKED_UP
-                : (groupAllReady ? DeliveryGroupStatus.READY_FOR_PICKUP : DeliveryGroupStatus.DRIVER_ASSIGNED));
+            : groupHasPickup
+              ? DeliveryGroupStatus.PARTIALLY_PICKED_UP
+              : groupAllReady
+                ? DeliveryGroupStatus.READY_FOR_PICKUP
+                : groupAnyPreparing
+                  ? DeliveryGroupStatus.PREPARING
+                  : DeliveryGroupStatus.DRIVER_ASSIGNED;
 
           await tx.orderDeliveryGroup.updateMany({
             where: { id: g.id, status: DeliveryGroupStatus.PENDING_PAYMENT },
@@ -275,6 +363,7 @@ export class OrdersPaymentService {
           await tx.orderStatusEvent.create({
             data: {
               orderId,
+              deliveryGroupId: collectorGroup?.id ?? null,
               status: nextStatus,
               note: 'Driver confirmed payment received.',
               createdBy: actor.sub,
@@ -296,9 +385,9 @@ export class OrdersPaymentService {
               status: nextStatus,
               customerId: order.customerId,
               customerUserId: order.customer.user.id,
-              vendorId: order.vendorId,
+              vendorId: singleVendorId,
               vendorUserIds,
-              driverId: order.driverId,
+              driverId: primaryCollectorId,
               driverUserId: driver.userId,
               actorUserId: actor.sub,
               note: 'Driver confirmed payment received.',
@@ -322,6 +411,7 @@ export class OrdersPaymentService {
           driver.userId,
           vendorUserIds,
           'Driver confirmed payment received.',
+          allGroupDriverUserIds,
         ),
       );
 
@@ -334,9 +424,9 @@ export class OrdersPaymentService {
           nextStatus,
           order.customerId,
           order.customer.user.id,
-          order.vendorId,
+          singleVendorId,
           vendorUserIds,
-          order.driverId,
+          primaryCollectorId,
           driver.userId,
           actor.sub,
           'Driver confirmed payment received.',
@@ -346,8 +436,7 @@ export class OrdersPaymentService {
 
       return { success: true, status: nextStatus };
     } else {
-      // Driver says they did NOT receive the money. Revert payment status so customer can try again,
-      // or we could cancel the order. For now, just revert payment status.
+      // Driver says they did NOT receive the money. Revert payment status so customer can try again.
       const updated = await this.prisma.order.updateMany({
         where: {
           id: orderId,
@@ -376,6 +465,7 @@ export class OrdersPaymentService {
           driver.userId,
           vendorUserIds,
           'Driver denied payment. Please send again.',
+          allGroupDriverUserIds,
         ),
       );
 

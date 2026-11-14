@@ -8,6 +8,9 @@ export class OrderDispatch {
   @ApiProperty({ type: String })
   orderId: string;
 
+  @ApiPropertyOptional({ type: String })
+  deliveryGroupId?: string;
+
   @ApiProperty({ type: String })
   driverId: string;
 

@@ -1,6 +1,7 @@
 import { DeliveryGroupStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Driver } from './driver';
+import { OrderDeliveryGroupItem } from './order_delivery_group_item';
 
 export class OrderDeliveryGroup {
   @ApiProperty({ type: String })
@@ -19,13 +20,43 @@ export class OrderDeliveryGroup {
   primaryDriverId?: string;
 
   @ApiPropertyOptional({ type: String })
+  primaryDriverShiftId?: string;
+
+  @ApiPropertyOptional({ type: String })
   assistDriverId?: string;
+
+  @ApiPropertyOptional({ type: String })
+  assistDriverShiftId?: string;
+
+  @ApiPropertyOptional({ type: Number })
+  assistFee?: number;
+
+  @ApiPropertyOptional({ type: Boolean })
+  assistCustomerApproved?: boolean;
+
+  @ApiPropertyOptional({ type: Date })
+  assistApprovedAt?: Date;
+
+  @ApiProperty({ type: Boolean })
+  isStacked: boolean = false;
+
+  @ApiProperty({ type: Boolean })
+  isPaymentCollector: boolean = false;
+
+  @ApiPropertyOptional({ type: String })
+  assignedByUserId?: string;
+
+  @ApiPropertyOptional({ type: Date })
+  assignedAt?: Date;
 
   @ApiPropertyOptional({ type: Number })
   distanceKm?: number;
 
   @ApiProperty({ type: Number })
   deliveryFee: number;
+
+  @ApiPropertyOptional({ type: Number })
+  estimatedPrepTime?: number;
 
   @ApiPropertyOptional({ type: String })
   pickupImageUrl?: string;
@@ -44,4 +75,7 @@ export class OrderDeliveryGroup {
 
   @ApiPropertyOptional({ type: () => Driver })
   assistDriver?: Driver;
+
+  @ApiPropertyOptional({ isArray: true, type: () => OrderDeliveryGroupItem })
+  items?: OrderDeliveryGroupItem[];
 }

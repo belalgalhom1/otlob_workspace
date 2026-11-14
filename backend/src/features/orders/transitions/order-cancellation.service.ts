@@ -48,23 +48,42 @@ export class OrderCancellationService {
       await this.assertCanCancel(actor, order);
     }
 
+    const fulfillments = ((order as any).vendorFulfillments ?? []) as Array<{
+      vendorId: string;
+    }>;
+    const distinctVendorIds = Array.from(
+      new Set(fulfillments.map((f) => f.vendorId).filter(Boolean)),
+    );
+    const singleVendorId =
+      distinctVendorIds.length === 1 ? distinctVendorIds[0] : null;
+
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       order.id,
-      order.vendorId,
+      null,
     );
 
-    // Multi-vendor orders have no single order-level driver; collect every
-    // primary/assist driver of the delivery groups so cancellation clears all of them.
+    // Collect every primary/assist driver across delivery groups so cancellation clears all of them.
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId: order.id },
-      select: { primaryDriverId: true, assistDriverId: true },
+      select: {
+        sequence: true,
+        isPaymentCollector: true,
+        primaryDriverId: true,
+        assistDriverId: true,
+        primaryDriver: { select: { userId: true } },
+      },
+      orderBy: { sequence: 'asc' },
     });
     const groupDriverIds = groups
       .flatMap((g) => [g.primaryDriverId, g.assistDriverId])
       .filter((id): id is string => !!id);
-    const allDriverIds = Array.from(
-      new Set([order.driverId, ...groupDriverIds].filter((id): id is string => !!id)),
-    );
+    const allDriverIds = Array.from(new Set(groupDriverIds));
+    const collectorGroup =
+      groups.find((g) => g.isPaymentCollector && g.primaryDriverId) ??
+      groups.find((g) => g.primaryDriverId) ??
+      null;
+    const primaryDriverId =
+      collectorGroup?.primaryDriverId ?? allDriverIds[0] ?? null;
 
     const updatedOrder = await this.ordersRepository.cancelOrder(
       orderId,
@@ -77,12 +96,17 @@ export class OrderCancellationService {
       allDriverIds,
     );
 
-    const orderWithRelations = updatedOrder as {
-      driver: { userId: string } | null;
-      customer: { user: { id: string } };
-    };
-
-    const driverUserId = orderWithRelations.driver?.userId ?? null;
+    const updatedGroups = (
+      ((updatedOrder as any).deliveryGroups ?? []) as Array<{
+        primaryDriverId: string | null;
+        primaryDriver?: { userId: string } | null;
+      }>
+    ).filter(Boolean);
+    const driverUserId =
+      updatedGroups.find((g) => g.primaryDriverId === primaryDriverId)
+        ?.primaryDriver?.userId ??
+      collectorGroup?.primaryDriver?.userId ??
+      null;
 
     this.eventEmitter.emit(
       EVENTS.ORDER_CANCELLED,
@@ -90,10 +114,11 @@ export class OrderCancellationService {
         orderId,
         order.orderNumber,
         order.customerId,
-        orderWithRelations.customer.user.id,
-        order.vendorId,
+        ((updatedOrder as any).customer?.user?.id ??
+          order.customer.user.id) as string,
+        singleVendorId,
         vendorUserIds,
-        order.driverId,
+        primaryDriverId,
         driverUserId,
         reason,
         actor?.sub ?? null,
@@ -130,7 +155,6 @@ export class OrderCancellationService {
 
     if (actor.role === Role.VENDOR_MEMBER) {
       const vendorIds = new Set<string>();
-      if (order.vendorId) vendorIds.add(order.vendorId);
       for (const f of (order.vendorFulfillments ?? []) as Array<{
         vendorId: string;
       }>) {

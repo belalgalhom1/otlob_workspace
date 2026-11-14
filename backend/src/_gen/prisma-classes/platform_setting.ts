@@ -248,6 +248,15 @@ export class PlatformSetting {
   fallbackOrderDistanceKm: number = 3;
 
   @ApiProperty({ type: Number })
+  groupingMaxBranchDistanceKm: number = 5.0;
+
+  @ApiProperty({ type: Number })
+  groupingMaxVendorCustomerDistanceKm: number = 25.0;
+
+  @ApiProperty({ type: Number })
+  maxMultiVendorVendors: number = 5;
+
+  @ApiProperty({ type: Number })
   customOrderPlatformFee: number = 10;
 
   @ApiProperty({ type: Number })
@@ -255,6 +264,30 @@ export class PlatformSetting {
 
   @ApiProperty({ type: Number })
   maxActiveOrdersPerDriver: number = 1;
+
+  @ApiProperty({ type: Number })
+  stackedOrderDriverPercentage: number = 50;
+
+  @ApiPropertyOptional({ type: Number })
+  batchedDeliveryCommissionRate?: number;
+
+  @ApiPropertyOptional({ type: Number })
+  batchedDriverManagerCommissionRate?: number;
+
+  @ApiPropertyOptional({ type: Number })
+  multiVendorDeliveryCommissionRate?: number;
+
+  @ApiPropertyOptional({ type: Number })
+  multiVendorDriverManagerCommissionRate?: number;
+
+  @ApiPropertyOptional({ type: Number })
+  multiVendorDriverPercentage?: number;
+
+  @ApiProperty({ type: Number })
+  batchMaxVendorDistanceKm: number = 2.0;
+
+  @ApiProperty({ type: Number })
+  batchMaxCustomerDistanceKm: number = 2.5;
 
   @ApiProperty({ type: Number })
   coinValue: number = 1;

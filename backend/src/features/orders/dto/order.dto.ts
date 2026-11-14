@@ -290,6 +290,14 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   fulfillmentId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Optional delivery group ID when updating a specific delivery trip of an order',
+  })
+  @IsUUID()
+  @IsOptional()
+  deliveryGroupId?: string;
+
   @ApiProperty({
     description: 'Pickup proof photo URL (required when status is PICKED_UP)',
     required: false,
@@ -367,6 +375,14 @@ export class AdminAssignDriverDto {
   @IsUUID()
   @IsNotEmpty()
   driverId!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional delivery group ID when assigning a driver to a specific delivery trip',
+  })
+  @IsUUID()
+  @IsOptional()
+  deliveryGroupId?: string;
 }
 
 export class ConfirmPaymentDto {

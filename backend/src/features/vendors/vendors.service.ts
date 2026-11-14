@@ -692,7 +692,7 @@ export class VendorsService {
       },
       _count: {
         select: {
-          orders: true,
+          orderFulfillments: true,
         },
       },
     };
@@ -836,9 +836,16 @@ export class VendorsService {
       deliveryTimeEn = `${baseMin}-${baseMax} mins`;
     }
 
+    const rawCount = (vendor as any)._count;
     // Map backend fields to what the app expects
     return {
       ...vendor,
+      ...(rawCount !== undefined && {
+        _count: {
+          ...rawCount,
+          orders: rawCount.orderFulfillments ?? rawCount.orders ?? 0,
+        },
+      }),
       status,
       manualStatus: vendor.status,
       isClosedBySchedule,

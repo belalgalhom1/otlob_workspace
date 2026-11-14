@@ -126,9 +126,22 @@ export class EventsProcessor extends WorkerHost {
           job.data as DriverAssistRequestedEvent,
         );
       case EVENT_JOBS.CLEAR_CART: {
-        const data = job.data as { customerUserId: string; vendorId: string };
-        if (!data.vendorId) return { skipped: true };
-        return this.cartService.clearCart(data.customerUserId, data.vendorId);
+        const data = job.data as {
+          customerUserId: string;
+          vendorId?: string;
+          vendorIds?: string[];
+        };
+        const ids = Array.from(
+          new Set([
+            ...(data.vendorIds ?? []),
+            ...(data.vendorId ? [data.vendorId] : []),
+          ]),
+        );
+        if (ids.length === 0) return { skipped: true };
+        for (const vId of ids) {
+          await this.cartService.clearCart(data.customerUserId, vId);
+        }
+        return { cleared: ids.length };
       }
       case EVENT_JOBS.NOTIFY: {
         const dto = (job.data as { dto: CreateNotificationPayload }).dto;

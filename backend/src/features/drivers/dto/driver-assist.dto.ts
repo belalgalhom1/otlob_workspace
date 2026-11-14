@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsOptional,
@@ -47,4 +48,20 @@ export class AssignAssistDriverDto {
   })
   @IsUUID()
   driverId: string;
+}
+
+export class RespondAssistOfferDto {
+  @ApiProperty({
+    description: 'True to accept the assist offer, false to decline',
+  })
+  @IsBoolean()
+  accept: boolean;
+}
+
+export class CustomerDecideAssistDto {
+  @ApiProperty({
+    description: 'True to approve the assisted delivery fee, false to decline',
+  })
+  @IsBoolean()
+  approved: boolean;
 }

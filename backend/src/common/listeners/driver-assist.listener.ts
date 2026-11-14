@@ -100,6 +100,9 @@ export class DriverAssistListener {
       });
 
       await this.emitSocket(event.assistDriverUserId, 'order.assigned', {
+        orderId: event.orderId,
+        orderNumber: event.orderNumber,
+        ...groupFields,
         role: 'ASSISTING',
       });
     }
@@ -160,6 +163,12 @@ export class DriverAssistListener {
 
     for (const userId of recipients) {
       await this.enqueueNotification({ userId, ...copy });
+      await this.emitSocket(userId, 'order.assist.decided', {
+        orderId: event.orderId,
+        ...groupFields,
+        approved: event.approved,
+        assistFee: event.assistFee,
+      });
     }
   }
 
@@ -208,6 +217,7 @@ export class DriverAssistListener {
         bodyAr: msg.bodyAr,
         data,
       });
+      await this.emitSocket(msg.userId, 'order.assist.timed_out', data);
     }
   }
 

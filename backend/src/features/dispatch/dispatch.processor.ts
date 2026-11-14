@@ -130,51 +130,21 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     const maxAttempts = settings.driverSearchMaxAttempts ?? 5;
 
     if (attempt > maxAttempts) {
-      // A grouped order may have other deliveries that already have (or can
-      // still get) a driver, so cancel ONLY this delivery group rather than the
-      // whole order. Its later retries stop because a CANCELLED group is no
-      // longer dispatchable.
       if (deliveryGroupId) {
         this.logger.error(
           `Delivery group ${deliveryGroupId} on order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
         );
-        // Never cancel a group that has since been assigned a driver.
-        const group = await this.prisma.orderDeliveryGroup.findUnique({
-          where: { id: deliveryGroupId },
-          select: { primaryDriverId: true, status: true },
-        });
-        const dispatchableGroupStates: DeliveryGroupStatus[] = [
-          DeliveryGroupStatus.PENDING,
-          DeliveryGroupStatus.ACCEPTED,
-          DeliveryGroupStatus.LOOKING_FOR_DRIVER,
-          DeliveryGroupStatus.READY_FOR_PICKUP,
-        ];
-        const stillWaiting =
-          !!group &&
-          !group.primaryDriverId &&
-          dispatchableGroupStates.includes(group.status);
-        if (stillWaiting) {
-          await this.prisma.orderDeliveryGroup.updateMany({
-            where: { id: deliveryGroupId, primaryDriverId: null },
-            data: { status: DeliveryGroupStatus.CANCELLED },
-          });
-          const remaining = await this.prisma.orderDeliveryGroup.count({
-            where: {
-              orderId,
-              status: { not: DeliveryGroupStatus.CANCELLED },
-            },
-          });
-          if (remaining === 0) {
-            await this.workflowDispatcher.enqueueCancelOrder(
-              orderId,
-              'Auto-cancelled: No drivers accepted any delivery after maximum attempts',
-            );
-          }
-        }
+        const result =
+          await this.orderWorkflowPort.handleUndispatchableDeliveryGroup(
+            orderId,
+            deliveryGroupId,
+            'Auto-cancelled: No drivers accepted this delivery after maximum attempts',
+          );
         return {
           noDriversFound: true,
           attempts: attempt,
-          groupCancelled: stillWaiting,
+          groupCancelled: result.groupCancelled,
+          autoCancelled: result.orderCancelled,
         };
       }
 
@@ -212,46 +182,17 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         `Dispatch invalid for ${orderNumber} (attempt ${attempt})`,
       );
 
-      // A grouped delivery can be permanently un-dispatchable (no pickup
-      // branch, no allowed vehicle, …). Cancel ONLY that group so the order is
-      // not stuck forever waiting for a driver that can never be found — but
-      // never cancel a group another round has since assigned.
       if (deliveryGroupId) {
-        const group = await this.prisma.orderDeliveryGroup.findUnique({
-          where: { id: deliveryGroupId },
-          select: { status: true, primaryDriverId: true },
-        });
-        const dispatchableGroupStates: DeliveryGroupStatus[] = [
-          DeliveryGroupStatus.PENDING,
-          DeliveryGroupStatus.ACCEPTED,
-          DeliveryGroupStatus.LOOKING_FOR_DRIVER,
-          DeliveryGroupStatus.READY_FOR_PICKUP,
-        ];
-        const stillWaiting =
-          !!group &&
-          !group.primaryDriverId &&
-          dispatchableGroupStates.includes(group.status);
-
-        if (stillWaiting) {
-          await this.prisma.orderDeliveryGroup.updateMany({
-            where: { id: deliveryGroupId, primaryDriverId: null },
-            data: { status: DeliveryGroupStatus.CANCELLED },
-          });
+        const result =
+          await this.orderWorkflowPort.handleUndispatchableDeliveryGroup(
+            orderId,
+            deliveryGroupId,
+            'Auto-cancelled: no delivery could be dispatched',
+          );
+        if (result.groupCancelled) {
           this.logger.error(
             `Delivery group ${deliveryGroupId} on order ${orderNumber} is undispatchable — cancelled`,
           );
-          const remaining = await this.prisma.orderDeliveryGroup.count({
-            where: {
-              orderId,
-              status: { not: DeliveryGroupStatus.CANCELLED },
-            },
-          });
-          if (remaining === 0) {
-            await this.workflowDispatcher.enqueueCancelOrder(
-              orderId,
-              'Auto-cancelled: no delivery could be dispatched',
-            );
-          }
         }
       }
 
@@ -307,31 +248,30 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     orderNumber: string;
   }) {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId: data.orderId, items: { some: {} } },
+      where: {
+        orderId: data.orderId,
+        primaryDriverId: null,
+        status: {
+          notIn: [
+            DeliveryGroupStatus.CANCELLED,
+            DeliveryGroupStatus.DELIVERED,
+          ],
+        },
+      },
       select: { id: true },
       orderBy: { sequence: 'asc' },
     });
 
-    const jobPayloads: Array<{
-      orderId: string;
-      orderNumber: string;
-      attempt: number;
-      deliveryGroupId?: string | null;
-    }> =
-      groups.length > 0
-        ? groups.map((group) => ({
-            orderId: data.orderId,
-            orderNumber: data.orderNumber,
-            attempt: 1,
-            deliveryGroupId: group.id,
-          }))
-        : [
-            {
-              orderId: data.orderId,
-              orderNumber: data.orderNumber,
-              attempt: 1,
-            },
-          ];
+    if (groups.length === 0) {
+      return { enqueued: 0, groups: 0 };
+    }
+
+    const jobPayloads = groups.map((group) => ({
+      orderId: data.orderId,
+      orderNumber: data.orderNumber,
+      attempt: 1,
+      deliveryGroupId: group.id,
+    }));
 
     const configuredHandoffTtl = Number(
       (await this.platformSettings.getSettings().catch(() => null))

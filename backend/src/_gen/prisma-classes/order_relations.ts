@@ -1,12 +1,12 @@
 import { OrderVendorFulfillment } from './order_vendor_fulfillment';
 import { OrderDeliveryGroup } from './order_delivery_group';
+import { OrderReview } from './order_review';
 import { DriverWalletTransaction } from './driver_wallet_transaction';
 import { OrderDispatch } from './order_dispatch';
 import { OrderItem } from './order_item';
 import { OrderStatusEvent } from './order_status_event';
 import { Customer } from './customer';
 import { Driver } from './driver';
-import { DriverShift } from './driver_shift';
 import { Vendor } from './vendor';
 import { VendorBranch } from './vendor_branch';
 import { Zone } from './zone';
@@ -33,9 +33,6 @@ export class OrderRelations {
   @ApiPropertyOptional({ type: () => Driver })
   driver?: Driver;
 
-  @ApiPropertyOptional({ type: () => DriverShift })
-  driverShift?: DriverShift;
-
   @ApiPropertyOptional({ type: () => Vendor })
   vendor?: Vendor;
 
@@ -50,6 +47,10 @@ export class OrderRelations {
 
   @ApiProperty({ isArray: true, type: () => VendorWalletTransaction })
   vendorTransactions: VendorWalletTransaction[];
+
+  @ApiPropertyOptional({ isArray: true, type: () => OrderReview })
+  reviews?: OrderReview[];
+
   @ApiPropertyOptional({ isArray: true, type: () => OrderVendorFulfillment })
   vendorFulfillments?: OrderVendorFulfillment[];
 
@@ -64,4 +65,4 @@ export class OrderRelations {
     currentStopBranchName: string | null;
     isFullyCollected: boolean;
   };
-};
+}

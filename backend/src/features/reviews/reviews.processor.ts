@@ -39,56 +39,38 @@ export class ReviewsProcessor extends WorkerHost {
     if (vendorId) {
       const agg = await this.prisma.orderReview.aggregate({
         where: {
-          OR: [
-            { vendorId },
-            {
-              order: {
-                vendorFulfillments: {
-                  some: { vendorId },
-                },
-              },
-            },
-          ],
-          vendorRating: { not: null },
+          vendorId,
+          targetType: 'VENDOR_FULFILLMENT',
         },
-        _avg: { vendorRating: true },
+        _avg: { rating: true },
         _count: { _all: true },
       });
 
       await this.prisma.vendor.update({
         where: { id: vendorId },
         data: {
-          rating: agg._avg.vendorRating || 0,
+          rating: agg._avg.rating || 0,
           ratingCount: agg._count._all,
         },
       });
 
       this.logger.log(
-        `Vendor ${vendorId} rating updated: ${agg._avg.vendorRating} (${agg._count._all} reviews)`,
+        `Vendor ${vendorId} rating updated: ${agg._avg.rating} (${agg._count._all} reviews)`,
       );
     }
 
     if (driverId) {
       const agg = await this.prisma.orderReview.aggregate({
         where: {
-          OR: [
-            { driverId },
-            {
-              order: {
-                deliveryGroups: {
-                  some: { primaryDriverId: driverId },
-                },
-              },
-            },
-          ],
-          driverRating: { not: null },
+          driverId,
+          targetType: 'DELIVERY_GROUP',
         },
-        _avg: { driverRating: true },
+        _avg: { rating: true },
         _count: { _all: true },
       });
 
-      const convertedRating = agg._avg.driverRating
-        ? Math.round(agg._avg.driverRating * 100)
+      const convertedRating = agg._avg.rating
+        ? Math.round(agg._avg.rating * 100)
         : 500;
 
       // Keep the tier in sync with the rolling customer rating. New drivers

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ReviewTargetType } from '@prisma/client';
 
 class ReviewCustomerUserDto {
   @ApiProperty({ example: 'John Doe' })
@@ -20,20 +21,32 @@ export class ReviewDto {
   @ApiProperty({ example: 'customer-uuid' })
   customerId!: string;
 
+  @ApiProperty({ enum: ReviewTargetType })
+  targetType!: ReviewTargetType;
+
+  @ApiPropertyOptional({ example: 'fulfillment-uuid' })
+  fulfillmentId?: string | null;
+
+  @ApiPropertyOptional({ example: 'delivery-group-uuid' })
+  deliveryGroupId?: string | null;
+
   @ApiPropertyOptional({ example: 'vendor-uuid' })
-  vendorId?: string;
+  vendorId?: string | null;
 
   @ApiPropertyOptional({ example: 'driver-uuid' })
-  driverId?: string;
+  driverId?: string | null;
 
-  @ApiPropertyOptional({ example: 5, description: 'Rating out of 5' })
+  @ApiProperty({ example: 5, description: 'Rating out of 5' })
+  rating!: number;
+
+  @ApiPropertyOptional({ example: 5, description: 'Vendor rating out of 5' })
   vendorRating?: number;
 
-  @ApiPropertyOptional({ example: 4, description: 'Rating out of 5' })
+  @ApiPropertyOptional({ example: 4, description: 'Driver rating out of 5' })
   driverRating?: number;
 
   @ApiPropertyOptional({ example: 'Great service!' })
-  comment?: string;
+  comment?: string | null;
 
   @ApiProperty({ example: '2026-07-29T18:00:00Z' })
   createdAt!: Date;

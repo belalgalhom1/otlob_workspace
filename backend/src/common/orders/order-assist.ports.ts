@@ -21,4 +21,11 @@ export interface OrderAssistCancellationPort {
     orderId: string,
     extraDriverIds?: Array<string | null | undefined>,
   ): Promise<void>;
+
+  cancelDeliveryGroupAfterAssistFailure(
+    orderId: string,
+    deliveryGroupId: string,
+    reason: string,
+    extraDriverIds?: Array<string | null | undefined>,
+  ): Promise<void>;
 }

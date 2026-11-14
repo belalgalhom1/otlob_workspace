@@ -88,6 +88,8 @@ export class FulfillmentTransitionService {
       DeliveryGroupStatus.DRIVER_ASSIGNED,
       DeliveryGroupStatus.PENDING_PAYMENT,
       DeliveryGroupStatus.ACCEPTED,
+      DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+      DeliveryGroupStatus.PREPARING,
     ];
     const ALREADY_READY: DeliveryGroupStatus[] = [
       DeliveryGroupStatus.READY_FOR_PICKUP,
@@ -131,6 +133,9 @@ export class FulfillmentTransitionService {
         : {
             status: targetStatus,
             preparingAt: new Date(),
+            ...(dto.estimatedPrepTime != null
+              ? { estimatedPrepTime: Math.round(dto.estimatedPrepTime) }
+              : {}),
           };
 
     const claimed = await this.prisma.orderVendorFulfillment.updateMany({
@@ -141,7 +146,32 @@ export class FulfillmentTransitionService {
       throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
     }
 
-    if (!wantedReady && dto.estimatedPrepTime) {
+    if (!wantedReady) {
+      await this.prisma.orderDeliveryGroup.updateMany({
+        where: {
+          id: group.id,
+          status: {
+            in: [
+              DeliveryGroupStatus.ACCEPTED,
+              DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+              DeliveryGroupStatus.DRIVER_ASSIGNED,
+              DeliveryGroupStatus.PREPARING,
+            ],
+          },
+        },
+        data: {
+          status: DeliveryGroupStatus.PREPARING,
+          ...(dto.estimatedPrepTime != null
+            ? {
+                estimatedPrepTime: Math.max(
+                  group.estimatedPrepTime ?? 0,
+                  Math.round(dto.estimatedPrepTime),
+                ),
+              }
+            : {}),
+        },
+      });
+    } else if (dto.estimatedPrepTime != null) {
       await this.prisma.orderDeliveryGroup.updateMany({
         where: { id: group.id },
         data: {
@@ -156,6 +186,8 @@ export class FulfillmentTransitionService {
     await this.prisma.orderStatusEvent.create({
       data: {
         orderId: order.id,
+        deliveryGroupId: group.id,
+        fulfillmentId: fulfillment.id,
         status: order.status,
         note: wantedReady
           ? `Delivery ${group.sequence}: vendor portion ready for pickup`
@@ -177,7 +209,7 @@ export class FulfillmentTransitionService {
         fresh.customerId;
       const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
         order.id,
-        fresh.vendorId,
+        null,
       );
       const groupWithDriver = await this.prisma.orderDeliveryGroup.findUnique({
         where: { id: group.id },
@@ -279,13 +311,11 @@ export class FulfillmentTransitionService {
     const order = await this.ordersRepository.findById(orderId);
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
 
-    const isAssigned =
-      order.driverId === driver.id ||
-      fulfillment.groups.some(
-        (g) =>
-          g.deliveryGroup.primaryDriverId === driver.id ||
-          g.deliveryGroup.assistDriverId === driver.id,
-      );
+    const isAssigned = fulfillment.groups.some(
+      (g) =>
+        g.deliveryGroup.primaryDriverId === driver.id ||
+        g.deliveryGroup.assistDriverId === driver.id,
+    );
     if (!isAssigned) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
     }
@@ -402,7 +432,7 @@ export class FulfillmentTransitionService {
           fresh.customerId;
         const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
           orderId,
-          fresh.vendorId,
+          null,
         );
         const groupDriverIds = [
           groupItem.deliveryGroup?.primaryDriverId
@@ -511,7 +541,8 @@ export class FulfillmentTransitionService {
         status: {
           in: [
             DeliveryGroupStatus.DRIVER_ASSIGNED,
-            DeliveryGroupStatus.PENDING_PAYMENT,
+            DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+            DeliveryGroupStatus.PREPARING,
             DeliveryGroupStatus.ACCEPTED,
           ],
         },
@@ -528,7 +559,14 @@ export class FulfillmentTransitionService {
   ) {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        isPaymentCollector: true,
+        primaryDriverId: true,
+        sequence: true,
+      },
+      orderBy: { sequence: 'asc' },
     });
     const active = groups.filter(
       (g) => g.status !== DeliveryGroupStatus.CANCELLED,
@@ -542,12 +580,24 @@ export class FulfillmentTransitionService {
         status: true,
         revision: true,
         customerId: true,
-        vendorId: true,
-        driverId: true,
+        paymentMethod: true,
+        upfrontAmount: true,
+        paymentStatus: true,
         customer: { select: { userId: true } },
+        vendorFulfillments: { select: { vendorId: true } },
       },
     });
     if (!fresh) return;
+
+    // Never leave PENDING_PAYMENT until the customer payment has been confirmed.
+    if (
+      fresh.status === OrderStatus.PENDING_PAYMENT &&
+      (fresh.paymentMethod === 'MOBILE_WALLET' ||
+        Number(fresh.upfrontAmount ?? 0) > 0) &&
+      fresh.paymentStatus !== 'COMPLETED'
+    ) {
+      return;
+    }
 
     const READY_OR_BEYOND: DeliveryGroupStatus[] = [
       DeliveryGroupStatus.READY_FOR_PICKUP,
@@ -579,17 +629,13 @@ export class FulfillmentTransitionService {
       !allReady &&
       someoneStarted &&
       (fresh.status === OrderStatus.DRIVER_ASSIGNED ||
+        fresh.status === OrderStatus.LOOKING_FOR_DRIVER ||
         fresh.status === OrderStatus.PENDING_PAYMENT ||
         fresh.status === OrderStatus.ACCEPTED)
     ) {
       target = OrderStatus.PREPARING;
     }
     if (!target) return;
-
-    const extraData: Prisma.OrderUpdateInput = {};
-    if (target === OrderStatus.READY_FOR_PICKUP) {
-      extraData.preparedAt = new Date();
-    }
 
     let updatedRevision = fresh.revision;
     try {
@@ -600,7 +646,7 @@ export class FulfillmentTransitionService {
         target === OrderStatus.READY_FOR_PICKUP
           ? 'All vendor portions ready for pickup'
           : 'Vendor portion started preparing',
-        extraData,
+        undefined,
         fresh.status,
       );
       updatedRevision = updated.revision;
@@ -608,9 +654,23 @@ export class FulfillmentTransitionService {
       return;
     }
 
+    const uniqueVendorIds: string[] = Array.from(
+      new Set<string>(
+        ((fresh.vendorFulfillments ?? []) as Array<{ vendorId: string }>).map(
+          (f) => f.vendorId,
+        ),
+      ),
+    );
+    const singleVendorId =
+      uniqueVendorIds.length === 1 ? uniqueVendorIds[0] : null;
+    const primaryDriverId =
+      active.find((g) => g.isPaymentCollector)?.primaryDriverId ??
+      active.find((g) => g.primaryDriverId)?.primaryDriverId ??
+      null;
+
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       orderId,
-      fresh.vendorId,
+      null,
     );
 
     this.eventEmitter.emit(
@@ -622,9 +682,9 @@ export class FulfillmentTransitionService {
         target,
         fresh.customerId,
         fresh.customer?.userId ?? fresh.customerId,
-        fresh.vendorId,
+        singleVendorId,
         vendorUserIds,
-        fresh.driverId,
+        primaryDriverId,
         null,
         actorUserId,
         target === OrderStatus.READY_FOR_PICKUP

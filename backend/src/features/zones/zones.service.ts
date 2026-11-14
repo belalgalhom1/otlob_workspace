@@ -272,7 +272,7 @@ export class ZonesService {
     await this.prisma.$transaction(async (tx) => {
       const orphanBranchIds = blockingBranches.map((b) => b.id);
       if (orphanBranchIds.length > 0) {
-        await tx.order.updateMany({
+        await tx.orderVendorFulfillment.updateMany({
           where: { vendorBranchId: { in: orphanBranchIds } },
           data: { vendorBranchId: null },
         });

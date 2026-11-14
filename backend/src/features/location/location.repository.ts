@@ -241,25 +241,6 @@ export class LocationRepository {
   ): Promise<OrderDriverLocationSnapshot | null> {
     const rows = await this.prisma.$queryRaw<OrderDriverLocationSnapshot[]>`
       SELECT
-        COALESCE(
-          o."driverId",
-          (
-            SELECT g."primaryDriverId"
-            FROM order_delivery_groups g
-            WHERE g."orderId" = o.id
-              AND g."primaryDriverId" IS NOT NULL
-              AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
-            ORDER BY g.sequence ASC
-            LIMIT 1
-          )
-        ) AS "driverId",
-        c."userId" AS "customerUserId",
-        ST_X(d."lastLocation"::geometry) AS "lastLng",
-        ST_Y(d."lastLocation"::geometry) AS "lastLat"
-      FROM orders o
-      JOIN customers c ON c.id = o."customerId"
-      LEFT JOIN drivers d ON d.id = COALESCE(
-        o."driverId",
         (
           SELECT g."primaryDriverId"
           FROM order_delivery_groups g
@@ -268,7 +249,20 @@ export class LocationRepository {
             AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
           ORDER BY g.sequence ASC
           LIMIT 1
-        )
+        ) AS "driverId",
+        c."userId" AS "customerUserId",
+        ST_X(d."lastLocation"::geometry) AS "lastLng",
+        ST_Y(d."lastLocation"::geometry) AS "lastLat"
+      FROM orders o
+      JOIN customers c ON c.id = o."customerId"
+      LEFT JOIN drivers d ON d.id = (
+        SELECT g."primaryDriverId"
+        FROM order_delivery_groups g
+        WHERE g."orderId" = o.id
+          AND g."primaryDriverId" IS NOT NULL
+          AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
+        ORDER BY g.sequence ASC
+        LIMIT 1
       )
       WHERE o.id = ${orderId}
       LIMIT 1
@@ -327,33 +321,32 @@ export class LocationRepository {
       ? Prisma.sql`AND ds.id IS NOT NULL`
       : Prisma.empty;
 
+    const activeStatusCond =
+      activeOrderStatuses.length > 0
+        ? Prisma.sql`AND g.status::text IN (${Prisma.join(activeOrderStatuses)})`
+        : Prisma.sql`AND FALSE`;
     const corridorCond = dropoffLocation
       ? Prisma.sql`AND EXISTS (
           SELECT 1
-          FROM orders o
-          LEFT JOIN vendor_branches ob ON ob.id = o."vendorBranchId"
-          LEFT JOIN order_delivery_groups g ON g."orderId" = o.id
+          FROM order_delivery_groups g
+          JOIN orders o ON o.id = g."orderId"
           LEFT JOIN order_delivery_group_items gi ON gi."deliveryGroupId" = g.id
-          LEFT JOIN order_vendor_fulfillments f ON f.id = gi."fulfillmentId"
+          LEFT JOIN order_vendor_fulfillments f
+            ON f.id = gi."fulfillmentId"
+            AND f.status::text NOT IN ('REJECTED', 'CANCELLED')
           LEFT JOIN vendor_branches b ON b.id = f."vendorBranchId"
-          LEFT JOIN order_vendor_fulfillments of2
-            ON of2."orderId" = o.id
-            AND of2.status::text NOT IN ('REJECTED', 'CANCELLED')
-          LEFT JOIN vendor_branches ob2 ON ob2.id = of2."vendorBranchId"
-          WHERE (
-            (g.id IS NULL AND o."driverId" = d.id AND o.status::text IN (${Prisma.join(activeOrderStatuses)}))
-            OR ((g."primaryDriverId" = d.id OR g."assistDriverId" = d.id) AND g.status::text NOT IN ('CANCELLED', 'DELIVERED'))
-          )
-          AND ST_DWithin(
-            COALESCE(b."location", ob."location", ob2."location", o."pickupLocation")::geography,
-            ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-            ${maxVendorMeters}
-          )
-          AND ST_DWithin(
-            o."deliveryLocation"::geography,
-            ST_SetSRID(ST_MakePoint(${dropoffLocation.lng}, ${dropoffLocation.lat}), 4326)::geography,
-            ${maxCustomerMeters}
-          )
+          WHERE (g."primaryDriverId" = d.id OR g."assistDriverId" = d.id)
+            ${activeStatusCond}
+            AND ST_DWithin(
+              COALESCE(b."location", o."pickupLocation")::geography,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+              ${maxVendorMeters}
+            )
+            AND ST_DWithin(
+              o."deliveryLocation"::geography,
+              ST_SetSRID(ST_MakePoint(${dropoffLocation.lng}, ${dropoffLocation.lat}), 4326)::geography,
+              ${maxCustomerMeters}
+            )
         )`
       : Prisma.empty;
 
@@ -365,20 +358,9 @@ export class LocationRepository {
               d.status::text = 'ON_DELIVERY'
               AND (
                 SELECT COUNT(*)::int
-                FROM (
-                  SELECT g.id
-                  FROM order_delivery_groups g
-                  WHERE (g."primaryDriverId" = d.id OR g."assistDriverId" = d.id)
-                    AND g.status::text NOT IN ('CANCELLED', 'DELIVERED')
-                  UNION ALL
-                  SELECT o.id
-                  FROM orders o
-                  WHERE o."driverId" = d.id
-                    AND o.status::text IN (${Prisma.join(activeOrderStatuses)})
-                    AND NOT EXISTS (
-                      SELECT 1 FROM order_delivery_groups og WHERE og."orderId" = o.id
-                    )
-                ) work
+                FROM order_delivery_groups g
+                WHERE (g."primaryDriverId" = d.id OR g."assistDriverId" = d.id)
+                  ${activeStatusCond}
               ) < ${maxActiveOrders}
               ${corridorCond}
             )
@@ -481,7 +463,6 @@ export class LocationRepository {
         "requestedVehicleType",
         COALESCE(
           ST_X("pickupLocation"::geometry),
-          (SELECT ST_X(location::geometry) FROM vendor_branches WHERE id = orders."vendorBranchId"),
           (
             SELECT ST_X(b.location::geometry)
             FROM order_vendor_fulfillments f
@@ -495,7 +476,6 @@ export class LocationRepository {
         ) AS lng,
         COALESCE(
           ST_Y("pickupLocation"::geometry),
-          (SELECT ST_Y(location::geometry) FROM vendor_branches WHERE id = orders."vendorBranchId"),
           (
             SELECT ST_Y(b.location::geometry)
             FROM order_vendor_fulfillments f

@@ -38,28 +38,81 @@ export class OrderEventsHandler {
   async handleOrderCreated(event: OrderCreatedEvent) {
     this.logger.log(`Order created: ${event.orderNumber}`);
 
-    let vendorUserIds = event.vendorUserIds || [];
-    if (!vendorUserIds || vendorUserIds.length === 0) {
-      const resolved = await this.resolveOrderUserIds(event.orderId);
-      vendorUserIds = resolved.vendorUserIds;
+    const fulfillments =
+      (await this.prisma.orderVendorFulfillment?.findMany({
+        where: { orderId: event.orderId },
+        select: { vendorId: true, vendorBranchId: true, subtotal: true },
+      })) ?? [];
+
+    const distinctVendors = new Set(fulfillments.map((f) => f.vendorId));
+    const isMultiVendor = distinctVendors.size > 1;
+
+    // Resolve each user's visible order total (portion sum in multi-vendor, full grandTotal in single-vendor)
+    const vendorTotalByUserId = new Map<string, number>();
+
+    if (fulfillments.length > 0) {
+      const vendorSubtotals = new Map<string, number>();
+      for (const f of fulfillments) {
+        vendorSubtotals.set(
+          f.vendorId,
+          (vendorSubtotals.get(f.vendorId) ?? 0) + Number(f.subtotal ?? 0),
+        );
+      }
+
+      const orClauses = fulfillments.map((f) => ({
+        vendorId: f.vendorId,
+        ...(f.vendorBranchId
+          ? {
+              OR: [
+                { role: 'OWNER' as const },
+                { branchId: null },
+                { branchId: f.vendorBranchId },
+              ],
+            }
+          : {}),
+      }));
+      const members = await this.prisma.vendorMember.findMany({
+        where: { OR: orClauses },
+        select: { userId: true, vendorId: true },
+      });
+
+      for (const m of members) {
+        const prev = vendorTotalByUserId.get(m.userId) ?? 0;
+        if (isMultiVendor) {
+          vendorTotalByUserId.set(
+            m.userId,
+            Number((vendorSubtotals.get(m.vendorId) ?? 0).toFixed(2)),
+          );
+        } else {
+          vendorTotalByUserId.set(m.userId, prev || event.grandTotal);
+        }
+      }
     }
 
-    const notificationPayloads = vendorUserIds.map((uid) => ({
-      userId: uid,
-      title: 'New Order Received',
-      titleAr: 'طلب جديد',
-      body: `Order ${event.orderNumber} — ${event.grandTotal} EGP`,
-      bodyAr: `طلب ${event.orderNumber} — ${event.grandTotal} جنيه`,
-      type: NotificationType.ORDER_UPDATE,
-      data: { orderId: event.orderId, orderNumber: event.orderNumber },
-    }));
+    let vendorUserIds = Array.from(vendorTotalByUserId.keys());
+    if (vendorUserIds.length === 0) {
+      vendorUserIds = event.vendorUserIds || [];
+    }
+
+    const notificationPayloads = vendorUserIds.map((uid) => {
+      const amount = vendorTotalByUserId.get(uid) ?? event.grandTotal;
+      return {
+        userId: uid,
+        title: 'New Order Received',
+        titleAr: 'طلب جديد',
+        body: `Order ${event.orderNumber} — ${amount} EGP`,
+        bodyAr: `طلب ${event.orderNumber} — ${amount} جنيه`,
+        type: NotificationType.ORDER_UPDATE,
+        data: { orderId: event.orderId, orderNumber: event.orderNumber },
+      };
+    });
 
     await Promise.all([
       ...vendorUserIds.map((uid) =>
         this.socketService.emitToUser(uid, WS.ORDER_NEW, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
-          grandTotal: event.grandTotal,
+          grandTotal: vendorTotalByUserId.get(uid) ?? event.grandTotal,
           paymentMethod: event.paymentMethod,
           revision: event.revision,
         }),
@@ -239,14 +292,33 @@ export class OrderEventsHandler {
         : event.driverId
           ? [event.driverId]
           : [];
-    for (const did of cancelDrivers) {
-      await this.statisticsService
-        .recordCancellation(event.orderId, event.vendorId, did)
-        .catch((err: unknown) =>
-          this.logger.error(
-            `Failed to record cancellation stat: ${err instanceof Error ? err.message : String(err)}`,
+    const distinctVendorIds = event.vendorId
+      ? [event.vendorId]
+      : Array.from(
+          new Set(
+            (
+              await this.prisma.orderVendorFulfillment.findMany({
+                where: { orderId: event.orderId },
+                select: { vendorId: true },
+              })
+            ).map((f) => f.vendorId),
           ),
         );
+    const vendorStatTargets: Array<string | null> =
+      distinctVendorIds.length > 0 ? distinctVendorIds : [null];
+    const driverStatTargets: Array<string | null> =
+      cancelDrivers.length > 0 ? cancelDrivers : [null];
+
+    for (const vid of vendorStatTargets) {
+      for (const did of driverStatTargets) {
+        await this.statisticsService
+          .recordCancellation(event.orderId, vid, did)
+          .catch((err: unknown) =>
+            this.logger.error(
+              `Failed to record cancellation stat: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+          );
+      }
     }
   }
 
@@ -385,43 +457,28 @@ export class OrderEventsHandler {
     endedOrderId?: string,
     ensureActiveOrder?: { orderId: string; customerUserId: string },
   ) {
-    const [remainingGroups, remainingOrders] = await Promise.all([
-      this.prisma.orderDeliveryGroup.findMany({
-        where: {
-          status: {
-            notIn: [
-              DeliveryGroupStatus.CANCELLED,
-              DeliveryGroupStatus.DELIVERED,
-            ],
+    const remainingGroups = await this.prisma.orderDeliveryGroup.findMany({
+      where: {
+        status: {
+          notIn: [
+            DeliveryGroupStatus.CANCELLED,
+            DeliveryGroupStatus.DELIVERED,
+          ],
+        },
+        order: { status: { in: DRIVER_ACTIVE_ORDER_STATUSES } },
+        OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+      },
+      select: {
+        orderId: true,
+        order: {
+          select: {
+            customerId: true,
+            customer: { select: { userId: true } },
           },
-          OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
         },
-        select: {
-          orderId: true,
-          order: {
-            select: {
-              customerId: true,
-              customer: { select: { userId: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.order.findMany({
-        where: {
-          driverId,
-          ...(endedOrderId ? { id: { not: endedOrderId } } : {}),
-          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-          deliveryGroups: { none: {} },
-        },
-        select: {
-          id: true,
-          customerId: true,
-          customer: { select: { userId: true } },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-    ]);
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
     const byOrderId = new Map<
       string,
@@ -432,12 +489,6 @@ export class OrderEventsHandler {
       byOrderId.set(g.orderId, {
         orderId: g.orderId,
         customerUserId: g.order.customer?.userId ?? g.order.customerId,
-      });
-    }
-    for (const o of remainingOrders) {
-      byOrderId.set(o.id, {
-        orderId: o.id,
-        customerUserId: o.customer?.userId ?? o.customerId,
       });
     }
     if (ensureActiveOrder?.orderId) {
@@ -497,10 +548,17 @@ export class OrderEventsHandler {
         select: {
           customerId: true,
           customer: { select: { userId: true } },
-          vendorId: true,
-          vendorBranchId: true,
-          driverId: true,
-          driver: { select: { userId: true } },
+          vendorFulfillments: {
+            select: { vendorId: true, vendorBranchId: true },
+          },
+          deliveryGroups: {
+            where: { status: { not: DeliveryGroupStatus.CANCELLED } },
+            orderBy: { sequence: 'asc' },
+            select: {
+              primaryDriver: { select: { userId: true } },
+              assistDriver: { select: { userId: true } },
+            },
+          },
         },
       });
       if (!order) {
@@ -508,50 +566,30 @@ export class OrderEventsHandler {
       }
 
       const customerUserId = order.customer?.userId || order.customerId;
-      const driverUserId = order.driver?.userId || null;
+      const driverUserId =
+        order.deliveryGroups
+          .map((g) => g.primaryDriver?.userId ?? g.assistDriver?.userId ?? null)
+          .find((uid): uid is string => Boolean(uid)) ?? null;
 
       let vendorUserIds: string[] = [];
-      if (order.vendorId) {
+      if (order.vendorFulfillments.length > 0) {
+        const orClauses = order.vendorFulfillments.map((f) => ({
+          vendorId: f.vendorId,
+          ...(f.vendorBranchId
+            ? {
+                OR: [
+                  { role: 'OWNER' as const },
+                  { branchId: null },
+                  { branchId: f.vendorBranchId },
+                ],
+              }
+            : {}),
+        }));
         const members = await this.prisma.vendorMember.findMany({
-          where: {
-            vendorId: order.vendorId,
-            ...(order.vendorBranchId
-              ? {
-                  OR: [
-                    { role: 'OWNER' },
-                    { branchId: null },
-                    { branchId: order.vendorBranchId },
-                  ],
-                }
-              : {}),
-          },
+          where: { OR: orClauses },
           select: { userId: true },
         });
         vendorUserIds = Array.from(new Set(members.map((m) => m.userId)));
-      } else {
-        const fulfillments = await this.prisma.orderVendorFulfillment.findMany({
-          where: { orderId },
-          select: { vendorId: true, vendorBranchId: true },
-        });
-        if (fulfillments.length > 0) {
-          const orClauses = fulfillments.map((f) => ({
-            vendorId: f.vendorId,
-            ...(f.vendorBranchId
-              ? {
-                  OR: [
-                    { role: 'OWNER' as const },
-                    { branchId: null },
-                    { branchId: f.vendorBranchId },
-                  ],
-                }
-              : {}),
-          }));
-          const members = await this.prisma.vendorMember.findMany({
-            where: { OR: orClauses },
-            select: { userId: true },
-          });
-          vendorUserIds = Array.from(new Set(members.map((m) => m.userId)));
-        }
       }
 
       return { customerUserId, vendorUserIds, driverUserId };

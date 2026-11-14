@@ -47,6 +47,7 @@ const DISPATCHABLE_GROUP_STATUSES: DeliveryGroupStatus[] = [
   DeliveryGroupStatus.PENDING,
   DeliveryGroupStatus.ACCEPTED,
   DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+  DeliveryGroupStatus.PREPARING,
   DeliveryGroupStatus.READY_FOR_PICKUP,
 ];
 
@@ -283,6 +284,7 @@ export class DispatchService implements DispatchPort {
           id: dispatchId,
           dispatchId,
           orderId: dispatchData.orderId,
+          deliveryGroupId: dispatchData.deliveryGroupId,
           type: dispatchData.type,
           estimatedEarnings: candidate.estimatedEarnings,
           distanceKm: candidate.distanceKm,
@@ -311,32 +313,53 @@ export class DispatchService implements DispatchPort {
       select: {
         id: true,
         status: true,
-        vendorId: true,
         type: true,
+        pickupAddress: true,
         deliveryFee: true,
         customer: { select: { user: { select: { name: true } } } },
-        vendor: { select: { storeName: true, storeNameAr: true } },
       },
     });
+
+    const groupSelect = {
+      id: true,
+      orderId: true,
+      sequence: true,
+      status: true,
+      deliveryFee: true,
+      distanceKm: true,
+      primaryDriverId: true,
+      fulfillments: {
+        where: { status: { notIn: ['CANCELLED', 'REJECTED'] as any[] } },
+        orderBy: { stopSequence: 'asc' as const },
+        select: {
+          vendorBranch: {
+            select: { name: true, nameAr: true, address: true },
+          },
+          vendor: {
+            select: { storeName: true, storeNameAr: true },
+          },
+        },
+      },
+    };
 
     const group = deliveryGroupId
       ? await this.prisma.orderDeliveryGroup.findUnique({
           where: { id: deliveryGroupId },
-          select: {
-            id: true,
-            orderId: true,
-            sequence: true,
-            status: true,
-            deliveryFee: true,
-            distanceKm: true,
-            primaryDriverId: true,
-          },
+          select: groupSelect,
         })
-      : null;
+      : await this.prisma.orderDeliveryGroup.findFirst({
+          where: {
+            orderId,
+            primaryDriverId: null,
+            status: { in: DISPATCHABLE_GROUP_STATUSES },
+          },
+          orderBy: { sequence: 'asc' },
+          select: groupSelect,
+        });
 
-    if (deliveryGroupId && (!group || group.orderId !== orderId)) {
+    if (!group || group.orderId !== orderId) {
       this.logger.warn(
-        `Dispatch skipped for ${orderNumber}: delivery group ${deliveryGroupId} not found`,
+        `Dispatch skipped for ${orderNumber}: delivery group ${deliveryGroupId ?? 'auto'} not found`,
       );
       return null;
     }
@@ -347,22 +370,19 @@ export class DispatchService implements DispatchPort {
       !order ||
       order.status === OrderStatus.CANCELLED ||
       order.status === OrderStatus.DELIVERED;
-    const groupDispatchable =
-      !group || DISPATCHABLE_GROUP_STATUSES.includes(group.status);
-    const alreadyAssigned = Boolean(group?.primaryDriverId);
+    const groupDispatchable = DISPATCHABLE_GROUP_STATUSES.includes(group.status);
+    const alreadyAssigned = Boolean(group.primaryDriverId);
 
-    if (isOrderTerminal || alreadyAssigned || !groupDispatchable) {
+    if (
+      isOrderTerminal ||
+      alreadyAssigned ||
+      !groupDispatchable ||
+      !orderDispatchable
+    ) {
       this.logger.warn(
         `Dispatch skipped for ${orderNumber}: status ${order?.status ?? 'not found'}` +
-          (group ? `, group #${group.sequence} status ${group.status}` : '') +
+          `, group #${group.sequence} status ${group.status}` +
           (alreadyAssigned ? ' (group already has a driver)' : ''),
-      );
-      return null;
-    }
-
-    if (!group && !orderDispatchable) {
-      this.logger.warn(
-        `Dispatch skipped for ${orderNumber}: status is ${order?.status}`,
       );
       return null;
     }
@@ -376,7 +396,7 @@ export class DispatchService implements DispatchPort {
       return null;
     }
 
-    if (group) {
+    if (order.type === 'STANDARD') {
       const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(
         group.id,
       );
@@ -394,7 +414,7 @@ export class DispatchService implements DispatchPort {
       order,
       group,
       dispatchContext,
-      dispatchDeliveryFee: group ? group.deliveryFee : (order.deliveryFee ?? 0),
+      dispatchDeliveryFee: Number(group.deliveryFee ?? order.deliveryFee ?? 0),
     };
   }
 
@@ -449,10 +469,17 @@ export class DispatchService implements DispatchPort {
     }>;
     order: {
       type: string;
+      pickupAddress: string | null;
       customer: { user: { name: string } | null } | null;
-      vendor: { storeName: string; storeNameAr: string | null } | null;
     };
-    group: { id: string; sequence: number } | null;
+    group: {
+      id: string;
+      sequence: number;
+      fulfillments: Array<{
+        vendorBranch: { name: string; nameAr: string | null; address: string } | null;
+        vendor: { storeName: string; storeNameAr: string | null };
+      }>;
+    };
     dispatchContext: { requestedVehicleType: string | null };
     orderDistanceKm: number;
     dispatchDeliveryFee: number;
@@ -470,11 +497,39 @@ export class DispatchService implements DispatchPort {
       settings,
     } = params;
 
+    const totalGroupsCount = await this.prisma.orderDeliveryGroup.count({
+      where: {
+        orderId: (
+          await this.prisma.orderDeliveryGroup.findUnique({
+            where: { id: group.id },
+            select: { orderId: true },
+          })
+        )?.orderId,
+        status: { not: DeliveryGroupStatus.CANCELLED },
+      },
+    });
+
+    const pickupNames = Array.from(
+      new Set(
+        group.fulfillments
+          .map((f) => {
+            const store = f.vendor.storeName || f.vendor.storeNameAr;
+            const branch = f.vendorBranch?.name || f.vendorBranch?.nameAr;
+            return branch && store ? `${store} (${branch})` : store || branch;
+          })
+          .filter((v): v is string => Boolean(v)),
+      ),
+    );
+    const resolvedPickupName =
+      pickupNames.length > 0
+        ? pickupNames.join(' • ')
+        : order.pickupAddress || `Delivery ${group.sequence}`;
+
     return Promise.all(
       selectedDrivers.map(async (candidate) => {
         const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
         const isCandidateStacked = Boolean(candidate.isOnDelivery);
-        const isCandidateMultiVendor = Boolean(group);
+        const isCandidateMultiVendor = totalGroupsCount > 1 || group.fulfillments.length > 1;
 
         const estimatedEarnings =
           await this.earnings.calculateEstimatedEarningsFromDistance({
@@ -505,12 +560,10 @@ export class DispatchService implements DispatchPort {
           driverId: candidate.id,
           userId: candidate.userId,
           driverShiftId: candidate.activeShiftId,
-          deliveryGroupId: group?.id ?? null,
+          deliveryGroupId: group.id,
           distanceKm: candidate.distanceKm,
           estimatedEarnings: advertisedEarnings,
-          pickupLocationName: group
-            ? `Delivery ${group.sequence}`
-            : (order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor'),
+          pickupLocationName: resolvedPickupName,
           dropoffLocationName: order.customer?.user?.name ?? 'Customer',
           isStacked: isCandidateStacked,
         };
@@ -523,7 +576,7 @@ export class DispatchService implements DispatchPort {
     orderId: string;
     orderNumber: string;
     orderType: OrderType;
-    group: { id: string } | null;
+    group: { id: string };
     candidates: DispatchCandidateOffer[];
     attempt: number;
     excludeDriverIds: string[];
@@ -546,12 +599,12 @@ export class DispatchService implements DispatchPort {
     } = params;
 
     const redisTtl = timeoutSecs + 300;
-    const dispatchScope = group?.id ?? orderId;
+    const dispatchScope = group.id;
 
     const dispatchData: DispatchBroadcastPayload = {
       dispatchId,
       orderId,
-      deliveryGroupId: group?.id ?? null,
+      deliveryGroupId: group.id,
       type: orderType,
       candidates,
       expiresAt: expiresAt.toISOString(),
@@ -592,7 +645,7 @@ export class DispatchService implements DispatchPort {
             ...excludeDriverIds,
             ...candidates.map((c) => c.driverId),
           ],
-          deliveryGroupId: group?.id ?? null,
+          deliveryGroupId: group.id,
         },
         {
           delay: timeoutSecs * 1000,

@@ -83,6 +83,7 @@ export class OrderListener {
     const notifyUserIds = new Set<string>([
       event.customerUserId,
       ...event.vendorUserIds,
+      ...(event.driverUserIds ?? []),
     ]);
     if (event.driverUserId) notifyUserIds.add(event.driverUserId);
 
@@ -247,6 +248,7 @@ export class OrderListener {
     const notifyUserIds = new Set<string>([
       event.customerUserId,
       ...(event.vendorUserIds ?? []),
+      ...(event.driverUserIds ?? []),
     ]);
 
     const deltaPayload = {

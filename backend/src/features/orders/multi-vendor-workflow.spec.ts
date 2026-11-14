@@ -97,52 +97,137 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
     });
 
     it('1-vendor order: allows READY_FOR_PICKUP -> PICKED_UP -> DELIVERED with proof photos', async () => {
+      const baseGroup = {
+        id: 'grp-1',
+        sequence: 1,
+        status: DeliveryGroupStatus.READY_FOR_PICKUP,
+        isPaymentCollector: true,
+        primaryDriverId: 'driver-1',
+        assistDriverId: null,
+        pickupImageUrl: null,
+        deliveryImageUrl: null,
+      };
       const singleOrder = {
         id: 'ord-single',
         orderNumber: 'OTL-1001',
         type: 'STANDARD',
         status: OrderStatus.READY_FOR_PICKUP,
         customerId: 'cust-1',
-        vendorId: 'vendor-1',
-        driverId: 'driver-1',
         paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
         paymentStatus: 'PENDING',
         upfrontAmount: 0,
-        deliveryGroups: [],
-        vendorFulfillments: [],
+        revision: 2,
+        deliveryGroups: [baseGroup],
+        vendorFulfillments: [
+          {
+            id: 'ff-1',
+            vendorId: 'vendor-1',
+            vendorBranchId: 'branch-1',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+          },
+        ],
         customer: { userId: 'user-cust-1', user: { id: 'user-cust-1' } },
-        vendor: { userId: 'user-vendor-1', user: { id: 'user-vendor-1' } },
       };
 
       mockOrdersRepo.findById.mockResolvedValue(singleOrder);
-      mockOrdersRepo.updateStatus.mockResolvedValueOnce({ ...singleOrder, status: OrderStatus.PICKED_UP, revision: 3 });
+      mockPrisma.orderDeliveryGroupItem.findMany.mockResolvedValueOnce([
+        {
+          fulfillmentId: 'ff-1',
+          sequence: 1,
+          fulfillment: {
+            id: 'ff-1',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            readyAt: new Date(),
+            pickedUpAt: null,
+          },
+        },
+      ]);
+      mockPrisma.orderDeliveryGroup.findMany.mockResolvedValueOnce([
+        { ...baseGroup, status: DeliveryGroupStatus.PICKED_UP },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(singleOrder);
+      mockOrdersRepo.updateStatus.mockResolvedValueOnce({
+        ...singleOrder,
+        status: OrderStatus.PICKED_UP,
+        revision: 3,
+      });
 
       await stateService.driverUpdateStatus(driverActor, 'ord-single', {
         status: OrderStatus.PICKED_UP,
         pickupImageUrl: 'https://cdn.test/pickup-1.jpg',
       });
+      expect(mockPrisma.orderDeliveryGroup.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'grp-1', status: DeliveryGroupStatus.READY_FOR_PICKUP },
+          data: expect.objectContaining({
+            status: DeliveryGroupStatus.PICKED_UP,
+            pickupImageUrl: 'https://cdn.test/pickup-1.jpg',
+          }),
+        }),
+      );
       expect(mockOrdersRepo.updateStatus).toHaveBeenCalledWith(
         'ord-single',
         OrderStatus.PICKED_UP,
         'user-driver-1',
-        undefined,
-        expect.objectContaining({ pickupImageUrl: 'https://cdn.test/pickup-1.jpg' }),
+        'All deliveries picked up',
+        {},
         OrderStatus.READY_FOR_PICKUP,
       );
 
-      mockOrdersRepo.findById.mockResolvedValue({ ...singleOrder, status: OrderStatus.PICKED_UP, pickupImageUrl: 'https://cdn.test/pickup-1.jpg' });
-      mockOrdersRepo.updateStatus.mockResolvedValueOnce({ ...singleOrder, status: OrderStatus.DELIVERED, revision: 4 });
+      const pickedUpOrder = {
+        ...singleOrder,
+        status: OrderStatus.PICKED_UP,
+        revision: 3,
+        deliveryGroups: [
+          {
+            ...baseGroup,
+            status: DeliveryGroupStatus.PICKED_UP,
+            pickupImageUrl: 'https://cdn.test/pickup-1.jpg',
+          },
+        ],
+      };
+      mockOrdersRepo.findById.mockResolvedValue(pickedUpOrder);
+      mockPrisma.orderDeliveryGroupItem.findMany.mockResolvedValueOnce([
+        {
+          fulfillmentId: 'ff-1',
+          sequence: 1,
+          fulfillment: {
+            id: 'ff-1',
+            status: OrderVendorFulfillmentStatus.PICKED_UP,
+            readyAt: new Date(),
+            pickedUpAt: new Date(),
+          },
+        },
+      ]);
+      mockPrisma.orderDeliveryGroup.findMany.mockResolvedValueOnce([
+        { ...baseGroup, status: DeliveryGroupStatus.DELIVERED },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(pickedUpOrder);
+      mockOrdersRepo.updateStatus.mockResolvedValueOnce({
+        ...pickedUpOrder,
+        status: OrderStatus.DELIVERED,
+        revision: 4,
+      });
 
       await stateService.driverUpdateStatus(driverActor, 'ord-single', {
         status: OrderStatus.DELIVERED,
         deliveryImageUrl: 'https://cdn.test/delivery-1.jpg',
       });
+      expect(mockPrisma.orderDeliveryGroup.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'grp-1', status: DeliveryGroupStatus.PICKED_UP },
+          data: expect.objectContaining({
+            status: DeliveryGroupStatus.DELIVERED,
+            deliveryImageUrl: 'https://cdn.test/delivery-1.jpg',
+          }),
+        }),
+      );
       expect(mockOrdersRepo.updateStatus).toHaveBeenCalledWith(
         'ord-single',
         OrderStatus.DELIVERED,
         'user-driver-1',
-        undefined,
-        expect.objectContaining({ deliveryImageUrl: 'https://cdn.test/delivery-1.jpg' }),
+        'All deliveries completed',
+        expect.objectContaining({ actualDeliveryTime: expect.any(Date) }),
         OrderStatus.PICKED_UP,
       );
     });
@@ -689,6 +774,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       const mockPrisma = {
         vendorMember: { findMany: jest.fn().mockResolvedValue([]) },
         order: { findUnique: jest.fn().mockResolvedValue(null) },
+        orderVendorFulfillment: { findMany: jest.fn().mockResolvedValue([]) },
       };
 
       const orderEventsHandler = new OrderEventsHandler(

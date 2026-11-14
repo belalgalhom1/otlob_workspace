@@ -33,6 +33,7 @@ import {
   RequestAssistDriverDto,
   DecideAssistRequestDto,
   AssignAssistDriverDto,
+  RespondAssistOfferDto,
 } from './dto/driver-assist.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
@@ -514,14 +515,14 @@ export class DriversController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      '[Driver] Request an additional driver for a single-vendor order I am assigned to',
+      '[Driver] Request an additional driver for an order delivery I am assigned to',
   })
   requestAssistOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
     @Body() dto: RequestAssistDriverDto,
   ) {
-    return this.driverAssistService.requestAssistOrder(actor, orderId, dto);
+    return this.driverAssistService.requestAssistForOrder(actor, orderId, dto);
   }
 
   @ApiArrayResponse()
@@ -595,7 +596,9 @@ export class DriversController {
 
   @ApiStandardResponse()
   @Patch('assist/:requestId/auto-assign')
-  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_DRIVERS)
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_DRIVERS, {
+    mode: 'any',
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -637,7 +640,7 @@ export class DriversController {
   respondToAssistOffer(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('requestId') requestId: string,
-    @Body() body: { accept: boolean },
+    @Body() body: RespondAssistOfferDto,
   ) {
     return this.driverAssistService.respondToAssistOffer(
       actor,

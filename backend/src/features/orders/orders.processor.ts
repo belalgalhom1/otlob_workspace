@@ -112,9 +112,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         id: true,
         type: true,
         status: true,
-        vendorId: true,
-        driverId: true,
-        driverShiftId: true,
         zoneId: true,
         grandTotal: true,
         upfrontAmount: true,
@@ -130,10 +127,35 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         coinsEarned: true,
         coinsUsed: true,
         discount: true,
-        isStacked: true,
-        vendor: { select: { commissionRate: true, isContracted: true } },
-        vendorBranch: { select: { isContracted: true, commissionRate: true } },
-        driver: { select: { tier: true } },
+        deliveryGroups: {
+          where: {
+            status: DeliveryGroupStatus.DELIVERED,
+            primaryDriverId: { not: null },
+          },
+          orderBy: [{ isPaymentCollector: 'desc' }, { sequence: 'asc' }],
+          select: {
+            id: true,
+            primaryDriverId: true,
+            primaryDriverShiftId: true,
+            isStacked: true,
+            isPaymentCollector: true,
+            primaryDriver: { select: { tier: true } },
+          },
+        },
+        vendorFulfillments: {
+          where: { status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] } },
+          select: {
+            id: true,
+            vendorId: true,
+            subtotal: true,
+            commissionRate: true,
+            isContracted: true,
+            vendor: { select: { commissionRate: true, isContracted: true } },
+            vendorBranch: {
+              select: { name: true, isContracted: true, commissionRate: true },
+            },
+          },
+        },
       },
     });
 
@@ -148,27 +170,26 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       return { skipped: true };
     }
 
-    if (!order.driverId) {
-      // Delivery-grouped orders keep the collector in Order.driverId, but if
-      // that was never mirrored we still settle from a delivered group so the
-      // per-group drivers are paid instead of throwing the whole order away.
-      const group = await this.prisma.orderDeliveryGroup.findFirst({
-        where: {
-          orderId,
-          status: 'DELIVERED',
-          primaryDriverId: { not: null },
-        },
-        select: { primaryDriverId: true, primaryDriverShiftId: true },
-        orderBy: { sequence: 'asc' },
-      });
-      if (!group?.primaryDriverId) {
-        throw new UnrecoverableError(
-          `Order ${orderNumber} has no driver assigned`,
-        );
-      }
-      order.driverId = group.primaryDriverId;
-      order.driverShiftId = group.primaryDriverShiftId;
+    const collectorGroup =
+      order.deliveryGroups.find((g) => g.isPaymentCollector) ??
+      order.deliveryGroups[0];
+    if (!collectorGroup?.primaryDriverId) {
+      throw new UnrecoverableError(
+        `Order ${orderNumber} has no driver assigned`,
+      );
     }
+
+    const distinctVendorIds = new Set(
+      order.vendorFulfillments.map((f) => f.vendorId),
+    );
+    const singleVendorId =
+      distinctVendorIds.size === 1
+        ? (order.vendorFulfillments[0]?.vendorId ?? null)
+        : null;
+    const singleFulfillment =
+      order.vendorFulfillments.length === 1
+        ? order.vendorFulfillments[0]
+        : null;
 
     const settings = await this.platformSettings.getSettings();
     const deliveryCommissionRate = settings.deliveryCommissionRate ?? 20;
@@ -177,14 +198,15 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       orderId,
       orderNumber,
       orderType: order.type,
-      vendorId: order.vendorId,
-      driverId: order.driverId,
-      driverShiftId: order.driverShiftId,
+      vendorId: singleVendorId,
+      branchName: singleFulfillment?.vendorBranch?.name ?? null,
+      driverId: collectorGroup.primaryDriverId,
+      driverShiftId: collectorGroup.primaryDriverShiftId ?? null,
       zoneId: order.zoneId,
       grandTotal: Number(order.grandTotal),
       upfrontAmount: Number(order.upfrontAmount),
       distanceKm: Number(order.distanceKm ?? 0),
-      driverTier: order.driver?.tier ?? 'GOLD',
+      driverTier: collectorGroup.primaryDriver?.tier ?? 'GOLD',
       deliveryFee: Number(order.deliveryFee),
       driverBonusFee: Number(order.driverBonusFee),
       subtotal: Number(order.subtotal),
@@ -196,16 +218,22 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       coinsEarned: Number(order.coinsEarned),
       coinsUsed: Number(order.coinsUsed),
       discount: Number(order.discount),
-      commissionRate:
-        order.vendorBranch?.commissionRate != null
-          ? Number(order.vendorBranch.commissionRate)
-          : (order.vendor ? Number(order.vendor.commissionRate) : 0),
+      commissionRate: singleFulfillment
+        ? Number(
+            singleFulfillment.commissionRate ??
+              singleFulfillment.vendorBranch?.commissionRate ??
+              singleFulfillment.vendor?.commissionRate ??
+              0,
+          )
+        : 0,
       deliveryCommissionRate,
-      isStacked: (order as any).isStacked ?? false,
-      isContracted:
-        order.vendorBranch?.isContracted != null
-          ? order.vendorBranch.isContracted
-          : (order.vendor ? order.vendor.isContracted : false),
+      isStacked: order.deliveryGroups.some((g) => Boolean(g.isStacked)),
+      isContracted: singleFulfillment
+        ? (singleFulfillment.isContracted ??
+          singleFulfillment.vendorBranch?.isContracted ??
+          singleFulfillment.vendor?.isContracted ??
+          false)
+        : false,
     });
 
     this.logger.log(`Order ${orderNumber} settled`);
@@ -221,7 +249,16 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, pickedUpAt: true },
+      select: {
+        id: true,
+        status: true,
+        deliveryGroups: {
+          where: { pickedUpAt: { not: null } },
+          select: { pickedUpAt: true },
+          orderBy: { pickedUpAt: 'asc' },
+          take: 1,
+        },
+      },
     });
 
     if (
@@ -232,9 +269,10 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       return { skipped: true };
     }
 
-    if (order.pickedUpAt) {
+    const firstPickedUpAt = order.deliveryGroups[0]?.pickedUpAt;
+    if (firstPickedUpAt) {
       const hoursElapsed =
-        (Date.now() - order.pickedUpAt.getTime()) / (1000 * 60 * 60);
+        (Date.now() - firstPickedUpAt.getTime()) / (1000 * 60 * 60);
       if (hoursElapsed > 3) {
         this.logger.error(
           `⚠️  WATCHDOG: Order ${orderNumber} picked up ${hoursElapsed.toFixed(1)}h ago — not delivered`,
@@ -357,6 +395,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
                     DeliveryGroupStatus.PENDING,
                     DeliveryGroupStatus.ACCEPTED,
                     DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                    DeliveryGroupStatus.PREPARING,
                     DeliveryGroupStatus.READY_FOR_PICKUP,
                   ],
                 },
@@ -365,7 +404,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
           },
         ],
       },
-      select: { id: true, orderNumber: true, vendorId: true, type: true },
+      select: { id: true, orderNumber: true, type: true },
       take: 100, // Chunked for scalability
     });
 
@@ -389,6 +428,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
               DeliveryGroupStatus.PENDING,
               DeliveryGroupStatus.ACCEPTED,
               DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+              DeliveryGroupStatus.PREPARING,
               DeliveryGroupStatus.READY_FOR_PICKUP,
             ],
           },
@@ -496,8 +536,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       select: {
         id: true,
         orderNumber: true,
-        vendorId: true,
-        driverId: true,
         deliveryGroups: {
           select: { primaryDriverId: true },
         },
@@ -508,9 +546,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     if (deliveredOrders.length === 0) return { count: 0 };
 
     const hasAssignedDriver = (o: (typeof deliveredOrders)[number]) =>
-      Boolean(
-        o.driverId || o.deliveryGroups.some((g) => g.primaryDriverId != null),
-      );
+      o.deliveryGroups.some((g) => g.primaryDriverId != null);
 
     // One batched query for the whole batch instead of a findFirst per order
     // (kills the N+1 that used to issue up to 100 round-trips every 5 minutes).

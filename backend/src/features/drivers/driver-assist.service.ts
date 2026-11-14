@@ -268,6 +268,58 @@ export class DriverAssistService {
    * assignable, the driver is eligible/available, and the driver is not already
    * on this delivery in either role.
    */
+  async requestAssistForOrder(
+    actor: JwtAccessPayload,
+    orderId: string,
+    dto: RequestAssistDto,
+  ) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId: actor.sub },
+      select: { id: true },
+    });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const group = await this.prisma.orderDeliveryGroup.findFirst({
+      where: {
+        orderId,
+        primaryDriverId: driver.id,
+        status: {
+          notIn: [
+            DeliveryGroupStatus.CANCELLED,
+            DeliveryGroupStatus.DELIVERED,
+          ],
+        },
+      },
+      orderBy: { sequence: 'asc' },
+      select: { id: true },
+    });
+    if (!group) {
+      throw new NotFoundException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
+    }
+    return this.requestAssist(actor, orderId, group.id, dto);
+  }
+
+  async customerDecideAssistForOrder(
+    actor: JwtAccessPayload,
+    orderId: string,
+    approved: boolean,
+  ) {
+    const group = await this.prisma.orderDeliveryGroup.findFirst({
+      where: {
+        orderId,
+        assistDriverId: { not: null },
+        assistCustomerApproved: null,
+        status: { not: DeliveryGroupStatus.CANCELLED },
+      },
+      orderBy: { sequence: 'asc' },
+      select: { id: true },
+    });
+    if (!group) {
+      throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
+    }
+    return this.customerDecideAssist(actor, orderId, group.id, approved);
+  }
+
   async assignDriver(
     requestId: string,
     actor: JwtAccessPayload,
@@ -275,23 +327,14 @@ export class DriverAssistService {
   ) {
     const request = await this.findById(requestId);
 
-    // Single-vendor (order-level) requests have no delivery group.
-    if (!request.deliveryGroupId) {
-      return this.assignAssistDriverOrder(requestId, actor, dto);
-    }
-
     if (
       request.status !== DriverAssistRequestStatus.APPROVED &&
       request.status !== DriverAssistRequestStatus.PENDING
     ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
-    if (!request.deliveryGroupId) {
-      throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
-    }
 
     const groupId = request.deliveryGroupId;
-
     const candidate = await this.requireEligibleAssistCandidate(dto.driverId);
 
     const assigned = await this.prisma.$transaction(async (tx) => {
@@ -320,35 +363,12 @@ export class DriverAssistService {
           DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED,
         );
       }
-      // Never let one driver occupy both roles on the same delivery.
       if (group.primaryDriverId === candidate.id) {
         throw new BadRequestException(
           DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED,
         );
       }
 
-      const busy = await tx.order.findFirst({
-        where: {
-          driverId: candidate.id,
-          status: {
-            in: [
-              'DRIVER_ASSIGNED',
-              'PREPARING',
-              'READY_FOR_PICKUP',
-              'PICKED_UP',
-            ],
-          },
-        },
-        select: { id: true },
-      });
-      if (busy) {
-        throw new ConflictException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
-      }
-
-      // Multi-vendor deliveries never set Order.driverId for non-first groups,
-      // so a driver could be the primary/assist of another live delivery group
-      // without the order-level check above seeing it. Check group membership
-      // too, excluding closed groups.
       const busyGroup = await tx.orderDeliveryGroup.findFirst({
         where: {
           id: { not: groupId },
@@ -369,15 +389,12 @@ export class DriverAssistService {
         throw new ConflictException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
       }
 
-      // Capture the assisting driver's active shift so settlement can attribute
-      // their delivery fee to the correct shift (mirrors the primary driver).
       const activeShift = await tx.driverShift.findFirst({
         where: { driverId: candidate.id, status: DriverShiftStatus.ACTIVE },
         select: { id: true },
         orderBy: { startTime: 'desc' },
       });
 
-      // CAS on assistDriverId so two concurrent admins cannot both win.
       const claimed = await tx.orderDeliveryGroup.updateMany({
         where: { id: groupId, assistDriverId: null },
         data: {
@@ -392,6 +409,11 @@ export class DriverAssistService {
           DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED,
         );
       }
+
+      await tx.driver.update({
+        where: { id: candidate.id },
+        data: { status: DriverStatus.ON_DELIVERY },
+      });
 
       await tx.driverAssistRequest.update({
         where: { id: requestId },
@@ -572,9 +594,6 @@ export class DriverAssistService {
         ),
       );
     } else {
-      // Declined: remove the assistant, cancel the assist request, no charge.
-      // The delivery group (and the order, if it was the last active one) is
-      // cancelled because the driver cannot complete an oversized delivery alone.
       const claimed = await this.prisma.orderDeliveryGroup.updateMany({
         where: { id: deliveryGroupId, assistCustomerApproved: null },
         data: {
@@ -585,7 +604,6 @@ export class DriverAssistService {
           assistFee: null,
           assistCustomerApproved: false,
           assistApprovedAt: new Date(),
-          status: DeliveryGroupStatus.CANCELLED,
         },
       });
       if (claimed.count === 0) {
@@ -597,28 +615,15 @@ export class DriverAssistService {
         data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() },
       });
 
-      const remaining = await this.prisma.orderDeliveryGroup.count({
-        where: { orderId, status: { not: DeliveryGroupStatus.CANCELLED } },
-      });
-      if (remaining === 0) {
-        try {
-          await this.ordersState.cancelOrder(
-            null,
-            orderId,
-            'Customer declined assisted delivery',
-          );
-        } catch (e) {
-          this.logWarn(e);
-        }
-      } else {
-        try {
-          await this.ordersState.recomputeGroupedOrderStatusAfterCancel(
-            orderId,
-            [group.primaryDriverId, group.assistDriverId],
-          );
-        } catch (e) {
-          this.logWarn(e);
-        }
+      try {
+        await this.ordersState.cancelDeliveryGroupAfterAssistFailure(
+          orderId,
+          deliveryGroupId,
+          'Customer declined assisted delivery',
+          [group.primaryDriverId, group.assistDriverId],
+        );
+      } catch (e) {
+        this.logWarn(e);
       }
 
       const [primaryUserId, assistUserId] = await Promise.all([
@@ -641,11 +646,6 @@ export class DriverAssistService {
     return { approved, assistFee };
   }
 
-  /**
-   * Auto-decline assist requests whose customer decision window has expired.
-   * Runs from the worker cron (every minute). Uses the configurable
-   * `assistDecisionTimeoutSecs` platform setting.
-   */
   async autoDeclineExpiredAssistDecisions() {
     const settings = await this.platformSettings.getSettings();
     const timeoutSecs = Number(settings.assistDecisionTimeoutSecs ?? 120);
@@ -666,9 +666,6 @@ export class DriverAssistService {
       },
     });
 
-    // Also auto-decline order-level (single-vendor) assists.
-    await this.autoDeclineExpiredOrderAssists();
-
     for (const g of expired) {
       try {
         const claimed = await this.prisma.orderDeliveryGroup.updateMany({
@@ -681,7 +678,6 @@ export class DriverAssistService {
             assistFee: null,
             assistCustomerApproved: false,
             assistApprovedAt: new Date(),
-            status: DeliveryGroupStatus.CANCELLED,
           },
         });
         if (claimed.count === 0) continue;
@@ -690,24 +686,16 @@ export class DriverAssistService {
           where: { deliveryGroupId: g.id, status: DriverAssistRequestStatus.FULFILLED },
           data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() },
         });
-        const remaining = await this.prisma.orderDeliveryGroup.count({
-          where: { orderId: g.orderId, status: { not: DeliveryGroupStatus.CANCELLED } },
-        });
-        if (remaining === 0) {
-          try {
-            await this.ordersState.cancelOrder(null, g.orderId, 'Assist decision timed out');
-          } catch (e) {
-            this.logWarn(e);
-          }
-        } else {
-          try {
-            await this.ordersState.recomputeGroupedOrderStatusAfterCancel(
-              g.orderId,
-              [g.primaryDriverId, g.assistDriverId],
-            );
-          } catch (e) {
-            this.logWarn(e);
-          }
+
+        try {
+          await this.ordersState.cancelDeliveryGroupAfterAssistFailure(
+            g.orderId,
+            g.id,
+            'Assist decision timed out',
+            [g.primaryDriverId, g.assistDriverId],
+          );
+        } catch (e) {
+          this.logWarn(e);
         }
 
         const [{ customerUserId }, primaryUserId, assistUserId] =
@@ -730,267 +718,6 @@ export class DriverAssistService {
       } catch (error) {
         this.logWarn(error);
       }
-    }
-  }
-
-  // ─── Single-vendor (order-level) assistance ────────────────────────────────
-  // Mirrors the group-level flow but operates on the Order itself, so a
-  // single-store delivery that is too large for one driver can also get help.
-
-  async requestAssistOrder(actor: JwtAccessPayload, orderId: string, dto: RequestAssistDto) {
-    const driver = await this.prisma.driver.findUnique({
-      where: { userId: actor.sub },
-      select: { id: true, userId: true, name: true },
-    });
-    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, driverId: true, assistDriverId: true, status: true, orderNumber: true },
-    });
-    if (!order) throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
-
-    if (order.driverId !== driver.id) {
-      throw new ForbiddenException(DriverErrors.ASSIST_NOT_ON_THIS_DELIVERY);
-    }
-    if (order.status === 'CANCELLED' || order.status === 'DELIVERED') {
-      throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
-    }
-    if (order.status === 'PICKED_UP' || order.status === 'PARTIALLY_PICKED_UP') {
-      throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED);
-    }
-    if (order.assistDriverId) {
-      throw new ConflictException(DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED);
-    }
-
-    const note = dto.note?.trim() || null;
-    try {
-      const created = await this.prisma.driverAssistRequest.create({
-        data: {
-          driverId: driver.id,
-          orderId,
-          reason: dto.reason ?? DriverAssistReason.OTHER,
-          note,
-          status: DriverAssistRequestStatus.PENDING,
-        },
-      });
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_ASSIST_REQUESTED,
-        new DriverAssistRequestedEvent(
-          created.id,
-          driver.userId,
-          orderId,
-          order.orderNumber,
-          null,
-          created.reason,
-          note,
-        ),
-      );
-      return this.findById(created.id);
-    } catch (error: any) {
-      if (error?.code === 'P2002') {
-        throw new ConflictException(DriverErrors.ASSIST_REQUEST_ALREADY_OPEN);
-      }
-      throw error;
-    }
-  }
-
-  async assignAssistDriverOrder(requestId: string, actor: JwtAccessPayload, dto: AssignAssistDriverDto) {
-    const request = await this.findById(requestId);
-    if (
-      request.status !== DriverAssistRequestStatus.APPROVED &&
-      request.status !== DriverAssistRequestStatus.PENDING
-    ) {
-      throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
-    }
-    if (request.deliveryGroupId) {
-      throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
-    }
-
-    const candidate = await this.requireEligibleAssistCandidate(dto.driverId);
-
-    const orderId = request.orderId;
-    const assigned = await this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
-        where: { id: orderId },
-        select: { id: true, driverId: true, assistDriverId: true, status: true, deliveryFee: true, distanceKm: true },
-      });
-      if (!order) throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
-      if (order.assistDriverId) throw new ConflictException(DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED);
-      if (order.driverId === candidate.id) throw new BadRequestException(DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED);
-      if (order.status === 'CANCELLED' || order.status === 'DELIVERED') {
-        throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED);
-      }
-
-      const busy = await tx.order.findFirst({
-        where: { driverId: candidate.id, status: { in: ['DRIVER_ASSIGNED','PREPARING','READY_FOR_PICKUP','PARTIALLY_PICKED_UP','PICKED_UP'] } },
-        select: { id: true },
-      });
-      if (busy) throw new ConflictException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
-
-      const activeShift = await tx.driverShift.findFirst({
-        where: { driverId: candidate.id, status: DriverShiftStatus.ACTIVE },
-        select: { id: true },
-        orderBy: { startTime: 'desc' },
-      });
-
-      const claimed = await tx.order.updateMany({
-        where: { id: orderId, assistDriverId: null },
-        data: {
-          assistDriverId: candidate.id,
-          assistDriverShiftId: activeShift?.id ?? null,
-        },
-      });
-      if (claimed.count === 0) throw new ConflictException(DriverErrors.ASSIST_DRIVER_ALREADY_ASSIGNED);
-
-      await tx.driverAssistRequest.update({
-        where: { id: requestId },
-        data: { status: DriverAssistRequestStatus.FULFILLED, assignedDriverId: candidate.id, resolvedAt: new Date() },
-      });
-
-      // Assisting driver gets the same delivery fee as primary driver (charged to customer)
-      const assistFee = Number(order.deliveryFee ?? 0);
-
-      await tx.order.update({ where: { id: orderId }, data: { assistFee } });
-
-      return { primaryDriverId: order.driverId, assistFee };
-    });
-
-    const primaryUserId = await this.resolveUserId(assigned.primaryDriverId);
-    const assistFee = assigned.assistFee;
-
-    const { customerUserId, orderNumber } =
-      await this.resolveCustomerUserId(orderId);
-
-    await this.matchingService.clearOffer(requestId);
-
-    this.eventEmitter.emit(
-      EVENTS.DRIVER_ASSIST_ASSIGNED,
-      new DriverAssistAssignedEvent(
-        requestId,
-        orderId,
-        orderNumber ?? orderId,
-        null,
-        assistFee,
-        customerUserId,
-        primaryUserId,
-        candidate.userId,
-      ),
-    );
-
-    return this.findById(requestId);
-  }
-
-  async customerDecideAssistOrder(actor: JwtAccessPayload, orderId: string, approved: boolean) {
-    const customer = await this.prisma.customer.findUnique({ where: { userId: actor.sub }, select: { id: true } });
-    if (!customer) throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
-    const order = await this.prisma.order.findUnique({ where: { id: orderId }, select: { id: true, driverId: true, customerId: true, assistDriverId: true, assistFee: true, assistCustomerApproved: true } });
-    if (!order || order.customerId !== customer.id) throw new NotFoundException(OrderErrors.NOT_FOUND);
-    if (!order.assistDriverId) throw new BadRequestException(DriverErrors.ASSIST_DELIVERY_NOT_ASSIGNED);
-    if (order.assistCustomerApproved !== null) throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
-
-    const assistFee = Number(order.assistFee ?? 0);
-    if (approved) {
-      const claimed = await this.prisma.order.updateMany({
-        where: { id: orderId, assistCustomerApproved: null },
-        data: { assistCustomerApproved: true, assistApprovedAt: new Date(), deliveryFee: { increment: assistFee }, grandTotal: { increment: assistFee } },
-      });
-      if (claimed.count === 0) {
-        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
-      }
-      const [primaryUserId, assistUserId] = await Promise.all([
-        this.resolveUserId(order.driverId),
-        this.resolveUserId(order.assistDriverId),
-      ]);
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_ASSIST_CUSTOMER_DECIDED,
-        new DriverAssistCustomerDecidedEvent(
-          orderId,
-          null,
-          true,
-          assistFee,
-          primaryUserId,
-          assistUserId,
-        ),
-      );
-    } else {
-      const claimed = await this.prisma.order.updateMany({
-        where: { id: orderId, assistCustomerApproved: null },
-        data: { assistDriverId: null, assistDriverShiftId: null, assistFee: null, assistCustomerApproved: false, assistApprovedAt: new Date() },
-      });
-      if (claimed.count === 0) {
-        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
-      }
-      await this.prisma.driverAssistRequest.updateMany({ where: { orderId, status: DriverAssistRequestStatus.FULFILLED }, data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() } });
-      try {
-        await this.ordersState.cancelOrder(null, orderId, 'Customer declined assisted delivery');
-      } catch (e) {
-        this.logWarn(e);
-      }
-      const [primaryUserId, assistUserId] = await Promise.all([
-        this.resolveUserId(order.driverId),
-        this.resolveUserId(order.assistDriverId),
-      ]);
-      this.eventEmitter.emit(
-        EVENTS.DRIVER_ASSIST_CUSTOMER_DECIDED,
-        new DriverAssistCustomerDecidedEvent(
-          orderId,
-          null,
-          false,
-          assistFee,
-          primaryUserId,
-          assistUserId,
-        ),
-      );
-    }
-    return { approved, assistFee };
-  }
-
-  async autoDeclineExpiredOrderAssists() {
-    const settings = await this.platformSettings.getSettings();
-    const timeoutSecs = Number(settings.assistDecisionTimeoutSecs ?? 120);
-    const cutoff = new Date(Date.now() - timeoutSecs * 1000);
-    const expired = await this.prisma.order.findMany({
-      where: { assistDriverId: { not: null }, assistCustomerApproved: null, updatedAt: { lt: cutoff } },
-      select: { id: true, driverId: true, assistDriverId: true, assistFee: true },
-    });
-    for (const o of expired) {
-      try {
-        const claimed = await this.prisma.order.updateMany({
-          where: { id: o.id, assistCustomerApproved: null },
-          data: {
-            assistDriverId: null,
-            assistDriverShiftId: null,
-            assistFee: null,
-            assistCustomerApproved: false,
-            assistApprovedAt: new Date(),
-          },
-        });
-        if (claimed.count === 0) continue;
-
-        await this.prisma.driverAssistRequest.updateMany({ where: { orderId: o.id, status: DriverAssistRequestStatus.FULFILLED }, data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() } });
-        try {
-          await this.ordersState.cancelOrder(null, o.id, 'Assist decision timed out');
-        } catch (e) {
-          this.logWarn(e);
-        }
-        const [{ customerUserId }, primaryUserId, assistUserId] =
-          await Promise.all([
-            this.resolveCustomerUserId(o.id),
-            this.resolveUserId(o.driverId),
-            this.resolveUserId(o.assistDriverId),
-          ]);
-        this.eventEmitter.emit(
-          EVENTS.DRIVER_ASSIST_TIMED_OUT,
-          new DriverAssistTimedOutEvent(
-            o.id,
-            null,
-            customerUserId,
-            primaryUserId,
-            assistUserId,
-          ),
-        );
-      } catch (e) { this.logWarn(e); }
     }
   }
 

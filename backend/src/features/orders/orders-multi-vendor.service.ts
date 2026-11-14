@@ -320,15 +320,15 @@ export class OrdersMultiVendorService {
 
       await tx.$executeRaw`
         INSERT INTO orders (
-          id, "orderNumber", "clientOrderKey", type, "customerId", "vendorId",
-          "vendorBranchId", "zoneId", status, "paymentMethod", "paymentStatus",
+          id, "orderNumber", "clientOrderKey", type, "customerId",
+          "zoneId", status, "paymentMethod", "paymentStatus",
           "deliveryAddress", "deliveryLocation",
           subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax,
           discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
           "specialRequest", "updatedAt"
         ) VALUES (
           ${orderId}, ${orderNumber}, ${clientOrderKey}, 'STANDARD'::"OrderType",
-          ${plan.customerId}, NULL, NULL, ${plan.zoneId},
+          ${plan.customerId}, ${plan.zoneId},
           'PENDING'::"OrderStatus", ${dto.paymentMethod}::"PaymentMethod",
           ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
           ${dto.deliveryAddress},
@@ -415,9 +415,10 @@ export class OrdersMultiVendorService {
             vendorBranchId: portion.vendorBranchId,
             status: 'PENDING',
             subtotal: Math.round(portion.subtotal),
-            // Capture the rate now so a later vendor edit cannot change
-            // settlement of an order that is already placed.
+            // Capture the rate & contract state now so a later vendor edit cannot
+            // change settlement of an order that is already placed.
             commissionRate: portion.commissionRate,
+            isContracted: portion.isContracted,
           },
         });
       }
@@ -473,7 +474,8 @@ export class OrdersMultiVendorService {
       );
 
       // Delivery groups — one per planned route, each with its own fee.
-      for (const group of plan.grouping.groups) {
+      const singleVendorId = vendorIds.length === 1 ? vendorIds[0] : null;
+      for (const [groupIndex, group] of plan.grouping.groups.entries()) {
         const groupId = randomUUID();
         await tx.orderDeliveryGroup.create({
           data: {
@@ -487,6 +489,7 @@ export class OrdersMultiVendorService {
               group.farthestToCustomerKm,
               group.sequence - 1,
             ),
+            isPaymentCollector: groupIndex === 0,
           },
         });
 
@@ -517,7 +520,8 @@ export class OrdersMultiVendorService {
           orderNumber,
           customerId: plan.customerId,
           actorUserId: actor.sub,
-          vendorId: null,
+          vendorId: singleVendorId,
+          vendorIds,
           vendorUserIds,
           grandTotal: plan.grandTotal,
           paymentMethod: dto.paymentMethod,
@@ -539,11 +543,13 @@ export class OrdersMultiVendorService {
           created.orderNumber,
           plan.customerId,
           actor.sub,
-          null,
+          vendorIds.length === 1 ? vendorIds[0] : null,
           vendorUserIds,
           plan.grandTotal,
           dto.paymentMethod,
           'STANDARD',
+          0,
+          vendorIds,
         ),
       );
 
@@ -605,6 +611,7 @@ export class OrdersMultiVendorService {
       vendorId: string;
       vendorBranchId: string | null;
       commissionRate: number;
+      isContracted: boolean;
       subtotal: number;
       items: OrderItemData[];
       stop: VendorStop;
@@ -642,11 +649,13 @@ export class OrdersMultiVendorService {
         portions.push({
           vendorId,
           vendorBranchId: allocated.branch.id,
-          commissionRate:
+          commissionRate: Number(
             allocated.branch.commissionRate ??
-            vendor.commissionRate ??
-            settings.defaultCommissionRate ??
-            10,
+              vendor.commissionRate ??
+              settings.defaultCommissionRate ??
+              10,
+          ),
+          isContracted: vendor.isContracted ?? false,
           subtotal: allocated.subtotal,
           items: this.mapCartItemsToOrderItems(allocated.items),
           stop: {
@@ -656,6 +665,34 @@ export class OrdersMultiVendorService {
             lat: allocated.branch.lat,
           },
         });
+      }
+    }
+
+    const allocatedBranchIds = Array.from(
+      new Set(
+        portions
+          .map((p) => p.vendorBranchId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (allocatedBranchIds.length > 0) {
+      const branchOverrides = await this.prisma.vendorBranch.findMany({
+        where: { id: { in: allocatedBranchIds } },
+        select: { id: true, isContracted: true, commissionRate: true },
+      });
+      const branchOverrideMap = new Map(
+        branchOverrides.map((b) => [b.id, b]),
+      );
+      for (const p of portions) {
+        if (!p.vendorBranchId) continue;
+        const b = branchOverrideMap.get(p.vendorBranchId);
+        if (!b) continue;
+        if (b.isContracted != null) {
+          p.isContracted = b.isContracted;
+        }
+        if (b.commissionRate != null) {
+          p.commissionRate = Number(b.commissionRate);
+        }
       }
     }
 
@@ -721,7 +758,7 @@ export class OrdersMultiVendorService {
     }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 
-    const serviceFee = await this.serviceFeeFor(portions, settings);
+    const serviceFee = this.serviceFeeFor(portions);
 
     let driverBonusFee = 0;
     if (settings.driverBonusActive) {
@@ -812,43 +849,18 @@ export class OrdersMultiVendorService {
     };
   }
 
-  private async serviceFeeFor(
-    portions: Array<{ vendorId: string; vendorBranchId?: string | null; subtotal: number }>,
-    settings: any,
-  ): Promise<number> {
-    // Mirrors the single-vendor rule: uncontracted vendors pay commission as a
-    // service fee; contracted vendors do not.
-    const vendors = await this.prisma.vendor.findMany({
-      where: { id: { in: portions.map((p) => p.vendorId) } },
-      select: { id: true, isContracted: true, commissionRate: true },
-    });
-    const branchIds = portions
-      .map((p) => p.vendorBranchId)
-      .filter((id): id is string => Boolean(id));
-
-    const branches = branchIds.length > 0
-      ? await this.prisma.vendorBranch.findMany({
-          where: { id: { in: branchIds } },
-          select: { id: true, isContracted: true, commissionRate: true },
-        })
-      : [];
-
-    const byId = new Map(vendors.map((v) => [v.id, v]));
-    const branchMap = new Map(branches.map((b) => [b.id, b]));
-
+  private serviceFeeFor(
+    portions: Array<{
+      subtotal: number;
+      commissionRate: number;
+      isContracted: boolean;
+    }>,
+  ): number {
+    // Mirrors the single-vendor rule: uncontracted stores charge commission as
+    // a service fee; contracted stores absorb commission from subtotal.
     return portions.reduce((sum, p) => {
-      const v = byId.get(p.vendorId);
-      const b = p.vendorBranchId ? branchMap.get(p.vendorBranchId) : null;
-      const isContracted =
-        b?.isContracted != null ? b.isContracted : (v?.isContracted ?? false);
-      if (isContracted) return sum;
-      const rate = Number(
-        b?.commissionRate ??
-          v?.commissionRate ??
-          settings.defaultCommissionRate ??
-          10,
-      );
-      return sum + Math.round(p.subtotal * (rate / 100));
+      if (p.isContracted) return sum;
+      return sum + Math.round(p.subtotal * (p.commissionRate / 100));
     }, 0);
   }
 

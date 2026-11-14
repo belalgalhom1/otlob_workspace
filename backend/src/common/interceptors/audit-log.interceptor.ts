@@ -443,9 +443,21 @@ export class AuditLogInterceptor implements NestInterceptor {
       case 'Orders': {
         const order = await this.prisma.order.findUnique({
           where: { id: targetId },
-          include: { vendor: { select: { storeName: true, storeNameAr: true } } },
+          include: {
+            vendorFulfillments: {
+              select: { vendor: { select: { storeName: true, storeNameAr: true } } },
+            },
+          },
         });
         if (!order) return null;
+        const vendorsEn = order.vendorFulfillments
+          .map((f) => f.vendor?.storeName)
+          .filter(Boolean)
+          .join(' + ');
+        const vendorsAr = order.vendorFulfillments
+          .map((f) => f.vendor?.storeNameAr ?? f.vendor?.storeName)
+          .filter(Boolean)
+          .join(' + ');
         return {
           oldValues: { status: order.status },
           facts: {
@@ -453,10 +465,7 @@ export class AuditLogInterceptor implements NestInterceptor {
             Status: String(order.status),
             Total: `${order.grandTotal} EGP`,
             Payment: String(order.paymentMethod).replace(/_/g, ' '),
-            Vendor: this.bi(
-              order.vendor?.storeName,
-              order.vendor?.storeNameAr,
-            ),
+            Vendor: this.bi(vendorsEn || null, vendorsAr || null),
           },
         };
       }

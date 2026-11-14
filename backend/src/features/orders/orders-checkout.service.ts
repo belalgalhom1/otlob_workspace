@@ -27,7 +27,13 @@ import {
 } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
-import { OrderStatus, Role, PaymentMethod } from '@prisma/client';
+import {
+  DeliveryGroupStatus,
+  OrderStatus,
+  OrderVendorFulfillmentStatus,
+  PaymentMethod,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   OrderErrors,
@@ -186,6 +192,8 @@ export class OrdersCheckoutService {
           money.grandTotal,
           dto.paymentMethod,
           'STANDARD',
+          0,
+          [dto.vendorId],
         ),
       );
 
@@ -697,6 +705,11 @@ export class OrdersCheckoutService {
     // when a driver accepts, DispatchService.handleAcceptance moves it to PENDING_PAYMENT
     // if MOBILE_WALLET or upfrontAmount > 0 is required.
     if (created.created) {
+      await this.prisma.orderDeliveryGroup.updateMany({
+        where: { orderId: created.id, status: DeliveryGroupStatus.PENDING },
+        data: { status: DeliveryGroupStatus.LOOKING_FOR_DRIVER },
+      });
+
       const advanced = await this.ordersRepository.updateStatus(
         created.id,
         'LOOKING_FOR_DRIVER',
@@ -829,6 +842,8 @@ export class OrdersCheckoutService {
       pickupLat: null,
       itemDetails: null,
       requestedVehicleType: null,
+      isContracted,
+      commissionRate: vendorCommission,
       activeOrderPolicy,
     };
 
@@ -857,6 +872,20 @@ export class OrdersCheckoutService {
     // Direct orders placed by a vendor/admin skip the customer-approval step and
     // are treated as accepted immediately (createOrder sets PENDING by default).
     if (order.created) {
+      await this.prisma.orderVendorFulfillment.updateMany({
+        where: {
+          orderId: order.id,
+          status: OrderVendorFulfillmentStatus.PENDING,
+        },
+        data: {
+          status: OrderVendorFulfillmentStatus.ACCEPTED,
+        },
+      });
+      await this.prisma.orderDeliveryGroup.updateMany({
+        where: { orderId: order.id, status: DeliveryGroupStatus.PENDING },
+        data: { status: DeliveryGroupStatus.ACCEPTED },
+      });
+
       const accepted = await this.ordersRepository.updateStatus(
         order.id,
         OrderStatus.ACCEPTED,
@@ -883,6 +912,7 @@ export class OrdersCheckoutService {
           orderData.paymentMethod,
           orderData.type,
           0,
+          orderData.vendorId ? [orderData.vendorId] : [],
         ),
       );
 

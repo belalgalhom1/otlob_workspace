@@ -235,7 +235,12 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         },
         orderDeliveryGroup: {
           findMany: jest.fn().mockResolvedValue([
-            { id: 'grp-1', status: DeliveryGroupStatus.READY_FOR_PICKUP },
+            {
+              id: 'grp-1',
+              status: DeliveryGroupStatus.READY_FOR_PICKUP,
+              primaryDriverId: 'd1',
+              isPaymentCollector: true,
+            },
           ]),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
@@ -245,9 +250,8 @@ describe('Order & Dispatch Clean Architecture Units', () => {
             status: OrderStatus.DRIVER_ASSIGNED,
             revision: 3,
             customerId: 'c1',
-            vendorId: null,
-            driverId: 'd1',
             customer: { userId: 'uc1' },
+            vendorFulfillments: [{ vendorId: 'v1' }],
           }),
         },
       };
@@ -281,7 +285,7 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         OrderStatus.READY_FOR_PICKUP,
         'u-actor',
         'All vendor portions ready for pickup',
-        expect.objectContaining({ preparedAt: expect.any(Date) }),
+        undefined,
         OrderStatus.DRIVER_ASSIGNED,
       );
       expect(mockEmitter.emit).toHaveBeenCalledWith(
@@ -377,6 +381,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
     it('DispatchProcessor uses DispatchOrderWorkflowPort and enqueues CANCEL_ORDER on max attempts', async () => {
       const orderWorkflowPort = {
         transitionAcceptedOrderToSearching: jest.fn().mockResolvedValue(undefined),
+        handleUndispatchableDeliveryGroup: jest
+          .fn()
+          .mockResolvedValue({ groupCancelled: false, orderCancelled: false }),
       };
       const workflowDispatcher: any = {
         enqueueCancelOrder: jest.fn().mockResolvedValue(undefined),
@@ -432,7 +439,7 @@ describe('Order & Dispatch Clean Architecture Units', () => {
             driverId: 'drv-1',
             userId: 'u-drv-1',
             driverShiftId: null,
-            deliveryGroupId: null,
+            deliveryGroupId: 'grp-acc-1',
             distanceKm: 1.5,
             estimatedEarnings: 25,
           },
@@ -441,9 +448,13 @@ describe('Order & Dispatch Clean Architecture Units', () => {
 
       const tx: any = {
         $queryRaw: jest.fn().mockResolvedValue([{ id: 'drv-1' }]),
-        orderDeliveryGroup: { count: jest.fn().mockResolvedValue(0) },
+        orderDeliveryGroup: {
+          count: jest.fn().mockResolvedValue(0),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
         order: {
           count: jest.fn().mockResolvedValue(0),
+          update: jest.fn().mockResolvedValue({ revision: 2 }),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           findUnique: jest.fn().mockResolvedValue({ revision: 2 }),
         },
@@ -462,10 +473,28 @@ describe('Order & Dispatch Clean Architecture Units', () => {
             upfrontAmount: 0,
             paymentStatus: 'PENDING',
             customerId: 'cust-1',
-            vendorId: 'ven-1',
+            distanceKm: 3.2,
             customer: { userId: 'u-cust-1' },
-            vendor: { members: [{ userId: 'u-ven-1' }] },
+            deliveryGroups: [
+              {
+                id: 'grp-acc-1',
+                status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                primaryDriverId: null,
+              },
+            ],
+            vendorFulfillments: [
+              {
+                vendorId: 'ven-1',
+                status: 'ACCEPTED',
+                groups: [{ deliveryGroupId: 'grp-acc-1' }],
+              },
+            ],
           }),
+        },
+        orderVendorFulfillment: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ vendorId: 'ven-1', vendorBranchId: 'br-1' }]),
         },
         vendorMember: {
           findMany: jest.fn().mockResolvedValue([{ userId: 'u-ven-1' }]),
@@ -488,6 +517,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
           deliveryLng: 31.25,
           deliveryLat: 30.05,
         }),
+        getDeliveryGroupPickupLocation: jest
+          .fn()
+          .mockResolvedValue({ lng: 31.2, lat: 30.0 }),
         getDistanceKm: jest.fn().mockResolvedValue(3.2),
       };
 

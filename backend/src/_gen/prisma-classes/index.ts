@@ -1,5 +1,7 @@
 import { OrderVendorFulfillment as _OrderVendorFulfillment } from './order_vendor_fulfillment';
 import { OrderDeliveryGroup as _OrderDeliveryGroup } from './order_delivery_group';
+import { OrderDeliveryGroupItem as _OrderDeliveryGroupItem } from './order_delivery_group_item';
+import { OrderReview as _OrderReview } from './order_review';
 import { AccountRelations as _AccountRelations } from './account_relations';
 import { PlatformSettingRelations as _PlatformSettingRelations } from './platform_setting_relations';
 import { ZoneRelations as _ZoneRelations } from './zone_relations';
@@ -190,6 +192,8 @@ export namespace PrismaModel {
   export class OrderItemOption extends _OrderItemOption {}
   export class OrderVendorFulfillment extends _OrderVendorFulfillment {}
   export class OrderDeliveryGroup extends _OrderDeliveryGroup {}
+  export class OrderDeliveryGroupItem extends _OrderDeliveryGroupItem {}
+  export class OrderReview extends _OrderReview {}
   export class Driver extends _Driver {}
   export class DriverBreak extends _DriverBreak {}
   export class DriverShift extends _DriverShift {}
@@ -292,6 +296,8 @@ export namespace PrismaModel {
     OrderItemOption,
     OrderVendorFulfillment,
     OrderDeliveryGroup,
+    OrderDeliveryGroupItem,
+    OrderReview,
     Driver,
     DriverBreak,
     DriverShift,

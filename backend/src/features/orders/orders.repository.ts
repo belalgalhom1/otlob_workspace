@@ -63,6 +63,8 @@ export interface CreateOrderData {
   pickupLat: number | null;
   itemDetails: string | null;
   requestedVehicleType: string | null;
+  isContracted?: boolean;
+  commissionRate?: number;
   /**
    * Authoritative per-customer concurrency gate, enforced inside the create
    * transaction (the pre-tx check in checkout-service is only a fast path).
@@ -206,13 +208,48 @@ export class OrdersRepository {
       // Re-validate the vendor inside the same tx: status/contract/commission
       // can flip between estimate and create (vendor closes, contract
       // toggles). Failing closed forces the client to re-estimate.
+      let resolvedIsContracted = data.isContracted ?? false;
+      let resolvedCommissionRate = data.commissionRate ?? 0;
+
       if (data.vendorId) {
         const liveVendor = await tx.vendor.findUnique({
           where: { id: data.vendorId },
-          select: { status: true },
+          select: {
+            status: true,
+            isContracted: true,
+            commissionRate: true,
+          },
         });
         if (!liveVendor || liveVendor.status !== 'OPEN') {
           throw new BadRequestException(OrderErrors.VENDOR_NOT_ACCEPTING);
+        }
+
+        const liveBranch = data.vendorBranchId
+          ? await tx.vendorBranch.findUnique({
+              where: { id: data.vendorBranchId },
+              select: { isContracted: true, commissionRate: true },
+            })
+          : null;
+
+        if (data.isContracted === undefined) {
+          resolvedIsContracted =
+            liveBranch?.isContracted != null
+              ? liveBranch.isContracted
+              : liveVendor.isContracted;
+        }
+        if (data.commissionRate === undefined) {
+          if (liveBranch?.commissionRate != null) {
+            resolvedCommissionRate = Number(liveBranch.commissionRate);
+          } else if (liveVendor.commissionRate != null) {
+            resolvedCommissionRate = Number(liveVendor.commissionRate);
+          } else {
+            const settingsRow = await tx.platformSetting.findFirst({
+              select: { defaultCommissionRate: true },
+            });
+            resolvedCommissionRate = Number(
+              settingsRow?.defaultCommissionRate ?? 10,
+            );
+          }
         }
       }
 
@@ -226,7 +263,7 @@ export class OrdersRepository {
       // the existing order is returned instead of a duplicate.
       const inserted = await tx.$executeRaw`
         INSERT INTO orders (
-          id, "orderNumber", "clientOrderKey", type, "customerId", "vendorId", "vendorBranchId", "zoneId",
+          id, "orderNumber", "clientOrderKey", type, "customerId", "zoneId",
           status, "paymentMethod", "paymentStatus",
           "pickupAddress", "pickupLocation",
           "deliveryAddress", "deliveryLocation",
@@ -239,8 +276,6 @@ export class OrdersRepository {
           ${data.clientOrderKey ?? null},
           ${data.type}::"OrderType",
           ${data.customerId},
-          ${data.vendorId},
-          ${data.vendorBranchId ?? null},
           ${data.zoneId ?? null},
           ${Prisma.sql`'PENDING'::"OrderStatus"`},
           ${data.paymentMethod}::"PaymentMethod",
@@ -329,6 +364,46 @@ export class OrdersRepository {
         });
       }
 
+      let singleFulfillmentId: string | null = null;
+      if (data.type === 'STANDARD' && data.vendorId) {
+        singleFulfillmentId = randomUUID();
+        await tx.orderVendorFulfillment.create({
+          data: {
+            id: singleFulfillmentId,
+            orderId: created.id,
+            vendorId: data.vendorId,
+            vendorBranchId: data.vendorBranchId ?? null,
+            status: OrderVendorFulfillmentStatus.PENDING,
+            subtotal: Math.round(data.subtotal),
+            commissionRate: resolvedCommissionRate,
+            isContracted: resolvedIsContracted,
+          },
+        });
+      }
+
+      const groupId = randomUUID();
+      await tx.orderDeliveryGroup.create({
+        data: {
+          id: groupId,
+          orderId: created.id,
+          sequence: 1,
+          status: DeliveryGroupStatus.PENDING,
+          distanceKm: data.distanceKm,
+          deliveryFee: Math.round(data.deliveryFee),
+          isPaymentCollector: true,
+        },
+      });
+
+      if (singleFulfillmentId) {
+        await tx.orderDeliveryGroupItem.create({
+          data: {
+            deliveryGroupId: groupId,
+            fulfillmentId: singleFulfillmentId,
+            sequence: 1,
+          },
+        });
+      }
+
       const orderItemsData: Prisma.OrderItemCreateManyInput[] = [];
       const orderItemOptionsData: Prisma.OrderItemOptionCreateManyInput[] = [];
 
@@ -337,6 +412,7 @@ export class OrdersRepository {
         orderItemsData.push({
           id: orderItemId,
           orderId: created.id,
+          fulfillmentId: singleFulfillmentId,
           productId: item.productId,
           variantId: item.variantId,
           productName: item.productName,
@@ -396,6 +472,8 @@ export class OrdersRepository {
           orderId: created.id,
           orderNumber: created.orderNumber,
           customerId: data.customerId,
+          vendorId: data.vendorId ?? null,
+          vendorIds: data.vendorId ? [data.vendorId] : [],
           grandTotal: data.grandTotal,
           paymentMethod: data.paymentMethod,
           orderType: data.type,
@@ -655,7 +733,7 @@ export class OrdersRepository {
       if (written.revision != null) {
         const orderRow = await tx.order.findUnique({
           where: { id: orderId },
-          select: { orderNumber: true, customerId: true, vendorId: true, driverId: true },
+          select: { orderNumber: true, customerId: true },
         });
         await this.outbox.record(tx, {
           aggregateType: 'ORDER',
@@ -703,6 +781,7 @@ export class OrdersRepository {
     actorUserId: string,
     nextStatus: OrderStatus = OrderStatus.DRIVER_ASSIGNED,
     maxActiveOrders: number = 1,
+    deliveryGroupId?: string,
   ) {
     // Revision written by THIS assignment. Captured inside the transaction so
     // the event carries the value this call produced even when another
@@ -726,44 +805,92 @@ export class OrdersRepository {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
       }
 
-      // Fetch the current order to check if a driver is already assigned
-      const existingOrder = await tx.order.findUnique({
-        where: { id: orderId },
-        select: { driverId: true },
+      const activeGroups = await tx.orderDeliveryGroup.findMany({
+        where: {
+          orderId,
+          status: { not: DeliveryGroupStatus.CANCELLED },
+        },
+        select: {
+          id: true,
+          status: true,
+          primaryDriverId: true,
+          items: {
+            select: {
+              fulfillment: { select: { status: true } },
+            },
+          },
+        },
+        orderBy: { sequence: 'asc' },
       });
 
-      // If there's an existing driver that is different, release them if they have no other active work
-      if (existingOrder?.driverId && existingOrder.driverId !== driverId) {
+      const targetGroup = deliveryGroupId
+        ? activeGroups.find((g) => g.id === deliveryGroupId)
+        : (activeGroups.find((g) => !g.primaryDriverId) ?? activeGroups[0]);
+      if (!targetGroup) {
+        throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+      }
+
+      // If there's an existing driver on this group that is different, release them if they have no other active work
+      if (
+        targetGroup.primaryDriverId &&
+        targetGroup.primaryDriverId !== driverId
+      ) {
         if (
           (await this.driverWorkload.countActiveUnits(
             tx,
-            existingOrder.driverId,
+            targetGroup.primaryDriverId,
             orderId,
           )) === 0
         ) {
           await tx.driver.update({
-            where: { id: existingOrder.driverId },
+            where: { id: targetGroup.primaryDriverId },
             data: { status: DriverStatus.ONLINE },
           });
         }
       }
 
-      // Cancel any pending dispatches
+      // Cancel any pending dispatches for the target delivery group
       await tx.orderDispatch.updateMany({
-        where: { orderId, status: 'PENDING' },
-        data: { status: 'CANCELLED' },
+        where: { deliveryGroupId: targetGroup.id, status: DispatchStatus.PENDING },
+        data: { status: DispatchStatus.CANCELLED },
+      });
+
+      const groupLiveFulfillments = targetGroup.items
+        .map((it) => it.fulfillment)
+        .filter((f) => f.status !== 'CANCELLED' && f.status !== 'REJECTED');
+      const allGroupReady =
+        groupLiveFulfillments.length > 0 &&
+        groupLiveFulfillments.every((f) => f.status === 'READY_FOR_PICKUP');
+      const anyGroupPreparingOrReady = groupLiveFulfillments.some(
+        (f) => f.status === 'PREPARING' || f.status === 'READY_FOR_PICKUP',
+      );
+
+      const groupNextStatus =
+        nextStatus === OrderStatus.PENDING_PAYMENT
+          ? DeliveryGroupStatus.PENDING_PAYMENT
+          : allGroupReady
+            ? DeliveryGroupStatus.READY_FOR_PICKUP
+            : anyGroupPreparingOrReady
+              ? DeliveryGroupStatus.PREPARING
+              : DeliveryGroupStatus.DRIVER_ASSIGNED;
+
+      await tx.orderDeliveryGroup.update({
+        where: { id: targetGroup.id },
+        data: {
+          primaryDriverId: driverId,
+          primaryDriverShiftId: driverShiftId,
+          isStacked: activeCount > 0,
+          status: groupNextStatus,
+          assignedAt: new Date(),
+        },
       });
 
       written.revision = (
         await tx.order.update({
           where: { id: orderId },
           data: {
-            driverId,
-            driverShiftId,
-            isStacked: activeCount > 0,
             status: nextStatus,
             revision: { increment: 1 },
-            driverAssignedAt: new Date(),
           },
           select: { revision: true },
         })
@@ -772,6 +899,7 @@ export class OrdersRepository {
       await tx.orderStatusEvent.create({
         data: {
           orderId,
+          deliveryGroupId: targetGroup.id,
           status: nextStatus,
           createdBy: actorUserId,
           note: `Driver manually assigned by admin. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,

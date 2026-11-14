@@ -878,6 +878,12 @@ export class AuthService {
   }
 
   async logout(userId: string, sessionId: string, dto?: LogoutDto) {
+    const activeGroupWhere = {
+      status: {
+        notIn: ['CANCELLED', 'DELIVERED'] as any[],
+      },
+      primaryDriverId: { not: null },
+    };
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -886,27 +892,26 @@ export class AuthService {
           select: {
             id: true,
             status: true,
-            orders: {
-              where: {
-                status: {
-                  in: [
-                    OrderStatus.DRIVER_ASSIGNED,
-                    OrderStatus.READY_FOR_PICKUP,
-                    OrderStatus.PARTIALLY_PICKED_UP,
-                    OrderStatus.PICKED_UP,
-                  ],
-                },
-              },
+            primaryGroups: {
+              where: { status: { notIn: ['CANCELLED', 'DELIVERED'] } },
+              select: { id: true },
+            },
+            assistGroups: {
+              where: { status: { notIn: ['CANCELLED', 'DELIVERED'] } },
               select: { id: true },
             },
           },
         },
       },
     });
+    void activeGroupWhere;
 
     // If driver is attempting logout, ensure no deliveries are in progress
     if (user?.role === Role.DRIVER && user.driver) {
-      if (user.driver.orders && user.driver.orders.length > 0) {
+      if (
+        (user.driver.primaryGroups?.length ?? 0) > 0 ||
+        (user.driver.assistGroups?.length ?? 0) > 0
+      ) {
         throw new BadRequestException(AuthErrors.CANNOT_LOGOUT_ON_DELIVERY);
       }
 
@@ -945,17 +950,12 @@ export class AuthService {
           select: {
             id: true,
             status: true,
-            orders: {
-              where: {
-                status: {
-                  in: [
-                    OrderStatus.DRIVER_ASSIGNED,
-                    OrderStatus.READY_FOR_PICKUP,
-                    OrderStatus.PARTIALLY_PICKED_UP,
-                    OrderStatus.PICKED_UP,
-                  ],
-                },
-              },
+            primaryGroups: {
+              where: { status: { notIn: ['CANCELLED', 'DELIVERED'] } },
+              select: { id: true },
+            },
+            assistGroups: {
+              where: { status: { notIn: ['CANCELLED', 'DELIVERED'] } },
               select: { id: true },
             },
           },
@@ -964,7 +964,10 @@ export class AuthService {
     });
 
     if (user?.role === Role.DRIVER && user.driver) {
-      if (user.driver.orders && user.driver.orders.length > 0) {
+      if (
+        (user.driver.primaryGroups?.length ?? 0) > 0 ||
+        (user.driver.assistGroups?.length ?? 0) > 0
+      ) {
         throw new BadRequestException(AuthErrors.CANNOT_LOGOUT_ON_DELIVERY);
       }
 

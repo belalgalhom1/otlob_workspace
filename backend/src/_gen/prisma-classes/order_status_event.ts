@@ -8,6 +8,12 @@ export class OrderStatusEvent {
   @ApiProperty({ type: String })
   orderId: string;
 
+  @ApiPropertyOptional({ type: String })
+  fulfillmentId?: string;
+
+  @ApiPropertyOptional({ type: String })
+  deliveryGroupId?: string;
+
   @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' })
   status: OrderStatus;
 

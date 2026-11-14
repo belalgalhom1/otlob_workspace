@@ -25,6 +25,7 @@ export interface SettleOrderPayload {
   orderNumber: string;
   orderType: string;
   vendorId: string | null;
+  branchName?: string | null;
   driverId: string;
   driverShiftId: string | null;
   zoneId: string | null;
@@ -52,6 +53,7 @@ export interface SettleOrderPayload {
 interface DriverPayout {
   driverId: string;
   driverShiftId: string | null;
+  deliveryGroupId?: string | null;
   amount: number;
 }
 
@@ -66,6 +68,13 @@ interface DeliveredGroupRow {
   assistDriverShiftId: string | null;
   assistCustomerApproved: boolean | null;
   isStacked?: boolean | null;
+  isPaymentCollector?: boolean | null;
+}
+
+interface ManagerPayout {
+  managerId: string;
+  amount: number;
+  deliveryGroupId: string | null;
 }
 
 interface SettlementPlan {
@@ -78,7 +87,7 @@ interface SettlementPlan {
   driverEarnings: number;
   totalAssistEarnings: number;
   platformRevenue: number;
-  managerPayouts: Map<string, number>;
+  managerPayouts: ManagerPayout[];
   isDriverCollected: boolean;
   maxNegative: number;
   settlementThreshold: number;
@@ -175,8 +184,40 @@ export class OrderSettlementService {
       driverTier,
     } = payload;
 
-    const commission = Math.round(subtotal * (commissionRate / 100));
-    const vendorRevenue = subtotal;
+    const portions = await this.prisma.orderVendorFulfillment.findMany({
+      where: {
+        orderId,
+        status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] },
+      },
+      select: {
+        id: true,
+        vendorId: true,
+        subtotal: true,
+        commissionRate: true,
+        isContracted: true,
+        vendor: { select: { isContracted: true } },
+        vendorBranch: { select: { isContracted: true } },
+      },
+    });
+
+    const commission =
+      portions.length > 0
+        ? portions.reduce((sum, p: any) => {
+            const contracted =
+              p.isContracted ??
+              p.vendorBranch?.isContracted ??
+              p.vendor?.isContracted ??
+              false;
+            if (!contracted) return sum;
+            return (
+              sum + Math.round(p.subtotal * (Number(p.commissionRate ?? 0) / 100))
+            );
+          }, 0)
+        : Math.round(subtotal * (commissionRate / 100));
+    const vendorRevenue =
+      portions.length > 0
+        ? portions.reduce((sum, p) => sum + Number(p.subtotal ?? 0), 0)
+        : subtotal;
     const settings = await this.platformSettings.getSettings();
 
     const goldBonus = Number(settings.goldTierBonusPerKm ?? 0);
@@ -271,6 +312,7 @@ export class OrderSettlementService {
         assistDriverShiftId: true,
         assistCustomerApproved: true,
         isStacked: true,
+        isPaymentCollector: true,
       },
       orderBy: { sequence: 'asc' },
     })) as DeliveredGroupRow[];
@@ -310,6 +352,7 @@ export class OrderSettlementService {
         primaryPayouts.push({
           driverId: primaryId,
           driverShiftId: g.primaryDriverShiftId ?? null,
+          deliveryGroupId: g.id,
           amount,
         });
 
@@ -325,54 +368,23 @@ export class OrderSettlementService {
             assistPayouts.push({
               driverId: g.assistDriverId,
               driverShiftId: g.assistDriverShiftId ?? null,
+              deliveryGroupId: g.id,
               amount: assistAmount,
             });
             assistApprovedFlags.push(g.assistCustomerApproved === true);
           }
         }
       }
-    } else {
+    } else if (driverId) {
       const primaryFee = primaryFeeFor(deliveryFee, distanceKm, driverTier);
       const orderShare =
         payload.isStacked === true ? stackedDriverShare : driverShare;
       primaryPayouts.push({
         driverId,
         driverShiftId,
+        deliveryGroupId: null,
         amount: Math.round(primaryFee * orderShare),
       });
-
-      const orderAssist = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        select: {
-          assistDriverId: true,
-          assistDriverShiftId: true,
-          assistFee: true,
-          assistCustomerApproved: true,
-        },
-      });
-      if (
-        orderAssist?.assistDriverId &&
-        orderAssist.assistCustomerApproved === true
-      ) {
-        const assistTierRow = await this.prisma.driver.findUnique({
-          where: { id: orderAssist.assistDriverId },
-          select: { tier: true },
-        });
-        const assistTier = assistTierRow?.tier ?? 'GOLD';
-        const assistAmount = assistFeeFor(
-          driverTier,
-          assistTier,
-          deliveryFee,
-          distanceKm,
-        );
-        if (assistAmount > 0) {
-          assistPayouts.push({
-            driverId: orderAssist.assistDriverId,
-            driverShiftId: orderAssist.assistDriverShiftId ?? null,
-            amount: assistAmount,
-          });
-        }
-      }
     }
 
     const driverEarnings = primaryPayouts.reduce((sum, p) => sum + p.amount, 0);
@@ -390,7 +402,12 @@ export class OrderSettlementService {
       ),
     );
 
-    const platformFee = isContracted ? commission : (serviceFee ?? commission);
+    const platformFee =
+      portions.length > 0
+        ? commission + Number(serviceFee ?? 0)
+        : isContracted
+          ? commission
+          : (serviceFee ?? commission);
     const applicationDeliveryCut = deliveryFee - driverEarnings;
     let platformRevenue = platformFee + applicationDeliveryCut;
 
@@ -404,7 +421,10 @@ export class OrderSettlementService {
     );
     platformRevenue -= platformAbsorbedAssist;
 
-    const managerPayouts = new Map<string, number>();
+    const managerPayoutBuckets = new Map<
+      string,
+      { amount: number; groupIds: Set<string> }
+    >();
     if (groups.length > 0) {
       for (const g of groups) {
         if (!g.primaryDriverId) continue;
@@ -419,10 +439,16 @@ export class OrderSettlementService {
               : multiVendorSupervisorRate;
           const share = Math.round(g.deliveryFee * rate);
           if (share > 0) {
-            managerPayouts.set(
-              gManager.id,
-              (managerPayouts.get(gManager.id) ?? 0) + share,
-            );
+            const existing = managerPayoutBuckets.get(gManager.id);
+            if (existing) {
+              existing.amount += share;
+              existing.groupIds.add(g.id);
+            } else {
+              managerPayoutBuckets.set(gManager.id, {
+                amount: share,
+                groupIds: new Set([g.id]),
+              });
+            }
           }
         }
       }
@@ -435,13 +461,25 @@ export class OrderSettlementService {
             : supervisorCommissionRate;
         const share = Math.round(deliveryFee * rate);
         if (share > 0) {
-          managerPayouts.set(manager.id, share);
+          managerPayoutBuckets.set(manager.id, {
+            amount: share,
+            groupIds: new Set(),
+          });
         }
       }
     }
 
-    const totalManagerShare = Array.from(managerPayouts.values()).reduce(
-      (sum, s) => sum + s,
+    const managerPayouts: ManagerPayout[] = Array.from(
+      managerPayoutBuckets.entries(),
+    ).map(([managerId, bucket]) => ({
+      managerId,
+      amount: bucket.amount,
+      deliveryGroupId:
+        bucket.groupIds.size === 1 ? Array.from(bucket.groupIds)[0] : null,
+    }));
+
+    const totalManagerShare = managerPayouts.reduce(
+      (sum, m) => sum + m.amount,
       0,
     );
     platformRevenue -= totalManagerShare;
@@ -457,7 +495,9 @@ export class OrderSettlementService {
       totalAssistEarnings,
       platformRevenue,
       managerPayouts,
-      isDriverCollected: paymentMethod === 'CASH_ON_DELIVERY',
+      isDriverCollected:
+        paymentMethod === 'CASH_ON_DELIVERY' ||
+        paymentMethod === 'MOBILE_WALLET',
       maxNegative: Number(
         (settings as { maxNegativeDriverBalance?: number })
           .maxNegativeDriverBalance ?? 500,
@@ -524,6 +564,9 @@ export class OrderSettlementService {
       await this.applyManagerPayouts(client, payload, plan.managerPayouts);
 
       if (payload.driverBonusFee > 0) {
+        const collectorGroup =
+          plan.groups.find((g) => g.isPaymentCollector === true) ??
+          plan.groups[0];
         await this.creditDriverWallet(
           client,
           payload.driverId,
@@ -532,7 +575,7 @@ export class OrderSettlementService {
           payload.driverShiftId,
           `Time-based bonus for order ${orderNumber}`,
           'BONUS',
-          { skipLock: true },
+          { skipLock: true, deliveryGroupId: collectorGroup?.id ?? null },
         );
       }
 
@@ -566,8 +609,10 @@ export class OrderSettlementService {
           deliveryGroupId: true,
           fulfillment: {
             select: {
+              status: true,
               subtotal: true,
               commissionRate: true,
+              isContracted: true,
               vendor: { select: { isContracted: true } },
               vendorBranch: { select: { isContracted: true } },
             },
@@ -576,11 +621,15 @@ export class OrderSettlementService {
       });
       const cashPaidByGroup = new Map<string, number>();
       for (const item of items) {
-        const f = item.fulfillment;
+        const f: any = item.fulfillment;
+        if (!f || f.status === 'REJECTED' || f.status === 'CANCELLED') {
+          continue;
+        }
         const branchOrVendorContracted =
-          f.vendorBranch?.isContracted != null
+          f.isContracted ??
+          (f.vendorBranch?.isContracted != null
             ? f.vendorBranch.isContracted
-            : (f.vendor?.isContracted ?? false);
+            : (f.vendor?.isContracted ?? false));
         const commRate = Number(f.commissionRate ?? 10) / 100;
         const itemComm = branchOrVendorContracted
           ? Math.round(f.subtotal * commRate)
@@ -593,7 +642,12 @@ export class OrderSettlementService {
       }
       const storeReimbursementByDriver = new Map<
         string,
-        { driverId: string; driverShiftId: string | null; amount: number }
+        {
+          driverId: string;
+          driverShiftId: string | null;
+          amount: number;
+          groupIds: Set<string>;
+        }
       >();
       for (const g of plan.groups) {
         if (!g.primaryDriverId) continue;
@@ -602,11 +656,13 @@ export class OrderSettlementService {
         const existing = storeReimbursementByDriver.get(g.primaryDriverId);
         if (existing) {
           existing.amount += paidAtStore;
+          existing.groupIds.add(g.id);
         } else {
           storeReimbursementByDriver.set(g.primaryDriverId, {
             driverId: g.primaryDriverId,
             driverShiftId: g.primaryDriverShiftId,
             amount: paidAtStore,
+            groupIds: new Set([g.id]),
           });
         }
       }
@@ -619,7 +675,13 @@ export class OrderSettlementService {
           reimbursement.driverShiftId,
           `Store food reimbursement for order ${orderNumber}`,
           'CASH_HANDED_TO_VENDOR',
-          { skipLock: true },
+          {
+            skipLock: true,
+            deliveryGroupId:
+              reimbursement.groupIds.size === 1
+                ? Array.from(reimbursement.groupIds)[0]
+                : null,
+          },
         );
       }
       return;
@@ -659,6 +721,7 @@ export class OrderSettlementService {
       tax,
       driverBonusFee,
       discount,
+      paymentMethod,
     } = payload;
 
     if (plan.groups.length > 0) {
@@ -671,6 +734,7 @@ export class OrderSettlementService {
         tax,
         driverBonusFee,
         discount,
+        paymentMethod,
       });
       for (const collected of collections) {
         if (collected.amount <= 0) continue;
@@ -682,7 +746,10 @@ export class OrderSettlementService {
           collected.driverShiftId,
           `Collected payment (COD/Mobile Wallet) for order ${orderNumber}`,
           'CASH_COLLECTED',
-          { skipLock: true },
+          {
+            skipLock: true,
+            deliveryGroupId: collected.deliveryGroupId ?? null,
+          },
         );
       }
       return;
@@ -714,6 +781,7 @@ export class OrderSettlementService {
         driverShiftId: string | null;
         amount: number;
         isAssistOnly: boolean;
+        groupIds: Set<string>;
       }
     >();
 
@@ -723,12 +791,16 @@ export class OrderSettlementService {
       if (existing) {
         existing.amount += payout.amount;
         existing.isAssistOnly = false;
+        if (payout.deliveryGroupId) existing.groupIds.add(payout.deliveryGroupId);
       } else {
         combinedDriverPayouts.set(payout.driverId, {
           driverId: payout.driverId,
           driverShiftId: payout.driverShiftId,
           amount: payout.amount,
           isAssistOnly: false,
+          groupIds: new Set(
+            payout.deliveryGroupId ? [payout.deliveryGroupId] : [],
+          ),
         });
       }
     }
@@ -738,12 +810,16 @@ export class OrderSettlementService {
       const existing = combinedDriverPayouts.get(payout.driverId);
       if (existing) {
         existing.amount += payout.amount;
+        if (payout.deliveryGroupId) existing.groupIds.add(payout.deliveryGroupId);
       } else {
         combinedDriverPayouts.set(payout.driverId, {
           driverId: payout.driverId,
           driverShiftId: payout.driverShiftId,
           amount: payout.amount,
           isAssistOnly: true,
+          groupIds: new Set(
+            payout.deliveryGroupId ? [payout.deliveryGroupId] : [],
+          ),
         });
       }
     }
@@ -759,7 +835,11 @@ export class OrderSettlementService {
           ? `Assisting delivery fee for order ${payload.orderNumber}`
           : `Delivery fee for order ${payload.orderNumber}`,
         'DELIVERY_FEE',
-        { skipLock: true },
+        {
+          skipLock: true,
+          deliveryGroupId:
+            payout.groupIds.size === 1 ? Array.from(payout.groupIds)[0] : null,
+        },
       );
     }
   }
@@ -767,9 +847,10 @@ export class OrderSettlementService {
   private async applyManagerPayouts(
     client: Prisma.TransactionClient,
     payload: SettleOrderPayload,
-    managerPayouts: Map<string, number>,
+    managerPayouts: ManagerPayout[],
   ): Promise<void> {
-    for (const [mgrId, share] of managerPayouts.entries()) {
+    for (const mp of managerPayouts) {
+      const { managerId: mgrId, amount: share, deliveryGroupId } = mp;
       if (share <= 0) continue;
       await client.$executeRaw`SELECT id FROM driver_managers WHERE id = ${mgrId} FOR UPDATE`;
 
@@ -792,6 +873,7 @@ export class OrderSettlementService {
           data: {
             managerId: mgrId,
             orderId: payload.orderId,
+            deliveryGroupId: deliveryGroupId ?? null,
             type: 'DELIVERY_SHARE',
             amount: share,
             balanceAfter: updatedManager.walletBalance,
@@ -905,14 +987,16 @@ export class OrderSettlementService {
     payload: SettleOrderPayload,
     plan: SettlementPlan,
   ): Promise<void> {
-    const { orderId, orderNumber, vendorId, isContracted } = payload;
+    const { orderId, orderNumber, vendorId, branchName, isContracted } = payload;
 
     const portions = await client.orderVendorFulfillment.findMany({
       where: { orderId, status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] } },
       select: {
+        id: true,
         vendorId: true,
         subtotal: true,
         commissionRate: true,
+        isContracted: true,
         vendor: { select: { isContracted: true } },
         vendorBranch: { select: { name: true, isContracted: true } },
       },
@@ -920,89 +1004,52 @@ export class OrderSettlementService {
 
     const payables: Array<{
       vendorId: string;
+      fulfillmentId: string | null;
       revenue: number;
       commission: number;
       description: string;
       commissionDescription: string;
     }> =
       portions.length > 0
-        ? (() => {
-            const byVendor = new Map<
-              string,
-              {
-                vendorId: string;
-                revenue: number;
-                commission: number;
-                branchNames: string[];
-              }
-            >();
-            for (const p of portions) {
-              const portionContracted =
-                p.vendorBranch?.isContracted != null
+        ? portions
+            .filter((p: any) => {
+              const contracted =
+                p.isContracted ??
+                (p.vendorBranch?.isContracted != null
                   ? p.vendorBranch.isContracted
-                  : (p.vendor?.isContracted ?? false);
-              if (!portionContracted) continue;
+                  : (p.vendor?.isContracted ?? false));
+              return contracted;
+            })
+            .map((p: any) => {
               const rate = Number(p.commissionRate ?? 0);
               const portionComm = Math.round(p.subtotal * (rate / 100));
-              const existing = byVendor.get(p.vendorId);
-              if (existing) {
-                existing.revenue += p.subtotal;
-                existing.commission += portionComm;
-                if (
-                  p.vendorBranch?.name &&
-                  !existing.branchNames.includes(p.vendorBranch.name)
-                ) {
-                  existing.branchNames.push(p.vendorBranch.name);
-                }
-              } else {
-                byVendor.set(p.vendorId, {
-                  vendorId: p.vendorId,
-                  revenue: p.subtotal,
-                  commission: portionComm,
-                  branchNames: p.vendorBranch?.name
-                    ? [p.vendorBranch.name]
-                    : [],
-                });
-              }
-            }
-            return Array.from(byVendor.values()).map((entry) => {
-              const bName =
-                entry.branchNames.length > 0
-                  ? ` (${entry.branchNames.join(', ')})`
-                  : '';
+              const bName = p.vendorBranch?.name ? ` (${p.vendorBranch.name})` : '';
               return {
-                vendorId: entry.vendorId,
-                revenue: entry.revenue,
-                commission: entry.commission,
+                vendorId: p.vendorId,
+                fulfillmentId: p.id ?? null,
+                revenue: p.subtotal,
+                commission: portionComm,
                 description: `Order ${orderNumber}${bName} revenue`,
                 commissionDescription: `Commission for order ${orderNumber}${bName}`,
               };
-            });
-          })()
+            })
         : vendorId && isContracted
-          ? await (async () => {
-              const orderRow = await client.order.findUnique({
-                where: { id: orderId },
-                select: { vendorBranch: { select: { name: true } } },
-              });
-              const bName = orderRow?.vendorBranch?.name
-                ? ` (${orderRow.vendorBranch.name})`
-                : '';
-              return [
-                {
-                  vendorId,
-                  revenue: plan.vendorRevenue,
-                  commission: plan.commission,
-                  description: `Order ${orderNumber}${bName} revenue`,
-                  commissionDescription: `Commission for order ${orderNumber}${bName}`,
-                },
-              ];
-            })()
+          ? [
+              {
+                vendorId,
+                fulfillmentId: null,
+                revenue: plan.vendorRevenue,
+                commission: plan.commission,
+                description: `Order ${orderNumber}${branchName ? ` (${branchName})` : ''} revenue`,
+                commissionDescription: `Commission for order ${orderNumber}${branchName ? ` (${branchName})` : ''}`,
+              },
+            ]
           : [];
 
     for (const payable of payables) {
       await this.applyVendorWalletEntry(client, {
         vendorId: payable.vendorId,
+        fulfillmentId: payable.fulfillmentId,
         signedAmount: payable.revenue,
         type: VendorTransactionType.ORDER_REVENUE,
         orderId,
@@ -1012,6 +1059,7 @@ export class OrderSettlementService {
 
       await this.applyVendorWalletEntry(client, {
         vendorId: payable.vendorId,
+        fulfillmentId: payable.fulfillmentId,
         signedAmount: -payable.commission,
         type: VendorTransactionType.COMMISSION_DEDUCTION,
         orderId,
@@ -1025,6 +1073,7 @@ export class OrderSettlementService {
     client: Prisma.TransactionClient,
     params: {
       vendorId: string;
+      fulfillmentId?: string | null;
       signedAmount: number;
       type: VendorTransactionType;
       orderId: string | null;
@@ -1042,6 +1091,7 @@ export class OrderSettlementService {
           orderId: params.orderId,
           type: params.type,
           vendorId: params.vendorId,
+          ...(params.fulfillmentId ? { fulfillmentId: params.fulfillmentId } : {}),
         },
       });
       if (existing) return existing.balanceAfter;
@@ -1057,6 +1107,7 @@ export class OrderSettlementService {
       data: {
         vendorId: params.vendorId,
         orderId: params.orderId,
+        fulfillmentId: params.fulfillmentId ?? null,
         type: params.type,
         amount: params.signedAmount,
         balanceAfter: vendor.walletBalance,
@@ -1072,8 +1123,7 @@ export class OrderSettlementService {
     plan: SettlementPlan,
     periods: StatPeriodRange[],
   ): Promise<void> {
-    const { orderId, orderNumber, vendorId, deliveryFee, tax, isContracted } =
-      payload;
+    const { orderId, orderNumber, vendorId, deliveryFee, tax } = payload;
 
     const driverEarningsByDriver = new Map<string, number>();
     for (const payout of [...plan.primaryPayouts, ...plan.assistPayouts]) {
@@ -1123,7 +1173,7 @@ export class OrderSettlementService {
             increment: {
               totalOrders: 1,
               totalRevenue: plan.vendorRevenue,
-              totalCommission: isContracted ? plan.commission : 0,
+              totalCommission: plan.commission,
               totalTax: tax,
               completedOrders: 1,
             },
@@ -1138,6 +1188,7 @@ export class OrderSettlementService {
           vendorId: true,
           subtotal: true,
           commissionRate: true,
+          isContracted: true,
           vendor: { select: { isContracted: true } },
           vendorBranch: { select: { isContracted: true } },
         },
@@ -1148,9 +1199,10 @@ export class OrderSettlementService {
       >();
       for (const portion of portions) {
         const portionContracted =
-          portion.vendorBranch?.isContracted != null
+          (portion as any).isContracted ??
+          (portion.vendorBranch?.isContracted != null
             ? portion.vendorBranch.isContracted
-            : (portion.vendor?.isContracted ?? false);
+            : (portion.vendor?.isContracted ?? false));
         const portionComm = portionContracted
           ? Math.round(portion.subtotal * (Number(portion.commissionRate) / 100))
           : 0;
@@ -1275,17 +1327,15 @@ export class OrderSettlementService {
   }
 
   /**
-   * Split the cash a multi-vendor order's drivers collect at the door.
+   * Attribute cash/mobile-wallet collections across delivered delivery groups.
+   * For MOBILE_WALLET, 100% of grandTotal is received by the collector driver.
+   * For COD, non-collector groups collect their own goods + deliveryFee and the
+   * collector group absorbs order-level extras (serviceFee/tax/bonus/discount) + upfront deposit.
    */
   private async splitCollectedCash(
     client: Prisma.TransactionClient,
     params: {
-      groups: Array<{
-        id: string;
-        deliveryFee: number;
-        primaryDriverId: string | null;
-        primaryDriverShiftId: string | null;
-      }>;
+      groups: DeliveredGroupRow[];
       grandTotal: number;
       subtotal: number;
       deliveryFee: number;
@@ -1293,9 +1343,15 @@ export class OrderSettlementService {
       tax: number;
       driverBonusFee: number;
       discount: number;
+      paymentMethod: string;
     },
   ): Promise<
-    Array<{ driverId: string; driverShiftId: string | null; amount: number }>
+    Array<{
+      driverId: string;
+      driverShiftId: string | null;
+      deliveryGroupId: string | null;
+      amount: number;
+    }>
   > {
     const items = await client.orderDeliveryGroupItem.findMany({
       where: { deliveryGroupId: { in: params.groups.map((g) => g.id) } },
@@ -1303,6 +1359,7 @@ export class OrderSettlementService {
         deliveryGroupId: true,
         fulfillment: {
           select: {
+            status: true,
             subtotal: true,
           },
         },
@@ -1311,10 +1368,13 @@ export class OrderSettlementService {
 
     const goodsByGroup = new Map<string, number>();
     for (const item of items) {
+      const f: any = item.fulfillment;
+      if (!f || f.status === 'REJECTED' || f.status === 'CANCELLED') {
+        continue;
+      }
       goodsByGroup.set(
         item.deliveryGroupId,
-        (goodsByGroup.get(item.deliveryGroupId) ?? 0) +
-          item.fulfillment.subtotal,
+        (goodsByGroup.get(item.deliveryGroupId) ?? 0) + f.subtotal,
       );
     }
 
@@ -1325,41 +1385,72 @@ export class OrderSettlementService {
         ? params.grandTotal
         : Math.max(0, params.subtotal + params.deliveryFee + extras);
 
-    const base = params.groups.map(
-      (g) => (goodsByGroup.get(g.id) ?? 0) + g.deliveryFee,
-    );
-    const baseTotal = base.reduce((s, b) => s + b, 0);
+    const collectorGroup =
+      params.groups.find((g) => g.isPaymentCollector === true) ??
+      [...params.groups].sort((a, b) => a.sequence - b.sequence)[0];
+
+    if (params.paymentMethod === 'MOBILE_WALLET') {
+      if (!collectorGroup?.primaryDriverId || totalGross <= 0) return [];
+      return [
+        {
+          driverId: collectorGroup.primaryDriverId,
+          driverShiftId: collectorGroup.primaryDriverShiftId,
+          deliveryGroupId: collectorGroup.id,
+          amount: totalGross,
+        },
+      ];
+    }
+
+    let nonCollectorSum = 0;
+    const groupGrossById = new Map<string, number>();
+    for (const g of params.groups) {
+      if (collectorGroup && g.id === collectorGroup.id) continue;
+      const gGross = Math.max(0, (goodsByGroup.get(g.id) ?? 0) + g.deliveryFee);
+      groupGrossById.set(g.id, gGross);
+      nonCollectorSum += gGross;
+    }
+    if (collectorGroup) {
+      groupGrossById.set(
+        collectorGroup.id,
+        Math.max(0, totalGross - nonCollectorSum),
+      );
+    }
 
     const byDriver = new Map<
       string,
-      { driverId: string; driverShiftId: string | null; amount: number }
+      {
+        driverId: string;
+        driverShiftId: string | null;
+        groupIds: Set<string>;
+        amount: number;
+      }
     >();
-    let allocated = 0;
-    params.groups.forEach((g, i) => {
-      if (!g.primaryDriverId) return;
-      const isLast = i === params.groups.length - 1;
-      const gross = isLast
-        ? totalGross - allocated
-        : baseTotal > 0
-          ? Math.round((base[i] / baseTotal) * totalGross)
-          : 0;
-      allocated += gross;
-
-      if (gross === 0) return;
+    for (const g of params.groups) {
+      if (!g.primaryDriverId) continue;
+      const gross = groupGrossById.get(g.id) ?? 0;
+      if (gross === 0) continue;
 
       const existing = byDriver.get(g.primaryDriverId);
       if (existing) {
         existing.amount += gross;
+        existing.groupIds.add(g.id);
       } else {
         byDriver.set(g.primaryDriverId, {
           driverId: g.primaryDriverId,
           driverShiftId: g.primaryDriverShiftId,
+          groupIds: new Set([g.id]),
           amount: gross,
         });
       }
-    });
+    }
 
-    return [...byDriver.values()];
+    return [...byDriver.values()].map((entry) => ({
+      driverId: entry.driverId,
+      driverShiftId: entry.driverShiftId,
+      deliveryGroupId:
+        entry.groupIds.size === 1 ? Array.from(entry.groupIds)[0] : null,
+      amount: entry.amount,
+    }));
   }
 
   private async resolveDriverManager(
@@ -1398,7 +1489,7 @@ export class OrderSettlementService {
     driverShiftId: string | null,
     description: string,
     type: DriverWalletTxType = 'DELIVERY_FEE',
-    options: { skipLock?: boolean } = {},
+    options: { skipLock?: boolean; deliveryGroupId?: string | null } = {},
   ): Promise<void> {
     if (!options.skipLock) {
       await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
@@ -1419,6 +1510,7 @@ export class OrderSettlementService {
       data: {
         driverId,
         orderId,
+        deliveryGroupId: options.deliveryGroupId ?? null,
         driverShiftId,
         type,
         amount,

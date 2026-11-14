@@ -635,7 +635,7 @@ export class MessagesService {
 
   private async validateMessageContent(
     dto: SendMessageDto,
-    conversation: { vendorId: string | null },
+    conversation: { vendorId: string | null; orderId: string | null },
   ) {
     if (dto.type === MessageType.TEXT && !dto.text?.trim()) {
       throw new BadRequestException(ChatErrors.TEXT_REQUIRED);
@@ -680,11 +680,21 @@ export class MessagesService {
           throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
         }
 
-        if (
-          conversation.vendorId &&
-          existing.vendorId !== conversation.vendorId
-        ) {
-          throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
+        if (conversation.vendorId) {
+          if (existing.vendorId !== conversation.vendorId) {
+            throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
+          }
+        } else if (conversation.orderId) {
+          const participant = await this.prisma.orderVendorFulfillment.findFirst({
+            where: {
+              orderId: conversation.orderId,
+              vendorId: existing.vendorId,
+            },
+            select: { id: true },
+          });
+          if (!participant) {
+            throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
+          }
         }
       }
     }
@@ -771,44 +781,64 @@ export class MessagesService {
     conversationVendorId: string | null,
     orderId?: string | null,
   ): Promise<boolean> {
-    if (!conversationVendorId || role !== Role.VENDOR_MEMBER) {
+    if (role !== Role.VENDOR_MEMBER) {
       return false;
     }
-    const membership = await this.prisma.vendorMember.findUnique({
-      where: {
-        vendorId_userId: {
-          vendorId: conversationVendorId,
-          userId,
-        },
-      },
-    });
-    if (!membership) return false;
 
-    // Headquarters / organization-wide members (branchId === null) can access all branches
-    if (!membership.branchId) return true;
-
-    // Branch-scoped members must match at least one branch fulfilling this order
-    if (orderId) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        select: {
-          vendorBranchId: true,
-          vendorFulfillments: { select: { vendorBranchId: true } },
+    if (conversationVendorId) {
+      const membership = await this.prisma.vendorMember.findUnique({
+        where: {
+          vendorId_userId: {
+            vendorId: conversationVendorId,
+            userId,
+          },
         },
       });
-      const orderBranchIds = [
-        order?.vendorBranchId,
-        ...(order?.vendorFulfillments?.map((f) => f.vendorBranchId) ?? []),
-      ].filter((b): b is string => !!b);
+      if (!membership) return false;
+      if (!membership.branchId || membership.role === 'OWNER') return true;
 
-      if (
-        orderBranchIds.length > 0 &&
-        !orderBranchIds.includes(membership.branchId)
-      ) {
-        return false;
+      if (orderId) {
+        const fulfillments = await this.prisma.orderVendorFulfillment.findMany({
+          where: { orderId, vendorId: conversationVendorId },
+          select: { vendorBranchId: true },
+        });
+        const orderBranchIds = fulfillments
+          .map((f) => f.vendorBranchId)
+          .filter((b): b is string => !!b);
+        if (
+          orderBranchIds.length > 0 &&
+          !orderBranchIds.includes(membership.branchId)
+        ) {
+          return false;
+        }
       }
+
+      return true;
     }
 
-    return true;
+    // Combined multi-vendor order conversation has conversationVendorId == null.
+    // Allow any member/owner/branch member belonging to at least one portion.
+    if (!orderId) return false;
+    const [memberships, fulfillments] = await Promise.all([
+      this.prisma.vendorMember.findMany({
+        where: { userId },
+        select: { vendorId: true, branchId: true, role: true },
+      }),
+      this.prisma.orderVendorFulfillment.findMany({
+        where: { orderId },
+        select: { vendorId: true, vendorBranchId: true },
+      }),
+    ]);
+
+    return fulfillments.some((f) =>
+      memberships.some(
+        (m) =>
+          m.vendorId === f.vendorId &&
+          (m.role === 'OWNER' ||
+            !m.branchId ||
+            !f.vendorBranchId ||
+            m.branchId === f.vendorBranchId),
+      ),
+    );
   }
 }

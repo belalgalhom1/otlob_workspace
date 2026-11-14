@@ -79,10 +79,16 @@ export class TicketsService implements OnModuleInit {
       if (!dto.vendorId) {
         const order = await this.prisma.order.findUnique({
           where: { id: dto.orderId },
-          select: { vendorId: true },
+          select: {
+            vendorFulfillments: {
+              take: 1,
+              select: { vendorId: true },
+            },
+          },
         });
-        if (order) {
-          dto.vendorId = order.vendorId ?? undefined;
+        const firstVendorId = order?.vendorFulfillments?.[0]?.vendorId;
+        if (firstVendorId) {
+          dto.vendorId = firstVendorId;
         }
       }
     }
@@ -117,11 +123,19 @@ export class TicketsService implements OnModuleInit {
       if (dto.orderId) {
         const order = await this.prisma.order.findUnique({
           where: { id: dto.orderId },
-          select: { driverId: true },
+          select: {
+            deliveryGroups: {
+              where: { primaryDriverId: { not: null } },
+              orderBy: { sequence: 'asc' },
+              take: 1,
+              select: { primaryDriverId: true },
+            },
+          },
         });
-        if (order?.driverId) {
+        const driverId = order?.deliveryGroups?.[0]?.primaryDriverId;
+        if (driverId) {
           const driver = await this.prisma.driver.findUnique({
-            where: { id: order.driverId },
+            where: { id: driverId },
             select: { userId: true, id: true },
           });
           if (driver) {
@@ -392,10 +406,13 @@ export class TicketsService implements OnModuleInit {
     if (dto.category === 'VENDOR' && !targetVendorId && ticket.orderId) {
       const order = await this.prisma.order.findUnique({
         where: { id: ticket.orderId },
-        select: { vendorId: true },
+        select: {
+          vendorFulfillments: { take: 1, select: { vendorId: true } },
+        },
       });
-      if (order) {
-        targetVendorId = order.vendorId ?? undefined;
+      const firstVendorId = order?.vendorFulfillments?.[0]?.vendorId;
+      if (firstVendorId) {
+        targetVendorId = firstVendorId;
       }
     }
 

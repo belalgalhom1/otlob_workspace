@@ -12,6 +12,9 @@ export class DriverWalletTransaction {
   orderId?: string;
 
   @ApiPropertyOptional({ type: String })
+  deliveryGroupId?: string;
+
+  @ApiPropertyOptional({ type: String })
   driverShiftId?: string;
 
   @ApiProperty({

@@ -92,6 +92,9 @@ export class OrdersStateService {
         this.prisma,
         this.ordersRepository,
         this.eventEmitter,
+        undefined,
+        undefined,
+        this.cancellationService,
       )
     );
   }
@@ -128,24 +131,16 @@ export class OrdersStateService {
   ) {
     const order = await this.ordersRepository.findById(orderId);
 
+    const fulfillments = ((order as any).vendorFulfillments ?? []) as any[];
     let isMember: {
       id: string;
       branchId: string | null;
       role?: string;
       vendorId?: string;
-    } | null = order.vendorId
-      ? await this.prisma.vendorMember.findUnique({
-          where: {
-            vendorId_userId: { vendorId: order.vendorId, userId: actor.sub },
-          },
-          select: { id: true, branchId: true, role: true, vendorId: true },
-        })
-      : null;
-
+    } | null = null;
     let matchingFulfillments: any[] = [];
-    const fulfillments = ((order as any).vendorFulfillments ?? []) as any[];
 
-    if (!isMember && fulfillments.length > 0) {
+    if (fulfillments.length > 0) {
       const portionVendorIds = Array.from(
         new Set(fulfillments.map((f: any) => f.vendorId)),
       ) as string[];
@@ -188,18 +183,6 @@ export class OrdersStateService {
             )
           : vendorPortions;
       }
-    } else if (isMember && fulfillments.length > 0) {
-      const effectiveBranchId =
-        isMember.role === 'OWNER' ? null : isMember.branchId;
-      const vendorPortions = fulfillments.filter(
-        (f: any) => f.vendorId === order.vendorId,
-      );
-      matchingFulfillments = effectiveBranchId
-        ? vendorPortions.filter(
-            (f: any) =>
-              !f.vendorBranchId || f.vendorBranchId === effectiveBranchId,
-          )
-        : vendorPortions;
     }
 
     const canManage = await this.auth.canManageOrders(actor.sub, actor.role);
@@ -220,14 +203,6 @@ export class OrdersStateService {
       memberEffectiveBranchId &&
       fulfillments.length > 0 &&
       matchingFulfillments.length === 0
-    ) {
-      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
-    } else if (
-      isMember &&
-      memberEffectiveBranchId &&
-      fulfillments.length === 0 &&
-      (order as any).vendorBranchId &&
-      memberEffectiveBranchId !== (order as any).vendorBranchId
     ) {
       throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_BRANCH);
     }
@@ -340,66 +315,7 @@ export class OrdersStateService {
       );
     }
 
-    if (order.driverId !== driver.id) {
-      throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
-    }
-
-    if (
-      order.type === 'STANDARD' &&
-      (dto.status === OrderStatus.READY_FOR_PICKUP ||
-        (order.status === OrderStatus.DRIVER_ASSIGNED &&
-          dto.status === OrderStatus.PICKED_UP))
-    ) {
-      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-    }
-
-    const orderFulfillments = ((order as any).vendorFulfillments ?? []) as any[];
-    if (orderFulfillments.length > 0 && dto.status === OrderStatus.DELIVERED) {
-      const liveFulfillments = orderFulfillments.filter(
-        (f) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
-      );
-      const anyUncollected = liveFulfillments.some(
-        (f) =>
-          !f.pickedUpAt && f.status !== OrderVendorFulfillmentStatus.PICKED_UP,
-      );
-      if (anyUncollected) {
-        throw new BadRequestException(
-          'All vendor portions must be collected before marking delivered',
-        );
-      }
-    }
-
-    const expected = DRIVER_ALLOWED_TRANSITIONS[order.status];
-    if (!expected || !expected.includes(dto.status)) {
-      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
-    }
-
-    if (
-      dto.status === OrderStatus.PICKED_UP &&
-      !dto.pickupImageUrl &&
-      !order.pickupImageUrl
-    ) {
-      throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
-    }
-
-    if (
-      dto.status === OrderStatus.DELIVERED &&
-      !dto.deliveryImageUrl &&
-      !order.deliveryImageUrl
-    ) {
-      throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
-    }
-
-    if (
-      (order.paymentMethod === 'MOBILE_WALLET' ||
-        Number((order as any).upfrontAmount ?? 0) > 0) &&
-      order.paymentStatus !== 'COMPLETED' &&
-      dto.status !== OrderStatus.PENDING_PAYMENT
-    ) {
-      throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
-    }
-
-    return this.applyStatusTransition(actor, order, dto);
+    throw new ForbiddenException(OrderErrors.NOT_ASSIGNED_TO_ORDER);
   }
 
   async driverConfirmFulfillmentPickup(
@@ -456,8 +372,7 @@ export class OrdersStateService {
         const myGroups = (order as any).deliveryGroups.filter(
           (g: any) =>
             g.primaryDriverId === driver.id ||
-            g.assistDriverId === driver.id ||
-            (order.driverId === driver.id && !g.primaryDriverId),
+            g.assistDriverId === driver.id,
         );
         const myGroupItems = myGroups
           .flatMap((g: any) => (Array.isArray(g.items) ? g.items : []))
@@ -602,6 +517,7 @@ export class OrdersStateService {
       OrderStatus.PREPARING,
       OrderStatus.READY_FOR_PICKUP,
       OrderStatus.LOOKING_FOR_DRIVER,
+      OrderStatus.PARTIALLY_PICKED_UP,
     ];
     if (!assignableStatuses.includes(order.status)) {
       throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
@@ -635,7 +551,6 @@ export class OrdersStateService {
     if (activeOrdersCount >= maxActive) {
       throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
     }
-    const isStackedOrder = activeOrdersCount > 0;
 
     const activeShift = await this.prisma.driverShift.findFirst({
       where: { driverId: driver.id, status: 'ACTIVE' },
@@ -657,6 +572,42 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
     }
 
+    const existingGroups = await this.prisma.orderDeliveryGroup.findMany({
+      where: {
+        orderId,
+        status: { not: DeliveryGroupStatus.CANCELLED },
+      },
+      select: {
+        id: true,
+        sequence: true,
+        status: true,
+        primaryDriverId: true,
+        assistDriverId: true,
+      },
+      orderBy: { sequence: 'asc' },
+    });
+
+    const assignableGroupStatuses: DeliveryGroupStatus[] = [
+      DeliveryGroupStatus.PENDING,
+      DeliveryGroupStatus.ACCEPTED,
+      DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+      DeliveryGroupStatus.PREPARING,
+      DeliveryGroupStatus.READY_FOR_PICKUP,
+      DeliveryGroupStatus.DRIVER_ASSIGNED,
+      DeliveryGroupStatus.PENDING_PAYMENT,
+    ];
+    const targetGroup = dto.deliveryGroupId
+      ? existingGroups.find((g) => g.id === dto.deliveryGroupId)
+      : (existingGroups.find(
+          (g) =>
+            !g.primaryDriverId && assignableGroupStatuses.includes(g.status),
+        ) ??
+        existingGroups.find((g) => assignableGroupStatuses.includes(g.status)));
+
+    if (!targetGroup || !assignableGroupStatuses.includes(targetGroup.status)) {
+      throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
+    }
+
     const updated = await this.ordersRepository.assignDriver(
       orderId,
       driver.id,
@@ -664,76 +615,33 @@ export class OrdersStateService {
       actor.sub,
       nextStatus,
       maxActive,
+      targetGroup.id,
     );
 
-    const groupNextStatus =
-      nextStatus === OrderStatus.PENDING_PAYMENT
-        ? DeliveryGroupStatus.PENDING_PAYMENT
-        : DeliveryGroupStatus.DRIVER_ASSIGNED;
-    const prevGroupDrivers = await this.prisma.orderDeliveryGroup.findMany({
-      where: {
-        orderId,
-        primaryDriverId: { not: null, notIn: [driver.id] },
-        status: {
-          notIn: [
-            DeliveryGroupStatus.CANCELLED,
-            DeliveryGroupStatus.DELIVERED,
-          ],
-        },
-      },
-      select: { primaryDriverId: true, assistDriverId: true },
+    await this.prisma.orderDeliveryGroup.update({
+      where: { id: targetGroup.id },
+      data: { assignedByUserId: actor.sub },
     });
-    await this.prisma.orderDeliveryGroup.updateMany({
-      where: {
-        orderId,
-        status: {
-          in: [
-            DeliveryGroupStatus.PENDING,
-            DeliveryGroupStatus.ACCEPTED,
-            DeliveryGroupStatus.LOOKING_FOR_DRIVER,
-            DeliveryGroupStatus.DRIVER_ASSIGNED,
-            DeliveryGroupStatus.PENDING_PAYMENT,
-          ],
-        },
-      },
-      data: {
-        primaryDriverId: driver.id,
-        primaryDriverShiftId: activeShift?.id ?? null,
-        isStacked: isStackedOrder,
-        status: groupNextStatus,
-        assignedByUserId: actor.sub,
-        assignedAt: new Date(),
-      },
-    });
-    await this.prisma.orderDeliveryGroup.updateMany({
-      where: {
-        orderId,
-        status: DeliveryGroupStatus.READY_FOR_PICKUP,
-      },
-      data: {
-        primaryDriverId: driver.id,
-        primaryDriverShiftId: activeShift?.id ?? null,
-        isStacked: isStackedOrder,
-        assignedByUserId: actor.sub,
-        assignedAt: new Date(),
-      },
-    });
-    const prevDrivers = new Set<string>();
-    for (const g of prevGroupDrivers) {
-      if (g.primaryDriverId && g.primaryDriverId !== driver.id) {
-        prevDrivers.add(g.primaryDriverId);
-      }
-      if (g.assistDriverId && g.assistDriverId !== driver.id) {
-        prevDrivers.add(g.assistDriverId);
-      }
-    }
-    for (const prev of prevDrivers) {
-      await this.ordersRepository.freeDriver(prev);
+
+    if (
+      targetGroup.primaryDriverId &&
+      targetGroup.primaryDriverId !== driver.id
+    ) {
+      await this.ordersRepository.freeDriver(targetGroup.primaryDriverId);
     }
 
+    const distinctVendorIds = Array.from(
+      new Set(
+        (((order as any).vendorFulfillments ?? []) as Array<{ vendorId: string }>)
+          .map((f) => f.vendorId)
+          .filter(Boolean),
+      ),
+    );
+    const singleVendorId =
+      distinctVendorIds.length === 1 ? distinctVendorIds[0] : null;
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       order.id,
-      order.vendorId,
+      null,
     );
     const customerUser = (order as { customer?: { user?: { id: string } } })
       .customer?.user;
@@ -747,7 +655,7 @@ export class OrdersStateService {
         nextStatus,
         order.customerId,
         customerUser?.id ?? '',
-        order.vendorId,
+        singleVendorId,
         vendorUserIds,
         driver.id,
         driver.userId,
@@ -758,9 +666,9 @@ export class OrdersStateService {
     );
 
     this.logger.log(
-      `Admin ${actor.sub} force-assigned driver ${driver.id} to order ${order.orderNumber}`,
+      `Admin ${actor.sub} force-assigned driver ${driver.id} to order ${order.orderNumber} (group ${targetGroup.sequence})`,
     );
-    return updated;
+    return this.ordersRepository.findById(orderId);
   }
 
   async cancelOrder(
@@ -787,10 +695,13 @@ export class OrdersStateService {
       status: string;
       orderNumber: string;
       customerId: string;
-      vendorId: string | null;
-      driverId: string | null;
       customer: { user: { id: string } };
-      driver: { userId: string } | null;
+      vendorFulfillments?: Array<{ vendorId: string }>;
+      deliveryGroups?: Array<{
+        primaryDriverId: string | null;
+        primaryDriver?: { userId: string } | null;
+        isPaymentCollector?: boolean;
+      }>;
     },
     dto: UpdateOrderStatusDto,
   ) {
@@ -821,7 +732,8 @@ export class OrdersStateService {
             status: {
               in: [
                 DeliveryGroupStatus.DRIVER_ASSIGNED,
-                DeliveryGroupStatus.PENDING_PAYMENT,
+                DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                DeliveryGroupStatus.PREPARING,
                 DeliveryGroupStatus.ACCEPTED,
               ],
             },
@@ -832,27 +744,8 @@ export class OrdersStateService {
     }
 
     const extraData: Prisma.OrderUpdateInput = {};
-    if (
-      newStatus === OrderStatus.ACCEPTED ||
-      newStatus === OrderStatus.PREPARING
-    ) {
-      if (newStatus === OrderStatus.ACCEPTED) extraData.acceptedAt = new Date();
-      if (dto.estimatedPrepTime) {
-        extraData.estimatedPrepTime = dto.estimatedPrepTime;
-      }
-    }
-    if (newStatus === OrderStatus.READY_FOR_PICKUP) {
-      extraData.preparedAt = new Date();
-    }
-    if (newStatus === OrderStatus.PICKED_UP) {
-      extraData.pickedUpAt = new Date();
-      if (dto.pickupImageUrl) extraData.pickupImageUrl = dto.pickupImageUrl;
-    }
     if (newStatus === OrderStatus.DELIVERED) {
       extraData.actualDeliveryTime = new Date();
-      if (dto.deliveryImageUrl) {
-        extraData.deliveryImageUrl = dto.deliveryImageUrl;
-      }
     }
 
     const updated = await this.ordersRepository.updateStatus(
@@ -864,15 +757,38 @@ export class OrdersStateService {
       oldStatus,
     );
 
-    if (order.driverId && newStatus === OrderStatus.DELIVERED) {
-      await this.ordersRepository.freeDriver(order.driverId);
+    const groups = (order.deliveryGroups ?? []) as Array<{
+      primaryDriverId: string | null;
+      assistDriverId?: string | null;
+      primaryDriver?: { userId: string } | null;
+      isPaymentCollector?: boolean;
+    }>;
+
+    if (newStatus === OrderStatus.DELIVERED) {
+      const driverIds = groups
+        .flatMap((g) => [g.primaryDriverId, g.assistDriverId])
+        .filter((id): id is string => Boolean(id));
+      for (const did of new Set(driverIds)) {
+        await this.ordersRepository.freeDriver(did);
+      }
     }
+
+    const distinctVendorIds = Array.from(
+      new Set((order.vendorFulfillments ?? []).map((f) => f.vendorId)),
+    );
+    const singleVendorId =
+      distinctVendorIds.length === 1 ? distinctVendorIds[0] : null;
+    const collectorGroup =
+      groups.find((g) => g.isPaymentCollector && g.primaryDriverId) ??
+      groups.find((g) => g.primaryDriverId) ??
+      null;
+    const primaryDriverId = collectorGroup?.primaryDriverId ?? null;
+    const driverUserId = collectorGroup?.primaryDriver?.userId ?? null;
 
     const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
       order.id,
-      order.vendorId,
+      null,
     );
-    const driverUserId = order.driver?.userId ?? null;
 
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,
@@ -883,9 +799,9 @@ export class OrdersStateService {
         newStatus,
         order.customerId,
         order.customer.user.id,
-        order.vendorId,
+        singleVendorId,
         vendorUserIds,
-        order.driverId,
+        primaryDriverId,
         driverUserId,
         actor.sub,
         dto.note ?? null,
@@ -905,5 +821,20 @@ export class OrdersStateService {
       orderId,
       extraDriverIds,
     );
+  }
+
+  async cancelDeliveryGroupAfterAssistFailure(
+    orderId: string,
+    deliveryGroupId: string,
+    reason: string,
+    extraDriverIds: Array<string | null | undefined> = [],
+  ): Promise<void> {
+    await this.deliveryGroup.cancelDeliveryGroupAndRecompute({
+      orderId,
+      deliveryGroupId,
+      reason,
+      extraDriverIds,
+      requireDriverless: false,
+    });
   }
 }

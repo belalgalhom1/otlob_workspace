@@ -2,11 +2,13 @@ import { OrderStatus } from '@prisma/client';
 
 export const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.ACCEPTED],
-  // Vendor can only start preparing once a driver is assigned
-  // (or is pending payment). Accepting and waiting-for-driver are
-  // too early — the vendor must wait for a driver to accept first.
-  [OrderStatus.ACCEPTED]: [],
-  [OrderStatus.LOOKING_FOR_DRIVER]: [],
+  // Vendors may begin preparing or mark ready immediately after accepting,
+  // even before a driver accepts dispatch.
+  [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP],
+  [OrderStatus.LOOKING_FOR_DRIVER]: [
+    OrderStatus.PREPARING,
+    OrderStatus.READY_FOR_PICKUP,
+  ],
   [OrderStatus.DRIVER_ASSIGNED]: [
     OrderStatus.PREPARING,
     OrderStatus.READY_FOR_PICKUP,
@@ -39,7 +41,11 @@ export const DRIVER_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [],
   [OrderStatus.CHANGES_REQUESTED]: [],
   [OrderStatus.ACCEPTED]: [],
-  [OrderStatus.PREPARING]: [],
+  [OrderStatus.PREPARING]: [
+    OrderStatus.PENDING_PAYMENT,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.PICKED_UP,
+  ],
   [OrderStatus.LOOKING_FOR_DRIVER]: [],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],

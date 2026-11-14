@@ -8,7 +8,7 @@ export interface DispatchCandidateOffer {
   driverId: string;
   userId: string;
   driverShiftId: string | null;
-  deliveryGroupId: string | null;
+  deliveryGroupId: string;
   distanceKm: number;
   estimatedEarnings: number;
   pickupLocationName?: string;
@@ -19,7 +19,7 @@ export interface DispatchCandidateOffer {
 export interface DispatchBroadcastPayload {
   dispatchId: string;
   orderId: string;
-  deliveryGroupId: string | null;
+  deliveryGroupId: string;
   type: OrderType;
   candidates: DispatchCandidateOffer[];
   expiresAt: string;
@@ -286,7 +286,7 @@ export class DispatchRepository {
       candidates: Array<{
         driverId: string;
         driverShiftId: string | null;
-        deliveryGroupId?: string | null;
+        deliveryGroupId: string;
         distanceKm: number;
         estimatedEarnings: number;
       }>;
@@ -300,7 +300,7 @@ export class DispatchRepository {
         orderId: params.orderId,
         driverId: candidate.driverId,
         driverShiftId: candidate.driverShiftId,
-        deliveryGroupId: candidate.deliveryGroupId ?? null,
+        deliveryGroupId: candidate.deliveryGroupId,
         type: params.type,
         distanceKm: candidate.distanceKm,
         estimatedEarnings: candidate.estimatedEarnings,

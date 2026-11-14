@@ -742,9 +742,28 @@ export class OrderVendorDecisionService {
         order.status,
       );
 
+      const vendorIds = Array.from(
+        new Set(
+          (((updated as any).vendorFulfillments ?? []) as Array<{
+            vendorId: string;
+          }>).map((f) => f.vendorId),
+        ),
+      );
+      const singleVendorId = vendorIds.length === 1 ? vendorIds[0] : null;
+      const groups = ((updated as any).deliveryGroups ?? []) as Array<{
+        primaryDriverId?: string | null;
+        primaryDriver?: { userId?: string | null } | null;
+        isPaymentCollector?: boolean;
+        status?: string;
+      }>;
+      const collectorGroup =
+        groups.find((g) => g.isPaymentCollector && g.primaryDriverId) ??
+        groups.find((g) => g.primaryDriverId && g.status !== 'CANCELLED') ??
+        null;
+
       const vendorUserIds = await this.ordersRepository.getOrderVendorUserIds(
         orderId,
-        updated.vendorId,
+        null,
       );
 
       this.eventEmitter.emit(
@@ -756,10 +775,10 @@ export class OrderVendorDecisionService {
           OrderStatus.LOOKING_FOR_DRIVER,
           updated.customerId,
           order.customer.userId,
-          updated.vendorId,
+          singleVendorId,
           vendorUserIds,
-          updated.driverId,
-          updated.driver?.userId ?? null,
+          collectorGroup?.primaryDriverId ?? null,
+          collectorGroup?.primaryDriver?.userId ?? null,
           'system',
           'All vendor portions decided — searching for drivers',
           updated.revision,

@@ -29,6 +29,12 @@ export class OrderVendorFulfillment {
   @ApiProperty({ type: Number })
   commissionRate: number;
 
+  @ApiProperty({ type: Boolean })
+  isContracted: boolean = false;
+
+  @ApiPropertyOptional({ type: Number })
+  estimatedPrepTime?: number;
+
   @ApiPropertyOptional({ type: String })
   rejectionCode?: string;
 
@@ -37,6 +43,12 @@ export class OrderVendorFulfillment {
 
   @ApiPropertyOptional({ type: String })
   rejectionReasonAr?: string;
+
+  @ApiPropertyOptional({ type: String })
+  decidedByUserId?: string;
+
+  @ApiPropertyOptional({ type: Date })
+  decidedAt?: Date;
 
   @ApiPropertyOptional({ type: Date })
   preparingAt?: Date;
@@ -50,8 +62,17 @@ export class OrderVendorFulfillment {
   @ApiPropertyOptional({ type: Date })
   pickedUpAt?: Date;
 
+  @ApiPropertyOptional({ type: String })
+  pickedUpByDriverId?: string;
+
   @ApiPropertyOptional({ type: Date })
   deliveredAt?: Date;
+
+  @ApiPropertyOptional({ type: Date })
+  createdAt?: Date;
+
+  @ApiPropertyOptional({ type: Date })
+  updatedAt?: Date;
 
   @ApiPropertyOptional({ type: () => Vendor })
   vendor?: Vendor;

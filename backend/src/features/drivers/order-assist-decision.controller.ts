@@ -6,6 +6,7 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { DriverAssistService } from './driver-assist.service';
+import { CustomerDecideAssistDto } from './dto/driver-assist.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -24,7 +25,7 @@ export class OrderAssistDecisionController {
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
     @Param('deliveryGroupId') deliveryGroupId: string,
-    @Body() body: { approved: boolean },
+    @Body() body: CustomerDecideAssistDto,
   ) {
     return this.driverAssistService.customerDecideAssist(
       actor,
@@ -39,14 +40,14 @@ export class OrderAssistDecisionController {
   @Roles(Role.CUSTOMER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[Customer] Approve or decline an assisted delivery (single-vendor order)',
+    summary: '[Customer] Approve or decline an assisted delivery (single-group order convenience)',
   })
   decideAssistOrder(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
-    @Body() body: { approved: boolean },
+    @Body() body: CustomerDecideAssistDto,
   ) {
-    return this.driverAssistService.customerDecideAssistOrder(
+    return this.driverAssistService.customerDecideAssistForOrder(
       actor,
       orderId,
       body?.approved === true,

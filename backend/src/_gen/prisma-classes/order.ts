@@ -35,9 +35,6 @@ export class Order {
   @ApiPropertyOptional({ type: String })
   zoneId?: string;
 
-  @ApiPropertyOptional({ type: String })
-  driverShiftId?: string;
-
   @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' })
   status: OrderStatus = OrderStatus.PENDING;
 
@@ -96,9 +93,6 @@ export class Order {
   specialRequest?: string;
 
   @ApiPropertyOptional({ type: Number })
-  estimatedPrepTime?: number;
-
-  @ApiPropertyOptional({ type: Number })
   distanceKm?: number;
 
   @ApiPropertyOptional({ type: Date })
@@ -110,27 +104,12 @@ export class Order {
   @ApiProperty({ type: Date })
   updatedAt: Date;
 
-  @ApiPropertyOptional({ type: Date })
-  acceptedAt?: Date;
-
-  @ApiPropertyOptional({ type: Date })
-  preparedAt?: Date;
-
-  @ApiPropertyOptional({ type: Date })
-  driverAssignedAt?: Date;
-
-  @ApiPropertyOptional({ type: Date })
-  pickedUpAt?: Date;
-
-  @ApiPropertyOptional({ type: String })
-  pickupImageUrl?: string;
-
-  @ApiPropertyOptional({ type: String })
-  deliveryImageUrl?: string;
-
   @ApiPropertyOptional({ type: String })
   paymentReceiptUrl?: string;
 
   @ApiPropertyOptional({ type: Date })
   actualDeliveryTime?: Date;
+
+  @ApiPropertyOptional({ type: Date })
+  settledAt?: Date;
 }

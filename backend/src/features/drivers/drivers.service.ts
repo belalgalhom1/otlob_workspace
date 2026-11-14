@@ -112,30 +112,6 @@ export class DriversService {
     const rows = await this.prisma.$queryRaw<NearbyVendorRow[]>`
       WITH current_orders AS (
         SELECT
-          o."vendorId" AS vendor_id,
-          o.id AS order_id,
-          CASE
-            WHEN o.status::text IN (
-              'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
-              'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'READY_FOR_PICKUP',
-              'PARTIALLY_PICKED_UP'
-            ) THEN 1
-            ELSE 0
-          END AS is_active
-        FROM orders o
-        WHERE o."vendorId" IS NOT NULL
-          AND o."deletedAt" IS NULL
-          AND o.status::text <> 'CANCELLED'
-          AND (
-            o.status::text IN (
-              'PENDING', 'CHANGES_REQUESTED', 'ACCEPTED', 'PREPARING',
-              'LOOKING_FOR_DRIVER', 'DRIVER_ASSIGNED', 'READY_FOR_PICKUP',
-              'PARTIALLY_PICKED_UP'
-            )
-            OR o."createdAt" >= ${cutoffDate}
-          )
-        UNION
-        SELECT
           f."vendorId" AS vendor_id,
           f."orderId" AS order_id,
           CASE

@@ -8,6 +8,9 @@ export class OrderItem {
   orderId: string;
 
   @ApiPropertyOptional({ type: String })
+  fulfillmentId?: string;
+
+  @ApiPropertyOptional({ type: String })
   productId?: string;
 
   @ApiPropertyOptional({ type: String })
@@ -36,4 +39,7 @@ export class OrderItem {
 
   @ApiPropertyOptional({ type: Number })
   baseUnitPrice?: number;
+
+  @ApiPropertyOptional({ type: Date })
+  rejectedAt?: Date;
 }

@@ -43,8 +43,10 @@ export function portionStatusFilter(
             deliveryGroup: {
               status: {
                 in: [
+                  DeliveryGroupStatus.LOOKING_FOR_DRIVER,
                   DeliveryGroupStatus.DRIVER_ASSIGNED,
                   DeliveryGroupStatus.PENDING_PAYMENT,
+                  DeliveryGroupStatus.PREPARING,
                   DeliveryGroupStatus.READY_FOR_PICKUP,
                 ],
               },
@@ -89,7 +91,18 @@ export function portionStatusFilter(
         readyAt: null,
         pickedUpAt: null,
         deliveredAt: null,
-        order: { status: OrderStatus.LOOKING_FOR_DRIVER },
+        OR: [
+          { order: { status: OrderStatus.LOOKING_FOR_DRIVER } },
+          {
+            groups: {
+              some: {
+                deliveryGroup: {
+                  status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                },
+              },
+            },
+          },
+        ],
       };
     case OrderStatus.DRIVER_ASSIGNED:
       return {
@@ -100,7 +113,14 @@ export function portionStatusFilter(
         deliveredAt: null,
         groups: {
           some: {
-            deliveryGroup: { status: DeliveryGroupStatus.DRIVER_ASSIGNED },
+            deliveryGroup: {
+              status: {
+                in: [
+                  DeliveryGroupStatus.DRIVER_ASSIGNED,
+                  DeliveryGroupStatus.PREPARING,
+                ],
+              },
+            },
           },
         },
       };
@@ -154,131 +174,102 @@ export function portionStatusFilter(
   }
 }
 
+const ORDER_DRIVER_SELECT = {
+  id: true,
+  name: true,
+  avatar: true,
+  vehicleType: true,
+  vehiclePlate: true,
+  rating: true,
+  ratingCount: true,
+  userId: true,
+  user: { select: { id: true, phone: true } },
+  mobileWallets: {
+    where: { isActive: true },
+  },
+} as const;
+
+const ORDER_ITEMS_INCLUDE = {
+  selectedOptions: true,
+  product: { select: { imageUrl: true } },
+} as const;
+
+const ORDER_VENDOR_FULFILLMENTS_INCLUDE = {
+  orderBy: { createdAt: 'asc' as const },
+  include: {
+    vendor: {
+      select: {
+        id: true,
+        storeName: true,
+        storeNameAr: true,
+        logo: true,
+        isContracted: true,
+        commissionRate: true,
+        phone: true,
+        rating: true,
+        ratingCount: true,
+      },
+    },
+    vendorBranch: {
+      select: {
+        id: true,
+        name: true,
+        nameAr: true,
+        address: true,
+        phone: true,
+        isContracted: true,
+        commissionRate: true,
+      },
+    },
+    items: {
+      where: { rejectedAt: null },
+      select: {
+        id: true,
+        fulfillmentId: true,
+        productId: true,
+        productName: true,
+        variantName: true,
+        quantity: true,
+        selectedUnit: true,
+        unitPrice: true,
+        totalPrice: true,
+        specialRequest: true,
+        selectedOptions: true,
+        product: { select: { imageUrl: true } },
+      },
+    },
+  },
+} as const;
+
+const ORDER_DELIVERY_GROUPS_INCLUDE = {
+  orderBy: { sequence: 'asc' as const },
+  include: {
+    items: { orderBy: { sequence: 'asc' as const } },
+    primaryDriver: { select: ORDER_DRIVER_SELECT },
+    assistDriver: { select: ORDER_DRIVER_SELECT },
+  },
+} as const;
+
 export const ORDER_INCLUDE = {
   customer: {
     include: {
       user: { select: { id: true, name: true, phone: true, avatar: true } },
     },
   },
-  vendor: {
-    select: {
-      id: true,
-      storeName: true,
-      storeNameAr: true,
-      logo: true,
-      commissionRate: true,
-      isContracted: true,
-      rating: true,
-      ratingCount: true,
-    },
-  },
-  vendorBranch: {
-    select: {
-      id: true,
-      name: true,
-      nameAr: true,
-      address: true,
-      phone: true,
-      isContracted: true,
-      commissionRate: true,
-    },
-  },
-  driver: {
-    select: {
-      id: true,
-      name: true,
-      avatar: true,
-      vehicleType: true,
-      vehiclePlate: true,
-      rating: true,
-      ratingCount: true,
-      userId: true,
-      user: { select: { phone: true } },
-      mobileWallets: {
-        where: { isActive: true },
-      },
-    },
-  },
   items: {
-    include: { selectedOptions: true, product: { select: { imageUrl: true } } },
+    include: ORDER_ITEMS_INCLUDE,
   },
-  vendorFulfillments: {
-    orderBy: { createdAt: 'asc' as const },
-    include: {
-      vendor: {
-        select: {
-          id: true,
-          storeName: true,
-          storeNameAr: true,
-          logo: true,
-          isContracted: true,
-          commissionRate: true,
-          phone: true,
-        },
-      },
-      vendorBranch: {
-        select: {
-          id: true,
-          name: true,
-          nameAr: true,
-          address: true,
-          phone: true,
-          isContracted: true,
-          commissionRate: true,
-        },
-      },
-      items: {
-        where: { rejectedAt: null },
-        select: {
-          id: true,
-          fulfillmentId: true,
-          productId: true,
-          productName: true,
-          variantName: true,
-          quantity: true,
-          selectedUnit: true,
-          unitPrice: true,
-          totalPrice: true,
-          specialRequest: true,
-          selectedOptions: true,
-          product: { select: { imageUrl: true } },
-        },
-      },
-    },
-  },
-  deliveryGroups: {
-    orderBy: { sequence: 'asc' as const },
-    include: {
-      items: { orderBy: { sequence: 'asc' as const } },
-      primaryDriver: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true,
-          vehicleType: true,
-          vehiclePlate: true,
-          userId: true,
-          user: { select: { phone: true } },
-        },
-      },
-      assistDriver: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true,
-          vehicleType: true,
-          vehiclePlate: true,
-          userId: true,
-          user: { select: { phone: true } },
-        },
-      },
-    },
-  },
+  vendorFulfillments: ORDER_VENDOR_FULFILLMENTS_INCLUDE,
+  deliveryGroups: ORDER_DELIVERY_GROUPS_INCLUDE,
   statusEvents: {
     orderBy: { createdAt: 'desc' as const },
     take: 10,
   },
-  review: true,
+  assistRequests: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 5,
+  },
+  reviews: true,
 };
 
 /**
@@ -296,60 +287,7 @@ export class OrderQueriesRepository {
     });
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
 
-    const locations = await this.prisma.$queryRaw<
-      Array<{ lng: number; lat: number; pickupLng: number; pickupLat: number }>
-    >`
-      SELECT ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat, ST_X("pickupLocation"::geometry) AS "pickupLng", ST_Y("pickupLocation"::geometry) AS "pickupLat"
-      FROM orders WHERE id = ${orderId}
-    `;
-    if (locations.length > 0) {
-      if (locations[0].lng !== null) {
-        (order as any).deliveryLocation = [locations[0].lng, locations[0].lat];
-      }
-      if (locations[0].pickupLng !== null) {
-        (order as any).pickupLocation = [
-          locations[0].pickupLng,
-          locations[0].pickupLat,
-        ];
-      }
-    }
-
-    if ((order as any).vendorFulfillments?.length > 0) {
-      const branchIds = Array.from(
-        new Set(
-          (order as any).vendorFulfillments
-            .map((f: any) => f.vendorBranchId)
-            .filter((id: any): id is string => Boolean(id)),
-        ),
-      );
-      if (branchIds.length > 0) {
-        const branchLocs = await this.prisma.$queryRaw<
-          Array<{ id: string; lng: number; lat: number }>
-        >`
-          SELECT id, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
-          FROM vendor_branches WHERE id IN (${Prisma.join(branchIds)})
-        `;
-        for (const f of (order as any).vendorFulfillments) {
-          if (f.vendorBranch) {
-            const bloc = branchLocs.find((b) => b.id === f.vendorBranchId);
-            if (bloc && bloc.lng !== null && bloc.lat !== null) {
-              f.vendorBranch.lng = bloc.lng;
-              f.vendorBranch.lat = bloc.lat;
-              f.vendorBranch.location = [bloc.lng, bloc.lat];
-            }
-          }
-        }
-      }
-      if (!(order as any).pickupLocation) {
-        const firstWithLoc = (order as any).vendorFulfillments.find(
-          (f: any) => f.vendorBranch?.location,
-        );
-        if (firstWithLoc) {
-          (order as any).pickupLocation = firstWithLoc.vendorBranch.location;
-        }
-      }
-    }
-
+    await this.hydrateLocations([order]);
     return order;
   }
 
@@ -360,106 +298,85 @@ export class OrderQueriesRepository {
     const where: Prisma.OrderWhereInput = { deletedAt: null };
     if (filters.customerId) where.customerId = filters.customerId;
 
-    // A multi-vendor order has vendorId = NULL and only mirrors the FIRST
-    // delivery's driver onto the order, so an order-level filter alone would
-    // hide it from every other vendor that owns a portion and every other
-    // delivery's driver. Match those through the portions/groups too.
     const and: Prisma.OrderWhereInput[] = [];
     const fulfillmentBranchClause: Prisma.OrderVendorFulfillmentWhereInput =
       filters.branchId
         ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
         : {};
-    const orderBranchClause: Prisma.OrderWhereInput = filters.branchId
-      ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
-      : {};
+
+    const driverIdsFilter =
+      filters.driverIds !== undefined
+        ? filters.driverIds
+        : filters.driverId
+          ? [filters.driverId]
+          : undefined;
+
+    if (driverIdsFilter !== undefined && driverIdsFilter.length === 0) {
+      return {
+        orders: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      };
+    }
+
+    const driverStatusFilter =
+      driverIdsFilter &&
+      filters.status &&
+      Object.values(DeliveryGroupStatus).includes(
+        filters.status as unknown as DeliveryGroupStatus,
+      )
+        ? (filters.status as unknown as DeliveryGroupStatus)
+        : undefined;
 
     if (filters.status) {
       if (filters.vendorId) {
-        // Vendor tabs are portion-scoped (see portionStatusFilter).
         and.push({
-          OR: [
-            {
+          vendorFulfillments: {
+            some: {
               vendorId: filters.vendorId,
-              status: filters.status,
-              ...orderBranchClause,
+              ...fulfillmentBranchClause,
+              ...portionStatusFilter(filters.status),
             },
-            {
-              vendorFulfillments: {
-                some: {
-                  vendorId: filters.vendorId,
-                  ...fulfillmentBranchClause,
-                  ...portionStatusFilter(filters.status),
-                },
-              },
-            },
-          ],
+          },
         });
-      } else {
+      } else if (!driverStatusFilter) {
         where.status = filters.status;
       }
     }
+
     if (filters.vendorId) {
       and.push({
-        OR: [
-          {
+        vendorFulfillments: {
+          some: {
             vendorId: filters.vendorId,
-            ...orderBranchClause,
+            ...fulfillmentBranchClause,
           },
-          {
-            vendorFulfillments: {
-              some: {
-                vendorId: filters.vendorId,
-                ...fulfillmentBranchClause,
-              },
-            },
-          },
-        ],
+        },
+      });
+    } else if (filters.branchId) {
+      and.push({
+        vendorFulfillments: {
+          some: fulfillmentBranchClause,
+        },
       });
     }
-    if (filters.driverIds !== undefined) {
-      if (filters.driverIds.length === 0) {
-        return {
-          orders: [],
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-        };
-      }
+
+    if (driverIdsFilter && driverIdsFilter.length > 0) {
       and.push({
-        OR: [
-          { driverId: { in: filters.driverIds } },
-          { assistDriverId: { in: filters.driverIds } },
-          {
-            deliveryGroups: {
-              some: {
-                OR: [
-                  { primaryDriverId: { in: filters.driverIds } },
-                  { assistDriverId: { in: filters.driverIds } },
-                ],
-              },
-            },
+        deliveryGroups: {
+          some: {
+            ...(driverStatusFilter ? { status: driverStatusFilter } : {}),
+            OR: [
+              { primaryDriverId: { in: driverIdsFilter } },
+              { assistDriverId: { in: driverIdsFilter } },
+            ],
           },
-        ],
-      });
-    } else if (filters.driverId) {
-      and.push({
-        OR: [
-          { driverId: filters.driverId },
-          { assistDriverId: filters.driverId },
-          {
-            deliveryGroups: {
-              some: {
-                OR: [
-                  { primaryDriverId: filters.driverId },
-                  { assistDriverId: filters.driverId },
-                ],
-              },
-            },
-          },
-        ],
+        },
       });
     }
+
     if (and.length > 0) where.AND = and;
 
     const [orders, total] = await Promise.all([
@@ -471,214 +388,92 @@ export class OrderQueriesRepository {
         include: {
           customer: {
             include: {
-              user: { select: { id: true, name: true, phone: true } },
+              user: { select: { id: true, name: true, phone: true, avatar: true } },
             },
           },
-          vendor: {
-            select: {
-              id: true,
-              storeName: true,
-              storeNameAr: true,
-              logo: true,
-              isContracted: true,
-              commissionRate: true,
-              rating: true,
-              ratingCount: true,
-            },
-          },
-          vendorBranch: {
-            select: {
-              id: true,
-              name: true,
-              nameAr: true,
-              address: true,
-              phone: true,
-              isContracted: true,
-              commissionRate: true,
-            },
-          },
-          vendorFulfillments: {
-            orderBy: { createdAt: 'asc' as const },
-            include: {
-              vendor: {
-                select: {
-                  id: true,
-                  storeName: true,
-                  storeNameAr: true,
-                  logo: true,
-                  isContracted: true,
-                  commissionRate: true,
-                  phone: true,
-                },
-              },
-              vendorBranch: {
-                select: {
-                  id: true,
-                  name: true,
-                  nameAr: true,
-                  address: true,
-                  phone: true,
-                  isContracted: true,
-                  commissionRate: true,
-                },
-              },
-              items: {
-                where: { rejectedAt: null },
-                select: {
-                  id: true,
-                  fulfillmentId: true,
-                  productId: true,
-                  productName: true,
-                  variantName: true,
-                  quantity: true,
-                  selectedUnit: true,
-                  unitPrice: true,
-                  totalPrice: true,
-                  specialRequest: true,
-                  selectedOptions: true,
-                  product: { select: { imageUrl: true } },
-                },
-              },
-            },
-          },
-          // The vendor projection needs to know which delivery carries each
-          // portion (driver assigned? payment pending?) to show the right
-          // per-portion status and action.
-          deliveryGroups: {
-            orderBy: { sequence: 'asc' as const },
-            select: {
-              id: true,
-              sequence: true,
-              status: true,
-              deliveryFee: true,
-              isStacked: true,
-              pickupImageUrl: true,
-              deliveryImageUrl: true,
-              pickedUpAt: true,
-              deliveredAt: true,
-              primaryDriverId: true,
-              assistDriverId: true,
-              items: {
-                orderBy: { sequence: 'asc' as const },
-                select: { fulfillmentId: true, sequence: true },
-              },
-              primaryDriver: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                  vehicleType: true,
-                  vehiclePlate: true,
-                  userId: true,
-                  user: { select: { phone: true } },
-                },
-              },
-              assistDriver: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                  vehicleType: true,
-                  vehiclePlate: true,
-                  userId: true,
-                  user: { select: { phone: true } },
-                },
-              },
-            },
-          },
-          driver: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-              vehicleType: true,
-              vehiclePlate: true,
-              rating: true,
-              ratingCount: true,
-              user: { select: { id: true, phone: true } },
-            },
-          },
+          vendorFulfillments: ORDER_VENDOR_FULFILLMENTS_INCLUDE,
+          deliveryGroups: ORDER_DELIVERY_GROUPS_INCLUDE,
           items: {
-            include: {
-              product: { select: { imageUrl: true } },
-              selectedOptions: true,
-            },
+            include: ORDER_ITEMS_INCLUDE,
           },
-          review: true,
+          reviews: true,
         },
       }),
       this.prisma.order.count({ where }),
     ]);
 
     if (orders.length > 0) {
-      const orderIds = orders.map((o) => o.id);
-      const locations = await this.prisma.$queryRaw<
-        Array<{
-          id: string;
-          lng: number;
-          lat: number;
-          pickupLng: number;
-          pickupLat: number;
-        }>
-      >`
-        SELECT id, ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat, ST_X("pickupLocation"::geometry) AS "pickupLng", ST_Y("pickupLocation"::geometry) AS "pickupLat"
-        FROM orders WHERE id IN (${Prisma.join(orderIds)})
-      `;
-      for (const order of orders) {
-        const loc = locations.find((l) => l.id === order.id);
-        if (loc) {
-          if (loc.lng !== null && loc.lat !== null) {
-            (order as any).deliveryLocation = [loc.lng, loc.lat];
-          }
-          if (loc.pickupLng !== null && loc.pickupLat !== null) {
-            (order as any).pickupLocation = [loc.pickupLng, loc.pickupLat];
-          }
-        }
-      }
-
-      // Populate fulfillments branch coordinates and fallback pickup location for multi-vendor orders
-      const allBranchIds = Array.from(
-        new Set(
-          orders.flatMap((o: any) =>
-            ((o.vendorFulfillments ?? []) as any[])
-              .map((f: any) => f.vendorBranchId)
-              .filter((id: any): id is string => Boolean(id)),
-          ),
-        ),
-      );
-      if (allBranchIds.length > 0) {
-        const branchLocs = await this.prisma.$queryRaw<
-          Array<{ id: string; lng: number; lat: number }>
-        >`
-          SELECT id, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
-          FROM vendor_branches WHERE id IN (${Prisma.join(allBranchIds)})
-        `;
-        for (const order of orders) {
-          if ((order as any).vendorFulfillments?.length > 0) {
-            for (const f of (order as any).vendorFulfillments) {
-              if (f.vendorBranch) {
-                const bloc = branchLocs.find((b) => b.id === f.vendorBranchId);
-                if (bloc && bloc.lng !== null && bloc.lat !== null) {
-                  f.vendorBranch.lng = bloc.lng;
-                  f.vendorBranch.lat = bloc.lat;
-                  f.vendorBranch.location = [bloc.lng, bloc.lat];
-                }
-              }
-            }
-            if (!(order as any).pickupLocation) {
-              const firstWithLoc = (order as any).vendorFulfillments.find(
-                (f: any) => f.vendorBranch?.location,
-              );
-              if (firstWithLoc) {
-                (order as any).pickupLocation = firstWithLoc.vendorBranch.location;
-              }
-            }
-          }
-        }
-      }
+      await this.hydrateLocations(orders);
     }
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  private async hydrateLocations(orders: any[]): Promise<void> {
+    if (orders.length === 0) return;
+
+    const orderIds = orders.map((o) => o.id);
+    const locations = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        lng: number;
+        lat: number;
+        pickupLng: number;
+        pickupLat: number;
+      }>
+    >`
+      SELECT id, ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat, ST_X("pickupLocation"::geometry) AS "pickupLng", ST_Y("pickupLocation"::geometry) AS "pickupLat"
+      FROM orders WHERE id IN (${Prisma.join(orderIds)})
+    `;
+    const locById = new Map(locations.map((l) => [l.id, l]));
+    for (const order of orders) {
+      const loc = locById.get(order.id);
+      if (!loc) continue;
+      if (loc.lng !== null && loc.lat !== null) {
+        order.deliveryLocation = [loc.lng, loc.lat];
+      }
+      if (loc.pickupLng !== null && loc.pickupLat !== null) {
+        order.pickupLocation = [loc.pickupLng, loc.pickupLat];
+      }
+    }
+
+    const allBranchIds = Array.from(
+      new Set(
+        orders.flatMap((o) =>
+          ((o.vendorFulfillments ?? []) as any[])
+            .map((f: any) => f.vendorBranchId)
+            .filter((id: any): id is string => Boolean(id)),
+        ),
+      ),
+    );
+    if (allBranchIds.length === 0) return;
+
+    const branchLocs = await this.prisma.$queryRaw<
+      Array<{ id: string; lng: number; lat: number }>
+    >`
+      SELECT id, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
+      FROM vendor_branches WHERE id IN (${Prisma.join(allBranchIds)})
+    `;
+    const branchLocById = new Map(branchLocs.map((b) => [b.id, b]));
+    for (const order of orders) {
+      const fulfillments = (order.vendorFulfillments ?? []) as any[];
+      if (fulfillments.length === 0) continue;
+      for (const f of fulfillments) {
+        if (!f.vendorBranch || !f.vendorBranchId) continue;
+        const bloc = branchLocById.get(f.vendorBranchId);
+        if (bloc && bloc.lng !== null && bloc.lat !== null) {
+          f.vendorBranch.lng = bloc.lng;
+          f.vendorBranch.lat = bloc.lat;
+          f.vendorBranch.location = [bloc.lng, bloc.lat];
+        }
+      }
+      if (!order.pickupLocation) {
+        const firstWithLoc = fulfillments.find((f) => f.vendorBranch?.location);
+        if (firstWithLoc) {
+          order.pickupLocation = firstWithLoc.vendorBranch.location;
+        }
+      }
+    }
   }
 
   async getVendorUserIds(

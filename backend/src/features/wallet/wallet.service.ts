@@ -536,14 +536,22 @@ export class WalletService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: reference },
-      select: { id: true, vendorId: true, driverId: true },
+      select: {
+        id: true,
+        vendorFulfillments: { select: { vendorId: true } },
+        deliveryGroups: {
+          select: { primaryDriverId: true, assistDriverId: true },
+        },
+      },
     });
 
     if (
       order &&
       (ownerType === 'vendor'
-        ? order.vendorId === ownerId
-        : order.driverId === ownerId)
+        ? order.vendorFulfillments.some((f) => f.vendorId === ownerId)
+        : order.deliveryGroups.some(
+            (g) => g.primaryDriverId === ownerId || g.assistDriverId === ownerId,
+          ))
     ) {
       return { orderId: order.id, referenceId: null };
     }

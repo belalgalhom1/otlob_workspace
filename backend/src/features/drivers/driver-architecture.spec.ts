@@ -103,10 +103,13 @@ describe('Drivers & Assist Clean Architecture', () => {
       expect(driverAssistMatchingSrc).not.toContain('SocketService');
     });
 
-    it('cancels the order via OrderAssistCancellationPort when customer declines last active group', async () => {
+    it('cancels the delivery group via OrderAssistCancellationPort when customer declines assist', async () => {
       const ordersState = {
         cancelOrder: jest.fn().mockResolvedValue({ cancelled: true }),
         recomputeGroupedOrderStatusAfterCancel: jest
+          .fn()
+          .mockResolvedValue(undefined),
+        cancelDeliveryGroupAfterAssistFailure: jest
           .fn()
           .mockResolvedValue(undefined),
       };
@@ -162,24 +165,27 @@ describe('Drivers & Assist Clean Architecture', () => {
       );
 
       expect(res).toEqual({ approved: false, assistFee: 30 });
-      expect(ordersState.cancelOrder).toHaveBeenCalledWith(
-        null,
-        'order-1',
-        'Customer declined assisted delivery',
-      );
       expect(
-        ordersState.recomputeGroupedOrderStatusAfterCancel,
-      ).not.toHaveBeenCalled();
+        ordersState.cancelDeliveryGroupAfterAssistFailure,
+      ).toHaveBeenCalledWith(
+        'order-1',
+        'grp-1',
+        'Customer declined assisted delivery',
+        ['drv-primary', 'drv-assist'],
+      );
       expect(eventEmit).toHaveBeenCalledWith(
         EVENTS.DRIVER_ASSIST_CUSTOMER_DECIDED,
         expect.any(DriverAssistCustomerDecidedEvent),
       );
     });
 
-    it('recomputes grouped order status via port when another delivery group stays active', async () => {
+    it('routes customerDecideAssistForOrder to the pending delivery group', async () => {
       const ordersState = {
         cancelOrder: jest.fn().mockResolvedValue(undefined),
         recomputeGroupedOrderStatusAfterCancel: jest
+          .fn()
+          .mockResolvedValue(undefined),
+        cancelDeliveryGroupAfterAssistFailure: jest
           .fn()
           .mockResolvedValue(undefined),
       };
@@ -192,65 +198,18 @@ describe('Drivers & Assist Clean Architecture', () => {
         },
         order: {
           findUnique: jest.fn().mockResolvedValue({
-            id: 'order-1',
+            id: 'order-sv',
             customerId: 'cust-1',
-            orderNumber: 'ORD-1',
+            orderNumber: 'ORD-SV',
             status: 'DRIVER_ASSIGNED',
           }),
         },
         orderDeliveryGroup: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'grp-sv' }),
           findUnique: jest.fn().mockResolvedValue({
-            id: 'grp-1',
-            orderId: 'order-1',
-            assistDriverId: 'drv-assist',
-            assistFee: 25,
-            assistCustomerApproved: null,
-            primaryDriverId: 'drv-primary',
-          }),
-          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          count: jest.fn().mockResolvedValue(1),
-        },
-        driverAssistRequest: {
-          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        },
-        driver: {
-          findUnique: jest.fn().mockResolvedValue({ userId: 'u-1' }),
-        },
-      };
-
-      const service = new DriverAssistService(
-        prisma,
-        { emit: jest.fn() } as any,
-        { getSettings: jest.fn() } as any,
-        { clearOffer: jest.fn() } as any,
-        ordersState,
-      );
-
-      await service.customerDecideAssist(customerActor, 'order-1', 'grp-1', false);
-
-      expect(ordersState.cancelOrder).not.toHaveBeenCalled();
-      expect(
-        ordersState.recomputeGroupedOrderStatusAfterCancel,
-      ).toHaveBeenCalledWith('order-1', ['drv-primary', 'drv-assist']);
-    });
-
-    it('cancels single-vendor order via OrderAssistCancellationPort when customer declines assist', async () => {
-      const ordersState = {
-        cancelOrder: jest.fn().mockResolvedValue(undefined),
-        recomputeGroupedOrderStatusAfterCancel: jest
-          .fn()
-          .mockResolvedValue(undefined),
-      };
-
-      const prisma: any = {
-        customer: {
-          findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }),
-        },
-        order: {
-          findUnique: jest.fn().mockResolvedValue({
-            id: 'order-sv',
-            driverId: 'drv-1',
-            customerId: 'cust-1',
+            id: 'grp-sv',
+            orderId: 'order-sv',
+            primaryDriverId: 'drv-1',
             assistDriverId: 'drv-assist',
             assistFee: 20,
             assistCustomerApproved: null,
@@ -273,17 +232,20 @@ describe('Drivers & Assist Clean Architecture', () => {
         ordersState,
       );
 
-      const res = await service.customerDecideAssistOrder(
+      const res = await service.customerDecideAssistForOrder(
         customerActor,
         'order-sv',
         false,
       );
 
       expect(res).toEqual({ approved: false, assistFee: 20 });
-      expect(ordersState.cancelOrder).toHaveBeenCalledWith(
-        null,
+      expect(
+        ordersState.cancelDeliveryGroupAfterAssistFailure,
+      ).toHaveBeenCalledWith(
         'order-sv',
+        'grp-sv',
         'Customer declined assisted delivery',
+        ['drv-1', 'drv-assist'],
       );
     });
   });
@@ -623,6 +585,7 @@ describe('Drivers & Assist Clean Architecture', () => {
         {
           cancelOrder: jest.fn(),
           recomputeGroupedOrderStatusAfterCancel: jest.fn(),
+          cancelDeliveryGroupAfterAssistFailure: jest.fn(),
         },
       );
       const assignSpy = jest.spyOn(assist, 'assignDriver');
@@ -720,6 +683,7 @@ describe('Drivers & Assist Clean Architecture', () => {
         {
           cancelOrder: jest.fn(),
           recomputeGroupedOrderStatusAfterCancel: jest.fn(),
+          cancelDeliveryGroupAfterAssistFailure: jest.fn(),
         },
       );
 
@@ -786,22 +750,25 @@ describe('Drivers & Assist Clean Architecture', () => {
       );
     });
 
-    it('emits DRIVER_ASSIST_TIMED_OUT when autoDeclineExpiredOrderAssists expires single-vendor assist', async () => {
+    it('emits DRIVER_ASSIST_TIMED_OUT when autoDeclineExpiredAssistDecisions expires group assist', async () => {
       const eventEmit = jest.fn();
       const prisma: any = {
         order: {
-          findMany: jest.fn().mockResolvedValue([
-            {
-              id: 'order-sv-exp',
-              driverId: 'drv-p',
-              assistDriverId: 'drv-a',
-              assistFee: 25,
-            },
-          ]),
           findUnique: jest.fn().mockResolvedValue({
             customerId: 'cust-1',
             orderNumber: 'ORD-SV',
           }),
+        },
+        orderDeliveryGroup: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'grp-sv-exp',
+              orderId: 'order-sv-exp',
+              primaryDriverId: 'drv-p',
+              assistDriverId: 'drv-a',
+              assistFee: 25,
+            },
+          ]),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         customer: {
@@ -823,6 +790,9 @@ describe('Drivers & Assist Clean Architecture', () => {
       const ordersState = {
         cancelOrder: jest.fn().mockResolvedValue(undefined),
         recomputeGroupedOrderStatusAfterCancel: jest.fn(),
+        cancelDeliveryGroupAfterAssistFailure: jest
+          .fn()
+          .mockResolvedValue(undefined),
       };
       const assist = new DriverAssistService(
         prisma,
@@ -836,25 +806,28 @@ describe('Drivers & Assist Clean Architecture', () => {
         ordersState,
       );
 
-      await assist.autoDeclineExpiredOrderAssists();
+      await assist.autoDeclineExpiredAssistDecisions();
 
-      expect(prisma.order.updateMany).toHaveBeenCalledWith({
-        where: { id: 'order-sv-exp', assistCustomerApproved: null },
+      expect(prisma.orderDeliveryGroup.updateMany).toHaveBeenCalledWith({
+        where: { id: 'grp-sv-exp', assistCustomerApproved: null },
         data: expect.objectContaining({
           assistDriverId: null,
           assistCustomerApproved: false,
         }),
       });
-      expect(ordersState.cancelOrder).toHaveBeenCalledWith(
-        null,
+      expect(
+        ordersState.cancelDeliveryGroupAfterAssistFailure,
+      ).toHaveBeenCalledWith(
         'order-sv-exp',
+        'grp-sv-exp',
         'Assist decision timed out',
+        ['drv-p', 'drv-a'],
       );
       expect(eventEmit).toHaveBeenCalledWith(
         EVENTS.DRIVER_ASSIST_TIMED_OUT,
         new DriverAssistTimedOutEvent(
           'order-sv-exp',
-          null,
+          'grp-sv-exp',
           'cust-user-1',
           'u-p',
           'u-a',
@@ -862,11 +835,13 @@ describe('Drivers & Assist Clean Architecture', () => {
       );
 
       // If the customer already decided concurrently, CAS updateMany returns count: 0 -> skip cleanly
-      ordersState.cancelOrder.mockClear();
+      ordersState.cancelDeliveryGroupAfterAssistFailure.mockClear();
       eventEmit.mockClear();
-      prisma.order.updateMany.mockResolvedValueOnce({ count: 0 });
-      await assist.autoDeclineExpiredOrderAssists();
-      expect(ordersState.cancelOrder).not.toHaveBeenCalled();
+      prisma.orderDeliveryGroup.updateMany.mockResolvedValueOnce({ count: 0 });
+      await assist.autoDeclineExpiredAssistDecisions();
+      expect(
+        ordersState.cancelDeliveryGroupAfterAssistFailure,
+      ).not.toHaveBeenCalled();
       expect(eventEmit).not.toHaveBeenCalled();
     });
   });
@@ -972,7 +947,11 @@ describe('Drivers & Assist Clean Architecture', () => {
       expect(socketService.emitToUser).toHaveBeenCalledWith(
         'assist-user-1',
         'order.assigned',
-        { role: 'ASSISTING' },
+        expect.objectContaining({
+          role: 'ASSISTING',
+          orderId: 'order-1',
+          deliveryGroupId: 'grp-1',
+        }),
       );
       expect(eventsQueue.add).toHaveBeenCalledTimes(3);
 

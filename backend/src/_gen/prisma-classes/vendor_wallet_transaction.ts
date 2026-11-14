@@ -11,6 +11,9 @@ export class VendorWalletTransaction {
   @ApiPropertyOptional({ type: String })
   orderId?: string;
 
+  @ApiPropertyOptional({ type: String })
+  fulfillmentId?: string;
+
   @ApiProperty({
     enum: VendorTransactionType,
     enumName: 'VendorTransactionType',

@@ -108,13 +108,15 @@ export class StatisticsAnalyticsRepository {
       const raw = await this.prisma.$queryRaw<
         Array<{ driverId: string; totalOrders: number }>
       >`
-        SELECT "driverId", COUNT(id)::int AS "totalOrders"
-        FROM orders
-        WHERE status = 'DELIVERED'
-          AND "driverId" IS NOT NULL
-          AND "createdAt" >= ${range.gte}
-          AND "createdAt" <= ${range.lte}
-        GROUP BY "driverId"
+        SELECT g."primaryDriverId" AS "driverId", COUNT(DISTINCT g.id)::int AS "totalOrders"
+        FROM order_delivery_groups g
+        JOIN orders o ON o.id = g."orderId"
+        WHERE g.status = 'DELIVERED'
+          AND g."primaryDriverId" IS NOT NULL
+          AND o."deletedAt" IS NULL
+          AND o."createdAt" >= ${range.gte}
+          AND o."createdAt" <= ${range.lte}
+        GROUP BY g."primaryDriverId"
         ORDER BY "totalOrders" DESC
         LIMIT ${limit}
       `;
@@ -191,13 +193,15 @@ export class StatisticsAnalyticsRepository {
             totalRevenue: number;
           }>
         >`
-          SELECT "vendorId", COUNT(id)::int AS "totalOrders", COALESCE(SUM("grandTotal"), 0)::int AS "totalRevenue"
-          FROM orders
-          WHERE status = 'DELIVERED'
-            AND "vendorId" IS NOT NULL
-            AND "createdAt" >= ${range.gte}
-            AND "createdAt" <= ${range.lte}
-          GROUP BY "vendorId"
+          SELECT f."vendorId", COUNT(DISTINCT f."orderId")::int AS "totalOrders", COALESCE(SUM(f.subtotal), 0)::int AS "totalRevenue"
+          FROM order_vendor_fulfillments f
+          JOIN orders o ON o.id = f."orderId"
+          WHERE o.status = 'DELIVERED'
+            AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
+            AND o."deletedAt" IS NULL
+            AND o."createdAt" >= ${range.gte}
+            AND o."createdAt" <= ${range.lte}
+          GROUP BY f."vendorId"
           ORDER BY "totalOrders" DESC
           LIMIT ${limit}
         `
@@ -242,19 +246,23 @@ export class StatisticsAnalyticsRepository {
         SELECT "productId", "vendorId", "totalOrders" FROM (
           SELECT
             oi."productId",
-            o."vendorId" AS "vendorId",
+            f."vendorId" AS "vendorId",
             SUM(oi.quantity)::int AS "totalOrders",
             ROW_NUMBER() OVER (
-              PARTITION BY o."vendorId"
+              PARTITION BY f."vendorId"
               ORDER BY SUM(oi.quantity)::int DESC
             ) AS rn
           FROM order_items oi
-          JOIN orders o ON o.id = oi."orderId"
-          WHERE o."vendorId" IN (${Prisma.join(vendorIds)})
+          JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
+          JOIN orders o ON o.id = f."orderId"
+          WHERE f."vendorId" IN (${Prisma.join(vendorIds)})
+            AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
             AND o.status = 'DELIVERED'
+            AND o."deletedAt" IS NULL
+            AND oi."rejectedAt" IS NULL
             AND oi."productId" IS NOT NULL
             ${rangeSql}
-          GROUP BY oi."productId", o."vendorId"
+          GROUP BY oi."productId", f."vendorId"
         ) ranked
         WHERE rn = 1
       `,
@@ -329,36 +337,20 @@ export class StatisticsAnalyticsRepository {
     const result = await this.prisma.$queryRaw<
       Array<{ productId: string; totalOrders: number; lastOrderedAt: Date }>
     >`
-      WITH vendor_items AS (
-        SELECT oi."productId", oi.quantity, o."createdAt"
-        FROM order_items oi
-        JOIN orders o ON o.id = oi."orderId"
-        WHERE o."vendorId" = ${vendorId}
-          AND o.status = 'DELIVERED'
-          AND o."deletedAt" IS NULL
-          AND oi."fulfillmentId" IS NULL
-          AND oi."rejectedAt" IS NULL
-          AND oi."productId" IS NOT NULL
-
-        UNION ALL
-
-        SELECT oi."productId", oi.quantity, o."createdAt"
-        FROM order_items oi
-        JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
-        JOIN orders o ON o.id = f."orderId"
-        WHERE f."vendorId" = ${vendorId}
-          AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
-          AND o.status = 'DELIVERED'
-          AND o."deletedAt" IS NULL
-          AND oi."rejectedAt" IS NULL
-          AND oi."productId" IS NOT NULL
-      )
       SELECT
-        "productId" AS "productId",
-        SUM("quantity")::int AS "totalOrders",
-        MAX("createdAt") AS "lastOrderedAt"
-      FROM vendor_items
-      GROUP BY "productId"
+        oi."productId" AS "productId",
+        SUM(oi.quantity)::int AS "totalOrders",
+        MAX(o."createdAt") AS "lastOrderedAt"
+      FROM order_items oi
+      JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
+      JOIN orders o ON o.id = f."orderId"
+      WHERE f."vendorId" = ${vendorId}
+        AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
+        AND o.status = 'DELIVERED'
+        AND o."deletedAt" IS NULL
+        AND oi."rejectedAt" IS NULL
+        AND oi."productId" IS NOT NULL
+      GROUP BY oi."productId"
       ORDER BY "totalOrders" DESC, "lastOrderedAt" DESC, "productId" ASC
       LIMIT 1
     `;
@@ -421,10 +413,7 @@ export class StatisticsAnalyticsRepository {
       ${opts.from ? Prisma.sql`AND o."createdAt" >= ${parseDateStart(opts.from)}` : Prisma.empty}
       ${opts.to ? Prisma.sql`AND o."createdAt" <= ${parseDateEnd(opts.to)}` : Prisma.empty}
     `;
-    const singleBranchFilter = opts.branchId
-      ? Prisma.sql`AND o."vendorBranchId" = ${opts.branchId}`
-      : Prisma.empty;
-    const multiBranchFilter = opts.branchId
+    const branchFilter = opts.branchId
       ? Prisma.sql`AND f."vendorBranchId" = ${opts.branchId}`
       : Prisma.empty;
 
@@ -442,11 +431,6 @@ export class StatisticsAnalyticsRepository {
       opts.sortOrder === 'asc' ? 'ASC' : 'DESC',
     );
 
-    // Two union branches keep both vendor lookups indexable:
-    //   1. orders(vendorId, status) for single-vendor / legacy orders
-    //   2. order_vendor_fulfillments(vendorId, status) for multi-vendor orders
-    // Using `COALESCE(f.vendorId, o.vendorId) = $1` here would force a
-    // sequential scan as the platform grows, so avoid it.
     const cte = Prisma.sql`
       WITH vendor_items AS (
         SELECT
@@ -458,47 +442,19 @@ export class StatisticsAnalyticsRepository {
           CASE WHEN oi."productId" IS NULL THEN oi."productName" ELSE NULL END AS "customKey",
           oi.quantity AS "quantity",
           oi."totalPrice" AS "totalPrice",
-          COALESCE(vb."commissionRate", v."commissionRate")::numeric AS "commissionRate",
-          COALESCE(vb."isContracted", v."isContracted") AS "isContracted"
-        FROM order_items oi
-        JOIN orders o ON o.id = oi."orderId"
-        JOIN vendors v ON v.id = o."vendorId"
-        LEFT JOIN vendor_branches vb ON vb.id = o."vendorBranchId"
-        LEFT JOIN products p ON p.id = oi."productId"
-        WHERE o."vendorId" = ${vendorId}
-          AND o.status = 'DELIVERED'
-          AND o."deletedAt" IS NULL
-          AND oi."fulfillmentId" IS NULL
-          AND oi."rejectedAt" IS NULL
-          ${rangeSql}
-          ${singleBranchFilter}
-
-        UNION ALL
-
-        SELECT
-          oi."orderId" AS "orderId",
-          oi."productId" AS "productId",
-          COALESCE(p.name, oi."productName") AS "productName",
-          p."nameAr" AS "productNameAr",
-          p."imageUrl" AS "productImage",
-          CASE WHEN oi."productId" IS NULL THEN oi."productName" ELSE NULL END AS "customKey",
-          oi.quantity AS "quantity",
-          oi."totalPrice" AS "totalPrice",
           f."commissionRate"::numeric AS "commissionRate",
-          COALESCE(vb."isContracted", v."isContracted") AS "isContracted"
+          f."isContracted" AS "isContracted"
         FROM order_items oi
         JOIN order_vendor_fulfillments f ON f.id = oi."fulfillmentId"
         JOIN orders o ON o.id = f."orderId"
-        JOIN vendors v ON v.id = f."vendorId"
-        LEFT JOIN vendor_branches vb ON vb.id = f."vendorBranchId"
         LEFT JOIN products p ON p.id = oi."productId"
         WHERE f."vendorId" = ${vendorId}
-          AND f.status = 'ACCEPTED'
+          AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
           AND o.status = 'DELIVERED'
           AND o."deletedAt" IS NULL
           AND oi."rejectedAt" IS NULL
           ${rangeSql}
-          ${multiBranchFilter}
+          ${branchFilter}
       )
     `;
 
@@ -1016,13 +972,14 @@ export class StatisticsAnalyticsRepository {
       Array<{ key: string; activeCustomers: bigint; activeDrivers: bigint }>
     >`
       SELECT
-        to_char(date_trunc(${trunc}::text, "createdAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS key,
-        COUNT(DISTINCT "customerId")::bigint AS "activeCustomers",
-        COUNT(DISTINCT "driverId")::bigint AS "activeDrivers"
-      FROM orders
-      WHERE "createdAt" >= ${from} AND "createdAt" < ${to}
-        AND "deletedAt" IS NULL
-        AND "customerId" IS NOT NULL
+        to_char(date_trunc(${trunc}::text, o."createdAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS key,
+        COUNT(DISTINCT o."customerId")::bigint AS "activeCustomers",
+        COUNT(DISTINCT g."primaryDriverId")::bigint AS "activeDrivers"
+      FROM orders o
+      LEFT JOIN order_delivery_groups g ON g."orderId" = o.id
+      WHERE o."createdAt" >= ${from} AND o."createdAt" < ${to}
+        AND o."deletedAt" IS NULL
+        AND o."customerId" IS NOT NULL
       GROUP BY 1
       ORDER BY 1 ASC
     `;

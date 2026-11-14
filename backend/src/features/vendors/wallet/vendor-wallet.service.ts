@@ -47,20 +47,35 @@ export class VendorWalletService {
 
     const where = this.buildWhere(vendorId, dto);
 
-    const [transactions, total] = await Promise.all([
+    const [rawTransactions, total] = await Promise.all([
       this.prisma.vendorWalletTransaction.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
         include: {
+          fulfillment: {
+            select: {
+              id: true,
+              vendorBranchId: true,
+              vendorBranch: {
+                select: { id: true, name: true, nameAr: true },
+              },
+            },
+          },
           order: {
             select: {
               id: true,
               orderNumber: true,
-              vendorBranchId: true,
-              vendorBranch: {
-                select: { id: true, name: true, nameAr: true },
+              vendorFulfillments: {
+                where: { vendorId },
+                select: {
+                  id: true,
+                  vendorBranchId: true,
+                  vendorBranch: {
+                    select: { id: true, name: true, nameAr: true },
+                  },
+                },
               },
             },
           },
@@ -68,6 +83,29 @@ export class VendorWalletService {
       }),
       this.prisma.vendorWalletTransaction.count({ where }),
     ]);
+
+    const transactions = rawTransactions.map(({ fulfillment, order, ...tx }) => {
+      const resolvedBranch =
+        fulfillment?.vendorBranch ??
+        order?.vendorFulfillments?.[0]?.vendorBranch ??
+        null;
+      const resolvedBranchId =
+        fulfillment?.vendorBranchId ??
+        order?.vendorFulfillments?.[0]?.vendorBranchId ??
+        null;
+      return {
+        ...tx,
+        fulfillmentId: tx.fulfillmentId,
+        order: order
+          ? {
+              id: order.id,
+              orderNumber: order.orderNumber,
+              vendorBranchId: resolvedBranchId,
+              vendorBranch: resolvedBranch,
+            }
+          : null,
+      };
+    });
 
     return {
       walletBalance: vendor.walletBalance,
@@ -148,12 +186,15 @@ export class VendorWalletService {
     if (dto.type) where.type = dto.type;
 
     if (dto.branchId) {
-      where.order = {
-        OR: [
-          { vendorBranchId: dto.branchId },
-          { vendorFulfillments: { some: { vendorBranchId: dto.branchId } } },
-        ],
-      };
+      where.OR = [
+        { fulfillment: { vendorBranchId: dto.branchId } },
+        {
+          fulfillmentId: null,
+          order: {
+            vendorFulfillments: { some: { vendorId, vendorBranchId: dto.branchId } },
+          },
+        },
+      ];
     }
 
     if (dto.from || dto.to) {

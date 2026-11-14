@@ -93,6 +93,7 @@ export class OrderCreatedEvent {
     // Monotonic order revision at the moment the order row was created. This
     // seeds a client's last-seen revision; later status events carry >= this.
     public readonly revision: number = 0,
+    public readonly vendorIds?: string[],
   ) {}
 }
 
@@ -130,6 +131,7 @@ export class OrderPaymentStatusChangedEvent {
     public readonly driverUserId: string | null,
     public readonly vendorUserIds: string[],
     public readonly message: string,
+    public readonly driverUserIds: string[] = [],
   ) {}
 }
 
@@ -398,6 +400,7 @@ export class OrderFulfillmentDecidedEvent {
     public readonly vendorUserIds: string[],
     public readonly status: OrderVendorFulfillmentStatus,
     public readonly actorUserId: string,
+    public readonly driverUserIds: string[] = [],
   ) {}
 }
 

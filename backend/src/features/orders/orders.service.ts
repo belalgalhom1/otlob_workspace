@@ -81,22 +81,28 @@ export class OrdersService {
   ) {
     let targetVendorId = vendorId?.trim();
     const canManage = await this.auth.canManageOrders(actor.sub, actor.role);
-    let isMember =
-      targetVendorId && targetVendorId !== 'my'
-        ? await this.prisma.vendorMember.findUnique({
-            where: { vendorId_userId: { vendorId: targetVendorId, userId: actor.sub } },
-            select: { id: true, vendorId: true, branchId: true, role: true },
-          })
-        : null;
+    let isMember: {
+      id: string;
+      vendorId: string;
+      branchId: string | null;
+      role: string;
+    } | null = null;
 
-    if (!isMember) {
+    if (!targetVendorId || targetVendorId === 'my') {
       isMember = await this.prisma.vendorMember.findFirst({
         where: { userId: actor.sub },
         select: { id: true, vendorId: true, branchId: true, role: true },
       });
-      if (isMember && (!targetVendorId || targetVendorId === 'my' || !canManage)) {
+      if (isMember) {
         targetVendorId = isMember.vendorId;
       }
+    } else {
+      isMember = await this.prisma.vendorMember.findUnique({
+        where: {
+          vendorId_userId: { vendorId: targetVendorId, userId: actor.sub },
+        },
+        select: { id: true, vendorId: true, branchId: true, role: true },
+      });
     }
 
     if (!isMember && !canManage) {
@@ -168,7 +174,7 @@ export class OrdersService {
       return this.enrichWithAdminHelpers(order);
     }
 
-    const [customer, driver, vendorMember] = await Promise.all([
+    const [customer, driver] = await Promise.all([
       this.prisma.customer.findUnique({
         where: { userId: actor.sub },
         select: { id: true },
@@ -177,20 +183,8 @@ export class OrdersService {
         where: { userId: actor.sub },
         select: { id: true, tier: true },
       }),
-      order.vendorId
-        ? this.prisma.vendorMember.findUnique({
-            where: {
-              vendorId_userId: { vendorId: order.vendorId, userId: actor.sub },
-            },
-            select: { id: true, vendorId: true, branchId: true, role: true },
-          })
-        : Promise.resolve(null),
     ]);
 
-    // A multi-vendor order has vendorId = NULL and only mirrors the FIRST
-    // delivery's driver, so resolve access through the portions/groups as well:
-    // otherwise every other delivery's driver and every portion vendor is
-    // locked out of an order they are actively working.
     const deliveryGroups = ((order as any).deliveryGroups ?? []) as Array<{
       primaryDriverId: string | null;
       assistDriverId: string | null;
@@ -198,36 +192,22 @@ export class OrdersService {
 
     const driverOwnsDelivery =
       !!driver &&
-      (order.driverId === driver.id ||
-        deliveryGroups.some(
-          (g) =>
-            g.primaryDriverId === driver.id || g.assistDriverId === driver.id,
-        ));
+      deliveryGroups.some(
+        (g) =>
+          g.primaryDriverId === driver.id || g.assistDriverId === driver.id,
+      );
 
     const isCustomerOwner = !!customer && order.customerId === customer.id;
 
     let isPortionVendorStaff = false;
-    let matchingVendorId = order.vendorId ?? undefined;
+    let matchingVendorId: string | undefined;
     let memberBranchId: string | null = null;
 
-    if (vendorMember) {
-      const effectiveBranch =
-        vendorMember.role === 'OWNER' ? null : (vendorMember.branchId ?? null);
-      if (
-        !effectiveBranch ||
-        !(order as any).vendorBranchId ||
-        (order as any).vendorBranchId === effectiveBranch
-      ) {
-        isPortionVendorStaff = true;
-        memberBranchId = effectiveBranch;
-      }
-    }
-
-    if (!isCustomerOwner && !driverOwnsDelivery && !isPortionVendorStaff) {
-      const fulfillments = (((order as any).vendorFulfillments ?? []) as Array<{
+    if (!isCustomerOwner && !driverOwnsDelivery) {
+      const fulfillments = ((order as any).vendorFulfillments ?? []) as Array<{
         vendorId: string;
         vendorBranchId?: string | null;
-      }>);
+      }>;
       const portionVendorIds = Array.from(
         new Set(fulfillments.map((f) => f.vendorId)),
       );
@@ -241,13 +221,16 @@ export class OrdersService {
           return fulfillments.some(
             (f) =>
               f.vendorId === m.vendorId &&
-              (!effBranch || !f.vendorBranchId || f.vendorBranchId === effBranch),
+              (!effBranch ||
+                !f.vendorBranchId ||
+                f.vendorBranchId === effBranch),
           );
         });
         if (found) {
           isPortionVendorStaff = true;
           matchingVendorId = found.vendorId;
-          memberBranchId = found.role === 'OWNER' ? null : (found.branchId ?? null);
+          memberBranchId =
+            found.role === 'OWNER' ? null : (found.branchId ?? null);
         }
       }
     }
@@ -324,8 +307,6 @@ export class OrdersService {
   isOrderAssignedToDrivers(order: any, driverIds: string[]): boolean {
     if (!order || driverIds.length === 0) return false;
     const driverSet = new Set(driverIds);
-    if (order.driverId && driverSet.has(order.driverId)) return true;
-    if (order.assistDriverId && driverSet.has(order.assistDriverId)) return true;
     const deliveryGroups = (order.deliveryGroups ?? []) as Array<{
       primaryDriverId: string | null;
       assistDriverId: string | null;

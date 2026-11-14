@@ -296,6 +296,7 @@ describe('OrderSettlementService', () => {
 
     await h.service.settleOrder(
       makePayload({
+        branchName: 'Main Branch',
         driverTier: 'BRONZE',
         distanceKm: 5,
         deliveryFee: 50,

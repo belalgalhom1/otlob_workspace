@@ -342,7 +342,7 @@ export class CustomersService {
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
 
     // Last 5 orders for quick overview panel
-    const recentOrders = await this.prisma.order.findMany({
+    const rawRecentOrders = await this.prisma.order.findMany({
       where: { customerId },
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -353,9 +353,25 @@ export class CustomersService {
         grandTotal: true,
         paymentMethod: true,
         createdAt: true,
-        vendor: { select: { id: true, storeName: true } },
+        vendorFulfillments: {
+          select: { vendor: { select: { id: true, storeName: true } } },
+        },
       },
     });
+    const recentOrders = rawRecentOrders.map(({ vendorFulfillments, ...o }) => ({
+      ...o,
+      vendor:
+        vendorFulfillments.length === 1
+          ? vendorFulfillments[0].vendor
+          : vendorFulfillments.length > 1
+            ? {
+                id: 'multi-vendor',
+                storeName: vendorFulfillments
+                  .map((f) => f.vendor.storeName)
+                  .join(' + '),
+              }
+            : null,
+    }));
 
     return { ...customer, recentOrders };
   }
@@ -442,7 +458,7 @@ export class CustomersService {
     const { page = 1, limit = 20 } = dto;
     const skip = (page - 1) * limit;
 
-    const [orders, total] = await Promise.all([
+    const [rawOrders, total] = await Promise.all([
       this.prisma.order.findMany({
         where: { customerId },
         orderBy: { createdAt: 'desc' },
@@ -459,12 +475,34 @@ export class CustomersService {
           grandTotal: true,
           createdAt: true,
           actualDeliveryTime: true,
-          vendor: { select: { id: true, storeName: true, logo: true } },
-          driver: { select: { id: true, name: true } },
+          vendorFulfillments: {
+            select: { vendor: { select: { id: true, storeName: true, logo: true } } },
+          },
+          deliveryGroups: {
+            orderBy: { sequence: 'asc' },
+            select: { primaryDriver: { select: { id: true, name: true } } },
+          },
         },
       }),
       this.prisma.order.count({ where: { customerId } }),
     ]);
+
+    const orders = rawOrders.map(({ vendorFulfillments, deliveryGroups, ...o }) => ({
+      ...o,
+      vendor:
+        vendorFulfillments.length === 1
+          ? vendorFulfillments[0].vendor
+          : vendorFulfillments.length > 1
+            ? {
+                id: 'multi-vendor',
+                storeName: vendorFulfillments
+                  .map((f) => f.vendor.storeName)
+                  .join(' + '),
+                logo: null,
+              }
+            : null,
+      driver: deliveryGroups.find((g) => g.primaryDriver)?.primaryDriver ?? null,
+    }));
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
   }

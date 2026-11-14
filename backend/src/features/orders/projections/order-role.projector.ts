@@ -86,35 +86,100 @@ export class OrderRoleProjector {
     let cashToCollect =
       isPrepaid || orderPaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
 
-    let isStorePrepaid =
-      order.vendorBranch?.isContracted ??
-      order.vendor?.isContracted ??
-      false;
-    const subtotal = Number(order.subtotal ?? 0);
-    const singleStoreCommRate = Number(
-      order.vendorBranch?.commissionRate ??
-        order.vendor?.commissionRate ??
-        10,
+    const allFulfillments = Array.isArray(order.vendorFulfillments)
+      ? order.vendorFulfillments
+      : [];
+    const activeFulfillments = allFulfillments.filter(
+      (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
     );
-    const singleStoreComm = isStorePrepaid
-      ? Math.round(subtotal * (singleStoreCommRate / 100))
-      : 0;
-    let cashToPayStore = isStorePrepaid
-      ? Math.max(0, subtotal - singleStoreComm)
-      : subtotal;
+    const computedBaselineFulfillments = activeFulfillments.map((f: any) => {
+      const contracted =
+        f.isContracted ??
+        f.vendorBranch?.isContracted ??
+        f.vendor?.isContracted ??
+        false;
+      const commRate = Number(
+        f.commissionRate ??
+          f.vendorBranch?.commissionRate ??
+          f.vendor?.commissionRate ??
+          10,
+      );
+      const sub = Number(f.subtotal ?? 0);
+      const comm = contracted ? Math.round(sub * (commRate / 100)) : 0;
+      const toPay = contracted ? Math.max(0, sub - comm) : sub;
+      return {
+        ...f,
+        isContracted: contracted,
+        commissionRate: commRate,
+        commissionAmount: comm,
+        cashToPay: toPay,
+      };
+    });
+
+    const subtotal = Number(order.subtotal ?? 0);
+    let isStorePrepaid =
+      computedBaselineFulfillments.length > 0
+        ? computedBaselineFulfillments.every((f: any) => f.isContracted)
+        : false;
+    let cashToPayStore =
+      computedBaselineFulfillments.length > 0
+        ? computedBaselineFulfillments.reduce(
+            (sum: number, f: any) => sum + Number(f.cashToPay ?? 0),
+            0,
+          )
+        : 0;
 
     const settings = ctx?.settings ?? (await this.platformSettings.getSettings());
 
+    const activeDeliveryGroups = (
+      Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
+    )
+      .filter((g: any) => g.status !== 'CANCELLED')
+      .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+    const collectorGroup =
+      activeDeliveryGroups.find((g: any) => g.isPaymentCollector === true) ??
+      activeDeliveryGroups[0] ??
+      null;
+
     let deliveryFee = Number(order.deliveryFee ?? 0);
-    let projectedIsStacked = Boolean(order.isStacked);
+    let projectedIsStacked = activeDeliveryGroups.some((g: any) =>
+      Boolean(g.isStacked),
+    );
     let customDriverEarnings: number | null = null;
-    let groupVendor = order.vendor;
-    let groupVendorBranch = order.vendorBranch;
-    let groupPickupLocation = order.pickupLocation;
-    let groupPickupAddress = order.pickupAddress;
+    const singleBaselineFulfillment =
+      computedBaselineFulfillments.length === 1
+        ? computedBaselineFulfillments[0]
+        : null;
+    let groupVendor = singleBaselineFulfillment?.vendor ?? null;
+    let groupVendorBranch = singleBaselineFulfillment?.vendorBranch ?? null;
+    let groupPickupLocation =
+      order.pickupLocation ??
+      singleBaselineFulfillment?.vendorBranch?.location ??
+      null;
+    let groupPickupAddress =
+      order.pickupAddress ??
+      singleBaselineFulfillment?.vendorBranch?.address ??
+      null;
     let projectedStatus = order.status;
+    let projectedDriverId: string | null =
+      collectorGroup?.primaryDriverId ??
+      activeDeliveryGroups.find((g: any) => g.primaryDriverId)?.primaryDriverId ??
+      null;
+    let projectedPickedUpAt: Date | string | null =
+      collectorGroup?.pickedUpAt ??
+      singleBaselineFulfillment?.pickedUpAt ??
+      null;
+    let projectedPickupImageUrl: string | null =
+      collectorGroup?.pickupImageUrl ??
+      singleBaselineFulfillment?.pickupImageUrl ??
+      null;
+    let projectedDeliveryImageUrl: string | null =
+      collectorGroup?.deliveryImageUrl ?? null;
     let scopedItems = order.items;
-    let scopedFulfillments = order.vendorFulfillments;
+    let scopedFulfillments =
+      computedBaselineFulfillments.length > 0
+        ? computedBaselineFulfillments
+        : order.vendorFulfillments;
 
     const myDriver =
       ctx?.driverId !== undefined
@@ -128,15 +193,20 @@ export class OrderRoleProjector {
 
     if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
       if (myDriver) {
-        // Collect all groups assigned to this driver (or if the driver is assigned at order level, all groups)
         const myGroups = order.deliveryGroups.filter(
           (g: any) =>
             g.primaryDriverId === myDriver.id ||
-            g.assistDriverId === myDriver.id ||
-            (order.driverId === myDriver.id && !g.primaryDriverId),
+            g.assistDriverId === myDriver.id,
         );
 
         if (myGroups.length > 0) {
+          projectedDriverId = myGroups[0]?.primaryDriverId ?? myDriver.id;
+          projectedPickedUpAt = myGroups[0]?.pickedUpAt ?? projectedPickedUpAt;
+          projectedPickupImageUrl =
+            myGroups[0]?.pickupImageUrl ?? projectedPickupImageUrl;
+          projectedDeliveryImageUrl =
+            myGroups[0]?.deliveryImageUrl ?? projectedDeliveryImageUrl;
+
           const anyPendingPayment = myGroups.some(
             (g: any) => g.status === 'PENDING_PAYMENT',
           );
@@ -180,9 +250,7 @@ export class OrderRoleProjector {
             0,
           );
           projectedIsStacked = myGroups.some((g: any) => Boolean(g.isStacked));
-          const isMultiVendor = Boolean(
-            order.deliveryGroups && order.deliveryGroups.length > 1,
-          );
+          const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
           customDriverEarnings = myGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
             const isGroupStacked = Boolean(g.isStacked);
@@ -223,7 +291,10 @@ export class OrderRoleProjector {
 
             for (const f of myFulfillments) {
               f.isContracted =
-                f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+                f.isContracted ??
+                f.vendorBranch?.isContracted ??
+                f.vendor?.isContracted ??
+                false;
               const commRate = Number(
                 f.commissionRate ??
                   f.vendorBranch?.commissionRate ??
@@ -295,71 +366,74 @@ export class OrderRoleProjector {
               }
             }
 
-            // Total cash to collect at door: sum of all assigned stores' goods + delivery fee + first-group extras - upfront
-            const activeGroupsForSeq = order.deliveryGroups.filter(
-              (g: any) => g.status !== 'CANCELLED',
+            const isCollectorGroup = Boolean(
+              collectorGroup &&
+                myGroups.some((g: any) => g.id === collectorGroup.id),
             );
-            const firstSequence = Math.min(
-              ...(activeGroupsForSeq.length > 0
-                ? activeGroupsForSeq
-                : order.deliveryGroups
-              ).map((g: any) => Number(g.sequence ?? 0)),
-            );
-            const isFirstGroup = myGroups.some(
-              (g: any) => Number(g.sequence ?? 0) === firstSequence,
-            );
-            const orderLevelExtras = isFirstGroup
-              ? Number(order.serviceFee ?? 0) +
-                Number(order.tax ?? 0) +
-                Number(order.driverBonusFee ?? 0) -
-                Number(order.discount ?? 0) -
-                upfrontAmount
-              : 0;
-            cashToCollect =
-              isPrepaid || orderPaid
-                ? 0
-                : Math.max(0, groupSubtotal + deliveryFee + orderLevelExtras);
+            if (isPrepaid || orderPaid) {
+              cashToCollect = 0;
+            } else if (order.paymentMethod === 'MOBILE_WALLET') {
+              cashToCollect = isCollectorGroup
+                ? Math.max(0, grandTotal - upfrontAmount)
+                : 0;
+            } else {
+              const allActiveGoodsTotal = activeFulfillments.reduce(
+                (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
+                0,
+              );
+              const allActiveFeesTotal = activeDeliveryGroups.reduce(
+                (sum: number, g: any) =>
+                  sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
+                0,
+              );
+              const rawExtras =
+                grandTotal > 0
+                  ? grandTotal - allActiveGoodsTotal - allActiveFeesTotal
+                  : Number(order.serviceFee ?? 0) +
+                    Number(order.tax ?? 0) +
+                    Number(order.driverBonusFee ?? 0) -
+                    Number(order.discount ?? 0);
+              const orderLevelExtras = isCollectorGroup
+                ? rawExtras - upfrontAmount
+                : 0;
+              cashToCollect = Math.max(
+                0,
+                groupSubtotal + deliveryFee + orderLevelExtras,
+              );
+            }
 
             const firstFulfillment = myFulfillments[0];
             if (firstFulfillment) {
-              if (!groupVendor && firstFulfillment.vendor) {
-                groupVendor = firstFulfillment.vendor;
-              }
-              if (!groupVendorBranch && firstFulfillment.vendorBranch) {
-                groupVendorBranch = firstFulfillment.vendorBranch;
-              }
-              if (
-                !groupPickupLocation &&
-                firstFulfillment.vendorBranch?.location
-              ) {
+              groupVendor = firstFulfillment.vendor ?? groupVendor;
+              groupVendorBranch =
+                firstFulfillment.vendorBranch ?? groupVendorBranch;
+              if (firstFulfillment.vendorBranch?.location) {
                 groupPickupLocation = firstFulfillment.vendorBranch.location;
               }
-              if (
-                !groupPickupAddress &&
-                firstFulfillment.vendorBranch?.address
-              ) {
+              if (firstFulfillment.vendorBranch?.address) {
                 groupPickupAddress = firstFulfillment.vendorBranch.address;
               }
+              projectedPickedUpAt ??= firstFulfillment.pickedUpAt ?? null;
+              projectedPickupImageUrl ??=
+                firstFulfillment.pickupImageUrl ?? null;
             }
           }
         }
       }
     }
 
-    const activeDeliveryGroups = (
-      Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
-    )
-      .filter((g: any) => g.status !== 'CANCELLED' && g.primaryDriverId)
-      .sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const activeAssignedGroups = activeDeliveryGroups.filter(
+      (g: any) => g.primaryDriverId,
+    );
     const primaryCollectorId =
-      order.driverId ?? activeDeliveryGroups[0]?.primaryDriverId;
+      collectorGroup?.primaryDriverId ??
+      activeAssignedGroups[0]?.primaryDriverId ??
+      null;
     const isPrimaryCollector = Boolean(
       myDriver?.id && primaryCollectorId === myDriver.id,
     );
 
-    const isMultiVendor = Boolean(
-      order.deliveryGroups && order.deliveryGroups.length > 1,
-    );
+    const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
     const driverEarnings =
       customDriverEarnings ??
       this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
@@ -370,6 +444,10 @@ export class OrderRoleProjector {
 
     return {
       ...order,
+      driverId: projectedDriverId,
+      pickedUpAt: projectedPickedUpAt,
+      pickupImageUrl: projectedPickupImageUrl,
+      deliveryImageUrl: projectedDeliveryImageUrl,
       driverEarnings,
       deliveryFee,
       isPrimaryCollector,
@@ -405,32 +483,7 @@ export class OrderRoleProjector {
                 ]),
                 pickupImageUrl: f.pickupImageUrl ?? null,
               }))
-            : [
-                {
-                  vendorId: order.vendorId,
-                  vendorName:
-                    order.vendor?.storeNameAr ??
-                    order.vendor?.storeName ??
-                    order.vendor?.name ??
-                    'Store',
-                  branchName:
-                    order.vendorBranch?.nameAr ?? order.vendorBranch?.name ?? '',
-                  address:
-                    order.vendorBranch?.address ?? order.vendor?.address ?? '',
-                  phone:
-                    order.vendorBranch?.phone ??
-                    order.vendor?.phone ??
-                    order.vendor?.user?.phone ??
-                    '',
-                  subtotal,
-                  isContracted: isStorePrepaid,
-                  commissionRate: singleStoreCommRate,
-                  commissionAmount: singleStoreComm,
-                  cashToPay: cashToPayStore,
-                  pickedUpAt: order.pickedUpAt ?? null,
-                  pickupImageUrl: order.pickupImageUrl ?? null,
-                },
-              ],
+            : [],
       },
     };
   }
@@ -443,21 +496,19 @@ export class OrderRoleProjector {
   ): Promise<any> {
     let vendorId = vendorIdScope ?? ctx?.vendorId;
     let memberBranchId: string | null = ctx?.memberBranchId ?? null;
+    const fulfillments = Array.isArray(order.vendorFulfillments)
+      ? order.vendorFulfillments
+      : [];
     if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
-      const fulfillments = Array.isArray(order.vendorFulfillments)
-        ? order.vendorFulfillments
-        : [];
-      const portionVendorIds = vendorId
+      const portionVendorIds: string[] = vendorId
         ? [vendorId]
-        : order.vendorId
-          ? [order.vendorId]
-          : Array.from(
-              new Set(
-                fulfillments
-                  .map((f: any) => f.vendorId)
-                  .filter((id: any): id is string => Boolean(id)),
-              ),
-            );
+        : Array.from(
+            new Set<string>(
+              fulfillments
+                .map((f: any) => f.vendorId)
+                .filter((id: any): id is string => Boolean(id)),
+            ),
+          );
       const memberships =
         portionVendorIds.length > 0
           ? await this.prisma.vendorMember.findMany({
@@ -487,46 +538,28 @@ export class OrderRoleProjector {
         memberships[0] ??
         null;
       if (!vendorId) {
-        vendorId = order.vendorId ?? membership?.vendorId;
+        vendorId = membership?.vendorId;
       }
       memberBranchId =
         membership?.role === 'OWNER' ? null : (membership?.branchId ?? null);
-    } else if (!vendorId && order.vendorId) {
-      vendorId = order.vendorId;
     }
 
     let items = order.items ?? [];
     let vendorSubtotal = Number(order.subtotal ?? 0);
-    let commissionRate = Number(
-      order.vendorBranch?.commissionRate ??
-        order.vendor?.commissionRate ??
-        10,
-    );
-    let isContracted =
-      order.vendorBranch?.isContracted ?? order.vendor?.isContracted ?? false;
+    let commissionRate = 10;
+    let isContracted = false;
 
-    // Multi-vendor orders are split into portions, and each portion has its own
-    // production state. `status` is therefore re-projected to the caller's own
-    // portion so the vendor app's tabs, counters and action buttons describe
-    // THIS vendor's work instead of the aggregate order (which may already be
-    // preparing/delivering because of another vendor).
     let portionStatus: string | null = null;
     let myFulfillmentId: string | null = null;
 
-    if (
-      order.vendorFulfillments &&
-      Array.isArray(order.vendorFulfillments) &&
-      vendorId
-    ) {
-      const vendorFulfillments = order.vendorFulfillments.filter(
+    if (fulfillments.length > 0 && vendorId) {
+      const vendorFulfillments = fulfillments.filter(
         (f: any) =>
           f.vendorId === vendorId &&
           (!memberBranchId ||
             !f.vendorBranchId ||
             f.vendorBranchId === memberBranchId),
       );
-      // If a global owner has multiple branch fulfillments on the same order,
-      // prefer the least-progressed active fulfillment for status/action projection.
       const statusRank: Record<string, number> = {
         PENDING: 1,
         ACCEPTED: 2,
@@ -551,9 +584,6 @@ export class OrderRoleProjector {
         const isDeadPortion =
           rawPortionStatus === 'REJECTED' || rawPortionStatus === 'CANCELLED';
 
-        // The delivery that carries this portion is the authority on dispatch
-        // progress (driver assigned / payment pending / driver collected), so
-        // its state feeds the portion status too.
         const groupForPortion = (order.deliveryGroups ?? []).find((g: any) =>
           (g.items ?? []).some(
             (it: any) => it.fulfillmentId === myFulfillment.id,
@@ -577,22 +607,22 @@ export class OrderRoleProjector {
           aggregateStatus === 'PICKED_UP' ||
           groupStatus === 'PICKED_UP'
         ) {
-          // The goods are with a driver; only this vendor's delivery matters.
           portionStatus = 'PICKED_UP';
         } else if (
           myFulfillment.readyAt ||
+          myFulfillment.status === 'READY_FOR_PICKUP' ||
           groupStatus === 'READY_FOR_PICKUP'
         ) {
           portionStatus = 'READY_FOR_PICKUP';
-        } else if (myFulfillment.preparingAt) {
+        } else if (
+          myFulfillment.preparingAt ||
+          myFulfillment.status === 'PREPARING'
+        ) {
           portionStatus = 'PREPARING';
         } else if (
           groupStatus === 'DRIVER_ASSIGNED' ||
           groupStatus === 'PENDING_PAYMENT'
         ) {
-          // A driver is committed to this delivery, so the vendor can start
-          // preparing even though the aggregate is still LOOKING_FOR_DRIVER
-          // while another delivery waits for its own driver.
           portionStatus = groupStatus;
         } else {
           portionStatus = rawPortionStatus;
@@ -602,10 +632,17 @@ export class OrderRoleProjector {
           (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
           0,
         );
-        commissionRate = Number(myFulfillment.commissionRate ?? commissionRate);
-        if (myFulfillment.vendorBranch?.isContracted != null) {
-          isContracted = myFulfillment.vendorBranch.isContracted;
-        }
+        commissionRate = Number(
+          myFulfillment.commissionRate ??
+            myFulfillment.vendorBranch?.commissionRate ??
+            myFulfillment.vendor?.commissionRate ??
+            10,
+        );
+        isContracted =
+          myFulfillment.isContracted ??
+          myFulfillment.vendorBranch?.isContracted ??
+          myFulfillment.vendor?.isContracted ??
+          false;
         const myFulfillmentIds = new Set(
           vendorFulfillments.map((f: any) => f.id),
         );
@@ -631,10 +668,7 @@ export class OrderRoleProjector {
       ? Math.max(0, vendorSubtotal - commissionAmount)
       : vendorSubtotal;
 
-    // Strict Vendor & Branch Isolation: Only expose the vendor's own fulfillment
-    // (and if branch-scoped, only that branch's fulfillment).
-    // Strip other stores and delivery groups to prevent any cross-vendor/branch data leakage.
-    const myFulfillmentOnly = (order.vendorFulfillments ?? []).filter(
+    const myFulfillmentOnly = fulfillments.filter(
       (f: any) =>
         f.vendorId === vendorId &&
         (!memberBranchId ||
@@ -643,15 +677,12 @@ export class OrderRoleProjector {
     );
     const primaryFulfillment =
       myFulfillmentOnly[0] ??
-      order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId);
+      fulfillments.find((f: any) => f.vendorId === vendorId);
 
     return {
       ...order,
-      vendorId: vendorId ?? order.vendorId,
-      vendorBranchId:
-        primaryFulfillment?.vendorBranchId ?? order.vendorBranchId,
-      // The caller's own portion drives the vendor-facing status; the raw
-      // aggregate stays available as `orderStatus`.
+      vendorId: vendorId ?? primaryFulfillment?.vendorId ?? null,
+      vendorBranchId: primaryFulfillment?.vendorBranchId ?? null,
       status: portionStatus ?? order.status,
       orderStatus: order.status,
       myFulfillmentId,
@@ -667,8 +698,8 @@ export class OrderRoleProjector {
       total: vendorSubtotal,
       vendorFulfillments: myFulfillmentOnly,
       deliveryGroups: [],
-      vendor: primaryFulfillment?.vendor ?? order.vendor,
-      vendorBranch: primaryFulfillment?.vendorBranch ?? order.vendorBranch,
+      vendor: primaryFulfillment?.vendor ?? null,
+      vendorBranch: primaryFulfillment?.vendorBranch ?? null,
       financials: {
         viewRole: 'VENDOR',
         storeSubtotal: vendorSubtotal,
@@ -690,9 +721,7 @@ export class OrderRoleProjector {
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
 
-    const sanitized = { ...order };
-    // Rejected portion items are kept in the database for audit but must not
-    // reappear as part of the customer's order (totals already exclude them).
+    const sanitized: any = { ...order };
     if (Array.isArray(sanitized.items)) {
       sanitized.items = sanitized.items.filter(
         (i: any) => i.rejectedAt == null,
@@ -716,7 +745,16 @@ export class OrderRoleProjector {
       );
 
       sanitized.vendorFulfillments = sanitized.vendorFulfillments.map((f: any) => {
-        const safeF = omitKeys(f, ['commissionRate']);
+        const safeF: any = omitKeys(f, ['commissionRate']);
+        if (safeF.vendor) {
+          safeF.vendor = omitKeys(safeF.vendor, [
+            'commissionRate',
+            'walletBalance',
+          ]);
+        }
+        if (safeF.vendorBranch) {
+          safeF.vendorBranch = omitKeys(safeF.vendorBranch, ['commissionRate']);
+        }
         const stage =
           f.status === 'REJECTED' || f.status === 'CANCELLED'
             ? f.status
@@ -771,22 +809,37 @@ export class OrderRoleProjector {
         isFullyCollected: completedStops >= totalStops,
       };
 
-      // Only a single-portion order may borrow its portion's vendor as the
-      // order-level vendor. A real multi-vendor order keeps `vendor` null so
-      // clients render every portion's store instead of just the first one.
       if (!sanitized.vendor && sanitized.vendorFulfillments.length === 1) {
-        sanitized.vendor = sanitized.vendorFulfillments[0].vendor;
+        sanitized.vendor = sanitized.vendorFulfillments[0].vendor ?? null;
         if (
           !sanitized.vendorBranch &&
           sanitized.vendorFulfillments[0].vendorBranch
         ) {
           sanitized.vendorBranch = sanitized.vendorFulfillments[0].vendorBranch;
         }
+      } else if (sanitized.vendorFulfillments.length > 1) {
+        sanitized.vendor = null;
+        sanitized.vendorBranch = null;
       }
     }
 
+    const activeDeliveryGroups = (
+      Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
+    )
+      .filter((g: any) => g.status !== 'CANCELLED')
+      .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+    const collectorGroup =
+      activeDeliveryGroups.find((g: any) => g.isPaymentCollector === true) ??
+      activeDeliveryGroups[0] ??
+      null;
+    const primaryDriver =
+      collectorGroup?.primaryDriver ??
+      activeDeliveryGroups.find((g: any) => g.primaryDriver)?.primaryDriver ??
+      null;
+
     return {
       ...sanitized,
+      driver: primaryDriver ?? null,
       fulfillmentSummary,
       financials: {
         viewRole: 'CUSTOMER',
@@ -805,21 +858,27 @@ export class OrderRoleProjector {
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
 
-    const isStorePrepaid =
-      order.vendorBranch?.isContracted ?? order.vendor?.isContracted ?? false;
-    const subtotal = Number(order.subtotal ?? 0);
-    const cashToPayStore = isStorePrepaid ? 0 : subtotal;
+    const activeDeliveryGroups = (
+      Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
+    )
+      .filter((g: any) => g.status !== 'CANCELLED')
+      .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+    const collectorGroup =
+      activeDeliveryGroups.find((g: any) => g.isPaymentCollector === true) ??
+      activeDeliveryGroups[0] ??
+      null;
+    const isStacked = activeDeliveryGroups.some((g: any) =>
+      Boolean(g.isStacked),
+    );
 
     const settings = await this.platformSettings.getSettings();
     const deliveryFee = Number(order.deliveryFee ?? 0);
-    const isMultiVendor = Boolean(
-      order.deliveryGroups && order.deliveryGroups.length > 1,
-    );
+    const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
     const driverEarnings = this.earnings.calculateDriverEarningsForFee(
       deliveryFee,
       settings,
       {
-        isStacked: Boolean(order.isStacked),
+        isStacked,
         isMultiVendor,
       },
     );
@@ -830,18 +889,31 @@ export class OrderRoleProjector {
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
         fulfillments.length > 1 ||
-        (order.deliveryGroups && order.deliveryGroups.length > 1),
+        activeDeliveryGroups.length > 1,
     );
-
-    let vendor = order.vendor;
-    let vendorBranch = order.vendorBranch;
-    let resolvedIsStorePrepaid = isStorePrepaid;
-    let resolvedCashToPayStore = cashToPayStore;
 
     const storePayments = fulfillments.map((f: any) => ({
       ...this.buildStorePaymentBase(f, true),
       status: f.status,
     }));
+    const activeStorePayments = storePayments.filter(
+      (sp: any) => sp.status !== 'REJECTED' && sp.status !== 'CANCELLED',
+    );
+
+    let vendor: any = null;
+    let vendorBranch: any = null;
+    let resolvedIsStorePrepaid = false;
+    let resolvedCashToPayStore = 0;
+
+    if (activeStorePayments.length > 0) {
+      resolvedCashToPayStore = activeStorePayments.reduce(
+        (sum: number, sp: any) => sum + sp.cashToPay,
+        0,
+      );
+      resolvedIsStorePrepaid = activeStorePayments.every(
+        (sp: any) => sp.isContracted,
+      );
+    }
 
     if (isMultiVendorOrder && fulfillments.length > 1) {
       const storeNamesAr = this.formatFulfillmentNames(fulfillments, true);
@@ -855,37 +927,33 @@ export class OrderRoleProjector {
         logo: null,
       };
       vendorBranch = null;
-
-      const activeStorePayments = storePayments.filter(
-        (sp: any) => sp.status !== 'REJECTED' && sp.status !== 'CANCELLED',
-      );
-      if (activeStorePayments.length > 0) {
-        resolvedCashToPayStore = activeStorePayments.reduce(
-          (sum: number, sp: any) => sum + sp.cashToPay,
-          0,
-        );
-        resolvedIsStorePrepaid = activeStorePayments.every(
-          (sp: any) => sp.isContracted,
-        );
-      } else if (storePayments.length > 0) {
-        resolvedCashToPayStore = 0;
-      }
-    } else if (!vendor && fulfillments.length === 1) {
-      vendor = fulfillments[0].vendor;
-      vendorBranch ??= fulfillments[0].vendorBranch;
-      if (storePayments.length === 1) {
-        resolvedCashToPayStore = storePayments[0].cashToPay;
-        resolvedIsStorePrepaid = storePayments[0].isContracted;
-      }
+    } else if (fulfillments.length === 1) {
+      vendor = fulfillments[0].vendor ?? null;
+      vendorBranch = fulfillments[0].vendorBranch ?? null;
     }
+
+    const primaryDriver =
+      collectorGroup?.primaryDriver ??
+      activeDeliveryGroups.find((g: any) => g.primaryDriver)?.primaryDriver ??
+      null;
 
     return {
       ...order,
       isMultiVendor: isMultiVendorOrder,
+      isStacked,
       driverEarnings,
       deliveryFee,
+      vendorId: fulfillments.length === 1 ? fulfillments[0].vendorId : null,
+      vendorBranchId:
+        fulfillments.length === 1 ? fulfillments[0].vendorBranchId : null,
       vendor,
       vendorBranch,
+      driverId:
+        collectorGroup?.primaryDriverId ??
+        activeDeliveryGroups.find((g: any) => g.primaryDriverId)
+          ?.primaryDriverId ??
+        null,
+      driver: primaryDriver,
       financials: {
         viewRole: 'ADMIN',
         cashToCollect,
@@ -904,7 +972,10 @@ export class OrderRoleProjector {
       respectTerminalStatus &&
       (f.status === 'REJECTED' || f.status === 'CANCELLED');
     const contracted =
-      f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+      f.isContracted ??
+      f.vendorBranch?.isContracted ??
+      f.vendor?.isContracted ??
+      false;
     const commRate = Number(
       f.commissionRate ??
         f.vendorBranch?.commissionRate ??
