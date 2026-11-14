@@ -17,7 +17,10 @@ import {
 } from '../../infrastructure/queue/queues.constants';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { DispatchProcessor } from '../dispatch/dispatch.processor';
+import { DispatchRepository } from '../dispatch/dispatch.repository';
+import { DispatchLifecycleService } from '../dispatch/dispatch-lifecycle.service';
 import { DispatchService } from '../dispatch/dispatch.service';
+import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import { StockService } from './helpers/stock.service';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
@@ -384,6 +387,10 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
       const processor = new DispatchProcessor(
         { attemptDispatch: jest.fn() } as any,
+        {
+          isHandoffDeduped: jest.fn().mockResolvedValue(false),
+          markHandoffDeduped: jest.fn().mockResolvedValue(undefined),
+        } as any,
         orderWorkflowPort,
         workflowDispatcher,
         { getSettings: jest.fn().mockResolvedValue({ driverSearchMaxAttempts: 3 }) } as any,
@@ -396,8 +403,7 @@ describe('Order & Dispatch Clean Architecture Units', () => {
           },
           orderDeliveryGroup: { findMany: jest.fn().mockResolvedValue([]) },
         } as any,
-        { get: jest.fn().mockResolvedValue(null), set: jest.fn() } as any,
-        {} as any,
+        { sweepStaleDriverLocations: jest.fn() } as any,
         queue,
       );
 
@@ -494,17 +500,34 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         onOrderStatusChanged: jest.fn().mockResolvedValue(undefined),
       };
 
-      const service = new DispatchService(
-        { getSettings: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 1 }) } as any,
-        { emit: jest.fn() } as any,
+      const settingsSvc: any = {
+        getSettings: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 1 }),
+      };
+      const emitter: any = { emit: jest.fn() };
+      const dispatchQueue: any = { add: jest.fn() };
+      const dispatchRepo = new DispatchRepository(prisma, redis);
+      const lifecycle = new DispatchLifecycleService(
+        dispatchRepo,
+        settingsSvc,
+        emitter,
         prisma,
-        redis,
         locationRepo,
-        { add: jest.fn() } as any,
+        dispatchQueue,
         eventsQueue,
         outbox,
-        undefined,
         workflowDispatcher,
+        new DriverWorkloadHelper(),
+      );
+      const service = new DispatchService(
+        dispatchRepo,
+        lifecycle,
+        settingsSvc,
+        emitter,
+        prisma,
+        locationRepo,
+        { findNearbyDrivers: jest.fn() } as any,
+        new OrderEarningsCalculator(settingsSvc),
+        dispatchQueue,
       );
 
       await expect(service.handleAcceptance('disp-acc-1', 'drv-1')).resolves.toBe(

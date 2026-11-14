@@ -163,6 +163,7 @@ export class OrderSettledEvent {
     public readonly deliveryFee: number,
     public readonly commissionRate: number,
     public readonly taxRate: number,
+    public readonly customerUserId?: string | null,
   ) {}
 }
 

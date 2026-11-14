@@ -13,8 +13,8 @@ import {
 } from '../../infrastructure/queue/queues.constants';
 import { OrderStatus, DeliveryGroupStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import { DispatchRepository } from '../dispatch/dispatch.repository';
 
 // Orders jobs hit Postgres (status transitions, settlement, coins/wallet
 // ledgers). BullMQ concurrency above the shared DB pool just queues waits, so
@@ -29,7 +29,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     private readonly statisticsService: StatisticsService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
+    private readonly dispatchRepository: DispatchRepository,
     @InjectQueue(QUEUES.ORDERS) private readonly queue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
     private readonly outboxService: OutboxService,
@@ -126,6 +126,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         tax: true,
         paymentMethod: true,
         customerId: true,
+        customer: { select: { userId: true } },
         coinsEarned: true,
         coinsUsed: true,
         discount: true,
@@ -191,6 +192,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       tax: Number(order.tax),
       paymentMethod: order.paymentMethod,
       customerId: order.customerId,
+      customerUserId: order.customer?.userId ?? null,
       coinsEarned: Number(order.coinsEarned),
       coinsUsed: Number(order.coinsUsed),
       discount: Number(order.discount),
@@ -397,8 +399,8 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
       if (groups.length > 0) {
         for (const group of groups) {
-          await this.clearStaleDispatchClaim(group.id);
-          const state = await this.readDispatchState(group.id);
+          await this.dispatchRepository.clearStaleDispatchClaim(group.id);
+          const state = await this.dispatchRepository.readDispatchState(group.id);
           await this.dispatchQueue.add(
             ORDER_JOBS.DISPATCH,
             {
@@ -415,8 +417,8 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         continue;
       }
 
-      await this.clearStaleDispatchClaim(order.id);
-      const state = await this.readDispatchState(order.id);
+      await this.dispatchRepository.clearStaleDispatchClaim(order.id);
+      const state = await this.dispatchRepository.readDispatchState(order.id);
       await this.dispatchQueue.add(
         ORDER_JOBS.DISPATCH,
         {
@@ -475,83 +477,6 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     }
 
     return { recovered };
-  }
-
-  // Resume from the last persisted dispatch attempt instead of resetting to 1.
-  // Resetting defeats driverSearchMaxAttempts and re-broadcasts to drivers who
-  // already rejected the delivery. Works for both the order scope and a
-  // delivery-group scope.
-  private async readDispatchState(
-    scopeId: string,
-  ): Promise<{ attempt: number; excludeDriverIds: string[] }> {
-    try {
-      const stateRaw = await this.redis.get(
-        `otlobegy:dispatch-state:${scopeId}`,
-      );
-      if (!stateRaw) return { attempt: 1, excludeDriverIds: [] };
-      const state: { attempt?: number; excludeDriverIds?: string[] } =
-        JSON.parse(stateRaw);
-      return {
-        attempt: Number(state.attempt) || 1,
-        excludeDriverIds: Array.isArray(state.excludeDriverIds)
-          ? state.excludeDriverIds
-          : [],
-      };
-    } catch {
-      // Malformed state — fall back to a fresh attempt.
-      return { attempt: 1, excludeDriverIds: [] };
-    }
-  }
-
-  // An order here with a stale in-flight claim may still be running a live
-  // round; attemptDispatch's SET NX will answer 'in_flight' and that's fine.
-  // Only clear the claim when its payload is gone or already past expiresAt,
-  // which the DISPATCH_EXPIRE watchdog could only have reached if it either
-  // already ran (then the claim would be gone) or was lost in a crash (the
-  // worker died between claiming and scheduling the watchdog). Dropping the
-  // stale claim lets the re-queued job grab a fresh slot immediately instead
-  // of bouncing on 'in_flight' until the Redis TTL expires.
-  private async clearStaleDispatchClaim(orderId: string): Promise<void> {
-    try {
-      const activeKey = `otlobegy:order-dispatch-active:${orderId}`;
-      const activeDispatchId = await this.redis.get(activeKey);
-      if (!activeDispatchId) return;
-
-      const raw = await this.redis.get(`otlobegy:dispatch:${activeDispatchId}`);
-      let stale = false;
-      if (!raw) {
-        stale = true;
-      } else {
-        try {
-          const payload: { expiresAt?: string } = JSON.parse(raw);
-          stale =
-            !payload.expiresAt ||
-            Date.now() > new Date(payload.expiresAt).getTime();
-        } catch {
-          stale = true;
-        }
-      }
-
-      if (stale) {
-        // Only delete if the dispatch we found is still the owner; otherwise a
-        // fresh round has claimed the slot and must not be cleared.
-        const removed = await this.redis.delIfValue(
-          activeKey,
-          activeDispatchId,
-        );
-        if (removed) {
-          this.logger.warn(`Cleared stale dispatch claim for order ${orderId}`);
-        } else {
-          this.logger.debug(
-            `Stale claim for ${orderId} was superseded before clearing`,
-          );
-        }
-      }
-    } catch (err) {
-      this.logger.warn(
-        `Failed to clear stale dispatch claim for order ${orderId}: ${(err as Error).message}`,
-      );
-    }
   }
 
   private async handleUnsettledOrderMonitor() {

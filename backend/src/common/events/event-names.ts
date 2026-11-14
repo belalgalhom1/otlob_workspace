@@ -45,6 +45,11 @@ export const EVENTS = {
   DRIVER_ASSIST_REQUESTED: 'driver.assist.requested',
   DRIVER_ASSIST_DECIDED: 'driver.assist.decided',
 
+  // WebSocket -> Listener internal commands
+  WS_DRIVER_LOCATION_UPDATE: 'ws.driver.location.update',
+  WS_DRIVER_LOCATION_REQUEST: 'ws.driver.location.request',
+  WS_DRIVER_DISCONNECTED: 'ws.driver.disconnected',
+
   // Multi-vendor orders
   ORDER_FULFILLMENT_DECIDED: 'order.fulfillment.decided',
   ORDER_FULFILLMENT_UPDATED: 'order.fulfillment.updated',

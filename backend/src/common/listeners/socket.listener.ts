@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { EVENTS } from '../events/event-names';
 import { DriverTrackingService } from '../../features/location/driver-tracking.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 
@@ -12,7 +13,7 @@ export class SocketListener {
     private readonly socketService: SocketService,
   ) {}
 
-  @OnEvent('ws.driver.location.update', { async: true })
+  @OnEvent(EVENTS.WS_DRIVER_LOCATION_UPDATE, { async: true })
   async handleDriverLocationUpdate(payload: {
     userId: string;
     location: [number, number];
@@ -32,7 +33,7 @@ export class SocketListener {
     }
   }
 
-  @OnEvent('ws.driver.disconnected', { async: true })
+  @OnEvent(EVENTS.WS_DRIVER_DISCONNECTED, { async: true })
   async handleDriverDisconnected(payload: { userId: string }) {
     try {
       await this.driverTracking.handleUserDisconnect(payload.userId);
@@ -45,7 +46,7 @@ export class SocketListener {
     }
   }
 
-  @OnEvent('ws.driver.location.request', { async: true })
+  @OnEvent(EVENTS.WS_DRIVER_LOCATION_REQUEST, { async: true })
   async handleDriverLocationRequest(payload: {
     userId: string;
     orderId: string;

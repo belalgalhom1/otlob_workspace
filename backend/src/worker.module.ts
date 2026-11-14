@@ -34,7 +34,9 @@ import { TicketsProcessor } from './features/tickets/tickets.processor';
 import { AuditLogsModule } from './features/audit-logs/audit-logs.module';
 import { AuditLogsProcessor } from './features/audit-logs/audit-logs.processor';
 import { ReviewsProcessor } from './features/reviews/reviews.processor';
-import { EventsProcessor } from './common/listeners/events.processor';
+import { EventsProcessor } from './features/events/events.processor';
+import { OrderEventsHandler } from './features/events/order-events.handler';
+import { DispatchEventsHandler } from './features/events/dispatch-events.handler';
 import { DispatchProcessor } from './features/dispatch/dispatch.processor';
 import { VendorsModule } from './features/vendors/vendors.module';
 import { VendorsProcessor } from './features/vendors/vendors.processor';
@@ -94,6 +96,8 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     DispatchProcessor,
     AuditLogsProcessor,
     ReviewsProcessor,
+    OrderEventsHandler,
+    DispatchEventsHandler,
     EventsProcessor,
     MediaProcessor,
   ],

@@ -800,27 +800,34 @@ export class OrdersCheckoutService {
     // Direct orders placed by a vendor/admin skip the customer-approval step and
     // are treated as accepted immediately (createOrder sets PENDING by default).
     if (order.created) {
-      const accepted = await this.prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: OrderStatus.ACCEPTED,
-          revision: { increment: 1 },
-        },
-        select: { revision: true },
-      });
-
-      // Also update the status event to ACCEPTED instead of whatever createOrder created
-      await this.prisma.orderStatusEvent.updateMany({
-        where: { orderId: order.id },
-        data: {
-          status: OrderStatus.ACCEPTED,
-          note: 'Order created by Vendor/Admin directly from chat',
-        },
-      });
+      const accepted = await this.ordersRepository.updateStatus(
+        order.id,
+        OrderStatus.ACCEPTED,
+        actor.sub,
+        'Order created by Vendor/Admin directly from chat',
+        undefined,
+        OrderStatus.PENDING,
+      );
 
       const vendorUserIds = orderData.vendorId
         ? await this.ordersRepository.getVendorUserIds(orderData.vendorId)
         : [];
+
+      this.eventEmitter.emit(
+        EVENTS.ORDER_CREATED,
+        new OrderCreatedEvent(
+          order.id,
+          orderData.orderNumber,
+          orderData.customerId,
+          customer.userId,
+          orderData.vendorId,
+          vendorUserIds,
+          orderData.grandTotal,
+          orderData.paymentMethod,
+          orderData.type,
+          0,
+        ),
+      );
 
       this.eventEmitter.emit(
         EVENTS.ORDER_STATUS_CHANGED,
@@ -837,23 +844,7 @@ export class OrdersCheckoutService {
           null,
           actor.sub,
           'Order created by Vendor/Admin directly from chat',
-          0,
-        ),
-      );
-
-      this.eventEmitter.emit(
-        EVENTS.ORDER_CREATED,
-        new OrderCreatedEvent(
-          order.id,
-          orderData.orderNumber,
-          orderData.customerId,
-          customer.userId,
-          orderData.vendorId,
-          vendorUserIds,
-          orderData.grandTotal,
-          orderData.paymentMethod,
-          orderData.type,
-          0,
+          accepted.revision,
         ),
       );
     }

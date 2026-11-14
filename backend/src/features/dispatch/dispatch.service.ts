@@ -1,104 +1,77 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  QUEUES,
-  ORDER_JOBS,
-  EVENT_JOBS,
-} from '../../infrastructure/queue/queues.constants';
 import { Queue } from 'bullmq';
 import { v4 as uuidv4 } from 'uuid';
-import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import {
-  OrderDispatchSentEvent,
-  OrderDispatchCancelledEvent,
-  OrderDispatchRespondedEvent,
-} from 'src/common/events';
-import { EVENTS } from 'src/common/events/event-names';
-import {
-  DeliveryGroupStatus,
-  OrderStatus,
-  DriverStatus,
-  DispatchStatus,
-} from '@prisma/client';
-import { DRIVER_ACTIVE_ORDER_STATUSES } from '../orders/orders.constants';
-import { OutboxService } from '../../infrastructure/outbox/outbox.service';
+import { DeliveryGroupStatus, OrderStatus, OrderType } from '@prisma/client';
+import { QUEUES, ORDER_JOBS } from '../../infrastructure/queue/queues.constants';
+import { EVENTS } from '../../common/events/event-names';
+import { OrderDispatchSentEvent } from '../../common/events';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { LocationRepository } from '../location/location.repository';
 import { DriverGeoSearchService } from '../location/driver-geo-search.service';
-import { OrderStatusChangedEvent } from 'src/common/events';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
-import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
-
-import { OrderErrors } from 'src/common/constants/response.constants';
+import { DispatchPort } from '../../common/orders/order-dispatch.ports';
+import {
+  DispatchBroadcastPayload,
+  DispatchCandidateOffer,
+  DispatchRepository,
+} from './dispatch.repository';
+import { DispatchLifecycleService } from './dispatch-lifecycle.service';
 
 export interface DispatchAttemptPayload {
   orderId: string;
   orderNumber: string;
   attempt: number;
   excludeDriverIds?: string[];
-  /**
-   * Which delivery this offer is for. Set for multi-vendor orders split into
-   * delivery groups; omitted for legacy single-vendor orders and for
-   * CUSTOM_DELIVERY/RIDE, where the order itself is the only delivery.
-   */
   deliveryGroupId?: string | null;
 }
 
-// Dispatch outcome contract. The processor relies on this to decide whether a
-// next attempt should be scheduled: only 'no_drivers' warrants a retry, while
-// 'in_flight' must never schedule another broadcast for the same order.
 export type DispatchOutcome =
-  'dispatched' | 'no_drivers' | 'in_flight' | 'invalid';
+  | 'dispatched'
+  | 'no_drivers'
+  | 'in_flight'
+  | 'invalid';
 
-// Hard cap per broadcast round. The location repository already pre-cuts its
-// candidate list to this figure, so a larger value is dead weight — it would
-// only advertise unbounded fan-out in the admin surface.
 export const MAX_DISPATCH_BATCH_SIZE = 20;
 
-// Driver statuses that still permit accepting a dispatch. Mirrors the
-// candidate filter in findNearbyDrivers (ONLINE) plus BUSY (clocked in but
-// momentarily engaged, app-set). Deliberately excludes OFFLINE and ON_BREAK,
-// so a driver who clocked out or paused mid-window cannot take an order.
-const DRIVER_ASSIGNABLE_STATUSES: DriverStatus[] = [
-  DriverStatus.ONLINE,
-  DriverStatus.BUSY,
+const DISPATCHABLE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.LOOKING_FOR_DRIVER,
+  OrderStatus.ACCEPTED,
+  OrderStatus.PREPARING,
+  OrderStatus.READY_FOR_PICKUP,
 ];
 
+const DISPATCHABLE_GROUP_STATUSES: DeliveryGroupStatus[] = [
+  DeliveryGroupStatus.PENDING,
+  DeliveryGroupStatus.ACCEPTED,
+  DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+  DeliveryGroupStatus.READY_FOR_PICKUP,
+];
+
+/**
+ * Coordinates driver candidate matching, offer broadcast, and pending offer
+ * lookups while delegating acceptance/rejection/expiry/cancellation lifecycle
+ * transitions to `DispatchLifecycleService`.
+ */
 @Injectable()
-export class DispatchService {
+export class DispatchService implements DispatchPort {
   private readonly logger = new Logger(DispatchService.name);
 
   constructor(
+    private readonly dispatchRepository: DispatchRepository,
+    private readonly lifecycle: DispatchLifecycleService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
     private readonly locationRepository: LocationRepository,
+    private readonly driverGeoSearch: DriverGeoSearchService,
+    private readonly earnings: OrderEarningsCalculator,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
-    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
-    private readonly outbox: OutboxService,
-    @Optional() private readonly earningsCalculator?: OrderEarningsCalculator,
-    @Optional() private readonly workflowDispatcher?: OrderWorkflowDispatcher,
-    @Optional() private readonly driverGeoSearch?: DriverGeoSearchService,
   ) {}
 
-  private get earnings(): OrderEarningsCalculator {
-    return this.earningsCalculator ?? new OrderEarningsCalculator(this.platformSettings);
-  }
-
-  private get geoSearch(): DriverGeoSearchService {
-    return (
-      this.driverGeoSearch ??
-      new DriverGeoSearchService(
-        this.locationRepository,
-        this.platformSettings,
-      )
-    );
-  }
-
-  // ─── Core dispatch logic ──────────────────────────────────────────────────
+  // ─── Core dispatch broadcast ──────────────────────────────────────────────
 
   async attemptDispatch(
     payload: DispatchAttemptPayload,
@@ -111,130 +84,22 @@ export class DispatchService {
       deliveryGroupId = null,
     } = payload;
 
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        id: true,
-        status: true,
-        vendorId: true,
-        type: true,
-        deliveryFee: true,
-        customer: { select: { user: { select: { name: true } } } },
-        vendor: { select: { storeName: true, storeNameAr: true } },
-      },
-    });
+    const target = await this.resolveDispatchTarget(
+      orderId,
+      orderNumber,
+      deliveryGroupId,
+    );
+    if (!target) return 'invalid';
 
-    // A grouped delivery is dispatched and gated independently of its order:
-    // once one group is on the road the others still need their own driver.
-    const group = deliveryGroupId
-      ? await this.prisma.orderDeliveryGroup.findUnique({
-          where: { id: deliveryGroupId },
-          select: {
-            id: true,
-            orderId: true,
-            sequence: true,
-            status: true,
-            deliveryFee: true,
-            distanceKm: true,
-            primaryDriverId: true,
-          },
-        })
-      : null;
-
-    if (deliveryGroupId && (!group || group.orderId !== orderId)) {
-      this.logger.warn(
-        `Dispatch skipped for ${orderNumber}: delivery group ${deliveryGroupId} not found`,
-      );
-      return 'invalid';
-    }
-
-    // The fee this delivery actually earns. A group is priced separately, so
-    // using the order total here would over-state a split delivery's earnings.
-    const dispatchDeliveryFee = group
-      ? group.deliveryFee
-      : (order?.deliveryFee ?? 0);
-
-    const dispatchableStatuses: OrderStatus[] = [
-      OrderStatus.LOOKING_FOR_DRIVER,
-      OrderStatus.ACCEPTED,
-      OrderStatus.PREPARING,
-      OrderStatus.READY_FOR_PICKUP,
-    ];
-
-    // Group-level gates: a group may already be looking for a driver, or may still
-    // be waiting on its vendors, so the order's own status is not sufficient.
-    const dispatchableGroupStatuses: DeliveryGroupStatus[] = [
-      DeliveryGroupStatus.PENDING,
-      DeliveryGroupStatus.ACCEPTED,
-      DeliveryGroupStatus.LOOKING_FOR_DRIVER,
-      DeliveryGroupStatus.READY_FOR_PICKUP,
-    ];
-
-    const orderDispatchable =
-      !!order && dispatchableStatuses.includes(order.status);
-    const isOrderTerminal =
-      !order ||
-      order.status === OrderStatus.CANCELLED ||
-      order.status === OrderStatus.DELIVERED;
-    const groupDispatchable =
-      !group || dispatchableGroupStatuses.includes(group.status);
-    const alreadyAssigned = !!group?.primaryDriverId;
-
-    if (isOrderTerminal || alreadyAssigned || !groupDispatchable) {
-      this.logger.warn(
-        `Dispatch skipped for ${orderNumber}: status ${order?.status ?? 'not found'}` +
-          (group ? `, group #${group.sequence} status ${group.status}` : '') +
-          (alreadyAssigned ? ' (group already has a driver)' : ''),
-      );
-      return 'invalid';
-    }
-
-    // Legacy single-vendor behaviour is preserved exactly: those orders only
-    // dispatch while the ORDER is in a dispatchable state.
-    if (!group && !orderDispatchable) {
-      this.logger.warn(
-        `Dispatch skipped for ${orderNumber}: status is ${order?.status}`,
-      );
-      return 'invalid';
-    }
-
-    // Pickup differs per group: the group's first branch, not the order's
-    // single vendor branch. The drop-off is always the order's delivery point.
-    const dispatchContext =
-      await this.locationRepository.getOrderLocationContext(orderId);
-    if (!dispatchContext) {
-      this.logger.error(
-        `No dispatch context (location) found for order ${orderNumber}`,
-      );
-      return 'invalid';
-    }
-
-    if (group) {
-      const pickup =
-        await this.locationRepository.getDeliveryGroupPickupLocation(group.id);
-      if (!pickup) {
-        this.logger.error(
-          `No pickup branch found for delivery group ${group.id} on order ${orderNumber}`,
-        );
-        return 'invalid';
-      }
-      dispatchContext.lng = pickup.lng;
-      dispatchContext.lat = pickup.lat;
-    }
-
+    const { order, group, dispatchContext, dispatchDeliveryFee } = target;
     const settings = await this.platformSettings.getSettings();
 
-    // Dynamic Radius Expansion
-    let radiusKm =
+    const radiusKm = Math.min(
       settings.driverSearchRadiusKm +
-      settings.driverSearchRadiusStepKm * (attempt - 1);
-    if (radiusKm > settings.driverSearchRadiusMaxKm) {
-      radiusKm = settings.driverSearchRadiusMaxKm;
-    }
-
+        settings.driverSearchRadiusStepKm * (attempt - 1),
+      settings.driverSearchRadiusMaxKm,
+    );
     const timeoutSecs = settings.driverAcceptTimeoutSecs;
-    // Clamp the configured batch size to the hard cap so a stale admin value
-    // (schema default was 300) can never inflate a single broadcast round.
     const batchSize = Math.min(
       settings.maxDispatchBatchSize || MAX_DISPATCH_BATCH_SIZE,
       MAX_DISPATCH_BATCH_SIZE,
@@ -247,36 +112,11 @@ export class DispatchService {
       dispatchContext.deliveryLat,
     );
 
-    let allowedVehicleTypes: string[] = [];
-    if (dispatchContext.requestedVehicleType) {
-      const v = dispatchContext.requestedVehicleType;
-      const isAllowed =
-        (v === 'BICYCLE' && settings.allowBicycle) ||
-        (v === 'MOTORCYCLE' && settings.allowMotorcycle) ||
-        (v === 'CAR' && settings.allowCar) ||
-        (v === 'VAN' && settings.allowVan) ||
-        (v === 'TRUCK' && settings.allowTruck) ||
-        (v === 'MOTOR_TRICYCLE' && settings.allowMotorTricycle);
-      if (isAllowed) allowedVehicleTypes = [v];
-    } else {
-      // STANDARD or CUSTOM_DELIVERY without explicit vehicle choice:
-      if (settings.allowMotorcycle) allowedVehicleTypes.push('MOTORCYCLE');
-      if (
-        settings.allowBicycle &&
-        orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)
-      ) {
-        allowedVehicleTypes.push('BICYCLE');
-      }
-      if (settings.allowCar) allowedVehicleTypes.push('CAR');
-      if (settings.allowVan) allowedVehicleTypes.push('VAN');
-      if (settings.allowTruck) allowedVehicleTypes.push('TRUCK');
-      if (settings.allowMotorTricycle)
-        allowedVehicleTypes.push('MOTOR_TRICYCLE');
-    }
-
-    const requireActiveShift =
-      settings.driverShiftsEnabled && order.type === 'STANDARD';
-
+    const allowedVehicleTypes = this.resolveAllowedVehicleTypes(
+      dispatchContext.requestedVehicleType,
+      orderDistanceKm,
+      settings,
+    );
     if (allowedVehicleTypes.length === 0) {
       this.logger.warn(
         `No allowed vehicle types for order ${orderNumber}. Dispatch aborted.`,
@@ -289,13 +129,13 @@ export class DispatchService {
         ? { lng: dispatchContext.deliveryLng, lat: dispatchContext.deliveryLat }
         : null;
 
-    const nearbyDrivers = await this.geoSearch.findNearbyDrivers(
+    const nearbyDrivers = await this.driverGeoSearch.findNearbyDrivers(
       dispatchContext.lng,
       dispatchContext.lat,
       radiusKm,
       excludeDriverIds,
       allowedVehicleTypes,
-      requireActiveShift,
+      settings.driverShiftsEnabled && order.type === 'STANDARD',
       dropoffLocation,
     );
 
@@ -307,203 +147,51 @@ export class DispatchService {
     }
 
     const selectedDrivers = nearbyDrivers.slice(0, batchSize);
-
-    let perKmOverride: number | null = null;
-    if (dispatchContext.requestedVehicleType) {
-      perKmOverride = await this.platformSettings.getVehiclePerKm(
-        dispatchContext.requestedVehicleType,
-      );
-    }
+    const perKmOverride = dispatchContext.requestedVehicleType
+      ? await this.platformSettings.getVehiclePerKm(
+          dispatchContext.requestedVehicleType,
+        )
+      : null;
 
     const dispatchId = uuidv4();
     const expiresAt = new Date(Date.now() + timeoutSecs * 1000);
+    const candidates = await this.buildCandidateOffers({
+      selectedDrivers,
+      order,
+      group,
+      dispatchContext,
+      orderDistanceKm,
+      dispatchDeliveryFee,
+      perKmOverride,
+      settings,
+    });
 
-    const candidates = await Promise.all(
-      selectedDrivers.map(async (candidate) => {
-        const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
-        const isCandidateStacked = Boolean(candidate.isOnDelivery);
-        const isCandidateMultiVendor = Boolean(group);
-        const estimatedEarnings =
-          await this.earnings.calculateEstimatedEarningsFromDistance({
-            distanceKm: totalDistanceKm,
-            perKmOverride,
-            prefetchedSettings: settings,
-            isStandardOrder: order.type === 'STANDARD',
-            vehicleType: dispatchContext.requestedVehicleType,
-            isStacked: isCandidateStacked,
-            isMultiVendor: isCandidateMultiVendor,
-            driverTier: candidate.tier,
-          });
-
-        // A delivery is priced on its stored order fee so the driver sees what
-        // settlement will actually pay rather than an inflated distance estimate.
-        const advertisedEarnings =
-          dispatchDeliveryFee && dispatchDeliveryFee > 0
-            ? this.earnings.calculateDriverEarningsForFee(
-                dispatchDeliveryFee,
-                settings,
-                {
-                  isStacked: isCandidateStacked,
-                  isMultiVendor: isCandidateMultiVendor,
-                  driverTier: candidate.tier,
-                },
-              )
-            : estimatedEarnings;
-
-        const pickupLocationName = group
-          ? `Delivery ${group.sequence}`
-          : (order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor');
-        const dropoffLocationName = order.customer?.user?.name ?? 'Customer';
-
-        return {
-          driverId: candidate.id,
-          userId: candidate.userId,
-          driverShiftId: candidate.activeShiftId,
-          // Carried through the Redis offer so the accepted/expired/rejected
-          // rows can all be attributed to the right delivery group.
-          deliveryGroupId: group?.id ?? null,
-          distanceKm: candidate.distanceKm,
-          estimatedEarnings: advertisedEarnings,
-          pickupLocationName,
-          dropoffLocationName,
-          isStacked: isCandidateStacked,
-        };
-      }),
-    );
-
-    const dispatchData = {
+    const outcome = await this.broadcastOffers({
       dispatchId,
       orderId,
-      // Persist the delivery scope at the top level. Expiry/rejection retries
-      // are re-enqueued from this payload, and without it every grouped retry
-      // degraded into an order-level dispatch.
-      deliveryGroupId: group?.id ?? null,
-      type: order.type,
+      orderNumber,
+      orderType: order.type,
+      group,
       candidates,
-      expiresAt: expiresAt.toISOString(),
-      pickupLocationName: candidates[0]?.pickupLocationName,
-      dropoffLocationName: candidates[0]?.dropoffLocationName,
-    };
+      attempt,
+      excludeDriverIds,
+      timeoutSecs,
+      expiresAt,
+      dispatchDeliveryFee,
+    });
 
-    // Store in Redis with extended TTL to outlive BullMQ delay
-    const redisTtl = timeoutSecs + 300; // 5 extra minutes
-
-    // Write the dispatch payload BEFORE claiming the active slot. The payload
-    // is keyed by a fresh UUID so a concurrent duplicate simply overwrites its
-    // own orphan — there is no window where the active key points at a payload
-    // that does not exist yet.
-    await this.redis.set(
-      `otlobegy:dispatch:${dispatchId}`,
-      JSON.stringify(dispatchData),
-      redisTtl,
-    );
-
-    // Atomically claim this order's active dispatch slot. SET NX guarantees
-    // only one dispatch round can be in flight for an order at a time, even
-    // across concurrent workers/retries. If another round already holds the
-    // slot we must not broadcast a duplicate.
-    // Scope the single-flight claim to the DELIVERY, not the order. A grouped
-    // order needs several drivers in flight at once, one per group; keying this
-    // by orderId alone would make every group after the first return 'in_flight'
-    // and silently never get a driver.
-    const dispatchScope = group?.id ?? orderId;
-    const activeKey = `otlobegy:order-dispatch-active:${dispatchScope}`;
-    const claimed = await this.redis.setNX(activeKey, dispatchId, redisTtl);
-    if (!claimed) {
-      // Clean up our own (non-winning) payload — the winner owns this order.
-      await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      this.logger.warn(
-        `Dispatch for ${orderNumber} skipped — another dispatch is already active`,
-      );
-      return 'in_flight';
-    }
-
-    try {
-      // Persist the attempt progress so corrective flows (stuck-order monitor,
-      // crash recovery) can resume from the last attempt instead of resetting
-      // the counter to 1 and silently defeating driverSearchMaxAttempts.
-      await this.redis.set(
-        `otlobegy:dispatch-state:${dispatchScope}`,
-        JSON.stringify({ attempt, excludeDriverIds }),
-        timeoutSecs * 60,
-      );
-
-      // Prepare exclude list for next attempt if this one expires
-      const newExcludeDriverIds = [
-        ...excludeDriverIds,
-        ...candidates.map((c) => c.driverId),
-      ];
-
-      // Schedule the expiry watchdog
-      await this.dispatchQueue.add(
-        ORDER_JOBS.DISPATCH_EXPIRE,
-        {
-          dispatchId,
-          orderId,
-          orderNumber,
-          attempt,
-          excludeDriverIds: newExcludeDriverIds,
-          // Carry the delivery scope into the watchdog so handleExpiry can
-          // re-enqueue the retry for the same group instead of the whole order.
-          deliveryGroupId: group?.id ?? null,
-        },
-        {
-          delay: timeoutSecs * 1000,
-          jobId: `dispatch-expire-${dispatchId}`,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 2_000 },
-        },
-      );
-
-      // Register the dispatch on every candidate's pending set in parallel.
-      // Only after all candidates are registered do we fan out notifications.
-      await Promise.all(
-        candidates.map(async (candidate) => {
-          const pendingKey = `otlobegy:driver-pending-dispatches:${candidate.driverId}`;
-          await this.redis.sadd(pendingKey, dispatchId);
-          await this.redis.expire(pendingKey, redisTtl);
-        }),
-      );
-    } catch (err) {
-      // Release the claim so the order can be retried rather than being stuck
-      // behind a half-written dispatch.
-      await this.redis.delIfValue(activeKey, dispatchId);
-      await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      throw err;
-    }
-
-    for (const candidate of candidates) {
-      this.eventEmitter.emit(
-        EVENTS.ORDER_DISPATCH_SENT,
-        new OrderDispatchSentEvent(
-          dispatchId,
-          orderId,
-          orderNumber,
-          candidate.driverId,
-          candidate.userId,
-          order.type,
-          candidate.estimatedEarnings,
-          candidate.distanceKm,
-          expiresAt,
-          candidate.pickupLocationName,
-          candidate.dropoffLocationName,
-          candidate.isStacked,
-          dispatchDeliveryFee ?? 0,
-        ),
+    if (outcome === 'dispatched') {
+      this.logger.log(
+        `Broadcast sent to ${candidates.length} drivers for order ${orderNumber} ` +
+          `(radius: ${radiusKm}km, attempt ${attempt})`,
       );
     }
-
-    this.logger.log(
-      `Broadcast sent to ${candidates.length} drivers for order ${orderNumber} ` +
-        `(radius: ${radiusKm}km, attempt ${attempt})`,
-    );
-
-    return 'dispatched';
+    return outcome;
   }
 
-  // ─── Handle dispatch expiry ───────────────────────────────────────────────
+  // ─── Lifecycle delegations (preserving public / DISPATCH_PORT surface) ─────
 
-  async handleExpiry(payload: {
+  handleExpiry(payload: {
     dispatchId: string;
     orderId: string;
     orderNumber: string;
@@ -511,872 +199,45 @@ export class DispatchService {
     excludeDriverIds: string[];
     deliveryGroupId?: string | null;
   }): Promise<void> {
-    const { dispatchId, orderId, orderNumber, attempt, excludeDriverIds } =
-      payload;
-
-    // Check if the dispatch is still active in Redis
-    const active = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
-    if (!active) {
-      // It was already responded to (accepted or rejected)
-      return;
-    }
-
-    // Parse the payload FIRST: the cleanup keys below are scoped by the
-    // delivery this round owns, which only the payload knows.
-    const dispatchData = JSON.parse(active);
-
-    // Bail out if the order (or this delivery group) was cancelled while the
-    // dispatch was in flight �?" re-enqueueing would resurrect a dead delivery.
-    // Prefer the payload copy, but fall back to the job argument so expiry
-    // watchdogs scheduled before this fix still keep their delivery scope.
-    const groupScope =
-      dispatchData.deliveryGroupId ??
-      payload.deliveryGroupId ??
-      dispatchData.candidates?.[0]?.deliveryGroupId ??
-      null;
-    const expiryScope = groupScope ?? orderId;
-    const stateKey = `otlobegy:dispatch-state:${expiryScope}`;
-    const orderRow = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { status: true },
-    });
-    if (orderRow?.status === 'CANCELLED') {
-      await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      const cancelledOwner = await this.releaseDispatchClaim(expiryScope, dispatchId);
-      if (cancelledOwner) await this.redis.del(stateKey);
-      return;
-    }
-
-    // A grouped delivery can also be cancelled or completed independently of
-    // the order (e.g. its vendor rejected, or another round already delivered
-    // it). Stop here instead of re-enqueueing a watchdog for a dead group.
-    if (groupScope) {
-      const groupRow = await this.prisma.orderDeliveryGroup.findUnique({
-        where: { id: groupScope },
-        select: { status: true },
-      });
-      if (
-        groupRow?.status === DeliveryGroupStatus.CANCELLED ||
-        groupRow?.status === DeliveryGroupStatus.DELIVERED
-      ) {
-        await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-        const cancelledOwner = await this.releaseDispatchClaim(
-          expiryScope,
-          dispatchId,
-        );
-        if (cancelledOwner) await this.redis.del(stateKey);
-        return;
-      }
-    }
-
-    // It is truly expired. Release the single-flight claim only if this round
-    // still owns it: a late watchdog must never delete a newer round's claim or
-    // its attempt state.
-    const stillOwner = await this.releaseDispatchClaim(
-      expiryScope,
-      dispatchId,
-    );
-    await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    if (stillOwner) {
-      await this.redis.del(stateKey);
-    }
-    const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
-    // Read the rejected set BEFORE deleting it — every consumer below needs it.
-    const rejectedBy: string[] = await this.redis.smembers(rejectedKey);
-    await this.redis.del(rejectedKey);
-
-    // Persist terminal state to Postgres for anyone who didn't reject
-    const candidates = dispatchData.candidates || [];
-
-    await Promise.all(
-      candidates.map((candidate: any) =>
-        this.redis.srem(
-          `otlobegy:driver-pending-dispatches:${candidate.driverId}`,
-          dispatchId,
-        ),
-      ),
-    );
-
-    const unresponded = candidates.filter(
-      (c: any) => !rejectedBy.includes(c.driverId),
-    );
-
-    if (unresponded.length > 0) {
-      await this.prisma.orderDispatch.createMany({
-        data: unresponded.map((candidate: any) => ({
-          id: uuidv4(),
-          orderId,
-          driverId: candidate.driverId,
-          driverShiftId: candidate.driverShiftId,
-          deliveryGroupId: candidate.deliveryGroupId ?? null,
-          type: dispatchData.type,
-          distanceKm: candidate.distanceKm,
-          estimatedEarnings: candidate.estimatedEarnings,
-          status: 'EXPIRED',
-          expiresAt: new Date(dispatchData.expiresAt),
-        })),
-      });
-
-      // Increment expired dispatches count on driver shifts
-      const shiftIds = unresponded
-        .map((c: any) => c.driverShiftId)
-        .filter((id: any) => id != null);
-      if (shiftIds.length > 0) {
-        await this.prisma.driverShift.updateMany({
-          where: { id: { in: shiftIds } },
-          data: { expiredDispatches: { increment: 1 } },
-        });
-      }
-
-      // Notify unresponded drivers that the dispatch has expired/cancelled.
-      // Emitting the responded event with EXPIRED keeps per-driver dispatch
-      // statistics accurate; the event was previously never emitted at all.
-      for (const candidate of unresponded) {
-        this.eventEmitter.emit(
-          EVENTS.ORDER_DISPATCH_CANCELLED,
-          new OrderDispatchCancelledEvent(
-            dispatchId,
-            orderId,
-            candidate.userId,
-          ),
-        );
-        this.eventEmitter.emit(
-          EVENTS.ORDER_DISPATCH_RESPONDED,
-          new OrderDispatchRespondedEvent(
-            dispatchId,
-            orderId,
-            candidate.driverId,
-            DispatchStatus.EXPIRED,
-          ),
-        );
-      }
-    }
-
-    if (!stillOwner) {
-      // A newer round took the slot while this watchdog was queued. The old
-      // round's terminal rows/events above are still valid, but the new round
-      // owns the claim, state and retry schedule.
-      this.logger.warn(
-        `Dispatch ${dispatchId} expired after another round claimed ${expiryScope}; not re-enqueuing`,
-      );
-      return;
-    }
-
-    this.logger.log(
-      `Dispatch ${dispatchId} expired — retrying for order ${orderId} (attempt ${attempt + 1})`,
-    );
-
-    // Refresh persisted attempt state so corrective flows (stuck-order monitor)
-    // resume from the true next attempt instead of falling back to 1.
-    const settings = await this.platformSettings.getSettings();
-    await this.redis.set(
-      stateKey,
-      JSON.stringify({
-        attempt: attempt + 1,
-        excludeDriverIds,
-      }),
-      (settings.driverAcceptTimeoutSecs ?? 30) * 60,
-    );
-
-    // Add back to queue for next attempt
-    await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
-      orderId,
-      orderNumber,
-      attempt: attempt + 1,
-      excludeDriverIds,
-      deliveryGroupId: groupScope,
-    });
+    return this.lifecycle.handleExpiry(payload);
   }
 
-  // ─── Handle acceptance ────────────────────────────────────────────────────
-
-  // Returns true only when the driver actually won and was assigned. Every
-  // early-exit path signals the dispatch is no longer valid for this driver so
-  // the caller can surface ALREADY_ASSIGNED_OR_CANCELLED instead of a false
-  // success response.
-  async handleAcceptance(
-    dispatchId: string,
-    driverId: string,
-  ): Promise<boolean> {
-    const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
-    if (!raw) {
-      this.logger.warn(
-        `Driver ${driverId} attempted to accept expired dispatch ${dispatchId}`,
-      );
-      return false;
-    }
-
-    const dispatchData = JSON.parse(raw);
-
-    // Strict timestamp validation since Redis TTL outlives the dispatch window
-    if (Date.now() > new Date(dispatchData.expiresAt).getTime()) {
-      this.logger.warn(
-        `Driver ${driverId} attempted to accept dispatch ${dispatchId} but it is past expiresAt timestamp`,
-      );
-      return false;
-    }
-
-    const orderId = dispatchData.orderId;
-    const candidate = (dispatchData.candidates || []).find(
-      (c: any) => c.driverId === driverId,
-    );
-
-    if (!candidate) {
-      this.logger.warn(
-        `Driver ${driverId} not found in dispatch ${dispatchId}`,
-      );
-      return false;
-    }
-
-    const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
-    const rejectedBy = await this.redis.smembers(rejectedKey);
-
-    if (rejectedBy.includes(driverId)) {
-      this.logger.warn(
-        `Driver ${driverId} already rejected dispatch ${dispatchId} but tried to accept.`,
-      );
-      throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-    }
-
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        customer: { select: { userId: true } },
-        vendor: { select: { members: { select: { userId: true } } } },
-      },
-    });
-
-    const dispatchableStatuses: OrderStatus[] = [
-      OrderStatus.LOOKING_FOR_DRIVER,
-      OrderStatus.ACCEPTED,
-      OrderStatus.PREPARING,
-      OrderStatus.READY_FOR_PICKUP,
-    ];
-
-    const isGroupedAccept = Boolean(
-      candidate.deliveryGroupId ?? dispatchData.deliveryGroupId,
-    );
-    if (
-      !order ||
-      order.status === OrderStatus.CANCELLED ||
-      order.status === OrderStatus.DELIVERED ||
-      (!isGroupedAccept && !dispatchableStatuses.includes(order.status))
-    ) {
-      return false;
-    }
-
-    const dispatchContext =
-      await this.locationRepository.getOrderLocationContext(order.id);
-    if (!dispatchContext) return false;
-
-    const orderDistanceKm = await this.locationRepository.getDistanceKm(
-      dispatchContext.lng,
-      dispatchContext.lat,
-      dispatchContext.deliveryLng,
-      dispatchContext.deliveryLat,
-    );
-
-    const totalDistanceKm = Number(candidate.distanceKm) + orderDistanceKm;
-
-    let nextStatus: OrderStatus;
-    if (
-      (order.paymentMethod === 'MOBILE_WALLET' || Number(order.upfrontAmount ?? 0) > 0) &&
-      order.paymentStatus !== 'COMPLETED'
-    ) {
-      nextStatus = OrderStatus.PENDING_PAYMENT;
-    } else {
-      // Preserve preparation progress if vendor already advanced it
-      if (order.status === OrderStatus.READY_FOR_PICKUP) {
-        nextStatus = OrderStatus.READY_FOR_PICKUP;
-      } else if (order.status === OrderStatus.PREPARING) {
-        nextStatus = OrderStatus.PREPARING;
-      } else {
-        nextStatus = OrderStatus.DRIVER_ASSIGNED;
-      }
-    }
-
-    const losingCandidates = (dispatchData.candidates || []).filter(
-      (c: any) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
-    );
-
-    // Resolve participating vendor users before transaction
-    const vendorIds = order.vendorId
-      ? [order.vendorId]
-      : Array.from(
-          new Set(
-            (
-              await this.prisma.orderVendorFulfillment.findMany({
-                where: { orderId: order.id },
-                select: { vendorId: true },
-              })
-            ).map((p) => p.vendorId),
-          ),
-        );
-    const vendorUserIds = vendorIds.length
-      ? (
-          await this.prisma.vendorMember.findMany({
-            where: { vendorId: { in: vendorIds } },
-            select: { userId: true },
-          })
-        ).map((m) => m.userId)
-      : [];
-
-    const acceptScope =
-      candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? orderId;
-
-    // The order revision written by this acceptance, captured inside the
-    // transaction so the event carries exactly the version it produced.
-    let assignedRevision = 0;
-
-    try {
-      await this.prisma.$transaction(async (tx) => {
-      // Serialize concurrent acceptances for the SAME driver. Two different
-      // orders dispatch different payloads (separate Redis claims), so the
-      // per-order SET NX cannot serialize them — lock the driver row instead.
-      await tx.$queryRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
-
-      const settings = await this.platformSettings.getSettings();
-      const maxActive = settings.maxActiveOrdersPerDriver ?? 1;
-
-      // A driver already carrying maxActive live units of work cannot take
-      // this one. Work is counted per delivery group (primary or assistant)
-      // plus legacy orders that have no groups; counting order rows alone
-      // misses a second group on the same order and double-counts the mirrored
-      // order-level driver.
-      const [activeGroupCount, activeLegacyOrderCount] = await Promise.all([
-        tx.orderDeliveryGroup.count({
-          where: {
-            status: {
-              notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
-            },
-            OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
-          },
-        }),
-        tx.order.count({
-          where: {
-            driverId,
-            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-            deliveryGroups: { none: {} },
-          },
-        }),
-      ]);
-      if (activeGroupCount + activeLegacyOrderCount >= maxActive) {
-        throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
-      }
-      const isStackedOrder = (activeGroupCount + activeLegacyOrderCount) > 0;
-
-      // A driver whose shift ended between dispatch and accept must not take
-      // the order �?" the shift filter only applies at dispatch time.
-      if (candidate.driverShiftId) {
-        const shift = await tx.driverShift.findUnique({
-          where: { id: candidate.driverShiftId },
-          select: { status: true },
-        });
-        if (!shift || shift.status !== 'ACTIVE') {
-          throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
-        }
-      }
-
-      // 1. Create the permanent accepted record
-      await tx.orderDispatch.create({
-        data: {
-          id: dispatchId, // Keep original dispatchId for the accepted one
-          orderId,
-          driverId,
-          driverShiftId: candidate.driverShiftId,
-          deliveryGroupId: candidate.deliveryGroupId ?? null,
-          type: dispatchData.type,
-          distanceKm: candidate.distanceKm,
-          estimatedEarnings: candidate.estimatedEarnings,
-          status: 'ACCEPTED',
-          expiresAt: new Date(dispatchData.expiresAt),
-        },
-      });
-
-      // 2. Assign the delivery, then mirror onto the order for back-compat.
-      // For a grouped order the GROUP is the authoritative assignment: each
-      // group gets its own driver and may be accepted concurrently with the
-      // others. The order row is updated lazily: the FIRST accepted group sets
-      // the collector (driverId/driverShiftId) and advances the aggregate
-      // status, while later groups must NOT be blocked by the order no longer
-      // being in a dispatchable status (which is exactly why the old
-      // order-status gate stranded every group after the first).
-      const groupId = candidate.deliveryGroupId ?? null;
-
-      if (groupId) {
-        const groupClaimed = await tx.orderDeliveryGroup.updateMany({
-          where: {
-            id: groupId,
-            primaryDriverId: null,
-            status: {
-              notIn: [
-                DeliveryGroupStatus.CANCELLED,
-                DeliveryGroupStatus.DELIVERED,
-              ],
-            },
-          },
-          data: {
-            primaryDriverId: driverId,
-            primaryDriverShiftId: candidate.driverShiftId,
-            isStacked: isStackedOrder,
-            status:
-              nextStatus === OrderStatus.PENDING_PAYMENT
-                ? DeliveryGroupStatus.PENDING_PAYMENT
-                : DeliveryGroupStatus.DRIVER_ASSIGNED,
-            assignedByUserId: 'system',
-            assignedAt: new Date(),
-          },
-        });
-        if (groupClaimed.count === 0) {
-          // Another admin/dispatch already took this delivery.
-          throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-        }
-
-        // Only the first assigned group becomes the order-level collector.
-        await tx.order.updateMany({
-          where: { id: order.id, driverId: null },
-          data: {
-            driverId,
-            driverShiftId: candidate.driverShiftId,
-            isStacked: isStackedOrder,
-            driverAssignedAt: new Date(),
-          },
-        });
-
-        // Move the aggregate status forward only while it is still awaiting a
-        // driver; never walk back PREPARING/READY_FOR_PICKUP. The revision is
-        // bumped in the SAME statement so the DB guard cannot auto-bump it a
-        // second time when this actually changes the status.
-        const aggregateAdvanced = await tx.order.updateMany({
-          where: {
-            id: order.id,
-            status: {
-              in: [
-                OrderStatus.PENDING,
-                OrderStatus.ACCEPTED,
-                OrderStatus.LOOKING_FOR_DRIVER,
-              ],
-            },
-          },
-          data: { status: nextStatus, revision: { increment: 1 } },
-        });
-
-        await tx.orderStatusEvent.create({
-          data: {
-            orderId: order.id,
-            status: nextStatus,
-            note: `Driver assigned to a delivery. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-            createdBy: 'system',
-          },
-        });
-
-        // Exactly one order-level revision per accepted delivery. If the
-        // aggregate update above matched, its bump is the one to report;
-        // otherwise this is a later group whose order status did not move, and
-        // the order still genuinely changed (another delivery got a driver).
-        if (aggregateAdvanced.count > 0) {
-          const revisionRow = await tx.order.findUnique({
-            where: { id: order.id },
-            select: { revision: true },
-          });
-          assignedRevision = revisionRow?.revision ?? 0;
-        } else {
-          const bumped = await tx.order.update({
-            where: { id: order.id },
-            data: { revision: { increment: 1 } },
-            select: { revision: true },
-          });
-          assignedRevision = bumped.revision;
-        }
-      } else {
-        const updated = await tx.order.updateMany({
-          where: { id: order.id, status: { in: dispatchableStatuses } },
-          data: {
-            driverId,
-            driverShiftId: candidate.driverShiftId,
-            isStacked: isStackedOrder,
-            status: nextStatus,
-            revision: { increment: 1 },
-            driverAssignedAt: new Date(),
-            distanceKm: totalDistanceKm,
-          },
-        });
-
-        if (updated.count === 0) {
-          throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-        }
-
-        // The row lock from the update above makes this read the value just
-        // written by this acceptance.
-        assignedRevision =
-          (
-            await tx.order.findUnique({
-              where: { id: order.id },
-              select: { revision: true },
-            })
-          )?.revision ?? 0;
-
-        await tx.orderStatusEvent.create({
-          data: {
-            orderId: order.id,
-            status: nextStatus,
-            note: `Driver assigned. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-            createdBy: 'system',
-          },
-        });
-      }
-
-      await this.outbox.record(tx, {
-        aggregateType: 'ORDER',
-        aggregateId: order.id,
-        version: assignedRevision,
-        eventType: EVENTS.ORDER_STATUS_CHANGED,
-        jobName: EVENT_JOBS.ORDER_STATUS_CHANGED,
-        dedupeKey: `notify:order_status:${order.id}:${assignedRevision}`,
-        payload: {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          oldStatus: order.status,
-          newStatus: nextStatus,
-          status: nextStatus,
-          customerId: order.customerId,
-          customerUserId: order.customer?.userId || order.customerId,
-          vendorId: order.vendorId,
-          vendorUserIds,
-          driverId,
-          driverUserId: candidate.userId,
-          actorUserId: 'system',
-          note: 'Driver found and auto-assigned.',
-          revision: assignedRevision,
-        },
-      });
-
-      // 2b. Mark the driver busy. When maxActive > 1, ON_DELIVERY drivers can
-      // accept additional orders up to the cap.
-      const assignableStatuses: DriverStatus[] = [
-        ...DRIVER_ASSIGNABLE_STATUSES,
-      ];
-      if (maxActive > 1) {
-        assignableStatuses.push(DriverStatus.ON_DELIVERY);
-      }
-      const flipped = await tx.driver.updateMany({
-        where: {
-          id: driverId,
-          status: { in: assignableStatuses },
-        },
-        data: { status: DriverStatus.ON_DELIVERY },
-      });
-      if (flipped.count === 0) {
-        throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
-      }
-
-      // 3. Log CANCELLED for the remaining "losing" candidates
-      if (losingCandidates.length > 0) {
-        await tx.orderDispatch.createMany({
-          data: losingCandidates.map((c: any) => ({
-            id: uuidv4(),
-            orderId,
-            driverId: c.driverId,
-            driverShiftId: c.driverShiftId,
-            deliveryGroupId: c.deliveryGroupId ?? null,
-            type: dispatchData.type,
-            distanceKm: c.distanceKm,
-            estimatedEarnings: c.estimatedEarnings,
-            status: 'CANCELLED',
-            expiresAt: new Date(dispatchData.expiresAt),
-          })),
-        });
-      }
-    });
-    } catch (err) {
-      // Release the active slot ONLY if we still own it, so a failed accept
-      // doesn't block future dispatches for this delivery until TTL expiry.
-      try {
-        // Release the active slot ONLY if we still own it (compare-and-delete),
-        // so a failed accept doesn't wipe a newer round's claim.
-        await this.releaseDispatchClaim(acceptScope, dispatchId);
-        // Keep the shared dispatch payload intact so other candidates can still
-        // respond; the expiry watchdog / stuck-order monitor handles retry.
-      } catch {
-        // best-effort cleanup
-      }
-      // Convert a unique-constraint violation (concurrent accept race) into a
-      // clean, client-facing error instead of a raw Prisma P2002.
-      if (
-        err &&
-        typeof err === 'object' &&
-        (err as { code?: string }).code === 'P2002'
-      ) {
-        throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
-      }
-      throw err;
-    }
-
-    // Cleanup Redis (success path). Release the claim only if this acceptance
-    // still owns it, so a newer round's claim is never deleted.
-    await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    const stillOwner = await this.releaseDispatchClaim(acceptScope, dispatchId);
-    if (stillOwner) {
-      await this.redis.del(`otlobegy:dispatch-state:${acceptScope}`);
-    } else {
-      this.logger.warn(
-        `Dispatch ${dispatchId} accepted but a newer round now owns ${acceptScope}; leaving its claim intact`,
-      );
-    }
-
-    await this.redis.del(rejectedKey);
-
-    await Promise.all(
-      (dispatchData.candidates || []).map((c: any) =>
-        this.redis.srem(
-          `otlobegy:driver-pending-dispatches:${c.driverId}`,
-          dispatchId,
-        ),
-      ),
-    );
-
-    this.logger.log(
-      `Driver ${driverId} accepted dispatch ${dispatchId} for order ${order.orderNumber}`,
-    );
-
-    // Notify unresponded losing drivers that dispatch has ended
-    for (const c of losingCandidates) {
-      this.eventEmitter.emit(
-        EVENTS.ORDER_DISPATCH_CANCELLED,
-        new OrderDispatchCancelledEvent(dispatchId, orderId, c.userId),
-      );
-    }
-
-
-    // Durable: enqueue directly to the events queue and trigger workflow
-    // orchestration immediately so a crash cannot lose fan-out and active
-    // dispatch cancellation does not wait for the outbox sweep.
-    const statusEvent = new OrderStatusChangedEvent(
-      order.id,
-      order.orderNumber,
-      order.status,
-      nextStatus,
-      order.customerId,
-      order.customer?.userId || order.customerId,
-      order.vendorId,
-      vendorUserIds,
-      driverId,
-      candidate.userId,
-      'system',
-      'Driver found and auto-assigned.',
-      assignedRevision,
-    );
-
-    await this.eventsQueue.add(
-      EVENT_JOBS.ORDER_STATUS_CHANGED,
-      statusEvent,
-      { attempts: 3, backoff: { type: 'exponential', delay: 2_000 } },
-    );
-    await this.workflowDispatcher?.onOrderStatusChanged(statusEvent);
-    await this.outbox.markProcessed('ORDER', order.id, assignedRevision);
-
-    return true;
+  handleAcceptance(dispatchId: string, driverId: string): Promise<boolean> {
+    return this.lifecycle.handleAcceptance(dispatchId, driverId);
   }
 
-  // ─── Handle rejection ─────────────────────────────────────────────────────
-
-  async handleRejection(dispatchId: string, driverId: string): Promise<void> {
-    const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
-    if (!raw) return;
-
-    const dispatchData = JSON.parse(raw);
-
-    // Strict timestamp validation since Redis TTL outlives the dispatch window
-    if (Date.now() > new Date(dispatchData.expiresAt).getTime()) {
-      this.logger.warn(
-        `Driver ${driverId} attempted to reject dispatch ${dispatchId} but it is past expiresAt timestamp`,
-      );
-      return;
-    }
-
-    const orderId = dispatchData.orderId;
-    const candidate = (dispatchData.candidates || []).find(
-      (c: any) => c.driverId === driverId,
-    );
-
-    if (!candidate) return;
-
-    // Atomic addition to a Redis Set
-    const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
-    const added = await this.redis.sadd(rejectedKey, driverId);
-    if (added === 0) {
-      // Already rejected in Redis, but a prior attempt may have failed before
-      // persisting to Postgres. Re-check the DB before skipping, so a transient
-      // DB failure does not permanently drop the terminal row.
-      const existing = await this.prisma.orderDispatch.findFirst({
-        where: { orderId, driverId, status: DispatchStatus.REJECTED },
-      });
-      if (existing) return; // truly already persisted
-      // fall through and re-attempt persistence
-    }
-
-    // Remove from driver's pending dispatches set
-    await this.redis.srem(
-      `otlobegy:driver-pending-dispatches:${driverId}`,
-      dispatchId,
-    );
-
-    // Set TTL for the rejected set to automatically cleanup
-    const ttl = Math.max(
-      1,
-      Math.floor(
-        (new Date(dispatchData.expiresAt).getTime() - Date.now()) / 1000,
-      ) + 60,
-    );
-    await this.redis.expire(rejectedKey, ttl);
-
-    // Persist terminal state to Postgres for this specific rejection
-    await this.prisma.orderDispatch.create({
-      data: {
-        id: uuidv4(),
-        orderId,
-        driverId,
-        driverShiftId: candidate.driverShiftId,
-        deliveryGroupId: candidate.deliveryGroupId ?? null,
-        type: dispatchData.type,
-        distanceKm: candidate.distanceKm,
-        estimatedEarnings: candidate.estimatedEarnings,
-        status: 'REJECTED',
-        expiresAt: new Date(dispatchData.expiresAt),
-      },
-    });
-
-    if (candidate.driverShiftId) {
-      await this.prisma.driverShift.update({
-        where: { id: candidate.driverShiftId },
-        data: { rejectedDispatches: { increment: 1 } },
-      });
-    }
-
-    this.logger.log(
-      `Driver ${driverId} rejected dispatch ${dispatchId} for order ${orderId}`,
-    );
-
-    const totalRejected = await this.redis.scard(rejectedKey);
-
-    // If all candidates rejected it, expire early and retry
-    if (totalRejected >= dispatchData.candidates.length) {
-      // Read the full rejected list BEFORE deleting the key — the retry below
-      // needs it to keep excluding drivers who already said no.
-      const rejectedList = await this.redis.smembers(rejectedKey);
-
-      await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-      const groupScope =
-        candidate.deliveryGroupId ?? dispatchData.deliveryGroupId ?? null;
-      const rejectScope = groupScope ?? orderId;
-      // Release the claim only if this round still owns it.
-      const stillOwner = await this.releaseDispatchClaim(
-        rejectScope,
-        dispatchId,
-      );
-      await this.redis.del(rejectedKey);
-
-      await Promise.all(
-        (dispatchData.candidates || []).map((c: any) =>
-          this.redis.srem(
-            `otlobegy:driver-pending-dispatches:${c.driverId}`,
-            dispatchId,
-          ),
-        ),
-      );
-
-      const expiryJob = await this.dispatchQueue.getJob(
-        `dispatch-expire-${dispatchId}`,
-      );
-
-      if (expiryJob) {
-        // Remove the pending expiry watchdog — this rejection handled it.
-        await expiryJob.remove();
-        if (stillOwner) {
-          // Keep the dispatch-state in sync with the re-queued attempt so the
-          // stuck-order monitor resumes from the true counter, never attempt 1.
-          const branchSettings = await this.platformSettings.getSettings();
-          await this.redis.set(
-            `otlobegy:dispatch-state:${rejectScope}`,
-            JSON.stringify({
-              attempt: expiryJob.data.attempt + 1,
-              excludeDriverIds: expiryJob.data.excludeDriverIds,
-            }),
-            (branchSettings.driverAcceptTimeoutSecs ?? 30) * 60,
-          );
-
-          await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
-            orderId,
-            orderNumber: expiryJob.data.orderNumber,
-            attempt: expiryJob.data.attempt + 1,
-            excludeDriverIds: expiryJob.data.excludeDriverIds,
-            deliveryGroupId: groupScope,
-          });
-        } else {
-          this.logger.warn(
-            `Dispatch ${dispatchId} rejected after another round claimed ${rejectScope}; not re-enqueuing`,
-          );
-        }
-      } else if (stillOwner) {
-        const order = await this.prisma.order.findUnique({
-          where: { id: orderId },
-        });
-        if (order) {
-          // Resume from the persisted attempt counter instead of resetting to 1
-          // (which would silently defeat radius expansion).
-          const stateRaw = await this.redis.get(
-            `otlobegy:dispatch-state:${rejectScope}`,
-          );
-          const state = stateRaw ? JSON.parse(stateRaw) : null;
-          const nextAttempt = (state?.attempt ?? 1) + 1;
-          await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
-            orderId,
-            orderNumber: order.orderNumber,
-            attempt: nextAttempt,
-            excludeDriverIds: Array.from(
-              new Set([...(state?.excludeDriverIds ?? []), ...rejectedList]),
-            ),
-            deliveryGroupId: groupScope,
-          });
-        }
-      } else {
-        this.logger.warn(
-          `Dispatch ${dispatchId} rejected after another round claimed ${rejectScope}; not re-enqueuing`,
-        );
-      }
-    }
+  handleRejection(dispatchId: string, driverId: string): Promise<void> {
+    return this.lifecycle.handleRejection(dispatchId, driverId);
   }
 
-  // ─── Verify pending dispatch (for API endpoints) ──────────────────────────
+  cancelActiveDispatch(orderId: string): Promise<void> {
+    return this.lifecycle.cancelActiveDispatch(orderId);
+  }
+
+  // ─── Pending dispatch queries / verification ──────────────────────────────
 
   async verifyPendingDispatch(
     dispatchId: string,
     driverId: string,
   ): Promise<string | null> {
-    const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
-    if (!raw) return null;
-
-    const dispatchData = JSON.parse(raw);
+    const dispatchData = await this.dispatchRepository.getBroadcast(dispatchId);
+    if (!dispatchData) return null;
 
     if (Date.now() > new Date(dispatchData.expiresAt).getTime()) {
       return null;
     }
 
     const candidate = dispatchData.candidates.find(
-      (c: any) => c.driverId === driverId,
+      (c) => c.driverId === driverId,
     );
-
     if (!candidate) return null;
-    const isRejected = await this.redis.sismember(
-      `otlobegy:dispatch:${dispatchId}:rejected`,
-      driverId,
-    );
-    if (isRejected) return null;
+
+    if (await this.dispatchRepository.isCandidateRejected(dispatchId, driverId)) {
+      return null;
+    }
 
     return dispatchData.orderId;
   }
-
-  // ─── Get pending dispatches for driver ────────────────────────────────────
 
   async getPendingForDriver(driverUserId: string) {
     const driver = await this.prisma.driver.findUnique({
@@ -1385,50 +246,34 @@ export class DispatchService {
     });
     if (!driver) return [];
 
-    const dispatchIds: string[] = await this.redis.smembers(
-      `otlobegy:driver-pending-dispatches:${driver.id}`,
-    );
+    const dispatchIds =
+      await this.dispatchRepository.getDriverPendingIds(driver.id);
 
-    // Resolve the payloads concurrently — these are independent Redis reads
-    // and a single driver can realistically sit on several pending dispatches.
     const results = await Promise.all(
       dispatchIds.map(async (dispatchId) => {
-        const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
-        if (!raw) {
-          await this.redis.srem(
-            `otlobegy:driver-pending-dispatches:${driver.id}`,
+        const dispatchData =
+          await this.dispatchRepository.getBroadcast(dispatchId);
+        if (
+          !dispatchData ||
+          Date.now() > new Date(dispatchData.expiresAt).getTime() ||
+          (await this.dispatchRepository.isCandidateRejected(
             dispatchId,
-          );
-          return null;
-        }
-
-        const dispatchData = JSON.parse(raw);
-        if (Date.now() > new Date(dispatchData.expiresAt).getTime()) {
-          await this.redis.srem(
-            `otlobegy:driver-pending-dispatches:${driver.id}`,
-            dispatchId,
-          );
-          return null;
-        }
-
-        const rejectedBy = await this.redis.sismember(
-          `otlobegy:dispatch:${dispatchId}:rejected`,
-          driver.id,
-        );
-        if (rejectedBy) {
-          await this.redis.srem(
-            `otlobegy:driver-pending-dispatches:${driver.id}`,
+            driver.id,
+          ))
+        ) {
+          await this.dispatchRepository.removeDriverPending(
+            driver.id,
             dispatchId,
           );
           return null;
         }
 
         const candidate = (dispatchData.candidates || []).find(
-          (c: any) => c.driverId === driver.id,
+          (c) => c.driverId === driver.id,
         );
         if (!candidate) {
-          await this.redis.srem(
-            `otlobegy:driver-pending-dispatches:${driver.id}`,
+          await this.dispatchRepository.removeDriverPending(
+            driver.id,
             dispatchId,
           );
           return null;
@@ -1451,171 +296,348 @@ export class DispatchService {
       }),
     );
 
-    const pendingDispatches = results.filter(
-      (r): r is NonNullable<typeof r> => r !== null,
-    );
-
-    if (pendingDispatches.length > 0) {
-      return pendingDispatches;
-    }
-
-    // Pending offers live entirely in Redis. The old Postgres fallback queried
-    // `status: 'PENDING'`, but no PENDING row is ever persisted (only terminal
-    // ACCEPTED/REJECTED/EXPIRED/CANCELLED rows are written), so that query
-    // could never return anything. Return the live offers as-is.
-    return [];
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
   }
 
-  // ─── Cancel active dispatch (e.g. order cancelled) ────────────────────────
+  // ─── Private broadcast helpers ────────────────────────────────────────────
 
-  async cancelActiveDispatch(orderId: string): Promise<void> {
-    // A grouped order can have one active round PER DELIVERY, each keyed by its
-    // own scope. When the whole order is cancelled, cancel every scope so no
-    // orphaned broadcast keeps hunting for a driver. When triggered by an event
-    // like DRIVER_ASSIGNED on a multi-delivery order, only cancel scopes that
-    // already have a driver assigned (or are cancelled) so sibling delivery
-    // groups still searching for a driver are not prematurely killed.
-    const [order, groups] = await Promise.all([
-      this.prisma.order.findUnique({
-        where: { id: orderId },
-        select: { status: true, driverId: true },
-      }),
-      this.prisma.orderDeliveryGroup.findMany({
-        where: { orderId },
-        select: { id: true, primaryDriverId: true, status: true },
-      }),
-    ]);
+  private async resolveDispatchTarget(
+    orderId: string,
+    orderNumber: string,
+    deliveryGroupId: string | null,
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        vendorId: true,
+        type: true,
+        deliveryFee: true,
+        customer: { select: { user: { select: { name: true } } } },
+        vendor: { select: { storeName: true, storeNameAr: true } },
+      },
+    });
 
+    const group = deliveryGroupId
+      ? await this.prisma.orderDeliveryGroup.findUnique({
+          where: { id: deliveryGroupId },
+          select: {
+            id: true,
+            orderId: true,
+            sequence: true,
+            status: true,
+            deliveryFee: true,
+            distanceKm: true,
+            primaryDriverId: true,
+          },
+        })
+      : null;
+
+    if (deliveryGroupId && (!group || group.orderId !== orderId)) {
+      this.logger.warn(
+        `Dispatch skipped for ${orderNumber}: delivery group ${deliveryGroupId} not found`,
+      );
+      return null;
+    }
+
+    const orderDispatchable =
+      !!order && DISPATCHABLE_ORDER_STATUSES.includes(order.status);
     const isOrderTerminal =
       !order ||
-      order.status === 'CANCELLED' ||
-      order.status === 'DELIVERED';
+      order.status === OrderStatus.CANCELLED ||
+      order.status === OrderStatus.DELIVERED;
+    const groupDispatchable =
+      !group || DISPATCHABLE_GROUP_STATUSES.includes(group.status);
+    const alreadyAssigned = Boolean(group?.primaryDriverId);
 
-    let scopes: string[];
-    if (isOrderTerminal || groups.length === 0) {
-      scopes = [orderId, ...groups.map((g) => g.id)];
-    } else {
-      scopes = groups
-        .filter(
-          (g) =>
-            g.primaryDriverId != null ||
-            g.status === 'CANCELLED' ||
-            g.status === 'DELIVERED',
-        )
-        .map((g) => g.id);
+    if (isOrderTerminal || alreadyAssigned || !groupDispatchable) {
+      this.logger.warn(
+        `Dispatch skipped for ${orderNumber}: status ${order?.status ?? 'not found'}` +
+          (group ? `, group #${group.sequence} status ${group.status}` : '') +
+          (alreadyAssigned ? ' (group already has a driver)' : ''),
+      );
+      return null;
     }
 
-    if (scopes.length === 0) return;
-
-    const activeDispatchIds = (
-      await Promise.all(
-        scopes.map((scope) =>
-          this.redis.get(`otlobegy:order-dispatch-active:${scope}`),
-        ),
-      )
-    ).filter((id): id is string => !!id);
-
-    for (const id of activeDispatchIds) {
-      await this.cancelDispatchById(id, orderId);
+    if (!group && !orderDispatchable) {
+      this.logger.warn(
+        `Dispatch skipped for ${orderNumber}: status is ${order?.status}`,
+      );
+      return null;
     }
 
-    // Do NOT blindly delete scope keys here: a newer dispatch round may have
-    // claimed one of these scopes between the initial GET and this cleanup, and
-    // a blind DEL would wipe its claim/state. Each cancelled round already
-    // released its own claim via releaseDispatchClaim (compare-and-delete) inside
-    // cancelDispatchById; any stale claim that was never cancelled expires by TTL.
+    const dispatchContext =
+      await this.locationRepository.getOrderLocationContext(orderId);
+    if (!dispatchContext) {
+      this.logger.error(
+        `No dispatch context (location) found for order ${orderNumber}`,
+      );
+      return null;
+    }
+
+    if (group) {
+      const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(
+        group.id,
+      );
+      if (!pickup) {
+        this.logger.error(
+          `No pickup branch found for delivery group ${group.id} on order ${orderNumber}`,
+        );
+        return null;
+      }
+      dispatchContext.lng = pickup.lng;
+      dispatchContext.lat = pickup.lat;
+    }
+
+    return {
+      order,
+      group,
+      dispatchContext,
+      dispatchDeliveryFee: group ? group.deliveryFee : (order.deliveryFee ?? 0),
+    };
   }
 
-  /**
-   * Release the single-flight claim for `scope` only if this dispatch round
-   * still owns it. Returns true when the caller still owns (or already lost)
-   * nothing to a newer round, false when a different dispatchId now holds the
-   * slot — in that case the caller must not touch shared state or re-enqueue.
-   */
-  private async releaseDispatchClaim(
-    scope: string,
-    dispatchId: string,
-  ): Promise<boolean> {
-    return this.redis.delIfValue(
-      `otlobegy:order-dispatch-active:${scope}`,
-      dispatchId,
+  private resolveAllowedVehicleTypes(
+    requestedVehicleType: string | null,
+    orderDistanceKm: number,
+    settings: {
+      allowBicycle: boolean;
+      allowMotorcycle: boolean;
+      allowCar: boolean;
+      allowVan: boolean;
+      allowTruck: boolean;
+      allowMotorTricycle: boolean;
+      maxKmForBicycle?: number | null;
+    },
+  ): string[] {
+    if (requestedVehicleType) {
+      const v = requestedVehicleType;
+      const isAllowed =
+        (v === 'BICYCLE' && settings.allowBicycle) ||
+        (v === 'MOTORCYCLE' && settings.allowMotorcycle) ||
+        (v === 'CAR' && settings.allowCar) ||
+        (v === 'VAN' && settings.allowVan) ||
+        (v === 'TRUCK' && settings.allowTruck) ||
+        (v === 'MOTOR_TRICYCLE' && settings.allowMotorTricycle);
+      return isAllowed ? [v] : [];
+    }
+
+    const allowed: string[] = [];
+    if (settings.allowMotorcycle) allowed.push('MOTORCYCLE');
+    if (
+      settings.allowBicycle &&
+      orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)
+    ) {
+      allowed.push('BICYCLE');
+    }
+    if (settings.allowCar) allowed.push('CAR');
+    if (settings.allowVan) allowed.push('VAN');
+    if (settings.allowTruck) allowed.push('TRUCK');
+    if (settings.allowMotorTricycle) allowed.push('MOTOR_TRICYCLE');
+    return allowed;
+  }
+
+  private async buildCandidateOffers(params: {
+    selectedDrivers: Array<{
+      id: string;
+      userId: string;
+      activeShiftId: string | null;
+      distanceKm: number;
+      tier?: string | null;
+      isOnDelivery?: boolean;
+    }>;
+    order: {
+      type: string;
+      customer: { user: { name: string } | null } | null;
+      vendor: { storeName: string; storeNameAr: string | null } | null;
+    };
+    group: { id: string; sequence: number } | null;
+    dispatchContext: { requestedVehicleType: string | null };
+    orderDistanceKm: number;
+    dispatchDeliveryFee: number;
+    perKmOverride: number | null;
+    settings: any;
+  }): Promise<DispatchCandidateOffer[]> {
+    const {
+      selectedDrivers,
+      order,
+      group,
+      dispatchContext,
+      orderDistanceKm,
+      dispatchDeliveryFee,
+      perKmOverride,
+      settings,
+    } = params;
+
+    return Promise.all(
+      selectedDrivers.map(async (candidate) => {
+        const totalDistanceKm = candidate.distanceKm + orderDistanceKm;
+        const isCandidateStacked = Boolean(candidate.isOnDelivery);
+        const isCandidateMultiVendor = Boolean(group);
+
+        const estimatedEarnings =
+          await this.earnings.calculateEstimatedEarningsFromDistance({
+            distanceKm: totalDistanceKm,
+            perKmOverride,
+            prefetchedSettings: settings,
+            isStandardOrder: order.type === 'STANDARD',
+            vehicleType: dispatchContext.requestedVehicleType,
+            isStacked: isCandidateStacked,
+            isMultiVendor: isCandidateMultiVendor,
+            driverTier: candidate.tier,
+          });
+
+        const advertisedEarnings =
+          dispatchDeliveryFee > 0
+            ? this.earnings.calculateDriverEarningsForFee(
+                dispatchDeliveryFee,
+                settings,
+                {
+                  isStacked: isCandidateStacked,
+                  isMultiVendor: isCandidateMultiVendor,
+                  driverTier: candidate.tier,
+                },
+              )
+            : estimatedEarnings;
+
+        return {
+          driverId: candidate.id,
+          userId: candidate.userId,
+          driverShiftId: candidate.activeShiftId,
+          deliveryGroupId: group?.id ?? null,
+          distanceKm: candidate.distanceKm,
+          estimatedEarnings: advertisedEarnings,
+          pickupLocationName: group
+            ? `Delivery ${group.sequence}`
+            : (order.vendor?.storeName ?? order.vendor?.storeNameAr ?? 'Vendor'),
+          dropoffLocationName: order.customer?.user?.name ?? 'Customer',
+          isStacked: isCandidateStacked,
+        };
+      }),
     );
   }
 
-  /** Cancel one dispatch round and persist terminal states for the losers. */
-  private async cancelDispatchById(
-    dispatchId: string,
-    orderId: string,
-  ): Promise<void> {
-    const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
-    if (!raw) return;
+  private async broadcastOffers(params: {
+    dispatchId: string;
+    orderId: string;
+    orderNumber: string;
+    orderType: OrderType;
+    group: { id: string } | null;
+    candidates: DispatchCandidateOffer[];
+    attempt: number;
+    excludeDriverIds: string[];
+    timeoutSecs: number;
+    expiresAt: Date;
+    dispatchDeliveryFee: number;
+  }): Promise<'dispatched' | 'in_flight'> {
+    const {
+      dispatchId,
+      orderId,
+      orderNumber,
+      orderType,
+      group,
+      candidates,
+      attempt,
+      excludeDriverIds,
+      timeoutSecs,
+      expiresAt,
+      dispatchDeliveryFee,
+    } = params;
 
-    const dispatchData = JSON.parse(raw);
-    const scope = dispatchData.deliveryGroupId ?? orderId;
+    const redisTtl = timeoutSecs + 300;
+    const dispatchScope = group?.id ?? orderId;
 
-    await this.redis.del(`otlobegy:dispatch:${dispatchId}`);
-    // Only release the claim if this round still owns it, so a newer round's
-    // claim is never deleted by a stale cancellation.
-    const stillOwner = await this.releaseDispatchClaim(scope, dispatchId);
-    if (stillOwner) {
-      await this.redis.del(`otlobegy:dispatch-state:${scope}`);
-    } else {
+    const dispatchData: DispatchBroadcastPayload = {
+      dispatchId,
+      orderId,
+      deliveryGroupId: group?.id ?? null,
+      type: orderType,
+      candidates,
+      expiresAt: expiresAt.toISOString(),
+      pickupLocationName: candidates[0]?.pickupLocationName,
+      dropoffLocationName: candidates[0]?.dropoffLocationName,
+    };
+
+    await this.dispatchRepository.saveBroadcast(dispatchId, dispatchData, redisTtl);
+
+    const claimed = await this.dispatchRepository.acquireActiveClaim(
+      dispatchScope,
+      dispatchId,
+      redisTtl,
+    );
+    if (!claimed) {
+      await this.dispatchRepository.deleteBroadcast(dispatchId);
       this.logger.warn(
-        `Dispatch ${dispatchId} cancelled but ${scope} now owned by another round`,
+        `Dispatch for ${orderNumber} skipped — another dispatch is already active`,
+      );
+      return 'in_flight';
+    }
+
+    try {
+      await this.dispatchRepository.saveDispatchState(
+        dispatchScope,
+        { attempt, excludeDriverIds },
+        timeoutSecs * 60,
+      );
+
+      await this.dispatchQueue.add(
+        ORDER_JOBS.DISPATCH_EXPIRE,
+        {
+          dispatchId,
+          orderId,
+          orderNumber,
+          attempt,
+          excludeDriverIds: [
+            ...excludeDriverIds,
+            ...candidates.map((c) => c.driverId),
+          ],
+          deliveryGroupId: group?.id ?? null,
+        },
+        {
+          delay: timeoutSecs * 1000,
+          jobId: `dispatch-expire-${dispatchId}`,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2_000 },
+        },
+      );
+
+      await Promise.all(
+        candidates.map((c) =>
+          this.dispatchRepository.addDriverPending(
+            c.driverId,
+            dispatchId,
+            redisTtl,
+          ),
+        ),
+      );
+    } catch (err) {
+      await this.dispatchRepository.releaseActiveClaim(dispatchScope, dispatchId);
+      await this.dispatchRepository.deleteBroadcast(dispatchId);
+      throw err;
+    }
+
+    for (const candidate of candidates) {
+      this.eventEmitter.emit(
+        EVENTS.ORDER_DISPATCH_SENT,
+        new OrderDispatchSentEvent(
+          dispatchId,
+          orderId,
+          orderNumber,
+          candidate.driverId,
+          candidate.userId,
+          orderType,
+          candidate.estimatedEarnings,
+          candidate.distanceKm,
+          expiresAt,
+          candidate.pickupLocationName,
+          candidate.dropoffLocationName,
+          candidate.isStacked,
+          dispatchDeliveryFee,
+        ),
       );
     }
-    const rejectedKey = `otlobegy:dispatch:${dispatchId}:rejected`;
-    // Read BEFORE deleting — the persisted terminal states below need it.
-    const rejectedBy: string[] = await this.redis.smembers(rejectedKey);
-    await this.redis.del(rejectedKey);
 
-    await Promise.all(
-      (dispatchData.candidates || []).map((c: any) =>
-        this.redis.srem(
-          `otlobegy:driver-pending-dispatches:${c.driverId}`,
-          dispatchId,
-        ),
-      ),
-    );
-
-    // Persist terminal state to Postgres
-    const candidates = dispatchData.candidates || [];
-
-    const unresponded = candidates.filter(
-      (c: any) => !rejectedBy.includes(c.driverId),
-    );
-
-    if (unresponded.length > 0) {
-      await this.prisma.orderDispatch.createMany({
-        data: unresponded.map((candidate: any) => ({
-          id: uuidv4(),
-          orderId,
-          driverId: candidate.driverId,
-          driverShiftId: candidate.driverShiftId,
-          deliveryGroupId: candidate.deliveryGroupId ?? null,
-          type: dispatchData.type,
-          distanceKm: candidate.distanceKm,
-          estimatedEarnings: candidate.estimatedEarnings,
-          status: 'CANCELLED',
-          expiresAt: new Date(dispatchData.expiresAt),
-        })),
-      });
-
-      for (const candidate of unresponded) {
-        this.eventEmitter.emit(
-          EVENTS.ORDER_DISPATCH_CANCELLED,
-          new OrderDispatchCancelledEvent(
-            dispatchId,
-            orderId,
-            candidate.userId,
-          ),
-        );
-      }
-    }
-
-    this.logger.log(
-      `Active dispatch ${dispatchId} cancelled for order ${orderId}`,
-    );
+    return 'dispatched';
   }
-
 }

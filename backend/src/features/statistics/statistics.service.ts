@@ -50,6 +50,7 @@ export interface SettleOrderPayload {
   isContracted: boolean;
   paymentMethod: string;
   customerId: string;
+  customerUserId?: string | null;
   coinsEarned: number;
   coinsUsed: number;
   discount: number;
@@ -271,7 +272,7 @@ export class StatisticsService {
 
         if (g.assistDriverId) {
           const assistTier = tierById.get(g.assistDriverId) ?? 'GOLD';
-          if (assistTier === 'BRONZE') bronzeDriverIds.add(g.assistDriverId!);
+          if (assistTier === 'BRONZE') bronzeDriverIds.add(g.assistDriverId);
           // Assist driver gets the same delivery fee as the primary driver
           const assistAmount = assistFeeFor(
              primaryTier,
@@ -1153,6 +1154,7 @@ export class StatisticsService {
         deliveryFee,
         commissionRate,
         Number(settings.defaultTaxRate ?? 0),
+        payload.customerUserId ?? null,
       ),
     );
 

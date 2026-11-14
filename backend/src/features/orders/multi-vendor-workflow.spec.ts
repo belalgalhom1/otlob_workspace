@@ -14,7 +14,9 @@ import { OrdersService } from './orders.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { PlaceMultiVendorOrderDto } from './dto/multi-vendor-order.dto';
-import { EventsProcessor } from '../../common/listeners/events.processor';
+import { EventsProcessor } from '../events/events.processor';
+import { OrderEventsHandler } from '../events/order-events.handler';
+import { DispatchEventsHandler } from '../events/dispatch-events.handler';
 import { NotificationListener } from '../../common/listeners/notification.listener';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
@@ -585,30 +587,44 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
     it('replays a job after a mid-flight worker kill and deduplicates only once marked DONE', async () => {
       const store = new Map<string, string>();
       const mockRedisClient: any = {
-        get: jest.fn(async (k: string) => store.get(k) ?? null),
-        set: jest.fn(async (k: string, v: string, _ex?: string, _ttl?: number, nx?: string) => {
-          if (nx === 'NX' && store.has(k)) return null;
+        get: jest.fn((k: string) => Promise.resolve(store.get(k) ?? null)),
+        set: jest.fn((k: string, v: string, _ex?: string, _ttl?: number, nx?: string) => {
+          if (nx === 'NX' && store.has(k)) return Promise.resolve(null);
           store.set(k, v);
-          return 'OK';
+          return Promise.resolve('OK');
         }),
-        del: jest.fn(async (k: string) => {
+        del: jest.fn((k: string) => {
           store.delete(k);
-          return 1;
+          return Promise.resolve(1);
         }),
       };
       const mockSocket = { emitToUser: jest.fn().mockResolvedValue(undefined) };
       const mockNotifications = { createMany: jest.fn().mockResolvedValue([]) };
+      const mockPrisma = {
+        vendorMember: { findMany: jest.fn().mockResolvedValue([]) },
+        order: { findUnique: jest.fn().mockResolvedValue(null) },
+      };
 
-      const processor = new EventsProcessor(
+      const orderEventsHandler = new OrderEventsHandler(
         mockSocket as any,
         mockNotifications as any,
         {} as any,
         {} as any,
+        mockPrisma as any,
         {} as any,
-        {
-          vendorMember: { findMany: jest.fn().mockResolvedValue([]) },
-          order: { findUnique: jest.fn().mockResolvedValue(null) },
-        } as any,
+      );
+      const dispatchEventsHandler = new DispatchEventsHandler(
+        mockSocket as any,
+        mockNotifications as any,
+        {} as any,
+        mockPrisma as any,
+      );
+
+      const processor = new EventsProcessor(
+        orderEventsHandler,
+        dispatchEventsHandler,
+        mockNotifications as any,
+        {} as any,
         { getClient: () => mockRedisClient } as any,
       );
 
@@ -703,7 +719,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         vendorBranch: {
           findUnique: jest.fn().mockResolvedValue({ isContracted: false }),
         },
-        $transaction: jest.fn(async (cb: any) => cb(mockPrisma)),
+        $transaction: jest.fn((cb: any) => Promise.resolve(cb(mockPrisma))),
       };
 
       const mockOrdersRepo: any = {

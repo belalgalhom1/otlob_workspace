@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { JWT_ACCESS_SERVICE } from 'src/common/constants/jwt.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EVENTS } from '../../common/events/event-names';
 import { SocketAuthService } from './socket-auth.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -37,62 +38,69 @@ export class SocketGateway
   ) {}
 
   afterInit(server: Server) {
-    server.use(async (socket: Socket, next) => {
-      try {
-        const authHeader = socket.handshake.headers?.authorization;
-        const headerToken = authHeader?.startsWith('Bearer ')
-          ? authHeader.slice(7)
-          : authHeader;
-        const token =
-          (socket.handshake.auth?.token as string | undefined) ||
-          (socket.handshake.query?.token as string | undefined) ||
-          headerToken;
-
-        if (!token) return next(new Error('Unauthorized'));
-
-        const payload = this.jwtService.verify(token);
-
-        if (!payload?.sub) return next(new Error('Unauthorized'));
-
-        // Fast sub-millisecond check in Redis for banned users or revoked sessions
-        const [isBanned, isRevokedSession, isRevokedUser] = await Promise.all([
-          this.redis.get(`banned:user:${payload.sub}`),
-          payload.sid ? this.redis.get(`revoked:session:${payload.sid}`) : null,
-          this.redis.get(`revoked:user:${payload.sub}`),
-        ]);
-
-        if (isBanned || isRevokedSession || isRevokedUser) {
-          return next(new Error('Unauthorized'));
-        }
-
-        // Enforce strict authorization rules based on user role and activity
-        const isAuthorized = await this.socketAuthService.authorize(
-          payload.sub,
-          payload.role,
-        );
-        if (!isAuthorized) {
-          return next(new Error('Forbidden'));
-        }
-
-        socket.data.user = payload;
-        const room = `user_${payload.sub}`;
-        void socket.join(room);
-        if (payload.sid) {
-          void socket.join(`session_${payload.sid}`);
-        }
-        this.logger.debug(
-          `User ${payload.sub} (session: ${payload.sid ?? 'none'}) authenticated and joined rooms`,
-        );
-        next();
-      } catch (err) {
-        if (err instanceof Error) {
-          this.logger.warn(`WS auth failed: ${err.message}`);
-        } else {
-          this.logger.warn(`WS auth failed: ${String(err)}`);
-        }
-        next(new Error('Unauthorized'));
-      }
+    server.use((socket: Socket, next) => {
+      void this.authenticateSocket(socket, next);
     });
+  }
+
+  private async authenticateSocket(
+    socket: Socket,
+    next: (err?: Error) => void,
+  ): Promise<void> {
+    try {
+      const authHeader = socket.handshake.headers?.authorization;
+      const headerToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : authHeader;
+      const token =
+        (socket.handshake.auth?.token as string | undefined) ||
+        (socket.handshake.query?.token as string | undefined) ||
+        headerToken;
+
+      if (!token) return next(new Error('Unauthorized'));
+
+      const payload = this.jwtService.verify(token);
+
+      if (!payload?.sub) return next(new Error('Unauthorized'));
+
+      // Fast sub-millisecond check in Redis for banned users or revoked sessions
+      const [isBanned, isRevokedSession, isRevokedUser] = await Promise.all([
+        this.redis.get(`banned:user:${payload.sub}`),
+        payload.sid ? this.redis.get(`revoked:session:${payload.sid}`) : null,
+        this.redis.get(`revoked:user:${payload.sub}`),
+      ]);
+
+      if (isBanned || isRevokedSession || isRevokedUser) {
+        return next(new Error('Unauthorized'));
+      }
+
+      // Enforce strict authorization rules based on user role and activity
+      const isAuthorized = await this.socketAuthService.authorize(
+        payload.sub,
+        payload.role,
+      );
+      if (!isAuthorized) {
+        return next(new Error('Forbidden'));
+      }
+
+      socket.data.user = payload;
+      const room = `user_${payload.sub}`;
+      void socket.join(room);
+      if (payload.sid) {
+        void socket.join(`session_${payload.sid}`);
+      }
+      this.logger.debug(
+        `User ${payload.sub} (session: ${payload.sid ?? 'none'}) authenticated and joined rooms`,
+      );
+      next();
+    } catch (err) {
+      if (err instanceof Error) {
+        this.logger.warn(`WS auth failed: ${err.message}`);
+      } else {
+        this.logger.warn(`WS auth failed: ${String(err)}`);
+      }
+      next(new Error('Unauthorized'));
+    }
   }
 
   @SubscribeMessage('driver.location.update')
@@ -135,7 +143,7 @@ export class SocketGateway
     );
     if (count > 30) return;
 
-    this.eventEmitter.emit('ws.driver.location.update', {
+    this.eventEmitter.emit(EVENTS.WS_DRIVER_LOCATION_UPDATE, {
       userId: user.sub,
       location: [lng, lat],
     });
@@ -157,7 +165,7 @@ export class SocketGateway
     if (now - lastRequestAt < 1000) return;
     client.data.lastLocationRequestAt = now;
 
-    this.eventEmitter.emit('ws.driver.location.request', {
+    this.eventEmitter.emit(EVENTS.WS_DRIVER_LOCATION_REQUEST, {
       userId: user.sub,
       orderId,
     });
@@ -213,7 +221,7 @@ export class SocketGateway
     );
 
     if (user?.role === 'DRIVER') {
-      this.eventEmitter.emit('ws.driver.disconnected', {
+      this.eventEmitter.emit(EVENTS.WS_DRIVER_DISCONNECTED, {
         userId: user.sub,
       });
     }

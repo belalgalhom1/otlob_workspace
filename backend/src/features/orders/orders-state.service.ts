@@ -20,7 +20,6 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { OrdersRepository } from './orders.repository';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
-import { DRIVER_ACTIVE_ORDER_STATUSES } from './orders.constants';
 import {
   AdminAssignDriverDto,
   RespondToDispatchDto,
@@ -49,6 +48,7 @@ import {
   DeliveryGroupTransitionService,
 } from './transitions/delivery-group-transition.service';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
+import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 
 /**
  * Coordinates order state transitions across single-vendor orders while
@@ -73,10 +73,16 @@ export class OrdersStateService {
     private readonly fulfillmentTransitions?: FulfillmentTransitionService,
     @Optional()
     private readonly deliveryGroupTransitions?: DeliveryGroupTransitionService,
+    @Optional()
+    private readonly driverWorkloadHelper?: DriverWorkloadHelper,
   ) {}
 
   private get auth(): OrderAuthorizationHelper {
     return this.authHelper ?? new OrderAuthorizationHelper(this.prisma);
+  }
+
+  private get driverWorkload(): DriverWorkloadHelper {
+    return this.driverWorkloadHelper ?? new DriverWorkloadHelper();
   }
 
   private get deliveryGroup(): DeliveryGroupTransitionService {
@@ -505,7 +511,7 @@ export class OrdersStateService {
         status: OrderStatus.DELIVERED,
         deliveryImageUrl: imageUrl,
         ...(deliveryGroupId ? { deliveryGroupId } : {}),
-      } as any);
+      });
     } catch (error) {
       await this.storage.delete(imageUrl);
       throw error;
@@ -621,29 +627,11 @@ export class OrdersStateService {
     });
     const maxActive = settings?.maxActiveOrdersPerDriver ?? 1;
 
-    const [activeGroupCount, activeLegacyOrderCount] = await Promise.all([
-      this.prisma.orderDeliveryGroup.count({
-        where: {
-          orderId: { not: orderId },
-          status: {
-            notIn: [
-              DeliveryGroupStatus.CANCELLED,
-              DeliveryGroupStatus.DELIVERED,
-            ],
-          },
-          OR: [{ primaryDriverId: driver.id }, { assistDriverId: driver.id }],
-        },
-      }),
-      this.prisma.order.count({
-        where: {
-          driverId: driver.id,
-          id: { not: orderId },
-          status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
-          deliveryGroups: { none: {} },
-        },
-      }),
-    ]);
-    const activeOrdersCount = activeGroupCount + activeLegacyOrderCount;
+    const activeOrdersCount = await this.driverWorkload.countActiveUnits(
+      this.prisma,
+      driver.id,
+      orderId,
+    );
     if (activeOrdersCount >= maxActive) {
       throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
     }

@@ -1,11 +1,10 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
-import { Inject, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
+import { DispatchRepository } from './dispatch.repository';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { RedisService } from '../../infrastructure/redis/redis.service';
-import { LocationRepository } from '../location/location.repository';
 import { DriverGeoSearchService } from '../location/driver-geo-search.service';
 import {
   QUEUES,
@@ -26,15 +25,14 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
 
   constructor(
     private readonly dispatchService: DispatchService,
+    private readonly dispatchRepository: DispatchRepository,
     @Inject(DISPATCH_ORDER_WORKFLOW_PORT)
     private readonly orderWorkflowPort: DispatchOrderWorkflowPort,
     private readonly workflowDispatcher: OrderWorkflowDispatcher,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
-    private readonly locationRepository: LocationRepository,
+    private readonly driverGeoSearch: DriverGeoSearchService,
     @InjectQueue(QUEUES.DISPATCH) private readonly queue: Queue,
-    @Optional() private readonly driverGeoSearch?: DriverGeoSearchService,
   ) {
     super();
   }
@@ -347,8 +345,9 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     let enqueued = 0;
     for (const payload of jobPayloads) {
       const scope = payload.deliveryGroupId ?? payload.orderId;
-      const idempotencyKey = `otlobegy:dispatch-handoff:${data.orderId}:${scope}`;
-      if (await this.redis.get(idempotencyKey)) continue;
+      if (await this.dispatchRepository.isHandoffDeduped(data.orderId, scope)) {
+        continue;
+      }
 
       await this.queue.add(ORDER_JOBS.DISPATCH, payload, {
         delay: 500,
@@ -356,7 +355,11 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         backoff: { type: 'fixed', delay: 60_000 },
       });
 
-      await this.redis.set(idempotencyKey, '1', handoffTtl);
+      await this.dispatchRepository.markHandoffDeduped(
+        data.orderId,
+        scope,
+        handoffTtl,
+      );
       enqueued++;
     }
 
@@ -389,13 +392,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
 
   private async handleGeoFreshnessSweep() {
     const started = Date.now();
-    const geoSearch =
-      this.driverGeoSearch ??
-      new DriverGeoSearchService(
-        this.locationRepository,
-        this.platformSettings,
-      );
-    const result = await geoSearch.sweepStaleDriverLocations();
+    const result = await this.driverGeoSearch.sweepStaleDriverLocations();
     this.logger.log(
       `Geo freshness sweep done in ${Date.now() - started}ms (scanned ${result.scanned}, pruned ${result.removed})`,
     );

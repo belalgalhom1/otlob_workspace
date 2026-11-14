@@ -1,0 +1,954 @@
+import { Injectable } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
+import { OrderEarningsCalculator } from '../../../common/orders/order-earnings.calculator';
+import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
+import { OrderAuthorizationHelper } from '../helpers/order-authorization.helper';
+
+export interface RoleProjectionContext {
+  canManage?: boolean;
+  driverId?: string | null;
+  driverTier?: string | null;
+  vendorId?: string;
+  memberBranchId?: string | null;
+  settings?: any;
+}
+
+function omitKeys<T extends Record<string, any>>(
+  obj: T,
+  keys: readonly string[],
+): Record<string, any> {
+  const copy = { ...obj };
+  for (const key of keys) {
+    delete copy[key];
+  }
+  return copy;
+}
+
+/**
+ * Projects raw order graphs into role-scoped responses (Admin/Customer/Vendor/Driver)
+ * so vendor branch isolation, driver payout scopes, and customer financial masking
+ * remain centralized in one place.
+ */
+@Injectable()
+export class OrderRoleProjector {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformSettings: PlatformSettingsService,
+    private readonly auth: OrderAuthorizationHelper,
+    private readonly earnings: OrderEarningsCalculator,
+  ) {}
+
+  async projectOrderForRole(
+    order: any,
+    actor: JwtAccessPayload,
+    vendorIdScope?: string,
+    ctx?: RoleProjectionContext,
+  ): Promise<any> {
+    if (!order) return order;
+
+    const canManage =
+      ctx?.canManage !== undefined
+        ? ctx.canManage
+        : await this.auth.canManageOrders(actor.sub, actor.role);
+    if (canManage) {
+      return this.enrichWithAdminHelpers(order);
+    }
+
+    if (actor.role === Role.DRIVER) {
+      return this.projectForDriver(order, actor, ctx);
+    }
+
+    if (actor.role === Role.VENDOR_MEMBER) {
+      return this.projectForVendor(order, actor, vendorIdScope, ctx);
+    }
+
+    if (actor.role === Role.CUSTOMER) {
+      return this.projectForCustomer(order);
+    }
+
+    return order;
+  }
+
+  async projectForDriver(
+    order: any,
+    actor: JwtAccessPayload,
+    ctx?: { driverId?: string | null; driverTier?: string | null; settings?: any },
+  ): Promise<any> {
+    const isPrepaid =
+      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+      order.paymentMethod !== 'MOBILE_WALLET';
+    const orderPaid =
+      order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED';
+    const grandTotal = Number(order.grandTotal ?? 0);
+    const upfrontAmount = Number(order.upfrontAmount ?? 0);
+    let cashToCollect =
+      isPrepaid || orderPaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+
+    let isStorePrepaid =
+      order.vendorBranch?.isContracted ??
+      order.vendor?.isContracted ??
+      false;
+    const subtotal = Number(order.subtotal ?? 0);
+    const singleStoreCommRate = Number(
+      order.vendorBranch?.commissionRate ??
+        order.vendor?.commissionRate ??
+        10,
+    );
+    const singleStoreComm = isStorePrepaid
+      ? Math.round(subtotal * (singleStoreCommRate / 100))
+      : 0;
+    let cashToPayStore = isStorePrepaid
+      ? Math.max(0, subtotal - singleStoreComm)
+      : subtotal;
+
+    const settings = ctx?.settings ?? (await this.platformSettings.getSettings());
+
+    let deliveryFee = Number(order.deliveryFee ?? 0);
+    let projectedIsStacked = Boolean(order.isStacked);
+    let customDriverEarnings: number | null = null;
+    let groupVendor = order.vendor;
+    let groupVendorBranch = order.vendorBranch;
+    let groupPickupLocation = order.pickupLocation;
+    let groupPickupAddress = order.pickupAddress;
+    let projectedStatus = order.status;
+    let scopedItems = order.items;
+    let scopedFulfillments = order.vendorFulfillments;
+
+    const myDriver =
+      ctx?.driverId !== undefined
+        ? ctx.driverId
+          ? { id: ctx.driverId, tier: ctx.driverTier }
+          : null
+        : await this.prisma.driver.findUnique({
+            where: { userId: actor.sub },
+            select: { id: true, tier: true },
+          });
+
+    if (order.deliveryGroups && Array.isArray(order.deliveryGroups)) {
+      if (myDriver) {
+        // Collect all groups assigned to this driver (or if the driver is assigned at order level, all groups)
+        const myGroups = order.deliveryGroups.filter(
+          (g: any) =>
+            g.primaryDriverId === myDriver.id ||
+            g.assistDriverId === myDriver.id ||
+            (order.driverId === myDriver.id && !g.primaryDriverId),
+        );
+
+        if (myGroups.length > 0) {
+          const anyPendingPayment = myGroups.some(
+            (g: any) => g.status === 'PENDING_PAYMENT',
+          );
+          const allDelivered = myGroups.every(
+            (g: any) => g.status === 'DELIVERED',
+          );
+          const allPickedUp = myGroups.every(
+            (g: any) => g.status === 'PICKED_UP' || g.status === 'DELIVERED',
+          );
+          const somePickedUp = myGroups.some(
+            (g: any) =>
+              g.status === 'PARTIALLY_PICKED_UP' || g.status === 'PICKED_UP',
+          );
+          const allReady = myGroups.every(
+            (g: any) =>
+              g.status === 'READY_FOR_PICKUP' ||
+              g.status === 'PARTIALLY_PICKED_UP' ||
+              g.status === 'PICKED_UP' ||
+              g.status === 'DELIVERED',
+          );
+
+          if (anyPendingPayment) {
+            projectedStatus = 'PENDING_PAYMENT';
+          } else if (allDelivered) {
+            projectedStatus = 'DELIVERED';
+          } else if (allPickedUp) {
+            projectedStatus = 'PICKED_UP';
+          } else if (somePickedUp) {
+            projectedStatus = 'PARTIALLY_PICKED_UP';
+          } else if (allReady) {
+            projectedStatus = 'READY_FOR_PICKUP';
+          } else if (myGroups.some((g: any) => g.status === 'DRIVER_ASSIGNED')) {
+            projectedStatus = 'DRIVER_ASSIGNED';
+          } else {
+            projectedStatus = myGroups[0].status ?? order.status;
+          }
+
+          deliveryFee = myGroups.reduce(
+            (sum: number, g: any) =>
+              sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
+            0,
+          );
+          projectedIsStacked = myGroups.some((g: any) => Boolean(g.isStacked));
+          const isMultiVendor = Boolean(
+            order.deliveryGroups && order.deliveryGroups.length > 1,
+          );
+          customDriverEarnings = myGroups.reduce((sum: number, g: any) => {
+            const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            const isGroupStacked = Boolean(g.isStacked);
+            return (
+              sum +
+              this.earnings.calculateDriverEarningsForFee(gFee, settings, {
+                isStacked: isGroupStacked,
+                isMultiVendor,
+                driverTier: myDriver?.tier,
+              })
+            );
+          }, 0);
+
+          const allGroupItems = myGroups.flatMap((g: any) =>
+            Array.isArray(g.items) ? g.items : [],
+          );
+
+          if (order.vendorFulfillments) {
+            const fulfillmentIds = new Set(
+              allGroupItems.map((it: any) => it.fulfillmentId),
+            );
+            const myFulfillments = (order.vendorFulfillments as any[]).filter(
+              (f) =>
+                f.status !== 'REJECTED' &&
+                f.status !== 'CANCELLED' &&
+                (fulfillmentIds.size === 0 ? true : fulfillmentIds.has(f.id)),
+            );
+
+            myFulfillments.sort((a, b) => {
+              const seqA =
+                allGroupItems.find((it: any) => it.fulfillmentId === a.id)
+                  ?.sequence ?? 0;
+              const seqB =
+                allGroupItems.find((it: any) => it.fulfillmentId === b.id)
+                  ?.sequence ?? 0;
+              return seqA - seqB;
+            });
+
+            for (const f of myFulfillments) {
+              f.isContracted =
+                f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+              const commRate = Number(
+                f.commissionRate ??
+                  f.vendorBranch?.commissionRate ??
+                  f.vendor?.commissionRate ??
+                  10,
+              );
+              f.commissionRate = commRate;
+              const sub = Number(f.subtotal ?? 0);
+              const comm = f.isContracted
+                ? Math.round(sub * (commRate / 100))
+                : 0;
+              f.commissionAmount = comm;
+              f.cashToPay = f.isContracted ? Math.max(0, sub - comm) : sub;
+            }
+            scopedFulfillments = myFulfillments;
+
+            if (Array.isArray(order.items)) {
+              scopedItems = order.items.filter(
+                (i: any) =>
+                  i.rejectedAt == null &&
+                  (!i.fulfillmentId ||
+                    fulfillmentIds.size === 0 ||
+                    fulfillmentIds.has(i.fulfillmentId)),
+              );
+            }
+
+            cashToPayStore = 0;
+            let allContracted = myFulfillments.length > 0;
+            let groupSubtotal = 0;
+            for (const f of myFulfillments) {
+              groupSubtotal += Number(f.subtotal ?? 0);
+              cashToPayStore += Number(f.cashToPay ?? 0);
+              if (!f.isContracted) allContracted = false;
+            }
+            isStorePrepaid = allContracted;
+
+            const liveFulfillments = myFulfillments.filter(
+              (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+            );
+            const nextUnpicked = liveFulfillments.find(
+              (f: any) =>
+                f.status !== 'PICKED_UP' &&
+                f.status !== 'DELIVERED' &&
+                !f.pickedUpAt,
+            );
+            const anyPicked = liveFulfillments.some(
+              (f: any) => f.status === 'PICKED_UP' || Boolean(f.pickedUpAt),
+            );
+            if (
+              projectedStatus !== 'PENDING_PAYMENT' &&
+              projectedStatus !== 'DELIVERED' &&
+              projectedStatus !== 'PICKED_UP'
+            ) {
+              if (anyPicked) {
+                projectedStatus = 'PARTIALLY_PICKED_UP';
+              } else if (
+                nextUnpicked &&
+                (nextUnpicked.status === 'READY_FOR_PICKUP' ||
+                  Boolean(nextUnpicked.readyAt))
+              ) {
+                projectedStatus = 'READY_FOR_PICKUP';
+              } else if (
+                liveFulfillments.some(
+                  (f: any) =>
+                    f.status === 'PREPARING' || Boolean(f.preparingAt),
+                )
+              ) {
+                projectedStatus = 'PREPARING';
+              }
+            }
+
+            // Total cash to collect at door: sum of all assigned stores' goods + delivery fee + first-group extras - upfront
+            const activeGroupsForSeq = order.deliveryGroups.filter(
+              (g: any) => g.status !== 'CANCELLED',
+            );
+            const firstSequence = Math.min(
+              ...(activeGroupsForSeq.length > 0
+                ? activeGroupsForSeq
+                : order.deliveryGroups
+              ).map((g: any) => Number(g.sequence ?? 0)),
+            );
+            const isFirstGroup = myGroups.some(
+              (g: any) => Number(g.sequence ?? 0) === firstSequence,
+            );
+            const orderLevelExtras = isFirstGroup
+              ? Number(order.serviceFee ?? 0) +
+                Number(order.tax ?? 0) +
+                Number(order.driverBonusFee ?? 0) -
+                Number(order.discount ?? 0) -
+                upfrontAmount
+              : 0;
+            cashToCollect =
+              isPrepaid || orderPaid
+                ? 0
+                : Math.max(0, groupSubtotal + deliveryFee + orderLevelExtras);
+
+            const firstFulfillment = myFulfillments[0];
+            if (firstFulfillment) {
+              if (!groupVendor && firstFulfillment.vendor) {
+                groupVendor = firstFulfillment.vendor;
+              }
+              if (!groupVendorBranch && firstFulfillment.vendorBranch) {
+                groupVendorBranch = firstFulfillment.vendorBranch;
+              }
+              if (
+                !groupPickupLocation &&
+                firstFulfillment.vendorBranch?.location
+              ) {
+                groupPickupLocation = firstFulfillment.vendorBranch.location;
+              }
+              if (
+                !groupPickupAddress &&
+                firstFulfillment.vendorBranch?.address
+              ) {
+                groupPickupAddress = firstFulfillment.vendorBranch.address;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const activeDeliveryGroups = (
+      Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
+    )
+      .filter((g: any) => g.status !== 'CANCELLED' && g.primaryDriverId)
+      .sort((a: any, b: any) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const primaryCollectorId =
+      order.driverId ?? activeDeliveryGroups[0]?.primaryDriverId;
+    const isPrimaryCollector = Boolean(
+      myDriver?.id && primaryCollectorId === myDriver.id,
+    );
+
+    const isMultiVendor = Boolean(
+      order.deliveryGroups && order.deliveryGroups.length > 1,
+    );
+    const driverEarnings =
+      customDriverEarnings ??
+      this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
+        isStacked: projectedIsStacked,
+        isMultiVendor,
+        driverTier: myDriver?.tier,
+      });
+
+    return {
+      ...order,
+      driverEarnings,
+      deliveryFee,
+      isPrimaryCollector,
+      status: projectedStatus,
+      isStacked: projectedIsStacked,
+      vendor: groupVendor,
+      vendorBranch: groupVendorBranch,
+      pickupLocation: groupPickupLocation,
+      pickupAddress: groupPickupAddress,
+      items: scopedItems,
+      vendorFulfillments: scopedFulfillments,
+      grandTotal: cashToCollect,
+      total: cashToCollect,
+      cashToCollect,
+      upfrontAmount: 0,
+      serviceFee: 0,
+      tax: 0,
+      discount: 0,
+      financials: {
+        viewRole: 'DRIVER',
+        isPrimaryCollector,
+        cashToCollect,
+        isPrepaid: isPrepaid || orderPaid,
+        cashToPayStore,
+        isStorePrepaid,
+        driverEarnings,
+        deliveryFee,
+        storePayments:
+          scopedFulfillments && scopedFulfillments.length > 0
+            ? scopedFulfillments.map((f: any) => ({
+                ...omitKeys(this.buildStorePaymentBase(f, false), [
+                  'vendorNameEn',
+                ]),
+                pickupImageUrl: f.pickupImageUrl ?? null,
+              }))
+            : [
+                {
+                  vendorId: order.vendorId,
+                  vendorName:
+                    order.vendor?.storeNameAr ??
+                    order.vendor?.storeName ??
+                    order.vendor?.name ??
+                    'Store',
+                  branchName:
+                    order.vendorBranch?.nameAr ?? order.vendorBranch?.name ?? '',
+                  address:
+                    order.vendorBranch?.address ?? order.vendor?.address ?? '',
+                  phone:
+                    order.vendorBranch?.phone ??
+                    order.vendor?.phone ??
+                    order.vendor?.user?.phone ??
+                    '',
+                  subtotal,
+                  isContracted: isStorePrepaid,
+                  commissionRate: singleStoreCommRate,
+                  commissionAmount: singleStoreComm,
+                  cashToPay: cashToPayStore,
+                  pickedUpAt: order.pickedUpAt ?? null,
+                  pickupImageUrl: order.pickupImageUrl ?? null,
+                },
+              ],
+      },
+    };
+  }
+
+  async projectForVendor(
+    order: any,
+    actor: JwtAccessPayload,
+    vendorIdScope?: string,
+    ctx?: { vendorId?: string; memberBranchId?: string | null },
+  ): Promise<any> {
+    let vendorId = vendorIdScope ?? ctx?.vendorId;
+    let memberBranchId: string | null = ctx?.memberBranchId ?? null;
+    if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
+      const fulfillments = Array.isArray(order.vendorFulfillments)
+        ? order.vendorFulfillments
+        : [];
+      const portionVendorIds = vendorId
+        ? [vendorId]
+        : order.vendorId
+          ? [order.vendorId]
+          : Array.from(
+              new Set(
+                fulfillments
+                  .map((f: any) => f.vendorId)
+                  .filter((id: any): id is string => Boolean(id)),
+              ),
+            );
+      const memberships =
+        portionVendorIds.length > 0
+          ? await this.prisma.vendorMember.findMany({
+              where: {
+                userId: actor.sub,
+                vendorId: { in: portionVendorIds },
+              },
+              select: { vendorId: true, branchId: true, role: true },
+            })
+          : await this.prisma.vendorMember.findMany({
+              where: { userId: actor.sub },
+              take: 1,
+              select: { vendorId: true, branchId: true, role: true },
+            });
+      const membership =
+        memberships.find((m) => {
+          const effBranch = m.role === 'OWNER' ? null : (m.branchId ?? null);
+          if (fulfillments.length === 0) return true;
+          return fulfillments.some(
+            (f: any) =>
+              f.vendorId === m.vendorId &&
+              (!effBranch ||
+                !f.vendorBranchId ||
+                f.vendorBranchId === effBranch),
+          );
+        }) ??
+        memberships[0] ??
+        null;
+      if (!vendorId) {
+        vendorId = order.vendorId ?? membership?.vendorId;
+      }
+      memberBranchId =
+        membership?.role === 'OWNER' ? null : (membership?.branchId ?? null);
+    } else if (!vendorId && order.vendorId) {
+      vendorId = order.vendorId;
+    }
+
+    let items = order.items ?? [];
+    let vendorSubtotal = Number(order.subtotal ?? 0);
+    let commissionRate = Number(
+      order.vendorBranch?.commissionRate ??
+        order.vendor?.commissionRate ??
+        10,
+    );
+    let isContracted =
+      order.vendorBranch?.isContracted ?? order.vendor?.isContracted ?? false;
+
+    // Multi-vendor orders are split into portions, and each portion has its own
+    // production state. `status` is therefore re-projected to the caller's own
+    // portion so the vendor app's tabs, counters and action buttons describe
+    // THIS vendor's work instead of the aggregate order (which may already be
+    // preparing/delivering because of another vendor).
+    let portionStatus: string | null = null;
+    let myFulfillmentId: string | null = null;
+
+    if (
+      order.vendorFulfillments &&
+      Array.isArray(order.vendorFulfillments) &&
+      vendorId
+    ) {
+      const vendorFulfillments = order.vendorFulfillments.filter(
+        (f: any) =>
+          f.vendorId === vendorId &&
+          (!memberBranchId ||
+            !f.vendorBranchId ||
+            f.vendorBranchId === memberBranchId),
+      );
+      // If a global owner has multiple branch fulfillments on the same order,
+      // prefer the least-progressed active fulfillment for status/action projection.
+      const statusRank: Record<string, number> = {
+        PENDING: 1,
+        ACCEPTED: 2,
+        PREPARING: 3,
+        READY_FOR_PICKUP: 4,
+        PICKED_UP: 5,
+        DELIVERED: 6,
+        CANCELLED: 7,
+        REJECTED: 7,
+      };
+      const sortedFulfillments = [...vendorFulfillments].sort(
+        (a: any, b: any) =>
+          (statusRank[String(a.status)] ?? 99) -
+          (statusRank[String(b.status)] ?? 99),
+      );
+      const myFulfillment = sortedFulfillments[0];
+      if (myFulfillment) {
+        myFulfillmentId = myFulfillment.id ?? null;
+
+        const aggregateStatus = String(order.status ?? 'PENDING');
+        const rawPortionStatus = String(myFulfillment.status ?? 'PENDING');
+        const isDeadPortion =
+          rawPortionStatus === 'REJECTED' || rawPortionStatus === 'CANCELLED';
+
+        // The delivery that carries this portion is the authority on dispatch
+        // progress (driver assigned / payment pending / driver collected), so
+        // its state feeds the portion status too.
+        const groupForPortion = (order.deliveryGroups ?? []).find((g: any) =>
+          (g.items ?? []).some(
+            (it: any) => it.fulfillmentId === myFulfillment.id,
+          ),
+        );
+        const groupStatus = groupForPortion?.status
+          ? String(groupForPortion.status)
+          : null;
+
+        if (isDeadPortion) {
+          portionStatus = 'CANCELLED';
+        } else if (
+          myFulfillment.deliveredAt ||
+          aggregateStatus === 'DELIVERED' ||
+          groupStatus === 'DELIVERED'
+        ) {
+          portionStatus = 'DELIVERED';
+        } else if (
+          myFulfillment.pickedUpAt ||
+          myFulfillment.status === 'PICKED_UP' ||
+          aggregateStatus === 'PICKED_UP' ||
+          groupStatus === 'PICKED_UP'
+        ) {
+          // The goods are with a driver; only this vendor's delivery matters.
+          portionStatus = 'PICKED_UP';
+        } else if (
+          myFulfillment.readyAt ||
+          groupStatus === 'READY_FOR_PICKUP'
+        ) {
+          portionStatus = 'READY_FOR_PICKUP';
+        } else if (myFulfillment.preparingAt) {
+          portionStatus = 'PREPARING';
+        } else if (
+          groupStatus === 'DRIVER_ASSIGNED' ||
+          groupStatus === 'PENDING_PAYMENT'
+        ) {
+          // A driver is committed to this delivery, so the vendor can start
+          // preparing even though the aggregate is still LOOKING_FOR_DRIVER
+          // while another delivery waits for its own driver.
+          portionStatus = groupStatus;
+        } else {
+          portionStatus = rawPortionStatus;
+        }
+
+        vendorSubtotal = vendorFulfillments.reduce(
+          (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
+          0,
+        );
+        commissionRate = Number(myFulfillment.commissionRate ?? commissionRate);
+        if (myFulfillment.vendorBranch?.isContracted != null) {
+          isContracted = myFulfillment.vendorBranch.isContracted;
+        }
+        const myFulfillmentIds = new Set(
+          vendorFulfillments.map((f: any) => f.id),
+        );
+        const directItems = vendorFulfillments.flatMap((f: any) =>
+          Array.isArray(f.items) ? f.items : [],
+        );
+        if (directItems.length > 0) {
+          items = directItems;
+        } else if (order.items) {
+          items = order.items.filter(
+            (i: any) =>
+              i.rejectedAt == null &&
+              (!i.fulfillmentId || myFulfillmentIds.has(i.fulfillmentId)),
+          );
+        }
+      }
+    }
+
+    const commissionAmount = isContracted
+      ? Math.round(vendorSubtotal * (commissionRate / 100))
+      : 0;
+    const netPayout = isContracted
+      ? Math.max(0, vendorSubtotal - commissionAmount)
+      : vendorSubtotal;
+
+    // Strict Vendor & Branch Isolation: Only expose the vendor's own fulfillment
+    // (and if branch-scoped, only that branch's fulfillment).
+    // Strip other stores and delivery groups to prevent any cross-vendor/branch data leakage.
+    const myFulfillmentOnly = (order.vendorFulfillments ?? []).filter(
+      (f: any) =>
+        f.vendorId === vendorId &&
+        (!memberBranchId ||
+          !f.vendorBranchId ||
+          f.vendorBranchId === memberBranchId),
+    );
+    const primaryFulfillment =
+      myFulfillmentOnly[0] ??
+      order.vendorFulfillments?.find((f: any) => f.vendorId === vendorId);
+
+    return {
+      ...order,
+      vendorId: vendorId ?? order.vendorId,
+      vendorBranchId:
+        primaryFulfillment?.vendorBranchId ?? order.vendorBranchId,
+      // The caller's own portion drives the vendor-facing status; the raw
+      // aggregate stays available as `orderStatus`.
+      status: portionStatus ?? order.status,
+      orderStatus: order.status,
+      myFulfillmentId,
+      myFulfillmentStatus: portionStatus,
+      items,
+      subtotal: vendorSubtotal,
+      deliveryFee: 0,
+      serviceFee: 0,
+      tax: 0,
+      driverBonusFee: 0,
+      discount: 0,
+      grandTotal: vendorSubtotal,
+      total: vendorSubtotal,
+      vendorFulfillments: myFulfillmentOnly,
+      deliveryGroups: [],
+      vendor: primaryFulfillment?.vendor ?? order.vendor,
+      vendorBranch: primaryFulfillment?.vendorBranch ?? order.vendorBranch,
+      financials: {
+        viewRole: 'VENDOR',
+        storeSubtotal: vendorSubtotal,
+        commissionRate,
+        commissionAmount,
+        netPayout,
+        cashToCollectFromDriver: netPayout,
+        isContracted,
+        payoutMethod: isContracted ? 'WALLET_SETTLEMENT' : 'CASH_FROM_DRIVER',
+      },
+    };
+  }
+
+  projectForCustomer(order: any): any {
+    const isPrepaid =
+      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+      order.paymentMethod !== 'MOBILE_WALLET';
+    const grandTotal = Number(order.grandTotal ?? 0);
+    const upfrontAmount = Number(order.upfrontAmount ?? 0);
+    const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+
+    const sanitized = { ...order };
+    // Rejected portion items are kept in the database for audit but must not
+    // reappear as part of the customer's order (totals already exclude them).
+    if (Array.isArray(sanitized.items)) {
+      sanitized.items = sanitized.items.filter(
+        (i: any) => i.rejectedAt == null,
+      );
+    }
+    if (sanitized.vendor) {
+      sanitized.vendor = omitKeys(sanitized.vendor, [
+        'commissionRate',
+        'walletBalance',
+      ]);
+    }
+    if (sanitized.vendorBranch) {
+      sanitized.vendorBranch = omitKeys(sanitized.vendorBranch, [
+        'commissionRate',
+      ]);
+    }
+    let fulfillmentSummary: any = null;
+    if (sanitized.vendorFulfillments) {
+      const allGroupItems = (order.deliveryGroups ?? []).flatMap((g: any) =>
+        Array.isArray(g.items) ? g.items : [],
+      );
+
+      sanitized.vendorFulfillments = sanitized.vendorFulfillments.map((f: any) => {
+        const safeF = omitKeys(f, ['commissionRate']);
+        const stage =
+          f.status === 'REJECTED' || f.status === 'CANCELLED'
+            ? f.status
+            : f.pickedUpAt || f.status === 'PICKED_UP'
+              ? 'PICKED_UP'
+              : f.readyAt || f.status === 'READY_FOR_PICKUP'
+                ? 'READY_FOR_PICKUP'
+                : f.preparingAt || f.status === 'PREPARING'
+                  ? 'PREPARING'
+                  : f.status;
+        return {
+          ...safeF,
+          stage,
+        };
+      });
+
+      sanitized.vendorFulfillments.sort((a: any, b: any) => {
+        const seqA =
+          allGroupItems.find((it: any) => it.fulfillmentId === a.id)?.sequence ??
+          0;
+        const seqB =
+          allGroupItems.find((it: any) => it.fulfillmentId === b.id)?.sequence ??
+          0;
+        return seqA - seqB;
+      });
+
+      const liveFulfillments = sanitized.vendorFulfillments.filter(
+        (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+      );
+      const activeFulfillment = liveFulfillments.find(
+        (f: any) => !f.pickedUpAt && f.status !== 'PICKED_UP',
+      );
+      const totalStops = liveFulfillments.length;
+      const completedStops = liveFulfillments.filter(
+        (f: any) => Boolean(f.pickedUpAt) || f.status === 'PICKED_UP',
+      ).length;
+
+      fulfillmentSummary = {
+        totalStops,
+        completedStops,
+        currentStopSequence: activeFulfillment
+          ? (allGroupItems.find(
+              (it: any) => it.fulfillmentId === activeFulfillment.id,
+            )?.sequence ?? 1)
+          : totalStops,
+        currentStopBranchName:
+          activeFulfillment?.vendorBranch?.nameAr ??
+          activeFulfillment?.vendorBranch?.name ??
+          activeFulfillment?.vendor?.storeNameAr ??
+          activeFulfillment?.vendor?.storeName ??
+          null,
+        isFullyCollected: completedStops >= totalStops,
+      };
+
+      // Only a single-portion order may borrow its portion's vendor as the
+      // order-level vendor. A real multi-vendor order keeps `vendor` null so
+      // clients render every portion's store instead of just the first one.
+      if (!sanitized.vendor && sanitized.vendorFulfillments.length === 1) {
+        sanitized.vendor = sanitized.vendorFulfillments[0].vendor;
+        if (
+          !sanitized.vendorBranch &&
+          sanitized.vendorFulfillments[0].vendorBranch
+        ) {
+          sanitized.vendorBranch = sanitized.vendorFulfillments[0].vendorBranch;
+        }
+      }
+    }
+
+    return {
+      ...sanitized,
+      fulfillmentSummary,
+      financials: {
+        viewRole: 'CUSTOMER',
+        cashToPayAtDoor,
+        isPrepaid,
+      },
+    };
+  }
+
+  async enrichWithAdminHelpers(order: any): Promise<any> {
+    if (!order) return order;
+    const isPrepaid =
+      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+      order.paymentMethod !== 'MOBILE_WALLET';
+    const grandTotal = Number(order.grandTotal ?? 0);
+    const upfrontAmount = Number(order.upfrontAmount ?? 0);
+    const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+
+    const isStorePrepaid =
+      order.vendorBranch?.isContracted ?? order.vendor?.isContracted ?? false;
+    const subtotal = Number(order.subtotal ?? 0);
+    const cashToPayStore = isStorePrepaid ? 0 : subtotal;
+
+    const settings = await this.platformSettings.getSettings();
+    const deliveryFee = Number(order.deliveryFee ?? 0);
+    const isMultiVendor = Boolean(
+      order.deliveryGroups && order.deliveryGroups.length > 1,
+    );
+    const driverEarnings = this.earnings.calculateDriverEarningsForFee(
+      deliveryFee,
+      settings,
+      {
+        isStacked: Boolean(order.isStacked),
+        isMultiVendor,
+      },
+    );
+
+    const fulfillments = Array.isArray(order.vendorFulfillments)
+      ? order.vendorFulfillments
+      : [];
+    const isMultiVendorOrder = Boolean(
+      order.isMultiVendor ||
+        fulfillments.length > 1 ||
+        (order.deliveryGroups && order.deliveryGroups.length > 1),
+    );
+
+    let vendor = order.vendor;
+    let vendorBranch = order.vendorBranch;
+    let resolvedIsStorePrepaid = isStorePrepaid;
+    let resolvedCashToPayStore = cashToPayStore;
+
+    const storePayments = fulfillments.map((f: any) => ({
+      ...this.buildStorePaymentBase(f, true),
+      status: f.status,
+    }));
+
+    if (isMultiVendorOrder && fulfillments.length > 1) {
+      const storeNamesAr = fulfillments
+        .map(
+          (f: any) =>
+            f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name,
+        )
+        .filter(Boolean);
+      const storeNamesEn = fulfillments
+        .map(
+          (f: any) =>
+            f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name,
+        )
+        .filter(Boolean);
+
+      vendor = {
+        id: 'multi-vendor',
+        isMultiVendor: true,
+        storeName: storeNamesEn.join(' + ') || 'Multi-Vendor',
+        storeNameAr: storeNamesAr.join(' + ') || 'طلب متعدد المتاجر',
+        logo: null,
+      };
+      vendorBranch = null;
+
+      const activeStorePayments = storePayments.filter(
+        (sp: any) => sp.status !== 'REJECTED' && sp.status !== 'CANCELLED',
+      );
+      if (activeStorePayments.length > 0) {
+        resolvedCashToPayStore = activeStorePayments.reduce(
+          (sum: number, sp: any) => sum + sp.cashToPay,
+          0,
+        );
+        resolvedIsStorePrepaid = activeStorePayments.every(
+          (sp: any) => sp.isContracted,
+        );
+      } else if (storePayments.length > 0) {
+        resolvedCashToPayStore = 0;
+      }
+    } else if (!vendor && fulfillments.length === 1) {
+      vendor = fulfillments[0].vendor;
+      vendorBranch ??= fulfillments[0].vendorBranch;
+      if (storePayments.length === 1) {
+        resolvedCashToPayStore = storePayments[0].cashToPay;
+        resolvedIsStorePrepaid = storePayments[0].isContracted;
+      }
+    }
+
+    return {
+      ...order,
+      isMultiVendor: isMultiVendorOrder,
+      driverEarnings,
+      deliveryFee,
+      vendor,
+      vendorBranch,
+      financials: {
+        viewRole: 'ADMIN',
+        cashToCollect,
+        isPrepaid,
+        cashToPayStore: resolvedCashToPayStore,
+        isStorePrepaid: resolvedIsStorePrepaid,
+        driverEarnings,
+        deliveryFee,
+        storePayments,
+      },
+    };
+  }
+
+  private buildStorePaymentBase(f: any, respectTerminalStatus: boolean) {
+    const isCancelledOrRejected =
+      respectTerminalStatus &&
+      (f.status === 'REJECTED' || f.status === 'CANCELLED');
+    const contracted =
+      f.vendorBranch?.isContracted ?? f.vendor?.isContracted ?? false;
+    const commRate = Number(
+      f.commissionRate ??
+        f.vendorBranch?.commissionRate ??
+        f.vendor?.commissionRate ??
+        10,
+    );
+    const sub = Number(f.subtotal ?? 0);
+    const comm = isCancelledOrRejected
+      ? 0
+      : contracted
+        ? Math.round(sub * (commRate / 100))
+        : 0;
+    const toPay = isCancelledOrRejected
+      ? 0
+      : contracted
+        ? Math.max(0, sub - comm)
+        : sub;
+    return {
+      fulfillmentId: f.id,
+      vendorId: f.vendorId,
+      vendorName:
+        f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
+      vendorNameEn:
+        f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name ?? 'Store',
+      branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
+      address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
+      phone:
+        f.vendorBranch?.phone ?? f.vendor?.phone ?? f.vendor?.user?.phone ?? '',
+      subtotal: sub,
+      isContracted: contracted,
+      commissionRate: commRate,
+      commissionAmount: comm,
+      cashToPay: toPay,
+      pickedUpAt: f.pickedUpAt ?? null,
+    };
+  }
+}
