@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { haversineKm } from '../../common/geo/geo.utils';
+
+export { haversineKm };
 
 /**
  * One vendor's pickup point for a customer order.
@@ -63,23 +66,7 @@ export interface GroupingResult {
   thresholds: GroupingThresholds;
 }
 
-/** Great-circle distance in km. Matches LocationRepository.getDistanceKm exactly
- * (PostGIS ST_Distance on ::geography, i.e. no road network). */
-export function haversineKm(
-  a: { lng: number; lat: number },
-  b: { lng: number; lat: number },
-): number {
-  const R = 6371.0088;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-}
+// Re-export maintained via import above for existing consumers & tests.
 
 /**
  * Delivery grouping without any road-network assumption: every distance here is

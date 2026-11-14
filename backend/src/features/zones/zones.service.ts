@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { LocationRepository } from '../location/location.repository';
 import {
   CreateZoneDto,
   UpdateZoneDto,
@@ -42,7 +44,10 @@ export interface ZoneLocationResult {
 export class ZonesService {
   private readonly logger = new Logger(ZonesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly locationRepository?: LocationRepository,
+  ) {}
 
   async createZone(dto: CreateZoneDto) {
     const id = crypto.randomUUID();
@@ -74,7 +79,7 @@ export class ZonesService {
       `;
 
       return await this.getZoneById(id);
-    } catch (error: unknown) {
+    } catch {
       throw new BadRequestException(ZoneErrors.INVALID_BOUNDARY);
     }
   }
@@ -139,12 +144,26 @@ export class ZonesService {
   }
 
   async findZoneByLocation(dto: CheckLocationDto): Promise<ZoneLocationResult> {
+    if (this.locationRepository) {
+      const zone = await this.locationRepository.findContainingActiveZone(
+        dto.longitude,
+        dto.latitude,
+      );
+      if (!zone) {
+        throw new NotFoundException(ZoneErrors.NOT_FOUND);
+      }
+      return zone;
+    }
+
     const zones = await this.prisma.$queryRaw<ZoneLocationResult[]>`
-      SELECT 
+      SELECT
         "id", "name", "nameAr", "isActive",
         "baseDeliveryFeeOverride", "minOrderAmountOverride"
       FROM "zones"
-      WHERE ST_Contains("boundary", ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326))
+      WHERE ST_Covers(
+        ST_MakeValid("boundary"),
+        ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+      )
       AND "isActive" = true
       ORDER BY ST_Area("boundary") ASC
       LIMIT 1;
@@ -160,7 +179,8 @@ export class ZonesService {
   async updateZone(id: string, dto: UpdateZoneDto): Promise<ZoneQueryResult> {
     await this.getZoneById(id);
 
-    const { boundary: _boundary, ...standardFields } = dto;
+    const standardFields: Omit<UpdateZoneDto, 'boundary'> = { ...dto };
+    delete (standardFields as Partial<UpdateZoneDto>).boundary;
 
     let geoJson: string | null = null;
     if (dto.boundary) {
@@ -194,7 +214,7 @@ export class ZonesService {
           await tx.$executeRaw`UPDATE "zones" SET "updatedAt" = NOW() WHERE "id" = ${id};`;
         }
       });
-    } catch (error: unknown) {
+    } catch {
       throw new BadRequestException(ZoneErrors.INVALID_BOUNDARY);
     }
 

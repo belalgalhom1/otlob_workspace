@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { DriverTrackingService } from '../../features/location/driver-tracking.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 
 @Injectable()
@@ -8,7 +8,7 @@ export class SocketListener {
   private readonly logger = new Logger(SocketListener.name);
 
   constructor(
-    private readonly locationRepository: LocationRepository,
+    private readonly driverTracking: DriverTrackingService,
     private readonly socketService: SocketService,
   ) {}
 
@@ -18,7 +18,7 @@ export class SocketListener {
     location: [number, number];
   }) {
     try {
-      await this.locationRepository.processLiveLocationUpdate(
+      await this.driverTracking.processLiveLocationUpdate(
         payload.userId,
         payload.location[0],
         payload.location[1],
@@ -35,7 +35,7 @@ export class SocketListener {
   @OnEvent('ws.driver.disconnected', { async: true })
   async handleDriverDisconnected(payload: { userId: string }) {
     try {
-      await this.locationRepository.handleUserDisconnect(payload.userId);
+      await this.driverTracking.handleUserDisconnect(payload.userId);
     } catch (err) {
       if (err instanceof Error) {
         this.logger.error(
@@ -51,7 +51,7 @@ export class SocketListener {
     orderId: string;
   }) {
     try {
-      const location = await this.locationRepository.getOrderDriverLocation(
+      const location = await this.driverTracking.getOrderDriverLocation(
         payload.orderId,
         payload.userId,
       );

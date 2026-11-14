@@ -11,12 +11,10 @@ import {
   AddVendorMemberDto,
   UpdateVendorMemberRoleDto,
 } from './dto/vendor-member.dto';
-import {
-  VendorMemberErrors,
-  VendorErrors,
-} from 'src/common/constants/response.constants';
+import { VendorMemberErrors } from 'src/common/constants/response.constants';
 import { CommonSuccess } from '../../../common/constants/response.constants';
 import { VendorMemberRole } from '@prisma/client';
+import { assertVendorExists } from '../helpers/vendor-lookup.helper';
 
 @Injectable()
 export class VendorMembersService {
@@ -27,7 +25,7 @@ export class VendorMembersService {
   // ─── List all members of a vendor ─────────────────────────────────────────
 
   async findAll(vendorId: string) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     return this.prisma.vendorMember.findMany({
       where: { vendorId },
@@ -53,7 +51,7 @@ export class VendorMembersService {
   // this service just handles the business logic.
 
   async addMember(vendorId: string, dto: AddVendorMemberDto) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     const user = await this.prisma.user.findUnique({
       where: { id: dto.userId },
@@ -183,15 +181,5 @@ export class VendorMembersService {
       this.logger.log(`Member ${memberId} removed from vendor ${vendorId}`);
       return { message: CommonSuccess.RESOURCE_DELETED };
     });
-  }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  private async assertVendorExists(vendorId: string) {
-    const vendor = await this.prisma.vendor.findFirst({
-      where: { id: vendorId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
   }
 }

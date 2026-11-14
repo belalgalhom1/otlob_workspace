@@ -26,7 +26,7 @@ import {
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
-import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { DriverTrackingService } from '../location/driver-tracking.service';
 import { DriverStatusChangedEvent, OtpRequestedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { OtpService } from '../otp/otp.service';
@@ -72,7 +72,7 @@ export class AuthService {
     private config: ConfigService,
     private socketService: SocketService,
     private redis: RedisService,
-    private locationRepository: LocationRepository,
+    private driverTracking: DriverTrackingService,
   ) {}
 
   async register(
@@ -865,7 +865,7 @@ export class AuthService {
       where: { id: driverId },
       data: { status: DriverStatus.OFFLINE },
     });
-    await this.locationRepository.removeDriverLocation(driverId);
+    await this.driverTracking.removeDriverLocation(driverId);
     this.eventEmitter.emit(
       EVENTS.DRIVER_STATUS_CHANGED,
       new DriverStatusChangedEvent(

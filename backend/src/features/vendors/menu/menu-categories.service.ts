@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -12,6 +13,8 @@ import { ProductBranchAvailabilityMode } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { StorageService } from '../../../infrastructure/storage/storage.service';
+import { VendorCacheService } from '../helpers/vendor-cache.service';
+import { assertVendorExists } from '../helpers/vendor-lookup.helper';
 import {
   CreateMenuCategoryDto,
   UpdateMenuCategoryDto,
@@ -19,7 +22,6 @@ import {
 } from './dto/menu-category.dto';
 import {
   CommonSuccess,
-  VendorErrors,
   MenuCategoryErrors,
 } from '../../../common/constants/response.constants';
 
@@ -33,13 +35,14 @@ export class MenuCategoriesService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Optional() private readonly vendorCache?: VendorCacheService,
   ) {}
 
   // ─── List all categories for a vendor ─────────────────────────────────────
   // Public — customers browse menus, so active-only filtering is available.
 
   async findAll(vendorId: string, activeOnly = false, branchId?: string) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     const where: Prisma.MenuCategoryWhereInput = { vendorId };
     if (activeOnly) where.isActive = true;
@@ -74,7 +77,7 @@ export class MenuCategoriesService {
   // ─── Get single category ───────────────────────────────────────────────────
 
   async findOne(vendorId: string, categoryId: string) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     const category = await this.prisma.menuCategory.findFirst({
       where: { id: categoryId, vendorId },
@@ -96,7 +99,7 @@ export class MenuCategoriesService {
   // ─── Create ───────────────────────────────────────────────────────────────
 
   async create(vendorId: string, dto: CreateMenuCategoryDto) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     // Auto-assign sortOrder to end of list if not provided
     let sortOrder = dto.sortOrder;
@@ -214,7 +217,7 @@ export class MenuCategoriesService {
   // Accepts an array of { id, sortOrder } — updates all in a transaction.
 
   async reorder(vendorId: string, dto: ReorderCategoriesDto) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     // Verify all IDs belong to this vendor
     const ids = dto.items.map((i) => i.id);
@@ -283,22 +286,10 @@ export class MenuCategoriesService {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private async invalidateVendorCaches(vendorId: string) {
-    await this.cacheManager.del(`vendor_details_${vendorId}`);
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      select: { slug: true },
-    });
-    if (vendor?.slug) {
-      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
-    }
-  }
-
-  private async assertVendorExists(vendorId: string) {
-    const vendor = await this.prisma.vendor.findFirst({
-      where: { id: vendorId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
+    await (
+      this.vendorCache ??
+      new VendorCacheService(this.prisma, this.cacheManager)
+    ).invalidateVendorDetails(vendorId);
   }
 
   private async resolveBranchAvailability(

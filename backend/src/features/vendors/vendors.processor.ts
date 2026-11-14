@@ -1,9 +1,11 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QUEUES, CRON_JOBS } from '../../infrastructure/queue/queues.constants';
 import { Prisma, VendorStatus } from '@prisma/client';
+import { VendorCacheService } from './helpers/vendor-cache.service';
+import { isVendorScheduleOpen } from './helpers/vendor-schedule.helper';
 
 @Processor(QUEUES.VENDORS, { concurrency: 5 })
 export class VendorsProcessor extends WorkerHost implements OnModuleInit {
@@ -12,6 +14,7 @@ export class VendorsProcessor extends WorkerHost implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUES.VENDORS) private readonly queue: Queue,
+    @Optional() private readonly vendorCache?: VendorCacheService,
   ) {
     super();
   }
@@ -53,7 +56,7 @@ export class VendorsProcessor extends WorkerHost implements OnModuleInit {
       const toCloseIds: string[] = [];
 
       for (const vendor of vendors) {
-        const shouldBeOpen = this.checkIfCurrentlyOpen(vendor.workingHours);
+        const shouldBeOpen = isVendorScheduleOpen(vendor.workingHours);
 
         if (shouldBeOpen && vendor.status === VendorStatus.CLOSED) {
           toOpenIds.push(vendor.id);
@@ -78,6 +81,13 @@ export class VendorsProcessor extends WorkerHost implements OnModuleInit {
         });
       }
 
+      if (toOpenIds.length > 0 || toCloseIds.length > 0) {
+        await this.vendorCache?.invalidateManyVendorDetails([
+          ...toOpenIds,
+          ...toCloseIds,
+        ]);
+      }
+
       if (opened > 0 || closed > 0) {
         this.logger.log(
           `🏪 Vendor schedule: ${opened} opened, ${closed} closed`,
@@ -88,59 +98,6 @@ export class VendorsProcessor extends WorkerHost implements OnModuleInit {
         'Failed to process vendor working hours',
         (error as Error).stack,
       );
-    }
-  }
-
-  private checkIfCurrentlyOpen(workingHours: unknown): boolean {
-    if (
-      !workingHours ||
-      !Array.isArray(workingHours) ||
-      workingHours.length === 0
-    ) {
-      return true;
-    }
-
-    try {
-      const cairoTimeStr = new Date().toLocaleString('en-US', {
-        timeZone: 'Africa/Cairo',
-      });
-      const now = new Date(cairoTimeStr);
-      const todayDay = now.getDay();
-
-      const todaySchedule = workingHours.find(
-        (h) => Number(h.day) === todayDay,
-      );
-      if (!todaySchedule) return true;
-
-      const isClosed =
-        todaySchedule.isClosed === true || todaySchedule.isClosed === 'true';
-      if (isClosed) return false;
-
-      const openTimeStr =
-        typeof todaySchedule.openTime === 'string'
-          ? todaySchedule.openTime
-          : '09:00';
-      const closeTimeStr =
-        typeof todaySchedule.closeTime === 'string'
-          ? todaySchedule.closeTime
-          : '22:00';
-
-      const [openHour, openMin] = openTimeStr.split(':').map(Number);
-      const [closeHour, closeMin] = closeTimeStr.split(':').map(Number);
-
-      const currentHour = now.getHours();
-      const currentMin = now.getMinutes();
-
-      const openMinutes = openHour * 60 + openMin;
-      const closeMinutes = closeHour * 60 + closeMin;
-      const currentMinutes = currentHour * 60 + currentMin;
-
-      if (closeMinutes < openMinutes) {
-        return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
-      }
-      return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
-    } catch (error) {
-      return false; // Fail-closed on corrupted json
     }
   }
 }

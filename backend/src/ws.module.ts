@@ -12,7 +12,7 @@ import { SocketModule } from './infrastructure/socket/socket.module';
 import { SocketListener } from './common/listeners/socket.listener';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { AppCacheModule } from './infrastructure/cache/cache.module';
-import { LocationModule } from './infrastructure/location/location.module';
+import { LocationModule } from './features/location/location.module';
 
 @Module({
   imports: [

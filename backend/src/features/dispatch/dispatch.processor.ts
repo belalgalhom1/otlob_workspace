@@ -1,11 +1,12 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
-import { Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
-import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { LocationRepository } from '../location/location.repository';
+import { DriverGeoSearchService } from '../location/driver-geo-search.service';
 import {
   QUEUES,
   ORDER_JOBS,
@@ -33,6 +34,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     private readonly redis: RedisService,
     private readonly locationRepository: LocationRepository,
     @InjectQueue(QUEUES.DISPATCH) private readonly queue: Queue,
+    @Optional() private readonly driverGeoSearch?: DriverGeoSearchService,
   ) {
     super();
   }
@@ -387,7 +389,13 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
 
   private async handleGeoFreshnessSweep() {
     const started = Date.now();
-    const result = await this.locationRepository.sweepStaleDriverLocations();
+    const geoSearch =
+      this.driverGeoSearch ??
+      new DriverGeoSearchService(
+        this.locationRepository,
+        this.platformSettings,
+      );
+    const result = await geoSearch.sweepStaleDriverLocations();
     this.logger.log(
       `Geo freshness sweep done in ${Date.now() - started}ms (scanned ${result.scanned}, pruned ${result.removed})`,
     );

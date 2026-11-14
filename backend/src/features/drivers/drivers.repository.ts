@@ -9,6 +9,7 @@ import {
   WalletTransactionType,
 } from '@prisma/client';
 import { DriverErrors } from 'src/common/constants/response.constants';
+import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../common/orders/order-status.constants';
 
 @Injectable()
 export class DriversRepository {
@@ -547,16 +548,7 @@ export class DriversRepository {
         OR: [
           {
             driverId,
-            status: {
-              in: [
-                'DRIVER_ASSIGNED',
-                'PREPARING',
-                'READY_FOR_PICKUP',
-                'PENDING_PAYMENT',
-                'PARTIALLY_PICKED_UP',
-                'PICKED_UP',
-              ],
-            },
+            status: { in: DRIVER_ACTIVE_ORDER_STATUSES },
           },
           {
             deliveryGroups: {

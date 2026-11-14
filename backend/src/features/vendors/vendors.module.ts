@@ -15,6 +15,7 @@ import { VendorBranchesService } from './branches/vendor-branches.service';
 import { VendorWalletService } from './wallet/vendor-wallet.service';
 import { MenuCategoriesService } from './menu/menu-categories.service';
 import { ProductsService } from './products/products.service';
+import { VendorCacheService } from './helpers/vendor-cache.service';
 
 import { VendorMemberGuard } from 'src/common/guards/vendor-member.guard';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
@@ -38,6 +39,7 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
     VendorWalletService,
     MenuCategoriesService,
     ProductsService,
+    VendorCacheService,
     VendorMemberGuard,
   ],
   exports: [
@@ -47,6 +49,7 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
     VendorWalletService,
     MenuCategoriesService,
     ProductsService,
+    VendorCacheService,
   ],
 })
 export class VendorsModule {}

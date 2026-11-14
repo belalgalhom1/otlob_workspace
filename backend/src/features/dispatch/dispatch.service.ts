@@ -25,7 +25,8 @@ import { DRIVER_ACTIVE_ORDER_STATUSES } from '../orders/orders.constants';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
-import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { LocationRepository } from '../location/location.repository';
+import { DriverGeoSearchService } from '../location/driver-geo-search.service';
 import { OrderStatusChangedEvent } from 'src/common/events';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
@@ -80,10 +81,21 @@ export class DispatchService {
     private readonly outbox: OutboxService,
     @Optional() private readonly earningsCalculator?: OrderEarningsCalculator,
     @Optional() private readonly workflowDispatcher?: OrderWorkflowDispatcher,
+    @Optional() private readonly driverGeoSearch?: DriverGeoSearchService,
   ) {}
 
   private get earnings(): OrderEarningsCalculator {
     return this.earningsCalculator ?? new OrderEarningsCalculator(this.platformSettings);
+  }
+
+  private get geoSearch(): DriverGeoSearchService {
+    return (
+      this.driverGeoSearch ??
+      new DriverGeoSearchService(
+        this.locationRepository,
+        this.platformSettings,
+      )
+    );
   }
 
   // ─── Core dispatch logic ──────────────────────────────────────────────────
@@ -277,7 +289,7 @@ export class DispatchService {
         ? { lng: dispatchContext.deliveryLng, lat: dispatchContext.deliveryLat }
         : null;
 
-    const nearbyDrivers = await this.locationRepository.findNearbyDrivers(
+    const nearbyDrivers = await this.geoSearch.findNearbyDrivers(
       dispatchContext.lng,
       dispatchContext.lat,
       radiusKm,

@@ -6,12 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { haversineKm } from '../../common/geo/geo.utils';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 import { NotificationsService } from '../notifications/notifications.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { LocationRepository } from '../location/location.repository';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { DriverErrors } from '../../common/constants/response.constants';
 import { CustomerErrors } from '../../common/constants/response.constants';
@@ -1370,7 +1371,7 @@ export class DriverAssistService {
       if (busyIds.has(c.id)) continue;
       const ll = locations.get(c.id);
       if (!ll) continue;
-      const dist = this.haversineKm(ll.lng, ll.lat, lng, lat);
+      const dist = haversineKm({ lng: ll.lng, lat: ll.lat }, { lng, lat });
       if (settings.driverShiftsEnabled) {
         const shift = await this.prisma.driverShift.findFirst({
           where: { driverId: c.id, status: DriverShiftStatus.ACTIVE },
@@ -1409,17 +1410,6 @@ export class DriverAssistService {
       return { lng: Number(rows[0].lng), lat: Number(rows[0].lat) };
     }
     return null;
-  }
-
-  private haversineKm(lng1: number, lat1: number, lng2: number, lat2: number): number {
-    const R = 6371.0088;
-    const toRad = (d: number) => (d * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
   }
 
   async findById(requestId: string) {

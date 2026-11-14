@@ -6,11 +6,14 @@ import {
   ConflictException,
   OnModuleInit,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../../infrastructure/storage/storage.service';
+import { VendorCacheService } from '../helpers/vendor-cache.service';
+import { assertVendorExists } from '../helpers/vendor-lookup.helper';
 import {
   Prisma,
   ProductBranchAvailabilityMode,
@@ -28,7 +31,6 @@ import {
 } from './dto/product.dto';
 import {
   CommonSuccess,
-  VendorErrors,
   ProductErrors,
 } from '../../../common/constants/response.constants';
 
@@ -92,6 +94,7 @@ export class ProductsService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Optional() private readonly vendorCache?: VendorCacheService,
   ) {}
 
   async onModuleInit() {
@@ -115,7 +118,7 @@ export class ProductsService implements OnModuleInit {
   // ─── List products ────────────────────────────────────────────────────────
 
   async findAll(vendorId: string, dto: QueryProductsDto) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     const { page = 1, limit = 20 } = dto;
     const skip = (page - 1) * limit;
@@ -203,7 +206,7 @@ export class ProductsService implements OnModuleInit {
   // ─── Create ───────────────────────────────────────────────────────────────
 
   async create(vendorId: string, dto: CreateProductDto) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     // Validate: simple product needs basePrice
     if (!dto.hasVariants && !dto.basePrice) {
@@ -845,14 +848,6 @@ export class ProductsService implements OnModuleInit {
     }
   }
 
-  private async assertVendorExists(vendorId: string) {
-    const vendor = await this.prisma.vendor.findFirst({
-      where: { id: vendorId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
-  }
-
   private async assertCategoryBelongsToVendor(
     categoryId: string,
     vendorId: string,
@@ -955,13 +950,9 @@ export class ProductsService implements OnModuleInit {
   }
 
   private async invalidateVendorCaches(vendorId: string) {
-    await this.cacheManager.del(`vendor_details_${vendorId}`);
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      select: { slug: true },
-    });
-    if (vendor?.slug) {
-      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
-    }
+    await (
+      this.vendorCache ??
+      new VendorCacheService(this.prisma, this.cacheManager)
+    ).invalidateVendorDetails(vendorId);
   }
 }

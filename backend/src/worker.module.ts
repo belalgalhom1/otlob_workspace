@@ -12,7 +12,7 @@ import { MediaModule } from './features/media/media.module';
 import { MediaProcessor } from './features/media/media.processor';
 import { EventsModule } from './infrastructure/events/events.module';
 import { AppCacheModule } from './infrastructure/cache/cache.module';
-import { LocationModule } from './infrastructure/location/location.module';
+import { LocationModule } from './features/location/location.module';
 import { OutboxModule } from './infrastructure/outbox/outbox.module';
 import { OrderSharedModule } from './common/orders/order-shared.module';
 import { MailModule } from './infrastructure/mail/mail.module';

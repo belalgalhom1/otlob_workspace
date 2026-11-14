@@ -1,21 +1,8 @@
 import {
   DeliveryGroupStatus,
-  OrderStatus,
   OrderVendorFulfillmentStatus,
 } from '@prisma/client';
-
-// A driver is considered "carrying a live order" once assigned and until the
-// order reaches a terminal state. Acceptance and admin assignment are both
-// rejected while the driver has any order in one of these states (up to
-// maxActiveOrdersPerDriver).
-export const DRIVER_ACTIVE_ORDER_STATUSES: OrderStatus[] = [
-  OrderStatus.DRIVER_ASSIGNED,
-  OrderStatus.PREPARING,
-  OrderStatus.READY_FOR_PICKUP,
-  OrderStatus.PENDING_PAYMENT,
-  OrderStatus.PARTIALLY_PICKED_UP,
-  OrderStatus.PICKED_UP,
-];
+export { DRIVER_ACTIVE_ORDER_STATUSES } from '../../common/orders/order-status.constants';
 
 // Fulfillment statuses that represent a confirmed, non-cancelled vendor portion
 // eligible for settlement and financial ledger accounting.

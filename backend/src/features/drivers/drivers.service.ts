@@ -10,7 +10,8 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DriversRepository } from './drivers.repository';
 import { StorageService } from '../../infrastructure/storage/storage.service';
-import { LocationRepository } from '../../infrastructure/location/location.repository';
+import { LocationRepository } from '../location/location.repository';
+import { DriverTrackingService } from '../location/driver-tracking.service';
 import {
   RegisterDriverDto,
   UpdateDriverProfileDto,
@@ -53,6 +54,7 @@ export class DriversService {
     private readonly driverShiftsService: DriverShiftsService,
     private readonly driverManagersService: DriverManagersService,
     private readonly prisma: PrismaService,
+    private readonly driverTracking: DriverTrackingService,
   ) {}
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -683,7 +685,7 @@ export class DriversService {
     if (driver && driver.status === DriverStatus.ON_BREAK) {
       await this.driversRepository.updateStatus(brk.driverId, restoreTo);
       if (restoreTo === DriverStatus.OFFLINE) {
-        const pos = await this.locationRepository.getDriverLocation(
+        const pos = await this.driverTracking.getDriverLocation(
           brk.driverId,
         );
         if (pos) {
@@ -693,7 +695,7 @@ export class DriversService {
             pos.lat,
           );
         }
-        await this.locationRepository.removeDriverLocation(brk.driverId);
+        await this.driverTracking.removeDriverLocation(brk.driverId);
       }
       this.eventEmitter.emit(
         EVENTS.DRIVER_STATUS_CHANGED,
@@ -980,7 +982,7 @@ export class DriversService {
       Number.isFinite(latitude) &&
       Number.isFinite(longitude)
     ) {
-      await this.locationRepository.trackDriverLocation(
+      await this.driverTracking.trackDriverLocation(
         driver.id,
         longitude,
         latitude,
@@ -1048,7 +1050,7 @@ export class DriversService {
       ?.status;
     if (endedStatus && endedStatus !== DriverStatus.OFFLINE) {
       await this.driversRepository.updateStatus(driver.id, DriverStatus.OFFLINE);
-      const pos = await this.locationRepository.getDriverLocation(driver.id);
+      const pos = await this.driverTracking.getDriverLocation(driver.id);
       if (pos && (pos as any).lng != null && (pos as any).lat != null) {
         await this.driversRepository.updateLastLocation(
           driver.id,
@@ -1056,7 +1058,7 @@ export class DriversService {
           (pos as any).lat,
         );
       }
-      await this.locationRepository.removeDriverLocation(driver.id);
+      await this.driverTracking.removeDriverLocation(driver.id);
       this.eventEmitter.emit(
         EVENTS.DRIVER_STATUS_CHANGED,
         new DriverStatusChangedEvent(
@@ -1144,7 +1146,7 @@ export class DriversService {
         driverId,
         DriverStatus.OFFLINE,
       );
-      const sysPos = await this.locationRepository.getDriverLocation(driverId);
+      const sysPos = await this.driverTracking.getDriverLocation(driverId);
       if (sysPos) {
         await this.driversRepository.updateLastLocation(
           driverId,
@@ -1152,7 +1154,7 @@ export class DriversService {
           sysPos.lat,
         );
       }
-      await this.locationRepository.removeDriverLocation(driverId);
+      await this.driverTracking.removeDriverLocation(driverId);
       this.eventEmitter.emit(
         EVENTS.DRIVER_STATUS_CHANGED,
         new DriverStatusChangedEvent(
@@ -1430,8 +1432,8 @@ export class DriversService {
 
     const ids = (result.drivers as any[]).map((d) => d.id);
     const [liveMap, persistedMap] = await Promise.all([
-      this.locationRepository.getLiveDriverLocations(ids),
-      this.locationRepository.getPersistedDriverLocations(ids),
+      this.driverTracking.getLiveDriverLocations(ids),
+      this.driverTracking.getPersistedDriverLocations(ids),
     ]);
 
     return {
@@ -1468,8 +1470,8 @@ export class DriversService {
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
     const [location, activeOrder] = await Promise.all([
-      this.locationRepository.getDriverLocationWithState(driverId),
-      this.locationRepository.getDriverActiveOrder(driverId),
+      this.driverTracking.getDriverLocationWithState(driverId),
+      this.driverTracking.getDriverActiveOrder(driverId),
     ]);
 
     return {
@@ -1510,7 +1512,7 @@ export class DriversService {
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
 
     this.socketService.disconnectUser(driver.userId);
-    await this.locationRepository.removeDriverLocation(driver.id);
+    await this.driverTracking.removeDriverLocation(driver.id);
 
     const openBreak = await this.driversRepository.findActiveBreak(driverId);
     if (openBreak) {

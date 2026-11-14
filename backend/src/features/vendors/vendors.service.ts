@@ -4,12 +4,16 @@ import {
   ConflictException,
   Logger,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
+import { LocationRepository } from 'src/features/location/location.repository';
 import { StorageService } from 'src/infrastructure/storage/storage.service';
 import { PlatformSettingsService } from 'src/features/platform-settings/platform-settings.service';
+import { VendorCacheService } from './helpers/vendor-cache.service';
+import { isVendorScheduleOpen } from './helpers/vendor-schedule.helper';
 import {
   CreateVendorDto,
   UpdateVendorDto,
@@ -33,6 +37,8 @@ export class VendorsService {
     private readonly storage: StorageService,
     private readonly platformSettings: PlatformSettingsService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Optional() private readonly vendorCache?: VendorCacheService,
+    @Optional() private readonly locationRepository?: LocationRepository,
   ) {}
 
   // ─── Admin: create ────────────────────────────────────────────────────────
@@ -125,27 +131,50 @@ export class VendorsService {
       let targetZoneId: string | null = dto.zoneId ?? null;
       if (!targetZoneId && dto.lat !== undefined && dto.lng !== undefined) {
         try {
-          const containingZoneRows = await this.prisma.$queryRaw<
-            { id: string }[]
-          >`
-            SELECT id FROM zones
-            WHERE ST_Contains(boundary, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326))
-              AND "isActive" = true
-            ORDER BY ST_Area(boundary) ASC
-            LIMIT 1
-          `;
-          targetZoneId = containingZoneRows[0]?.id ?? null;
+          if (this.locationRepository) {
+            const containing =
+              await this.locationRepository.findContainingActiveZone(
+                dto.lng,
+                dto.lat,
+              );
+            targetZoneId = containing?.id ?? null;
 
-          if (!targetZoneId) {
-            const closestZoneRows = await this.prisma.$queryRaw<
+            if (!targetZoneId) {
+              targetZoneId =
+                await this.locationRepository.findClosestActiveZoneId(
+                  dto.lng,
+                  dto.lat,
+                );
+            }
+          } else {
+            const containingZoneRows = await this.prisma.$queryRaw<
               { id: string }[]
             >`
               SELECT id FROM zones
-              WHERE "isActive" = true
-              ORDER BY ST_Distance(boundary::geography, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)::geography) ASC
+              WHERE ST_Covers(
+                  ST_MakeValid("boundary"),
+                  ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)
+                )
+                AND "isActive" = true
+              ORDER BY ST_Area("boundary") ASC
               LIMIT 1
             `;
-            targetZoneId = closestZoneRows[0]?.id ?? null;
+            targetZoneId = containingZoneRows[0]?.id ?? null;
+
+            if (!targetZoneId) {
+              const closestZoneRows = await this.prisma.$queryRaw<
+                { id: string }[]
+              >`
+                SELECT id FROM zones
+                WHERE "isActive" = true
+                ORDER BY ST_Distance(
+                  "boundary"::geography,
+                  ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)::geography
+                ) ASC
+                LIMIT 1
+              `;
+              targetZoneId = closestZoneRows[0]?.id ?? null;
+            }
           }
         } catch (err) {
           this.logger.warn(`Zone resolution failed: ${err}`);
@@ -340,39 +369,33 @@ export class VendorsService {
   }
 
   async findOne(id: string, branchId?: string) {
-    const cacheKey = `vendor_details_${id}`;
-    let mapped = await this.cacheManager.get<Record<string, unknown>>(cacheKey);
-    if (!mapped) {
+    const cache =
+      this.vendorCache ??
+      new VendorCacheService(this.prisma, this.cacheManager);
+    const mapped = await cache.getOrSetVendorDetailsById(id, async () => {
       const vendor = await this.prisma.vendor.findFirst({
         where: { id, deletedAt: null },
         include: this.vendorDetailsIncludes(),
       });
       if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
-      mapped = this.mapVendorForApp(vendor);
-      await this.cacheManager.set(cacheKey, mapped, 300000); // 5 mins
-    }
-    if (branchId) {
-      return this.filterVendorMenuForBranch(mapped, branchId);
-    }
-    return mapped;
+      return this.mapVendorForApp(vendor);
+    });
+    return branchId ? this.filterVendorMenuForBranch(mapped, branchId) : mapped;
   }
 
   async findBySlug(slug: string, branchId?: string) {
-    const cacheKey = `vendor_slug_details_${slug}`;
-    let mapped = await this.cacheManager.get<Record<string, unknown>>(cacheKey);
-    if (!mapped) {
+    const cache =
+      this.vendorCache ??
+      new VendorCacheService(this.prisma, this.cacheManager);
+    const mapped = await cache.getOrSetVendorDetailsBySlug(slug, async () => {
       const vendor = await this.prisma.vendor.findFirst({
         where: { slug, deletedAt: null },
         include: this.vendorDetailsIncludes(),
       });
       if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
-      mapped = this.mapVendorForApp(vendor);
-      await this.cacheManager.set(cacheKey, mapped, 300000); // 5 mins
-    }
-    if (branchId) {
-      return this.filterVendorMenuForBranch(mapped, branchId);
-    }
-    return mapped;
+      return this.mapVendorForApp(vendor);
+    });
+    return branchId ? this.filterVendorMenuForBranch(mapped, branchId) : mapped;
   }
 
   // ─── Admin: update ────────────────────────────────────────────────────────
@@ -572,78 +595,66 @@ export class VendorsService {
   // ─── Admin: logo & cover image ────────────────────────────────────────────
 
   async uploadLogo(id: string, file: Express.Multer.File) {
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id },
-      select: { deletedAt: true, logo: true, slug: true },
+    const logo = await this.replaceVendorAsset(id, file, {
+      field: 'logo',
+      folder: 'vendors/logos',
+      label: 'logo',
     });
-    if (!vendor || vendor.deletedAt)
-      throw new NotFoundException(VendorErrors.NOT_FOUND);
-
-    const logoUrl = await this.storage.upload(file, 'vendors/logos');
-    this.logger.log(`Logo uploaded for vendor ${id}: ${logoUrl}`);
-
-    await this.prisma.vendor.update({
-      where: { id },
-      data: { logo: logoUrl },
-    });
-
-    // Delete old logo only AFTER successful DB update to prevent orphans on crash
-    if (vendor.logo) {
-      await this.storage.delete(vendor.logo).catch((err) => {
-        this.logger.warn(
-          `Failed to delete old logo for vendor ${id}: ${err.message}`,
-        );
-      });
-    }
-
-    await this.invalidateVendorCaches(id, vendor.slug);
-
-    return { logo: logoUrl };
+    return { logo };
   }
 
   async uploadCover(id: string, file: Express.Multer.File) {
+    const coverImage = await this.replaceVendorAsset(id, file, {
+      field: 'coverImage',
+      folder: 'vendors/covers',
+      label: 'cover',
+    });
+    return { coverImage };
+  }
+
+  private async replaceVendorAsset(
+    id: string,
+    file: Express.Multer.File,
+    opts: { field: 'logo' | 'coverImage'; folder: string; label: string },
+  ): Promise<string> {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id },
-      select: { deletedAt: true, coverImage: true, slug: true },
+      select: { deletedAt: true, logo: true, coverImage: true, slug: true },
     });
     if (!vendor || vendor.deletedAt)
       throw new NotFoundException(VendorErrors.NOT_FOUND);
 
-    const coverUrl = await this.storage.upload(file, 'vendors/covers');
-    this.logger.log(`Cover uploaded for vendor ${id}: ${coverUrl}`);
+    const url = await this.storage.upload(file, opts.folder);
+    this.logger.log(`Vendor ${opts.label} uploaded for ${id}: ${url}`);
 
     await this.prisma.vendor.update({
       where: { id },
-      data: { coverImage: coverUrl },
+      data: { [opts.field]: url },
     });
 
-    // Delete old cover only AFTER successful DB update to prevent orphans on crash
-    if (vendor.coverImage) {
-      await this.storage.delete(vendor.coverImage).catch((err) => {
+    // Delete old asset only AFTER successful DB update to prevent orphans on crash
+    const previousUrl = vendor[opts.field];
+    if (previousUrl) {
+      await this.storage.delete(previousUrl).catch((err) => {
         this.logger.warn(
-          `Failed to delete old cover for vendor ${id}: ${err.message}`,
+          `Failed to delete old ${opts.label} for vendor ${id}: ${(err as Error).message}`,
         );
       });
     }
 
     await this.invalidateVendorCaches(id, vendor.slug);
-
-    return { coverImage: coverUrl };
+    return url;
   }
 
   public async invalidateVendorCaches(id: string, slug?: string) {
-    await this.cacheManager.del(`vendor_details_${id}`);
-    let resolvedSlug = slug;
-    if (!resolvedSlug) {
-      const vendor = await this.prisma.vendor.findUnique({
-        where: { id },
-        select: { slug: true },
-      });
-      resolvedSlug = vendor?.slug;
+    if (this.vendorCache) {
+      await this.vendorCache.invalidateVendorDetails(id, slug);
+      return;
     }
-    if (resolvedSlug) {
-      await this.cacheManager.del(`vendor_slug_details_${resolvedSlug}`);
-    }
+    await new VendorCacheService(
+      this.prisma,
+      this.cacheManager,
+    ).invalidateVendorDetails(id, slug);
   }
 
   // ─── Admin: soft delete ───────────────────────────────────────────────────
@@ -756,90 +767,6 @@ export class VendorsService {
     };
   }
 
-  private checkIfCurrentlyOpen(workingHours: unknown): boolean {
-    if (
-      !workingHours ||
-      !Array.isArray(workingHours) ||
-      workingHours.length === 0
-    ) {
-      return true;
-    }
-
-    try {
-      // OtlobEgy operates in Egypt; enforce Cairo timezone for accurate store hours
-      const cairoTimeStr = new Date().toLocaleString('en-US', {
-        timeZone: 'Africa/Cairo',
-      });
-      const now = new Date(cairoTimeStr);
-      const todayDay = now.getDay();
-
-      const currentHour = now.getHours();
-      const currentMin = now.getMinutes();
-      const currentMinutes = currentHour * 60 + currentMin;
-
-      // 1. Check yesterday's schedule for an active overnight shift spilling into early morning
-      const yesterdayIndex = (todayDay + 6) % 7;
-      const yesterdaySchedule = workingHours.find(
-        (h) => Number(h.day) === yesterdayIndex,
-      );
-      if (yesterdaySchedule) {
-        const yIsClosed =
-          yesterdaySchedule.isClosed === true ||
-          yesterdaySchedule.isClosed === 'true';
-        if (!yIsClosed) {
-          const yOpenTimeStr =
-            typeof yesterdaySchedule.openTime === 'string'
-              ? yesterdaySchedule.openTime
-              : '09:00';
-          const yCloseTimeStr =
-            typeof yesterdaySchedule.closeTime === 'string'
-              ? yesterdaySchedule.closeTime
-              : '22:00';
-          const [yOpenHour, yOpenMin] = yOpenTimeStr.split(':').map(Number);
-          const [yCloseHour, yCloseMin] = yCloseTimeStr.split(':').map(Number);
-          const yOpenMinutes = yOpenHour * 60 + yOpenMin;
-          const yCloseMinutes = yCloseHour * 60 + yCloseMin;
-
-          if (yCloseMinutes <= yOpenMinutes && currentMinutes <= yCloseMinutes) {
-            return true;
-          }
-        }
-      }
-
-      // 2. Check today's schedule
-      const todaySchedule = workingHours.find(
-        (h) => Number(h.day) === todayDay,
-      );
-      if (!todaySchedule) return true;
-
-      const isClosed =
-        todaySchedule.isClosed === true || todaySchedule.isClosed === 'true';
-      if (isClosed) return false;
-
-      const openTimeStr =
-        typeof todaySchedule.openTime === 'string'
-          ? todaySchedule.openTime
-          : '09:00';
-      const closeTimeStr =
-        typeof todaySchedule.closeTime === 'string'
-          ? todaySchedule.closeTime
-          : '22:00';
-
-      const [openHour, openMin] = openTimeStr.split(':').map(Number);
-      const [closeHour, closeMin] = closeTimeStr.split(':').map(Number);
-
-      const openMinutes = openHour * 60 + openMin;
-      const closeMinutes = closeHour * 60 + closeMin;
-
-      if (closeMinutes <= openMinutes) {
-        return currentMinutes >= openMinutes;
-      }
-      return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
-    } catch (error) {
-      return false; // Fail-closed on corrupted json
-    }
-  }
-
   private mapVendorForApp(vendor: {
     id: string;
     status: string;
@@ -887,7 +814,7 @@ export class VendorsService {
       vendor.isScheduleActive !== false &&
       vendor.workingHours
     ) {
-      const isOpen = this.checkIfCurrentlyOpen(vendor.workingHours);
+      const isOpen = isVendorScheduleOpen(vendor.workingHours);
       if (!isOpen) {
         status = 'CLOSED';
         isClosedBySchedule = true;

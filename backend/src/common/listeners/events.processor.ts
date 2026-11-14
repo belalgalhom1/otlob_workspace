@@ -23,6 +23,8 @@ import {
 } from '../../infrastructure/queue/queues.constants';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../features/orders/orders.constants';
 import { OrderWorkflowDispatcher } from '../orders/order-workflow.dispatcher';
+import { DriverTrackingService } from '../../features/location/driver-tracking.service';
+import { LocationRepository } from '../../features/location/location.repository';
 
 const WS = {
   ORDER_NEW: 'order.new',
@@ -58,6 +60,7 @@ export class EventsProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     @Optional() private readonly workflowDispatcher?: OrderWorkflowDispatcher,
+    @Optional() private readonly driverTracking?: DriverTrackingService,
   ) {
     super();
   }
@@ -525,19 +528,14 @@ export class EventsProcessor extends WorkerHost {
     }
 
     const activeList = Array.from(byOrderId.values());
-    if (activeList.length > 0) {
-      await this.redis.set(
-        `otlobegy:driver-active-order:${driverId}`,
-        JSON.stringify({
-          orderId: activeList[0].orderId,
-          customerUserId: activeList[0].customerUserId,
-          orders: activeList,
-        }),
-        12 * 60 * 60,
+    const tracking =
+      this.driverTracking ??
+      new DriverTrackingService(
+        new LocationRepository(this.prisma, this.redis),
+        undefined as any,
+        undefined as any,
       );
-    } else {
-      await this.redis.del(`otlobegy:driver-active-order:${driverId}`);
-    }
+    await tracking.syncDriverActiveOrders(driverId, activeList);
   }
 
   private async handleOrderCancelled(event: OrderCancelledEvent) {

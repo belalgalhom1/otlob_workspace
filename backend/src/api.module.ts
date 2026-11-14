@@ -16,7 +16,7 @@ import { StorageModule } from './infrastructure/storage/storage.module';
 import { MediaModule } from './features/media/media.module';
 import { EventsModule } from './infrastructure/events/events.module';
 import { RateLimiterModule } from './infrastructure/rate-limiter/rate-limiter.module';
-import { LocationModule } from './infrastructure/location/location.module';
+import { LocationModule } from './features/location/location.module';
 import { OutboxModule } from './infrastructure/outbox/outbox.module';
 import { OrderSharedModule } from './common/orders/order-shared.module';
 

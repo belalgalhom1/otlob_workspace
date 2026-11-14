@@ -1,4 +1,10 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  BadRequestException,
+  Optional,
+} from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -11,6 +17,33 @@ import {
   AppVersionCheckDto,
 } from './dto/platform-settings.dto';
 import { PlatformSettingErrors } from '../../common/constants/response.constants';
+import { DeliveryFeeCalculator } from './delivery-fee.calculator';
+
+const UPLOAD_MANAGED_SETTING_FIELDS = new Set<string>([
+  'id',
+  'updatedAt',
+  'homeCoverUrl',
+  'motorcycleIconUrl',
+  'carIconUrl',
+  'bicycleIconUrl',
+  'motorTricycleIconUrl',
+  'vanIconUrl',
+  'truckIconUrl',
+  'deliveryBannerIconUrl',
+]);
+
+const UPDATABLE_SETTING_FIELDS = Object.values(
+  Prisma.PlatformSettingScalarFieldEnum,
+).filter((field) => !UPLOAD_MANAGED_SETTING_FIELDS.has(field));
+
+const VEHICLE_ICON_COLUMNS: Record<string, string> = {
+  bicycle: 'bicycleIconUrl',
+  motorcycle: 'motorcycleIconUrl',
+  motor_tricycle: 'motorTricycleIconUrl',
+  car: 'carIconUrl',
+  van: 'vanIconUrl',
+  truck: 'truckIconUrl',
+};
 
 // Semantic version compare: returns true if `current` satisfies `minimum`
 function semverGte(current: string, minimum: string): boolean {
@@ -37,7 +70,12 @@ export class PlatformSettingsService {
     private readonly storage: StorageService,
     private readonly eventEmitter: EventEmitter2,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Optional() private readonly feeCalculator?: DeliveryFeeCalculator,
   ) {}
+
+  private get fees(): DeliveryFeeCalculator {
+    return this.feeCalculator ?? new DeliveryFeeCalculator();
+  }
 
   private emitSettingsUpdated() {
     this.eventEmitter.emit(EVENTS.SETTINGS_UPDATED);
@@ -168,129 +206,12 @@ export class PlatformSettingsService {
 
   async updateSettings(dto: UpdatePlatformSettingsDto) {
     const data: Prisma.PlatformSettingUpdateInput = {};
+    const dtoRecord = dto as Record<string, unknown>;
+    const dataRecord = data as Record<string, unknown>;
 
-    // Only include fields that were explicitly provided
-    const fields: (keyof UpdatePlatformSettingsDto)[] = [
-      'currency',
-      'defaultCommissionRate',
-      'deliveryCommissionRate',
-      'driverManagerCommissionRate',
-      'defaultTaxRate',
-      'minOrderAmount',
-      'baseDeliveryFee',
-      'extraVendorDeliveryFee',
-      'pricePerKm',
-      'pricePerKmBicycle',
-      'pricePerKmMotorcycle',
-      'pricePerKmCar',
-      'pricePerKmVan',
-      'pricePerKmTruck',
-      'pricePerKmMotorTricycle',
-      'maxDeliveryFee',
-      'minDeliveryFee',
-      'minDeliveryFeeBicycle',
-      'maxDeliveryFeeBicycle',
-      'minDeliveryFeeMotorcycle',
-      'maxDeliveryFeeMotorcycle',
-      'minDeliveryFeeCar',
-      'maxDeliveryFeeCar',
-      'minDeliveryFeeVan',
-      'maxDeliveryFeeVan',
-      'minDeliveryFeeTruck',
-      'maxDeliveryFeeTruck',
-      'minDeliveryFeeMotorTricycle',
-      'maxDeliveryFeeMotorTricycle',
-      'allowBicycle',
-      'allowMotorcycle',
-      'allowCar',
-      'allowVan',
-      'allowTruck',
-      'allowMotorTricycle',
-      'minOrderKm',
-      'minDistanceFixedPrice',
-      'maxDeliveryRadiusKm',
-      'driverSearchRadiusKm',
-      'driverSearchRadiusStepKm',
-      'driverSearchRadiusMaxKm',
-      'driverSearchMaxAttempts',
-      'driverSearchGeoCandidateLimit',
-      'driverLocationFreshnessTtlSecs',
-      'driverLocationPrecisionMeters',
-      'groupingMaxBranchDistanceKm',
-      'groupingMaxVendorCustomerDistanceKm',
-      'customOrderPlatformFee',
-      'autoCancelPendingMins',
-      'mobileWalletTimeoutMins',
-      'driverAcceptTimeoutSecs',
-    'dispatchHandoffDedupeTtlSecs',
-    'assistDecisionTimeoutSecs',
-    'maxNegativeDriverBalance',
-      'isMaintenanceMode',
-      'androidMinVersion',
-      'androidLatestVersion',
-      'androidForceUpdate',
-      'androidStoreUrl',
-      'iosMinVersion',
-      'iosLatestVersion',
-      'iosForceUpdate',
-      'iosStoreUrl',
-      'supportEmail',
-      'supportPhone',
-      'supportWhatsapp',
-      'termsUrl',
-      'privacyUrl',
-      'retentionOrdersDays',
-      'retentionArchivedChatsDays',
-      'retentionNotificationsDays',
-      'retentionExpiredSessionsDays',
-      'retentionAuditLogsDays',
-      'retentionAbandonedCartsDays',
-      'retentionPaymentReceiptsDays',
-      'retentionShiftStartPhotosDays',
-      'retentionPickupPhotosDays',
-      'retentionDeliveryPhotosDays',
-      'retentionWalletTransactionsDays',
-      'retentionStatisticsDays',
-      'maxKmForBicycle',
-      'maxDispatchBatchSize',
-      'maxActiveOrdersPerDriver',
-      'stackedOrderDriverPercentage',
-      'batchedDeliveryCommissionRate',
-      'batchedDriverManagerCommissionRate',
-      'multiVendorDeliveryCommissionRate',
-      'multiVendorDriverManagerCommissionRate',
-      'multiVendorDriverPercentage',
-      'batchMaxVendorDistanceKm',
-      'batchMaxCustomerDistanceKm',
-      'coinValue',
-      'amountSpentPerCoin',
-      'minCoinsToUse',
-      'driverBonusActive',
-      'driverBonusAmount',
-      'driverBonusStartDate',
-      'driverBonusEndDate',
-      'driverBonusPaidByCustomer',
-      'highValueOrderThreshold',
-      'highValueUpfrontRate',
-      'driverShiftsEnabled',
-      'breaksEnabled',
-      'maxActiveOrdersPerCustomer',
-      'requirePriorDeliveryForMultipleOrders',
-      'maxOtpAttempts',
-      'otpExpirySeconds',
-      'bronzeTierBonusPerKm',
-      'silverTierBonusPerKm',
-      'goldTierBonusPerKm',
-      'driverSettlementOrderThreshold',
-      'maxBreakMinutesPerShift',
-      'maxBreaksPerShift',
-      'maxSingleBreakMinutes',
-      'pendingBreakExpiryMins',
-    ];
-
-    for (const field of fields) {
-      if (dto[field] !== undefined) {
-        data[field] = dto[field];
+    for (const field of UPDATABLE_SETTING_FIELDS) {
+      if (dtoRecord[field] !== undefined) {
+        dataRecord[field] = dtoRecord[field];
       }
     }
 
@@ -299,67 +220,18 @@ export class PlatformSettingsService {
     });
 
     if (current) {
-      // Keep Batched/Stacked cuts (Platform + Manager + Driver = 100%) synchronized
-      const newBatchedPlatform = Number(
-        dto.batchedDeliveryCommissionRate ?? current.batchedDeliveryCommissionRate ?? 40,
-      );
-      const newBatchedManager = Number(
-        dto.batchedDriverManagerCommissionRate ?? current.batchedDriverManagerCommissionRate ?? 10,
-      );
-      const newStackedDriver = Number(
-        dto.stackedOrderDriverPercentage ?? current.stackedOrderDriverPercentage ?? 50,
-      );
-      const batchedRatesChanged =
-        (dto.batchedDeliveryCommissionRate !== undefined &&
-          dto.batchedDeliveryCommissionRate !== current.batchedDeliveryCommissionRate) ||
-        (dto.batchedDriverManagerCommissionRate !== undefined &&
-          dto.batchedDriverManagerCommissionRate !== current.batchedDriverManagerCommissionRate);
-      const stackedDriverChanged =
-        dto.stackedOrderDriverPercentage !== undefined &&
-        dto.stackedOrderDriverPercentage !== current.stackedOrderDriverPercentage;
-
-      if (batchedRatesChanged && !stackedDriverChanged) {
-        data.stackedOrderDriverPercentage = Math.max(
-          0,
-          100 - newBatchedPlatform - newBatchedManager,
-        );
-      } else if (stackedDriverChanged && !batchedRatesChanged) {
-        data.batchedDeliveryCommissionRate = Math.max(
-          0,
-          100 - newStackedDriver - newBatchedManager,
-        );
-      }
-
-      // Keep Multi-Vendor cuts (Platform + Manager + Driver = 100%) synchronized
-      const newMvPlatform = Number(
-        dto.multiVendorDeliveryCommissionRate ?? current.multiVendorDeliveryCommissionRate ?? 20,
-      );
-      const newMvManager = Number(
-        dto.multiVendorDriverManagerCommissionRate ?? current.multiVendorDriverManagerCommissionRate ?? 10,
-      );
-      const newMvDriver = Number(
-        dto.multiVendorDriverPercentage ?? current.multiVendorDriverPercentage ?? 70,
-      );
-      const mvRatesChanged =
-        (dto.multiVendorDeliveryCommissionRate !== undefined &&
-          dto.multiVendorDeliveryCommissionRate !== current.multiVendorDeliveryCommissionRate) ||
-        (dto.multiVendorDriverManagerCommissionRate !== undefined &&
-          dto.multiVendorDriverManagerCommissionRate !== current.multiVendorDriverManagerCommissionRate);
-      const mvDriverChanged =
-        dto.multiVendorDriverPercentage !== undefined &&
-        dto.multiVendorDriverPercentage !== current.multiVendorDriverPercentage;
-
-      if (mvRatesChanged && !mvDriverChanged) {
-        data.multiVendorDriverPercentage = Math.max(
-          0,
-          100 - newMvPlatform - newMvManager,
-        );
-      } else if (mvDriverChanged && !mvRatesChanged) {
-        data.multiVendorDeliveryCommissionRate = Math.max(
-          0,
-          100 - newMvDriver - newMvManager,
-        );
-      }
+      this.syncCommissionTrio(dto, current, data, {
+        platformKey: 'batchedDeliveryCommissionRate',
+        managerKey: 'batchedDriverManagerCommissionRate',
+        driverKey: 'stackedOrderDriverPercentage',
+        defaults: [40, 10, 50],
+      });
+      this.syncCommissionTrio(dto, current, data, {
+        platformKey: 'multiVendorDeliveryCommissionRate',
+        managerKey: 'multiVendorDriverManagerCommissionRate',
+        driverKey: 'multiVendorDriverPercentage',
+        defaults: [20, 10, 70],
+      });
     }
 
     const settings = await this.prisma.platformSetting.upsert({
@@ -407,8 +279,7 @@ export class PlatformSettingsService {
     };
   }
 
-  // ─── Delivery fee calculation helper (used by checkout) ───────────────────
-  // Returns computed delivery fee based on distance and zone overrides.
+  // ─── Delivery fee calculation helper (delegated to DeliveryFeeCalculator) ─
 
   async calculateDeliveryFee(
     distanceKm: number,
@@ -419,111 +290,24 @@ export class PlatformSettingsService {
     vehicleType?: string | null,
   ): Promise<number> {
     const s = prefetchedSettings ?? (await this.getSettings());
-
-    const minOrderKm = Number(s.minOrderKm);
-    const minFixedPrice = Number(s.minDistanceFixedPrice);
-
-    // Zone override takes precedence over global base fee
-    const baseFee =
-      zoneBaseDeliveryFeeOverride != null
-        ? Number(zoneBaseDeliveryFeeOverride)
-        : Number(s.baseDeliveryFee);
-
-    let perKm =
-      perKmOverride != null ? Number(perKmOverride) : Number(s.pricePerKm);
-
-    if (s.driverShiftsEnabled && isStandardOrder) {
-      perKm += Number(s.goldTierBonusPerKm ?? 0);
-    }
-
-    let fee =
-      minOrderKm > 0 && distanceKm < minOrderKm
-        ? minFixedPrice
-        : baseFee + distanceKm * perKm;
-
-    // Vehicle-specific min and max fee overrides
-    let vehicleMinFee = 0;
-    let vehicleMaxFee = 0;
-    if (vehicleType) {
-      const v = vehicleType.toUpperCase();
-      if (v === 'BICYCLE') {
-        vehicleMinFee = Number(s.minDeliveryFeeBicycle);
-        vehicleMaxFee = Number(s.maxDeliveryFeeBicycle);
-      } else if (v === 'MOTORCYCLE') {
-        vehicleMinFee = Number(s.minDeliveryFeeMotorcycle);
-        vehicleMaxFee = Number(s.maxDeliveryFeeMotorcycle);
-      } else if (v === 'CAR') {
-        vehicleMinFee = Number(s.minDeliveryFeeCar);
-        vehicleMaxFee = Number(s.maxDeliveryFeeCar);
-      } else if (v === 'VAN') {
-        vehicleMinFee = Number(s.minDeliveryFeeVan);
-        vehicleMaxFee = Number(s.maxDeliveryFeeVan);
-      } else if (v === 'TRUCK') {
-        vehicleMinFee = Number(s.minDeliveryFeeTruck);
-        vehicleMaxFee = Number(s.maxDeliveryFeeTruck);
-      } else if (v === 'MOTOR_TRICYCLE') {
-        vehicleMinFee = Number(s.minDeliveryFeeMotorTricycle);
-        vehicleMaxFee = Number(s.maxDeliveryFeeMotorTricycle);
-      }
-    }
-
-    if (vehicleMinFee > 0 && fee < vehicleMinFee) {
-      fee = vehicleMinFee;
-    }
-
-    const maxFee = vehicleMaxFee > 0 ? vehicleMaxFee : Number(s.maxDeliveryFee);
-    if (maxFee > 0 && fee > maxFee) {
-      fee = maxFee;
-    }
-
-    // Global customer-facing floor (EGP), applied last so the effective
-    // minimum is max(per-vehicle minimum, platform minimum) and a cheap zone
-    // override or sub-minimum `minDistanceFixedPrice` can never drop a delivery
-    // below the platform minimum. 0 disables the floor.
-    const globalMinFee = Number(s.minDeliveryFee ?? 0);
-    if (globalMinFee > 0 && fee < globalMinFee) {
-      fee = globalMinFee;
-    }
-
-    // Round to 2 decimal places
-    return Math.round(fee * 100) / 100;
+    return this.fees.calculateDeliveryFee(s, {
+      distanceKm,
+      zoneBaseDeliveryFeeOverride,
+      perKmOverride,
+      isStandardOrder,
+      vehicleType,
+    });
   }
 
   async getVehiclePerKm(vehicleType: string): Promise<number | null> {
     const s = await this.getSettings();
-    switch (vehicleType) {
-      case 'BICYCLE':
-        return Number(s.pricePerKmBicycle);
-      case 'MOTORCYCLE':
-        return Number(s.pricePerKmMotorcycle);
-      case 'CAR':
-        return Number(s.pricePerKmCar);
-      case 'VAN':
-        return Number(s.pricePerKmVan);
-      case 'TRUCK':
-        return Number(s.pricePerKmTruck);
-      case 'MOTOR_TRICYCLE':
-        return Number(s.pricePerKmMotorTricycle);
-      default:
-        return null;
-    }
+    return this.fees.getVehiclePerKm(s, vehicleType);
   }
 
   // ─── Image Uploads ────────────────────────────────────────────────────────
 
   async uploadHomeCover(file: Express.Multer.File) {
-    const s = await this.getSettings();
-    if (s.homeCoverUrl) {
-      await this.storage.delete(s.homeCoverUrl);
-    }
-    const url = await this.storage.upload(file, 'app/customization');
-    await this.prisma.platformSetting.update({
-      where: { id: 'default' },
-      data: { homeCoverUrl: url },
-    });
-    await this.cacheManager.del('platform_settings');
-    this.emitSettingsUpdated();
-    return { url };
+    return this.replaceSettingAsset('homeCoverUrl', file);
   }
 
   async uploadMotorcycleIcon(file: Express.Multer.File) {
@@ -535,44 +319,81 @@ export class PlatformSettingsService {
   }
 
   async uploadVehicleIcon(vehicleType: string, file: Express.Multer.File) {
-    const column = {
-      bicycle: 'bicycleIconUrl',
-      motorcycle: 'motorcycleIconUrl',
-      motor_tricycle: 'motorTricycleIconUrl',
-      car: 'carIconUrl',
-      van: 'vanIconUrl',
-      truck: 'truckIconUrl',
-    }[vehicleType];
+    const column = VEHICLE_ICON_COLUMNS[vehicleType];
     if (!column) {
-      throw new Error(`Unknown vehicle type: ${vehicleType}`);
+      throw new BadRequestException(`Unknown vehicle type: ${vehicleType}`);
     }
+    return this.replaceSettingAsset(column, file);
+  }
+
+  async uploadDeliveryBannerIcon(file: Express.Multer.File) {
+    return this.replaceSettingAsset('deliveryBannerIconUrl', file);
+  }
+
+  private async replaceSettingAsset(
+    column: string,
+    file: Express.Multer.File,
+  ): Promise<{ url: string }> {
     const s = await this.getSettings();
     const oldUrl = (s as unknown as Record<string, string | null>)[column];
-    if (oldUrl) {
-      await this.storage.delete(oldUrl);
-    }
     const url = await this.storage.upload(file, 'app/customization');
+
     await this.prisma.platformSetting.update({
       where: { id: 'default' },
       data: { [column]: url },
     });
+
+    if (oldUrl) {
+      await this.storage.delete(oldUrl).catch((err: Error) => {
+        this.logger.warn(
+          `Failed to delete old platform asset (${column}): ${err.message}`,
+        );
+      });
+    }
+
     await this.cacheManager.del('platform_settings');
     this.emitSettingsUpdated();
     return { url };
   }
 
-  async uploadDeliveryBannerIcon(file: Express.Multer.File) {
-    const s = await this.getSettings();
-    if (s.deliveryBannerIconUrl) {
-      await this.storage.delete(s.deliveryBannerIconUrl);
+  private syncCommissionTrio(
+    dto: UpdatePlatformSettingsDto,
+    current: PlatformSetting,
+    data: Prisma.PlatformSettingUpdateInput,
+    keys: {
+      platformKey: keyof PlatformSetting & keyof UpdatePlatformSettingsDto;
+      managerKey: keyof PlatformSetting & keyof UpdatePlatformSettingsDto;
+      driverKey: keyof PlatformSetting & keyof UpdatePlatformSettingsDto;
+      defaults: [number, number, number];
+    },
+  ): void {
+    const dtoRec = dto as Record<string, unknown>;
+    const curRec = current as unknown as Record<string, unknown>;
+    const dataRec = data as Record<string, unknown>;
+
+    const newPlatform = Number(
+      dtoRec[keys.platformKey] ?? curRec[keys.platformKey] ?? keys.defaults[0],
+    );
+    const newManager = Number(
+      dtoRec[keys.managerKey] ?? curRec[keys.managerKey] ?? keys.defaults[1],
+    );
+    const newDriver = Number(
+      dtoRec[keys.driverKey] ?? curRec[keys.driverKey] ?? keys.defaults[2],
+    );
+
+    const ratesChanged =
+      (dtoRec[keys.platformKey] !== undefined &&
+        dtoRec[keys.platformKey] !== curRec[keys.platformKey]) ||
+      (dtoRec[keys.managerKey] !== undefined &&
+        dtoRec[keys.managerKey] !== curRec[keys.managerKey]);
+    const driverChanged =
+      dtoRec[keys.driverKey] !== undefined &&
+      dtoRec[keys.driverKey] !== curRec[keys.driverKey];
+
+    if (ratesChanged && !driverChanged) {
+      dataRec[keys.driverKey] = Math.max(0, 100 - newPlatform - newManager);
+    } else if (driverChanged && !ratesChanged) {
+      dataRec[keys.platformKey] = Math.max(0, 100 - newDriver - newManager);
     }
-    const url = await this.storage.upload(file, 'app/customization');
-    await this.prisma.platformSetting.update({
-      where: { id: 'default' },
-      data: { deliveryBannerIconUrl: url },
-    });
-    await this.cacheManager.del('platform_settings');
-    this.emitSettingsUpdated();
-    return { url };
   }
 }

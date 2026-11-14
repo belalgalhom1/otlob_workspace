@@ -4,17 +4,20 @@ import {
   Logger,
   BadRequestException,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { LocationRepository } from '../../location/location.repository';
+import { VendorCacheService } from '../helpers/vendor-cache.service';
+import { assertVendorExists } from '../helpers/vendor-lookup.helper';
 import {
   CreateVendorBranchDto,
   UpdateVendorBranchDto,
 } from './dto/vendor-branch.dto';
 import {
   VendorBranchErrors,
-  VendorErrors,
   ZoneErrors,
   CommonSuccess,
 } from '../../../common/constants/response.constants';
@@ -27,12 +30,14 @@ export class VendorBranchesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Optional() private readonly vendorCache?: VendorCacheService,
+    @Optional() private readonly locationRepository?: LocationRepository,
   ) {}
 
   // ─── List all branches of a vendor ────────────────────────────────────────
 
   async findAll(vendorId: string) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     // Raw SQL to include the PostGIS location as GeoJSON — same pattern as
     // addresses and zones in this codebase.
@@ -97,7 +102,7 @@ export class VendorBranchesService {
   // ─── Create ───────────────────────────────────────────────────────────────
 
   async create(vendorId: string, dto: CreateVendorBranchDto) {
-    await this.assertVendorExists(vendorId);
+    await assertVendorExists(this.prisma, vendorId);
 
     const [lat, lng] = dto.location;
     const resolvedZoneId = await this.resolveValidZoneForLocation(
@@ -168,30 +173,24 @@ export class VendorBranchesService {
     }
 
     // Update the remaining scalar fields through Prisma ORM.
-    const { location, ...scalarFields } = dto;
+    const hasScalarChanges = Object.entries(dto).some(
+      ([key, value]) => key !== 'location' && value !== undefined,
+    );
 
-    if (Object.keys(scalarFields).length > 0 || finalZoneId !== branch.zoneId) {
+    if (hasScalarChanges || finalZoneId !== branch.zoneId) {
       await this.prisma.vendorBranch.update({
         where: { id: branchId },
         data: {
-          ...(scalarFields.name !== undefined && { name: scalarFields.name }),
-          ...(scalarFields.nameAr !== undefined && {
-            nameAr: scalarFields.nameAr,
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
+          ...(dto.address !== undefined && { address: dto.address }),
+          ...(dto.phone !== undefined && { phone: dto.phone }),
+          ...(dto.isOpen !== undefined && { isOpen: dto.isOpen }),
+          ...(dto.isContracted !== undefined && {
+            isContracted: dto.isContracted,
           }),
-          ...(scalarFields.address !== undefined && {
-            address: scalarFields.address,
-          }),
-          ...(scalarFields.phone !== undefined && {
-            phone: scalarFields.phone,
-          }),
-          ...(scalarFields.isOpen !== undefined && {
-            isOpen: scalarFields.isOpen,
-          }),
-          ...(scalarFields.isContracted !== undefined && {
-            isContracted: scalarFields.isContracted,
-          }),
-          ...(scalarFields.commissionRate !== undefined && {
-            commissionRate: scalarFields.commissionRate,
+          ...(dto.commissionRate !== undefined && {
+            commissionRate: dto.commissionRate,
           }),
           ...(finalZoneId !== undefined && {
             zoneId: finalZoneId,
@@ -219,22 +218,14 @@ export class VendorBranchesService {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private async invalidateZonesCache(vendorId: string) {
-    await this.cacheManager.del(`vendor_details_${vendorId}`);
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      select: { slug: true },
-    });
-    if (vendor?.slug) {
-      await this.cacheManager.del(`vendor_slug_details_${vendor.slug}`);
+    if (this.vendorCache) {
+      await this.vendorCache.invalidateVendorDetails(vendorId);
+      return;
     }
-  }
-
-  private async assertVendorExists(vendorId: string) {
-    const vendor = await this.prisma.vendor.findFirst({
-      where: { id: vendorId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!vendor) throw new NotFoundException(VendorErrors.NOT_FOUND);
+    await new VendorCacheService(
+      this.prisma,
+      this.cacheManager,
+    ).invalidateVendorDetails(vendorId);
   }
 
   private async resolveValidZoneForLocation(
@@ -245,14 +236,29 @@ export class VendorBranchesService {
 
     // 1. If a specific zone was requested, check if it contains the location
     if (requestedZoneId) {
-      const result = await this.prisma.$queryRaw<any[]>`
-        SELECT id FROM zones
-        WHERE id = ${requestedZoneId}
-        AND ST_Contains(boundary, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326))
-        AND "isActive" = true
-        LIMIT 1
-      `;
-      if (result.length > 0) {
+      let containsRequested = false;
+      if (this.locationRepository) {
+        containsRequested = await this.locationRepository.isPointInZone(
+          requestedZoneId,
+          lng,
+          lat,
+          { activeOnly: true },
+        );
+      } else {
+        const result = await this.prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM zones
+          WHERE id = ${requestedZoneId}
+            AND ST_Covers(
+              ST_MakeValid("boundary"),
+              ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
+            )
+            AND "isActive" = true
+          LIMIT 1
+        `;
+        containsRequested = result.length > 0;
+      }
+
+      if (containsRequested) {
         return requestedZoneId;
       }
       this.logger.warn(
@@ -261,24 +267,37 @@ export class VendorBranchesService {
     }
 
     // 2. Auto-detect which active zone contains the location
-    const autoZone = await this.prisma.$queryRaw<any[]>`
-      SELECT id FROM zones
-      WHERE ST_Contains(boundary, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326))
-      AND "isActive" = true
-      ORDER BY ST_Area(boundary) ASC
-      LIMIT 1
-    `;
+    let detectedZoneId: string | null = null;
+    if (this.locationRepository) {
+      const zone = await this.locationRepository.findContainingActiveZone(
+        lng,
+        lat,
+      );
+      detectedZoneId = zone?.id ?? null;
+    } else {
+      const autoZone = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM zones
+        WHERE ST_Covers(
+            ST_MakeValid("boundary"),
+            ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
+          )
+          AND "isActive" = true
+        ORDER BY ST_Area("boundary") ASC
+        LIMIT 1
+      `;
+      detectedZoneId = autoZone[0]?.id ?? null;
+    }
 
-    if (!autoZone.length) {
+    if (!detectedZoneId) {
       throw new BadRequestException(ZoneErrors.INVALID_LOCATION_FOR_ZONE);
     }
 
-    if (requestedZoneId && requestedZoneId !== autoZone[0].id) {
+    if (requestedZoneId && requestedZoneId !== detectedZoneId) {
       this.logger.log(
-        `Auto-reassigned branch from requested zone ${requestedZoneId} to containing zone ${autoZone[0].id}`,
+        `Auto-reassigned branch from requested zone ${requestedZoneId} to containing zone ${detectedZoneId}`,
       );
     }
 
-    return autoZone[0].id;
+    return detectedZoneId;
   }
 }
