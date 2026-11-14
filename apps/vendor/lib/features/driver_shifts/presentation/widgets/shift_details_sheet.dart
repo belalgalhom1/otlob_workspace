@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
