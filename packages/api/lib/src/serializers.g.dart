@@ -9,6 +9,7 @@ part of 'serializers.dart';
 Serializers _$serializers =
     (Serializers().toBuilder()
           ..add($ApiResponseDto.serializer)
+          ..add(AcceptLegalDocumentDto.serializer)
           ..add(AddCartItemDto.serializer)
           ..add(AddCartItemDtoSelectedUnitEnum.serializer)
           ..add(AddVendorMemberDto.serializer)
@@ -16,6 +17,7 @@ Serializers _$serializers =
           ..add(AdminAssignDriverDto.serializer)
           ..add(AdminAssignShiftDto.serializer)
           ..add(AdminBookWeeklyShiftsDto.serializer)
+          ..add(AdminBulkAssignShiftsDto.serializer)
           ..add(AdminCreateDriverDto.serializer)
           ..add(AdminCreateDriverDtoStatusEnum.serializer)
           ..add(AdminCreateDriverDtoVehicleTypeEnum.serializer)
@@ -47,6 +49,8 @@ Serializers _$serializers =
           ..add(CreateAddressDto.serializer)
           ..add(CreateDirectConversationDto.serializer)
           ..add(CreateDriverShiftDto.serializer)
+          ..add(CreateLegalDocumentDto.serializer)
+          ..add(CreateLegalDocumentDtoTypeEnum.serializer)
           ..add(CreateMenuCategoryDto.serializer)
           ..add(CreateMenuCategoryDtoBranchAvailabilityModeEnum.serializer)
           ..add(CreateMobileWalletDto.serializer)
@@ -196,6 +200,7 @@ Serializers _$serializers =
           ..add(UpdateDriverProfileDto.serializer)
           ..add(UpdateDriverStatusDto.serializer)
           ..add(UpdateDriverStatusDtoStatusEnum.serializer)
+          ..add(UpdateLegalDocumentDto.serializer)
           ..add(UpdateMenuCategoryDto.serializer)
           ..add(UpdateMenuCategoryDtoBranchAvailabilityModeEnum.serializer)
           ..add(UpdateNotificationSettingsDto.serializer)
@@ -448,6 +453,10 @@ Serializers _$serializers =
             () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [
               const FullType(CreateOptionGroupDto),
             ]),
@@ -464,8 +473,8 @@ Serializers _$serializers =
             () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
-            const FullType(BuiltList, const [const FullType(String)]),
-            () => ListBuilder<String>(),
+            const FullType(BuiltList, const [const FullType(num)]),
+            () => ListBuilder<num>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [

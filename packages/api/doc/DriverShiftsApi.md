@@ -11,6 +11,7 @@ Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**driverShiftsControllerAcceptSwap**](DriverShiftsApi.md#drivershiftscontrolleracceptswap) | **POST** /driver-shifts/swap/{swapId}/accept | Claim someone else&#39;s shift from the swap board
 [**driverShiftsControllerAdminAssignShift**](DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
+[**driverShiftsControllerAdminAssignShiftBulk**](DriverShiftsApi.md#drivershiftscontrolleradminassignshiftbulk) | **POST** /driver-shifts/admin/assign-bulk | [Admin] Assign a driver to a generated group of shift pools
 [**driverShiftsControllerAdminBookWeeklyShifts**](DriverShiftsApi.md#drivershiftscontrolleradminbookweeklyshifts) | **POST** /driver-shifts/admin/book-week | [Admin] Book a full weekly shift schedule for a driver
 [**driverShiftsControllerBookOvertimeShift**](DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [**driverShiftsControllerBookWeeklyShifts**](DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
@@ -93,6 +94,47 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **adminAssignShiftDto** | [**AdminAssignShiftDto**](AdminAssignShiftDto.md)|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driverShiftsControllerAdminAssignShiftBulk**
+> ApiControllerRoot200Response driverShiftsControllerAdminAssignShiftBulk(adminBulkAssignShiftsDto)
+
+[Admin] Assign a driver to a generated group of shift pools
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverShiftsApi();
+final AdminBulkAssignShiftsDto adminBulkAssignShiftsDto = ; // AdminBulkAssignShiftsDto | 
+
+try {
+    final response = api.driverShiftsControllerAdminAssignShiftBulk(adminBulkAssignShiftsDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverShiftsApi->driverShiftsControllerAdminAssignShiftBulk: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **adminBulkAssignShiftsDto** | [**AdminBulkAssignShiftsDto**](AdminBulkAssignShiftsDto.md)|  | 
 
 ### Return type
 

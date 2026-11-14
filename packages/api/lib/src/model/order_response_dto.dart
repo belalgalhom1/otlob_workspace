@@ -43,6 +43,7 @@ part 'order_response_dto.g.dart';
 /// * [zoneId] 
 /// * [driverShiftId] 
 /// * [status] 
+/// * [revision] 
 /// * [paymentMethod] 
 /// * [paymentStatus] 
 /// * [deliveryAddress] 
@@ -124,6 +125,9 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
   @BuiltValueField(wireName: r'status')
   OrderStatus get status;
   // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PARTIALLY_PICKED_UP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
+
+  @BuiltValueField(wireName: r'revision')
+  num get revision;
 
   @BuiltValueField(wireName: r'paymentMethod')
   PaymentMethod get paymentMethod;
@@ -352,6 +356,11 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
     yield serializers.serialize(
       object.status,
       specifiedType: const FullType(OrderStatus),
+    );
+    yield r'revision';
+    yield serializers.serialize(
+      object.revision,
+      specifiedType: const FullType(num),
     );
     yield r'paymentMethod';
     yield serializers.serialize(
@@ -737,6 +746,13 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
             specifiedType: const FullType(OrderStatus),
           ) as OrderStatus;
           result.status = valueDes;
+          break;
+        case r'revision':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.revision = valueDes;
           break;
         case r'paymentMethod':
           final valueDes = serializers.deserialize(

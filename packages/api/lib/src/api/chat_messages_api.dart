@@ -1,10 +1,10 @@
-import 'package:built_value/json_object.dart';
 //
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
 import 'dart:async';
 
+import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 

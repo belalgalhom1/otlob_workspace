@@ -130,6 +130,7 @@ Class | Method | HTTP request | Description
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerUnassignDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollerunassigndrivers) | **POST** /driver-managers/{userId}/unassign | [Admin] Unassign specific drivers from a driver manager
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAcceptSwap**](doc/DriverShiftsApi.md#drivershiftscontrolleracceptswap) | **POST** /driver-shifts/swap/{swapId}/accept | Claim someone else&#39;s shift from the swap board
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShift**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShiftBulk**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshiftbulk) | **POST** /driver-shifts/admin/assign-bulk | [Admin] Assign a driver to a generated group of shift pools
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrolleradminbookweeklyshifts) | **POST** /driver-shifts/admin/book-week | [Admin] Book a full weekly shift schedule for a driver
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookOvertimeShift**](doc/DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
@@ -172,6 +173,7 @@ Class | Method | HTTP request | Description
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetMyBreaks**](doc/DriversApi.md#driverscontrollergetmybreaks) | **GET** /drivers/me/breaks | List my recent breaks
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetMyProfile**](doc/DriversApi.md#driverscontrollergetmyprofile) | **GET** /drivers/me | Get my driver profile
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetMyShifts**](doc/DriversApi.md#driverscontrollergetmyshifts) | **GET** /drivers/me/shifts | Get my shifts
+[*DriversApi*](doc/DriversApi.md) | [**driversControllerGetNearbyVendors**](doc/DriversApi.md#driverscontrollergetnearbyvendors) | **GET** /drivers/me/nearby-vendors | Vendors near my current location with real-time order density in current time
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetWalletBalance**](doc/DriversApi.md#driverscontrollergetwalletbalance) | **GET** /drivers/me/wallet | Get wallet balance
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerGetWalletTransactions**](doc/DriversApi.md#driverscontrollergetwallettransactions) | **GET** /drivers/me/wallet/transactions | Get wallet transaction history
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerListAssistRequestsForOrder**](doc/DriversApi.md#driverscontrollerlistassistrequestsfororder) | **GET** /drivers/assist/order/{orderId} | [Admin] Assistance requests for one order
@@ -190,6 +192,16 @@ Class | Method | HTTP request | Description
 [*DriversApi*](doc/DriversApi.md) | [**driversControllerUploadAvatar**](doc/DriversApi.md#driverscontrolleruploadavatar) | **POST** /drivers/me/avatar | Upload driver avatar
 [*HealthSystemApi*](doc/HealthSystemApi.md) | [**apiControllerRoot**](doc/HealthSystemApi.md#apicontrollerroot) | **GET** / | API Health Check
 [*InboxSummaryCountsApi*](doc/InboxSummaryCountsApi.md) | [**inboxControllerGetCounts**](doc/InboxSummaryCountsApi.md#inboxcontrollergetcounts) | **GET** /inbox/counts | Get unread counts for chat and notifications
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerAcceptDocument**](doc/LegalDocumentsApi.md#legaldocumentscontrolleracceptdocument) | **POST** /legal-documents/accept | Accept a legal document version (records user acceptance and timestamp)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerCreateDocument**](doc/LegalDocumentsApi.md#legaldocumentscontrollercreatedocument) | **POST** /legal-documents/admin | Create a new legal document draft (Admin)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerDeleteDocument**](doc/LegalDocumentsApi.md#legaldocumentscontrollerdeletedocument) | **DELETE** /legal-documents/admin/{id} | Soft-delete a legal document (Admin)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerGetAcceptanceStatus**](doc/LegalDocumentsApi.md#legaldocumentscontrollergetacceptancestatus) | **GET** /legal-documents/acceptance-status | Check if authenticated user needs to accept the latest Terms of Use
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerGetActiveDocument**](doc/LegalDocumentsApi.md#legaldocumentscontrollergetactivedocument) | **GET** /legal-documents/active/{type} | Get the currently active, published legal document (Terms or Privacy)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerGetAllDocuments**](doc/LegalDocumentsApi.md#legaldocumentscontrollergetalldocuments) | **GET** /legal-documents/admin/all | List all legal documents (drafts, published, archived) with stats (Admin)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerGetDocumentById**](doc/LegalDocumentsApi.md#legaldocumentscontrollergetdocumentbyid) | **GET** /legal-documents/admin/{id} | Get single legal document details by ID (Admin)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerGetDocumentStats**](doc/LegalDocumentsApi.md#legaldocumentscontrollergetdocumentstats) | **GET** /legal-documents/admin/{id}/stats | Get user acceptance metrics and role breakdown for a document (Admin)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerPublishDocument**](doc/LegalDocumentsApi.md#legaldocumentscontrollerpublishdocument) | **POST** /legal-documents/admin/{id}/publish | Publish legal document version (unpublishes older versions of same type) (Admin)
+[*LegalDocumentsApi*](doc/LegalDocumentsApi.md) | [**legalDocumentsControllerUpdateDocument**](doc/LegalDocumentsApi.md#legaldocumentscontrollerupdatedocument) | **PATCH** /legal-documents/admin/{id} | Update legal document details (Admin)
 [*LogisticsZonesApi*](doc/LogisticsZonesApi.md) | [**zonesControllerCheckLocation**](doc/LogisticsZonesApi.md#zonescontrollerchecklocation) | **POST** /zones/check-location | Find zone by coordinates
 [*LogisticsZonesApi*](doc/LogisticsZonesApi.md) | [**zonesControllerCreate**](doc/LogisticsZonesApi.md#zonescontrollercreate) | **POST** /zones | Create a new delivery zone
 [*LogisticsZonesApi*](doc/LogisticsZonesApi.md) | [**zonesControllerFindAll**](doc/LogisticsZonesApi.md#zonescontrollerfindall) | **GET** /zones | List all delivery zones
@@ -260,6 +272,7 @@ Class | Method | HTTP request | Description
 [*ReviewsApi*](doc/ReviewsApi.md) | [**reviewsControllerGetMyDriverReviews**](doc/ReviewsApi.md#reviewscontrollergetmydriverreviews) | **GET** /reviews/driver/me | Driver views their own reviews
 [*ReviewsApi*](doc/ReviewsApi.md) | [**reviewsControllerGetVendorReviews**](doc/ReviewsApi.md#reviewscontrollergetvendorreviews) | **GET** /reviews/vendor/{vendorId} | Get paginated reviews for a specific vendor
 [*ReviewsApi*](doc/ReviewsApi.md) | [**reviewsControllerSubmitReview**](doc/ReviewsApi.md#reviewscontrollersubmitreview) | **POST** /reviews/order/{orderId} | Submit a rating/review for a delivered order
+[*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetAllManagedDriverStats**](doc/StatisticsApi.md#statisticscontrollergetallmanageddriverstats) | **GET** /statistics/drivers/all/managed | Get combined statistics and a per-driver breakdown for all managed drivers
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetAppStats**](doc/StatisticsApi.md#statisticscontrollergetappstats) | **GET** /statistics/app | [Admin] Get platform-wide statistics
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetDriverStats**](doc/StatisticsApi.md#statisticscontrollergetdriverstats) | **GET** /statistics/drivers/{driverId} | [Admin] Get statistics for a specific driver
 [*StatisticsApi*](doc/StatisticsApi.md) | [**statisticsControllerGetMostOrderedProduct**](doc/StatisticsApi.md#statisticscontrollergetmostorderedproduct) | **GET** /statistics/vendors/{vendorId}/most-ordered-product | Get the most ordered product for a vendor
@@ -381,11 +394,13 @@ Class | Method | HTTP request | Description
 
 ## Documentation For Models
 
+ - [AcceptLegalDocumentDto](doc/AcceptLegalDocumentDto.md)
  - [AddCartItemDto](doc/AddCartItemDto.md)
  - [AddVendorMemberDto](doc/AddVendorMemberDto.md)
  - [AdminAssignDriverDto](doc/AdminAssignDriverDto.md)
  - [AdminAssignShiftDto](doc/AdminAssignShiftDto.md)
  - [AdminBookWeeklyShiftsDto](doc/AdminBookWeeklyShiftsDto.md)
+ - [AdminBulkAssignShiftsDto](doc/AdminBulkAssignShiftsDto.md)
  - [AdminCreateDriverDto](doc/AdminCreateDriverDto.md)
  - [AdminUpdateDriverDto](doc/AdminUpdateDriverDto.md)
  - [AdminUpdateUserDto](doc/AdminUpdateUserDto.md)
@@ -409,6 +424,7 @@ Class | Method | HTTP request | Description
  - [CreateAddressDto](doc/CreateAddressDto.md)
  - [CreateDirectConversationDto](doc/CreateDirectConversationDto.md)
  - [CreateDriverShiftDto](doc/CreateDriverShiftDto.md)
+ - [CreateLegalDocumentDto](doc/CreateLegalDocumentDto.md)
  - [CreateMenuCategoryDto](doc/CreateMenuCategoryDto.md)
  - [CreateMobileWalletDto](doc/CreateMobileWalletDto.md)
  - [CreateOfferDto](doc/CreateOfferDto.md)
@@ -527,6 +543,7 @@ Class | Method | HTTP request | Description
  - [UpdateCartItemDto](doc/UpdateCartItemDto.md)
  - [UpdateDriverProfileDto](doc/UpdateDriverProfileDto.md)
  - [UpdateDriverStatusDto](doc/UpdateDriverStatusDto.md)
+ - [UpdateLegalDocumentDto](doc/UpdateLegalDocumentDto.md)
  - [UpdateMenuCategoryDto](doc/UpdateMenuCategoryDto.md)
  - [UpdateNotificationSettingsDto](doc/UpdateNotificationSettingsDto.md)
  - [UpdateOfferDto](doc/UpdateOfferDto.md)

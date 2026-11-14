@@ -30,6 +30,8 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final OrderStatus status;
   @override
+  final num revision;
+  @override
   final PaymentMethod paymentMethod;
   @override
   final PaymentStatus paymentStatus;
@@ -136,6 +138,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     this.zoneId,
     this.driverShiftId,
     required this.status,
+    required this.revision,
     required this.paymentMethod,
     required this.paymentStatus,
     required this.deliveryAddress,
@@ -205,6 +208,7 @@ class _$OrderResponseDto extends OrderResponseDto {
         zoneId == other.zoneId &&
         driverShiftId == other.driverShiftId &&
         status == other.status &&
+        revision == other.revision &&
         paymentMethod == other.paymentMethod &&
         paymentStatus == other.paymentStatus &&
         deliveryAddress == other.deliveryAddress &&
@@ -266,6 +270,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, zoneId.hashCode);
     _$hash = $jc(_$hash, driverShiftId.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
+    _$hash = $jc(_$hash, revision.hashCode);
     _$hash = $jc(_$hash, paymentMethod.hashCode);
     _$hash = $jc(_$hash, paymentStatus.hashCode);
     _$hash = $jc(_$hash, deliveryAddress.hashCode);
@@ -329,6 +334,7 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('zoneId', zoneId)
           ..add('driverShiftId', driverShiftId)
           ..add('status', status)
+          ..add('revision', revision)
           ..add('paymentMethod', paymentMethod)
           ..add('paymentStatus', paymentStatus)
           ..add('deliveryAddress', deliveryAddress)
@@ -428,6 +434,10 @@ class OrderResponseDtoBuilder
   OrderStatus? _status;
   OrderStatus? get status => _$this._status;
   set status(OrderStatus? status) => _$this._status = status;
+
+  num? _revision;
+  num? get revision => _$this._revision;
+  set revision(num? revision) => _$this._revision = revision;
 
   PaymentMethod? _paymentMethod;
   PaymentMethod? get paymentMethod => _$this._paymentMethod;
@@ -664,6 +674,7 @@ class OrderResponseDtoBuilder
       _zoneId = $v.zoneId;
       _driverShiftId = $v.driverShiftId;
       _status = $v.status;
+      _revision = $v.revision;
       _paymentMethod = $v.paymentMethod;
       _paymentStatus = $v.paymentStatus;
       _deliveryAddress = $v.deliveryAddress;
@@ -763,6 +774,11 @@ class OrderResponseDtoBuilder
               status,
               r'OrderResponseDto',
               'status',
+            ),
+            revision: BuiltValueNullFieldError.checkNotNull(
+              revision,
+              r'OrderResponseDto',
+              'revision',
             ),
             paymentMethod: BuiltValueNullFieldError.checkNotNull(
               paymentMethod,

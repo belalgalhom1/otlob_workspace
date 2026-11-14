@@ -81,7 +81,7 @@ class _$PlaceMultiVendorOrderDto extends PlaceMultiVendorOrderDto {
   @override
   final String deliveryAddress;
   @override
-  final BuiltList<String> deliveryLocation;
+  final BuiltList<num> deliveryLocation;
   @override
   final String? specialRequest;
   @override
@@ -168,10 +168,10 @@ class PlaceMultiVendorOrderDtoBuilder
   set deliveryAddress(String? deliveryAddress) =>
       _$this._deliveryAddress = deliveryAddress;
 
-  ListBuilder<String>? _deliveryLocation;
-  ListBuilder<String> get deliveryLocation =>
-      _$this._deliveryLocation ??= ListBuilder<String>();
-  set deliveryLocation(ListBuilder<String>? deliveryLocation) =>
+  ListBuilder<num>? _deliveryLocation;
+  ListBuilder<num> get deliveryLocation =>
+      _$this._deliveryLocation ??= ListBuilder<num>();
+  set deliveryLocation(ListBuilder<num>? deliveryLocation) =>
       _$this._deliveryLocation = deliveryLocation;
 
   String? _specialRequest;

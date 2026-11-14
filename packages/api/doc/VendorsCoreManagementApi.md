@@ -187,7 +187,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **vendorsControllerFindBySlug**
-> ApiControllerRoot200Response vendorsControllerFindBySlug(slug)
+> ApiControllerRoot200Response vendorsControllerFindBySlug(slug, branchId)
 
 Find a vendor by its slug
 
@@ -197,9 +197,10 @@ import 'package:api/api.dart';
 
 final api = Api().getVendorsCoreManagementApi();
 final String slug = slug_example; // String | 
+final String branchId = branchId_example; // String | Optional branch UUID to filter menu for a specific branch
 
 try {
-    final response = api.vendorsControllerFindBySlug(slug);
+    final response = api.vendorsControllerFindBySlug(slug, branchId);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsCoreManagementApi->vendorsControllerFindBySlug: $e\n');
@@ -211,6 +212,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **slug** | **String**|  | 
+ **branchId** | **String**| Optional branch UUID to filter menu for a specific branch | [optional] 
 
 ### Return type
 

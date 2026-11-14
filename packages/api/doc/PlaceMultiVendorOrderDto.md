@@ -11,7 +11,7 @@ Name | Type | Description | Notes
 **vendorIds** | **BuiltList&lt;String&gt;** | Vendors being checked out together. Requires 2 or more — use the single-vendor endpoint for one. | 
 **paymentMethod** | **String** |  | 
 **deliveryAddress** | **String** |  | 
-**deliveryLocation** | **BuiltList&lt;String&gt;** | [longitude, latitude] | 
+**deliveryLocation** | **BuiltList&lt;num&gt;** | [longitude, latitude] | 
 **specialRequest** | **String** |  | [optional] 
 **coinsToUse** | **num** |  | [optional] 
 

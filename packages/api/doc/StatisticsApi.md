@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**statisticsControllerGetAllManagedDriverStats**](StatisticsApi.md#statisticscontrollergetallmanageddriverstats) | **GET** /statistics/drivers/all/managed | Get combined statistics and a per-driver breakdown for all managed drivers
 [**statisticsControllerGetAppStats**](StatisticsApi.md#statisticscontrollergetappstats) | **GET** /statistics/app | [Admin] Get platform-wide statistics
 [**statisticsControllerGetDriverStats**](StatisticsApi.md#statisticscontrollergetdriverstats) | **GET** /statistics/drivers/{driverId} | [Admin] Get statistics for a specific driver
 [**statisticsControllerGetMostOrderedProduct**](StatisticsApi.md#statisticscontrollergetmostorderedproduct) | **GET** /statistics/vendors/{vendorId}/most-ordered-product | Get the most ordered product for a vendor
@@ -20,6 +21,51 @@ Method | HTTP request | Description
 [**statisticsControllerGetVendorProductSales**](StatisticsApi.md#statisticscontrollergetvendorproductsales) | **GET** /statistics/vendors/{vendorId}/products | Get product-level sales and profit for a vendor (member or admin)
 [**statisticsControllerGetVendorStats**](StatisticsApi.md#statisticscontrollergetvendorstats) | **GET** /statistics/vendors/{vendorId} | Get vendor statistics (member or admin)
 
+
+# **statisticsControllerGetAllManagedDriverStats**
+> ApiControllerRoot200Response statisticsControllerGetAllManagedDriverStats(to, from, period)
+
+Get combined statistics and a per-driver breakdown for all managed drivers
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getStatisticsApi();
+final JsonObject to = ; // JsonObject | 
+final JsonObject from = ; // JsonObject | 
+final String period = period_example; // String | 
+
+try {
+    final response = api.statisticsControllerGetAllManagedDriverStats(to, from, period);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling StatisticsApi->statisticsControllerGetAllManagedDriverStats: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **to** | [**JsonObject**](.md)|  | [optional] 
+ **from** | [**JsonObject**](.md)|  | [optional] 
+ **period** | **String**|  | [optional] 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **statisticsControllerGetAppStats**
 > ApiControllerRoot200Response statisticsControllerGetAppStats(to, from)

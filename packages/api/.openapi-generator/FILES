@@ -1,11 +1,13 @@
 .gitignore
 README.md
 analysis_options.yaml
+doc/AcceptLegalDocumentDto.md
 doc/AddCartItemDto.md
 doc/AddVendorMemberDto.md
 doc/AdminAssignDriverDto.md
 doc/AdminAssignShiftDto.md
 doc/AdminBookWeeklyShiftsDto.md
+doc/AdminBulkAssignShiftsDto.md
 doc/AdminCreateDriverDto.md
 doc/AdminUpdateDriverDto.md
 doc/AdminUpdateUserDto.md
@@ -34,6 +36,7 @@ doc/ConfirmPaymentDto.md
 doc/CreateAddressDto.md
 doc/CreateDirectConversationDto.md
 doc/CreateDriverShiftDto.md
+doc/CreateLegalDocumentDto.md
 doc/CreateMenuCategoryDto.md
 doc/CreateMobileWalletDto.md
 doc/CreateOfferDto.md
@@ -81,6 +84,7 @@ doc/HealthSystemApi.md
 doc/InboxSummaryCountsApi.md
 doc/JoinWaitlistDto.md
 doc/Language.md
+doc/LegalDocumentsApi.md
 doc/LoginDto.md
 doc/LogisticsZonesApi.md
 doc/LogoutDto.md
@@ -168,6 +172,7 @@ doc/UpdateAddressDto.md
 doc/UpdateCartItemDto.md
 doc/UpdateDriverProfileDto.md
 doc/UpdateDriverStatusDto.md
+doc/UpdateLegalDocumentDto.md
 doc/UpdateMenuCategoryDto.md
 doc/UpdateNotificationSettingsDto.md
 doc/UpdateOfferDto.md
@@ -227,6 +232,7 @@ lib/src/api/driver_shifts_api.dart
 lib/src/api/drivers_api.dart
 lib/src/api/health_system_api.dart
 lib/src/api/inbox_summary_counts_api.dart
+lib/src/api/legal_documents_api.dart
 lib/src/api/logistics_zones_api.dart
 lib/src/api/notifications_api.dart
 lib/src/api/offers_api.dart
@@ -252,11 +258,13 @@ lib/src/auth/basic_auth.dart
 lib/src/auth/bearer_auth.dart
 lib/src/auth/oauth.dart
 lib/src/date_serializer.dart
+lib/src/model/accept_legal_document_dto.dart
 lib/src/model/add_cart_item_dto.dart
 lib/src/model/add_vendor_member_dto.dart
 lib/src/model/admin_assign_driver_dto.dart
 lib/src/model/admin_assign_shift_dto.dart
 lib/src/model/admin_book_weekly_shifts_dto.dart
+lib/src/model/admin_bulk_assign_shifts_dto.dart
 lib/src/model/admin_create_driver_dto.dart
 lib/src/model/admin_update_driver_dto.dart
 lib/src/model/admin_update_user_dto.dart
@@ -280,6 +288,7 @@ lib/src/model/confirm_payment_dto.dart
 lib/src/model/create_address_dto.dart
 lib/src/model/create_direct_conversation_dto.dart
 lib/src/model/create_driver_shift_dto.dart
+lib/src/model/create_legal_document_dto.dart
 lib/src/model/create_menu_category_dto.dart
 lib/src/model/create_mobile_wallet_dto.dart
 lib/src/model/create_offer_dto.dart
@@ -399,6 +408,7 @@ lib/src/model/update_address_dto.dart
 lib/src/model/update_cart_item_dto.dart
 lib/src/model/update_driver_profile_dto.dart
 lib/src/model/update_driver_status_dto.dart
+lib/src/model/update_legal_document_dto.dart
 lib/src/model/update_menu_category_dto.dart
 lib/src/model/update_notification_settings_dto.dart
 lib/src/model/update_offer_dto.dart
@@ -437,11 +447,13 @@ lib/src/model/wallet_type.dart
 lib/src/model/zone.dart
 lib/src/serializers.dart
 pubspec.yaml
+test/accept_legal_document_dto_test.dart
 test/add_cart_item_dto_test.dart
 test/add_vendor_member_dto_test.dart
 test/admin_assign_driver_dto_test.dart
 test/admin_assign_shift_dto_test.dart
 test/admin_book_weekly_shifts_dto_test.dart
+test/admin_bulk_assign_shifts_dto_test.dart
 test/admin_create_driver_dto_test.dart
 test/admin_update_driver_dto_test.dart
 test/admin_update_user_dto_test.dart
@@ -470,6 +482,7 @@ test/confirm_payment_dto_test.dart
 test/create_address_dto_test.dart
 test/create_direct_conversation_dto_test.dart
 test/create_driver_shift_dto_test.dart
+test/create_legal_document_dto_test.dart
 test/create_menu_category_dto_test.dart
 test/create_mobile_wallet_dto_test.dart
 test/create_offer_dto_test.dart
@@ -517,6 +530,7 @@ test/health_system_api_test.dart
 test/inbox_summary_counts_api_test.dart
 test/join_waitlist_dto_test.dart
 test/language_test.dart
+test/legal_documents_api_test.dart
 test/login_dto_test.dart
 test/logistics_zones_api_test.dart
 test/logout_dto_test.dart
@@ -604,6 +618,7 @@ test/update_address_dto_test.dart
 test/update_cart_item_dto_test.dart
 test/update_driver_profile_dto_test.dart
 test/update_driver_status_dto_test.dart
+test/update_legal_document_dto_test.dart
 test/update_menu_category_dto_test.dart
 test/update_notification_settings_dto_test.dart
 test/update_offer_dto_test.dart

@@ -19,6 +19,7 @@ Name | Type | Description | Notes
 **zoneId** | **String** |  | [optional] 
 **driverShiftId** | **String** |  | [optional] 
 **status** | [**OrderStatus**](OrderStatus.md) |  | 
+**revision** | **num** |  | 
 **paymentMethod** | [**PaymentMethod**](PaymentMethod.md) |  | 
 **paymentStatus** | [**PaymentStatus**](PaymentStatus.md) |  | 
 **deliveryAddress** | **String** |  | 

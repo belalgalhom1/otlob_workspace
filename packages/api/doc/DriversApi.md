@@ -37,6 +37,7 @@ Method | HTTP request | Description
 [**driversControllerGetMyBreaks**](DriversApi.md#driverscontrollergetmybreaks) | **GET** /drivers/me/breaks | List my recent breaks
 [**driversControllerGetMyProfile**](DriversApi.md#driverscontrollergetmyprofile) | **GET** /drivers/me | Get my driver profile
 [**driversControllerGetMyShifts**](DriversApi.md#driverscontrollergetmyshifts) | **GET** /drivers/me/shifts | Get my shifts
+[**driversControllerGetNearbyVendors**](DriversApi.md#driverscontrollergetnearbyvendors) | **GET** /drivers/me/nearby-vendors | Vendors near my current location with real-time order density in current time
 [**driversControllerGetWalletBalance**](DriversApi.md#driverscontrollergetwalletbalance) | **GET** /drivers/me/wallet | Get wallet balance
 [**driversControllerGetWalletTransactions**](DriversApi.md#driverscontrollergetwallettransactions) | **GET** /drivers/me/wallet/transactions | Get wallet transaction history
 [**driversControllerListAssistRequestsForOrder**](DriversApi.md#driverscontrollerlistassistrequestsfororder) | **GET** /drivers/assist/order/{orderId} | [Admin] Assistance requests for one order
@@ -1177,6 +1178,55 @@ try {
 
 ### Parameters
 This endpoint does not need any parameter.
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driversControllerGetNearbyVendors**
+> ApiControllerRoot200Response driversControllerGetNearbyVendors(lat, lng, radiusKm, hours, days)
+
+Vendors near my current location with real-time order density in current time
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriversApi();
+final String lat = lat_example; // String | 
+final String lng = lng_example; // String | 
+final String radiusKm = radiusKm_example; // String | 
+final String hours = hours_example; // String | 
+final String days = days_example; // String | 
+
+try {
+    final response = api.driversControllerGetNearbyVendors(lat, lng, radiusKm, hours, days);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriversApi->driversControllerGetNearbyVendors: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **lat** | **String**|  | 
+ **lng** | **String**|  | 
+ **radiusKm** | **String**|  | 
+ **hours** | **String**|  | 
+ **days** | **String**|  | 
 
 ### Return type
 

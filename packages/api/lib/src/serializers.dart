@@ -14,11 +14,13 @@ import 'package:built_value/iso_8601_date_time_serializer.dart';
 import 'package:api/src/date_serializer.dart';
 import 'package:api/src/model/date.dart';
 
+import 'package:api/src/model/accept_legal_document_dto.dart';
 import 'package:api/src/model/add_cart_item_dto.dart';
 import 'package:api/src/model/add_vendor_member_dto.dart';
 import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/admin_assign_shift_dto.dart';
 import 'package:api/src/model/admin_book_weekly_shifts_dto.dart';
+import 'package:api/src/model/admin_bulk_assign_shifts_dto.dart';
 import 'package:api/src/model/admin_create_driver_dto.dart';
 import 'package:api/src/model/admin_update_driver_dto.dart';
 import 'package:api/src/model/admin_update_user_dto.dart';
@@ -42,6 +44,7 @@ import 'package:api/src/model/confirm_payment_dto.dart';
 import 'package:api/src/model/create_address_dto.dart';
 import 'package:api/src/model/create_direct_conversation_dto.dart';
 import 'package:api/src/model/create_driver_shift_dto.dart';
+import 'package:api/src/model/create_legal_document_dto.dart';
 import 'package:api/src/model/create_menu_category_dto.dart';
 import 'package:api/src/model/create_mobile_wallet_dto.dart';
 import 'package:api/src/model/create_offer_dto.dart';
@@ -160,6 +163,7 @@ import 'package:api/src/model/update_address_dto.dart';
 import 'package:api/src/model/update_cart_item_dto.dart';
 import 'package:api/src/model/update_driver_profile_dto.dart';
 import 'package:api/src/model/update_driver_status_dto.dart';
+import 'package:api/src/model/update_legal_document_dto.dart';
 import 'package:api/src/model/update_menu_category_dto.dart';
 import 'package:api/src/model/update_notification_settings_dto.dart';
 import 'package:api/src/model/update_offer_dto.dart';
@@ -200,11 +204,13 @@ import 'package:api/src/model/zone.dart';
 part 'serializers.g.dart';
 
 @SerializersFor([
+  AcceptLegalDocumentDto,
   AddCartItemDto,
   AddVendorMemberDto,
   AdminAssignDriverDto,
   AdminAssignShiftDto,
   AdminBookWeeklyShiftsDto,
+  AdminBulkAssignShiftsDto,
   AdminCreateDriverDto,
   AdminUpdateDriverDto,
   AdminUpdateUserDto,
@@ -228,6 +234,7 @@ part 'serializers.g.dart';
   CreateAddressDto,
   CreateDirectConversationDto,
   CreateDriverShiftDto,
+  CreateLegalDocumentDto,
   CreateMenuCategoryDto,
   CreateMobileWalletDto,
   CreateOfferDto,
@@ -346,6 +353,7 @@ part 'serializers.g.dart';
   UpdateCartItemDto,
   UpdateDriverProfileDto,
   UpdateDriverStatusDto,
+  UpdateLegalDocumentDto,
   UpdateMenuCategoryDto,
   UpdateNotificationSettingsDto,
   UpdateOfferDto,

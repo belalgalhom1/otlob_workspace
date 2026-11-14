@@ -27,6 +27,7 @@ part 'order.g.dart';
 /// * [zoneId] 
 /// * [driverShiftId] 
 /// * [status] 
+/// * [revision] 
 /// * [paymentMethod] 
 /// * [paymentStatus] 
 /// * [deliveryAddress] 
@@ -93,6 +94,9 @@ abstract class Order implements Built<Order, OrderBuilder> {
   @BuiltValueField(wireName: r'status')
   OrderStatus get status;
   // enum statusEnum {  PENDING,  CHANGES_REQUESTED,  ACCEPTED,  PREPARING,  LOOKING_FOR_DRIVER,  DRIVER_ASSIGNED,  PENDING_PAYMENT,  READY_FOR_PICKUP,  PARTIALLY_PICKED_UP,  PICKED_UP,  DELIVERED,  CANCELLED,  };
+
+  @BuiltValueField(wireName: r'revision')
+  num get revision;
 
   @BuiltValueField(wireName: r'paymentMethod')
   PaymentMethod get paymentMethod;
@@ -276,6 +280,11 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
     yield serializers.serialize(
       object.status,
       specifiedType: const FullType(OrderStatus),
+    );
+    yield r'revision';
+    yield serializers.serialize(
+      object.revision,
+      specifiedType: const FullType(num),
     );
     yield r'paymentMethod';
     yield serializers.serialize(
@@ -556,6 +565,13 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(OrderStatus),
           ) as OrderStatus;
           result.status = valueDes;
+          break;
+        case r'revision':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.revision = valueDes;
           break;
         case r'paymentMethod':
           final valueDes = serializers.deserialize(

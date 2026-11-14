@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **status** | **String** |  | 
 **note** | **String** |  | [optional] 
 **estimatedPrepTime** | **num** | Estimated prep time in minutes (for ACCEPTED) | [optional] 
+**fulfillmentId** | **String** | Optional vendor fulfillment ID when updating a specific portion of a multi-vendor or multi-branch order | [optional] 
 **pickupImageUrl** | **String** | Pickup proof photo URL (required when status is PICKED_UP) | [optional] 
 **deliveryImageUrl** | **String** | Delivery proof photo URL (required when status is DELIVERED) | [optional] 
 

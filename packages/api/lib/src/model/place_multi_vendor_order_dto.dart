@@ -33,7 +33,7 @@ abstract class PlaceMultiVendorOrderDto implements Built<PlaceMultiVendorOrderDt
 
   /// [longitude, latitude]
   @BuiltValueField(wireName: r'deliveryLocation')
-  BuiltList<String> get deliveryLocation;
+  BuiltList<num> get deliveryLocation;
 
   @BuiltValueField(wireName: r'specialRequest')
   String? get specialRequest;
@@ -82,7 +82,7 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
     yield r'deliveryLocation';
     yield serializers.serialize(
       object.deliveryLocation,
-      specifiedType: const FullType(BuiltList, [FullType(String)]),
+      specifiedType: const FullType(BuiltList, [FullType(num)]),
     );
     if (object.specialRequest != null) {
       yield r'specialRequest';
@@ -145,8 +145,8 @@ class _$PlaceMultiVendorOrderDtoSerializer implements PrimitiveSerializer<PlaceM
         case r'deliveryLocation':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(BuiltList, [FullType(String)]),
-          ) as BuiltList<String>;
+            specifiedType: const FullType(BuiltList, [FullType(num)]),
+          ) as BuiltList<num>;
           result.deliveryLocation.replace(valueDes);
           break;
         case r'specialRequest':

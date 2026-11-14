@@ -584,7 +584,7 @@ class Orders extends _$Orders {
         ..vendorIds = ListBuilder<String>(vendorIds)
         ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? PlaceMultiVendorOrderDtoPaymentMethodEnum.MOBILE_WALLET : PlaceMultiVendorOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
         ..deliveryAddress = address
-        ..deliveryLocation = ListBuilder<String>(location.length >= 2 ? [location[0].toString(), location[1].toString()] : ['0.0', '0.0'])
+        ..deliveryLocation = ListBuilder<num>(location.length >= 2 ? [location[0], location[1]] : <num>[0.0, 0.0])
         ..coinsToUse = coinsToUse
       );
       final result = await repository.estimateMultiVendor(dto);
@@ -613,7 +613,7 @@ class Orders extends _$Orders {
         ..vendorIds = ListBuilder<String>(vendorIds)
         ..paymentMethod = paymentMethod.startsWith('MOBILE_WALLET') ? PlaceMultiVendorOrderDtoPaymentMethodEnum.MOBILE_WALLET : PlaceMultiVendorOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
         ..deliveryAddress = address
-        ..deliveryLocation = ListBuilder<String>(location.length >= 2 ? [location[0].toString(), location[1].toString()] : ['0.0', '0.0'])
+        ..deliveryLocation = ListBuilder<num>(location.length >= 2 ? [location[0], location[1]] : <num>[0.0, 0.0])
         ..specialRequest = specialRequest
         ..coinsToUse = coinsToUse
       );

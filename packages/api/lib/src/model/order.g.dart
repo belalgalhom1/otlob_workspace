@@ -30,6 +30,8 @@ class _$Order extends Order {
   @override
   final OrderStatus status;
   @override
+  final num revision;
+  @override
   final PaymentMethod paymentMethod;
   @override
   final PaymentStatus paymentStatus;
@@ -105,6 +107,7 @@ class _$Order extends Order {
     this.zoneId,
     this.driverShiftId,
     required this.status,
+    required this.revision,
     required this.paymentMethod,
     required this.paymentStatus,
     required this.deliveryAddress,
@@ -158,6 +161,7 @@ class _$Order extends Order {
         zoneId == other.zoneId &&
         driverShiftId == other.driverShiftId &&
         status == other.status &&
+        revision == other.revision &&
         paymentMethod == other.paymentMethod &&
         paymentStatus == other.paymentStatus &&
         deliveryAddress == other.deliveryAddress &&
@@ -204,6 +208,7 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, zoneId.hashCode);
     _$hash = $jc(_$hash, driverShiftId.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
+    _$hash = $jc(_$hash, revision.hashCode);
     _$hash = $jc(_$hash, paymentMethod.hashCode);
     _$hash = $jc(_$hash, paymentStatus.hashCode);
     _$hash = $jc(_$hash, deliveryAddress.hashCode);
@@ -252,6 +257,7 @@ class _$Order extends Order {
           ..add('zoneId', zoneId)
           ..add('driverShiftId', driverShiftId)
           ..add('status', status)
+          ..add('revision', revision)
           ..add('paymentMethod', paymentMethod)
           ..add('paymentStatus', paymentStatus)
           ..add('deliveryAddress', deliveryAddress)
@@ -335,6 +341,10 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   OrderStatus? _status;
   OrderStatus? get status => _$this._status;
   set status(OrderStatus? status) => _$this._status = status;
+
+  num? _revision;
+  num? get revision => _$this._revision;
+  set revision(num? revision) => _$this._revision = revision;
 
   PaymentMethod? _paymentMethod;
   PaymentMethod? get paymentMethod => _$this._paymentMethod;
@@ -488,6 +498,7 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _zoneId = $v.zoneId;
       _driverShiftId = $v.driverShiftId;
       _status = $v.status;
+      _revision = $v.revision;
       _paymentMethod = $v.paymentMethod;
       _paymentStatus = $v.paymentStatus;
       _deliveryAddress = $v.deliveryAddress;
@@ -562,6 +573,11 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
             status,
             r'Order',
             'status',
+          ),
+          revision: BuiltValueNullFieldError.checkNotNull(
+            revision,
+            r'Order',
+            'revision',
           ),
           paymentMethod: BuiltValueNullFieldError.checkNotNull(
             paymentMethod,

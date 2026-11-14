@@ -21,6 +21,7 @@ import 'package:api/src/api/driver_shifts_api.dart';
 import 'package:api/src/api/drivers_api.dart';
 import 'package:api/src/api/health_system_api.dart';
 import 'package:api/src/api/inbox_summary_counts_api.dart';
+import 'package:api/src/api/legal_documents_api.dart';
 import 'package:api/src/api/logistics_zones_api.dart';
 import 'package:api/src/api/notifications_api.dart';
 import 'package:api/src/api/offers_api.dart';
@@ -204,6 +205,12 @@ class Api {
   /// by doing that all interceptors will not be executed
   InboxSummaryCountsApi getInboxSummaryCountsApi() {
     return InboxSummaryCountsApi(dio, serializers);
+  }
+
+  /// Get LegalDocumentsApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  LegalDocumentsApi getLegalDocumentsApi() {
+    return LegalDocumentsApi(dio, serializers);
   }
 
   /// Get LogisticsZonesApi instance, base route and serializer can be overridden by a given but be careful,
