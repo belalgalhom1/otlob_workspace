@@ -18,7 +18,6 @@ import {
   ShiftSwapCancelledEvent,
   ShiftDisabledEvent,
   ShiftAssignedEvent,
-  ShiftSwapAcceptedEvent,
   ShiftSpotAvailableEvent,
   DriverStatusChangedEvent,
 } from 'src/common/events';
@@ -31,7 +30,6 @@ import {
   AdminBulkAssignShiftsDto,
   AdminBookWeeklyShiftsDto,
   UpdateShiftPoolDto,
-  ShiftReportQueryDto,
 } from './dto/driver-shifts.dto';
 import {
   DriverStatus,

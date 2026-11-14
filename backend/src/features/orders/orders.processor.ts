@@ -4,7 +4,7 @@ import { Logger, OnModuleInit } from '@nestjs/common';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { NON_CANCELLABLE } from './transitions/order-state.constants';
-import { StatisticsService } from '../statistics/statistics.service';
+import { OrderSettlementService } from './order-settlement.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
   QUEUES,
@@ -26,7 +26,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
   constructor(
     private readonly cancellationService: OrderCancellationService,
     private readonly vendorDecisionService: OrderVendorDecisionService,
-    private readonly statisticsService: StatisticsService,
+    private readonly orderSettlementService: OrderSettlementService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly prisma: PrismaService,
     private readonly dispatchRepository: DispatchRepository,
@@ -173,7 +173,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     const settings = await this.platformSettings.getSettings();
     const deliveryCommissionRate = settings.deliveryCommissionRate ?? 20;
 
-    await this.statisticsService.settleOrder({
+    await this.orderSettlementService.settleOrder({
       orderId,
       orderNumber,
       orderType: order.type,

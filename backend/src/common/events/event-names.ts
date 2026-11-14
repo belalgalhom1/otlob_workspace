@@ -44,6 +44,10 @@ export const EVENTS = {
   // Extra-driver assistance
   DRIVER_ASSIST_REQUESTED: 'driver.assist.requested',
   DRIVER_ASSIST_DECIDED: 'driver.assist.decided',
+  DRIVER_ASSIST_OFFERED: 'driver.assist.offered',
+  DRIVER_ASSIST_ASSIGNED: 'driver.assist.assigned',
+  DRIVER_ASSIST_CUSTOMER_DECIDED: 'driver.assist.customer.decided',
+  DRIVER_ASSIST_TIMED_OUT: 'driver.assist.timed_out',
 
   // WebSocket -> Listener internal commands
   WS_DRIVER_LOCATION_UPDATE: 'ws.driver.location.update',

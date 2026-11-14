@@ -13,6 +13,9 @@ import {
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
 import { DriversService } from './drivers.service';
+import { DriverBreaksService } from './driver-breaks.service';
+import { DriverShiftExecutionService } from './driver-shift-execution.service';
+import { DriverAdminService } from './driver-admin.service';
 import { DriverAssistService } from './driver-assist.service';
 import { AuthService } from '../auth/auth.service';
 import {
@@ -50,6 +53,9 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 export class DriversController {
   constructor(
     private readonly driversService: DriversService,
+    private readonly driverBreaksService: DriverBreaksService,
+    private readonly driverShiftExecutionService: DriverShiftExecutionService,
+    private readonly driverAdminService: DriverAdminService,
     private readonly authService: AuthService,
     private readonly driverAssistService: DriverAssistService,
   ) {}
@@ -148,7 +154,7 @@ export class DriversController {
     @CurrentUser('sub') userId: string,
     @Body() dto?: StartBreakDto,
   ) {
-    return this.driversService.startBreak(userId, dto);
+    return this.driverBreaksService.startBreak(userId, dto);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -157,7 +163,7 @@ export class DriversController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'End the active break (pre-break status restored)' })
   endBreak(@CurrentUser('sub') userId: string) {
-    return this.driversService.endBreak(userId);
+    return this.driverBreaksService.endBreak(userId);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -166,7 +172,7 @@ export class DriversController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel my pending break request' })
   cancelBreak(@CurrentUser('sub') userId: string) {
-    return this.driversService.cancelBreakRequest(userId);
+    return this.driverBreaksService.cancelBreakRequest(userId);
   }
 
   @ApiArrayResponse(DriverBreak)
@@ -174,7 +180,7 @@ export class DriversController {
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'List my recent breaks' })
   getMyBreaks(@CurrentUser('sub') userId: string) {
-    return this.driversService.getMyBreaks(userId);
+    return this.driverBreaksService.getMyBreaks(userId);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -182,7 +188,7 @@ export class DriversController {
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my active break, if any' })
   getActiveBreak(@CurrentUser('sub') userId: string) {
-    return this.driversService.getActiveBreak(userId);
+    return this.driverBreaksService.getActiveBreak(userId);
   }
 
   // ─── Shifts ───────────────────────────────────────────────────────────────
@@ -195,7 +201,7 @@ export class DriversController {
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateDriverShiftDto,
   ) {
-    return this.driversService.createShift(userId, dto);
+    return this.driverShiftExecutionService.createShift(userId, dto);
   }
 
   @ApiStandardResponse()
@@ -203,7 +209,7 @@ export class DriversController {
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my shifts' })
   getMyShifts(@CurrentUser('sub') userId: string) {
-    return this.driversService.getMyShifts(userId);
+    return this.driverShiftExecutionService.getMyShifts(userId);
   }
 
   @ApiStandardResponse()
@@ -225,7 +231,7 @@ export class DriversController {
       body?.latitude != null ? Number(body.latitude) : undefined;
     const longitude =
       body?.longitude != null ? Number(body.longitude) : undefined;
-    return this.driversService.startShift(
+    return this.driverShiftExecutionService.startShift(
       userId,
       shiftId,
       file,
@@ -243,7 +249,7 @@ export class DriversController {
     @CurrentUser('sub') userId: string,
     @Param('shiftId') shiftId: string,
   ) {
-    return this.driversService.endShift(userId, shiftId);
+    return this.driverShiftExecutionService.endShift(userId, shiftId);
   }
 
   @ApiStandardResponse()
@@ -255,7 +261,8 @@ export class DriversController {
     @CurrentUser('sub') userId: string,
     @Param('shiftId') shiftId: string,
   ) {
-    return this.driversService.deleteMyShift(userId, shiftId);
+    void shiftId;
+    return this.driverShiftExecutionService.deleteMyShift(userId);
   }
 
   // ─── Wallet ───────────────────────────────────────────────────────────────
@@ -305,7 +312,7 @@ export class DriversController {
     );
 
     // Create driver profile
-    return this.driversService.adminCreateDriver(user.id, actor.sub, dto);
+    return this.driverAdminService.adminCreateDriver(user.id, actor.sub, dto);
   }
 
   @ApiStandardResponse()
@@ -320,7 +327,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @Body() dto: AdminUpdateDriverDto,
   ) {
-    return this.driversService.adminUpdateDriver(driverId, actor.sub, dto);
+    return this.driverAdminService.adminUpdateDriver(driverId, actor.sub, dto);
   }
 
   @ApiStandardResponse()
@@ -331,7 +338,7 @@ export class DriversController {
     @Query() dto: QueryDriversDto,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminFindAll(dto, actor);
+    return this.driverAdminService.adminFindAll(dto, actor);
   }
 
   // NOTE: static `breaks/*` routes must stay BEFORE `:driverId` param routes.
@@ -342,7 +349,7 @@ export class DriversController {
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] List pending break requests' })
   adminGetPendingBreaks() {
-    return this.driversService.getPendingBreaks();
+    return this.driverBreaksService.getPendingBreaks();
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -355,7 +362,7 @@ export class DriversController {
     @Param('breakId') breakId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.approveBreak(breakId, reviewerId, actor);
+    return this.driverBreaksService.approveBreak(breakId, reviewerId, actor);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -368,7 +375,7 @@ export class DriversController {
     @Param('breakId') breakId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.rejectBreak(breakId, reviewerId, actor);
+    return this.driverBreaksService.rejectBreak(breakId, reviewerId, actor);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -381,7 +388,7 @@ export class DriversController {
     @Param('breakId') breakId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminEndBreak(breakId, reviewerId, actor);
+    return this.driverBreaksService.adminEndBreak(breakId, reviewerId, actor);
   }
 
   @ApiStandardResponse()
@@ -392,7 +399,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminFindOne(driverId, actor);
+    return this.driverAdminService.adminFindOne(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -403,7 +410,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminGetDriverLocation(driverId, actor);
+    return this.driverAdminService.adminGetDriverLocation(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -415,7 +422,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminSuspend(driverId, actor);
+    return this.driverAdminService.adminSuspend(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -427,7 +434,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminUnsuspend(driverId, actor);
+    return this.driverAdminService.adminUnsuspend(driverId, actor);
   }
 
   @ApiStandardResponse()
@@ -439,7 +446,7 @@ export class DriversController {
     @Body() dto: CreateDriverShiftDto,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminCreateShift(driverId, dto, actor);
+    return this.driverAdminService.adminCreateShift(driverId, dto, actor);
   }
 
   @ApiStandardResponse()
@@ -450,7 +457,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminGetShifts(driverId, actor);
+    return this.driverAdminService.adminGetShifts(driverId, actor);
   }
 
   @ApiStandardResponse(DriverBreak)
@@ -466,7 +473,7 @@ export class DriversController {
     @Body() dto?: StartBreakDto,
     @CurrentUser() actor?: JwtAccessPayload,
   ) {
-    return this.driversService.adminGrantBreak(driverId, reviewerId, dto, actor);
+    return this.driverBreaksService.adminGrantBreak(driverId, reviewerId, dto, actor);
   }
 
   @ApiArrayResponse(DriverBreak)
@@ -477,7 +484,7 @@ export class DriversController {
     @Param('driverId') driverId: string,
     @CurrentUser() actor: JwtAccessPayload,
   ) {
-    return this.driversService.adminGetBreaks(driverId, actor);
+    return this.driverAdminService.adminGetBreaks(driverId, actor);
   }
   // ─── Extra driver assistance ───────────────────────────────────────────────
   // NOTE: these are static `assist/*` paths and must stay before the

@@ -6,6 +6,7 @@ import { NotificationListener } from './notification.listener';
 import { SocketListener } from './socket.listener';
 import { OrderListener } from './order.listener';
 import { DriverListener } from './driver.listener';
+import { DriverAssistListener } from './driver-assist.listener';
 import { AuditLogListener } from './audit-log.listener';
 import { DispatchListener } from './dispatch.listener';
 import { CartListener } from './cart.listener';
@@ -26,6 +27,7 @@ import { OrderSharedModule } from '../orders/order-shared.module';
     NotificationListener,
     OrderListener,
     DriverListener,
+    DriverAssistListener,
     AuditLogListener,
     SocketListener,
     DispatchListener,
@@ -39,6 +41,7 @@ import { OrderSharedModule } from '../orders/order-shared.module';
     NotificationListener,
     SocketListener,
     DriverListener,
+    DriverAssistListener,
     AuditLogListener,
     DispatchListener,
     CartListener,

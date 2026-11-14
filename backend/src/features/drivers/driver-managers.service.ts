@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CommonErrors, DriverErrors, UserErrors, DriverManagerErrors } from '../../common/constants/response.constants';
 import { AssignDriversToManagerDto } from './dto/driver-manager.dto';
@@ -312,15 +312,16 @@ export class DriverManagersService {
       }
     }
     if (!manager) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
+    const managerId = manager.id;
 
     if (body.manageAllDrivers) {
       await this.prisma.$transaction(async (tx) => {
         await tx.driverManager.update({
-          where: { id: manager!.id },
+          where: { id: managerId },
           data: { manageAllDrivers: true },
         });
         await tx.driverManagerAssignment.deleteMany({
-          where: { driverManagerId: manager!.id },
+          where: { driverManagerId: managerId },
         });
       });
       return { success: true, manageAllDrivers: true, assignedCount: 0 };
@@ -330,7 +331,7 @@ export class DriverManagersService {
 
     await this.prisma.$transaction(async (tx) => {
       await tx.driverManager.update({
-        where: { id: manager!.id },
+        where: { id: managerId },
         data: { manageAllDrivers: false },
       });
       // Delete existing assignments for these drivers from ANY manager (reassigning cleanly)
@@ -341,13 +342,13 @@ export class DriverManagersService {
       }
       // Delete all prior assignments of this manager
       await tx.driverManagerAssignment.deleteMany({
-        where: { driverManagerId: manager!.id },
+        where: { driverManagerId: managerId },
       });
       // Insert new assignments
       if (driverIds.length > 0) {
         await tx.driverManagerAssignment.createMany({
           data: driverIds.map((driverId) => ({
-            driverManagerId: manager!.id,
+            driverManagerId: managerId,
             driverId,
           })),
           skipDuplicates: true,

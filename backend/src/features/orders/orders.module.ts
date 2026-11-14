@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
@@ -13,6 +13,7 @@ import { OrderGroupingService } from './order-grouping.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { OrdersDispatchWorkflowAdapter } from './orders-dispatch-workflow.adapter';
+import { OrderSettlementService } from './order-settlement.service';
 import { StockService } from './helpers/stock.service';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import { OrderRejectionRecomputor } from './helpers/order-rejection-recomputor';
@@ -21,17 +22,14 @@ import { DeliveryGroupTransitionService } from './transitions/delivery-group-tra
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 import { CartModule } from '../cart/cart.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
-import { StatisticsModule } from '../statistics/statistics.module';
-import { DriversModule } from '../drivers/drivers.module';
 import { OrderSharedModule } from '../../common/orders/order-shared.module';
 import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch.ports';
+import { ORDER_ASSIST_CANCELLATION_PORT } from '../../common/orders/order-assist.ports';
 
 @Module({
   imports: [
     CartModule,
     DispatchModule,
-    StatisticsModule,
-    forwardRef(() => DriversModule),
     OrderSharedModule,
   ],
   controllers: [OrdersController],
@@ -53,10 +51,15 @@ import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch
     OrderCancellationService,
     DeliveryGroupTransitionService,
     FulfillmentTransitionService,
+    OrderSettlementService,
     OrdersDispatchWorkflowAdapter,
     {
       provide: DISPATCH_ORDER_WORKFLOW_PORT,
       useExisting: OrdersDispatchWorkflowAdapter,
+    },
+    {
+      provide: ORDER_ASSIST_CANCELLATION_PORT,
+      useExisting: OrdersStateService,
     },
   ],
   exports: [
@@ -77,7 +80,9 @@ import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch
     OrderCancellationService,
     DeliveryGroupTransitionService,
     FulfillmentTransitionService,
+    OrderSettlementService,
     DISPATCH_ORDER_WORKFLOW_PORT,
+    ORDER_ASSIST_CANCELLATION_PORT,
   ],
 })
 export class OrdersModule {}

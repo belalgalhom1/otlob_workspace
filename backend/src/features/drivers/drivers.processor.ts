@@ -6,7 +6,8 @@ import { QUEUES } from '../../infrastructure/queue/queues.constants';
 import { DriverShiftStatus, DriverStatus } from '@prisma/client';
 import { CRON_JOBS } from '../../infrastructure/queue/queues.constants';
 import { DriverShiftsService } from '../driver-shifts/driver-shifts.service';
-import { DriversService } from './drivers.service';
+import { DriverBreaksService } from './driver-breaks.service';
+import { DriverShiftExecutionService } from './driver-shift-execution.service';
 import { DriverAssistService } from './driver-assist.service';
 
 @Processor(QUEUES.DRIVERS, { concurrency: 10 })
@@ -16,7 +17,8 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly driverShiftsService: DriverShiftsService,
-    private readonly driversService: DriversService,
+    private readonly driverBreaksService: DriverBreaksService,
+    private readonly driverShiftExecutionService: DriverShiftExecutionService,
     private readonly driverAssistService: DriverAssistService,
     @InjectQueue(QUEUES.DRIVERS) private readonly queue: Queue,
   ) {
@@ -61,7 +63,7 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
       case CRON_JOBS.LATE_CHECK:
         return this.driverShiftsService.handle5MinLateCheck();
       case CRON_JOBS.BREAK_WATCHDOG:
-        return this.driversService.autoEndExpiredBreaks();
+        return this.driverBreaksService.autoEndExpiredBreaks();
       case CRON_JOBS.ASSIST_DECISION_TIMEOUT:
         return this.driverAssistService.autoDeclineExpiredAssistDecisions();
       default:
@@ -90,7 +92,10 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
         const driverIds = [...new Set(shiftsToComplete.map((s) => s.driverId))];
 
         for (const shift of shiftsToComplete) {
-          await this.driversService.endShiftBySystem(shift.driverId, shift.id);
+          await this.driverShiftExecutionService.endShiftBySystem(
+            shift.driverId,
+            shift.id,
+          );
         }
 
         this.logger.log(

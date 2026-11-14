@@ -1,0 +1,399 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  DeliveryGroupStatus,
+  DriverAssistRequestStatus,
+  DriverShiftStatus,
+  DriverStatus,
+  Prisma,
+} from '@prisma/client';
+import { DriverErrors } from '../../common/constants/response.constants';
+import { DriverAssistOfferedEvent } from '../../common/events';
+import { EVENTS } from '../../common/events/event-names';
+import { haversineKm } from '../../common/geo/geo.utils';
+import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
+import { LocationRepository } from '../location/location.repository';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+
+@Injectable()
+export class DriverAssistMatchingService {
+  private readonly logger = new Logger(DriverAssistMatchingService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly platformSettings: PlatformSettingsService,
+    private readonly locationRepository: LocationRepository,
+    private readonly redis: RedisService,
+  ) {}
+
+  async findBestCandidate(request: {
+    deliveryGroupId: string | null;
+    orderId: string;
+  }): Promise<string> {
+    const nearest = await this.findNearestEligibleAssistDrivers(request, 1);
+    if (nearest.length === 0) {
+      throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+    }
+    return nearest[0];
+  }
+
+  async offerAssistToNearest(
+    requestId: string,
+    actor: JwtAccessPayload,
+    limit = 5,
+  ) {
+    const request = await this.prisma.driverAssistRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        status: true,
+        orderId: true,
+        deliveryGroupId: true,
+      },
+    });
+    if (!request) {
+      throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    }
+    if (
+      request.status !== DriverAssistRequestStatus.APPROVED &&
+      request.status !== DriverAssistRequestStatus.PENDING
+    ) {
+      throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+    }
+    if (request.status === DriverAssistRequestStatus.PENDING) {
+      await this.prisma.driverAssistRequest.update({
+        where: { id: requestId },
+        data: {
+          status: DriverAssistRequestStatus.APPROVED,
+          reviewedByUserId: actor.sub,
+          reviewedAt: new Date(),
+        },
+      });
+    }
+
+    const driverIds = await this.findNearestEligibleAssistDrivers(request, limit);
+    if (driverIds.length === 0) {
+      throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+    }
+
+    const ttlSecs = 15;
+    const expiresAt = new Date(Date.now() + ttlSecs * 1000);
+    const offerKey = `assist:offer:${requestId}`;
+    await this.redis.set(
+      offerKey,
+      JSON.stringify({
+        driverIds,
+        orderId: request.orderId,
+        expiresAt: expiresAt.toISOString(),
+      }),
+      ttlSecs,
+    );
+
+    const drivers = await this.prisma.driver.findMany({
+      where: { id: { in: driverIds } },
+      select: { userId: true },
+    });
+    const targetUserIds = drivers
+      .map((d) => d.userId)
+      .filter((id): id is string => Boolean(id));
+
+    if (targetUserIds.length > 0) {
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_ASSIST_OFFERED,
+        new DriverAssistOfferedEvent(
+          requestId,
+          request.orderId,
+          targetUserIds,
+          expiresAt.toISOString(),
+        ),
+      );
+    }
+
+    return { offered: driverIds, expiresAt: expiresAt.toISOString() };
+  }
+
+  /**
+   * Driver responds to an assist offer. On decline, updates the Redis offer
+   * set and returns `{ declined: true }`; on accept, returns `{ acceptedDriverId }`
+   * for `DriverAssistService` to complete CAS assignment.
+   */
+  async respondToAssistOffer(
+    actor: JwtAccessPayload,
+    requestId: string,
+    accept: boolean,
+  ): Promise<{ declined: true } | { acceptedDriverId: string }> {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId: actor.sub },
+      select: { id: true },
+    });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const request = await this.prisma.driverAssistRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, status: true },
+    });
+    if (!request) {
+      throw new NotFoundException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    }
+    if (request.status !== DriverAssistRequestStatus.APPROVED) {
+      throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+    }
+
+    const offerKey = `assist:offer:${requestId}`;
+    const raw = await this.redis.get(offerKey);
+    if (!raw) throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    const offer = JSON.parse(raw) as { driverIds: string[]; expiresAt: string };
+    if (!offer.driverIds.includes(driver.id)) {
+      throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    }
+    if (Date.now() > new Date(offer.expiresAt).getTime()) {
+      throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    }
+
+    if (!accept) {
+      const remaining = offer.driverIds.filter((id) => id !== driver.id);
+      if (remaining.length === 0) {
+        await this.redis.del(offerKey);
+      } else {
+        await this.redis.set(
+          offerKey,
+          JSON.stringify({ ...offer, driverIds: remaining }),
+          15,
+        );
+      }
+      return { declined: true };
+    }
+
+    return { acceptedDriverId: driver.id };
+  }
+
+  async getPendingAssistOffers(actor: JwtAccessPayload) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId: actor.sub },
+      select: { id: true },
+    });
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const keys = await this.redis.scanKeys('assist:offer:*');
+    const offers: Array<{
+      requestId: string;
+      orderId: string;
+      expiresAt: string;
+    }> = [];
+    for (const key of keys) {
+      const raw = await this.redis.get(key);
+      if (!raw) continue;
+      try {
+        const offer = JSON.parse(raw) as {
+          driverIds?: string[];
+          orderId: string;
+          expiresAt: string;
+        };
+        if (!offer.driverIds?.includes(driver.id)) continue;
+        if (Date.now() > new Date(offer.expiresAt).getTime()) continue;
+        const requestId = key.replace('assist:offer:', '');
+        offers.push({
+          requestId,
+          orderId: offer.orderId,
+          expiresAt: offer.expiresAt,
+        });
+      } catch {
+        // ignore malformed offer
+      }
+    }
+    return offers;
+  }
+
+  async clearOffer(requestId: string): Promise<void> {
+    try {
+      await this.redis.del(`assist:offer:${requestId}`);
+    } catch (error) {
+      this.logWarn(error);
+    }
+  }
+
+  private async resolveAssistTargetLocation(request: {
+    deliveryGroupId: string | null;
+    orderId: string;
+  }): Promise<{ primaryDriverId: string | null; lng: number; lat: number }> {
+    let primaryDriverId: string | null = null;
+    let targetLng: number | null = null;
+    let targetLat: number | null = null;
+
+    if (request.deliveryGroupId) {
+      const group = await this.prisma.orderDeliveryGroup.findUnique({
+        where: { id: request.deliveryGroupId },
+        select: { primaryDriverId: true },
+      });
+      primaryDriverId = group?.primaryDriverId ?? null;
+      if (group?.primaryDriverId) {
+        const loc = await this.fetchDriverLocations([
+          group.primaryDriverId,
+        ]).then((m) => m.get(group.primaryDriverId!));
+        if (loc) {
+          targetLng = loc.lng;
+          targetLat = loc.lat;
+        }
+      }
+      if (targetLng == null) {
+        const pickup =
+          await this.locationRepository.getDeliveryGroupPickupLocation(
+            request.deliveryGroupId,
+          );
+        if (pickup) {
+          targetLng = pickup.lng;
+          targetLat = pickup.lat;
+        }
+      }
+    } else {
+      const order = await this.prisma.order.findUnique({
+        where: { id: request.orderId },
+        select: { driverId: true, vendorBranchId: true },
+      });
+      primaryDriverId = order?.driverId ?? null;
+      if (order?.driverId) {
+        const loc = await this.fetchDriverLocations([order.driverId]).then((m) =>
+          m.get(order.driverId!),
+        );
+        if (loc) {
+          targetLng = loc.lng;
+          targetLat = loc.lat;
+        }
+      }
+      if (targetLng == null && order?.vendorBranchId) {
+        const loc = await this.fetchBranchLocation(order.vendorBranchId);
+        if (loc) {
+          targetLng = loc.lng;
+          targetLat = loc.lat;
+        }
+      }
+    }
+
+    if (targetLng == null || targetLat == null) {
+      throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+    }
+    return { primaryDriverId, lng: targetLng, lat: targetLat };
+  }
+
+  private async findNearestEligibleAssistDrivers(
+    request: { deliveryGroupId: string | null; orderId: string },
+    limit: number,
+  ): Promise<string[]> {
+    const { primaryDriverId, lng, lat } =
+      await this.resolveAssistTargetLocation(request);
+    const settings = await this.platformSettings.getSettings();
+
+    const candidates = await this.prisma.driver.findMany({
+      where: {
+        status: { in: [DriverStatus.ONLINE, DriverStatus.BUSY] },
+        isApproved: true,
+        deletedAt: null,
+        hasUnpaidCommission: false,
+        NOT: { id: primaryDriverId ?? undefined },
+      },
+      select: { id: true },
+    });
+
+    const busyOrderDrivers = await this.prisma.order.findMany({
+      where: {
+        status: {
+          in: [
+            'DRIVER_ASSIGNED',
+            'PREPARING',
+            'READY_FOR_PICKUP',
+            'PARTIALLY_PICKED_UP',
+            'PICKED_UP',
+          ],
+        },
+        driverId: { not: null },
+      },
+      select: { driverId: true },
+    });
+    const busyGroupDrivers = await this.prisma.orderDeliveryGroup.findMany({
+      where: {
+        id: { not: request.deliveryGroupId ?? undefined },
+        OR: [
+          { primaryDriverId: { not: null } },
+          { assistDriverId: { not: null } },
+        ],
+        status: {
+          notIn: [DeliveryGroupStatus.DELIVERED, DeliveryGroupStatus.CANCELLED],
+        },
+      },
+      select: { primaryDriverId: true, assistDriverId: true },
+    });
+    const busyIds = new Set<string>();
+    for (const o of busyOrderDrivers) if (o.driverId) busyIds.add(o.driverId);
+    for (const g of busyGroupDrivers) {
+      if (g.primaryDriverId) busyIds.add(g.primaryDriverId);
+      if (g.assistDriverId) busyIds.add(g.assistDriverId);
+    }
+
+    const locations = await this.fetchDriverLocations(
+      candidates.map((c) => c.id),
+    );
+    const eligible: { id: string; distance: number }[] = [];
+    for (const c of candidates) {
+      if (busyIds.has(c.id)) continue;
+      const ll = locations.get(c.id);
+      if (!ll) continue;
+      const dist = haversineKm({ lng: ll.lng, lat: ll.lat }, { lng, lat });
+      if (settings.driverShiftsEnabled) {
+        const shift = await this.prisma.driverShift.findFirst({
+          where: { driverId: c.id, status: DriverShiftStatus.ACTIVE },
+          select: { id: true },
+        });
+        if (!shift) continue;
+      }
+      eligible.push({ id: c.id, distance: dist });
+    }
+    eligible.sort((a, b) => a.distance - b.distance);
+    return eligible.slice(0, limit).map((e) => e.id);
+  }
+
+  private async fetchDriverLocations(
+    driverIds: string[],
+  ): Promise<Map<string, { lng: number; lat: number }>> {
+    const map = new Map<string, { lng: number; lat: number }>();
+    if (driverIds.length === 0) return map;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: string; lng: number; lat: number }>
+    >`
+      SELECT id, ST_X("lastLocation"::geometry) AS lng, ST_Y("lastLocation"::geometry) AS lat
+      FROM drivers WHERE id IN (${Prisma.join(driverIds)})`;
+    for (const r of rows) {
+      if (r.lng != null && r.lat != null) {
+        map.set(r.id, { lng: Number(r.lng), lat: Number(r.lat) });
+      }
+    }
+    return map;
+  }
+
+  private async fetchBranchLocation(
+    branchId: string,
+  ): Promise<{ lng: number; lat: number } | null> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ lng: number; lat: number }>
+    >`
+      SELECT ST_X("location"::geometry) AS lng, ST_Y("location"::geometry) AS lat
+      FROM vendor_branches WHERE id = ${branchId}`;
+    if (rows[0]?.lng != null && rows[0]?.lat != null) {
+      return { lng: Number(rows[0].lng), lat: Number(rows[0].lat) };
+    }
+    return null;
+  }
+
+  private logWarn(error: unknown) {
+    this.logger.warn(
+      `Assist matching side-effect failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}

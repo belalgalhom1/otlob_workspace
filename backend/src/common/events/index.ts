@@ -344,6 +344,49 @@ export class DriverAssistDecidedEvent {
   ) {}
 }
 
+export class DriverAssistOfferedEvent {
+  constructor(
+    public readonly requestId: string,
+    public readonly orderId: string,
+    public readonly targetUserIds: string[],
+    public readonly expiresAt: string,
+  ) {}
+}
+
+export class DriverAssistAssignedEvent {
+  constructor(
+    public readonly requestId: string,
+    public readonly orderId: string,
+    public readonly orderNumber: string,
+    public readonly deliveryGroupId: string | null,
+    public readonly assistFee: number,
+    public readonly customerUserId: string | null,
+    public readonly primaryDriverUserId: string | null,
+    public readonly assistDriverUserId: string,
+  ) {}
+}
+
+export class DriverAssistCustomerDecidedEvent {
+  constructor(
+    public readonly orderId: string,
+    public readonly deliveryGroupId: string | null,
+    public readonly approved: boolean,
+    public readonly assistFee: number,
+    public readonly primaryDriverUserId: string | null,
+    public readonly assistDriverUserId: string | null,
+  ) {}
+}
+
+export class DriverAssistTimedOutEvent {
+  constructor(
+    public readonly orderId: string,
+    public readonly deliveryGroupId: string | null,
+    public readonly customerUserId: string | null,
+    public readonly primaryDriverUserId: string | null,
+    public readonly assistDriverUserId: string | null,
+  ) {}
+}
+
 export class OrderFulfillmentDecidedEvent {
   constructor(
     public readonly orderId: string,

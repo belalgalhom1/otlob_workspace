@@ -67,6 +67,10 @@ export class DriverListener {
       `Driver ${event.driverId}: ${event.oldStatus} → ${event.newStatus}`,
     );
 
+    if (event.newStatus === DriverStatus.SUSPENDED && event.driverUserId) {
+      void this.socketService.disconnectUser(event.driverUserId);
+    }
+
     let dto:
       | {
           userId: string;
