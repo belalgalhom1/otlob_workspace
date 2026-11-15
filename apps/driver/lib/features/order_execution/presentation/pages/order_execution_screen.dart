@@ -872,19 +872,32 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             ),
           ),
 
-        // Floating Center Map Button
+        // Floating Center Map Button & Temporary Multi-Vendor Debug Log Button
         Positioned(
           top: 16,
           right: 16,
-          child: FloatingActionButton(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            mini: true,
-            onPressed: () {
-              if (_currentPosition != null && _isMapReady) {
-                _mapController.move(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 15);
-              }
-            },
-            child: Icon(LucideIcons.locateFixed, color: Theme.of(context).colorScheme.onSurface),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton(
+                heroTag: 'driver_center_map_fab',
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                mini: true,
+                onPressed: () {
+                  if (_currentPosition != null && _isMapReady) {
+                    _mapController.move(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 15);
+                  }
+                },
+                child: Icon(LucideIcons.locateFixed, color: Theme.of(context).colorScheme.onSurface),
+              ),
+              const SizedBox(height: 8),
+              Material(
+                color: Theme.of(context).colorScheme.surface,
+                shape: const CircleBorder(),
+                elevation: 4,
+                child: const MvDebugLogIconButton(appTag: 'DRIVER'),
+              ),
+            ],
           ),
         ),
 

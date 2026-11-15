@@ -15,6 +15,7 @@ import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch.ports';
 import type { DispatchOrderWorkflowPort } from '../../common/orders/order-dispatch.ports';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
+import { mvDebugTrace } from '../../common/orders/mv-debug-trace.logger';
 
 // Dispatch broadcasts already fan out to dozens of drivers per job; running 50
 // of them concurrently just queues more DB/Redis waits behind the shared pool.
@@ -302,6 +303,17 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
       );
       enqueued++;
     }
+
+    mvDebugTrace(
+      'STEP_5_DISPATCH_HANDOFF_ENQUEUED',
+      `Enqueued ${enqueued}/${groups.length} delivery group dispatch job(s) for ${data.orderNumber}`,
+      {
+        orderId: data.orderId,
+        orderNumber: data.orderNumber,
+        enqueued,
+        groupIds: groups.map((g) => g.id),
+      },
+    );
 
     return { enqueued, groups: groups.length };
   }

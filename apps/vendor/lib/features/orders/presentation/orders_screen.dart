@@ -380,6 +380,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               ),
             ),
             const SizedBox(width: 8),
+            const MvDebugLogIconButton(appTag: 'VENDOR'),
+            const SizedBox(width: 4),
             _buildLiveBadge(isArabic),
           ],
         ),

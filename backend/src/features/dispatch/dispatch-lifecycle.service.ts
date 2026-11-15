@@ -26,6 +26,7 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import { LocationRepository } from '../location/location.repository';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
+import { mvDebugTrace } from '../../common/orders/mv-debug-trace.logger';
 import { OrderErrors } from '../../common/constants/response.constants';
 import {
   DispatchBroadcastPayload,
@@ -745,6 +746,22 @@ export class DispatchLifecycleService {
         if (groupClaimed.count === 0) {
           throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
         }
+
+        mvDebugTrace(
+          'STEP_6_DRIVER_ASSIGNED_TO_GROUP',
+          `Driver ${driverId} assigned to delivery group ${groupId} on order ${order.orderNumber}`,
+          {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            dispatchId,
+            deliveryGroupId: groupId,
+            driverId,
+            isStackedOrder,
+            nextGroupStatus,
+            nextOrderStatus,
+            estimatedEarnings: candidate.estimatedEarnings,
+          },
+        );
 
         const shouldAdvanceOrderStatus =
           order.status === OrderStatus.PENDING ||

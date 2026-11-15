@@ -21,6 +21,7 @@ export 'src/permissions/permission_service.dart';
 export 'src/utils/image_utils.dart';
 export 'src/utils/ios_alert_helper.dart';
 export 'src/utils/phone_utils.dart';
+export 'src/debug/mv_debug_logger.dart';
 
 // Third-party infrastructure exports for unified versions across apps
 export 'package:firebase_core/firebase_core.dart';

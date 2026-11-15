@@ -28,6 +28,7 @@ import { OrderErrors } from '../../../common/constants/response.constants';
 import { StockService } from '../helpers/stock.service';
 import { OrderRejectionRecomputor } from '../helpers/order-rejection-recomputor';
 import { OrderCancellationService } from './order-cancellation.service';
+import { mvDebugTrace } from '../../../common/orders/mv-debug-trace.logger';
 
 export interface DeliveryGroupSummary {
   id: string;
@@ -443,6 +444,21 @@ export class DeliveryGroupTransitionService {
         fresh.status,
       );
       updatedRevision = updated.revision;
+      mvDebugTrace(
+        'STEP_8_GROUP_ORDER_STATUS_RECOMPUTED',
+        `Order ${order.id} aggregate status recomputed: ${fresh.status} -> ${target}`,
+        {
+          orderId: order.id,
+          oldStatus: fresh.status,
+          newStatus: target,
+          activeGroups: active.map((g) => ({
+            id: g.id,
+            sequence: g.sequence,
+            status: g.status,
+            primaryDriverId: g.primaryDriverId,
+          })),
+        },
+      );
     } catch {
       return;
     }

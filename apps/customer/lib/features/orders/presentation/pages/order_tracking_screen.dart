@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:core/core.dart'
-    show SocketEvent, orderRevisionOf, orderRevisionTrackerProvider;
+    show
+        SocketEvent,
+        orderRevisionOf,
+        orderRevisionTrackerProvider,
+        MvDebugLogger,
+        MvDebugLogIconButton;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';

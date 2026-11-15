@@ -25,6 +25,7 @@ dependencies:
   api:
     path: ../api
   permission_handler: ^13.0.0
+  path_provider: ^2.1.5
   jwt_decoder: ^2.0.1
   easy_localization: ^3.0.8
 dev_dependencies:
