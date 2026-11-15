@@ -16,7 +16,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:core/core.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
@@ -66,10 +65,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
       return;
     }
-    final uri = Uri(scheme: 'tel', path: digits);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    await ExternalActionLauncher.callPhone(digits, context: context);
   }
 
   Future<void> _launchMapsNavigation(double lat, double lng) async {
@@ -108,7 +104,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         setState(() => _pickupPhoto = file);
       }
       return file;
-    } catch (_) {
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
       return null;
     }
   }
@@ -125,7 +124,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         setState(() => _deliveryPhoto = file);
       }
       return file;
-    } catch (_) {
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
       return null;
     }
   }

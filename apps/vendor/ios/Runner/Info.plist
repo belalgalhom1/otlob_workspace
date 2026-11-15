@@ -5,9 +5,46 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to location when open to set vendor branch locations.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs access to location to set vendor branch locations.</string>
+	<string>This app needs access to location while in use to set vendor branch locations and inspect nearby delivery zones.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture product photos, store banners, and support chat media.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select product images, store media, banners, and support attachments.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs permission to save exported reports and media files.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access to record voice messages in support and order chats.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>sms</string>
+		<string>mailto</string>
+		<string>comgooglemaps</string>
+		<string>comgooglemaps-x-callback</string>
+		<string>waze</string>
+		<string>maps</string>
+		<string>https</string>
+	</array>
+	<key>GIDServerClientID</key>
+	<string>818727905926-bbsknrt1aqvpcs11u2qngf4onegrtsu0.apps.googleusercontent.com</string>
+	<!-- Replace GIDClientID and REVERSED_CLIENT_ID below with the iOS OAuth Client ID from Firebase Console GoogleService-Info.plist -->
+	<key>GIDClientID</key>
+	<string>PLACEHOLDER_VENDOR_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.PLACEHOLDER_VENDOR_IOS_CLIENT_ID</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

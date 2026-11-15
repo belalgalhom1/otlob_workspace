@@ -183,6 +183,27 @@ class DataExportService {
     }
   }
 
+  /// Resolves an iPad-safe popover anchor rect before any async gap.
+  static Rect? _resolveShareOrigin(BuildContext context) {
+    final renderObject = context.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      final origin = renderObject.localToGlobal(Offset.zero);
+      final size = renderObject.size;
+      if (size.width > 0 && size.height > 0) {
+        return origin & size;
+      }
+    }
+    final screenSize = MediaQuery.maybeSizeOf(context);
+    if (screenSize != null && screenSize.width > 0 && screenSize.height > 0) {
+      return Rect.fromCenter(
+        center: Offset(screenSize.width / 2, screenSize.height / 2),
+        width: 1,
+        height: 1,
+      );
+    }
+    return null;
+  }
+
   static String _csvEscape(String value) {
     if (value.contains(',') ||
         value.contains('"') ||
@@ -200,6 +221,7 @@ class DataExportService {
     required List<List<String>> rows,
     required String filename,
   }) async {
+    final shareOrigin = _resolveShareOrigin(context);
     final content = buildCsvContent(headers, rows);
 
     final stamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
@@ -212,6 +234,7 @@ class DataExportService {
         files: [XFile(file.path, mimeType: 'text/csv')],
         title: title,
         subject: title,
+        sharePositionOrigin: shareOrigin,
       ),
     );
   }
@@ -313,6 +336,7 @@ class DataExportService {
     required String filename,
     bool isRtl = true,
   }) async {
+    final shareOrigin = _resolveShareOrigin(context);
     // Resolve entity/driver name if not explicitly passed
     String? resolvedEntity = entityName?.trim();
     if ((resolvedEntity == null || resolvedEntity.isEmpty) && title.contains(':')) {
@@ -589,6 +613,7 @@ class DataExportService {
     await Printing.sharePdf(
       bytes: await doc.save(),
       filename: '${filename}_$stamp.pdf',
+      bounds: shareOrigin,
     );
   }
 
@@ -609,6 +634,7 @@ class DataExportService {
     required List<DriverShiftOrderExportData> orders,
     bool isRtl = true,
   }) async {
+    final shareOrigin = _resolveShareOrigin(context);
     final doc = pw.Document();
 
     pw.Font font;
@@ -915,6 +941,7 @@ class DataExportService {
     await Printing.sharePdf(
       bytes: await doc.save(),
       filename: 'shift_report_${safeDriver}_$stamp.pdf',
+      bounds: shareOrigin,
     );
   }
 
@@ -983,6 +1010,7 @@ class DataExportService {
     required List<ExportSection> sections,
     required String filename,
   }) async {
+    final shareOrigin = _resolveShareOrigin(context);
     final content = buildMultiCsvContent(sections);
 
     final stamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
@@ -995,6 +1023,7 @@ class DataExportService {
         files: [XFile(file.path, mimeType: 'text/csv')],
         title: title,
         subject: title,
+        sharePositionOrigin: shareOrigin,
       ),
     );
   }
@@ -1027,6 +1056,7 @@ class DataExportService {
     required List<DriverSettlementOrderExportData> orders,
     bool isRtl = true,
   }) async {
+    final shareOrigin = _resolveShareOrigin(context);
     final doc = pw.Document();
 
     pw.Font font;
@@ -1302,6 +1332,7 @@ class DataExportService {
     await Printing.sharePdf(
       bytes: await doc.save(),
       filename: 'driver_settlement_${safeDriver}_$stamp.pdf',
+      bounds: shareOrigin,
     );
   }
 }

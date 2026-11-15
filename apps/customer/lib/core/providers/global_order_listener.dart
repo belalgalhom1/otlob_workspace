@@ -146,12 +146,26 @@ class GlobalOrderListener extends _$GlobalOrderListener {
 
   void _handlePushOpened(dynamic message) {
     final data = message is Map ? message : (message?.data as Map?);
-    if (data == null || data['orderId'] == null) return;
+    if (data == null) return;
 
-    // Update the list instantly, then navigate to tracking.
-    _handleOrderStatusUpdate(data);
+    final orderId = data['orderId']?.toString().trim();
+    if (orderId != null && orderId.isNotEmpty) {
+      // Update the list instantly, then navigate to tracking.
+      _handleOrderStatusUpdate(data);
+      ref.read(navigationServiceProvider).go('/order-tracking/$orderId');
+      return;
+    }
 
-    ref.read(navigationServiceProvider).go('/order-tracking/${data['orderId']}');
+    final conversationId = data['conversationId']?.toString().trim();
+    if (conversationId != null && conversationId.isNotEmpty) {
+      final type = (data['chatType'] ?? data['type'] ?? 'support').toString();
+      ref.read(navigationServiceProvider).push(
+        '/chat/$type/$conversationId',
+        extra: <String, dynamic>{
+          if (data['title'] != null) 'title': data['title'].toString(),
+        },
+      );
+    }
   }
 
   DateTime? _lastRefreshAt;

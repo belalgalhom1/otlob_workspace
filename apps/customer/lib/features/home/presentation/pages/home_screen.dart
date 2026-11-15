@@ -21,7 +21,7 @@ import '../providers/customer_location_provider.dart';
 import '../../../chat/presentation/providers/inbox_counts_provider.dart';
 import '../widgets/vendor_card.dart';
 import '../widgets/offers_auto_scroller.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:ui_kit/ui_kit.dart' show ExternalActionLauncher;
 import '../../../../core/widgets/auth_prompt_dialog.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 
@@ -751,10 +751,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       } else if (b['type'] == 'EXTERNAL_LINK') {
                         final url = b['externalUrl']?.toString();
                         if (url != null && url.isNotEmpty) {
-                          final uri = Uri.tryParse(url);
-                          if (uri != null && await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          }
+                          await ExternalActionLauncher.openWebUrl(
+                            url,
+                            context: context,
+                          );
                         }
                       }
                     },

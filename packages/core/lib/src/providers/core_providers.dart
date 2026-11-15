@@ -12,9 +12,20 @@ import '../socket/socket_service.dart';
 import '../socket/order_revision.dart';
 import '../config/env_config.dart';
 
+/// Unified secure storage options preserving background Keychain reads on iOS.
+const appIosSecureStorageOptions = IOSOptions(
+  accessibility: KeychainAccessibility.first_unlock,
+);
+
+/// Shared [FlutterSecureStorage] instance with consistent iOS Keychain options.
+const appSecureStorage = FlutterSecureStorage(
+  aOptions: AndroidOptions(),
+  iOptions: appIosSecureStorageOptions,
+);
+
 // Provides the secure storage instance
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage();
+  return appSecureStorage;
 });
 
 // Provides the base URL, can be overridden based on flavor or env

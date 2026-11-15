@@ -82,7 +82,19 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
 
   Future<void> _pickAndUploadAvatar() async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final XFile? image;
+    try {
+      image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: mounted ? context : null,
+      );
+      return;
+    }
     if (image == null) return;
 
     XFile? finalFile;

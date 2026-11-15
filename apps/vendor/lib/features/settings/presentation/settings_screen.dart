@@ -102,6 +102,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .uploadSettingImage(type, bytes, picked.name);
     } catch (e) {
       debugPrint('Error picking image: $e');
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: context.mounted ? context : null,
+      );
     }
   }
 

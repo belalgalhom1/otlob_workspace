@@ -5,14 +5,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:data/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
 import '../presentation/orders_provider.dart';
 import 'widgets/assign_driver_sheet.dart';
@@ -77,8 +75,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   Future<void> _loadUserRole() async {
-    const storage = FlutterSecureStorage();
-    final role = await storage.read(key: 'user_role');
+    final role = await appSecureStorage.read(key: 'user_role');
     if (mounted) {
       setState(() {
         _userRole = role ?? '';
@@ -3776,18 +3773,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       );
       return;
     }
-    final uri = Uri(scheme: 'tel', path: digits);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call',
-          ),
-        ),
-      );
-    }
+    await ExternalActionLauncher.callPhone(digits, context: context);
   }
 
   Future<void> _locateDriverFromOrder(

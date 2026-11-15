@@ -19,7 +19,6 @@ import '../../../../core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../widgets/order_offer_bottom_sheet.dart';
 import '../../../../core/widgets/floating_cart_overlay.dart';
 
@@ -115,7 +114,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _args = SharedChatArgs(id: widget.conversationId, type: widget.type);
-    _initRecorder();
     _loadOrderDetails();
     _controller.addListener(() {
       if (mounted) setState(() {});
@@ -161,11 +159,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _callDriver() async {
     final phone = _resolveDriverPhone();
     if (phone == null || phone.isEmpty) return;
-    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-    final uri = Uri(scheme: 'tel', path: digits);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    await ExternalActionLauncher.callPhone(phone, context: context);
   }
 
   bool _hasDriverPhone() {
@@ -302,17 +296,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  Future<void> _initRecorder() async {
-    final status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) {
-      return;
+  Future<bool> _ensureRecorderInitialized() async {
+    if (_isRecorderInitialized && _recorder != null) return true;
+    var status = await Permission.microphone.status;
+    if (!status.isGranted && !status.isLimited) {
+      if (status.isPermanentlyDenied || status.isRestricted) {
+        _showMicSettingsPrompt();
+        return false;
+      }
+      status = await Permission.microphone.request();
     }
-    _recorder = FlutterSoundRecorder();
+    if (!status.isGranted && !status.isLimited) {
+      if ((status.isPermanentlyDenied || status.isRestricted) && mounted) {
+        _showMicSettingsPrompt();
+      }
+      return false;
+    }
+    _recorder ??= FlutterSoundRecorder();
     await _recorder!.openRecorder();
-    _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
-    setState(() {
-      _isRecorderInitialized = true;
-    });
+    await _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
+    if (mounted) {
+      setState(() {
+        _isRecorderInitialized = true;
+      });
+    }
+    return true;
+  }
+
+  void _showMicSettingsPrompt() {
+    if (!mounted) return;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isAr
+              ? 'يرجى السماح بالوصول إلى الميكروفون من الإعدادات'
+              : 'Please allow microphone access in Settings',
+        ),
+        action: SnackBarAction(
+          label: isAr ? 'الإعدادات' : 'Settings',
+          onPressed: openAppSettings,
+        ),
+      ),
+    );
   }
 
   @override
@@ -329,12 +355,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _takePhotoDirectly() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 85,
-    );
+    XFile? pickedFile;
+    try {
+      pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
+      return;
+    }
     if (pickedFile == null || !mounted) return;
 
     final caption = await ChatMediaCaptionDialog.show(
@@ -367,37 +401,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     XFile? pickedFile;
     bool isVideo = false;
 
-    switch (option) {
-      case ChatMediaPickerOption.cameraPhoto:
-        pickedFile = await picker.pickImage(
-          source: ImageSource.camera,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 85,
-        );
-        break;
-      case ChatMediaPickerOption.galleryPhoto:
-        pickedFile = await picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 85,
-        );
-        break;
-      case ChatMediaPickerOption.cameraVideo:
-        pickedFile = await picker.pickVideo(
-          source: ImageSource.camera,
-          maxDuration: const Duration(minutes: 2),
-        );
-        isVideo = true;
-        break;
-      case ChatMediaPickerOption.galleryVideo:
-        pickedFile = await picker.pickVideo(
-          source: ImageSource.gallery,
-          maxDuration: const Duration(minutes: 5),
-        );
-        isVideo = true;
-        break;
+    try {
+      switch (option) {
+        case ChatMediaPickerOption.cameraPhoto:
+          pickedFile = await picker.pickImage(
+            source: ImageSource.camera,
+            maxWidth: 1600,
+            maxHeight: 1600,
+            imageQuality: 85,
+          );
+          break;
+        case ChatMediaPickerOption.galleryPhoto:
+          pickedFile = await picker.pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 1600,
+            maxHeight: 1600,
+            imageQuality: 85,
+          );
+          break;
+        case ChatMediaPickerOption.cameraVideo:
+          pickedFile = await picker.pickVideo(
+            source: ImageSource.camera,
+            maxDuration: const Duration(minutes: 2),
+          );
+          isVideo = true;
+          break;
+        case ChatMediaPickerOption.galleryVideo:
+          pickedFile = await picker.pickVideo(
+            source: ImageSource.gallery,
+            maxDuration: const Duration(minutes: 5),
+          );
+          isVideo = true;
+          break;
+      }
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
+      return;
     }
 
     if (pickedFile == null || !mounted) return;
@@ -425,11 +466,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _startRecording() async {
-    if (!_isRecorderInitialized) return;
+    final ready = await _ensureRecorderInitialized();
+    if (!ready || !mounted) return;
     _waveformSamples.clear();
+    await VoiceAudioHelper.configureForRecording();
     final tempDir = await getTemporaryDirectory();
-    _recordingPath = '${tempDir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.aac';
-    await _recorder!.startRecorder(toFile: _recordingPath);
+    _recordingPath = VoiceAudioHelper.buildRecordingPath(tempDir.path);
+    await _recorder!.startRecorder(
+      toFile: _recordingPath,
+      codec: VoiceAudioHelper.recordingCodec,
+    );
     _recordingSubscription = _recorder!.onProgress!.listen((e) {
       if (mounted) {
         setState(() {
@@ -1193,8 +1239,10 @@ class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
           setState(() => _isPlaying = true);
         }
         try {
+          await VoiceAudioHelper.configureForPlayback();
           await _player!.startPlayer(
             fromURI: widget.url,
+            codec: VoiceAudioHelper.codecFromSource(widget.url),
             whenFinished: () {
               if (mounted) {
                 setState(() {

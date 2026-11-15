@@ -146,6 +146,10 @@ class _AddProductInChatDialogState
       }
     } catch (e) {
       debugPrint('Error picking product image: $e');
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: mounted ? context : null,
+      );
     } finally {
       if (mounted) {
         setState(() => _isPickingImage = false);

@@ -434,6 +434,10 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
       }
     } catch (e) {
       debugPrint('Error picking promotion banner image: $e');
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: mounted ? context : null,
+      );
     }
   }
 

@@ -5,9 +5,46 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to location when open to show your current location on the map.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs access to location to show your current location on the map.</string>
+	<string>This app needs access to your location while in use to find nearby vendors and deliver your orders accurately.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take photos and videos for support chat messages and custom delivery requests.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select images and videos for chat messages and custom delivery requests.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs permission to save shared media files to your photo library.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access to record voice messages in order and support chats.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>sms</string>
+		<string>mailto</string>
+		<string>comgooglemaps</string>
+		<string>comgooglemaps-x-callback</string>
+		<string>waze</string>
+		<string>maps</string>
+		<string>https</string>
+	</array>
+	<key>GIDServerClientID</key>
+	<string>818727905926-bbsknrt1aqvpcs11u2qngf4onegrtsu0.apps.googleusercontent.com</string>
+	<!-- Replace GIDClientID and REVERSED_CLIENT_ID below with the iOS OAuth Client ID from Firebase Console GoogleService-Info.plist -->
+	<key>GIDClientID</key>
+	<string>PLACEHOLDER_CUSTOMER_IOS_CLIENT_ID.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.PLACEHOLDER_CUSTOMER_IOS_CLIENT_ID</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -10,23 +10,39 @@ class PermissionPermanentlyDeniedException implements Exception {}
 PermissionService permissionService(Ref ref) => PermissionService();
 
 class PermissionService {
+  bool _isAllowed(PermissionStatus status, {bool allowProvisional = false}) {
+    return status.isGranted ||
+        status.isLimited ||
+        (allowProvisional && status.isProvisional);
+  }
+
   Future<bool> requestPermission(Permission permission) async {
     final status = await permission.status;
-    if (status.isGranted) return true;
-    if (status.isPermanentlyDenied) throw PermissionPermanentlyDeniedException();
+    if (_isAllowed(status, allowProvisional: permission == Permission.notification)) {
+      return true;
+    }
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      throw PermissionPermanentlyDeniedException();
+    }
 
     final result = await permission.request();
-    return result.isGranted;
+    if (_isAllowed(result, allowProvisional: permission == Permission.notification)) {
+      return true;
+    }
+    if (result.isPermanentlyDenied || result.isRestricted) {
+      throw PermissionPermanentlyDeniedException();
+    }
+    return false;
   }
 
   Future<bool> requestGalleryPermission() async {
     if (Platform.isIOS) return requestPermission(Permission.photos);
 
     final photoStatus = await Permission.photos.request();
-    if (photoStatus.isGranted) return true;
+    if (_isAllowed(photoStatus)) return true;
 
     final storageStatus = await Permission.storage.request();
-    if (storageStatus.isGranted) return true;
+    if (_isAllowed(storageStatus)) return true;
 
     if (photoStatus.isPermanentlyDenied || storageStatus.isPermanentlyDenied) {
       throw PermissionPermanentlyDeniedException();

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:ui_kit/ui_kit.dart' show ExternalActionLauncher;
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -131,11 +131,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _openStore(String? storeUrl) async {
     final url = (storeUrl ?? '').trim();
     if (url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    await ExternalActionLauncher.openWebUrl(
+      url,
+      context: mounted ? context : null,
+    );
   }
 
   @override

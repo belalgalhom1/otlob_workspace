@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/vendors/presentation/vendor_provider.dart';
@@ -1166,19 +1165,17 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
   // 6. ACTION HANDLERS & MODALS
   // ==========================================
   void _callVendor(dynamic v) async {
-    String? phone = v['phone'];
-    if (phone == null &&
+    String? phone = v['phone']?.toString();
+    if ((phone == null || phone.trim().isEmpty) &&
         v['branches'] != null &&
         (v['branches'] as List).isNotEmpty) {
-      phone = v['branches'][0]['phone'];
+      phone = v['branches'][0]['phone']?.toString();
     }
 
-    if (phone != null && phone.isNotEmpty) {
-      final Uri launchUri = Uri(scheme: 'tel', path: phone);
-      if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
-      }
-    }
+    await ExternalActionLauncher.callPhone(
+      phone,
+      context: mounted ? context : null,
+    );
   }
 
   void _viewProducts(BuildContext context, dynamic v) {

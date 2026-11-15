@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -7,82 +9,163 @@ import 'package:firebase_core/firebase_core.dart';
 
 class PushNotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final DevicesPushNotificationsApi _devicesApi;
+  final StreamController<RemoteMessage> _openedAppController =
+      StreamController<RemoteMessage>.broadcast();
+
+  bool _listenersInitialized = false;
+  RemoteMessage? _pendingInitialLocalMessage;
 
   PushNotificationService(this._devicesApi);
 
   Future<void> initialize() async {
     // Request permission (iOS specifically, Android 13+)
-    NotificationSettings settings = await _messaging.requestPermission(
+    final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional) {
       debugPrint('User granted permission for push notifications');
     }
 
-    // Initialize local notifications for foreground display
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
-    const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
-    await _localNotifications.initialize(settings: initSettings);
-
-    final androidPlugin = _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (androidPlugin != null) {
-      const channel = AndroidNotificationChannel(
-        'high_importance_channel',
-        'High Importance Notifications',
-        description: 'Used for important delivery requests and order updates.',
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
+    if (!kIsWeb && Platform.isIOS) {
+      // Allow iOS to present APNs banners with sound natively in the foreground
+      // so taps reliably route through FirebaseMessaging.onMessageOpenedApp.
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
       );
-      await androidPlugin.createNotificationChannel(channel);
     }
 
-    // Get FCM token
-    String? token = await _messaging.getToken();
+    if (!_listenersInitialized) {
+      // Initialize local notifications for foreground display and tap routing
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosInit = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+      const initSettings = InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      );
+      await _localNotifications.initialize(
+        settings: initSettings,
+        onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+      );
+
+      final launchDetails =
+          await _localNotifications.getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp == true) {
+        _pendingInitialLocalMessage =
+            _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
+      }
+
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        const channel = AndroidNotificationChannel(
+          'high_importance_channel',
+          'High Importance Notifications',
+          description:
+              'Used for important delivery requests and order updates.',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+        );
+        await androidPlugin.createNotificationChannel(channel);
+      }
+
+      // Attach listeners before fetching token so delayed APNs registration
+      // on iOS never prevents token refresh or foreground message delivery.
+      _messaging.onTokenRefresh.listen((newToken) async {
+        debugPrint('FCM Token refreshed: $newToken');
+        await _registerToken(newToken);
+      });
+
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint(
+            'Received foreground message: ${message.notification?.title}');
+        _handleRemoteMessage(message);
+      });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('Message clicked! Routing to payload: ${message.data}');
+        _openedAppController.add(message);
+      });
+
+      _listenersInitialized = true;
+    }
+
+    final token = await getToken();
     if (token != null) {
       debugPrint('FCM Token: $token');
       await _registerToken(token);
     }
-
-    // Listen to token refresh
-    _messaging.onTokenRefresh.listen((newToken) async {
-      debugPrint('FCM Token refreshed: $newToken');
-      await _registerToken(newToken);
-    });
-
-    // Foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Received foreground message: ${message.notification?.title}');
-      _handleRemoteMessage(message);
-    });
-
-    // Background / Terminated state clicks
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('Message clicked! Routing to payload: ${message.data}');
-    });
   }
 
   Stream<RemoteMessage> get onMessage => FirebaseMessaging.onMessage;
-  Stream<RemoteMessage> get onMessageOpenedApp => FirebaseMessaging.onMessageOpenedApp;
-  Future<RemoteMessage?> getInitialMessage() => _messaging.getInitialMessage();
+  Stream<RemoteMessage> get onMessageOpenedApp => _openedAppController.stream;
+
+  Future<RemoteMessage?> getInitialMessage() async {
+    final fcmInitial = await _messaging.getInitialMessage();
+    if (fcmInitial != null) return fcmInitial;
+
+    final pendingLocal = _pendingInitialLocalMessage;
+    _pendingInitialLocalMessage = null;
+    if (pendingLocal != null) return pendingLocal;
+
+    final launchDetails =
+        await _localNotifications.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp == true) {
+      return _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
+    }
+    return null;
+  }
+
+  void _handleLocalNotificationResponse(NotificationResponse response) {
+    final message = _decodeLocalPayload(response.payload);
+    if (message != null) {
+      _openedAppController.add(message);
+    }
+  }
+
+  RemoteMessage? _decodeLocalPayload(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return RemoteMessage(data: decoded);
+      }
+      if (decoded is Map) {
+        return RemoteMessage(
+          data: decoded.map((k, v) => MapEntry(k.toString(), v)),
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to decode local notification payload: $e');
+    }
+    return null;
+  }
 
   Future<void> _registerToken(String token) async {
     try {
-      final platform = kIsWeb 
-          ? RegisterDeviceDtoPlatformEnum.WEB 
-          : (Platform.isIOS ? RegisterDeviceDtoPlatformEnum.IOS : RegisterDeviceDtoPlatformEnum.ANDROID);
+      final platform = kIsWeb
+          ? RegisterDeviceDtoPlatformEnum.WEB
+          : (Platform.isIOS
+              ? RegisterDeviceDtoPlatformEnum.IOS
+              : RegisterDeviceDtoPlatformEnum.ANDROID);
 
       final dto = RegisterDeviceDto((b) => b
         ..token = token
-        ..platform = platform
-      );
+        ..platform = platform);
 
       await _devicesApi.devicesControllerRegister(registerDeviceDto: dto);
       debugPrint('FCM Token registered with backend successfully');
@@ -93,7 +176,7 @@ class PushNotificationService {
 
   Future<void> unregisterToken() async {
     try {
-      final token = await _messaging.getToken();
+      final token = await getToken();
       if (token != null) {
         await _devicesApi.devicesControllerRemove(token: token);
         debugPrint('FCM Token removed from backend successfully');
@@ -103,14 +186,25 @@ class PushNotificationService {
     }
   }
 
-  void showLocalNotification({required String title, required String body, int? id}) {
+  void showLocalNotification({
+    required String title,
+    required String body,
+    int? id,
+    Map<String, dynamic>? data,
+  }) {
     const androidDetails = AndroidNotificationDetails(
       'high_importance_channel', // channel id
       'High Importance Notifications', // channel name
       importance: Importance.max,
       priority: Priority.high,
     );
-    const iosDetails = DarwinNotificationDetails();
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      presentBanner: true,
+      presentList: true,
+    );
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     _localNotifications.show(
@@ -118,16 +212,22 @@ class PushNotificationService {
       title: title,
       body: body,
       notificationDetails: details,
+      payload: data != null && data.isNotEmpty ? jsonEncode(data) : null,
     );
   }
 
   void _handleRemoteMessage(RemoteMessage message) {
     final notification = message.notification;
     if (notification == null) return;
+    // On iOS, foreground alert/badge/sound presentation is handled by APNs via
+    // setForegroundNotificationPresentationOptions to prevent duplicate banners.
+    if (!kIsWeb && Platform.isIOS) return;
+
     showLocalNotification(
       title: notification.title ?? '',
       body: notification.body ?? '',
-      id: notification.hashCode,
+      id: message.messageId?.hashCode ?? notification.hashCode,
+      data: message.data,
     );
   }
 
@@ -167,7 +267,28 @@ class PushNotificationService {
     }
   }
 
-  Future<String?> getToken() => _messaging.getToken();
+  Future<String?> getToken() async {
+    try {
+      if (!kIsWeb && Platform.isIOS) {
+        String? apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          // Wait briefly for iOS APNs registration during cold startup.
+          for (var i = 0; i < 3 && apnsToken == null; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+            apnsToken = await _messaging.getAPNSToken();
+          }
+        }
+        if (apnsToken == null) {
+          debugPrint('FCM: APNs token not yet available on iOS; deferring to onTokenRefresh.');
+          return null;
+        }
+      }
+      return await _messaging.getToken();
+    } catch (e) {
+      debugPrint('FCM: Failed to retrieve token: $e');
+      return null;
+    }
+  }
 
   Future<void> unsubscribeFromRoleTopics(String? role) async {
     try {
@@ -210,7 +331,13 @@ class PushNotificationService {
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If you're going to use other Firebase services in the background, such as Firestore,
   // make sure you call `initializeApp` before using other Firebase services.
-  await Firebase.initializeApp();
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+  } catch (e) {
+    debugPrint('Background Firebase initialization warning: $e');
+  }
   debugPrint('Handling a background message: ${message.messageId}');
 }
 

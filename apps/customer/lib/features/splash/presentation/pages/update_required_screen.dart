@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/router/route_paths.dart';
@@ -15,10 +14,7 @@ class UpdateRequiredPage extends ConsumerWidget {
   Future<void> _openStore(BuildContext context) async {
     final url = (storeUrl ?? '').trim();
     if (url.isNotEmpty) {
-      final uri = Uri.tryParse(url);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      await ExternalActionLauncher.openWebUrl(url, context: context);
     }
     if (context.mounted) context.go(RoutePaths.splash);
   }

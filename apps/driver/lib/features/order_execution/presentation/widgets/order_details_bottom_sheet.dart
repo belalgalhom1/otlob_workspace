@@ -7,7 +7,6 @@ import 'package:core/core.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class OrderDetailsBottomSheet extends ConsumerWidget {
   final Map<String, dynamic> order;
@@ -1288,15 +1287,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
       );
       return;
     }
-    final uri = Uri(scheme: 'tel', path: digits);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else if (context.mounted) {
-      _showSnack(
-        context,
-        isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call',
-      );
-    }
+    await ExternalActionLauncher.callPhone(digits, context: context);
   }
 
   void _showSnack(BuildContext context, String message) {

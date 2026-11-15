@@ -381,9 +381,20 @@ class ProfileScreen extends ConsumerWidget {
                       bottom: 4,
                       right: 4,
                       child: GestureDetector(
-                        onTap: () => ref
-                            .read(profileProvider.notifier)
-                            .pickAndUploadAvatar(),
+                        onTap: () async {
+                          try {
+                            await ref
+                                .read(profileProvider.notifier)
+                                .pickAndUploadAvatar();
+                          } catch (e) {
+                            if (context.mounted) {
+                              MediaPermissionHelper.handlePickerError(
+                                e,
+                                context: context,
+                              );
+                            }
+                          }
+                        },
                         child: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(

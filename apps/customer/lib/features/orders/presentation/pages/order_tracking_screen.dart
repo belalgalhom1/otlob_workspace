@@ -19,7 +19,6 @@ import 'dart:math' as math;
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
 import 'package:data/providers.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 
 class _TrackingLifecycleObserver with WidgetsBindingObserver {
@@ -254,18 +253,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   XFile? _receiptFile;
 
   Future<void> _callDriver(BuildContext context, String phone, AppStrings s) async {
-    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-    if (digits.isEmpty) return;
-    final uri = Uri(scheme: 'tel', path: digits);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(s.isArabic ? 'تعذر بدء الاتصال' : 'Could not start the call'),
-        ),
-      );
-    }
+    await ExternalActionLauncher.callPhone(phone, context: context);
   }
 
   @override
@@ -1998,17 +1986,27 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                     children: [
                                       OutlinedButton.icon(
                                         onPressed: () async {
-                                          final file =
-                                              await ImagePicker().pickImage(
-                                            source: ImageSource.gallery,
-                                            maxWidth: 1920,
-                                            imageQuality: 80,
-                                          );
-                                          if (file != null) {
-                                            setState(
-                                              () =>
-                                                  _receiptFile = file,
+                                          try {
+                                            final file =
+                                                await ImagePicker().pickImage(
+                                              source: ImageSource.gallery,
+                                              maxWidth: 1920,
+                                              imageQuality: 80,
                                             );
+                                            if (file != null && mounted) {
+                                              setState(
+                                                () =>
+                                                    _receiptFile = file,
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              MediaPermissionHelper
+                                                  .handlePickerError(
+                                                e,
+                                                context: context,
+                                              );
+                                            }
                                           }
                                         },
                                         icon: const Icon(

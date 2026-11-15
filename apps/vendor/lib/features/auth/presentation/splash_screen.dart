@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
@@ -93,11 +93,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     onPressed: () async {
                       Navigator.pop(ctx);
                       final url = (status.storeUrl ?? '').trim();
-                      final uri = Uri.tryParse(url);
-                      if (uri != null && await canLaunchUrl(uri)) {
-                        await launchUrl(uri,
-                            mode: LaunchMode.externalApplication);
-                      }
+                      if (url.isEmpty) return;
+                      await ExternalActionLauncher.openWebUrl(
+                        url,
+                        context: mounted ? context : null,
+                      );
                     },
                     child: Text(l10n.updateNow),
                   ),

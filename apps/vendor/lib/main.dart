@@ -205,15 +205,17 @@ class _NotificationTapListenerState
       try {
         final push = ref.read(pushNotificationServiceProvider);
         _openedAppSub = push.onMessageOpenedApp.listen((message) {
-          ref
-              .read(notificationRouterProvider.notifier)
-              .handleTap(Map<String, String>.from(message.data));
+          final data = message.data.map(
+            (key, value) => MapEntry(key, value?.toString() ?? ''),
+          );
+          ref.read(notificationRouterProvider.notifier).handleTap(data);
         });
         push.getInitialMessage().then((message) {
           if (message != null && mounted) {
-            ref
-                .read(notificationRouterProvider.notifier)
-                .handleTap(Map<String, String>.from(message.data));
+            final data = message.data.map(
+              (key, value) => MapEntry(key, value?.toString() ?? ''),
+            );
+            ref.read(notificationRouterProvider.notifier).handleTap(data);
           }
         });
       } catch (_) {}

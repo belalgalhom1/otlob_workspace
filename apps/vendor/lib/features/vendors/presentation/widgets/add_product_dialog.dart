@@ -307,10 +307,14 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     } catch (e) {
       debugPrint('Error picking image: $e');
       if (!mounted) return;
-      _showNotice(
-        AppLocalizations.of(context)!.failedToPickImage,
-        isError: true,
-      );
+      if (MediaPermissionHelper.isAccessDeniedError(e)) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      } else {
+        _showNotice(
+          AppLocalizations.of(context)!.failedToPickImage,
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isPickingImage = false);

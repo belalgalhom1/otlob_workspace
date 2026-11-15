@@ -16,6 +16,7 @@ import '../../../../core/widgets/floating_cart_overlay.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 import '../../../../core/services/socket_service.dart';
+import 'package:ui_kit/ui_kit.dart' show MediaPermissionHelper;
 import '../providers/orders_provider.dart';
 
 double _parseDouble(dynamic value) {
@@ -417,13 +418,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   }
 
   Future<void> _pickUpfrontReceipt(String orderId) async {
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1920,
-      imageQuality: 80,
-    );
-    if (file != null && mounted) {
-      setState(() => _receiptFiles[orderId] = file);
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        imageQuality: 80,
+      );
+      if (file != null && mounted) {
+        setState(() => _receiptFiles[orderId] = file);
+      }
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
     }
   }
 

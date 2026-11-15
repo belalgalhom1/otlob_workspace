@@ -257,10 +257,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   GestureDetector(
                     onTap: () async {
                       final picker = ImagePicker();
-                      final pickedFile = await picker.pickImage(
-                        source: ImageSource.gallery,
-                        imageQuality: 80,
-                      );
+                      XFile? pickedFile;
+                      try {
+                        pickedFile = await picker.pickImage(
+                          source: ImageSource.gallery,
+                          imageQuality: 80,
+                        );
+                      } catch (e) {
+                        if (mounted) {
+                          MediaPermissionHelper.handlePickerError(
+                            e,
+                            context: context,
+                          );
+                        }
+                        return;
+                      }
                       if (pickedFile != null) {
                         String? uploadPath;
                         try {

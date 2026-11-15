@@ -20,6 +20,9 @@ export 'src/widgets/force_update_screen.dart';
 export 'package:skeletonizer/skeletonizer.dart';
 
 export 'src/utils/time_formatter.dart';
+export 'src/utils/voice_audio_helper.dart';
+export 'src/utils/external_action_launcher.dart';
+export 'src/utils/media_permission_helper.dart';
 
 export 'src/widgets/chat/chat_bubble.dart';
 export 'src/widgets/chat/inbox_conversation_tile.dart';

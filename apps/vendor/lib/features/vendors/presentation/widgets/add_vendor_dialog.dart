@@ -837,6 +837,10 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
       }
     } catch (e) {
       debugPrint('Error picking cover image: $e');
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: ctx.mounted ? ctx : (mounted ? context : null),
+      );
     }
   }
 

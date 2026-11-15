@@ -6,6 +6,7 @@ import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
+import 'package:ui_kit/ui_kit.dart' show MediaPermissionHelper;
 import 'dart:io';
 
 class TopUpBottomSheet extends ConsumerStatefulWidget {
@@ -40,16 +41,22 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1280,
-      maxHeight: 1280,
-      imageQuality: 80,
-    );
-    if (pickedFile != null) {
-      setState(() {
-        _receiptImage = File(pickedFile.path);
-      });
+    try {
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 80,
+      );
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _receiptImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
     }
   }
 
@@ -124,7 +131,9 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
         left: 24,
         right: 24,
         top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            24,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,

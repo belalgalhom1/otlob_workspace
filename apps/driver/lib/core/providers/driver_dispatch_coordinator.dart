@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:driver/core/router/app_router.dart';
 import 'package:driver/features/dispatch/presentation/pages/dispatch_modal.dart';
@@ -60,8 +60,7 @@ class DriverDispatchCoordinator {
       return;
     }
     currentShowingDispatchId = dispatchId;
-    SystemSound.play(SystemSoundType.alert);
-    HapticFeedback.heavyImpact();
+    IosAlertHelper.playAlert();
     debugPrint('DriverDispatchCoordinator: SHOWING dispatch $dispatchId');
 
     DispatchModal.show(context, dispatchData).whenComplete(() {

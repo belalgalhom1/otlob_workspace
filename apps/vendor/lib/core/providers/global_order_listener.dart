@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
@@ -119,7 +118,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       ref
           .read(orderRevisionTrackerProvider)
           .observe(data['orderId'].toString(), orderRevisionOf(data));
-      SystemSound.play(SystemSoundType.alert);
+      IosAlertHelper.playAlert();
       showOrderToast(
         isNew: true,
         orderNumber: data['orderNumber']?.toString(),
@@ -144,7 +143,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
     if (message.data['orderId'] != null) {
       final eventType = message.data['type']?.toString().toUpperCase();
       if (eventType == 'NEW_ORDER' || eventType == 'ORDER_NEW') {
-        SystemSound.play(SystemSoundType.alert);
+        IosAlertHelper.playAlert();
         showOrderToast(
           isNew: true,
           orderNumber: message.data['orderNumber']?.toString(),

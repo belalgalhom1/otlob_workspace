@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'driver_managers_screen.dart';
 import 'package:flutter/material.dart';
@@ -381,45 +380,19 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
   }
 
   Future<void> _callDriver(String? phone) async {
-    if (phone == null || phone.trim().isEmpty) return;
-    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-    if (digits.isEmpty) return;
-    final uri = Uri(scheme: 'tel', path: digits);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      }
-    } catch (_) {}
+    await ExternalActionLauncher.callPhone(
+      phone,
+      context: mounted ? context : null,
+    );
   }
 
   Future<void> _openInMaps(double lat, double lng, {String? label}) async {
-    if (lat == 0.0 || lng == 0.0) return;
-
-    final encodedLabel = Uri.encodeComponent(label ?? "Location");
-
-    // 1. Android geo URI with exact pin coordinates and label
-    final geoUri = Uri.parse("geo:$lat,$lng?q=$lat,$lng($encodedLabel)");
-
-    // 2. Exact dropped-pin Google Maps universal URL
-    final googleMapsUri = Uri.parse("https://www.google.com/maps?q=$lat,$lng&ll=$lat,$lng&z=17");
-
-    try {
-      if (await canLaunchUrl(geoUri)) {
-        final ok = await launchUrl(geoUri, mode: LaunchMode.externalNonBrowserApplication);
-        if (ok) return;
-      }
-    } catch (_) {}
-
-    try {
-      if (await canLaunchUrl(googleMapsUri)) {
-        final ok = await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
-        if (ok) return;
-      }
-    } catch (_) {}
-
-    try {
-      await launchUrl(googleMapsUri, mode: LaunchMode.platformDefault);
-    } catch (_) {}
+    await MapNavigationLauncher.launchLocation(
+      latitude: lat,
+      longitude: lng,
+      label: label,
+      context: mounted ? context : null,
+    );
   }
 
   @override

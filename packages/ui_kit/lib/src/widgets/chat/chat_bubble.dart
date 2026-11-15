@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../utils/external_action_launcher.dart';
+import '../../utils/voice_audio_helper.dart';
+import '../map/navigation_map_launcher.dart';
 
 class ChatBubbleWidget extends StatelessWidget {
   final bool isMe;
@@ -603,10 +605,11 @@ class ChatBubbleWidget extends StatelessWidget {
                 InkWell(
                   onTap: () async {
                     if (lat != null && lng != null) {
-                      final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                      }
+                      await MapNavigationLauncher.launchLocation(
+                        latitude: lat,
+                        longitude: lng,
+                        context: context,
+                      );
                     }
                   },
                   borderRadius: BorderRadius.circular(8),
@@ -983,12 +986,14 @@ class _WaveformAudioWidgetState extends State<WaveformAudioWidget> {
       await _player.pausePlayer();
       setState(() => _isPlaying = false);
     } else {
+      await VoiceAudioHelper.configureForPlayback();
       _currentlyPlayingUrl.value = widget.url;
       if (_player.isPaused) {
         await _player.resumePlayer();
       } else {
         await _player.startPlayer(
           fromURI: widget.url,
+          codec: VoiceAudioHelper.codecFromSource(widget.url),
           whenFinished: () {
             if (mounted) {
               setState(() {
@@ -1253,10 +1258,7 @@ class VideoPreviewWidget extends StatelessWidget {
             if (onVideoTap != null) {
               onVideoTap!(url);
             } else {
-              final uri = Uri.parse(url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
+              await ExternalActionLauncher.openWebUrl(url, context: context);
             }
           },
           child: Stack(

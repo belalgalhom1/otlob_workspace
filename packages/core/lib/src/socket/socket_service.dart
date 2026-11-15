@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../providers/core_providers.dart';
 import 'socket_events.dart';
 
 class CoreSocketService with WidgetsBindingObserver {
@@ -51,7 +51,7 @@ class CoreSocketService with WidgetsBindingObserver {
     // Check if token is expired or about to expire (5 min buffer)
     bool needsRefresh = await isTokenExpired();
     if (!needsRefresh) {
-      final token = await const FlutterSecureStorage().read(key: 'access_token');
+      final token = await appSecureStorage.read(key: 'access_token');
       if (token != null) {
         final remaining = JwtDecoder.getRemainingTime(token);
         if (remaining.inSeconds < 60) needsRefresh = true;
@@ -68,8 +68,7 @@ class CoreSocketService with WidgetsBindingObserver {
       }
     }
 
-    const storage = FlutterSecureStorage();
-    final token = forceToken ?? await storage.read(key: 'access_token');
+    final token = forceToken ?? await appSecureStorage.read(key: 'access_token');
     
     if (token == null) return;
 

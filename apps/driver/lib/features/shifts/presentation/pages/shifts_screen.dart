@@ -170,8 +170,11 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
         maxHeight: 1024,
         imageQuality: 80,
       );
-    } catch (_) {
+    } catch (e) {
       photo = null;
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
     }
     if (photo == null || !mounted) return;
 

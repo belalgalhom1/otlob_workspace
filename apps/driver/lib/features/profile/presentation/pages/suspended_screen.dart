@@ -10,7 +10,6 @@ import 'package:driver/features/wallet/presentation/widgets/top_up_bottom_sheet.
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:data/data.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SuspendedScreen extends ConsumerStatefulWidget {
   const SuspendedScreen({super.key});
@@ -299,12 +298,11 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
                 icon: const Icon(LucideIcons.helpCircle, size: 18),
                 label: Text(l10n.contactSupport),
                 onPressed: () async {
-                  final url = Uri.parse(
-                    'mailto:support@otlob-egy.online?subject=Account Suspended',
+                  await ExternalActionLauncher.sendEmail(
+                    'support@otlob-egy.online',
+                    subject: 'Account Suspended',
+                    context: context,
                   );
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url);
-                  }
                 },
               ),
               const SizedBox(height: 8),

@@ -8,7 +8,6 @@ import 'package:core/core.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:vendor/features/chat/presentation/widgets/add_product_in_chat_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' as dio;
@@ -101,22 +100,53 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _loadUserInfo();
     _setupSocket();
     _loadMessages();
-    _initRecorder();
     _loadTicketAndOrderDetails();
     _focusNode.addListener(_onFocusChange);
   }
 
-  Future<void> _initRecorder() async {
-    final status = await ph.Permission.microphone.request();
-    if (status != ph.PermissionStatus.granted) {
-      return;
+  Future<bool> _ensureRecorderInitialized() async {
+    if (_isRecorderInitialized && _recorder != null) {
+      return true;
     }
+
+    var status = await ph.Permission.microphone.status;
+    if (status != ph.PermissionStatus.granted) {
+      status = await ph.Permission.microphone.request();
+    }
+
+    if (status != ph.PermissionStatus.granted) {
+      if (mounted) {
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isAr
+                  ? 'مطلوب إذن الميكروفون لتسجيل الرسائل الصوتية'
+                  : 'Microphone permission is required to record voice messages',
+            ),
+            action: (status.isPermanentlyDenied || status.isRestricted)
+                ? SnackBarAction(
+                    label: isAr ? 'الإعدادات' : 'Settings',
+                    onPressed: ph.openAppSettings,
+                  )
+                : null,
+          ),
+        );
+      }
+      return false;
+    }
+
     _recorder = FlutterSoundRecorder();
     await _recorder!.openRecorder();
-    _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
-    setState(() {
+    await _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
+    if (mounted) {
+      setState(() {
+        _isRecorderInitialized = true;
+      });
+    } else {
       _isRecorderInitialized = true;
-    });
+    }
+    return true;
   }
 
   Future<void> _loadUserInfo() async {
@@ -1034,13 +1064,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           ),
                           if (driverPhone.isNotEmpty)
                             InkWell(
-                              onTap: () async {
-                                final Uri launchUri = Uri(
-                                  scheme: 'tel',
-                                  path: driverPhone,
-                                );
-                                await launchUrl(launchUri);
-                              },
+                              onTap: () => ExternalActionLauncher.callPhone(
+                                driverPhone,
+                                context: context,
+                              ),
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -1079,13 +1106,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           ),
                           if (customerPhone.isNotEmpty)
                             InkWell(
-                              onTap: () async {
-                                final Uri launchUri = Uri(
-                                  scheme: 'tel',
-                                  path: customerPhone,
-                                );
-                                await launchUrl(launchUri);
-                              },
+                              onTap: () => ExternalActionLauncher.callPhone(
+                                customerPhone,
+                                context: context,
+                              ),
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -1251,12 +1275,21 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   Future<void> _takePhotoDirectly() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 85,
-    );
+    XFile? pickedFile;
+    try {
+      pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: mounted ? context : null,
+      );
+      return;
+    }
     if (pickedFile == null || !mounted) return;
 
     final path = pickedFile.path;
@@ -1347,37 +1380,45 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     XFile? pickedFile;
     bool isVideo = false;
 
-    switch (option) {
-      case ChatMediaPickerOption.cameraPhoto:
-        pickedFile = await picker.pickImage(
-          source: ImageSource.camera,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 85,
-        );
-        break;
-      case ChatMediaPickerOption.galleryPhoto:
-        pickedFile = await picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 85,
-        );
-        break;
-      case ChatMediaPickerOption.cameraVideo:
-        pickedFile = await picker.pickVideo(
-          source: ImageSource.camera,
-          maxDuration: const Duration(minutes: 2),
-        );
-        isVideo = true;
-        break;
-      case ChatMediaPickerOption.galleryVideo:
-        pickedFile = await picker.pickVideo(
-          source: ImageSource.gallery,
-          maxDuration: const Duration(minutes: 5),
-        );
-        isVideo = true;
-        break;
+    try {
+      switch (option) {
+        case ChatMediaPickerOption.cameraPhoto:
+          pickedFile = await picker.pickImage(
+            source: ImageSource.camera,
+            maxWidth: 1600,
+            maxHeight: 1600,
+            imageQuality: 85,
+          );
+          break;
+        case ChatMediaPickerOption.galleryPhoto:
+          pickedFile = await picker.pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 1600,
+            maxHeight: 1600,
+            imageQuality: 85,
+          );
+          break;
+        case ChatMediaPickerOption.cameraVideo:
+          pickedFile = await picker.pickVideo(
+            source: ImageSource.camera,
+            maxDuration: const Duration(minutes: 2),
+          );
+          isVideo = true;
+          break;
+        case ChatMediaPickerOption.galleryVideo:
+          pickedFile = await picker.pickVideo(
+            source: ImageSource.gallery,
+            maxDuration: const Duration(minutes: 5),
+          );
+          isVideo = true;
+          break;
+      }
+    } catch (e) {
+      MediaPermissionHelper.handlePickerError(
+        e,
+        context: mounted ? context : null,
+      );
+      return;
     }
 
     if (pickedFile == null || !mounted) return;
@@ -1464,11 +1505,15 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   }
 
   Future<void> _startRecording() async {
-    if (!_isRecorderInitialized) return;
+    final ready = await _ensureRecorderInitialized();
+    if (!ready || !mounted) return;
+    await VoiceAudioHelper.configureForRecording();
     final tempDir = await getTemporaryDirectory();
-    _recordingPath =
-        '${tempDir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.aac';
-    await _recorder!.startRecorder(toFile: _recordingPath);
+    _recordingPath = VoiceAudioHelper.buildRecordingPath(tempDir.path);
+    await _recorder!.startRecorder(
+      toFile: _recordingPath,
+      codec: VoiceAudioHelper.recordingCodec,
+    );
     _recordingSubscription = _recorder!.onProgress!.listen((e) {
       if (mounted) {
         setState(() {
@@ -1922,13 +1967,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           if (widget.phoneNumber != null && widget.phoneNumber!.isNotEmpty)
             IconButton(
               icon: const Icon(LucideIcons.phone, size: 20),
-              onPressed: () async {
-                final Uri launchUri = Uri(
-                  scheme: 'tel',
-                  path: widget.phoneNumber,
-                );
-                await launchUrl(launchUri);
-              },
+              onPressed: () => ExternalActionLauncher.callPhone(
+                widget.phoneNumber,
+                context: context,
+              ),
             ),
           if (widget.type == 'SUPPORT') ...[
             IconButton(
@@ -2860,14 +2902,11 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             ),
             const SizedBox(height: 8),
             InkWell(
-              onTap: () async {
-                final uri = Uri.parse(
-                  'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-                );
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
+              onTap: () => MapNavigationLauncher.launchLocation(
+                latitude: lat!,
+                longitude: lng!,
+                context: context,
+              ),
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
