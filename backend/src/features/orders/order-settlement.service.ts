@@ -11,6 +11,11 @@ import {
 import { OrderSettledEvent, DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
+import {
+  allocateDriverBonus,
+  allocateOrderCashCollection,
+  computeIsMultiVendorOrder,
+} from '../../common/orders/order-financials.helper';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QUEUES, STATS_JOBS } from '../../infrastructure/queue/queues.constants';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -342,7 +347,10 @@ export class OrderSettlementService {
 
     const primaryPayouts: DriverPayout[] = [];
     const assistPayouts: DriverPayout[] = [];
-    const isMultiVendorOrder = groups.length > 1 || portions.length > 1;
+    const isMultiVendorOrder = computeIsMultiVendorOrder({
+      activeGroupsCount: groups.length,
+      activeFulfillmentsCount: portions.length,
+    });
 
     if (groups.length > 0) {
       const primaryIds = Array.from(
@@ -623,23 +631,22 @@ export class OrderSettlementService {
       await this.applyManagerPayouts(client, payload, plan.managerPayouts);
 
       if (payload.driverBonusFee > 0) {
-        const collectorGroup =
-          plan.groups.find((g) => g.isPaymentCollector === true) ??
-          plan.groups[0];
-        const bonusDriverId = collectorGroup?.primaryDriverId ?? payload.driverId;
-        const bonusShiftId = collectorGroup
-          ? (collectorGroup.primaryDriverShiftId ?? null)
-          : payload.driverShiftId;
-        if (bonusDriverId) {
+        const bonusAllocations = allocateDriverBonus({
+          driverBonusFee: payload.driverBonusFee,
+          groups: plan.groups,
+          fallbackDriverId: payload.driverId,
+          fallbackDriverShiftId: payload.driverShiftId,
+        });
+        for (const bonus of bonusAllocations) {
           await this.creditDriverWallet(
             client,
-            bonusDriverId,
-            payload.driverBonusFee,
+            bonus.driverId,
+            bonus.amount,
             orderId,
-            bonusShiftId,
+            bonus.driverShiftId,
             `Time-based bonus for order ${orderNumber}`,
             'BONUS',
-            { skipLock: true, deliveryGroupId: collectorGroup?.id ?? null },
+            { skipLock: true, deliveryGroupId: bonus.deliveryGroupId },
           );
         }
       }
@@ -794,6 +801,7 @@ export class OrderSettlementService {
       driverId,
       driverShiftId,
       grandTotal,
+      upfrontAmount,
       subtotal,
       deliveryFee,
       serviceFee,
@@ -809,6 +817,7 @@ export class OrderSettlementService {
         {
           groups: plan.groups,
           grandTotal,
+          upfrontAmount,
           subtotal,
           deliveryFee,
           serviceFee,
@@ -1426,6 +1435,7 @@ export class OrderSettlementService {
     params: {
       groups: DeliveredGroupRow[];
       grandTotal: number;
+      upfrontAmount: number;
       subtotal: number;
       deliveryFee: number;
       serviceFee: number;
@@ -1470,43 +1480,13 @@ export class OrderSettlementService {
       );
     }
 
-    const extras =
-      params.serviceFee + params.tax + params.driverBonusFee - params.discount;
-    const totalGross =
-      params.grandTotal > 0
-        ? params.grandTotal
-        : Math.max(0, params.subtotal + params.deliveryFee + extras);
-
-    const collectorGroup =
-      params.groups.find((g) => g.isPaymentCollector === true) ??
-      [...params.groups].sort((a, b) => a.sequence - b.sequence)[0];
-
-    if (params.paymentMethod === 'MOBILE_WALLET') {
-      if (!collectorGroup?.primaryDriverId || totalGross <= 0) return [];
-      return [
-        {
-          driverId: collectorGroup.primaryDriverId,
-          driverShiftId: collectorGroup.primaryDriverShiftId,
-          deliveryGroupId: collectorGroup.id,
-          amount: totalGross,
-        },
-      ];
-    }
-
-    let nonCollectorSum = 0;
-    const groupGrossById = new Map<string, number>();
-    for (const g of params.groups) {
-      if (collectorGroup && g.id === collectorGroup.id) continue;
-      const gGross = Math.max(0, (goodsByGroup.get(g.id) ?? 0) + g.deliveryFee);
-      groupGrossById.set(g.id, gGross);
-      nonCollectorSum += gGross;
-    }
-    if (collectorGroup) {
-      groupGrossById.set(
-        collectorGroup.id,
-        Math.max(0, totalGross - nonCollectorSum),
-      );
-    }
+    const { allocations } = allocateOrderCashCollection({
+      groups: params.groups,
+      goodsByGroup,
+      grandTotal: params.grandTotal,
+      upfrontAmount: params.upfrontAmount,
+      paymentMethod: params.paymentMethod,
+    });
 
     const byDriver = new Map<
       string,
@@ -1519,7 +1499,7 @@ export class OrderSettlementService {
     >();
     for (const g of params.groups) {
       if (!g.primaryDriverId) continue;
-      const gross = groupGrossById.get(g.id) ?? 0;
+      const gross = allocations.get(g.id)?.totalCollectedByDriver ?? 0;
       if (gross === 0) continue;
 
       const existing = byDriver.get(g.primaryDriverId);

@@ -119,21 +119,23 @@ export class ReviewsService {
       if (deliveredFulfillments.length === 0) {
         throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
       }
-      const target = deliveredFulfillments.find(
+      const targets = deliveredFulfillments.filter(
         (f) => !existingFulfillmentIds.has(f.id),
       );
-      if (!target) {
+      if (targets.length === 0) {
         throw new BadRequestException(ReviewErrors.ALREADY_RATED);
       }
-      rowsToCreate.push({
-        orderId,
-        customerId: customer.id,
-        targetType: ReviewTargetType.VENDOR_FULFILLMENT,
-        fulfillmentId: target.id,
-        vendorId: target.vendorId,
-        rating: dto.vendorRating,
-        comment: dto.comment,
-      });
+      for (const target of targets) {
+        rowsToCreate.push({
+          orderId,
+          customerId: customer.id,
+          targetType: ReviewTargetType.VENDOR_FULFILLMENT,
+          fulfillmentId: target.id,
+          vendorId: target.vendorId,
+          rating: dto.vendorRating,
+          comment: dto.comment,
+        });
+      }
     }
 
     if (dto.deliveryGroupRatings?.length) {
@@ -162,19 +164,23 @@ export class ReviewsService {
       if (deliveredGroups.length === 0) {
         throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
       }
-      const target = deliveredGroups.find((g) => !existingGroupIds.has(g.id));
-      if (!target || !target.primaryDriverId) {
+      const targets = deliveredGroups.filter(
+        (g) => !existingGroupIds.has(g.id) && Boolean(g.primaryDriverId),
+      );
+      if (targets.length === 0) {
         throw new BadRequestException(ReviewErrors.ALREADY_RATED);
       }
-      rowsToCreate.push({
-        orderId,
-        customerId: customer.id,
-        targetType: ReviewTargetType.DELIVERY_GROUP,
-        deliveryGroupId: target.id,
-        driverId: target.primaryDriverId,
-        rating: dto.driverRating,
-        comment: dto.comment,
-      });
+      for (const target of targets) {
+        rowsToCreate.push({
+          orderId,
+          customerId: customer.id,
+          targetType: ReviewTargetType.DELIVERY_GROUP,
+          deliveryGroupId: target.id,
+          driverId: target.primaryDriverId!,
+          rating: dto.driverRating,
+          comment: dto.comment,
+        });
+      }
     }
 
     if (rowsToCreate.length === 0) {

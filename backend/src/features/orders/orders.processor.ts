@@ -415,68 +415,68 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       take: 100, // Chunked for scalability
     });
 
-    if (stuckOrders.length === 0) return { count: 0 };
-
-    this.logger.warn(
-      `Found ${stuckOrders.length} stuck orders. Re-queueing dispatch...`,
-    );
-
     let recovered = 0;
-    for (const order of stuckOrders) {
-      // A grouped order has per-delivery state; re-queue one DISPATCH per
-      // dispatchable group using the GROUP-scoped state key. Falling back to a
-      // single order-level job would reset the attempt counter and re-broadcast
-      // the wrong (order-total) fee for a delivery-grouped order.
-      const groups = await this.prisma.orderDeliveryGroup.findMany({
-        where: {
-          orderId: order.id,
-          status: {
-            in: [
-              DeliveryGroupStatus.PENDING,
-              DeliveryGroupStatus.ACCEPTED,
-              DeliveryGroupStatus.LOOKING_FOR_DRIVER,
-              DeliveryGroupStatus.PREPARING,
-              DeliveryGroupStatus.READY_FOR_PICKUP,
-            ],
-          },
-          primaryDriverId: null,
-        },
-        select: { id: true },
-      });
-
-      if (groups.length > 0) {
-        for (const group of groups) {
-          await this.dispatchRepository.clearStaleDispatchClaim(group.id);
-          const state = await this.dispatchRepository.readDispatchState(group.id);
-          await this.dispatchQueue.add(
-            ORDER_JOBS.DISPATCH,
-            {
-              orderId: order.id,
-              orderNumber: order.orderNumber,
-              attempt: state.attempt,
-              excludeDriverIds: state.excludeDriverIds,
-              deliveryGroupId: group.id,
-            },
-            { removeOnComplete: true, removeOnFail: 100 },
-          );
-          recovered++;
-        }
-        continue;
-      }
-
-      await this.dispatchRepository.clearStaleDispatchClaim(order.id);
-      const state = await this.dispatchRepository.readDispatchState(order.id);
-      await this.dispatchQueue.add(
-        ORDER_JOBS.DISPATCH,
-        {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          attempt: state.attempt,
-          excludeDriverIds: state.excludeDriverIds,
-        },
-        { removeOnComplete: true, removeOnFail: 100 },
+    if (stuckOrders.length > 0) {
+      this.logger.warn(
+        `Found ${stuckOrders.length} stuck orders. Re-queueing dispatch...`,
       );
-      recovered++;
+
+      for (const order of stuckOrders) {
+        // A grouped order has per-delivery state; re-queue one DISPATCH per
+        // dispatchable group using the GROUP-scoped state key. Falling back to a
+        // single order-level job would reset the attempt counter and re-broadcast
+        // the wrong (order-total) fee for a delivery-grouped order.
+        const groups = await this.prisma.orderDeliveryGroup.findMany({
+          where: {
+            orderId: order.id,
+            status: {
+              in: [
+                DeliveryGroupStatus.PENDING,
+                DeliveryGroupStatus.ACCEPTED,
+                DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                DeliveryGroupStatus.PREPARING,
+                DeliveryGroupStatus.READY_FOR_PICKUP,
+              ],
+            },
+            primaryDriverId: null,
+          },
+          select: { id: true },
+        });
+
+        if (groups.length > 0) {
+          for (const group of groups) {
+            await this.dispatchRepository.clearStaleDispatchClaim(group.id);
+            const state = await this.dispatchRepository.readDispatchState(group.id);
+            await this.dispatchQueue.add(
+              ORDER_JOBS.DISPATCH,
+              {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                attempt: state.attempt,
+                excludeDriverIds: state.excludeDriverIds,
+                deliveryGroupId: group.id,
+              },
+              { removeOnComplete: true, removeOnFail: 100 },
+            );
+            recovered++;
+          }
+          continue;
+        }
+
+        await this.dispatchRepository.clearStaleDispatchClaim(order.id);
+        const state = await this.dispatchRepository.readDispatchState(order.id);
+        await this.dispatchQueue.add(
+          ORDER_JOBS.DISPATCH,
+          {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            attempt: state.attempt,
+            excludeDriverIds: state.excludeDriverIds,
+          },
+          { removeOnComplete: true, removeOnFail: 100 },
+        );
+        recovered++;
+      }
     }
 
     const settings = await this.platformSettings.getSettings();
@@ -488,6 +488,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     const stuckPaymentOrders = await this.prisma.order.findMany({
       where: {
         updatedAt: { lt: paymentCutoff },
+        paymentStatus: 'PENDING',
         status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         OR: [
           { status: OrderStatus.PENDING_PAYMENT },

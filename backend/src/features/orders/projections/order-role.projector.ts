@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { OrderEarningsCalculator } from '../../../common/orders/order-earnings.calculator';
+import {
+  allocateOrderCashCollection,
+  computeIsMultiVendorOrder,
+} from '../../../common/orders/order-financials.helper';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
 import { OrderAuthorizationHelper } from '../helpers/order-authorization.helper';
@@ -270,7 +274,11 @@ export class OrderRoleProjector {
           projectedIsStacked = scopedGroups.some((g: any) =>
             Boolean(g.isStacked),
           );
-          const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
+          const isMultiVendor = computeIsMultiVendorOrder({
+            orderIsMultiVendor: order.isMultiVendor,
+            activeGroupsCount: activeDeliveryGroups.length,
+            activeFulfillmentsCount: activeFulfillments.length,
+          });
           customDriverEarnings = scopedGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
             if (
@@ -433,11 +441,24 @@ export class OrderRoleProjector {
             projectedUpfrontAmount = isCollectorGroup ? upfrontAmount : 0;
             if (isAssistDriver || isOrderSettledPrepaid) {
               cashToCollect = 0;
-            } else if (order.paymentMethod === 'MOBILE_WALLET') {
-              cashToCollect = isCollectorGroup
-                ? Math.max(0, grandTotal - upfrontAmount)
-                : 0;
             } else {
+              const subtotalByFulfillmentId = new Map<string, number>();
+              for (const f of activeFulfillments) {
+                if (f?.id) {
+                  subtotalByFulfillmentId.set(f.id, Number(f.subtotal ?? 0));
+                }
+              }
+              const goodsByGroup = new Map<string, number>();
+              for (const g of activeDeliveryGroups) {
+                let gGoods = 0;
+                const gItems = Array.isArray(g.items) ? g.items : [];
+                for (const it of gItems) {
+                  if (it?.fulfillmentId) {
+                    gGoods += subtotalByFulfillmentId.get(it.fulfillmentId) ?? 0;
+                  }
+                }
+                goodsByGroup.set(g.id, gGoods);
+              }
               const allActiveGoodsTotal = activeFulfillments.reduce(
                 (sum: number, f: any) => sum + Number(f.subtotal ?? 0),
                 0,
@@ -447,19 +468,33 @@ export class OrderRoleProjector {
                   sum + (g.deliveryFee != null ? Number(g.deliveryFee) : 0),
                 0,
               );
-              const rawExtras =
-                grandTotal > 0
-                  ? grandTotal - allActiveGoodsTotal - allActiveFeesTotal
-                  : Number(order.serviceFee ?? 0) +
-                    Number(order.tax ?? 0) +
-                    Number(order.driverBonusFee ?? 0) -
-                    Number(order.discount ?? 0);
-              const orderLevelExtras = isCollectorGroup
-                ? rawExtras - upfrontAmount
+              const customerBonusFee = settings?.driverBonusPaidByCustomer
+                ? Number(order.driverBonusFee ?? 0)
                 : 0;
-              cashToCollect = Math.max(
+              const effectiveOrderTotal =
+                order.grandTotal != null
+                  ? grandTotal
+                  : Math.max(
+                      0,
+                      allActiveGoodsTotal +
+                        allActiveFeesTotal +
+                        Number(order.serviceFee ?? 0) +
+                        Number(order.tax ?? 0) +
+                        customerBonusFee -
+                        Number(order.discount ?? 0),
+                    );
+              const { allocations } = allocateOrderCashCollection({
+                groups: activeDeliveryGroups,
+                goodsByGroup,
+                grandTotal: effectiveOrderTotal,
+                upfrontAmount,
+                paymentMethod: order.paymentMethod,
+                isOrderSettledPrepaid,
+              });
+              cashToCollect = scopedGroups.reduce(
+                (sum: number, g: any) =>
+                  sum + (allocations.get(g.id)?.doorCashToCollect ?? 0),
                 0,
-                groupSubtotal + deliveryFee + orderLevelExtras,
               );
             }
 
@@ -494,7 +529,11 @@ export class OrderRoleProjector {
       myDriver?.id && primaryCollectorId === myDriver.id,
     );
 
-    const isMultiVendor = Boolean(activeDeliveryGroups.length > 1);
+    const isMultiVendor = computeIsMultiVendorOrder({
+      orderIsMultiVendor: order.isMultiVendor,
+      activeGroupsCount: activeDeliveryGroups.length,
+      activeFulfillmentsCount: activeFulfillments.length,
+    });
     const driverEarnings =
       customDriverEarnings ??
       this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
@@ -621,6 +660,7 @@ export class OrderRoleProjector {
 
     let portionStatus: string | null = null;
     let myFulfillmentId: string | null = null;
+    let sortedVendorFulfillments: any[] = [];
 
     if (fulfillments.length > 0 && vendorId) {
       const vendorFulfillments = fulfillments.filter(
@@ -640,12 +680,12 @@ export class OrderRoleProjector {
         CANCELLED: 7,
         REJECTED: 7,
       };
-      const sortedFulfillments = [...vendorFulfillments].sort(
+      sortedVendorFulfillments = [...vendorFulfillments].sort(
         (a: any, b: any) =>
           (statusRank[String(a.status)] ?? 99) -
           (statusRank[String(b.status)] ?? 99),
       );
-      const myFulfillment = sortedFulfillments[0];
+      const myFulfillment = sortedVendorFulfillments[0];
       if (myFulfillment) {
         myFulfillmentId = myFulfillment.id ?? null;
 
@@ -819,11 +859,37 @@ export class OrderRoleProjector {
           f.vendorBranchId === memberBranchId),
     );
     const primaryFulfillment =
+      sortedVendorFulfillments[0] ??
       myFulfillmentOnly[0] ??
       fulfillments.find((f: any) => f.vendorId === vendorId);
 
+    const myVendorFulfillmentIds = new Set(
+      myFulfillmentOnly.map((f: any) => f.id).filter(Boolean),
+    );
+    const activeGroupsCount = (
+      Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
+    ).filter((g: any) => g.status !== 'CANCELLED').length;
+    const isOrderMultiVendor = computeIsMultiVendorOrder({
+      orderIsMultiVendor: order.isMultiVendor,
+      activeGroupsCount,
+      activeFulfillmentsCount: fulfillments.length,
+    });
+    const scopedStatusEvents = Array.isArray(order.statusEvents)
+      ? order.statusEvents.filter((ev: any) => {
+          if (ev.fulfillmentId) {
+            return myVendorFulfillmentIds.has(ev.fulfillmentId);
+          }
+          if (isOrderMultiVendor) {
+            // Keep multi-vendor vendor feeds isolated from other stores' notes/cancellations.
+            return ev.status === 'PENDING' && !ev.deliveryGroupId;
+          }
+          return true;
+        })
+      : order.statusEvents;
+
     return {
       ...order,
+      statusEvents: scopedStatusEvents,
       vendorId: vendorId ?? primaryFulfillment?.vendorId ?? null,
       vendorBranchId: primaryFulfillment?.vendorBranchId ?? null,
       status: portionStatus ?? order.status,
@@ -1038,9 +1104,11 @@ export class OrderRoleProjector {
     const settings =
       prefetchedSettings ?? (await this.platformSettings.getSettings());
     const deliveryFee = Number(order.deliveryFee ?? 0);
-    const isMultiVendor = Boolean(
-      activeDeliveryGroups.length > 1 || activeFulfillmentsCount > 1,
-    );
+    const isMultiVendor = computeIsMultiVendorOrder({
+      orderIsMultiVendor: order.isMultiVendor,
+      activeGroupsCount: activeDeliveryGroups.length,
+      activeFulfillmentsCount,
+    });
     const driverEarnings =
       activeDeliveryGroups.length > 0
         ? activeDeliveryGroups.reduce((sum: number, g: any) => {

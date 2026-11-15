@@ -45,20 +45,14 @@ export class OrderEventsHandler {
       })) ?? [];
 
     const distinctVendors = new Set(fulfillments.map((f) => f.vendorId));
-    const isMultiVendor = distinctVendors.size > 1;
+    const isMultiPortionOrVendor =
+      distinctVendors.size > 1 || fulfillments.length > 1;
 
-    // Resolve each user's visible order total (portion sum in multi-vendor, full grandTotal in single-vendor)
+    // Resolve each user's visible order total (sum of their eligible fulfillments in
+    // multi-vendor or multi-branch split orders; full grandTotal for single-portion orders).
     const vendorTotalByUserId = new Map<string, number>();
 
     if (fulfillments.length > 0) {
-      const vendorSubtotals = new Map<string, number>();
-      for (const f of fulfillments) {
-        vendorSubtotals.set(
-          f.vendorId,
-          (vendorSubtotals.get(f.vendorId) ?? 0) + Number(f.subtotal ?? 0),
-        );
-      }
-
       const orClauses = fulfillments.map((f) => ({
         vendorId: f.vendorId,
         ...(f.vendorBranchId
@@ -73,18 +67,33 @@ export class OrderEventsHandler {
       }));
       const members = await this.prisma.vendorMember.findMany({
         where: { OR: orClauses },
-        select: { userId: true, vendorId: true },
+        select: { userId: true, vendorId: true, role: true, branchId: true },
       });
 
       for (const m of members) {
-        const prev = vendorTotalByUserId.get(m.userId) ?? 0;
-        if (isMultiVendor) {
+        const matchingFulfillments = fulfillments.filter(
+          (f) =>
+            f.vendorId === m.vendorId &&
+            (!f.vendorBranchId ||
+              m.role === 'OWNER' ||
+              !m.branchId ||
+              m.branchId === f.vendorBranchId),
+        );
+        if (matchingFulfillments.length === 0) continue;
+
+        const eligibleSubtotal = matchingFulfillments.reduce(
+          (sum, f) => sum + Number(f.subtotal ?? 0),
+          0,
+        );
+
+        if (isMultiPortionOrVendor) {
+          const prev = vendorTotalByUserId.get(m.userId) ?? 0;
           vendorTotalByUserId.set(
             m.userId,
-            Number((vendorSubtotals.get(m.vendorId) ?? 0).toFixed(2)),
+            Number((prev + eligibleSubtotal).toFixed(2)),
           );
         } else {
-          vendorTotalByUserId.set(m.userId, prev || event.grandTotal);
+          vendorTotalByUserId.set(m.userId, event.grandTotal);
         }
       }
     }
@@ -348,6 +357,15 @@ export class OrderEventsHandler {
   }
 
   private async syncOrderConversationLifecycle(event: OrderStatusChangedEvent) {
+    const activeChatSyncStatuses: OrderStatus[] = [
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PENDING_PAYMENT,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.PARTIALLY_PICKED_UP,
+      OrderStatus.PICKED_UP,
+    ];
+
     if (
       event.newStatus === OrderStatus.ACCEPTED ||
       event.newStatus === OrderStatus.LOOKING_FOR_DRIVER
@@ -369,10 +387,7 @@ export class OrderEventsHandler {
       }
     }
 
-    if (
-      event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-      event.newStatus === OrderStatus.PENDING_PAYMENT
-    ) {
+    if (activeChatSyncStatuses.includes(event.newStatus)) {
       const order = await this.prisma.order.findUnique({
         where: { id: event.orderId },
         select: { type: true },
@@ -385,7 +400,14 @@ export class OrderEventsHandler {
             event.driverUserId,
           );
         }
-      } else if (order?.type === 'RIDE' || order?.type === 'CUSTOM_DELIVERY') {
+        await this.conversationsService.syncOrderDriverParticipants(
+          event.orderId,
+        );
+      } else if (
+        (order?.type === 'RIDE' || order?.type === 'CUSTOM_DELIVERY') &&
+        (event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
+          event.newStatus === OrderStatus.PENDING_PAYMENT)
+      ) {
         await this.conversationsService.createSystemOrderConversation(
           event.orderId,
         );

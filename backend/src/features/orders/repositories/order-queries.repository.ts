@@ -3,10 +3,16 @@ import { DeliveryGroupStatus, OrderStatus, Prisma } from '@prisma/client';
 import { OrderErrors } from '../../../common/constants/response.constants';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 
+export interface VendorOrderScope {
+  vendorId: string;
+  branchId?: string | null;
+}
+
 export interface OrderFilters {
   status?: OrderStatus;
   vendorId?: string;
   branchId?: string;
+  vendorScopes?: VendorOrderScope[];
   customerId?: string;
   driverId?: string;
   driverIds?: string[];
@@ -326,6 +332,16 @@ export class OrderQueriesRepository {
     if (filters.customerId) where.customerId = filters.customerId;
 
     const and: Prisma.OrderWhereInput[] = [];
+    const buildVendorScopeCondition = (
+      scope: VendorOrderScope,
+      status?: OrderStatus,
+    ): Prisma.OrderVendorFulfillmentWhereInput => ({
+      vendorId: scope.vendorId,
+      ...(scope.branchId
+        ? { OR: [{ vendorBranchId: scope.branchId }, { vendorBranchId: null }] }
+        : {}),
+      ...(status ? portionStatusFilter(status) : {}),
+    });
     const fulfillmentBranchClause: Prisma.OrderVendorFulfillmentWhereInput =
       filters.branchId
         ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
@@ -357,15 +373,27 @@ export class OrderQueriesRepository {
         ? (filters.status as unknown as DeliveryGroupStatus)
         : undefined;
 
+    const hasVendorScopes =
+      Array.isArray(filters.vendorScopes) && filters.vendorScopes.length > 0;
+
     if (filters.status) {
-      if (filters.vendorId) {
+      if (hasVendorScopes) {
         and.push({
           vendorFulfillments: {
             some: {
-              vendorId: filters.vendorId,
-              ...fulfillmentBranchClause,
-              ...portionStatusFilter(filters.status),
+              OR: filters.vendorScopes!.map((s) =>
+                buildVendorScopeCondition(s, filters.status),
+              ),
             },
+          },
+        });
+      } else if (filters.vendorId) {
+        and.push({
+          vendorFulfillments: {
+            some: buildVendorScopeCondition(
+              { vendorId: filters.vendorId, branchId: filters.branchId },
+              filters.status,
+            ),
           },
         });
       } else if (!driverStatusFilter) {
@@ -373,13 +401,21 @@ export class OrderQueriesRepository {
       }
     }
 
-    if (filters.vendorId) {
+    if (hasVendorScopes) {
       and.push({
         vendorFulfillments: {
           some: {
-            vendorId: filters.vendorId,
-            ...fulfillmentBranchClause,
+            OR: filters.vendorScopes!.map((s) => buildVendorScopeCondition(s)),
           },
+        },
+      });
+    } else if (filters.vendorId) {
+      and.push({
+        vendorFulfillments: {
+          some: buildVendorScopeCondition({
+            vendorId: filters.vendorId,
+            branchId: filters.branchId,
+          }),
         },
       });
     } else if (filters.branchId) {
@@ -420,6 +456,10 @@ export class OrderQueriesRepository {
           },
           vendorFulfillments: ORDER_VENDOR_FULFILLMENTS_INCLUDE,
           deliveryGroups: ORDER_DELIVERY_GROUPS_INCLUDE,
+          statusEvents: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          },
           items: {
             include: ORDER_ITEMS_INCLUDE,
           },

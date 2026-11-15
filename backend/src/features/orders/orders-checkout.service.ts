@@ -73,6 +73,9 @@ export class OrdersCheckoutService {
         actor.sub,
       );
       if (existing) {
+        this.logger.log(
+          `Order checkout idempotent replay: ${existing.orderNumber ?? existing.id} by user ${actor.sub}`,
+        );
         return existing;
       }
     }
@@ -239,6 +242,7 @@ export class OrdersCheckoutService {
       deliveryFee: money.deliveryFee,
       serviceFee: money.serviceFee,
       driverBonusFee: money.driverBonusFee,
+      driverBonusPaidByCustomer: money.driverBonusPaidByCustomer,
       tax: money.tax,
       coinsUsed: money.coinsUsed,
       discount: money.discount,
@@ -263,6 +267,7 @@ export class OrdersCheckoutService {
       deliveryFee: money.deliveryFee,
       serviceFee: money.serviceFee,
       driverBonusFee: money.driverBonusFee,
+      driverBonusPaidByCustomer: money.driverBonusPaidByCustomer,
       tax: money.tax,
       coinsUsed: money.coinsUsed,
       discount: money.discount,
@@ -632,6 +637,9 @@ export class OrdersCheckoutService {
         actor.sub,
       );
       if (existing) {
+        this.logger.log(
+          `Order checkout idempotent replay: ${existing.orderNumber ?? existing.id} by user ${actor.sub}`,
+        );
         return existing;
       }
     }
@@ -886,6 +894,7 @@ export class OrdersCheckoutService {
       orderNumber,
       clientOrderKey,
       customerId: customer.id,
+      customerUserId: customer.userId,
       vendorId: dto.vendorId,
       vendorBranchId: branch.id,
       zoneId: zone?.id ?? branch.zoneId ?? null,
@@ -1007,6 +1016,10 @@ export class OrdersCheckoutService {
           'Order created by Vendor/Admin directly from chat',
           accepted.revision,
         ),
+      );
+
+      this.logger.log(
+        `Direct order placed: ${orderData.orderNumber} by user ${actor.sub} for customer ${customer.id}`,
       );
     }
 

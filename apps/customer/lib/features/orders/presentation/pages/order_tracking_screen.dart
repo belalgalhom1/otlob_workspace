@@ -1828,6 +1828,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                   ],
                   if (_orderDetails != null) ...[
                     ..._buildAssignedDriversSection(s, isDark),
+                    _buildOrderActivityHistoryCard(s, isDark),
                   ],
                   SizedBox(
                     width: double.infinity,
@@ -2155,6 +2156,135 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       ),
     ),
   ],
+      ),
+    );
+  }
+
+  Widget _buildOrderActivityHistoryCard(AppStrings s, bool isDark) {
+    final rawEvents = _orderDetails?['statusEvents'];
+    if (rawEvents is! List || rawEvents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final events = rawEvents.whereType<Map>().toList();
+    if (events.isEmpty) return const SizedBox.shrink();
+
+    final mutedColor = isDark ? Colors.white60 : Colors.black54;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.history_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                s.isArabic ? 'تحديثات الطلب' : 'Order Updates',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...List.generate(events.length, (index) {
+            final ev = events[index];
+            final evStatus = ev['status']?.toString() ?? '';
+            final evNote = ev['note']?.toString().trim() ?? '';
+            final dt = DateTime.tryParse(ev['createdAt']?.toString() ?? '')
+                ?.toLocal();
+            final timeStr = dt != null
+                ? '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} · ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+                : '';
+            final isLatest = index == 0;
+            final isLast = index == events.length - 1;
+            final dotColor = evStatus == 'CANCELLED' || evStatus == 'REJECTED'
+                ? Colors.redAccent
+                : (isLatest
+                    ? AppColors.primary
+                    : (isDark ? Colors.white38 : Colors.black38));
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: dotColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _getDisplayStatus(evStatus, s.isArabic),
+                                style: TextStyle(
+                                  fontWeight: isLatest
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            if (timeStr.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                timeStr,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: mutedColor,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (evNote.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            evNote,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              color: mutedColor,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

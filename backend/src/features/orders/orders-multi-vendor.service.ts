@@ -145,6 +145,7 @@ export class OrdersMultiVendorService {
       deliveryFee: plan.deliveryFee,
       serviceFee: plan.serviceFee,
       driverBonusFee: plan.driverBonusFee,
+      driverBonusPaidByCustomer: Boolean(plan.driverBonusPaidByCustomer),
       tax: plan.tax,
       coinsUsed: plan.coinsUsed,
       discount: plan.discount,
@@ -227,6 +228,9 @@ export class OrdersMultiVendorService {
         actor.sub,
       );
       if (existing) {
+        this.logger.log(
+          `Multi-vendor order checkout idempotent replay: ${existing.orderNumber ?? existing.id} by user ${actor.sub}`,
+        );
         return existing;
       }
     }
@@ -359,6 +363,9 @@ export class OrdersMultiVendorService {
           }
           // A concurrent duplicate won the race: return the row that exists
           // rather than the id we generated but never inserted.
+          this.logger.log(
+            `Multi-vendor order concurrent idempotent replay: ${inserted?.orderNumber ?? inserted?.id ?? orderId} by user ${actor.sub}`,
+          );
           return {
             id: inserted?.id ?? orderId,
             orderNumber: inserted?.orderNumber ?? orderNumber,
@@ -526,6 +533,7 @@ export class OrdersMultiVendorService {
           orderId,
           orderNumber,
           customerId: plan.customerId,
+          customerUserId: actor.sub,
           actorUserId: actor.sub,
           vendorId: singleVendorId,
           vendorIds,

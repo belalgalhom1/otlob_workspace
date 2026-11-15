@@ -253,14 +253,19 @@ export class OrdersStateService {
         dto.status === OrderStatus.READY_FOR_PICKUP
       ) {
         let lastResult: any = null;
+        let currentOrder: any = order;
         const eligible = targetFulfillments.filter(
           (f: any) => f.status === 'ACCEPTED' || f.status === 'PREPARING',
         );
-        for (const f of eligible) {
+        for (let i = 0; i < eligible.length; i++) {
+          const f = eligible[i];
+          if (i > 0) {
+            currentOrder = await this.ordersRepository.findById(orderId);
+          }
           lastResult =
             await this.fulfillmentTransition.applyFulfillmentProductionTransition(
               actor,
-              order,
+              currentOrder,
               f,
               dto,
             );
@@ -520,6 +525,7 @@ export class OrdersStateService {
       OrderStatus.READY_FOR_PICKUP,
       OrderStatus.LOOKING_FOR_DRIVER,
       OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PENDING_PAYMENT,
       OrderStatus.PARTIALLY_PICKED_UP,
     ];
     if (!assignableStatuses.includes(order.status)) {
@@ -649,13 +655,14 @@ export class OrdersStateService {
     const customerUser = (order as { customer?: { user?: { id: string } } })
       .customer?.user;
 
+    const emittedStatus = (updated?.status as OrderStatus | undefined) ?? nextStatus;
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,
       new OrderStatusChangedEvent(
         orderId,
         order.orderNumber,
         order.status,
-        nextStatus,
+        emittedStatus,
         order.customerId,
         customerUser?.id ?? '',
         singleVendorId,
@@ -663,7 +670,7 @@ export class OrdersStateService {
         driver.id,
         driver.userId,
         actor.sub,
-        `Driver manually assigned by admin. ${nextStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
+        `Driver manually assigned by admin. ${emittedStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
         updated.revision,
       ),
     );

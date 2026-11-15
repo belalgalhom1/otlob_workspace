@@ -80,58 +80,98 @@ export class OrdersService {
     vendorId: string,
     dto: QueryOrdersDto,
   ) {
-    let targetVendorId = vendorId?.trim();
+    const targetVendorId = vendorId?.trim();
     const canManage = await this.auth.canManageOrders(actor.sub, actor.role);
-    let isMember: {
+
+    type MemberRow = {
       id: string;
       vendorId: string;
       branchId: string | null;
       role: string;
-    } | null = null;
+    };
+    let memberships: MemberRow[] = [];
 
     if (!targetVendorId || targetVendorId === 'my') {
-      isMember = await this.prisma.vendorMember.findFirst({
+      memberships = await this.prisma.vendorMember.findMany({
         where: { userId: actor.sub },
         select: { id: true, vendorId: true, branchId: true, role: true },
       });
-      if (isMember) {
-        targetVendorId = isMember.vendorId;
-      }
     } else {
-      isMember = await this.prisma.vendorMember.findUnique({
+      const explicitMember = await this.prisma.vendorMember.findUnique({
         where: {
           vendorId_userId: { vendorId: targetVendorId, userId: actor.sub },
         },
         select: { id: true, vendorId: true, branchId: true, role: true },
       });
+      if (explicitMember) {
+        memberships = [explicitMember];
+      }
     }
 
-    if (!isMember && !canManage) {
+    if (memberships.length === 0 && !canManage) {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
     }
 
-    if (!targetVendorId) {
+    if ((!targetVendorId || targetVendorId === 'my') && memberships.length === 0) {
       return { orders: [], total: 0, page: dto.page ?? 1, limit: dto.limit ?? 20, totalPages: 0 };
     }
 
-    const effectiveBranchId =
-      !canManage && isMember && isMember.role !== 'OWNER' && isMember.branchId
-        ? isMember.branchId
-        : undefined;
+    const vendorScopes =
+      targetVendorId && targetVendorId !== 'my'
+        ? [
+            {
+              vendorId: targetVendorId,
+              branchId:
+                !canManage &&
+                memberships[0] &&
+                memberships[0].role !== 'OWNER' &&
+                memberships[0].branchId
+                  ? memberships[0].branchId
+                  : null,
+            },
+          ]
+        : memberships.map((m) => ({
+            vendorId: m.vendorId,
+            branchId:
+              !canManage && m.role !== 'OWNER' && m.branchId ? m.branchId : null,
+          }));
 
-    const result = await this.ordersRepository.findMany({
-      ...dto,
-      vendorId: targetVendorId,
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-    });
+    const result =
+      vendorScopes.length === 1
+        ? await this.ordersRepository.findMany({
+            ...dto,
+            vendorId: vendorScopes[0].vendorId,
+            ...(vendorScopes[0].branchId
+              ? { branchId: vendorScopes[0].branchId }
+              : {}),
+          })
+        : await this.ordersRepository.findMany({
+            ...dto,
+            vendorScopes,
+          });
+
     result.orders = await Promise.all(
-      result.orders.map((o: any) =>
-        this.projectOrderForRole(o, actor, targetVendorId, {
+      result.orders.map((o: any) => {
+        const fulfillments = (o?.vendorFulfillments ?? []) as Array<{
+          vendorId: string;
+          vendorBranchId?: string | null;
+        }>;
+        const matchedScope =
+          vendorScopes.find((s) =>
+            fulfillments.some(
+              (f) =>
+                f.vendorId === s.vendorId &&
+                (!s.branchId ||
+                  !f.vendorBranchId ||
+                  f.vendorBranchId === s.branchId),
+            ),
+          ) ?? vendorScopes[0];
+        return this.projectOrderForRole(o, actor, matchedScope.vendorId, {
           canManage,
-          vendorId: targetVendorId,
-          memberBranchId: effectiveBranchId ?? null,
-        }),
-      ),
+          vendorId: matchedScope.vendorId,
+          memberBranchId: matchedScope.branchId,
+        });
+      }),
     );
     return result;
   }

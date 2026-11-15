@@ -205,6 +205,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         return isArabic ? 'في انتظار الدفع' : 'Pending Payment';
       case 'PICKED_UP':
         return isArabic ? 'تم الاستلام' : 'Picked Up';
+      case 'PARTIALLY_PICKED_UP':
+        return isArabic ? 'تم استلام جزء من الطلب' : 'Partially Picked Up';
       case 'IN_TRANSIT':
       case 'ARRIVING':
         return isArabic ? 'في الطريق' : 'On the Way';
@@ -212,6 +214,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         return isArabic ? 'تم التوصيل' : 'Delivered';
       case 'CANCELLED':
         return isArabic ? 'ملغي' : 'Cancelled';
+      case 'REJECTED':
+        return isArabic ? 'مرفوض' : 'Rejected';
       default:
         return status;
     }
@@ -1508,6 +1512,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         'READY_FOR_PICKUP',
                                         'LOOKING_FOR_DRIVER',
                                         'DRIVER_ASSIGNED',
+                                        'PENDING_PAYMENT',
                                         'PARTIALLY_PICKED_UP',
                                       ].contains(order['status'])) ...[
                                     const SizedBox(height: 16),
@@ -1587,6 +1592,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
                         // Pricing breakdown
                         _buildPricingBreakdown(order, isArabic),
+
+                        // Status Event Activity Log
+                        _buildStatusEventsHistory(context, order, isArabic),
 
                         // Delivery Success Banner
                         if (status == 'DELIVERED' && driverName.isNotEmpty) ...[
@@ -1964,6 +1972,156 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildStatusEventsHistory(
+    BuildContext context,
+    dynamic order,
+    bool isArabic,
+  ) {
+    final rawEvents = order['statusEvents'];
+    if (rawEvents is! List || rawEvents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final events = rawEvents.whereType<Map>().toList();
+    if (events.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurface.withValues(alpha: 0.62);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.025),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                LucideIcons.history,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isArabic ? 'سجل نشاط الطلب' : 'Order Activity Log',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(events.length, (index) {
+            final ev = events[index];
+            final evStatus = ev['status']?.toString() ?? '';
+            final evNote = ev['note']?.toString().trim() ?? '';
+            final dt = DateTime.tryParse(ev['createdAt']?.toString() ?? '')
+                ?.toLocal();
+            final timeStr = dt != null
+                ? DateFormat('dd MMM • hh:mm a', isArabic ? 'ar' : 'en')
+                    .format(dt)
+                : '';
+            final isLatest = index == 0;
+            final isLast = index == events.length - 1;
+            final dotColor = evStatus == 'CANCELLED' || evStatus == 'REJECTED'
+                ? AppColors.error
+                : (isLatest
+                    ? AppColors.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.35));
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 18,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: dotColor,
+                        ),
+                      ),
+                      if (!isLast)
+                        Container(
+                          width: 1.5,
+                          height: evNote.isNotEmpty ? 34 : 20,
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.12,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _statusFilterLabel(evStatus, isArabic),
+                                style: TextStyle(
+                                  fontWeight: isLatest
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  fontSize: 12.5,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (timeStr.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                timeStr,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: muted,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (evNote.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            evNote,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              height: 1.35,
+                              color: muted,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
       ),
     );
   }

@@ -45,6 +45,110 @@ export class AuditLogInterceptor implements NestInterceptor {
     return redacted;
   }
 
+  private shouldAudit(
+    user: JwtAccessPayload | undefined,
+    method: string,
+    entityType: string,
+    cleanPath: string,
+  ): boolean {
+    if (['GET', 'OPTIONS', 'HEAD'].includes(method)) return false;
+    if (!user || !user.role) return false;
+
+    // Fee-estimate POST routes perform read-only pricing calculations.
+    if (entityType === 'Orders' && cleanPath.endsWith('-estimate')) {
+      return false;
+    }
+
+    const adminOrVendorRoles: Role[] = [
+      Role.VENDOR_MEMBER,
+      Role.ADMIN,
+      Role.SUPER_ADMIN,
+    ];
+    if (adminOrVendorRoles.includes(user.role)) return true;
+
+    // Customer mutations on Orders (placing/cancelling/receipt upload) are audited;
+    // high-volume non-order actions (cart, favorites, fcm tokens) remain skipped.
+    return user.role === Role.CUSTOMER && entityType === 'Orders';
+  }
+
+  private buildOrderAuditDetails(order: Record<string, any>): {
+    vendorId: string | null;
+    facts: Record<string, unknown>;
+  } {
+    const fulfillments = Array.isArray(order.vendorFulfillments)
+      ? (order.vendorFulfillments as Array<Record<string, any>>)
+      : [];
+    const distinctVendorIds = Array.from(
+      new Set(
+        fulfillments
+          .map((f) => f.vendorId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+      ),
+    );
+    if (
+      distinctVendorIds.length === 0 &&
+      typeof order.vendorId === 'string' &&
+      order.vendorId.length > 0
+    ) {
+      distinctVendorIds.push(order.vendorId);
+    }
+
+    const vendorNamesEn = fulfillments
+      .map((f) => f.vendor?.storeName)
+      .filter(Boolean);
+    const vendorNamesAr = fulfillments
+      .map((f) => f.vendor?.storeNameAr ?? f.vendor?.storeName)
+      .filter(Boolean);
+    const fallbackVendor = order.vendor as Record<string, any> | undefined;
+    if (vendorNamesEn.length === 0 && fallbackVendor?.storeName) {
+      vendorNamesEn.push(fallbackVendor.storeName);
+    }
+    if (
+      vendorNamesAr.length === 0 &&
+      (fallbackVendor?.storeNameAr || fallbackVendor?.storeName)
+    ) {
+      vendorNamesAr.push(
+        fallbackVendor?.storeNameAr ?? fallbackVendor?.storeName,
+      );
+    }
+
+    const deliveryGroupsCount = Array.isArray(order.deliveryGroups)
+      ? order.deliveryGroups.length
+      : Number(order.deliveryGroupsCount ?? 0);
+    const isMulti =
+      Boolean(order.isMultiVendor) ||
+      distinctVendorIds.length > 1 ||
+      fulfillments.length > 1 ||
+      deliveryGroupsCount > 1;
+
+    const facts: Record<string, unknown> = {
+      Order: order.orderNumber ?? order.id ?? '—',
+      Status: String(order.status ?? 'PENDING'),
+      Total: `${Number(order.grandTotal ?? 0)} EGP`,
+      Payment: order.paymentMethod
+        ? String(order.paymentMethod).replace(/_/g, ' ')
+        : '—',
+      Vendor: this.bi(
+        vendorNamesEn.length > 0 ? vendorNamesEn.join(' + ') : null,
+        vendorNamesAr.length > 0 ? vendorNamesAr.join(' + ') : null,
+      ),
+    };
+
+    if (isMulti) {
+      facts.Stores = String(
+        Math.max(distinctVendorIds.length, fulfillments.length, 1),
+      );
+      facts.Deliveries = String(Math.max(deliveryGroupsCount, 1));
+    }
+
+    return {
+      // Multi-vendor orders span independent vendors: keep vendorId null so no
+      // single store's audit feed leaks another store's order details.
+      vendorId: distinctVendorIds.length === 1 ? distinctVendorIds[0] : null,
+      facts,
+    };
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<{
       method: string;
@@ -54,6 +158,7 @@ export class AuditLogInterceptor implements NestInterceptor {
       user?: JwtAccessPayload;
     }>();
     const { method, url, body, params, user } = req;
+    const cleanPath = url.split('?')[0];
 
     // Pre-handler snapshot: for updates/deletes we must read the row BEFORE
     // the handler mutates/removes it, otherwise old values are lost forever.
@@ -63,36 +168,31 @@ export class AuditLogInterceptor implements NestInterceptor {
       controllerClass && controllerClass.name
         ? controllerClass.name.replace('Controller', '')
         : (() => {
-            const segs = url.split('?')[0].split('/').filter(Boolean);
+            const segs = cleanPath.split('/').filter(Boolean);
             return segs.length > 1 ? segs[1] : 'Unknown';
           })();
+    const shouldAuditRequest = this.shouldAudit(
+      user,
+      method,
+      entityType,
+      cleanPath,
+    );
     const targetId = this.extractTargetId(url, params);
-    const prework =
-      ['PUT', 'PATCH', 'DELETE'].includes(method) &&
-      (targetId || entityType === 'PlatformSettings')
-        ? this.snapshotEntity(entityType, targetId, url, body).catch(
-            () => null,
-          )
-        : Promise.resolve(null);
+    const needsPreSnapshot =
+      shouldAuditRequest &&
+      ((['PUT', 'PATCH', 'DELETE'].includes(method) &&
+        (Boolean(targetId) || entityType === 'PlatformSettings')) ||
+        (entityType === 'Orders' && Boolean(targetId)));
+    const prework = needsPreSnapshot
+      ? this.snapshotEntity(entityType, targetId, url, body).catch(() => null)
+      : Promise.resolve(null);
 
     return from(prework).pipe(
       switchMap((snapshot) =>
         next.handle().pipe(
           tap((response) => {
             try {
-              // Only log mutating requests
-              if (['GET', 'OPTIONS', 'HEAD'].includes(method)) return;
-
-              // Only log for specific roles
-              if (!user || !user.role) return;
-              const allowedRoles: Role[] = [
-                Role.VENDOR_MEMBER,
-                Role.ADMIN,
-                Role.SUPER_ADMIN,
-              ];
-              if (!allowedRoles.includes(user.role)) {
-                return;
-              }
+              if (!shouldAuditRequest || !user) return;
 
               // Determine action type
               let actionType: AuditActionType = AuditActionType.OTHER;
@@ -117,9 +217,25 @@ export class AuditLogInterceptor implements NestInterceptor {
                 entityId = targetId;
               }
 
-              const vendorId =
+              const createdOrderDetails =
+                entityType === 'Orders' &&
+                !snapshot &&
+                response &&
+                typeof response === 'object'
+                  ? this.buildOrderAuditDetails(
+                      response as Record<string, unknown>,
+                    )
+                  : null;
+
+              const tokenVendorId =
                 (user as JwtAccessPayload & { vendorId?: string })
                   .vendorId || null;
+              const vendorId =
+                snapshot?.vendorId !== undefined
+                  ? snapshot.vendorId
+                  : createdOrderDetails !== null
+                    ? createdOrderDetails.vendorId
+                    : tokenVendorId;
               const sessionId = user.sid || null;
               const redactedBody = body
                 ? this.redactSensitiveFields(body)
@@ -129,7 +245,7 @@ export class AuditLogInterceptor implements NestInterceptor {
               // under the reserved `_facts` key so the audit UI can render
               // a professional summary. Raw diff rendering skips `_` keys.
               let newValues: unknown = redactedBody ?? Prisma.DbNull;
-              const facts = snapshot?.facts;
+              const facts = snapshot?.facts ?? createdOrderDetails?.facts;
               if (facts && Object.keys(facts).length > 0) {
                 const base =
                   newValues &&
@@ -140,6 +256,16 @@ export class AuditLogInterceptor implements NestInterceptor {
                 newValues = { ...base, _facts: facts };
               }
 
+              if (entityType === 'Orders') {
+                const orderNum =
+                  facts && typeof facts.Order === 'string'
+                    ? ` (${facts.Order})`
+                    : '';
+                this.logger.log(
+                  `[AUDIT] ${actionType} Orders/${entityId}${orderNum} by ${user.role}:${user.sub} via ${method} ${cleanPath}`,
+                );
+              }
+
               // Log it (fire and forget)
               this.eventEmitter.emit(
                 EVENTS.AUDIT_LOG_CREATED,
@@ -148,7 +274,7 @@ export class AuditLogInterceptor implements NestInterceptor {
                   vendorId,
                   sessionId,
                   actionType,
-                  `${method} ${url.split('?')[0]}`,
+                  `${method} ${cleanPath}`,
                   entityType,
                   String(entityId),
                   newValues,
@@ -245,6 +371,7 @@ export class AuditLogInterceptor implements NestInterceptor {
   ): Promise<{
     oldValues: Record<string, unknown>;
     facts: Record<string, unknown>;
+    vendorId?: string | null;
   } | null> {
     const path = url.split('?')[0];
     // Settings edits address the singleton row (no id in path): snapshot
@@ -441,32 +568,70 @@ export class AuditLogInterceptor implements NestInterceptor {
         return null;
       }
       case 'Orders': {
+        if (path.includes('/vendor-decisions/')) {
+          const fulfillment =
+            await this.prisma.orderVendorFulfillment.findUnique({
+              where: { id: targetId },
+              select: {
+                id: true,
+                vendorId: true,
+                status: true,
+                subtotal: true,
+                vendor: { select: { storeName: true, storeNameAr: true } },
+                order: {
+                  select: {
+                    orderNumber: true,
+                    status: true,
+                    grandTotal: true,
+                    paymentMethod: true,
+                  },
+                },
+              },
+            });
+          if (!fulfillment) return null;
+          return {
+            vendorId: fulfillment.vendorId,
+            oldValues: {
+              status: fulfillment.status,
+              orderStatus: fulfillment.order?.status,
+            },
+            facts: {
+              Order: fulfillment.order?.orderNumber ?? targetId,
+              Status: String(fulfillment.status),
+              'Order status': String(fulfillment.order?.status ?? '—'),
+              Subtotal: `${fulfillment.subtotal} EGP`,
+              Total: `${fulfillment.order?.grandTotal ?? 0} EGP`,
+              Payment: fulfillment.order?.paymentMethod
+                ? String(fulfillment.order.paymentMethod).replace(/_/g, ' ')
+                : '—',
+              Vendor: this.bi(
+                fulfillment.vendor?.storeName ?? null,
+                fulfillment.vendor?.storeNameAr ??
+                  fulfillment.vendor?.storeName ??
+                  null,
+              ),
+            },
+          };
+        }
+
         const order = await this.prisma.order.findUnique({
           where: { id: targetId },
           include: {
             vendorFulfillments: {
-              select: { vendor: { select: { storeName: true, storeNameAr: true } } },
+              select: {
+                vendorId: true,
+                vendor: { select: { storeName: true, storeNameAr: true } },
+              },
             },
+            deliveryGroups: { select: { id: true } },
           },
         });
         if (!order) return null;
-        const vendorsEn = order.vendorFulfillments
-          .map((f) => f.vendor?.storeName)
-          .filter(Boolean)
-          .join(' + ');
-        const vendorsAr = order.vendorFulfillments
-          .map((f) => f.vendor?.storeNameAr ?? f.vendor?.storeName)
-          .filter(Boolean)
-          .join(' + ');
+        const details = this.buildOrderAuditDetails(order);
         return {
+          vendorId: details.vendorId,
           oldValues: { status: order.status },
-          facts: {
-            Order: order.orderNumber,
-            Status: String(order.status),
-            Total: `${order.grandTotal} EGP`,
-            Payment: String(order.paymentMethod).replace(/_/g, ' '),
-            Vendor: this.bi(vendorsEn || null, vendorsAr || null),
-          },
+          facts: details.facts,
         };
       }
       case 'Users': {

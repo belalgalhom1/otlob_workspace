@@ -82,6 +82,7 @@ export class OrderRejectionRecomputor {
       await tx.orderStatusEvent.create({
         data: {
           orderId,
+          deliveryGroupId,
           status: orderStatus,
           note: `Delivery ${group.sequence} cancelled — no vendors accepted`,
           createdBy: 'system',
@@ -153,6 +154,7 @@ export class OrderRejectionRecomputor {
           coinsEarned: true,
           grandTotal: true,
           upfrontAmount: true,
+          paymentMethod: true,
           paymentStatus: true,
           customerId: true,
           orderNumber: true,
@@ -160,6 +162,9 @@ export class OrderRejectionRecomputor {
       });
       if (!order) return;
 
+      const customerBonusFee = Boolean(settings.driverBonusPaidByCustomer)
+        ? order.driverBonusFee
+        : 0;
       const newSubtotal = Math.max(0, order.subtotal - rejectedAmount);
       const newDeliveryFee = Math.max(0, order.deliveryFee + deliveryFeeDelta);
       const newServiceFee = Math.max(0, order.serviceFee + serviceFeeDelta);
@@ -176,13 +181,13 @@ export class OrderRejectionRecomputor {
       const oldPreDiscount =
         order.subtotal +
         order.deliveryFee +
-        order.driverBonusFee +
+        customerBonusFee +
         order.serviceFee +
         order.tax;
       const newPreDiscount =
         newSubtotal +
         newDeliveryFee +
-        order.driverBonusFee +
+        customerBonusFee +
         newServiceFee +
         newTax;
 
@@ -282,18 +287,20 @@ export class OrderRejectionRecomputor {
         });
       }
 
-      // Prepaid orders now owe the customer real money back. There is no
-      // dedicated refund model, so the obligation is written onto the order
-      // timeline for finance to settle (the notification listener also tells
-      // the customer the amount).
+      // Prepaid / upfront-paid orders may now owe the customer real money back.
+      // There is no dedicated customer cash-wallet model, so any overpayment is
+      // written onto the order timeline for finance to settle (notification
+      // listener also informs the customer).
       //
-      // `grandTotal` is the cash the customer paid after the coin discount, so
-      // the cash refund is simply the drop in grandTotal. The coins that paid
-      // for the released part of the discount are refunded separately above —
-      // they are a different currency and must not be deducted from the cash
-      // owed, or a prepaid customer would be short-changed by the coin value.
+      // For COD orders, `paymentStatus` can become COMPLETED once the upfront
+      // deposit is confirmed, so only `upfrontAmount - newGrandTotal` (when
+      // reduced below the paid deposit) was actually pre-collected.
       if (order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED') {
-        const cashRefundOwed = Math.max(0, order.grandTotal - newGrandTotal);
+        const alreadyPaidCash =
+          order.paymentMethod === 'CASH_ON_DELIVERY'
+            ? order.upfrontAmount
+            : order.grandTotal;
+        const cashRefundOwed = Math.max(0, alreadyPaidCash - newGrandTotal);
         if (cashRefundOwed > 0) {
           await tx.orderStatusEvent.create({
             data: {

@@ -16,11 +16,13 @@ import {
 import { EVENTS } from '../../common/events/event-names';
 import { ChatListener } from '../../common/listeners/chat.listener';
 import { OrderListener } from '../../common/listeners/order.listener';
-import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
+import { EVENT_JOBS, CRON_JOBS } from '../../infrastructure/queue/queues.constants';
 import { SOCKET_EVENTS } from '../notifications/notifications.service';
 import { DriverAssistMatchingService } from '../drivers/driver-assist-matching.service';
 import { CancelOrderDto } from './dto/order.dto';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
+import { OrderRejectionRecomputor } from './helpers/order-rejection-recomputor';
+import { OrdersProcessor } from './orders.processor';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { OrdersStateService } from './orders-state.service';
 import { OrderRoleProjector } from './projections/order-role.projector';
@@ -703,6 +705,285 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           ]),
         }),
         expect.anything(),
+      );
+    });
+
+    it('OrderRejectionRecomputor excludes driverBonusFee when driverBonusPaidByCustomer=false and calculates COD upfront refund strictly against upfrontAmount', async () => {
+      const orderUpdate = jest.fn().mockResolvedValue({ count: 1 });
+      const statusEventCreates: any[] = [];
+      const txPrisma: any = {
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        $transaction: jest.fn((cb: any) => cb(txPrisma)),
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            status: OrderStatus.ACCEPTED,
+            subtotal: 300,
+            serviceFee: 0,
+            tax: 0,
+            deliveryFee: 30,
+            driverBonusFee: 15, // Paid by platform (driverBonusPaidByCustomer = false)
+            discount: 33, // 10% coin discount on 330 (not 345!)
+            coinsUsed: 0,
+            coinsEarned: 29,
+            grandTotal: 297,
+            upfrontAmount: 100,
+            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+            paymentStatus: 'COMPLETED',
+            customerId: 'cust-1',
+            orderNumber: 'OTL-REJ-1',
+          }),
+          updateMany: orderUpdate,
+        },
+        customerCoinTransaction: {
+          aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 0 } }),
+        },
+        orderStatusEvent: {
+          create: jest.fn((args: any) => {
+            statusEventCreates.push(args.data);
+            return Promise.resolve({});
+          }),
+        },
+      };
+      const settingsSvc: any = {
+        getSettings: jest.fn().mockResolvedValue({
+          coinValue: 1,
+          amountSpentPerCoin: 10,
+          driverBonusPaidByCustomer: false,
+        }),
+      };
+
+      const recomputor = new OrderRejectionRecomputor(txPrisma, settingsSvc);
+      // Case A: newGrandTotal (198) >= upfrontAmount (100) => NO cash refund obligation owed
+      await recomputor.recomputeTotalsAfterRejection('ord-rej-1', 100, -10, 0);
+      expect(orderUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal: 200,
+            deliveryFee: 20,
+            discount: 22, // 33 * (220 / 330)
+            grandTotal: 198,
+          }),
+        }),
+      );
+      expect(
+        statusEventCreates.some((e) =>
+          String(e.note ?? '').includes('Refund obligation'),
+        ),
+      ).toBe(false);
+
+      // Case B: newGrandTotal (54) < upfrontAmount (100) => refund obligation = 100 - 54 = 46 EGP
+      statusEventCreates.length = 0;
+      await recomputor.recomputeTotalsAfterRejection('ord-rej-1', 260, -10, 0);
+      expect(
+        statusEventCreates.some((e) =>
+          String(e.note ?? '').includes('Refund obligation: 46 EGP owed'),
+        ),
+      ).toBe(true);
+    });
+
+    it('DeliveryGroupTransitionService.cancelDeliveryGroupAndRecompute emits ORDER_FULFILLMENT_DECIDED and ORDER_VENDOR_REJECTED on partial group cancellation', async () => {
+      const eventEmitter: any = { emit: jest.fn() };
+      const prisma: any = {
+        $transaction: jest.fn((cb: any) => cb(prisma)),
+        orderDeliveryGroup: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'grp-2',
+            sequence: 2,
+            status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+            deliveryFee: 25,
+            primaryDriverId: null,
+            assistDriverId: null,
+            order: {
+              orderNumber: 'OTL-PART-2',
+              status: OrderStatus.PARTIALLY_PICKED_UP,
+              customerId: 'cust-1',
+              customer: { userId: 'u-cust-1' },
+            },
+            items: [
+              {
+                fulfillment: {
+                  id: 'ff-2',
+                  vendorId: 'v-2',
+                  vendorBranchId: 'br-2',
+                  status: OrderVendorFulfillmentStatus.ACCEPTED,
+                  subtotal: 140,
+                  commissionRate: 10,
+                  isContracted: true,
+                  deliveredAt: null,
+                  vendor: { storeName: 'Bakery B', storeNameAr: 'مخبز ب' },
+                  items: [{ productId: 'p2', variantId: null, productName: 'Croissant', quantity: 2, selectedUnit: null }],
+                },
+              },
+            ],
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          count: jest.fn().mockResolvedValue(1),
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'grp-1', sequence: 1, status: DeliveryGroupStatus.PICKED_UP, primaryDriverId: 'drv-1', isPaymentCollector: true },
+          ]),
+        },
+        orderDispatch: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        orderVendorFulfillment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        orderItem: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'ord-part-2',
+            orderNumber: 'OTL-PART-2',
+            status: OrderStatus.PARTIALLY_PICKED_UP,
+            revision: 4,
+            deliveryGroups: [
+              { id: 'grp-1', sequence: 1, status: DeliveryGroupStatus.PICKED_UP, primaryDriverId: 'drv-1', pickupImageUrl: null, deliveryImageUrl: null },
+            ],
+          }),
+        },
+      };
+      const ordersRepo: any = {
+        freeDriver: jest.fn().mockResolvedValue(undefined),
+        getVendorUserIds: jest.fn().mockResolvedValue(['u-v2']),
+        getOrderVendorUserIds: jest.fn().mockResolvedValue(['u-v1', 'u-v2']),
+      };
+      const stockSvc: any = { restoreForItems: jest.fn().mockResolvedValue(undefined) };
+      const recomputor: any = { recomputeTotalsAfterRejection: jest.fn().mockResolvedValue(undefined) };
+
+      const svc = new DeliveryGroupTransitionService(
+        prisma,
+        ordersRepo,
+        eventEmitter,
+        stockSvc,
+        recomputor,
+      );
+
+      const res = await svc.cancelDeliveryGroupAndRecompute({
+        orderId: 'ord-part-2',
+        deliveryGroupId: 'grp-2',
+        reason: 'No driver available',
+      });
+
+      expect(res).toEqual({ groupCancelled: true, orderCancelled: false });
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        EVENTS.ORDER_FULFILLMENT_DECIDED,
+        expect.objectContaining({
+          orderId: 'ord-part-2',
+          fulfillmentId: 'ff-2',
+          vendorId: 'v-2',
+          status: OrderVendorFulfillmentStatus.CANCELLED,
+        }),
+      );
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        EVENTS.ORDER_VENDOR_REJECTED,
+        expect.objectContaining({
+          orderId: 'ord-part-2',
+          fulfillmentId: 'ff-2',
+          vendorId: 'v-2',
+          rejectionCode: 'NO_DRIVER_AVAILABLE',
+          refundAmount: 140,
+        }),
+      );
+    });
+
+    it('OrdersStateService.adminForceAssignDriver allows PENDING_PAYMENT and emits updated.status resolved by assignDriver', async () => {
+      const eventEmitter: any = { emit: jest.fn() };
+      const ordersRepo: any = {
+        findById: jest.fn().mockResolvedValue({
+          id: 'ord-force-1',
+          orderNumber: 'OTL-F1',
+          status: OrderStatus.PENDING_PAYMENT,
+          customerId: 'cust-1',
+          customer: { user: { id: 'u-cust-1' } },
+          paymentMethod: PaymentMethod.MOBILE_WALLET,
+          paymentStatus: 'PENDING',
+          upfrontAmount: 0,
+          vendorFulfillments: [{ vendorId: 'v-1' }],
+        }),
+        assignDriver: jest.fn().mockResolvedValue({
+          revision: 6,
+          status: OrderStatus.PENDING_PAYMENT,
+        }),
+        getOrderVendorUserIds: jest.fn().mockResolvedValue(['u-v1']),
+        freeDriver: jest.fn().mockResolvedValue(undefined),
+      };
+      const prisma: any = {
+        driver: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'drv-9',
+            status: 'AVAILABLE',
+            userId: 'u-drv-9',
+          }),
+        },
+        platformSetting: {
+          findUnique: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 2 }),
+        },
+        orderDeliveryGroup: {
+          count: jest.fn().mockResolvedValue(0),
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'grp-2',
+              sequence: 2,
+              status: DeliveryGroupStatus.PENDING_PAYMENT,
+              primaryDriverId: null,
+              assistDriverId: null,
+            },
+          ]),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        driverShift: { findFirst: jest.fn().mockResolvedValue({ id: 'sh-1' }) },
+        order: {
+          findUnique: jest.fn().mockResolvedValue({ status: OrderStatus.PENDING_PAYMENT }),
+        },
+      };
+
+      const svc = new OrdersStateService(
+        ordersRepo,
+        {} as any,
+        {} as any,
+        eventEmitter,
+        prisma,
+        {} as any,
+      );
+
+      await svc.adminForceAssignDriver(
+        { sub: 'admin-1', role: Role.SUPER_ADMIN } as any,
+        'ord-force-1',
+        { driverId: 'drv-9', deliveryGroupId: 'grp-2' } as any,
+      );
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        EVENTS.ORDER_STATUS_CHANGED,
+        expect.objectContaining({
+          newStatus: OrderStatus.PENDING_PAYMENT,
+          revision: 6,
+        }),
+      );
+    });
+
+    it('OrdersProcessor stuck monitor excludes PAID orders when checking mobileWalletTimeoutMins expiry', async () => {
+      const orderFindMany = jest
+        .fn()
+        .mockResolvedValueOnce([]) // stuckOrders
+        .mockResolvedValueOnce([]); // stuckPaymentOrders
+      const prisma: any = {
+        order: { findMany: orderFindMany },
+      };
+      const processor = new OrdersProcessor(
+        { cancelOrder: jest.fn() } as any,
+        {} as any,
+        {} as any,
+        { getSettings: jest.fn().mockResolvedValue({ mobileWalletTimeoutMins: 15 }) } as any,
+        prisma,
+        {} as any,
+        { add: jest.fn() } as any,
+        { add: jest.fn() } as any,
+        { relayPending: jest.fn() } as any,
+      );
+
+      await processor.process({ name: CRON_JOBS.STUCK_ORDER_MONITOR } as any);
+
+      expect(orderFindMany).toHaveBeenCalledTimes(2);
+      expect(orderFindMany.mock.calls[1][0].where).toEqual(
+        expect.objectContaining({
+          paymentStatus: 'PENDING',
+        }),
       );
     });
   });

@@ -18,7 +18,11 @@ import { OrdersRepository } from '../orders.repository';
 import { UpdateOrderStatusDto } from '../dto/order.dto';
 import { DRIVER_ALLOWED_TRANSITIONS } from './order-state.constants';
 import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
-import { OrderStatusChangedEvent } from '../../../common/events';
+import {
+  OrderFulfillmentDecidedEvent,
+  OrderStatusChangedEvent,
+  OrderVendorRejectedEvent,
+} from '../../../common/events';
 import { EVENTS } from '../../../common/events/event-names';
 import { OrderErrors } from '../../../common/constants/response.constants';
 import { StockService } from '../helpers/stock.service';
@@ -747,22 +751,33 @@ export class DeliveryGroupTransitionService {
           deliveryFee: true,
           primaryDriverId: true,
           assistDriverId: true,
-          order: { select: { status: true } },
+          order: {
+            select: {
+              orderNumber: true,
+              status: true,
+              customerId: true,
+              customer: { select: { userId: true } },
+            },
+          },
           items: {
             select: {
               fulfillment: {
                 select: {
                   id: true,
+                  vendorId: true,
+                  vendorBranchId: true,
                   status: true,
                   subtotal: true,
                   commissionRate: true,
                   isContracted: true,
                   deliveredAt: true,
+                  vendor: { select: { storeName: true, storeNameAr: true } },
                   items: {
                     where: { rejectedAt: null },
                     select: {
                       productId: true,
                       variantId: true,
+                      productName: true,
                       quantity: true,
                       selectedUnit: true,
                     },
@@ -877,6 +892,19 @@ export class DeliveryGroupTransitionService {
       });
 
       return {
+        orderNumber: group.order.orderNumber,
+        orderStatus: group.order.status,
+        customerId: group.order.customerId,
+        customerUserId: group.order.customer?.userId ?? group.order.customerId,
+        cancelledFulfillments: liveFulfillments.map((f) => ({
+          id: f.id,
+          vendorId: f.vendorId,
+          vendorBranchId: f.vendorBranchId ?? null,
+          vendorName: f.vendor?.storeName ?? 'Store',
+          vendorNameAr: f.vendor?.storeNameAr ?? null,
+          subtotal: Number(f.subtotal ?? 0),
+          itemNames: f.items.map((it) => it.productName).filter(Boolean),
+        })),
         refundAmount,
         deliveryFeeDelta: -Number(group.deliveryFee ?? 0),
         serviceFeeDelta,
@@ -921,6 +949,56 @@ export class DeliveryGroupTransitionService {
       orderId,
       txResult.freedDriverIds,
     );
+
+    const latestOrder = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, revision: true },
+    });
+
+    for (const f of txResult.cancelledFulfillments) {
+      const vendorUserIds = await this.ordersRepository.getVendorUserIds(
+        f.vendorId,
+        f.vendorBranchId,
+      );
+      this.eventEmitter.emit(
+        EVENTS.ORDER_FULFILLMENT_DECIDED,
+        new OrderFulfillmentDecidedEvent(
+          orderId,
+          txResult.orderNumber,
+          txResult.customerId,
+          txResult.customerUserId,
+          f.id,
+          f.vendorId,
+          vendorUserIds,
+          OrderVendorFulfillmentStatus.CANCELLED,
+          'system',
+          [],
+          latestOrder?.status ?? txResult.orderStatus,
+          latestOrder?.revision,
+        ),
+      );
+      this.eventEmitter.emit(
+        EVENTS.ORDER_VENDOR_REJECTED,
+        new OrderVendorRejectedEvent(
+          orderId,
+          txResult.orderNumber,
+          txResult.customerId,
+          txResult.customerUserId,
+          f.id,
+          f.vendorId,
+          f.vendorName,
+          f.vendorNameAr,
+          'NO_DRIVER_AVAILABLE',
+          reason,
+          null,
+          f.itemNames,
+          f.subtotal,
+          false,
+          'system',
+        ),
+      );
+    }
+
     return { groupCancelled: true, orderCancelled: false };
   }
 }

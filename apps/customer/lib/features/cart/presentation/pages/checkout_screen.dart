@@ -510,8 +510,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final rawDeliveryFee = (est != null && est['deliveryFee'] != null) ? (est['deliveryFee'] as num).toDouble() : 0.0;
     final driverBonusFee = (est != null && est['driverBonusFee'] != null) ? (est['driverBonusFee'] as num).toDouble() : 0.0;
-    // Driver bonus is an internal platform incentive — fold into customer Delivery Fee
-    final deliveryFee = rawDeliveryFee + driverBonusFee;
+    final driverBonusPaidByCustomer =
+        (est?['driverBonusPaidByCustomer'] as bool?) ??
+        (settings?.driverBonusPaidByCustomer ?? false);
+    // Only add driver bonus to customer Delivery Fee when customer pays it.
+    final deliveryFee = rawDeliveryFee + (driverBonusPaidByCustomer ? driverBonusFee : 0.0);
     final serviceFee = (est != null && est['serviceFee'] != null) ? (est['serviceFee'] as num).toDouble() : 0.0;
     final tax = (est != null && est['tax'] != null) ? (est['tax'] as num).toDouble() : 0.0;
     final hasEstimate = est != null;

@@ -25,6 +25,7 @@ import { NotificationListener } from '../../common/listeners/notification.listen
 import { NotificationsService } from '../notifications/notifications.service';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
+import { ReviewsService } from '../reviews/reviews.service';
 
 describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => {
   describe('1. Single-vendor backward compatibility & multi-vendor driver collection gates (OrdersStateService)', () => {
@@ -1650,6 +1651,212 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         }),
       );
       expect(getVendorUserIdsMock).toHaveBeenCalledWith('v-1', 'br-direct-1');
+    });
+
+    it('accumulates owner notification subtotals across owned stores/branches and syncs late-accepted Group 2+ drivers into chat', async () => {
+      const emitToUser = jest.fn().mockResolvedValue(undefined);
+      const createMany = jest.fn().mockResolvedValue({ count: 2 });
+      const addParticipantToOrderConversation = jest.fn().mockResolvedValue(undefined);
+      const syncOrderDriverParticipants = jest.fn().mockResolvedValue(undefined);
+      const createSystemOrderConversation = jest.fn().mockResolvedValue(undefined);
+
+      const prisma: any = {
+        orderVendorFulfillment: {
+          findMany: jest.fn().mockResolvedValue([
+            { vendorId: 'v-1', vendorBranchId: 'br-1', subtotal: 100 },
+            { vendorId: 'v-2', vendorBranchId: 'br-2', subtotal: 150 },
+          ]),
+        },
+        vendorMember: {
+          findMany: jest.fn().mockResolvedValue([
+            { userId: 'u-shared-owner', vendorId: 'v-1', role: 'OWNER', branchId: null },
+            { userId: 'u-shared-owner', vendorId: 'v-2', role: 'OWNER', branchId: null },
+            { userId: 'u-staff-b', vendorId: 'v-2', role: 'STAFF', branchId: 'br-2' },
+            { userId: 'u-other-branch', vendorId: 'v-2', role: 'STAFF', branchId: 'br-other' },
+          ]),
+        },
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            type: 'STANDARD',
+            customerId: 'cust-1',
+            customer: { userId: 'u-cust-1' },
+            vendorId: null,
+            vendorFulfillments: [],
+            deliveryGroups: [],
+          }),
+        },
+        orderDeliveryGroup: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      };
+
+      const handler = new OrderEventsHandler(
+        { emitToUser } as any,
+        { createMany, create: jest.fn() } as any,
+        {} as any,
+        {
+          createSystemOrderConversation,
+          addParticipantToOrderConversation,
+          syncOrderDriverParticipants,
+        } as any,
+        prisma,
+        { syncDriverActiveOrders: jest.fn().mockResolvedValue(undefined) } as any,
+      );
+
+      await handler.handleOrderCreated({
+        orderId: 'ord-mv-owner',
+        orderNumber: 'OTL-MV-OWNER',
+        customerId: 'cust-1',
+        customerUserId: 'u-cust-1',
+        vendorId: null,
+        vendorUserIds: [],
+        grandTotal: 310,
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        orderType: 'STANDARD',
+        revision: 0,
+      } as any);
+
+      expect(emitToUser).toHaveBeenCalledWith(
+        'u-shared-owner',
+        'order.new',
+        expect.objectContaining({ grandTotal: 250 }),
+      );
+      expect(emitToUser).toHaveBeenCalledWith(
+        'u-staff-b',
+        'order.new',
+        expect.objectContaining({ grandTotal: 150 }),
+      );
+      expect(emitToUser).not.toHaveBeenCalledWith(
+        'u-other-branch',
+        'order.new',
+        expect.anything(),
+      );
+
+      await handler.handleOrderStatusChanged({
+        orderId: 'ord-mv-owner',
+        orderNumber: 'OTL-MV-OWNER',
+        oldStatus: OrderStatus.READY_FOR_PICKUP,
+        newStatus: OrderStatus.PARTIALLY_PICKED_UP,
+        customerId: 'cust-1',
+        customerUserId: 'u-cust-1',
+        vendorId: null,
+        vendorUserIds: [],
+        driverId: 'drv-2',
+        driverUserId: 'u-drv-2',
+        changedBy: 'u-drv-2',
+        note: 'Group 2 driver joined',
+        revision: 4,
+      } as any);
+
+      expect(addParticipantToOrderConversation).toHaveBeenCalledWith(
+        'ord-mv-owner',
+        'u-drv-2',
+      );
+      expect(syncOrderDriverParticipants).toHaveBeenCalledWith('ord-mv-owner');
+    });
+
+    it('ReviewsService legacy scalar vendorRating/driverRating rates all unrated delivered fulfillments and delivery groups', async () => {
+      const createMany = jest.fn().mockResolvedValue({ count: 4 });
+      const prisma: any = {
+        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
+        order: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'ord-rev-mv',
+            status: OrderStatus.DELIVERED,
+            customerId: 'cust-1',
+            vendorFulfillments: [
+              { id: 'ff-1', vendorId: 'v-1', deliveredAt: new Date() },
+              { id: 'ff-2', vendorId: 'v-2', deliveredAt: new Date() },
+            ],
+            deliveryGroups: [
+              {
+                id: 'grp-1',
+                status: DeliveryGroupStatus.DELIVERED,
+                primaryDriverId: 'drv-1',
+              },
+              {
+                id: 'grp-2',
+                status: DeliveryGroupStatus.DELIVERED,
+                primaryDriverId: 'drv-2',
+              },
+            ],
+            reviews: [],
+          }),
+        },
+        orderReview: { createMany },
+      };
+
+      const reviews = new ReviewsService(prisma, { emit: jest.fn() } as any);
+      await reviews.submitReview(
+        { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
+        'ord-rev-mv',
+        { vendorRating: 5, driverRating: 4, comment: 'Great' } as any,
+      );
+
+      expect(createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ fulfillmentId: 'ff-1', vendorId: 'v-1', rating: 5 }),
+          expect.objectContaining({ fulfillmentId: 'ff-2', vendorId: 'v-2', rating: 5 }),
+          expect.objectContaining({ deliveryGroupId: 'grp-1', driverId: 'drv-1', rating: 4 }),
+          expect.objectContaining({ deliveryGroupId: 'grp-2', driverId: 'drv-2', rating: 4 }),
+        ]),
+      });
+    });
+
+    it('OrdersService.getVendorOrders("my") queries all owned vendor scopes and projects each order cleanly', async () => {
+      const findMany = jest.fn().mockResolvedValue({
+        orders: [
+          {
+            id: 'ord-b1',
+            status: OrderStatus.PENDING,
+            vendorFulfillments: [{ id: 'ff-b1', vendorId: 'v-b', vendorBranchId: 'br-b', status: 'PENDING', subtotal: 90 }],
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
+      const prisma: any = {
+        vendorMember: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'm1', vendorId: 'v-a', branchId: null, role: 'OWNER' },
+            { id: 'm2', vendorId: 'v-b', branchId: 'br-b', role: 'STAFF' },
+          ]),
+        },
+        user: { findUnique: jest.fn().mockResolvedValue({ permissions: [] }) },
+      };
+      const ordersRepo: any = { findMany };
+      const ordersSvc = new OrdersService(
+        ordersRepo,
+        prisma,
+        { getSettings: jest.fn().mockResolvedValue({}) } as any,
+      );
+      const projectSpy = jest
+        .spyOn(ordersSvc, 'projectOrderForRole')
+        .mockImplementation(async (o) => o);
+
+      const res = await ordersSvc.getVendorOrders(
+        { sub: 'u-multi', role: Role.VENDOR_MEMBER } as any,
+        'my',
+        {} as any,
+      );
+
+      expect(res.total).toBe(1);
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vendorScopes: [
+            { vendorId: 'v-a', branchId: null },
+            { vendorId: 'v-b', branchId: 'br-b' },
+          ],
+        }),
+      );
+      expect(projectSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'v-b',
+        expect.objectContaining({ vendorId: 'v-b', memberBranchId: 'br-b' }),
+      );
     });
   });
 });

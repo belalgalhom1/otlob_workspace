@@ -38,6 +38,7 @@ export interface CreateOrderData {
   orderNumber: string;
   clientOrderKey?: string | null;
   customerId: string;
+  customerUserId?: string;
   vendorId: string | null;
   vendorBranchId: string | null;
   zoneId: string | null;
@@ -473,6 +474,8 @@ export class OrdersRepository {
           orderId: created.id,
           orderNumber: created.orderNumber,
           customerId: data.customerId,
+          customerUserId: data.customerUserId ?? actorUserId,
+          actorUserId,
           vendorId: data.vendorId ?? null,
           vendorIds: data.vendorId ? [data.vendorId] : [],
           grandTotal: data.grandTotal,
