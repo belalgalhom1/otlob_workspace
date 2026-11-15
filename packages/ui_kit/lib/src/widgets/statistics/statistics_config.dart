@@ -56,6 +56,7 @@ class StatisticsConfig {
   final List<String> Function(dynamic row) rowDetails;
   final String? entityName;
   final List<StatisticExportSection>? exportSections;
+  final Color? backgroundColor;
 
   const StatisticsConfig({
     required this.titleAr,
@@ -71,6 +72,7 @@ class StatisticsConfig {
     required this.rowDetails,
     this.entityName,
     this.exportSections,
+    this.backgroundColor,
   });
 }
 

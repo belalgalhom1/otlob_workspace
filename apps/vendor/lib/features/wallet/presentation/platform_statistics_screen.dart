@@ -17,6 +17,7 @@ class PlatformStatisticsScreen extends ConsumerWidget {
 
     return StatisticsScreen(
       config: StatisticsConfig(
+        backgroundColor: Theme.of(context).colorScheme.surface,
         titleAr: 'إحصائيات المنصة',
         titleEn: 'Platform Statistics',
         chartTitleAr: 'اتجاه أرباح المنصة',

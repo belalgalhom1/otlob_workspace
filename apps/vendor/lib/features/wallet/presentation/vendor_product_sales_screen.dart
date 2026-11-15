@@ -132,9 +132,9 @@ class _VendorProductSalesScreenState
 
     if (vendorId == null) {
       return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: theme.colorScheme.surface,
           surfaceTintColor: Colors.transparent,
           title: Text(
             _isArabic ? 'المنتجات المباعة' : 'Products Sold',
@@ -168,9 +168,9 @@ class _VendorProductSalesScreenState
     final data = async.asData?.value;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         title: Text(
           '${_isArabic ? 'المنتجات المباعة' : 'Products Sold'}'

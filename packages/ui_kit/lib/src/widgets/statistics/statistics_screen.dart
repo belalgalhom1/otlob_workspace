@@ -100,11 +100,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final textColor = theme.colorScheme.onSurface;
     final accentTextColor = isDark ? AppColors.primary : const Color(0xFF92400E);
     final config = widget.config;
+    final backgroundColor =
+        config.backgroundColor ?? theme.scaffoldBackgroundColor;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: backgroundColor,
         surfaceTintColor: Colors.transparent,
         title: Text(
           _isArabic ? config.titleAr : config.titleEn,

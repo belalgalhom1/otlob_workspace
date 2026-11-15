@@ -45,6 +45,7 @@ class DriverStatisticsScreen extends ConsumerWidget {
 
     return StatisticsScreen(
       config: StatisticsConfig(
+        backgroundColor: Theme.of(context).colorScheme.surface,
         titleAr: isArabic() ? 'إحصائيات السائق: $resolvedDriverName' : 'Driver Statistics: $resolvedDriverName',
         titleEn: 'Driver Statistics: $resolvedDriverName',
         entityName: resolvedDriverName,
