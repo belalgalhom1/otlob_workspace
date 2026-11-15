@@ -13,32 +13,206 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 concurrency:
   group: app-builds-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+
+  # ==========================================
+  # 1. Detect changed apps
+  # ==========================================
+  detect-changes:
+    name: Detect Changed Apps
+    runs-on: ubuntu-latest
+
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_changes: ${{ steps.set-matrix.outputs.has_changes }}
+      all_apps_changed: ${{ steps.set-matrix.outputs.all_apps_changed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || github.event.repository.default_branch }}
+          filters: |
+            vendor:
+              - 'apps/vendor/**'
+              - 'packages/**'
+              - 'shared/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - 'analysis_options.yaml'
+              - 'melos.yaml'
+              - '.metadata'
+              - '.github/workflows/**'
+
+            driver:
+              - 'apps/driver/**'
+              - 'packages/**'
+              - 'shared/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - 'analysis_options.yaml'
+              - 'melos.yaml'
+              - '.metadata'
+              - '.github/workflows/**'
+
+            customer:
+              - 'apps/customer/**'
+              - 'packages/**'
+              - 'shared/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - 'analysis_options.yaml'
+              - 'melos.yaml'
+              - '.metadata'
+              - '.github/workflows/**'
+
+      # Check existing release and identify missing APKs.
+      - name: Check existing release assets
+        id: release-assets
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: latest-apk-build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if RELEASE_JSON=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" 2>/dev/null); then
+
+            echo "Existing release found."
+
+            ASSETS=$(jq -r '.assets[].name' <<< "$RELEASE_JSON")
+
+            for app in vendor driver customer; do
+              APK="otlob-${app}.apk"
+
+              if grep -Fxq "$APK" <<< "$ASSETS"; then
+                echo "${app}=false" >> "$GITHUB_OUTPUT"
+                echo "Found existing APK: $APK"
+              else
+                echo "${app}=true" >> "$GITHUB_OUTPUT"
+                echo "Missing APK: $APK"
+              fi
+            done
+
+          else
+            echo "No existing release found. Building all apps."
+
+            echo "vendor=true" >> "$GITHUB_OUTPUT"
+            echo "driver=true" >> "$GITHUB_OUTPUT"
+            echo "customer=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate dynamic build matrix
+        id: set-matrix
+        shell: bash
+        env:
+          VENDOR: ${{ steps.filter.outputs.vendor }}
+          DRIVER: ${{ steps.filter.outputs.driver }}
+          CUSTOMER: ${{ steps.filter.outputs.customer }}
+
+          RELEASE_VENDOR: ${{ steps.release-assets.outputs.vendor }}
+          RELEASE_DRIVER: ${{ steps.release-assets.outputs.driver }}
+          RELEASE_CUSTOMER: ${{ steps.release-assets.outputs.customer }}
+        run: |
+          set -euo pipefail
+
+          VENDOR="${VENDOR:-false}"
+          DRIVER="${DRIVER:-false}"
+          CUSTOMER="${CUSTOMER:-false}"
+
+          # Build apps missing from the existing release.
+          if [ "$RELEASE_VENDOR" = "true" ]; then
+            VENDOR=true
+          fi
+
+          if [ "$RELEASE_DRIVER" = "true" ]; then
+            DRIVER=true
+          fi
+
+          if [ "$RELEASE_CUSTOMER" = "true" ]; then
+            CUSTOMER=true
+          fi
+
+          # Determine whether all three apps actually changed.
+          ALL_CHANGED=false
+
+          if [ \
+            "${{ steps.filter.outputs.vendor }}" = "true" ] && [ \
+            "${{ steps.filter.outputs.driver }}" = "true" ] && [ \
+            "${{ steps.filter.outputs.customer }}" = "true" ]; then
+            ALL_CHANGED=true
+          fi
+
+          MATRIX=$(jq -cn \
+            --arg vendor "$VENDOR" \
+            --arg driver "$DRIVER" \
+            --arg customer "$CUSTOMER" \
+            '{
+              include: [
+                (if $vendor == "true" then {
+                  app_job_name: "otlob-vendor",
+                  app_path: "apps/vendor"
+                } else empty end),
+
+                (if $driver == "true" then {
+                  app_job_name: "otlob-driver",
+                  app_path: "apps/driver"
+                } else empty end),
+
+                (if $customer == "true" then {
+                  app_job_name: "otlob-customer",
+                  app_path: "apps/customer"
+                } else empty end)
+              ]
+            }')
+
+          echo "Build matrix: $MATRIX"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "all_apps_changed=$ALL_CHANGED" >> "$GITHUB_OUTPUT"
+
+          if [ "$(jq '.include | length' <<< "$MATRIX")" -gt 0 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No apps need rebuilding."
+          fi
+
+  # ==========================================
+  # 2. Build changed apps
+  # ==========================================
   build-android-apps:
     name: ${{ matrix.app_job_name }}
+    needs: detect-changes
+
+    if: needs.detect-changes.outputs.has_changes == 'true'
+
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     strategy:
       fail-fast: false
       max-parallel: 3
-      matrix:
-        include:
-          - app_job_name: otlob-vendor
-            app_path: apps/vendor
-          - app_job_name: otlob-driver
-            app_path: apps/driver
-          - app_job_name: otlob-customer
-            app_path: apps/customer
+      matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout exact commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -97,7 +271,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           yes | sdkmanager --licenses >/dev/null || true
 
       - name: Install Android NDK with retry
@@ -106,27 +279,25 @@ jobs:
           set -euo pipefail
 
           NDK_VERSION="28.2.13676358"
-          NDK_PACKAGE="ndk;$NDK_VERSION"
           NDK_DIRECTORY="$ANDROID_HOME/ndk/$NDK_VERSION"
 
           if [ -d "$NDK_DIRECTORY" ]; then
             echo "NDK $NDK_VERSION is already installed."
           else
             for attempt in 1 2 3; do
-              echo "Installing NDK $NDK_VERSION (attempt $attempt/3)..."
+              echo "Installing NDK (attempt $attempt/3)..."
 
-              if sdkmanager --install "$NDK_PACKAGE" &&
+              if sdkmanager --install "ndk;$NDK_VERSION" && \
                  [ -d "$NDK_DIRECTORY" ]; then
                 echo "NDK installation succeeded."
                 break
               fi
 
               if [ "$attempt" -eq 3 ]; then
-                echo "ERROR: NDK installation failed after 3 attempts." >&2
+                echo "ERROR: NDK installation failed." >&2
                 exit 1
               fi
 
-              echo "Retrying in 15 seconds..."
               sleep 15
             done
           fi
@@ -145,21 +316,20 @@ jobs:
           fi
 
           for attempt in 1 2 3; do
-            echo "Installing CMake $CMAKE_VERSION (attempt $attempt/3)..."
+            echo "Installing CMake (attempt $attempt/3)..."
 
-            if sdkmanager --install "cmake;$CMAKE_VERSION" &&
+            if sdkmanager --install "cmake;$CMAKE_VERSION" && \
                [ -d "$CMAKE_DIRECTORY" ]; then
               echo "CMake installation succeeded."
               exit 0
             fi
 
             if [ "$attempt" -lt 3 ]; then
-              echo "Retrying in $((attempt * 5)) seconds..."
               sleep "$((attempt * 5))"
             fi
           done
 
-          echo "ERROR: CMake installation failed after 3 attempts." >&2
+          echo "ERROR: CMake installation failed." >&2
           exit 1
 
       - name: Build release APK
@@ -189,7 +359,8 @@ jobs:
           fi
 
           cp "$APK_PATH" "$OUTPUT_PATH"
-          echo "Created $OUTPUT_PATH"
+
+          echo "Successfully built $OUTPUT_PATH"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -199,15 +370,29 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # ==========================================
+  # 3. Update or recreate current release
+  # ==========================================
   release:
-    name:  release
-    needs: build-android-apps
-    if: github.event_name == 'push'
+    name: Update Current APK Release
+
+    needs:
+      - detect-changes
+      - build-android-apps
+
+    if: |
+      github.event_name == 'push' &&
+      needs.detect-changes.outputs.has_changes == 'true'
+
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    concurrency:
+      group: latest-apk-release
+      cancel-in-progress: false
+
     steps:
-      - name: Download APK artifacts
+      - name: Download newly built APKs
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
@@ -215,58 +400,167 @@ jobs:
           merge-multiple: true
 
       - name: Verify APK artifacts
+        env:
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
         shell: bash
         run: |
           set -euo pipefail
 
-          for apk in \
-            release-artifacts/otlob-vendor.apk \
-            release-artifacts/otlob-driver.apk \
-            release-artifacts/otlob-customer.apk; do
-            if [ ! -s "$apk" ]; then
-              echo "ERROR: Missing or empty APK: $apk" >&2
+          EXPECTED_COUNT=$(jq '.include | length' <<< "$MATRIX_JSON")
+
+          for app in $(jq -r '.include[].app_job_name' <<< "$MATRIX_JSON"); do
+            APK="release-artifacts/${app}.apk"
+
+            if [ ! -s "$APK" ]; then
+              echo "ERROR: Missing or empty APK: $APK" >&2
               exit 1
             fi
 
-            ls -lh "$apk"
+            echo "Verified: $APK"
+            ls -lh "$APK"
           done
 
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
-          name: "APK Build"
-          body: |
-            Automated APK release generated by GitHub Actions.
+          ACTUAL_COUNT=$(find release-artifacts \
+            -maxdepth 1 -type f -name '*.apk' | wc -l)
 
-            **Branch:** `${{ github.ref_name }}`
-            **Commit:** [View commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-          files: |
-            release-artifacts/otlob-vendor.apk
-            release-artifacts/otlob-driver.apk
-            release-artifacts/otlob-customer.apk
-          prerelease: false
-          make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if [ "$ACTUAL_COUNT" -ne "$EXPECTED_COUNT" ]; then
+            echo "ERROR: Expected $EXPECTED_COUNT APKs, found $ACTUAL_COUNT." >&2
+            exit 1
+          fi
 
-      - name: Delete old automated APK releases
+      - name: Generate release notes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          CURRENT_TAG: apk-build-${{ github.run_number }}-${{ github.run_attempt }}
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
         shell: bash
         run: |
           set -euo pipefail
 
-          gh release list \
-            --limit 1000 \
-            --json tagName \
-            --jq '.[].tagName' |
-          while IFS= read -r tag; do
-            [[ "$tag" == apk-build-* ]] || continue
-            [[ "$tag" == "$CURRENT_TAG" ]] && continue
+          {
+            echo "Automated Android APK release."
+            echo
+            echo "**Branch:** $GITHUB_REF_NAME"
+            echo
+            echo "**Commit:** $GITHUB_SHA"
+            echo
+            echo "**Updated apps:**"
 
-            echo "Deleting old automated APK release: $tag"
-            gh release delete "$tag" --yes --cleanup-tag
+            jq -r '.include[].app_job_name | "- " + .' \
+              <<< "$MATRIX_JSON"
+
+          } > release-notes.md
+
+      # Delete the release only when ALL THREE APPS changed.
+      - name: Delete existing release
+        if: needs.detect-changes.outputs.all_apps_changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: latest-apk-build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "All three apps changed."
+            echo "Deleting existing release and tag..."
+
+            gh release delete "$RELEASE_TAG" \
+              --yes \
+              --cleanup-tag
+
+            echo "Old release deleted successfully."
+          else
+            echo "No existing release to delete."
+          fi
+
+      # Create a new release or update the existing one.
+      - name: Create new release or update existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: latest-apk-build
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
+          ALL_APPS_CHANGED: ${{ needs.detect-changes.outputs.all_apps_changed }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$ALL_APPS_CHANGED" = "true" ]; then
+
+            echo "Creating a completely new release..."
+
+            gh release create "$RELEASE_TAG" \
+              release-artifacts/*.apk \
+              --target "$GITHUB_SHA" \
+              --title "Latest Android APKs" \
+              --notes-file release-notes.md \
+              --latest
+
+            echo "New release created successfully."
+
+          elif gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+
+            echo "Updating existing release..."
+            echo "Only newly built APKs will be replaced."
+
+            # --clobber replaces matching assets only.
+            # Other existing APKs remain untouched.
+            gh release upload "$RELEASE_TAG" \
+              release-artifacts/*.apk \
+              --clobber
+
+            gh release edit "$RELEASE_TAG" \
+              --title "Latest Android APKs" \
+              --notes-file release-notes.md
+
+            # Move the existing release tag to this commit.
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}" \
+              -f sha="$GITHUB_SHA" \
+              -F force=true
+
+            echo "Existing release updated successfully."
+
+          else
+
+            echo "No existing release found."
+            echo "Creating the initial release..."
+
+            gh release create "$RELEASE_TAG" \
+              release-artifacts/*.apk \
+              --target "$GITHUB_SHA" \
+              --title "Latest Android APKs" \
+              --notes-file release-notes.md \
+              --latest
+
+            echo "Initial release created successfully."
+
+          fi
+
+      - name: Verify final release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: latest-apk-build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Checking final release..."
+
+          RELEASE_JSON=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")
+
+          ASSETS=$(jq -r '.assets[].name' <<< "$RELEASE_JSON")
+
+          for app in vendor driver customer; do
+            APK="otlob-${app}.apk"
+
+            if ! grep -Fxq "$APK" <<< "$ASSETS"; then
+              echo "ERROR: Missing release asset: $APK" >&2
+              exit 1
+            fi
+
+            echo "Verified release asset: $APK"
           done
+
+          echo "All three APKs are available in the current release."
+          echo "Release URL: $(jq -r '.html_url' <<< "$RELEASE_JSON")"
