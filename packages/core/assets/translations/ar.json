@@ -1479,6 +1479,8 @@
   "app.login": "تسجيل الدخول",
   "app.or": "أو",
   "app.continueWithGoogle": "المتابعة عبر Google",
+  "app.continueWithApple": "المتابعة عبر Apple",
+  "app.appleSignInComingSoon": "المتابعة عبر Apple ستتوفر قريباً.",
   "app.dontHaveAccount": "ليس لديك حساب؟ ",
   "app.signUp": "إنشاء حساب",
   "app.createAccount": "إنشاء حساب جديد",

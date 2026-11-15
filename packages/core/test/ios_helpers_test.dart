@@ -85,6 +85,8 @@ void main() {
         'auth_error_google_not_configured',
         'auth_error_google_sign_in_failed',
         'auth_error_secure_storage_unavailable',
+        'app.continueWithApple',
+        'app.appleSignInComingSoon',
       ];
       for (final locale in ['en', 'ar']) {
         final file = File('assets/translations/$locale.json');

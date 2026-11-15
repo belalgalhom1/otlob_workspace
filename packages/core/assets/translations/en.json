@@ -1479,6 +1479,8 @@
   "app.login": "Login",
   "app.or": "OR",
   "app.continueWithGoogle": "Continue with Google",
+  "app.continueWithApple": "Continue with Apple",
+  "app.appleSignInComingSoon": "Continue with Apple will be available soon.",
   "app.dontHaveAccount": "Don't have an account? ",
   "app.signUp": "Sign up",
   "app.createAccount": "Create Account",

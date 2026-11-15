@@ -29,9 +29,10 @@ class LoginController extends _$LoginController {
     state = const AsyncLoading();
 
     try {
-      await ref.read(authControllerProvider.notifier).signInWithGoogle();
+      final success =
+          await ref.read(authControllerProvider.notifier).signInWithGoogle();
       state = const AsyncData(null);
-      return true;
+      return success;
     } catch (e, st) {
       if (e.toString().contains('google.sign_in.no_token')) {
         state = const AsyncData(null);
