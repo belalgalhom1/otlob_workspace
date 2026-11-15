@@ -75,6 +75,7 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => TopUpBottomSheet(platformWallets: platformWallets),
     );
@@ -122,8 +123,10 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _checkAccountStatus,
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          onRefresh: _checkAccountStatus,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24.0),
@@ -177,19 +180,25 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            isAr ? 'المبلغ المستحق سداده' : 'Outstanding Balance',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              isAr ? 'المبلغ المستحق سداده' : 'Outstanding Balance',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                          Text(
-                            '${balance.abs().toStringAsFixed(2)} $currency',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.error,
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              '${balance.abs().toStringAsFixed(2)} $currency',
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.error,
+                              ),
                             ),
                           ),
                         ],
@@ -316,6 +325,7 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

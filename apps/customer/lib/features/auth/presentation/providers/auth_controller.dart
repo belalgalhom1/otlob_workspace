@@ -116,6 +116,7 @@ class AuthController extends _$AuthController {
   }
 
   void _clearUserProviders() {
+    ref.invalidate(accessTokenProvider);
     ref.invalidate(data_providers.sharedInboxProvider);
     ref.invalidate(data_providers.sharedChatProvider);
     ref.invalidate(data_providers.sharedInboxCountsProvider);
@@ -229,13 +230,8 @@ class AuthController extends _$AuthController {
     ref.read(needsPhoneProvider.notifier).set(false);
     ref.read(needsAddressProvider.notifier).set(false);
     ref.read(needsTermsProvider.notifier).set(false);
+    final authRepo = ref.read(sharedAuthRepositoryProvider);
     try {
-      final authRepo = ref.read(sharedAuthRepositoryProvider);
-
-      try {
-        await GoogleSignInService.signOut();
-      } catch (_) {}
-
       try {
         ref.read(socketServiceProvider).disconnect();
       } catch (_) {}
@@ -243,27 +239,51 @@ class AuthController extends _$AuthController {
         ref.read(coreSocketServiceProvider).disconnect();
       } catch (_) {}
 
-      String? fcmToken;
       try {
-        if (await authRepo.isLoggedIn()) {
-          final push = ref.read(pushNotificationServiceProvider);
-          fcmToken = await push.getToken();
-          await push.unsubscribeFromRoleTopics('CUSTOMER');
-          await push.unregisterToken();
-        }
+        await GoogleSignInService.signOut().timeout(const Duration(seconds: 2));
       } catch (_) {}
 
+      bool hasSession = false;
       try {
-        await authRepo.logout(fcmToken: fcmToken);
+        hasSession = await authRepo.isLoggedIn();
       } catch (_) {}
 
+      if (hasSession) {
+        final push = ref.read(pushNotificationServiceProvider);
+        String? fcmToken;
+        try {
+          // Do not wait for iOS APNs registration loops during logout.
+          fcmToken = await push
+              .getToken(waitForApns: false)
+              .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+        } catch (_) {}
+
+        // Fire-and-forget topic unsubscribe (internally 2s-bounded) so slow or
+        // unconfigured FCM on simulators/offline devices never stalls logout.
+        unawaited(push.unsubscribeFromRoleTopics('CUSTOMER'));
+
+        try {
+          // `/auth/logout` revokes the session and deletes the supplied
+          // `fcmToken` from devices; its CancelToken bounds slow networks.
+          await authRepo.logout(
+            fcmToken: fcmToken,
+            timeout: const Duration(seconds: 3),
+          );
+        } catch (_) {}
+      }
+    } finally {
       try {
         await ref.read(tokenServiceProvider).clearTokens();
       } catch (_) {}
+      try {
+        await authRepo.clearLocalSession();
+      } catch (_) {}
 
-      _clearUserProviders();
+      // Flip auth status BEFORE invalidating user providers so rebuilt
+      // providers observe AuthStatus.unauthenticated and do not fire
+      // follow-up authenticated requests with cleared tokens.
       state = AuthStatus.unauthenticated;
-    } finally {
+      _clearUserProviders();
       _logoutInProgress = false;
     }
   }

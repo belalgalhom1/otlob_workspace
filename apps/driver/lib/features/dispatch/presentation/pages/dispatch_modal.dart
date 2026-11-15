@@ -144,7 +144,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
 
     return DialogScaffold(child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -169,12 +169,15 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
                   children: [
                     const Icon(LucideIcons.route, size: 16, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    Text(
-                      isAr ? 'طلب مجمع إضافي في خط سيرك' : 'Batch Corridor Order',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                    Flexible(
+                      child: Text(
+                        isAr ? 'طلب مجمع إضافي في خط سيرك' : 'Batch Corridor Order',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ],
@@ -190,14 +193,24 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildInfoItem(
-                  LucideIcons.banknote,
-                  earnings,
-                  AppLocalizations.of(context)!.earningsLabel,
-                  AppColors.success,
-                  subLabel: feeSubLabel,
+                Expanded(
+                  child: _buildInfoItem(
+                    LucideIcons.banknote,
+                    earnings,
+                    AppLocalizations.of(context)!.earningsLabel,
+                    AppColors.success,
+                    subLabel: feeSubLabel,
+                  ),
                 ),
-                _buildInfoItem(LucideIcons.navigation, distance, AppLocalizations.of(context)!.distanceLabel, AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildInfoItem(
+                    LucideIcons.navigation,
+                    distance,
+                    AppLocalizations.of(context)!.distanceLabel,
+                    AppColors.primary,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 24),

@@ -125,6 +125,7 @@ class AppFilterSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     return Padding(
       padding: const EdgeInsets.only(bottom: 22),
       child: Column(
@@ -135,7 +136,7 @@ class AppFilterSection extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+              letterSpacing: isAr ? null : 0.6,
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
             ),
           ),
@@ -196,11 +197,14 @@ class AppFilterSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 10, 12),
             child: Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                const Spacer(),
                 TextButton.icon(
                   onPressed: onReset,
                   icon: const Icon(Icons.refresh_rounded, size: 16),

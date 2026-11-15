@@ -26,6 +26,7 @@ class RateOrderBottomSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -33,7 +34,10 @@ class RateOrderBottomSheet extends ConsumerStatefulWidget {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(ctx).viewInsets.bottom,
         ),
-        child: RateOrderBottomSheet(orderId: orderId, order: order),
+        child: SafeArea(
+          top: false,
+          child: RateOrderBottomSheet(orderId: orderId, order: order),
+        ),
       ),
     );
   }

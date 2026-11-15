@@ -1253,6 +1253,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1264,12 +1265,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 ? ['غيرت رأيي', 'نسيت إضافة منتج', 'عنوان التوصيل خاطئ', 'وقت التحضير طويل جداً', 'أخرى']
                 : ['Change of mind', 'Forgot to add item', 'Wrong delivery address', 'Prep time too long', 'Other'];
 
-            return Padding(
+            return SingleChildScrollView(
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
                 top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom +
+                    MediaQuery.paddingOf(context).bottom +
+                    20,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,

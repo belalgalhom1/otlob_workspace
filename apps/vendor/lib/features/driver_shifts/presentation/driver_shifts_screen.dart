@@ -193,7 +193,9 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 40,
+              height: (MediaQuery.textScalerOf(context).scale(16) + 28.0) < 40.0
+                  ? 40.0
+                  : (MediaQuery.textScalerOf(context).scale(16) + 28.0),
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
@@ -317,6 +319,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => AppFilterSheet(
@@ -885,6 +888,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => ShiftDetailsSheet(
         pool: pool,

@@ -357,14 +357,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent),
-        ),
-        child: TextField(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent),
+          ),
+          child: TextField(
           controller: _searchController,
           onChanged: (_) => setState(() {}),
           textAlign: TextAlign.start,
@@ -378,6 +379,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
           ),
+        ),
         ),
       ),
     );
@@ -404,7 +406,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             return Container(
               width: 90,
-              height: 110,
+              constraints: const BoxConstraints(minHeight: 110),
               margin: const EdgeInsetsDirectional.only(end: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
@@ -462,7 +464,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   : (isDark ? Colors.white : Colors.black87),
                               fontWeight: FontWeight.w900,
                               fontSize: 11,
-                              letterSpacing: -0.5,
+                              letterSpacing: s.isArabic ? null : -0.5,
                             ),
                           ),
                         ),
@@ -584,7 +586,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           final String fullUrl = ImageUtils.formatImageUrl(iconUrl);
 
           return Container(
-            height: 215,
+            constraints: const BoxConstraints(minHeight: 205),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               gradient: LinearGradient(
@@ -609,25 +611,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ) : null,
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text(
                     s.customDeliveryBannerTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
                       fontSize: 22,
-                      letterSpacing: -0.5,
-                      shadows: [Shadow(blurRadius: 12, color: Colors.black54)]
+                      letterSpacing: s.isArabic ? null : -0.5,
+                      shadows: const [Shadow(blurRadius: 12, color: Colors.black54)],
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     s.customDeliveryBannerSub,
                     maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -636,12 +640,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       shadows: [Shadow(blurRadius: 8, color: Colors.black26)]
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 16),
                   Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      width: 140,
-                      height: 42,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 140, minHeight: 42),
                       child: ElevatedButton(
                         onPressed: () {
                           final authStatus = ref.read(authControllerProvider);
@@ -654,7 +657,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.black,
-                          padding: EdgeInsets.zero,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 4,
                         ),
@@ -923,14 +926,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: isDark ? Colors.white : Colors.black87,
-                  letterSpacing: -0.3,
+                  letterSpacing: s.isArabic ? null : -0.3,
                 ),
               ),
             ],
           ),
         ),
         SizedBox(
-          height: 260,
+          height: (MediaQuery.textScalerOf(context).scale(48) + 212.0)
+              .clamp(260.0, 320.0),
           child: OffersAutoScroller(offers: data.offers, isDark: isDark, s: s, allVendors: data.products),
         ),
         const SizedBox(height: 8),
@@ -1070,11 +1074,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Column(
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1139,6 +1146,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ],
+          ),
           ),
         );
       },

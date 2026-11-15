@@ -111,9 +111,12 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return DraggableScrollableSheet(
+        return SafeArea(
+          top: false,
+          child: DraggableScrollableSheet(
           initialChildSize: 0.5,
           minChildSize: 0.3,
           maxChildSize: 0.9,
@@ -139,13 +142,16 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          AppLocalizations.of(context)!.customerResults,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            AppLocalizations.of(context)!.customerResults,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -236,6 +242,7 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
               ),
             );
           },
+        ),
         );
       },
     );

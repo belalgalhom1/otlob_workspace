@@ -438,8 +438,8 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          SizedBox(
-            height: 50,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 50),
             child: PrimaryButton(
               text: l10n.endBreak,
               isLoading: _isSubmitting,
@@ -711,8 +711,8 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen> {
           ),
           const SizedBox(height: 16),
 
-          SizedBox(
-            height: 50,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 50),
             child: PrimaryButton(
               text: l10n.requestBreak,
               isLoading: _isSubmitting,

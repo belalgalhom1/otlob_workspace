@@ -27,6 +27,8 @@
   "signIn": "Sign In",
   "or": "OR",
   "continueWithGoogle": "Continue with Google",
+  "continueWithApple": "Continue with Apple",
+  "appleSignInComingSoon": "Continue with Apple will be available soon.",
   "rememberMe": "Remember Me",
   "orLoginWithAnother": "Or login with another account",
   "dashboard": "Dashboard",

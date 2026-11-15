@@ -30,9 +30,13 @@ class QuickReplyChips extends StatelessWidget {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final scaledTextHeight = MediaQuery.textScalerOf(context).scale(16);
+    final containerHeight = scaledTextHeight + 26.0 < 42.0
+        ? 42.0
+        : scaledTextHeight + 26.0;
 
     return Container(
-      height: 42,
+      height: containerHeight,
       margin: const EdgeInsets.only(bottom: 6),
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 12),

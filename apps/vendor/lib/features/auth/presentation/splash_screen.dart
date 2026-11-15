@@ -199,33 +199,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              RepaintBoundary(
-                child: RotationTransition(
-                  turns: _rotationController,
-                  child: Image.asset(
-                    'assets/logo_without_background.png',
-                    width: 140,
-                    fit: BoxFit.contain,
+      body: SafeArea(
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                RepaintBoundary(
+                  child: RotationTransition(
+                    turns: _rotationController,
+                    child: Image.asset(
+                      'assets/logo_without_background.png',
+                      width: 140,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'OTLOB ADMIN',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 4,
-                  color: Theme.of(context).colorScheme.onSurface,
+                const SizedBox(height: 24),
+                Text(
+                  'OTLOB ADMIN',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 4,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

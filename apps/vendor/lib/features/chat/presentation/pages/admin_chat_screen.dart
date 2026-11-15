@@ -2105,6 +2105,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

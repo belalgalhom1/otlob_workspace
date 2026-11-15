@@ -225,16 +225,21 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
     String getCount(String status) => (counts[status] ?? 0).toString();
 
     final bool isSmallMobile = MediaQuery.of(context).size.width < 600;
+    final double textScale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1.0).clamp(1.0, 2.0);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GridView.count(
-        crossAxisCount: isSmallMobile ? 2 : (isMobile ? 2 : 4),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+      child: GridView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        childAspectRatio: isSmallMobile ? 1.85 : 2.1,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: isSmallMobile ? 2 : (isMobile ? 2 : 4),
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          mainAxisExtent: (isSmallMobile ? 96.0 : 92.0) * textScale,
+        ),
         children: [
           StatCard(
             title: l10n.all,

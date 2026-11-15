@@ -201,6 +201,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => AppFilterSheet(
@@ -319,7 +320,8 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 40,
+            height: (MediaQuery.textScalerOf(context).scale(14) + 26.0)
+                .clamp(40.0, 64.0),
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [

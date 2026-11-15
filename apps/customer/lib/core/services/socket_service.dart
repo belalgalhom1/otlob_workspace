@@ -13,7 +13,7 @@ part 'socket_service.g.dart';
 @Riverpod(keepAlive: true)
 SocketService socketService(Ref ref) {
   final service = SocketService(ref);
-  ref.onDispose(service.disconnect);
+  ref.onDispose(service.dispose);
   return service;
 }
 
@@ -191,9 +191,14 @@ class SocketService with WidgetsBindingObserver {
   void connect() => _socket?.connect();
 
   void disconnect() {
-    WidgetsBinding.instance.removeObserver(this);
+    _connectedToken = null;
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    disconnect();
   }
 }

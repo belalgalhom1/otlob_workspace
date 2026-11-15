@@ -184,13 +184,14 @@ class _CompletePhoneScreenState extends ConsumerState<CompletePhoneScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    height: 50,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 50),
                     child: ElevatedButton(
                       onPressed: _isSaving ? null : _save,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),

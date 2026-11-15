@@ -448,6 +448,7 @@ class _NearbyVendorsMapScreenState
 
     showModalBottomSheet<void>(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Padding(
@@ -550,6 +551,7 @@ class _NearbyVendorsMapScreenState
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       builder: (context) => DraggableScrollableSheet(
         expand: false,

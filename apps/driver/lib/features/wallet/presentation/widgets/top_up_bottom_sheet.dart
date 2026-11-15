@@ -132,24 +132,26 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
         right: 24,
         top: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom +
-            MediaQuery.of(context).padding.bottom +
+            MediaQuery.paddingOf(context).bottom +
             24,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            AppLocalizations.of(context)!.topUpWallet,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-          ),
-          const SizedBox(height: 24),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedWalletId,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.topUpWallet,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+            ),
+            const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _selectedWalletId,
             decoration: InputDecoration(
               labelText: AppLocalizations.of(context)!.selectPlatformWallet,
               border: const OutlineInputBorder(),
@@ -179,25 +181,32 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
           const SizedBox(height: 16),
           InkWell(
             onTap: _pickImage,
-            child: Container(
-              height: 120,
-              decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
-                borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 120),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: _receiptImage != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(_receiptImage!, height: 120, fit: BoxFit.cover),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.camera, size: 32, color: Theme.of(context).colorScheme.onSurface),
+                          const SizedBox(height: 8),
+                          Text(
+                            AppLocalizations.of(context)!.uploadReceiptImage,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                        ],
+                      ),
               ),
-              child: _receiptImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(_receiptImage!, fit: BoxFit.cover),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.camera, size: 32, color: Theme.of(context).colorScheme.onSurface),
-                        const SizedBox(height: 8),
-                        Text(AppLocalizations.of(context)!.uploadReceiptImage, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-                      ],
-                    ),
             ),
           ),
           const SizedBox(height: 32),
@@ -228,6 +237,7 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
                 : Text(AppLocalizations.of(context)!.submitRequest),
           ),
         ],
+      ),
       ),
     );
   }

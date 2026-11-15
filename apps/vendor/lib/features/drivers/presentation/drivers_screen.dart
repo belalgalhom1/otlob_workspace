@@ -850,6 +850,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
@@ -858,7 +859,9 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             color: theme.colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
+          child: SafeArea(
+            top: false,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Drag handle
@@ -1112,6 +1115,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                 ),
               ),
             ],
+            ),
           ),
         );
       },

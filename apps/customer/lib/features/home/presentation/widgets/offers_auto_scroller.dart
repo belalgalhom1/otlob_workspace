@@ -321,7 +321,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: widget.isDark ? Colors.white : Colors.black,
-                        letterSpacing: -0.4,
+                        letterSpacing: widget.s.isArabic ? null : -0.4,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -339,11 +339,11 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                               if (offerPrice != null)
                                 Text(
                                   '${offerPrice.toStringAsFixed(0)}${widget.s.egp}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w900,
                                     color: AppColors.primary,
-                                    letterSpacing: -0.5,
+                                    letterSpacing: widget.s.isArabic ? null : -0.5,
                                   ),
                                 ),
                               if (offerPrice != null && originalPrice != null && originalPrice > offerPrice) ...[

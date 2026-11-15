@@ -113,8 +113,9 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Column(
+          children: [
           // Header
           Container(
             width: double.infinity,
@@ -322,6 +323,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

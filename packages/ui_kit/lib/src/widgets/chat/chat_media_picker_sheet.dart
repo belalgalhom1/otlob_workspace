@@ -28,6 +28,7 @@ class ChatMediaPickerSheet extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => ChatMediaPickerSheet(
         allowVideo: allowVideo,
         onOptionSelected: (option) {
@@ -59,14 +60,15 @@ class ChatMediaPickerSheet extends StatelessWidget {
           ),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
-        MediaQuery.of(context).padding.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          MediaQuery.of(context).padding.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle
           Center(
@@ -154,7 +156,8 @@ class ChatMediaPickerSheet extends StatelessWidget {
               ],
             ),
           ],
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -204,7 +207,7 @@ class ChatMediaPickerSheet extends StatelessWidget {
                       fontSize: 13,
                       color: isDark ? Colors.white : AppColors.textPrimary,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),

@@ -152,19 +152,21 @@ class _TermsAcceptanceGateScreenState
 
     if (_isLoading) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                isAr
-                    ? 'جاري تحميل شروط الاستخدام...'
-                    : 'Loading Terms of Use...',
-                style: AppTypography.bodyMedium,
-              ),
-            ],
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  isAr
+                      ? 'جاري تحميل شروط الاستخدام...'
+                      : 'Loading Terms of Use...',
+                  style: AppTypography.bodyMedium,
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -172,36 +174,47 @@ class _TermsAcceptanceGateScreenState
 
     if (_error != null || _document == null) {
       return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  LucideIcons.alertTriangle,
-                  size: 48,
-                  color: theme.colorScheme.error,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - AppSpacing.xl * 2)
+                      .clamp(0.0, double.infinity),
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  isAr
-                      ? 'حدث خطأ أثناء تحميل شروط الاستخدام'
-                      : 'Error loading Terms of Use',
-                  style: AppTypography.titleMedium,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.alertTriangle,
+                        size: 48,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        isAr
+                            ? 'حدث خطأ أثناء تحميل شروط الاستخدام'
+                            : 'Error loading Terms of Use',
+                        style: AppTypography.titleMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      ElevatedButton.icon(
+                        onPressed: _fetchTerms,
+                        icon: const Icon(LucideIcons.refreshCw, size: 16),
+                        label: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextButton(
+                        onPressed: _decline,
+                        child: Text(isAr ? 'تسجيل الخروج' : 'Log out'),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                ElevatedButton.icon(
-                  onPressed: _fetchTerms,
-                  icon: const Icon(LucideIcons.refreshCw, size: 16),
-                  label: Text(isAr ? 'إعادة المحاولة' : 'Retry'),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextButton(
-                  onPressed: _decline,
-                  child: Text(isAr ? 'تسجيل الخروج' : 'Log out'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -218,8 +231,9 @@ class _TermsAcceptanceGateScreenState
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: Center(
-        child: TermsAcceptanceDialog(
+      body: SafeArea(
+        child: Center(
+          child: TermsAcceptanceDialog(
           title: title.toString(),
           subtitle: isAr
               ? 'يرجى مراجعة شروط الاستخدام والموافقة عليها للمتابعة'
@@ -237,7 +251,8 @@ class _TermsAcceptanceGateScreenState
           declineButtonLabel: isAr ? 'تسجيل الخروج' : 'Log Out',
           isLoading: _isSubmitting,
           onAccept: _acceptTerms,
-          onDecline: _decline,
+            onDecline: _decline,
+          ),
         ),
       ),
     );

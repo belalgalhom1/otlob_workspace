@@ -276,104 +276,122 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     color: Theme.of(context).colorScheme.surface,
                     child: Column(
                       children: [
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isPhone
-                                ? 12.0
-                                : (isMobile ? 16.0 : 24.0),
-                            vertical: 24.0,
-                          ),
-                          child: Row(
-                            children: [
-                              if (isMobile)
-                                IconButton(
-                                  visualDensity: isPhone
-                                      ? VisualDensity.compact
-                                      : VisualDensity.standard,
-                                  padding: EdgeInsets.all(isPhone ? 6 : 8),
-                                  constraints: isPhone
-                                      ? const BoxConstraints(
-                                          minWidth: 36,
-                                          minHeight: 36,
-                                        )
-                                      : null,
-                                  style: isPhone
-                                      ? IconButton.styleFrom(
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                        )
-                                      : null,
-                                  icon: Icon(
-                                    LucideIcons.menu,
-                                    size: isCompactPhone ? 20 : 22,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                        SafeArea(
+                          bottom: false,
+                          left: isMobile,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isPhone
+                                  ? 12.0
+                                  : (isMobile ? 16.0 : 24.0),
+                              vertical: isPhone ? 12.0 : (isMobile ? 16.0 : 20.0),
+                            ),
+                            child: Row(
+                              children: [
+                                if (isMobile)
+                                  IconButton(
+                                    visualDensity: isPhone
+                                        ? VisualDensity.compact
+                                        : VisualDensity.standard,
+                                    padding: EdgeInsets.all(isPhone ? 6 : 8),
+                                    constraints: isPhone
+                                        ? const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          )
+                                        : null,
+                                    style: isPhone
+                                        ? IconButton.styleFrom(
+                                            tapTargetSize:
+                                                MaterialTapTargetSize.shrinkWrap,
+                                          )
+                                        : null,
+                                    icon: Icon(
+                                      LucideIcons.menu,
+                                      size: isCompactPhone ? 20 : 22,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                    onPressed: () {
+                                      FocusManager.instance.primaryFocus?.unfocus();
+                                      _scaffoldKey.currentState?.openDrawer();
+                                    },
                                   ),
-                                  onPressed: () {
-                                    FocusManager.instance.primaryFocus?.unfocus();
-                                    _scaffoldKey.currentState?.openDrawer();
-                                  },
-                                ),
-                              if (isMobile) SizedBox(width: isPhone ? 6 : 8),
-                              Expanded(
-                                child: Text(
-                                  _getMenuTitle(context, _selectedIndex),
-                                  maxLines: 2,
-                                  softWrap: true,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: isCompactPhone
-                                        ? 17
-                                        : (isPhone
+                                if (isMobile) SizedBox(width: isPhone ? 6 : 8),
+                                Expanded(
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: AlignmentDirectional.centerStart,
+                                      child: Text(
+                                        _getMenuTitle(context, _selectedIndex),
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: TextStyle(
+                                          fontSize: isCompactPhone
                                               ? 18
-                                              : (isMobile ? 22 : 28)),
-                                    height: 1.2,
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                                              : (isPhone
+                                                    ? 19
+                                                    : (isMobile ? 22 : 28)),
+                                          height: 1.2,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
 
-                              SizedBox(
-                                width: isPhone ? 10 : (isMobile ? 12 : 16),
-                              ),
-                              _buildHeaderAction(
-                                LucideIcons.messageSquare,
-                                onTap: () => setState(() => _selectedIndex = 6),
-                                isMobile: isMobile,
-                                isPhone: isPhone,
-                                isCompactPhone: isCompactPhone,
-                                badgeCount: inboxCounts.chatUnread,
-                              ),
-                              SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
-                              _buildHeaderAction(
-                                LucideIcons.bell,
-                                onTap: () =>
-                                    setState(() => _selectedIndex = 17),
-                                isMobile: isMobile,
-                                isPhone: isPhone,
-                                isCompactPhone: isCompactPhone,
-                                badgeCount: inboxCounts.notificationsUnread,
-                              ),
-                              SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
-                              _buildThemeToggle(
-                                isMobile: isMobile,
-                                isPhone: isPhone,
-                                isCompactPhone: isCompactPhone,
-                              ),
-                              SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
-                              _buildLanguageToggle(
-                                isMobile: isMobile,
-                                isPhone: isPhone,
-                                isCompactPhone: isCompactPhone,
-                              ),
-                            ],
+                                SizedBox(
+                                  width: isCompactPhone
+                                      ? 6
+                                      : (isPhone ? 8 : (isMobile ? 12 : 16)),
+                                ),
+                                _buildHeaderAction(
+                                  LucideIcons.messageSquare,
+                                  onTap: () => setState(() => _selectedIndex = 6),
+                                  isMobile: isMobile,
+                                  isPhone: isPhone,
+                                  isCompactPhone: isCompactPhone,
+                                  badgeCount: inboxCounts.chatUnread,
+                                ),
+                                SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
+                                _buildHeaderAction(
+                                  LucideIcons.bell,
+                                  onTap: () =>
+                                      setState(() => _selectedIndex = 17),
+                                  isMobile: isMobile,
+                                  isPhone: isPhone,
+                                  isCompactPhone: isCompactPhone,
+                                  badgeCount: inboxCounts.notificationsUnread,
+                                ),
+                                SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
+                                _buildThemeToggle(
+                                  isMobile: isMobile,
+                                  isPhone: isPhone,
+                                  isCompactPhone: isCompactPhone,
+                                ),
+                                SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
+                                _buildLanguageToggle(
+                                  isMobile: isMobile,
+                                  isPhone: isPhone,
+                                  isCompactPhone: isCompactPhone,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        Expanded(child: _buildIndexedStack(isMobile)),
+                        Expanded(
+                          child: SafeArea(
+                            top: false,
+                            left: isMobile,
+                            child: _buildIndexedStack(isMobile),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -408,15 +426,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   };
 
   Widget _buildIndexedStack(bool isMobile) {
+    final horizontalPad = MediaQuery.of(context).size.width < 600 ? 12.0 : 24.0;
     Widget wrapForIndex(int index, Widget child) {
       if (_noScrollIndices.contains(index)) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPad),
           child: child,
         );
       }
       return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPad),
         child: child,
       );
     }
@@ -433,9 +452,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Container(
       width: isMobile ? 280 : 110,
       color: Theme.of(context).colorScheme.surface,
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: isMobile
@@ -819,6 +839,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ),
         ],
+        ),
       ),
     );
   }
@@ -2433,12 +2454,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              height: btnHeight,
-              constraints: BoxConstraints(minWidth: btnHeight),
+              constraints: BoxConstraints(
+                minWidth: btnHeight,
+                minHeight: btnHeight,
+              ),
               padding: EdgeInsets.symmetric(
                 horizontal: isCompactPhone
                     ? 6
                     : (isPhone ? 7 : (isMobile ? 8 : 12)),
+                vertical: 4,
               ),
               alignment: Alignment.center,
               decoration: BoxDecoration(

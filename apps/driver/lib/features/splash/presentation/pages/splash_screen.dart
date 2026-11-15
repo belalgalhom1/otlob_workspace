@@ -194,26 +194,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
         ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              RotationTransition(
-                turns: _rotationController,
-                child: Image.asset(
-                  'assets/logo_without_background.png',
-                  width: 140,
-                  fit: BoxFit.contain,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - 32).clamp(0.0, double.infinity),
                 ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                AppLocalizations.of(context)?.appName ?? 'Otlob Driver',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-              ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RotationTransition(
+                        turns: _rotationController,
+                        child: Image.asset(
+                          'assets/logo_without_background.png',
+                          width: 140,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Text(
+                        AppLocalizations.of(context)?.appName ?? 'Otlob Driver',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                      ),
               if (_showRetry) ...[
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -237,6 +246,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               ],
             ],
           ),
+        ),
+        ),
+        ),
+        ),
         ),
       ),
     );

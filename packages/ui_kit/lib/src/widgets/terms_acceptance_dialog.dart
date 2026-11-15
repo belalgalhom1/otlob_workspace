@@ -295,8 +295,8 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                       const SizedBox(width: AppSpacing.md),
                     ],
                     Expanded(
-                      child: SizedBox(
-                        height: 50,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 50),
                         child: PrimaryButton(
                           text: widget.acceptButtonLabel,
                           isLoading: widget.isLoading,

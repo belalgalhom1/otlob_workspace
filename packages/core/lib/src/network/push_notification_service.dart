@@ -174,11 +174,14 @@ class PushNotificationService {
     }
   }
 
-  Future<void> unregisterToken() async {
+  Future<void> unregisterToken({
+    String? token,
+    bool waitForApns = true,
+  }) async {
     try {
-      final token = await getToken();
-      if (token != null) {
-        await _devicesApi.devicesControllerRemove(token: token);
+      final resolvedToken = token ?? await getToken(waitForApns: waitForApns);
+      if (resolvedToken != null) {
+        await _devicesApi.devicesControllerRemove(token: resolvedToken);
         debugPrint('FCM Token removed from backend successfully');
       }
     } catch (e) {
@@ -267,11 +270,11 @@ class PushNotificationService {
     }
   }
 
-  Future<String?> getToken() async {
+  Future<String?> getToken({bool waitForApns = true}) async {
     try {
       if (!kIsWeb && Platform.isIOS) {
         String? apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
+        if (waitForApns && apnsToken == null) {
           // Wait briefly for iOS APNs registration during cold startup.
           for (var i = 0; i < 3 && apnsToken == null; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -292,11 +295,12 @@ class PushNotificationService {
 
   Future<void> unsubscribeFromRoleTopics(String? role) async {
     try {
-      await _messaging.unsubscribeFromTopic('topic_all');
-      debugPrint('FCM: Unsubscribed from topic_all');
+      final unsubscribes = <Future<void>>[
+        _messaging.unsubscribeFromTopic('topic_all'),
+      ];
 
+      String? specificTopic;
       if (role != null) {
-        String? specificTopic;
         switch (role.toUpperCase()) {
           case 'CUSTOMER':
             specificTopic = 'topic_customers';
@@ -315,12 +319,18 @@ class PushNotificationService {
             specificTopic = 'topic_admin';
             break;
         }
-
-        if (specificTopic != null) {
-          await _messaging.unsubscribeFromTopic(specificTopic);
-          debugPrint('FCM: Unsubscribed from $specificTopic');
-        }
       }
+
+      if (specificTopic != null) {
+        unsubscribes.add(_messaging.unsubscribeFromTopic(specificTopic));
+      }
+
+      await Future.wait(unsubscribes).timeout(const Duration(seconds: 2));
+      debugPrint(
+        specificTopic != null
+            ? 'FCM: Unsubscribed from topic_all and $specificTopic'
+            : 'FCM: Unsubscribed from topic_all',
+      );
     } catch (e) {
       debugPrint('FCM: Failed to unsubscribe from topics: $e');
     }

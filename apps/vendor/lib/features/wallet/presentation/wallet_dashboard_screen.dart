@@ -63,15 +63,22 @@ class WalletDashboardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.walletAndFinancials,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: isMobile ? 22 : 28,
-                fontWeight: FontWeight.w800,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: isArabic ? null : -0.5,
+            SizedBox(
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  l10n.walletAndFinancials,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: isMobile ? 22 : 28,
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface,
+                    letterSpacing: isArabic ? null : -0.5,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 4),
@@ -91,16 +98,18 @@ class WalletDashboardScreen extends ConsumerWidget {
     if (!showAdminTabs) {
       return Scaffold(
         backgroundColor: theme.colorScheme.surface,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            header,
-            Expanded(
-              child: isDriverManager
-                  ? const DriverManagerWalletScreen()
-                  : const VendorWalletScreen(),
-            ),
-          ],
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
+              Expanded(
+                child: isDriverManager
+                    ? const DriverManagerWalletScreen()
+                    : const VendorWalletScreen(),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -109,10 +118,11 @@ class WalletDashboardScreen extends ConsumerWidget {
       length: 2,
       child: Scaffold(
         backgroundColor: theme.colorScheme.surface,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            header,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
             Padding(
               padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
               child: TabBar(
@@ -186,7 +196,8 @@ class WalletDashboardScreen extends ConsumerWidget {
                 children: [PendingTopUpsScreen(), PlatformWalletsScreen()],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

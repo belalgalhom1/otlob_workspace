@@ -781,32 +781,38 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               boxShadow: [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
               ],
             ),
-            child: isOutOfStock
-                ? Container(
-                    height: 60,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white24 : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      s.outOfStock,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textHint,
+            child: SafeArea(
+              top: false,
+              child: isOutOfStock
+                  ? ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          s.outOfStock,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textHint,
+                          ),
+                        ),
                       ),
-                    ),
-                  )
-                : currentQty == 0
-                ? ElevatedButton(
+                    )
+                  : currentQty == 0
+                  ? ElevatedButton(
                     onPressed: () async {
                       if (!requiredMet) {
                         final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -881,7 +887,8 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: requiredMet ? AppColors.primary : (isDark ? Colors.white24 : Colors.grey.shade400),
                       foregroundColor: requiredMet ? Colors.black : Colors.white,
-                      minimumSize: const Size(double.infinity, 60),
+                      minimumSize: const Size(double.infinity, 56),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       elevation: 0,
                     ),
@@ -889,18 +896,21 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                       requiredMet 
                           ? s.addToCart 
                           : (isAr ? 'تحديد الخيارات المطلوبة' : 'Select Required Options'),
+                      textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   )
                 : Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 56),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
@@ -955,6 +965,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                             ],
                           ),
                         ),
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -963,15 +974,21 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 60),
+                            minimumSize: const Size(double.infinity, 56),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             elevation: 0,
                           ),
-                          child: Text(s.done, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            s.done,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ],
                   ),
+            ),
           ),
         ],
       ),

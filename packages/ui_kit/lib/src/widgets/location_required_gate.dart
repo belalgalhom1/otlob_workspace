@@ -88,69 +88,97 @@ class _LocationRequiredGateState extends State<LocationRequiredGate>
         if (enabled == null)
           Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
-            body: const Center(child: CircularProgressIndicator()),
+            body: const SafeArea(
+              child: Center(child: CircularProgressIndicator()),
+            ),
           )
         else if (!enabled)
           Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
             body: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      width: 112,
-                      height: 112,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.primary,
-                      ),
-                      child: const Icon(
-                        LucideIcons.mapPin,
-                        size: 56,
-                        color: Colors.white,
-                      ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 24,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: (constraints.maxHeight - 48)
+                          .clamp(0.0, double.infinity),
                     ),
-                    const SizedBox(height: 32),
-                    Text(
-                      widget.title ?? 'Location required',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.message ??
-                          'Please enable location services to continue.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.7,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 112,
+                            height: 112,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primary,
+                            ),
+                            child: const Icon(
+                              LucideIcons.mapPin,
+                              size: 56,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    FilledButton.icon(
-                      onPressed: _openLocationSettings,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      icon: const Icon(LucideIcons.navigation, size: 20),
-                      label: Text(
-                        widget.buttonLabel ?? 'Enable location',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                        const SizedBox(height: 32),
+                        Text(
+                          widget.title ?? 'Location required',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.message ??
+                              'Please enable location services to continue.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        FilledButton(
+                          onPressed: _openLocationSettings,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(LucideIcons.navigation, size: 20),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  widget.buttonLabel ?? 'Enable location',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

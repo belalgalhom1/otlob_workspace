@@ -159,8 +159,19 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                 ],
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, st) => Center(child: Text('${s.errorPrefix}${ErrorUtils.translate(context, e)}', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+            loading: () => const SafeArea(child: Center(child: CircularProgressIndicator())),
+            error: (e, st) => SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    '${s.errorPrefix}${ErrorUtils.translate(context, e)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  ),
+                ),
+              ),
+            ),
           ),
           const FloatingCartOverlay(),
         ],

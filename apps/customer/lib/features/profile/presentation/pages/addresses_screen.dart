@@ -177,11 +177,18 @@ class AddressesScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                  MediaQuery.paddingOf(ctx).bottom,
+              left: 24,
+              right: 24,
+              top: 24,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,6 +301,7 @@ class AddressesScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
@@ -319,8 +327,14 @@ class AddressesScreen extends ConsumerWidget {
             });
           }
           final isAr = s.isArabic;
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                  MediaQuery.paddingOf(ctx).bottom,
+              left: 24,
+              right: 24,
+              top: 24,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

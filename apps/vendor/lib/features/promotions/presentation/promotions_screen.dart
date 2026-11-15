@@ -275,6 +275,9 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
               );
             }
 
+            final textScale = MediaQuery.textScalerOf(
+              context,
+            ).scale(1.0).clamp(1.0, 2.0);
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -284,7 +287,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     : (size.width > 900 ? 2 : 1),
                 crossAxisSpacing: 24,
                 mainAxisSpacing: 24,
-                childAspectRatio: size.width > 1400 ? 1.5 : (size.width > 900 ? 1.45 : 1.4),
+                childAspectRatio: (size.width > 1400
+                        ? 1.5
+                        : (size.width > 900 ? 1.45 : 1.4)) /
+                    textScale,
               ),
               itemCount: promotions.length,
               itemBuilder: (context, index) {

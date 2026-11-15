@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ui_kit/ui_kit.dart' show SocialAuthButton;
 
 import '../providers/login_controller.dart';
 import '../../../../core/services/token_service.dart';
@@ -263,10 +264,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
 
                 const SizedBox(height: 16),
-                SizedBox(
-                  height: 50,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 50),
                   child: ElevatedButton(
                     onPressed: loginState.isLoading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
                     child: loginState.isLoading &&
                             _submittingMethod == _AuthSubmissionMethod.email
                         ? const CircularProgressIndicator(color: Colors.white)
@@ -294,8 +298,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildSocialAuthButton(
-                  context: context,
+                SocialAuthButton(
+                  height: 50,
                   label: s.continueWithGoogle,
                   isLoading: loginState.isLoading &&
                       _submittingMethod == _AuthSubmissionMethod.google,
@@ -311,8 +315,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildSocialAuthButton(
-                  context: context,
+                SocialAuthButton(
+                  height: 50,
                   label: s.continueWithApple,
                   isLoading: false,
                   onPressed: loginState.isLoading
@@ -349,60 +353,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSocialAuthButton({
-    required BuildContext context,
-    required Widget icon,
-    required String label,
-    required bool isLoading,
-    required VoidCallback? onPressed,
-  }) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    return SizedBox(
-      height: 50,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          side: BorderSide(
-            color: onSurface.withValues(alpha: 0.2),
-          ),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Center(child: icon),
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: onSurface,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
       ),
     );
   }

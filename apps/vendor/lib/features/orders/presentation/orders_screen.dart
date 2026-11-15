@@ -409,17 +409,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               }
             }
 
-            return GridView.count(
-              crossAxisCount: MediaQuery.of(context).size.width < 600
-                  ? 2
-                  : (MediaQuery.of(context).size.width < 1100 ? 2 : 4),
+            final screenWidth = MediaQuery.of(context).size.width;
+            final textScale = MediaQuery.textScalerOf(
+              context,
+            ).scale(1.0).clamp(1.0, 2.0);
+            return GridView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: MediaQuery.of(context).size.width < 600
-                  ? 2.0
-                  : 2.4,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: screenWidth < 600
+                    ? 2
+                    : (screenWidth < 1100 ? 2 : 4),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                mainAxisExtent: (screenWidth < 600 ? 84.0 : 88.0) * textScale,
+              ),
               children: [
                 _buildScenicStatCard(
                   title: isArabic ? 'جديد' : 'New Orders',
@@ -921,7 +925,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 10,
                               ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -1526,6 +1530,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
+                                            useSafeArea: true,
                                             builder: (ctx) => AssignDriverSheet(
                                               orderId: order['id'].toString(),
                                               orderCode: code,
@@ -3820,6 +3825,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         builder: (ctx) {
           final markers = <Marker>[
             Marker(
@@ -3855,14 +3861,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Text(
-                          isArabic ? 'موقع السائق' : 'Driver location',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            isArabic ? 'موقع السائق' : 'Driver location',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         IconButton(
                           onPressed: () => Navigator.pop(ctx),
                           icon: const Icon(LucideIcons.x),

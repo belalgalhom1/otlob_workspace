@@ -1200,15 +1200,19 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
             children: [
               // Drag Handle
               Container(
@@ -1359,6 +1363,8 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                 },
               ),
             ],
+              ),
+            ),
           ),
         );
       },

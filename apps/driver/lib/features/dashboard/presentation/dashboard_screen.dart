@@ -830,14 +830,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
           if (!onBreak && !isOnline) ...[
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: PrimaryButton(
-                onPressed: () => context.push('/shifts'),
-                text: l10n.localeName == 'ar'
-                    ? 'الذهاب إلى الورديات لبدء العمل'
-                    : 'Go to Shifts to start working',
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: SizedBox(
+                width: double.infinity,
+                child: PrimaryButton(
+                  onPressed: () => context.push('/shifts'),
+                  text: l10n.localeName == 'ar'
+                      ? 'الذهاب إلى الورديات لبدء العمل'
+                      : 'Go to Shifts to start working',
+                ),
               ),
             ),
           ],

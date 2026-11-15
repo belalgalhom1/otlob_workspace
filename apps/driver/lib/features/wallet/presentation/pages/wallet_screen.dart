@@ -43,10 +43,12 @@ class WalletScreen extends ConsumerWidget {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
+              SliverSafeArea(
+                bottom: false,
+                sliver: SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (settlementRequired) ...[
@@ -81,9 +83,13 @@ class WalletScreen extends ConsumerWidget {
                                     style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                                   ),
                                 ),
-                                Text(
-                                  '+${amount.toStringAsFixed(2)} $currency',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.warning),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    '+${amount.toStringAsFixed(2)} $currency',
+                                    textAlign: TextAlign.end,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.warning),
+                                  ),
                                 ),
                               ],
                             ),
@@ -99,6 +105,7 @@ class WalletScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+              ),
               ),
               if (transactions.isEmpty)
                 SliverToBoxAdapter(
@@ -118,6 +125,12 @@ class WalletScreen extends ConsumerWidget {
                     childCount: transactions.length,
                   ),
                 ),
+              const SliverSafeArea(
+                top: false,
+                sliver: SliverToBoxAdapter(
+                  child: SizedBox(height: 16),
+                ),
+              ),
             ],
           ),
         );
@@ -213,24 +226,31 @@ class WalletScreen extends ConsumerWidget {
                 color: isNegative ? Colors.amberAccent : const Color(0xFF0F172A),
               ),
               const SizedBox(width: 8),
-              Text(
-                cardTitle,
-                style: TextStyle(
-                  color: isNegative ? Colors.amberAccent : const Color(0xFF0F172A),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  cardTitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isNegative ? Colors.amberAccent : const Color(0xFF0F172A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            displayAmount,
-            style: TextStyle(
-              color: isNegative ? Colors.white : const Color(0xFF0F172A),
-              fontSize: 38,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              displayAmount,
+              maxLines: 1,
+              style: TextStyle(
+                color: isNegative ? Colors.white : const Color(0xFF0F172A),
+                fontSize: 38,
+                fontWeight: FontWeight.w800,
+                letterSpacing: isAr ? null : 0.5,
+              ),
             ),
           ),
           if (isNegative) ...[
@@ -259,45 +279,80 @@ class WalletScreen extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
+                child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isNegative ? AppColors.primary : Theme.of(context).colorScheme.surface,
                     foregroundColor: isNegative ? Colors.black : Theme.of(context).colorScheme.onSurface,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(0, 46),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                   ),
-                  icon: Icon(isNegative ? LucideIcons.arrowUpRight : LucideIcons.arrowUpCircle, size: 18),
-                  label: Text(settleLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () {
                     final platformWallets = ref.read(driverWalletProvider).value?['platformWallets'] as List<dynamic>? ?? [];
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+                      useSafeArea: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => TopUpBottomSheet(platformWallets: platformWallets),
                     );
                   },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(isNegative ? LucideIcons.arrowUpRight : LucideIcons.arrowUpCircle, size: 18),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          settleLabel,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
+                child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isNegative ? Colors.white.withValues(alpha: 0.15) : const Color(0xFF0F172A).withValues(alpha: 0.12),
                     foregroundColor: isNegative ? Colors.white : const Color(0xFF0F172A),
                     elevation: 0,
+                    minimumSize: const Size(0, 46),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                   ),
-                  icon: const Icon(LucideIcons.arrowDownCircle),
-                  label: Text(l10n.manageWallets),
                   onPressed: () {
                     final driverWallets = ref.read(driverWalletProvider).value?['driverWallets'] as List<dynamic>? ?? [];
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+                      useSafeArea: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => ManageWalletsBottomSheet(driverWallets: driverWallets),
                     );
                   },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(LucideIcons.arrowDownCircle, size: 18),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          l10n.manageWallets,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

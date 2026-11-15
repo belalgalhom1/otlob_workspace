@@ -734,6 +734,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _showOptions(Message msg) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -893,6 +894,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => OrderOfferBottomSheet(
             product: {
@@ -974,6 +976,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
+                    useSafeArea: true,
                     backgroundColor: Colors.transparent,
                     builder: (context) => OrderOfferBottomSheet(
                       product: {

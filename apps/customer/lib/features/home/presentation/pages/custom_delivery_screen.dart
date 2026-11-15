@@ -575,18 +575,23 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   Widget _buildTypeSwitcher(AppStrings s, bool isDark) {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          _switcherButton(s.delivery, 'delivery', isDark),
-          _switcherButton(s.ride, 'ride', isDark),
-        ],
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 50),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _switcherButton(s.delivery, 'delivery', isDark),
+              _switcherButton(s.ride, 'ride', isDark),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -605,6 +610,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
@@ -612,6 +618,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           child: Center(
             child: Text(
               label,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 13,

@@ -242,6 +242,18 @@ abstract class AppLocalizations {
   /// **'Continue with Google'**
   String get continueWithGoogle;
 
+  /// No description provided for @continueWithApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get continueWithApple;
+
+  /// No description provided for @appleSignInComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple will be available soon.'**
+  String get appleSignInComingSoon;
+
   /// No description provided for @rememberMe.
   ///
   /// In en, this message translates to:

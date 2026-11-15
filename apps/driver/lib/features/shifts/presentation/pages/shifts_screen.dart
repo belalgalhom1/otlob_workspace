@@ -181,22 +181,24 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: EdgeInsets.only(
           left: 24,
           right: 24,
           top: 24,
-          bottom: MediaQuery.of(ctx).padding.bottom + 24,
+          bottom: MediaQuery.paddingOf(ctx).bottom + 24,
         ),
         decoration: BoxDecoration(
           color: Theme.of(ctx).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.file(
@@ -222,19 +224,26 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: Text(isAr ? 'إعادة الالتقاط' : 'Retake'),
+                    child: Text(
+                      isAr ? 'إعادة الالتقاط' : 'Retake',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: Text(l10n.startShift),
+                    child: Text(
+                      l10n.startShift,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ],
             ),
           ],
+          ),
         ),
       ),
     );
@@ -452,6 +461,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => AppFilterSheet(
@@ -585,7 +595,8 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 40,
+            height: (MediaQuery.textScalerOf(context).scale(14) + 26.0)
+                .clamp(40.0, 64.0),
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [

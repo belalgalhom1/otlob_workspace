@@ -81,6 +81,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get continueWithGoogle => 'المتابعة عبر Google';
 
   @override
+  String get continueWithApple => 'المتابعة عبر Apple';
+
+  @override
+  String get appleSignInComingSoon => 'المتابعة عبر Apple ستتوفر قريباً.';
+
+  @override
   String get rememberMe => 'تذكرني';
 
   @override

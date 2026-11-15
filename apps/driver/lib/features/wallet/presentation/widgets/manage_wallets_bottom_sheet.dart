@@ -83,23 +83,28 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
         left: 24,
         right: 24,
         top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.paddingOf(context).bottom +
+            24,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _isAddingNew ? AppLocalizations.of(context)!.addNewWallet : AppLocalizations.of(context)!.myWalletsForWithdrawals,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-              ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _isAddingNew ? AppLocalizations.of(context)!.addNewWallet : AppLocalizations.of(context)!.myWalletsForWithdrawals,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                  ),
+                ),
               if (_isAddingNew)
                 IconButton(
                   icon: const Icon(LucideIcons.x),
@@ -147,6 +152,7 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
             ),
           ] else ...[
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _selectedType,
               decoration: InputDecoration(
                 labelText: AppLocalizations.of(context)!.walletType,
@@ -202,6 +208,7 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
             ),
           ]
         ],
+      ),
       ),
     );
   }

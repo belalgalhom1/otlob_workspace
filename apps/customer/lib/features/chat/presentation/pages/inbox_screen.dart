@@ -90,31 +90,30 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     ];
 
     return Container(
-      height: 38,
+      width: double.infinity,
       margin: const EdgeInsets.only(top: 8, bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: filters.map((f) {
           final isSelected = _selectedFilter == f['key'];
-          return Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8),
-            child: ChoiceChip(
-              label: Text(f['label']!),
-              selected: isSelected,
-              onSelected: (val) {
-                if (val) setState(() => _selectedFilter = f['key']!);
-              },
-              selectedColor: AppColors.primary,
-              labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
-              ),
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              side: BorderSide(
-                color: isSelected ? AppColors.primary : Colors.transparent,
-              ),
+          return ChoiceChip(
+            label: Text(f['label']!),
+            selected: isSelected,
+            onSelected: (val) {
+              if (val) setState(() => _selectedFilter = f['key']!);
+            },
+            selectedColor: AppColors.primary,
+            labelStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+            ),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            side: BorderSide(
+              color: isSelected ? AppColors.primary : Colors.transparent,
             ),
           );
         }).toList(),

@@ -54,14 +54,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
   void _showBranchSelector(BuildContext context, List<dynamic> branches, String vendorId, bool isAr) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
         final currentSelected = ref.read(selectedBranchProvider)[vendorId]?.id;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          child: Column(
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -94,6 +98,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                 );
               }),
             ],
+          ),
           ),
         );
       },
@@ -333,32 +338,34 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                           const SizedBox(height: 12),
-                          SizedBox(
-                            height: 46,
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                final authState = ref.read(authControllerProvider);
-                                if (authState != AuthStatus.authenticated) {
-                                  AuthPromptDialog.show(context);
-                                  return;
-                                }
-                                context.push('/chat/vendor/${fullVendor['id']}', extra: {'title': name});
-                              },
-                              icon: const CustomChatIcon(size: 18, color: AppColors.primary),
-                              label: Text(
-                                s.chatWithVendor,
-                                style: const TextStyle(
-                                  fontSize: 13, 
-                                  fontWeight: FontWeight.w900, 
-                                  color: AppColors.primary,
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 46),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  final authState = ref.read(authControllerProvider);
+                                  if (authState != AuthStatus.authenticated) {
+                                    AuthPromptDialog.show(context);
+                                    return;
+                                  }
+                                  context.push('/chat/vendor/${fullVendor['id']}', extra: {'title': name});
+                                },
+                                icon: const CustomChatIcon(size: 18, color: AppColors.primary),
+                                label: Text(
+                                  s.chatWithVendor,
+                                  style: const TextStyle(
+                                    fontSize: 13, 
+                                    fontWeight: FontWeight.w900, 
+                                    color: AppColors.primary,
+                                  ),
                                 ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.primary, width: 1.5),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                                ),
                               ),
                             ),
                           ),
@@ -368,12 +375,14 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             children: [
                               const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.primary),
                               const SizedBox(width: 4),
-                              Text(
-                                s.chatWithVendorSubtext,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                  fontWeight: FontWeight.w600,
+                              Flexible(
+                                child: Text(
+                                  s.chatWithVendorSubtext,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -965,6 +974,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return ProductBottomSheet(

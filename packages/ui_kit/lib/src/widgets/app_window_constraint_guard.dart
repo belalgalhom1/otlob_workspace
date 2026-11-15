@@ -15,6 +15,8 @@ class AppWindowConstraintGuard extends StatelessWidget {
   final Widget child;
   final double minWidth;
   final double minHeight;
+  final double minTextScaleFactor;
+  final double maxTextScaleFactor;
   final Alignment alignment;
 
   const AppWindowConstraintGuard({
@@ -22,22 +24,34 @@ class AppWindowConstraintGuard extends StatelessWidget {
     required this.child,
     this.minWidth = 360.0,
     this.minHeight = 600.0,
+    this.minTextScaleFactor = 0.85,
+    this.maxTextScaleFactor = 1.3,
     this.alignment = Alignment.center,
   });
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final clampedTextScaler = mediaQuery.textScaler.clamp(
+      minScaleFactor: minTextScaleFactor,
+      maxScaleFactor: maxTextScaleFactor,
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final currentWidth = constraints.maxWidth;
         final currentHeight = constraints.maxHeight;
 
         // If constraints are unconstrained or safely above minimums, passthrough
+        // with bounded text scaling while preserving device insets and size.
         final isTooNarrow = currentWidth.isFinite && currentWidth < minWidth;
         final isTooShort = currentHeight.isFinite && currentHeight < minHeight;
 
         if (!isTooNarrow && !isTooShort) {
-          return child;
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: clampedTextScaler),
+            child: child,
+          );
         }
 
         // Clamp to minimum mobile dimensions
@@ -54,8 +68,9 @@ class AppWindowConstraintGuard extends StatelessWidget {
               width: effectiveWidth,
               height: effectiveHeight,
               child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(
+                data: mediaQuery.copyWith(
                   size: Size(effectiveWidth, effectiveHeight),
+                  textScaler: clampedTextScaler,
                 ),
                 child: child,
               ),

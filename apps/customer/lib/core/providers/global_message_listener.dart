@@ -70,6 +70,7 @@ class GlobalMessageListener extends _$GlobalMessageListener {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => OrderOfferBottomSheet(
             product: product,

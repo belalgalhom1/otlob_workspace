@@ -7,6 +7,8 @@
   "signIn": "تسجيل الدخول",
   "or": "أو",
   "continueWithGoogle": "المتابعة عبر Google",
+  "continueWithApple": "المتابعة عبر Apple",
+  "appleSignInComingSoon": "المتابعة عبر Apple ستتوفر قريباً.",
   "rememberMe": "تذكرني",
   "orLoginWithAnother": "أو تسجيل الدخول بحساب آخر",
   "dashboard": "لوحة التحكم",

@@ -23,50 +23,62 @@ class MaintenanceScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.wrench,
-                  size: 64,
-                  color: AppColors.primary,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - AppSpacing.xl * 2).clamp(0.0, double.infinity),
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.wrench,
+                          size: 64,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        title,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        message,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryButton(
+                          text: retryLabel,
+                          onPressed: onRetry,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              SizedBox(
-                width: double.infinity,
-                child: PrimaryButton(
-                  text: retryLabel,
-                  onPressed: onRetry,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

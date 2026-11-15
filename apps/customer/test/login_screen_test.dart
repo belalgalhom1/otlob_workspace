@@ -35,7 +35,10 @@ class _FakeAuthRepo extends Fake implements SharedAuthRepository {
   Future<bool> isLoggedIn() async => false;
 
   @override
-  Future<void> logout({String? fcmToken}) async {}
+  Future<void> logout({
+    String? fcmToken,
+    Duration timeout = const Duration(seconds: 4),
+  }) async {}
 }
 
 class _FakeTokenService extends Fake implements TokenService {

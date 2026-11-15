@@ -139,7 +139,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                 ),
                 tabs: [
                   Tab(
-                    height: 42,
+                    height: (MediaQuery.textScalerOf(context).scale(16) + 26.0) < 42.0
+                        ? 42.0
+                        : (MediaQuery.textScalerOf(context).scale(16) + 26.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -150,7 +152,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                     ),
                   ),
                   Tab(
-                    height: 42,
+                    height: (MediaQuery.textScalerOf(context).scale(16) + 26.0) < 42.0
+                        ? 42.0
+                        : (MediaQuery.textScalerOf(context).scale(16) + 26.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -161,7 +165,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                     ),
                   ),
                   Tab(
-                    height: 42,
+                    height: (MediaQuery.textScalerOf(context).scale(16) + 26.0) < 42.0
+                        ? 42.0
+                        : (MediaQuery.textScalerOf(context).scale(16) + 26.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -172,7 +178,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                     ),
                   ),
                   Tab(
-                    height: 42,
+                    height: (MediaQuery.textScalerOf(context).scale(16) + 26.0) < 42.0
+                        ? 42.0
+                        : (MediaQuery.textScalerOf(context).scale(16) + 26.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -198,14 +206,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: surfaceColor,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: TextField(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 46),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: surfaceColor,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: TextField(
                             controller: _searchController,
                             style: TextStyle(color: textColor, fontSize: 13),
                             onChanged: (v) => setState(
@@ -244,21 +253,26 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                           ),
                         ),
                       ),
+                      ),
                       const SizedBox(width: 10),
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: () => _exportCurrentTab(context, ref),
                           borderRadius: BorderRadius.circular(14),
-                          child: Container(
-                            height: 46,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            decoration: BoxDecoration(
-                              color: surfaceColor,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: borderColor),
-                            ),
-                            child: Row(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 46),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
@@ -281,6 +295,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                             ),
                           ),
                         ),
+                      ),
                       ),
                     ],
                   ),

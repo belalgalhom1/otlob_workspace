@@ -2,10 +2,37 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:api/api.dart';
 import 'package:core/core.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:test/test.dart';
+
+class _ThrowingSecureStorage implements FlutterSecureStorage {
+  final List<String> deletedKeys = [];
+  final Set<String> failingKeys;
+
+  _ThrowingSecureStorage({this.failingKeys = const {}});
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #delete) {
+      final key = invocation.namedArguments[#key] as String;
+      deletedKeys.add(key);
+      if (failingKeys.contains(key)) {
+        return Future<void>.error(
+          PlatformException(
+            code: 'Unexpected security result code',
+            message: 'Code: -34018, Keychain error during delete',
+            details: -34018,
+          ),
+        );
+      }
+      return Future<void>.value();
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
 
 void main() {
   group('iOS Secure Storage Configuration', () {
@@ -96,6 +123,43 @@ void main() {
           expect((map[key] as String).trim(), isNotEmpty);
         }
       }
+    });
+  });
+
+  group('SecureStorageHelper.deleteSafely & TokenService.clearSession', () {
+    test('deleteSafely swallows Keychain PlatformException without throwing', () async {
+      final storage = _ThrowingSecureStorage(failingKeys: {'access_token'});
+
+      await expectLater(
+        SecureStorageHelper.deleteSafely(storage, 'access_token'),
+        completes,
+      );
+      expect(storage.deletedKeys, ['access_token']);
+    });
+
+    test('clearSession continues deleting remaining auth keys if one throws PlatformException', () async {
+      final storage = _ThrowingSecureStorage(
+        failingKeys: {'access_token', 'user_role', 'vendor_memberships'},
+      );
+      final tokenService = TokenService(Api(), storage);
+
+      await expectLater(tokenService.clearSession(), completes);
+
+      expect(
+        storage.deletedKeys,
+        containsAllInOrder([
+          'access_token',
+          'refresh_token',
+          'user_id',
+          'user_role',
+          'user_name',
+          'user_email',
+          'user_phone',
+          'user_avatar',
+          'vendor_memberships',
+          'user_permissions',
+        ]),
+      );
     });
   });
 }

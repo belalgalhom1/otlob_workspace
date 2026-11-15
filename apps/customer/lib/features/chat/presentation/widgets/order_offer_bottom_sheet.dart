@@ -113,64 +113,77 @@ class OrderOfferBottomSheet extends ConsumerWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               boxShadow: [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
               ],
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 60),
-                      side: const BorderSide(color: Colors.grey, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 56),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        side: const BorderSide(color: Colors.grey, width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: Text(
+                        s.cancelOrder,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
                     ),
-                    child: Text(s.cancelOrder, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        await ref.read(cartProvider.notifier).addItem({
-                          ...product,
-                          'vendorId': vendorId,
-                          'vendorName': vendorName,
-                        });
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(s.addedToCart)),
-                          );
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await ref.read(cartProvider.notifier).addItem({
+                            ...product,
+                            'vendorId': vendorId,
+                            'vendorName': vendorName,
+                          });
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(s.addedToCart)),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ErrorUtils.translate(context, e)),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ErrorUtils.translate(context, e)),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(double.infinity, 60),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      elevation: 0,
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
+                        minimumSize: const Size(double.infinity, 56),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        s.confirmOrder,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                    child: Text(s.confirmOrder, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

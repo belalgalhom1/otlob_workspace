@@ -116,6 +116,8 @@ class DataExportService {
     final format = await showModalBottomSheet<ExportFormat>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) => _ExportFormatSheet(
         title: title,

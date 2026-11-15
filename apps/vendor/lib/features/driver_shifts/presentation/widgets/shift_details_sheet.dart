@@ -72,15 +72,18 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         initialChildSize: 0.80,
         minChildSize: 0.4,
         maxChildSize: 0.95,
-        builder: (context, scrollController) => CustomScrollView(
-          controller: scrollController,
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(l10n, pool)),
-            SliverToBoxAdapter(child: _buildInfoRow(l10n, pool)),
-            SliverToBoxAdapter(child: _buildAssignSection(l10n, pool)),
-            SliverToBoxAdapter(child: _buildAssignedDriversList(l10n, pool)),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
+        builder: (context, scrollController) => SafeArea(
+          top: false,
+          child: CustomScrollView(
+            controller: scrollController,
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(l10n, pool)),
+              SliverToBoxAdapter(child: _buildInfoRow(l10n, pool)),
+              SliverToBoxAdapter(child: _buildAssignSection(l10n, pool)),
+              SliverToBoxAdapter(child: _buildAssignedDriversList(l10n, pool)),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            ],
+          ),
         ),
       ),
     );

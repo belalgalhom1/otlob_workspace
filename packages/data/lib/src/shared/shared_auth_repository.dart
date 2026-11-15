@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:api/api.dart';
 import 'package:core/core.dart';
+import 'package:dio/dio.dart' show CancelToken;
 import '../shared/response_parser.dart';
 
 /// Fallback error key used only when the server returned a 2xx response that
@@ -200,19 +203,34 @@ class SharedAuthRepository {
     throw Exception(_missingAuthPayloadKey);
   }
 
-  Future<void> logout({String? fcmToken}) async {
+  Future<void> clearLocalSession() => _tokenService.clearSession();
+
+  Future<void> logout({
+    String? fcmToken,
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
     // Skip the network call when there is no session to revoke. Calling it
     // without a bearer token just 401s, and in combination with the auth
     // interceptor's stream event can turn into a logout feedback loop.
     final hasToken = await _tokenService.hasSession();
     if (hasToken) {
+      final cancelToken = CancelToken();
+      final timer = Timer(timeout, () {
+        if (!cancelToken.isCancelled) {
+          cancelToken.cancel('Logout request timed out');
+        }
+      });
       try {
         await _api.authControllerLogout(
           logoutDto: LogoutDto((b) {
             if (fcmToken != null) b.fcmToken = fcmToken;
           }),
+          cancelToken: cancelToken,
         );
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        timer.cancel();
+      }
     }
     await _tokenService.clearSession();
   }

@@ -1,4 +1,5 @@
 import 'package:core/core.dart' show SecureStorageHelper;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -118,10 +119,10 @@ class TokenService {
   }
 
   Future<void> deleteSavedProfile() async {
-    await _storage.delete(key: _savedEmailKey);
-    await _storage.delete(key: _savedPasswordKey);
-    await _storage.delete(key: _savedNameKey);
-    await _storage.delete(key: _savedRoleKey);
+    await SecureStorageHelper.deleteSafely(_storage, _savedEmailKey);
+    await SecureStorageHelper.deleteSafely(_storage, _savedPasswordKey);
+    await SecureStorageHelper.deleteSafely(_storage, _savedNameKey);
+    await SecureStorageHelper.deleteSafely(_storage, _savedRoleKey);
   }
 
   Future<void> saveTokens({
@@ -135,34 +136,60 @@ class TokenService {
   }
 
   Future<void> deleteAccessToken() async {
-    await _storage.delete(key: _accessTokenKey);
+    await SecureStorageHelper.deleteSafely(_storage, _accessTokenKey);
   }
 
   Future<void> deleteUserEmail() async {
-    await _storage.delete(key: _userEmailKey);
+    await SecureStorageHelper.deleteSafely(_storage, _userEmailKey);
   }
 
   Future<void> deleteRefreshToken() async {
-    await _storage.delete(key: _refreshTokenKey);
+    await SecureStorageHelper.deleteSafely(_storage, _refreshTokenKey);
   }
 
   Future<void> clearTokens() async {
-    // Save these before deleting all
-    final savedEmail = await _storage.read(key: _savedEmailKey);
-    final savedPassword = await _storage.read(key: _savedPasswordKey);
-    final savedName = await _storage.read(key: _savedNameKey);
-    final savedRole = await _storage.read(key: _savedRoleKey);
+    // Save these before deleting auth session keys
+    final savedEmail = await SecureStorageHelper.readSafely(_storage, _savedEmailKey);
+    final savedPassword = await SecureStorageHelper.readSafely(_storage, _savedPasswordKey);
+    final savedName = await SecureStorageHelper.readSafely(_storage, _savedNameKey);
+    final savedRole = await SecureStorageHelper.readSafely(_storage, _savedRoleKey);
 
-    await _storage.deleteAll();
+    // Explicitly delete all session keys first so a deleteAll() failure
+    // on iOS Keychain cannot leave access/refresh tokens behind.
+    const sessionKeys = [
+      _accessTokenKey,
+      _refreshTokenKey,
+      _userEmailKey,
+      _userNameKey,
+      _userPhoneKey,
+      _userAvatarKey,
+      'user_id',
+      'user_role',
+      'vendor_memberships',
+      'user_permissions',
+    ];
+    for (final key in sessionKeys) {
+      await SecureStorageHelper.deleteSafely(_storage, key);
+    }
+
+    try {
+      await _storage.deleteAll();
+    } catch (e) {
+      debugPrint('TokenService.clearTokens deleteAll warning: $e');
+    }
 
     // Restore saved profile if it existed
     if (savedEmail != null) {
-      await saveSavedProfile(
-        email: savedEmail,
-        password: savedPassword ?? '',
-        name: savedName ?? '',
-        role: savedRole ?? '',
-      );
+      try {
+        await saveSavedProfile(
+          email: savedEmail,
+          password: savedPassword ?? '',
+          name: savedName ?? '',
+          role: savedRole ?? '',
+        );
+      } catch (e) {
+        debugPrint('TokenService.clearTokens restore savedProfile warning: $e');
+      }
     }
   }
 

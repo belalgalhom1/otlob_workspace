@@ -33,6 +33,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _onAppleSignInPressed(BuildContext context, AppLocalizations l10n) {
+    // UI-only placeholder until Sign in with Apple authentication is enabled.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(l10n.appleSignInComingSoon)),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -154,24 +163,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Consumer(
                       builder: (context, ref, child) {
                         final state = ref.watch(authProvider);
-                        return SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: PrimaryButton(
-                            isLoading: state.isLoading,
-                            onPressed: state.isLoading
-                                ? null
-                                : () {
-                                    ref
-                                        .read(authProvider.notifier)
-                                        .login(
-                                          _emailController.text
-                                              .trim()
-                                              .toLowerCase(),
-                                          _passwordController.text,
-                                        );
-                                  },
-                            text: l10n.signIn,
+                        return ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 56),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: PrimaryButton(
+                              isLoading: state.isLoading,
+                              onPressed: state.isLoading
+                                  ? null
+                                  : () {
+                                      ref
+                                          .read(authProvider.notifier)
+                                          .login(
+                                            _emailController.text
+                                                .trim()
+                                                .toLowerCase(),
+                                            _passwordController.text,
+                                          );
+                                    },
+                              text: l10n.signIn,
+                            ),
                           ),
                         );
                       },
@@ -200,51 +211,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Consumer(
                       builder: (context, ref, child) {
                         final state = ref.watch(authProvider);
-                        return SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: OutlinedButton(
-                            onPressed: state.isLoading
-                                ? null
-                                : () => ref
-                                    .read(authProvider.notifier)
-                                    .loginWithGoogle(),
-                            style: OutlinedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              side: BorderSide(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.2),
+                        return Column(
+                          children: [
+                            SocialAuthButton(
+                              height: 56,
+                              label: l10n.continueWithGoogle,
+                              onPressed: state.isLoading
+                                  ? null
+                                  : () => ref
+                                      .read(authProvider.notifier)
+                                      .loginWithGoogle(),
+                              icon: const Text(
+                                'G',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF4285F4),
+                                  height: 1.0,
+                                ),
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'G',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF4285F4),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  l10n.continueWithGoogle,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 12),
+                            SocialAuthButton(
+                              height: 56,
+                              label: l10n.continueWithApple,
+                              onPressed: state.isLoading
+                                  ? null
+                                  : () => _onAppleSignInPressed(context, l10n),
+                              icon: Icon(
+                                Icons.apple,
+                                size: 24,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
-                          ),
+                          ],
                         );
                       },
                     ),

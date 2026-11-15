@@ -12,17 +12,70 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../../../../core/providers/app_settings_provider.dart';
+import '../../../../core/services/navigation_service.dart';
 import '../../../../core/services/token_service.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../providers/profile_controller.dart';
 import '../providers/coin_history_provider.dart';
 import '../../../../core/widgets/floating_cart_overlay.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isLoggingOut = false;
+
+  void _navigateToLoginAfterLogout() {
+    if (mounted) {
+      context.go(RoutePaths.login);
+      return;
+    }
+    if (ref.read(appSettingsProvider).hasSeenOnboarding) {
+      ref.read(navigationServiceProvider).go(RoutePaths.login);
+    }
+  }
+
+  Future<void> _handleLogout(AppStrings s) async {
+    if (_isLoggingOut) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.logout),
+        content: Text(s.logoutConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              s.logout,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoggingOut = true);
+    try {
+      await ref.read(authControllerProvider.notifier).logout();
+      _navigateToLoginAfterLogout();
+    } finally {
+      if (mounted) {
+        setState(() => _isLoggingOut = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final profileState = ref.watch(profileProvider);
     final settingsState = ref.watch(appSettingsProvider);
@@ -178,38 +231,20 @@ class ProfileScreen extends ConsumerWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: Text(s.logout),
-                              content: Text(s.logoutConfirm),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: Text(s.cancel),
+                        onPressed: _isLoggingOut ? null : () => _handleLogout(s),
+                        icon: _isLoggingOut
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: Text(
-                                    s.logout,
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirmed == true) {
-                            await ref.read(authControllerProvider.notifier).logout();
-                            if (context.mounted) {
-                              context.go('/home');
-                            }
-                          }
-                        },
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white,
-                        ),
+                              )
+                            : const Icon(
+                                Icons.logout_rounded,
+                                color: Colors.white,
+                              ),
                         label: Text(
                           s.logout,
                           style: const TextStyle(
@@ -220,6 +255,8 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.error,
+                          disabledBackgroundColor:
+                              AppColors.error.withValues(alpha: 0.7),
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -239,7 +276,7 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32 + MediaQuery.paddingOf(context).bottom),
                   ]),
                 ),
               ),
@@ -584,6 +621,7 @@ class ProfileScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -591,13 +629,15 @@ class ProfileScreen extends ConsumerWidget {
         builder: (context, setModalState) {
           return Padding(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                  MediaQuery.paddingOf(ctx).bottom,
               left: 24,
               right: 24,
               top: 24,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 40,
@@ -706,8 +746,9 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
               ],
+              ),
             ),
           );
         },
@@ -736,6 +777,9 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _showDeleteAccount(BuildContext context, WidgetRef ref, AppStrings s) {
+    final navService = ref.read(navigationServiceProvider);
+    final deletedMessage =
+        s.isArabic ? 'تم حذف الحساب بنجاح' : 'Account deleted successfully';
     showDialog(
       context: context,
       builder: (ctx) => DeleteAccountDialog(
@@ -743,12 +787,11 @@ class ProfileScreen extends ConsumerWidget {
           final userRepo = ref.read(sharedUserRepositoryProvider);
           await userRepo.deleteAccount();
           await ref.read(authControllerProvider.notifier).logout();
-          if (context.mounted) {
-            context.go('/home');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(s.isArabic ? 'تم حذف الحساب بنجاح' : 'Account deleted successfully'),
-              ),
+          _navigateToLoginAfterLogout();
+          final targetContext = mounted ? context : navService.context;
+          if (targetContext != null && targetContext.mounted) {
+            ScaffoldMessenger.maybeOf(targetContext)?.showSnackBar(
+              SnackBar(content: Text(deletedMessage)),
             );
           }
         },

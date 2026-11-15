@@ -61,6 +61,22 @@ class SecureStorageHelper {
       return null;
     }
   }
+
+  /// Deletes [key] from [storage], swallowing Keychain [PlatformException]s so
+  /// session teardown / logout never aborts mid-cleanup.
+  static Future<void> deleteSafely(
+    FlutterSecureStorage storage,
+    String key,
+  ) async {
+    try {
+      await storage.delete(key: key);
+    } on PlatformException catch (e) {
+      debugPrint(
+        'SecureStorageHelper.deleteSafely error for "$key": '
+        'code=${e.code}, message=${e.message}, details=${e.details}',
+      );
+    }
+  }
 }
 
 class TokenService {
@@ -120,7 +136,7 @@ class TokenService {
 
   Future<void> clearSession() async {
     for (final key in _authStorageKeys) {
-      await _storage.delete(key: key);
+      await SecureStorageHelper.deleteSafely(_storage, key);
     }
   }
 
