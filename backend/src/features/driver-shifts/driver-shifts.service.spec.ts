@@ -343,7 +343,10 @@ describe('NotificationListener.handleShiftDisabled', () => {
     expect(jobName).toBe(EVENT_JOBS.NOTIFY);
     expect(payload.dto.userId).toBe('u-drv-1');
     expect(payload.dto.title).toBe('Shifts Removed');
-    expect(payload.dto.body).toContain('5 shifts assigned to you');
+    expect(payload.dto.body).toContain(
+      '5 shifts assigned to you were removed by admin.',
+    );
+    expect(payload.dto.bodyAr).toContain('من قبل الإدارة');
     expect(payload.dto.data).toEqual({
       shiftId: 's1',
       type: 'SHIFT_REMOVED',
@@ -371,6 +374,10 @@ describe('NotificationListener.handleShiftDisabled', () => {
     const [jobName, payload] = addMock.mock.calls[0];
     expect(jobName).toBe(EVENT_JOBS.NOTIFY);
     expect(payload.dto.title).toBe('Shift Removed');
+    expect(payload.dto.body).toBe(
+      'A shift assigned to you was removed by admin. Open the app to see your updated schedule.',
+    );
+    expect(payload.dto.bodyAr).toContain('من قبل الإدارة');
     expect(payload.dto.data).toEqual({
       shiftId: 's1',
       type: 'SHIFT_REMOVED',

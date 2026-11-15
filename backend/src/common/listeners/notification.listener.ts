@@ -137,11 +137,11 @@ export class NotificationListener {
       title: isBulk ? 'Shifts Removed' : 'Shift Removed',
       titleAr: isBulk ? 'تم إزالة الورديات' : 'تم إزالة الوردية',
       body: isBulk
-        ? `${count} shifts assigned to you were removed by the vendor. Open the app to see your updated schedule.`
-        : 'A shift assigned to you was removed by the vendor. Open the app to see your updated schedule.',
+        ? `${count} shifts assigned to you were removed by admin. Open the app to see your updated schedule.`
+        : 'A shift assigned to you was removed by admin. Open the app to see your updated schedule.',
       bodyAr: isBulk
-        ? `تم إزالة ${count} من الورديات المسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.`
-        : 'تم إزالة وردية مسندة إليك من قبل المتجر. افتح التطبيق لعرض جدولك المحدّث.',
+        ? `تم إزالة ${count} من الورديات المسندة إليك من قبل الإدارة. افتح التطبيق لعرض جدولك المحدّث.`
+        : 'تم إزالة وردية مسندة إليك من قبل الإدارة. افتح التطبيق لعرض جدولك المحدّث.',
       type: NotificationType.SYSTEM,
       data: {
         shiftId: event.shiftId,
